@@ -1,8 +1,11 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { KartOzeti, UiOzet } from '../types'
+import type { HamOzet, KartOzeti, UiOzet } from '../types'
 
+// Veri kaynağı: çekirdek plugin'in hook'ları ve CLI'ı her durum değişikliğinde `.claude/orkestra/ozet.json` yazar.
+// Mod yalnız bu dosyayı okur (süreç başlatmaz); okuyamazsa nedenini panelde gösterir.
+const OZET = '.claude/orkestra/ozet.json'
 const PANE = 'orkestra'
 const veri = atom({ plugin: 'orkestra-ui', key: 'veri' } as const, null)
 const bantGizli = atom({ plugin: 'orkestra-ui', key: 'bantGizli' } as const, false)
@@ -17,8 +20,7 @@ const DURUM_RENGI: Record<string, string> = {
   planlandi: 'subtle',
   iptal: 'inactive',
 }
-
-const IZLENEN = ['.claude/orkestra/maliyet.jsonl', '.claude/orkestra/ortak_defter.jsonl', '.claude/orkestra/gorevler', '.claude/orkestra/ruya']
+const ACIK = ['isleniyor', 'denetimde', 'reddedildi', 'onaylandi', 'beklemede', 'planlandi']
 
 function usd(n: number | undefined): string {
   return `$${(n ?? 0).toFixed(2)}`
@@ -28,48 +30,76 @@ function kes(s: string, n: number): string {
   return s.length <= n ? s : s.slice(0, Math.max(0, n - 1)) + '…'
 }
 
-// Modül düzeyi durum: yeniden yüklemede sıfırlanır, sorun değil (gösterilen veri $.state'te).
+// Ham anlık görüntüyü bu oturumun gözünden panel verisine çevirir.
+export function donustur(h: HamOzet, oturum: string): UiOzet {
+  const ot = h.maliyet?.oturumlar?.[oturum]
+  const kartlar: KartOzeti[] = (h.kartlar ?? [])
+    .filter(k => ACIK.includes(k.durum) || k.oturum === oturum)
+    .slice(0, 25)
+    .map(k => ({ id: k.id, baslik: k.baslik, durum: k.durum, basamak: k.basamak, isci: k.isci, denetim: k.denetim, usd: k.usd }))
+  return {
+    acik: true,
+    kartlar,
+    sayac: h.sayac ?? {},
+    maliyet: { bugun: h.maliyet?.bugun ?? 0, oturum: ot?.usd ?? 0, surec: ot?.surec ?? {}, model: ot?.model ?? {} },
+    defter: (h.defter ?? []).slice(-6).map(r => `${(r.zaman ?? '').slice(11, 16)} ${r.gorev} ${r.surec} · ${r.ajan}: ${r.metin}`),
+    sohbetler: (h.sohbetler ?? []).slice(0, 8).map(s => ({
+      baslik: s.baslik, usd: s.usd, kaynak: s.kaynak, bu: s.oturum === oturum, son: (s.son ?? '').slice(5, 16).replace('T', ' '),
+    })),
+    ruya: h.ruya,
+    uretim: h.uretim,
+  }
+}
+
+// Modül düzeyi durum: yeniden yüklemede sıfırlanır (gösterilen veri $.state'te kalır).
 let sonImza = ''
 let sonRet = 0
 let calisiyor = false
-
-async function imza($: EngineInterface): Promise<string> {
-  const parcalar: string[] = []
-  for (const yol of IZLENEN) {
-    const st = await $.fs.stat(yol).catch(() => undefined)
-    parcalar.push(st ? `${st.mtimeMs}:${st.size}` : '-')
-  }
-  return parcalar.join('|')
-}
 
 async function yenile($: EngineInterface, zorla: boolean): Promise<void> {
   if (calisiyor) return
   calisiyor = true
   try {
-    const yeni = await imza($)
-    if (!zorla && yeni === sonImza) return
-    sonImza = yeni
-    const betik = `${$.plugin.root}/../orkestra/scripts/orkestra.py`
-    const oturum = await $.session.id()
-    const r = await $.process.run(['python', betik, 'ui-ozet', '--oturum', oturum], { timeoutMs: 20000 })
-    if (r.exitCode !== 0) return
-    const o = JSON.parse(r.stdout) as UiOzet
+    const st = await $.fs.stat(OZET).catch(() => undefined)
+    if (st === undefined) {
+      const acik = await $.fs.exists('.claude/orkestra').catch(() => false)
+      await update($, veri, () => (acik
+        ? { acik: true, hata: 'ozet.json henüz yok: bir tur bitince oluşur (ya da Bash: orkestra ui-ozet --yaz).' }
+        : { acik: false }))
+      return
+    }
+    const imza = `${st.mtimeMs}:${st.size}`
+    if (!zorla && imza === sonImza) return
+    sonImza = imza
+    const metin = await $.fs.read(OZET)
+    const ham = JSON.parse(metin) as HamOzet
+    const o = donustur(ham, await $.session.id())
     const ret = o.sayac?.reddedildi ?? 0
-    if (ret > sonRet) $.ui.toast(`Orkestra: denetçi ${ret - sonRet} işi reddetti — düzeltme/yükseltme gerekiyor.`)
+    if (ret > sonRet) $.ui.toast(`Orkestra: denetçi ${ret - sonRet} işi reddetti — düzeltme ya da yükseltme gerekiyor.`)
     sonRet = ret
     await update($, veri, () => o)
-  } catch {
-    // Arayüz sessizce eski veriyle kalır; orkestra çekirdeği etkilenmez.
+  } catch (hata) {
+    const mesaj = hata instanceof Error ? hata.message : String(hata)
+    await update($, veri, eski => ({ ...(eski ?? { acik: true }), hata: `Veri okunamadı: ${kes(mesaj, 200)}` }))
   } finally {
     calisiyor = false
   }
 }
 
+async function webPaneli($: EngineInterface): Promise<string> {
+  const betik = `${$.plugin.root}/../orkestra/scripts/orkestra.py`
+  const r = await $.process.run(['python', betik, 'panel'], { timeoutMs: 20000 })
+  const cikti = (r.stdout || r.stderr).trim()
+  return r.exitCode === 0 ? `HTML canlı panel: ${cikti} — tarayıcıda aç (Claude tarayıcı paneli ya da Chrome).`
+    : `HTML panel başlatılamadı (${r.exitCode}): ${kes(cikti, 300)}. Terminalde dene: orkestra panel`
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'orkestra', description: 'Orkestra panelini aç: görev kartları, denetim, maliyet, ortak defter' })
+    await $.command.register({ name: 'orkestra', description: 'Orkestra panelini aç: görev kartları, denetim, sohbet ve süreç maliyeti, ortak defter' })
+    await $.command.register({ name: 'orkestra-web', description: 'Orkestra HTML canlı panelini başlat ve adresini ver (zengin görünüm, tarayıcıda)' })
     await yenile($, true)
-    $.clock.every(4000, () => void yenile($, false))
+    $.clock.every(3000, () => void yenile($, false))
     return next(e)
   })
 
@@ -77,12 +107,20 @@ export const register: Register = on => {
     await yenile($, true)
     await update($, bantGizli, () => false)
     await $.ui.open({ id: PANE, title: 'Orkestra' })
-    return { text: 'Orkestra paneli açıldı.' }
+    return { text: 'Orkestra paneli açıldı. Daha zengin canlı görünüm için /orkestra-web.' }
+  })
+
+  on('command.run', { command: 'orkestra-web' }, async $ => {
+    try {
+      return { text: await webPaneli($) }
+    } catch (hata) {
+      return { text: `HTML panel başlatılamadı: ${hata instanceof Error ? hata.message : String(hata)}. Terminalde dene: orkestra panel` }
+    }
   })
 
   on('turn.complete', async ($, e, next) => {
     const sonuc = await next(e)
-    void yenile($, true)
+    await yenile($, true)
     return sonuc
   })
 
@@ -101,13 +139,21 @@ export const register: Register = on => {
         </Box>
       )
     }
-    const kartlar: KartOzeti[] = o.kartlar ?? []
+    if (o.kartlar === undefined) {
+      return (
+        <Box flexDirection="column">
+          <Text color="error">{o.hata ?? 'Veri yok.'}</Text>
+        </Box>
+      )
+    }
+    const kartlar: KartOzeti[] = o.kartlar
     const m = o.maliyet
     const surec = Object.entries(m?.surec ?? {}).map(([k, v]) => `${k} ${usd(v)}`).join(' · ')
     const model = Object.entries(m?.model ?? {}).map(([k, v]) => `${k} ${usd(v)}`).join(' · ')
     const ruya = o.ruya?.calisiyor ? 'rüya çalışıyor' : o.ruya?.rapor ? 'rüya raporu hazır → /orkestra:ruya' : o.ruya?.zamani_geldi ? 'rüya zamanı geldi' : ''
     return (
       <Box flexDirection="column">
+        {o.hata !== undefined && <Text color="error" wrap="truncate">{o.hata}</Text>}
         <Text bold>Görev kartları</Text>
         {kartlar.length === 0 && <Text dimColor>Açık kart yok. İş başlatmak için /orkestra:is &lt;istek&gt;</Text>}
         {kartlar.map(k => (
@@ -132,20 +178,21 @@ export const register: Register = on => {
             <Text dimColor> {s.son}{s.kaynak === 'defter' ? ' ≈' : ''}</Text>
           </Text>
         ))}
-        <Text dimColor>≈ açık sohbet: orkestra defteri; kapanınca motorun kendi hesabı gösterilir.</Text>
+        <Text dimColor>≈ açık sohbet: orkestra defteri; kapanınca Claude'un kendi hesabı. Zengin görünüm: /orkestra-web</Text>
         <Text> </Text>
         <Text bold>Ortak defter (son kayıtlar)</Text>
         {(o.defter ?? []).length === 0 && <Text dimColor>Henüz kayıt yok.</Text>}
         {(o.defter ?? []).map(s => <Text dimColor wrap="truncate">{kes(s, w)}</Text>)}
         {ruya !== '' && <Text> </Text>}
         {ruya !== '' && <Text color="suggestion">{ruya}</Text>}
+        {o.uretim !== undefined && <Text dimColor>veri: {o.uretim.slice(11, 19)}</Text>}
       </Box>
     )
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const o = await read($, veri)
-    if (e.props.hasSurvey || o === null || !o.acik || (await read($, bantGizli))) return next(e)
+    if (e.props.hasSurvey || o === null || !o.acik || o.kartlar === undefined || (await read($, bantGizli))) return next(e)
     const s = o.sayac ?? {}
     const acik = (s.isleniyor ?? 0) + (s.denetimde ?? 0) + (s.reddedildi ?? 0) + (s.onaylandi ?? 0)
     const oturum = o.maliyet?.oturum ?? 0

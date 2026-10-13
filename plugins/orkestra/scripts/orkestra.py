@@ -540,57 +540,21 @@ def cmd_gunluk_ozet(a):
 # ---------------------------------------------------------------- arayüz özeti
 
 def cmd_ui_ozet(a):
-    """orkestra-ui modu için tek JSON: kartlar, sayaçlar, maliyet, defterin son satırları, rüya."""
+    """Arayüz anlık görüntüsü (ozet.json ile aynı içerik); --yaz ile dosyayı da günceller."""
     sd = L.durum_dizini()
     if not sd:
         print(json.dumps({"acik": False}))
         return
-    oid = a.oturum or oturum_id()
-    kayitlar = L.maliyet_kayitlari(sd)
-    kart_usd = collections.Counter()
-    for r in kayitlar:
-        if r.get("gorev") not in (None, "-"):
-            kart_usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
-    ks = []
-    for k in L.kartlar(sd):
-        d = L.kart_durumu_hesapla(k)
-        if d in L.ACIK_DURUMLAR or d == "beklemede" or k.get("oturum") == oid:
-            son = (k.get("denetimler") or [{}])[-1]
-            ks.append({"id": k["id"], "baslik": k["baslik"][:60], "durum": d, "basamak": k["basamak"],
-                       "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
-                       "usd": round(kart_usd.get(k["id"], 0.0), 3)})
-    ks = sorted(ks, key=lambda x: x["id"])[-25:]
-    sayac = collections.Counter(k["durum"] for k in ks)
-    sohbetler = []
-    for s in L.sohbetler(sd, L.proje_dizini(), limit=12):
-        usd = s["motor_usd"] if s["motor_usd"] is not None else s["defter_usd"]
-        if not usd:
-            continue
-        sohbetler.append({"baslik": s["baslik"][:48], "usd": round(usd, 2), "kaynak": "motor" if s["motor_usd"] is not None else "defter",
-                          "bu": s["oturum"] == oid, "son": s["son"][5:16].replace("T", " ")})
-    bugun = datetime.date.today().isoformat()
-    surec = collections.Counter()
-    model = collections.Counter()
-    for r in kayitlar:
-        if r.get("oturum") == oid:
-            surec[r.get("surec", "-")] += r.get("maliyet_usd", 0) or 0
-            model[(r.get("model") or "-").replace("claude-", "")] += r.get("maliyet_usd", 0) or 0
-    defter = []
-    for r in L.defter_kayitlari(sd)[-6:]:
-        defter.append(f"{r.get('zaman', '')[11:16]} {r.get('gorev', '-')} {r.get('surec', '-')} · {r.get('ajan', '-')}: "
-                      f"{str(r.get('sonuc') or r.get('yaptim') or '')[:70]}")
-    import ruya
-    rd = ruya.durum(sd)
-    print(json.dumps({
-        "acik": True, "kartlar": ks, "sayac": dict(sayac),
-        "maliyet": {"bugun": round(sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar if r.get("zaman", "").startswith(bugun)), 3),
-                    "oturum": round(sum(surec.values()), 3),
-                    "surec": {k: round(v, 3) for k, v in surec.most_common(6)},
-                    "model": {k: round(v, 3) for k, v in model.most_common(4)}},
-        "defter": defter,
-        "sohbetler": sohbetler[:8],
-        "ruya": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"])},
-    }, ensure_ascii=False))
+    import ozet
+    o = ozet.yaz(sd, L.proje_dizini()) if a.yaz else ozet.olustur(sd, L.proje_dizini())
+    print(json.dumps(o, ensure_ascii=False))
+
+
+def cmd_panel(a):
+    """HTML canlı paneli başlatır (yalnız 127.0.0.1) ve adresini yazar."""
+    sd = sd_gerekli()
+    import panel
+    print(panel.baslat(sd, L.proje_dizini(), a.port, on_planda=a.on_planda))
 
 
 # ---------------------------------------------------------------- argparse
@@ -692,7 +656,12 @@ def main():
 
     ui = alt.add_parser("ui-ozet")
     ui.add_argument("--oturum")
+    ui.add_argument("--yaz", action="store_true")
     ui.set_defaults(f=cmd_ui_ozet)
+    pa = alt.add_parser("panel")
+    pa.add_argument("--port", type=int, default=8765)
+    pa.add_argument("--on-planda", action="store_true", help="sunucuyu bu süreçte çalıştır (Ctrl+C ile durur)")
+    pa.set_defaults(f=cmd_panel)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
     go = gu.add_parser("ozet")
@@ -714,6 +683,14 @@ def main():
     a.ajan_id = kimlik.get("--ajan-id") or None
     a.ajan_tipi = kimlik.get("--ajan-tipi") or None
     a.f(a)
+    # Durumu değiştiren komutlardan sonra arayüz anlık görüntüsünü yenile.
+    alt_komut = getattr(a, "alt", None)
+    degistiren = {"kart", "ruya", "baslat"}
+    if a.komut in degistiren or (a.komut, alt_komut) in {("defter", "ekle"), ("maliyet", "tur"), ("maliyet", "gecmis")}:
+        sd = L.durum_dizini()
+        if sd and not (a.komut == "kart" and alt_komut in ("goster", "liste")):
+            import ozet
+            ozet.yaz(sd, L.proje_dizini())
 
 
 if __name__ == "__main__":

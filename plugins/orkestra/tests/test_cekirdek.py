@@ -232,6 +232,25 @@ class Cekirdek(unittest.TestCase):
         ana = [x for x in L.maliyet_kayitlari(self.sd) if x.get("agent_id") is None and x.get("kaynak") == "tur"]
         self.assertEqual((ana[0]["ajan"], ana[0]["surec"]), ("ana-ajan", "orkestrasyon"))
 
+    def test_kabuk_kapisi_ornekleri(self):
+        """Komut konumu, tırnak içi veri, zincir ve korunan dosya hedefi ayrımı."""
+        ornekler = [
+            ("orkestra kart liste", "allow"),
+            ("cd x && orkestra kart teslim G-1", "deny"),
+            ("python C:/a/b/orkestra.py kart liste", "allow"),
+            ('python "C:/x y/orkestra.py" defter ekle G --surec is', "allow"),
+            ("orkestra.cmd maliyet ozet", "allow"),
+            ("grep -n x orkestra.py hook.py", None),
+            ("cat /c/a/orkestra.py | head", None),
+            ('cd /x && python -c "s = \'cd y && orkestra kart teslim G-1\'"', None),
+            ('orkestra kart denetim G-1 --karar ret --gerekce "k1; k2 | eksik"', "allow"),
+            ("echo x >> .claude/orkestra/ortak_defter.md", "deny"),
+            ("cat >> ork_lib.py <<'EOF'\nrows = jsonl_oku('maliyet.jsonl')\nEOF", None),
+        ]
+        for komut, bek in ornekler:
+            c = self.hook("PreToolUse", {"tool_name": "Bash", "tool_input": {"command": komut}})
+            self.assertEqual(self.karar(c), bek, komut)
+
     def test_toplu_kart_ve_dongu(self):
         plan = os.path.join(self.proje, "plan.json")
         json.dump([{"ref": "a", "baslik": "A", "basamak": "T1", "kabul_kriterleri": ["x"]},

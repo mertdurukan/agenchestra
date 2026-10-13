@@ -14,7 +14,13 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
   - Kapanmış sohbetlerde motorun kendi hesabı (`cost-state`) gösterilir.
   - Açık sohbetlerde defter değeri gösterilir ve `≈` ile işaretlenir.
 - **Rüya:** Oturumlar arasında arka planda hafıza bakımı ve skill avı yapılır. Yalnız öneri üretir; hafızayı onayınla değiştirir.
-- **Arayüz:** Bir Orkestra paneli, prompt üstünde bir durum bandı ve `/orkestra` komutu.
+- **Arayüz (iki görünüm, tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
+  - **Claude içinde:** `/orkestra` sohbetin yanında bir panel açar: kartlar, bu oturumun maliyeti, sohbetler, defter. Prompt üstünde tek satırlık bir bant da çıkar.
+  - **HTML canlı panel:** `/orkestra-web` (ya da Bash'te `orkestra panel`) yerel bir sayfa açar: `http://127.0.0.1:8765/`. Sayfa üç saniyede bir yenilenir.
+    - Sohbet başına maliyet çubukları yer alır; bir sohbete tıklayınca süreç, model ve ajan × süreç kırılımları ona göre süzülür.
+    - Görev kartları ve ortak defter de gösterilir.
+    - Açık ve koyu tema vardır.
+    - Sayfa yalnız bu bilgisayardan erişilebilir.
 
 ## Yapı
 
@@ -25,7 +31,8 @@ plugins/orkestra/                   çekirdek plugin
   skills/      is, baslat, maliyet, defter, ruya, skill-avi        →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
-  scripts/     ork_lib.py, orkestra.py (CLI), hook.py, ruya.py
+  scripts/     ork_lib.py, orkestra.py (CLI), hook.py, ruya.py, ozet.py (anlık görüntü), panel.py (HTML panel sunucusu)
+  assets/      panel.html (HTML canlı panel)
   bin/         orkestra, orkestra.cmd (CLI'yı PATH'e koyar), fiyat.json
   tests/       test_cekirdek.py (python -m unittest)
   evals/       claude plugin eval vakaları
@@ -76,7 +83,8 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | Komut | Ne yapar |
 |---|---|
 | `/orkestra:is <istek>` | Planla → kart → paralel işçi + ayrı denetçi → topla ve teslim et |
-| `/orkestra` | Paneli açar: kartlar, denetim, maliyet, defter |
+| `/orkestra` | Claude içi paneli açar: kartlar, denetim, sohbet maliyeti, defter |
+| `/orkestra-web` | HTML canlı paneli başlatır ve adresini verir (Bash: `orkestra panel`) |
 | `/orkestra:maliyet [gün]` | Ajan × süreç × model token ve maliyet raporu |
 | `/orkestra:defter [görev]` | Ortak defterin son kayıtları |
 | `/orkestra:ruya [şimdi]` | Rüya raporunu gösterir, onaylananları uygular |

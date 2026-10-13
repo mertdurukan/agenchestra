@@ -17,7 +17,12 @@ import ork_lib as L  # noqa: E402
 KORUNAN_ADLAR = {"ortak_defter.md", "ortak_defter.jsonl", "maliyet.jsonl", "gunluk.jsonl"}
 YAZAN_ARACLAR = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 KABUK_ARACLARI = {"Bash", "PowerShell"}
-ORK_KOMUT = re.compile(r"""(?:^|[\s/\\"'])orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""")
+# Yalnız KOMUT KONUMUNDAKİ orkestra çağrısı: satır/segment başı (^ ; & | ( sonrası), isteğe bağlı
+# `python … <yol>/orkestra.py`. `grep x orkestra.py` gibi argüman olarak geçen adlar eşleşmez.
+ORK_KOMUT = re.compile(
+    r"""(?:^|[;&|(\n])\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*"""
+    r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
+    r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
 YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
@@ -125,9 +130,12 @@ def pre_tool_use(inp: dict):
 
     if arac in KABUK_ARACLARI:
         komut = girdi.get("command") or ""
-        if ORK_KOMUT.search(" " + komut):
-            yazan = bool(YAZAN_ALT_KOMUT.search(komut))
-            tirnaksiz = re.sub(r'"(?:\\.|[^"\\])*"|\'[^\']*\'', '""', komut)
+        # Tırnak içi metin veridir (heredoc dışı argüman, python -c kodu): komut analizinden çıkarılır.
+        # İstisna: tırnaklanmış program yolu "…/orkestra.py" korunur (tırnakları atılır).
+        yol_acik = re.sub(r'["\']([^"\']*orkestra(?:\.py|\.cmd))["\']', lambda m: m.group(1).replace(" ", "_"), komut)
+        tirnaksiz = re.sub(r'"(?:\\.|[^"\\])*"|\'[^\']*\'', '""', yol_acik)
+        if ORK_KOMUT.search(tirnaksiz):
+            yazan = bool(YAZAN_ALT_KOMUT.search(tirnaksiz))
             if COKLU_KOMUT.search(tirnaksiz):
                 if yazan:
                     reddet("kart/defter yazan `orkestra` komutunu tek başına çalıştır (zincir, boru, yönlendirme olmadan).")
@@ -345,6 +353,11 @@ def main():
     try:
         OLAYLAR[olay](inp)
     except SystemExit:
+        if olay in ("SessionStart", "SubagentStop", "Stop", "PostToolUse"):
+            sd = L.durum_dizini(inp.get("cwd"))
+            if sd:
+                import ozet
+                ozet.yaz(sd, L.proje_dizini(inp.get("cwd")))
         raise
     except Exception as e:  # güvenli taraf
         try:
