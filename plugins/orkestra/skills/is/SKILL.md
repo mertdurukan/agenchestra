@@ -39,7 +39,8 @@ Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
 - Betik her kart için şunu yapar:
   - basamağa uygun işçi ajanı çalıştırır;
-  - ardından AYRI bir `orkestra:denetci` çalıştırır (işçinin bir üst basamağında);
+  - işten önce T0 ön kontrol `taban`, her işçiden sonra denetçiden önce `kontrol` çalıştırır (`scripts/on_kontrol.py`; ihlalde denetçi çağrılmaz, ret sayılır);
+  - ardından AYRI bir `orkestra:denetci` çalıştırır (işçiyle aynı basamak modelinde; kartta toplam 2 retten sonra opus; yeniden denetim yalnız önceki karşılanmayan kriterler + gerileme);
   - T3 ve üstünde iki mercekle denetler;
   - aynı basamakta iki ret gelirse basamağı yükseltir;
   - bağımlılık onaylanmadıysa o işi atlar.
@@ -55,7 +56,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Bağımsız kartlar için Agent aracını AYNI mesajda birden çok kez çağır, `run_in_background: true` ile.
 - `subagent_type` işçi kartın basamağına göre seçilir: `orkestra:isci-t1` … `orkestra:isci-t4`.
 - Her ajanın istemi `#GOREV:<id> #SUREC:is` satırıyla başlar.
-- Her işçi bitince ayrı bir `orkestra:denetci` çalıştır. Çağrıda `model` işçinin bir üstü olsun: T1→sonnet, T2→opus, T3/T4→opus. İstem `#GOREV:<id> #SUREC:denetim` ile başlar.
+- Her işçi bitince ayrı bir `orkestra:denetci` çalıştır. Çağrıda `model` işçiyle aynı basamakta olsun: T1→haiku, T2→sonnet, T3→opus (high), T4→opus (xhigh); kartta toplam ret ≥2 olduktan sonra opus. İşçiden önce `python ${CLAUDE_PLUGIN_ROOT}/scripts/on_kontrol.py taban <id>`, işçiden sonra denetçiden önce `... kontrol <id> --ciktilar a,b` çalıştır; `gecti=false` ise denetçiyi çağırma, ret say. İstem `#GOREV:<id> #SUREC:denetim` ile başlar.
 - Ret gelirse aynı basamakta en çok iki düzeltme dene (`#SUREC:duzeltme`). Hâlâ ret varsa `orkestra kart yukselt <id> --basamak <üst> --neden "..."` ile yükselt ve bir üst işçiyle yeniden dene.
 - Kod kartında (`sinif: kod`) elle dağıtımda da aynı sıra izlenir:
   1. `orkestra:test-yazari` çalıştır (istem `#GOREV:<id> #SUREC:test-yaz`; test komutu ve test alanını yaz).

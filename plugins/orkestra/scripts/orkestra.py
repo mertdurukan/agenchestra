@@ -128,6 +128,9 @@ def _kart_kur(sd, d: dict) -> dict:
     }
     if test_alanlari:
         k.update(test_alanlari)
+    bag = _kart_is_kimligi(sd, d.get("is"))
+    if bag:
+        k["is"] = bag
     return k
 
 
@@ -152,10 +155,11 @@ def cmd_kart_yeni(a):
     sd = sd_gerekli()
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
-                       "test_komutu": a.test_komutu, "test_alani": a.test_alani})
+                       "test_komutu": a.test_komutu, "test_alani": a.test_alani, "is": a.is_id})
     if not k["kabul_kriterleri"]:
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     L.kart_yaz(sd, k)
+    _kart_is_bagla(sd, k)
     print(k["id"])
 
 
@@ -174,11 +178,14 @@ def cmd_kart_toplu(a):
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
         _test_alanlari_dogrula(d)
+        if d.get("is"):
+            _kart_is_kimligi(sd, d["is"])
     for d in liste:
         takma = d.pop("ref", None)
         d["bagimliliklar"] = [yerel.get(b, b) for b in d.get("bagimliliklar") or []]
         k = _kart_kur(sd, d)
         L.kart_yaz(sd, k)
+        _kart_is_bagla(sd, k)
         if takma:
             yerel[takma] = k["id"]
         olusan.append(k)
@@ -857,6 +864,155 @@ def cmd_guncelle(a):
         print("Tamam. Değişiklik yeni oturumda yüklenir: yeni oturum aç ya da /reload-plugins.")
 
 
+# ---------------------------------------------------------------- is (kalıcı iş katmanı)
+
+def _ik():
+    import is_kaydi
+    return is_kaydi
+
+
+def _oturum_dosyasi(sd, kenar=False):
+    ad = ("is_" if kenar else "") + oturum_id() + ".json"
+    return os.path.join(sd, "oturumlar", ad)
+
+
+def _json_oku(yol):
+    try:
+        with open(yol, encoding="utf-8") as f:
+            v = json.load(f)
+        return v if isinstance(v, dict) else {}
+    except Exception:
+        return {}
+
+
+def _oturum_isi(sd):
+    """Bu oturumun bağlı işi: önce oturum dosyası, yoksa Stop hook'unun ezmediği yan dosya."""
+    return _json_oku(_oturum_dosyasi(sd)).get("is") or _json_oku(_oturum_dosyasi(sd, True)).get("is")
+
+
+def _oturumu_bagla(sd, is_id):
+    """Oturum dosyasındaki mevcut anahtarlar korunur (oku-birleştir-yaz, kilitli); is.json oturumlar[]'a eklenir."""
+    an = L.simdi()
+    for kenar in (False, True):
+        yol = _oturum_dosyasi(sd, kenar)
+        with L.kilit(yol):
+            v = _json_oku(yol)
+            v["is"] = is_id
+            v["is_baglanma"] = an
+            v.setdefault("is_gecmis", []).append({"is": is_id, "zaman": an})
+            L.atomik_yaz(yol, json.dumps(v, ensure_ascii=False, indent=2) + "\n")
+    _ik().is_oturum_bagla(sd, is_id, oturum_id())
+
+
+def _is_gerekli(sd, is_id):
+    try:
+        kayit = _ik().is_al(sd, is_id)
+    except ValueError as e:
+        hata(str(e))
+    if not kayit:
+        hata(f"iş yok: {is_id}")
+    return kayit
+
+
+def _todo_satiri(klasor):
+    t = _ik().todo_ozet(klasor)
+    return t, f"todo {t['biten']}/{t['toplam']}"
+
+
+def cmd_is_ac(a):
+    sd = sd_gerekli()
+    kayit = _ik().is_ac(sd, a.baslik, a.klasor, a.etiket)
+    _oturumu_bagla(sd, kayit["id"])
+    print(kayit["id"])
+
+
+def cmd_is_devam(a):
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    _oturumu_bagla(sd, a.is_id)
+    klasor = kayit["klasor"]
+    t, satir = _todo_satiri(klasor)
+    print(f"{a.is_id} — {kayit['baslik']} [{kayit['durum']}]")
+    print(f"plan: {os.path.join(klasor, 'plan.md')}")
+    print(satir)
+    for m in t["acik_maddeler"]:
+        print(f"  [ ] {m}")
+    son = ""
+    yol = os.path.join(klasor, "oturumlar.md")
+    if os.path.exists(yol):
+        with open(yol, encoding="utf-8", errors="replace") as f:
+            dolu = [s.rstrip() for s in f if s.strip()]
+        son = dolu[-1] if len(dolu) > 1 else ""  # ilk satır başlık
+    print(f"oturumlar.md son satır: {son or '(henüz yok)'}")
+
+
+def cmd_is_liste(a):
+    sd = sd_gerekli()
+    ik = _ik()
+    satirlar = []
+    for g in ik.is_liste(sd, None if a.durum == "hepsi" else a.durum):
+        kayit = ik.is_al(sd, g["id"]) or {}
+        _, todo = _todo_satiri(g["klasor"])
+        satirlar.append([g["id"], g.get("durum", "-"), g.get("baslik", ""), todo.replace("todo ", ""),
+                         str(len(kayit.get("kartlar", []))), str(len(kayit.get("oturumlar", []))), g["klasor"]])
+    if not satirlar:
+        print("iş yok")
+        return
+    print("\t".join(["id", "durum", "baslik", "todo", "kart", "oturum", "klasor"]))
+    for s in satirlar:
+        print("\t".join(s))
+
+
+def cmd_is_kapat(a):
+    sd = sd_gerekli()
+    _is_gerekli(sd, a.is_id)
+    _ik().is_durum(sd, a.is_id, "kapandi")
+    print(f"{a.is_id} → kapandi")
+
+
+def cmd_is_todo(a):
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    t, satir = _todo_satiri(kayit["klasor"])
+    print(f"{a.is_id} {satir}")
+    for m in t["acik_maddeler"]:
+        print(f"  [ ] {m}")
+
+
+def cmd_is_aktif(a):
+    sd = sd_gerekli()
+    i = _oturum_isi(sd)
+    if not i:
+        print("bağlı iş yok")
+        return
+    kayit = _ik().is_al(sd, i)
+    print(f"{i} — {kayit['baslik']} [{kayit['durum']}]" if kayit else i)
+
+
+def _kart_is_kimligi(sd, acik_is=None):
+    """Karta yazılacak iş kimliği: --is verilmişse o, yoksa oturumun bağlı işi (is.json varsa); yoksa None."""
+    if acik_is:
+        if _is_gerekli(sd, acik_is).get("durum") == "kapandi":
+            hata(f"{acik_is} kapalı; kapalı işe kart bağlanamaz (`orkestra is devam` ile başka işe bağlanın).")
+        return acik_is
+    i = _oturum_isi(sd)
+    try:
+        kayit = _ik().is_al(sd, i) if i else None
+    except Exception:
+        return None
+    if kayit and kayit.get("durum") == "kapandi":
+        print(f"{i} kapalı; kart işe bağlanmadı, `orkestra is devam` ile başka işe bağlanın", file=sys.stderr)
+        return None
+    return i if kayit else None
+
+
+def _kart_is_bagla(sd, k):
+    if k.get("is"):
+        _ik().is_kart_ekle(sd, k["is"], k["id"])
+
+
+# ---------------------------------------------------------------- argparse
+
 def main():
     p = argparse.ArgumentParser(prog="orkestra", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--ajan-id", dest="ajan_id", help=argparse.SUPPRESS)
@@ -880,6 +1036,7 @@ def main():
     y.add_argument("--test-komutu", dest="test_komutu", help="kod kartında zorunlu: proje kökünde kabukla koşulan test komutu")
     y.add_argument("--test-alani", dest="test_alani", action="append", default=[],
                    help="kod kartında zorunlu (tekrarlanabilir): test dosyası glob'u, proje köküne göre")
+    y.add_argument("--is", dest="is_id", help="kartı bu işe bağla (I-NNN); verilmezse oturumun bağlı işi")
     y.set_defaults(f=cmd_kart_yeni)
     t = kart.add_parser("toplu")
     t.add_argument("json_yol", nargs="?")
@@ -987,6 +1144,25 @@ def main():
     import niyet
     niyet.ekle_ayristirici(alt)
 
+    is_ = alt.add_parser("is", help="kalıcı iş katmanı (bir iş birden çok sohbete/karta yayılır)").add_subparsers(dest="alt", required=True)
+    ia = is_.add_parser("ac")
+    ia.add_argument("baslik")
+    ia.add_argument("--klasor", required=True)
+    ia.add_argument("--etiket", action="append", default=[])
+    ia.set_defaults(f=cmd_is_ac)
+    idv = is_.add_parser("devam")
+    idv.add_argument("is_id")
+    idv.set_defaults(f=cmd_is_devam)
+    il = is_.add_parser("liste")
+    il.add_argument("--durum", choices=["acik", "beklemede", "kapandi", "hepsi"], default="acik")
+    il.set_defaults(f=cmd_is_liste)
+    ik_ = is_.add_parser("kapat")
+    ik_.add_argument("is_id")
+    ik_.set_defaults(f=cmd_is_kapat)
+    it_ = is_.add_parser("todo")
+    it_.add_argument("is_id")
+    it_.set_defaults(f=cmd_is_todo)
+    is_.add_parser("aktif").set_defaults(f=cmd_is_aktif)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
     go = gu.add_parser("ozet")

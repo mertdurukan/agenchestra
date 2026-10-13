@@ -585,11 +585,31 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
 
     Kaynaklar: 'tur' = sayaç modülü, motorun turn.complete kullanımı (kesin); 'hook' = SubagentStop/Stop
     transkript okuması (alt ajan çıkış tokenı eksik sayılır); 'gecmis' = geçmiş aktarımı.
-    Aynı (oturum, agent_id) için 'tur' satırı varsa o grubun diğer satırları atılır.
+    Aynı (oturum, agent_id) için 'tur' satırı varsa o grubun diğer satırları atılır ('tur' satırları parçadır, hepsi
+    kalır). 'tur' satırı olmayan ve agent_id dolu grupta hook/eski satırlar BİRİKİMLİDİR (ajan SendMessage ile
+    sürdürülünce her SubagentStop tüm transkripti yeniden okur): yalnız en son satır (zaman, eşitse maliyet_usd en
+    büyük) kalır. agent_id boş (ana ajan) satırlarına dokunulmaz.
     """
     rows = jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
     tur_var = {(r.get("oturum"), r.get("agent_id")) for r in rows if r.get("kaynak") == "tur"}
-    return [r for r in rows if r.get("kaynak") == "tur" or (r.get("oturum"), r.get("agent_id")) not in tur_var]
+    son: dict = {}
+    for r in rows:
+        k = (r.get("oturum"), r.get("agent_id"))
+        if r.get("kaynak") == "tur" or k in tur_var or not r.get("agent_id"):
+            continue
+        anahtar = (r.get("zaman") or "", r.get("maliyet_usd") or 0)
+        if k not in son or anahtar >= son[k][0]:
+            son[k] = (anahtar, r)
+    out = []
+    for r in rows:
+        k = (r.get("oturum"), r.get("agent_id"))
+        if r.get("kaynak") == "tur":
+            out.append(r)
+        elif k in tur_var:
+            continue
+        elif not r.get("agent_id") or son[k][1] is r:
+            out.append(r)
+    return out
 
 
 # ---------------------------------------------------------------- sohbetler (çalışma alanındaki oturumlar)

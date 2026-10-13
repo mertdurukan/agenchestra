@@ -5,6 +5,7 @@ export const meta = {
   phases: [
     { title: 'Test', detail: 'kod kartında: kabul kriterlerinden test yazarı (koddan önce)' },
     { title: 'Kapı', detail: 'kod kartında: kırmızı (kod yokken başarısız) ve yeşil (koddan sonra geçer) test kapısı' },
+    { title: 'Ön kontrol', detail: 'T0: işçiden sonra, denetçiden önce model çağırmayan kapı (satır sonu, BOM, kapsam, yeni test hatası)' },
     { title: 'İş', detail: 'basamağa uygun işçi ajanı' },
     { title: 'Denetim', detail: 'işçiden ayrı denetçi; T3+ için iki mercek; kod kartında ek test kalitesi merceği' },
   ],
@@ -13,18 +14,26 @@ export const meta = {
 // ---------------------------------------------------------------- ayarlar
 const SIRA = ['T1', 'T2', 'T3', 'T4']
 const ISCI = { T1: 'orkestra:isci-t1', T2: 'orkestra:isci-t2', T3: 'orkestra:isci-t3', T4: 'orkestra:isci-t4' }
-// Denetçi işçinin bir üstünde ya da (en üstte) eşit basamakta çalışır; asla altında değil.
+// Denetçi işçiyle AYNI basamak modelinde çalışır (maliyet: Opus denetim ~0,59$, Sonnet ~0,12$); asla altında değil.
+// İstisna: kartta toplam ret sayısı DENETCI_OPUS_RET_ESIGI'ne ulaştıktan sonraki denetimler opus (T4'te xhigh).
 const DENETCI = {
-  T1: { model: 'sonnet', effort: 'medium' },
-  T2: { model: 'opus', effort: 'medium' },
+  T1: { model: 'haiku' },
+  T2: { model: 'sonnet', effort: 'medium' },
   T3: { model: 'opus', effort: 'high' },
   T4: { model: 'opus', effort: 'xhigh' },
 }
+const DENETCI_OPUS_RET_ESIGI = 2
 const AYNI_BASAMAKTA_EN_COK_RET = 2
 // Kod kartı: kırmızı kapı geçmezse test yazarına geri bildirimle en çok bu kadar YENİDEN deneme (toplam 1 + 2).
 const KIRMIZI_EN_COK_YENIDEN_DENEME = 2
 const TEST_YAZARI = 'orkestra:test-yazari'
 const KAPI_AJANI = 'orkestra:isci-t1'
+// T0 ön kontrol kapısı (scripts/on_kontrol.py): model çağırmadan satır sonu/BOM/kapsam/yeni test hatası denetler.
+const PLUGIN_KOKU = (typeof process !== 'undefined' && process.env && process.env.CLAUDE_PLUGIN_ROOT) || '${CLAUDE_PLUGIN_ROOT}'
+const ON_KONTROL_NEDEN = {
+  'kapsam': 'talimat-ihlali', 'satir-sonu': 'talimat-ihlali', 'bom': 'talimat-ihlali',
+  'yeni-test-hatasi': 'kapsam-eksik', 'eksik-token': 'kapsam-eksik',
+}
 const TEST_MERCEGI = 'test kalitesi: her kriter test_alani\'ndaki bir testle karşılanıyor mu, negatif/uç durum var mı, totolojik assert, skip/xfail ya da aşırı mock var mı, son koşu geçen yeşil ve test dosyaları kilitle aynı mı; test yetersizse bulguyu \'TEST:\' önekiyle yaz'
 
 const RET_NEDEN_ACIKLAMA = {
@@ -58,6 +67,16 @@ const DENETIM_SEMA = {
     duzeltme_talimati: { type: 'string' },
   },
   required: ['karar', 'bulgular'],
+}
+// Ön kontrol ajanının dönüşü: on_kontrol.py'nin stdout JSON'u.
+const ON_KONTROL_SEMA = {
+  type: 'object',
+  properties: {
+    gecti: { type: 'boolean' },
+    ihlaller: { type: 'array', items: { type: 'object', properties: { tur: { type: 'string' }, ayrinti: { type: 'string' } } } },
+    uyarilar: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['gecti'],
 }
 // Test kapısı ajanının dönüşü: {gecti, cikis_kodu, ozet}; cikti_kuyrugu isteğe bağlı (düzeltme turuna aktarılır).
 const KAPI_SEMA = {
@@ -121,6 +140,24 @@ function ayniRet(a, b) {
   return x !== null && x === retImzasi(b)
 }
 
+// Denetçi modeli (saf): basamak modeli; toplam ret eşiğinden sonra opus (T4'te xhigh).
+function denetciModeli(basamak, toplamRet) {
+  const d = DENETCI[basamak]
+  if (toplamRet >= DENETCI_OPUS_RET_ESIGI && d.model !== 'opus') return { model: 'opus', effort: basamak === 'T4' ? 'xhigh' : 'high' }
+  return d
+}
+
+// Ön kontrol ihlallerinden ret üretir (saf): kapsam/satir-sonu/bom → talimat-ihlali, aksi kapsam-eksik.
+function onKontrolReti(r) {
+  const ihlaller = r.ihlaller || []
+  const neden = ihlaller.some(i => ON_KONTROL_NEDEN[i.tur] !== 'kapsam-eksik') ? 'talimat-ihlali' : 'kapsam-eksik'
+  return {
+    onkontrol: true, neden,
+    bulgular: ihlaller.map(i => `ön kontrol ${i.tur}: ${i.ayrinti || '-'}`),
+    duzeltme_talimati: 'Ön kontrol ihlallerini düzelt (dosya satır sonu/BOM, yazma alanı dışı çıktı, yeni başarısız test); ihlal giderilmeden denetçi çağrılmaz.',
+  }
+}
+
 // ---------------------------------------------------------------- istemler
 function isciIstemi(k, surec, ret) {
   return [
@@ -169,7 +206,8 @@ function kapiIstemi(k, asama) {
   ].filter(Boolean).join('\n')
 }
 
-function denetimIstemi(k, is, mercek) {
+// oncekiRet: önceki denetimin reti (varsa yalnız karşılanmayan kriterler + gerileme denetlenir); yükseltme sonrası ilk denetimde null.
+function denetimIstemi(k, is, mercek, oncekiRet) {
   return [
     `#GOREV:${k.id} #SUREC:denetim`,
     `Denetlenecek görev: ${k.baslik}`,
@@ -178,6 +216,9 @@ function denetimIstemi(k, is, mercek) {
     `İşçinin bildirdiği çıktılar: ${(is.ciktilar || []).join(', ') || '-'}`,
     `İşçinin özeti (güvenme, kendin doğrula): ${is.ozet}`,
     `Mercek: ${mercek}`,
+    oncekiRet
+      ? `Önceki denetimde karşılanmayan kriterler: ${(oncekiRet.bulgular || []).join(' | ') || '-'}. Yalnız bunları ve düzeltmenin yeni bir gerileme getirip getirmediğini (değişen dosyaların diff'i) denetle; önceki denetimde KARŞILANDI denen kriterleri yeniden kanıtlama.`
+      : '',
     testBilgisi(k),
     `Ret verirsen nedeni şu kodlardan tek biri seç (öncelik: kriter belirsizse kriter-belirsiz; işin zorluğu basamağı aşıyorsa yetenek-yetersiz; aksi halde dikkat grubundan en belirgini): ${RET_NEDENLERI.join(', ')}. CLI'ya \`--neden <kod>\` ile yaz, şemadaki 'neden' alanına da koy.`,
     'Çıktıları kendin aç, her kriteri kanıtla değerlendir, kararı `orkestra kart denetim <id> --karar onay|ret [--neden <kod>] --gerekce ... --talimat ...` ile yaz, son yanıtın şemaya uygun olsun.',
@@ -191,6 +232,21 @@ async function kapi(k, asama) {
   })
   if (!r) return { gecti: false, cikis_kodu: -1, ozet: 'kapı ajanı sonuç döndürmedi' }
   return r
+}
+
+// T0 ön kontrol: kapı ajanıyla on_kontrol.py çalıştırır. null → ajan sonuç döndürmedi (kapı atlanır, ret değil).
+async function onKontrol(k, alt, ciktilar) {
+  const komut = `python "${PLUGIN_KOKU}/scripts/on_kontrol.py" ${alt} ${k.id}` +
+    (alt === 'kontrol' ? ` --ciktilar ${(ciktilar || []).join(',')}` : '') +
+    (alt === 'kontrol' && k.kaynak_dosya ? ` --kaynak ${k.kaynak_dosya}` : '')
+  const r = await agent([
+    `#GOREV:${k.id} #SUREC:on-kontrol`,
+    `Görev: ${k.baslik} — T0 ön kontrol (${alt}). Yalnız komut çalıştır ve JSON'u aktar; HİÇBİR dosya yazma, kart durumunu DEĞİŞTİRME.`,
+    `1. \`${komut}\` komutunu tek başına çalıştır (çıkış 0 geçti, 4 ihlal, 2 kullanım hatası).`,
+    'Son yanıtın yalnız komutun stdout JSON\'u olsun: {"gecti": true|false, "ihlaller": [{"tur": "...", "ayrinti": "..."}], "uyarilar": []}',
+  ].join('\n'), { agentType: KAPI_AJANI, schema: ON_KONTROL_SEMA, label: `${k.id} ön kontrol ${alt}`, phase: 'Ön kontrol' })
+  if (!r) log(`${k.id}: ön kontrol ${alt} ajanı sonuç döndürmedi → kapı atlandı`)
+  return r || null
 }
 
 // Kod kartında işten önce: test yazarı + kırmızı kapı. null → işe geç; nesne → kartın son sonucu.
@@ -221,6 +277,8 @@ async function yurut(k) {
   let basamak = k.basamak === 'T0' ? 'T1' : k.basamak
   let retSayisi = 0
   let sonRet = null
+  let toplamRet = 0 // kartın tüm basamaklardaki ret sayısı (denetçi modeli için)
+  let denetimRet = null // son LLM denetçi reti: yeniden denetim yalnız bunların karşılanmasına bakar; yükseltmede sıfırlanır
   let oncekiBasamakRet = null // yükseltmeyi tetikleyen, önceki basamağın son reti
   const gecmis = []
   const kod = kodKarti(k)
@@ -229,6 +287,7 @@ async function yurut(k) {
     const engel = await testOnce(k, basamak, gecmis)
     if (engel) return engel
   }
+  await onKontrol(k, 'taban') // T0: ilk işçi turundan önce taban; sonuç dosyaya yazılır, ret üretmez
 
   for (let tur = 0; tur < 10; tur++) {
     const surec = tur === 0 ? 'is' : retSayisi === 0 ? 'yukseltme' : 'duzeltme'
@@ -239,6 +298,8 @@ async function yurut(k) {
 
     // Kod kartı: yeşil kapı. Geçmezse denetçi ÇAĞRILMAZ; çıktı kuyruğuyla düzeltme turu (ret sayılır).
     const yesil = kod ? await kapi(k, 'yesil') : null
+    // T0 ön kontrol: işçiden sonra, LLM denetçiden önce. Başarısız kapı ajanı ret sayılmaz (kapı atlanır).
+    const onk = yesil && !yesil.gecti ? null : await onKontrol(k, 'kontrol', is.ciktilar)
     if (yesil && !yesil.gecti) {
       gecmis.push({ basamak, surec, karar: 'yesil-gecmedi' })
       sonRet = {
@@ -246,14 +307,19 @@ async function yurut(k) {
         duzeltme_talimati: `Yeşil test kapısı geçmedi (çıkış ${yesil.cikis_kodu}). Testleri değiştirmeden kodu düzelt.`,
         bulgular: [yesil.ozet || '-', yesil.cikti_kuyrugu ? `Çıktı kuyruğu:\n${yesil.cikti_kuyrugu}` : ''].filter(Boolean),
       }
+    } else if (onk && onk.gecti === false) {
+      // Ön kontrol ihlali: denetçi ÇAĞRILMAZ; normal ret sayılır.
+      gecmis.push({ basamak, surec, karar: 'on-kontrol-ret' })
+      sonRet = onKontrolReti(onk)
     } else {
+      const dm = denetciModeli(basamak, toplamRet)
       const mercekler = basamak === 'T3' || basamak === 'T4'
         ? ['doğruluk: iddialar ve sayılar kaynağıyla tutuyor mu', 'kanıt ve kapsam: her kriter kanıtlı ve eksiksiz mi']
         : ['doğruluk ve kapsam: her kriter kanıtla karşılanıyor mu']
       if (kod) mercekler.push(TEST_MERCEGI)
       const kararlar = (await parallel(mercekler.map(m => () =>
-        agent(denetimIstemi(k, is, m), {
-          agentType: 'orkestra:denetci', model: DENETCI[basamak].model, effort: DENETCI[basamak].effort,
+        agent(denetimIstemi(k, is, m, denetimRet), {
+          agentType: 'orkestra:denetci', model: dm.model, ...(dm.effort ? { effort: dm.effort } : {}),
           schema: DENETIM_SEMA, label: `${k.id} denetim ${basamak}`, phase: 'Denetim',
         })))).filter(Boolean)
 
@@ -269,10 +335,12 @@ async function yurut(k) {
         log(`${k.id}: denetçi test kalitesini reddetti → ana ajan \`kart test-kilit-ac\` ile kilidi açıp yeniden planlamalı`)
         return { id: k.id, durum: 'reddedildi', neden: 'test-kalitesi', basamak, son_ret: testReddi, gecmis }
       }
+      if (ret) denetimRet = { ...ret, bulgular: kararlar.filter(d => d.karar !== 'onay').flatMap(d => d.bulgular || []) }
       sonRet = ret || { duzeltme_talimati: 'Denetçi sonuç döndürmedi; işi kanıtlarıyla yeniden sun.', bulgular: [], yedek: true }
     }
 
     retSayisi += 1
+    toplamRet += 1
     const i = SIRA.indexOf(basamak)
     // Yükseltmeden sonra yeni basamağın İLK reti önceki basamağın son retiyle aynıysa daha güçlü model de aynı duvara
     // çarpmıştır: sorun yetenek değil kart/kriterdir. (Aynı basamaktaki tekrar mevcut iki-ret yükseltmesine gider.)
@@ -293,6 +361,7 @@ async function yurut(k) {
       basamak = SIRA[i + 1]
       retSayisi = 0
       oncekiBasamakRet = sonRet
+      denetimRet = null // yükseltme sonrası ilk denetim tam denetimdir
       gecmis.push({ basamak, surec: 'yukseltme', karar: '-' })
       if (sonRet.neden === 'yetenek-yetersiz') log(`${k.id}: ret nedeni yetenek-yetersiz → ${basamak} basamağına yükseltildi`)
       else log(`${k.id}: aynı basamakta iki ret → ${basamak} basamağına yükseltildi`)

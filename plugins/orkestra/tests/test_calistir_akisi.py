@@ -39,6 +39,10 @@ async function agent(istem, o) {
   cagrilar.push({ agentType: o.agentType, phase: o.phase, label: o.label, model: o.model || null,
                   ilk: istem.split('\n')[0], istem })
   if (o.agentType === 'orkestra:test-yazari') return { ozet: 'test yazıldı', ciktilar: ['t.py'], kanit: ['-'] }
+  if (o.phase === 'Ön kontrol') {  // T0 ön kontrol kapısı: senaryo.onkontrol dizisiyle gecti=false verilebilir
+    if (/taban$/.test(o.label)) return { gecti: true, ihlaller: [] }
+    return sira('onkontrol', sen.onkontrol, { gecti: true, ihlaller: [] })
+  }
   if (o.phase === 'Kapı') {
     const asama = /kirmizi$/.test(o.label) ? 'kirmizi' : 'yesil'
     const g = sira(asama, sen[asama], true)
@@ -134,7 +138,7 @@ class StatikTestler(unittest.TestCase):
         for eski in ("'doğruluk: iddialar ve sayılar kaynağıyla tutuyor mu'",
                      "'kanıt ve kapsam: her kriter kanıtlı ve eksiksiz mi'",
                      "'doğruluk ve kapsam: her kriter kanıtla karşılanıyor mu'",
-                     "T1: { model: 'sonnet', effort: 'medium' }",
+                     "T1: { model: 'haiku' }",
                      "T4: { model: 'opus', effort: 'xhigh' }",
                      "const AYNI_BASAMAKTA_EN_COK_RET = 2",
                      "aynı basamakta iki ret →"):
@@ -171,7 +175,9 @@ class AkisTestleri(unittest.TestCase):
         p = subprocess.run([NODE, self.kosum, BETIK, yol], capture_output=True, env=env, timeout=60)
         self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
         cikti = json.loads(p.stdout.decode("utf-8"))
-        return cikti["sonuc"]["sonuclar"][0], cikti["cagrilar"], cikti["loglar"]
+        self.tum_cagrilar = cikti["cagrilar"]  # T0 ön kontrol çağrıları dahil
+        cagrilar = [c for c in cikti["cagrilar"] if c["phase"] != "Ön kontrol"]
+        return cikti["sonuc"]["sonuclar"][0], cagrilar, cikti["loglar"]
 
     @staticmethod
     def adimlar(cagrilar):
@@ -191,7 +197,7 @@ class AkisTestleri(unittest.TestCase):
         self.assertEqual(s["durum"], "onaylandi")
         self.assertEqual(self.adimlar(c), ["is", "denetim"])
         self.assertEqual(c[0]["agentType"], "orkestra:isci-t2")
-        self.assertEqual(c[1]["model"], "opus")
+        self.assertEqual(c[1]["model"], "sonnet")
         self.assertNotIn("test", " ".join(x["istem"] for x in c).lower().replace("test kalitesi", "#"))
         self.assertNotIn("Sınıf: kod", c[0]["istem"])
 
