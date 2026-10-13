@@ -10,7 +10,7 @@ Ne yapar (hepsi o projenin içinde):
   2. orkestra ve orkestra-ui plugin'lerini PROJE kapsamında kurar → <proje>/.claude/settings.json.
   3. Proje ayarlarına orkestra varsayılanlarını EKLER (var olan değerin üstüne yazmaz):
      model, effortLevel, autoMemoryEnabled, autoDreamEnabled, workflowSizeGuideline, env.PYTHONUTF8,
-     permissions.allow "Bash(orkestra *)", extraKnownMarketplaces; statusLine yoksa kota kaydı (scripts/kota.py:
+     permissions.allow "Bash(orkestra *)", extraKnownMarketplaces (autoUpdate: true); statusLine yoksa kota kaydı (scripts/kota.py:
      5 saatlik ve haftalık kullanım sınırını analitik paneli için kaydeder).
   4. `orkestra baslat` ile <proje>/.claude/orkestra/ durum klasörünü açar.
   5. Proje git deposuysa .gitignore'a çalışma zamanı satırlarını ekler.
@@ -93,7 +93,9 @@ def ayar_birlestir(proje, ui, kuru):
         izin.append("Bash(orkestra *)")
     if "statusLine" not in s:  # kullanıcının kendi durum satırı varsa dokunma
         s["statusLine"] = {"type": "command", "command": KOTA_KOMUTU}
-    s.setdefault("extraKnownMarketplaces", {})[MARKET] = {"source": {"source": "directory", "path": DEPO.replace("\\", "/")}}
+    girdi = s.setdefault("extraKnownMarketplaces", {}).setdefault(MARKET, {})
+    girdi.setdefault("source", {"source": "directory", "path": DEPO.replace("\\", "/")})
+    girdi["autoUpdate"] = True
     ep = s.setdefault("enabledPlugins", {})
     ep[f"orkestra@{MARKET}"] = True
     if ui:

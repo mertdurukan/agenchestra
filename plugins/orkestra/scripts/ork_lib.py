@@ -625,3 +625,81 @@ def calisma_alanlari() -> list[dict]:
     if degisti:
         atomik_yaz(onb_yolu, json.dumps(onb, ensure_ascii=False))
     return sorted(out, key=lambda a: a["son"], reverse=True)
+
+
+# ---------------------------------------------------------------- plugin önbellek bayatlığı
+
+def claude_exe() -> str | None:
+    """claude.exe: CLAUDE_CODE_EXECPATH > %APPDATA%/%LOCALAPPDATA% altındaki en yeni > PATH."""
+    e = os.environ.get("CLAUDE_CODE_EXECPATH")
+    if e and os.path.exists(e):
+        return e
+    adaylar = []
+    for kok in (os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")):
+        if not kok:
+            continue
+        adaylar += glob.glob(os.path.join(kok, "Claude", "claude-code", "*", "*", "claude.exe"))
+        adaylar += glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code", "*", "*", "claude.exe"))
+    adaylar = [a for a in adaylar if os.path.exists(a)]
+    if adaylar:
+        return max(adaylar, key=os.path.getmtime)
+    import shutil
+    return shutil.which("claude")
+
+
+def pazar_kaynagi(pazar: str = "claude-orchestration") -> str | None:
+    """known_marketplaces.json'daki installLocation (kaynak depo klasörü)."""
+    try:
+        with open(os.path.join(os.path.expanduser("~"), ".claude", "plugins", "known_marketplaces.json"), encoding="utf-8") as f:
+            yol = (json.load(f).get(pazar) or {}).get("installLocation")
+        return yol if yol and os.path.isdir(yol) else None
+    except Exception:
+        return None
+
+
+def icerik_ozetleri(kok: str) -> dict[str, str]:
+    """{göreli yol: sha1}; __pycache__, .in_use, .pyc hariç; CRLF/LF farkı yok sayılır."""
+    import hashlib
+    out = {}
+    for d, altlar, dosyalar in os.walk(kok):
+        altlar[:] = [x for x in altlar if x != "__pycache__"]
+        for ad in dosyalar:
+            if ad == ".in_use" or ad.endswith(".pyc"):
+                continue
+            tam = os.path.join(d, ad)
+            try:
+                with open(tam, "rb") as f:
+                    b = f.read().replace(bytes([13, 10]), bytes([10]))
+            except OSError:
+                continue
+            out[os.path.relpath(tam, kok).replace("\\", "/")] = hashlib.sha1(b).hexdigest()
+    return out
+
+
+def bayatlik(calisan: str | None = None, kaynak_depo: str | None = None) -> dict | None:
+    """Çalışan kopya ile kaynak plugins/orkestra arasındaki fark. Aynıysa, kaynak klasörde çalışıyorsa ya da kaynak yoksa None.
+    Dönüş: {"farkli": n, "kaynakta_commitsiz": bool|None, "kaynak": yol}."""
+    calisan = calisan or os.environ.get("CLAUDE_PLUGIN_ROOT") or PLUGIN_ROOT
+    kaynak_depo = kaynak_depo or pazar_kaynagi()
+    if not kaynak_depo:
+        return None
+    kaynak = os.path.join(kaynak_depo, "plugins", "orkestra")
+    if not os.path.isdir(kaynak):
+        return None
+    gercek = lambda p: os.path.normcase(os.path.realpath(p))
+    if gercek(calisan) == gercek(kaynak) or gercek(calisan).startswith(gercek(kaynak_depo) + os.sep):
+        return None
+    a, b = icerik_ozetleri(calisan), icerik_ozetleri(kaynak)
+    fark = sum(1 for k in set(a) | set(b) if a.get(k) != b.get(k))
+    if not fark:
+        return None
+    commitsiz = None
+    try:
+        import subprocess
+        r = subprocess.run(["git", "-C", kaynak_depo, "status", "--porcelain", "--", "plugins", ".claude-plugin"],
+                           capture_output=True, text=True, timeout=1.0)
+        if r.returncode == 0:
+            commitsiz = bool(r.stdout.strip())
+    except Exception:
+        pass
+    return {"farkli": fark, "kaynakta_commitsiz": commitsiz, "kaynak": kaynak_depo}

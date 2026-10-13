@@ -80,10 +80,11 @@ Model, effort, hafıza ve rüya ayarları da aynı dosyadadır. Proje ayarı, ge
 
 Masaüstü uygulamasında `claude` PATH'te yoktur. Gömülü ikili `%APPDATA%\Claude\claude-code\<sürüm>\…\claude.exe` altında bulunur. Hook'ların içinde aynı yol `CLAUDE_CODE_EXECPATH` değişkeninde durur.
 
-Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. Kopya yalnız sürüm numarası değişince yenilenir. Bir değişikliği oturumlara geçirmek için:
-- `plugins/<plugin>/.claude-plugin/plugin.json` ve `.claude-plugin/marketplace.json` içindeki `version` değerini artır.
-- Proje klasöründe `claude plugin marketplace update claude-orchestration`, ardından `claude plugin update <plugin>@claude-orchestration --scope project` çalıştır.
-- Yeni bir oturum aç ya da açık oturumu yeniden başlat.
+Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. `plugin.json` ve `marketplace.json` içinde `version` alanı bilerek yoktur; git deposundaki göreli yol girdilerinde sürüm commit SHA'sı olur. Bu yüzden bir değişiklik commitlenmeden kopyaya geçmez (`claude plugin validate --strict` yalnız bu eksik sürüm uyarısı yüzünden hata verir; `--strict`siz geçer). Akış:
+- Değişikliği bu klasörde commitle (push gerekmez).
+- Otomatik: projenin `extraKnownMarketplaces.claude-orchestration.autoUpdate` değeri `true` (`projeye_kur.py` yazar). Claude Code ilk mesajdan sonra en çok 10 dakika içinde günceller, yeni kopya sonraki oturumda yüklenir.
+- Hemen için: proje klasöründe `orkestra guncelle` (`--kuru` yalnız komutları yazar). Marketplace'i ve projede kurulu her plugin'i günceller; ardından yeni oturum aç ya da `/reload-plugins`.
+- Oturum açılışında çalışan kopya kaynaktan farklıysa bağlama tek satır uyarı düşer (kaç dosya farklı, kaynakta commitlenmemiş değişiklik var mı).
 
 HTML panel bu kuralın dışındadır: `python <bu klasör>\plugins\orkestra\scripts\orkestra.py panel` doğrudan bu klasörden çalışır.
 

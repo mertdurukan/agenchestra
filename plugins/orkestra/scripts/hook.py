@@ -285,6 +285,14 @@ def session_start(inp: dict):
                 "(`/orkestra:is`) → onaylıyı `orkestra kart teslim` ile topla. Ortak defter: `orkestra defter baglam <id>`."]
     if ks:
         satirlar.append("Açık/bekleyen kartlar: " + "; ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}] {k['baslik'][:40]}" for k in ks[:8]))
+    try:  # önbellek bayatlığı: hızlı, hatada sessiz
+        b = L.bayatlik()
+        if b:
+            cs = {True: "kaynakta commitlenmemiş değişiklik var", False: "kaynakta commitlenmemiş değişiklik yok", None: "kaynak git durumu okunamadı"}[b["kaynakta_commitsiz"]]
+            satirlar.append(f"UYARI: çalışan orkestra kopyası kaynaktan {b['farkli']} dosya farklı ({cs}). "
+                            "Commitle → otomatik güncelleme; hemen için `orkestra guncelle`, sonra yeni oturum ya da /reload-plugins.")
+    except Exception:
+        pass
     r = ruya.durum(sd)
     if r.get("okunmamis_rapor"):
         satirlar.append(f"Rüya raporu hazır: {r['okunmamis_rapor']} — kullanıcıya kısaca özetle ve `/orkestra:ruya` ile uygulamayı öner.")

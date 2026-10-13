@@ -380,5 +380,69 @@ class PanelVeri(unittest.TestCase):
         self.assertEqual(O.kisalt_baslik("y" * 80), "y" * 80)
 
 
+class Bayatlik(unittest.TestCase):
+    """Önbellek bayatlığı karşılaştırması ve projeye_kur autoUpdate."""
+
+    def setUp(self):
+        self.t = tempfile.mkdtemp(prefix="ork_bay_")
+        self.depo = os.path.join(self.t, "depo")
+        self.kaynak = os.path.join(self.depo, "plugins", "orkestra")
+        self.kopya = os.path.join(self.t, "onbellek", "orkestra", "x")
+        for k in (self.kaynak, self.kopya):
+            os.makedirs(os.path.join(k, "scripts"))
+            with open(os.path.join(k, "scripts", "a.py"), "w", encoding="utf-8") as f:
+                f.write("print(1)" + chr(10))
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import ork_lib
+        self.L = ork_lib
+
+    def tearDown(self):
+        shutil.rmtree(self.t, ignore_errors=True)
+
+    def test_ayni_ise_uyari_yok_pycache_ve_in_use_yok_sayilir(self):
+        os.makedirs(os.path.join(self.kopya, "scripts", "__pycache__"))
+        with open(os.path.join(self.kopya, "scripts", "__pycache__", "a.pyc"), "wb") as f:
+            f.write(b"x")
+        with open(os.path.join(self.kopya, ".in_use"), "w") as f:
+            f.write("1")
+        self.assertIsNone(self.L.bayatlik(self.kopya, self.depo))
+
+    def test_farkli_dosya_sayilir(self):
+        with open(os.path.join(self.kopya, "scripts", "a.py"), "w", encoding="utf-8") as f:
+            f.write("print(2)" + chr(10))
+        with open(os.path.join(self.kaynak, "yeni.md"), "w") as f:
+            f.write("y")
+        b = self.L.bayatlik(self.kopya, self.depo)
+        self.assertEqual(b["farkli"], 2)
+        self.assertIn(b["kaynakta_commitsiz"], (None, False, True))
+
+    def test_kaynak_yok_ya_da_kaynak_icinde_sessiz(self):
+        self.assertIsNone(self.L.bayatlik(self.kopya, os.path.join(self.t, "yok")))
+        with open(os.path.join(self.kaynak, "yeni.md"), "w") as f:
+            f.write("y")
+        self.assertIsNone(self.L.bayatlik(self.kaynak, self.depo))
+
+    def test_projeye_kur_autoupdate_korur_ve_tekrar_guvenli(self):
+        import contextlib
+        import io
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(KOK)), "araclar"))
+        import projeye_kur as P
+        proje = os.path.join(self.t, "proje")
+        os.makedirs(os.path.join(proje, ".claude"))
+        yol = os.path.join(proje, ".claude", "settings.json")
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump({"extraKnownMarketplaces": {P.MARKET: {"source": {"source": "directory", "path": "Z:/ozel"}}, "baska": {"x": 1}}, "ozel": 5}, f)
+        for _ in range(2):
+            with contextlib.redirect_stdout(io.StringIO()):
+                P.ayar_birlestir(proje, True, False)
+        with open(yol, encoding="utf-8") as f:
+            s = json.load(f)
+        m = s["extraKnownMarketplaces"]
+        self.assertIs(m[P.MARKET]["autoUpdate"], True)
+        self.assertEqual(m[P.MARKET]["source"]["path"], "Z:/ozel")
+        self.assertEqual(m["baska"], {"x": 1})
+        self.assertEqual(s["ozel"], 5)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

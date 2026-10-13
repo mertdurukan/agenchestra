@@ -566,6 +566,41 @@ def cmd_panel(a):
         webbrowser.open(sonuc.split()[0])
 
 
+# ---------------------------------------------------------------- güncelle
+
+def cmd_guncelle(a):
+    pazar = "claude-orchestration"
+    exe = L.claude_exe()
+    if not exe:
+        hata("claude.exe bulunamadı (CLAUDE_CODE_EXECPATH ya da %APPDATA%/Claude/claude-code/<sürüm>/*/claude.exe).")
+    proje = L.proje_dizini()
+    adlar = []
+    try:
+        with open(os.path.join(os.path.expanduser("~"), ".claude", "plugins", "installed_plugins.json"), encoding="utf-8") as f:
+            for anahtar, girdiler in (json.load(f).get("plugins") or {}).items():
+                ad, _, p = anahtar.partition("@")
+                if p == pazar and any(os.path.normcase(os.path.abspath(g.get("projectPath") or "")) == os.path.normcase(proje)
+                                      and g.get("scope") == "project" for g in girdiler):
+                    adlar.append(ad)
+    except Exception:
+        pass
+    if not adlar:
+        hata(f"bu projede ({proje}) kurulu {pazar} plugin'i bulunamadı.")
+    komutlar = [[exe, "plugin", "marketplace", "update", pazar]] + [[exe, "plugin", "update", f"{ad}@{pazar}", "--scope", "project"] for ad in adlar]
+    for k in komutlar:
+        print("$ " + " ".join(f'"{x}"' if " " in x else x for x in k))
+        if a.kuru:
+            continue
+        r = subprocess.run(k, cwd=proje, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        cikti = (r.stdout + r.stderr).strip()
+        if cikti:
+            print("  " + cikti.replace(chr(10), chr(10) + "  "))
+        if r.returncode != 0:
+            hata(f"komut başarısız (çıkış {r.returncode}).")
+    if not a.kuru:
+        print("Tamam. Değişiklik yeni oturumda yüklenir: yeni oturum aç ya da /reload-plugins.")
+
+
 # ---------------------------------------------------------------- argparse
 
 def main():
@@ -575,6 +610,9 @@ def main():
     alt = p.add_subparsers(dest="komut", required=True)
 
     alt.add_parser("baslat").set_defaults(f=cmd_baslat)
+    gc = alt.add_parser("guncelle", help="plugin önbelleğini kaynak depodan yenile")
+    gc.add_argument("--kuru", action="store_true", help="yalnız komutları yaz")
+    gc.set_defaults(f=cmd_guncelle)
 
     kart = alt.add_parser("kart").add_subparsers(dest="alt", required=True)
     y = kart.add_parser("yeni")
