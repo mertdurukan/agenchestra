@@ -24,7 +24,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|test-kos|test-kilit-ac)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -33,6 +33,57 @@ KABUK_YAZMA_HEDEF = re.compile(
     r"(?:>>?|\btee\b|Set-Content|Add-Content|Out-File|\bsed\s+-i\S*|\brm\b|\bmv\b|\bcp\b|\bdel\b|Remove-Item|Move-Item|Copy-Item)"
     r"[^|;&\n]*?" + _KORUNAN
     + r"|open\([^)\n]*" + _KORUNAN + r"[^)\n]*,\s*['\"][wa]", re.I)
+
+
+# ---------------------------------------------------------------- test kilidi (kod kartları)
+
+def _rel(proje: str, tam: str) -> str | None:
+    """Proje içi göreli yol ('/' ayraçlı); proje dışıysa None."""
+    try:
+        r = os.path.relpath(tam, proje).replace("\\", "/")
+    except ValueError:
+        return None
+    return None if r == ".." or r.startswith("../") else r
+
+
+def kilitli_testler(sd: str) -> dict[str, str]:
+    """Teslim/iptal olmayan kartların kilitli test dosyaları → {göreli yol: kart kimliği}."""
+    out = {}
+    for k in L.kartlar(sd):
+        if k.get("durum") in ("teslim", "iptal"):
+            continue
+        d = (k.get("test_kilidi") or {}).get("dosyalar")
+        if isinstance(d, dict):
+            for y in d:
+                out.setdefault(y.replace("\\", "/"), k.get("id", "?"))
+    return out
+
+
+def test_alaninda_mi(rel: str, desenler: list[str]) -> bool:
+    """rel, test_alani glob'larından birine uyar mı (`**` özyinelemeli; `a/**/b` `a/b`yi de kapsar)."""
+    import fnmatch
+    for d in desenler or []:
+        d = (d or "").replace("\\", "/").strip()
+        for v in {d, d.replace("/**/", "/")}:
+            if v and fnmatch.fnmatch(os.path.normcase(rel), os.path.normcase(v)):
+                return True
+    return False
+
+
+_KABUK_YAZMA_ISLEC = (r"(?:>>?|\btee\b|Set-Content|Add-Content|Out-File|\bsed\s+-i\S*|\brm\b|\bmv\b|\bcp\b|\bdel\b|"
+                      r"Remove-Item|Move-Item|Copy-Item|\btruncate\b)")
+
+
+def kabuk_kilitli_yazma(komut: str, kilitli: dict[str, str]) -> str | None:
+    """Kabuk komutu kilitli bir test dosyasını yazma işlecinin HEDEFİ yapıyorsa kart kimliğini döndürür (en iyi çaba).
+    Yakalanamayanlar (değişken/dolaylı yol, betik içi yazma) `kart test-kos yesil` hash denetimine kalır."""
+    for rel, gid in kilitli.items():
+        ad = "(?:" + re.escape(rel) + "|" + re.escape(os.path.basename(rel)) + ")(?![\\w.])"
+        r = re.compile(_KABUK_YAZMA_ISLEC + r"[^|;&\n]*?" + ad
+                       + r"|open\([^)\n]*" + ad + r"[^)\n]*,\s*['\"][wax]", re.I)
+        if r.search(komut):
+            return gid
+    return None
 
 
 def izin_ver(guncel_girdi: dict | None = None, neden: str = ""):
@@ -54,8 +105,50 @@ def gec():
 
 # ---------------------------------------------------------------- ajan → görev eşlemesi
 
+def transkript_bul(ana_transkript: str, session_id: str, agent_id: str) -> str:
+    """Alt ajan transkripti: önce <oturum>/subagents/agent-<id>.jsonl, yoksa subagents/**/ altında (workflows/<run>/...)."""
+    yol = L.alt_ajan_transkripti(ana_transkript or "", session_id or "", agent_id)
+    if os.path.exists(yol):
+        return yol
+    import glob
+    kok = os.path.join(os.path.dirname(ana_transkript or ""), session_id or "", "subagents")
+    bulunan = sorted(glob.glob(os.path.join(glob.escape(kok), "**", f"agent-{glob.escape(agent_id)}.jsonl"), recursive=True))
+    return bulunan[0] if bulunan else yol
+
+
+def transkript_etiketleri(tp: str, en_cok: int = 5) -> tuple[str, str, bool]:
+    """İlk `en_cok` kullanıcı mesajında #GOREV arar → (görev, süreç, ilk_mesaj_var_mı).
+
+    Hiçbirinde #GOREV yoksa eski davranış: ilk dolu mesajdan etiketler."""
+    ilk, n = None, 0
+    try:
+        with open(tp, encoding="utf-8", errors="replace") as f:
+            for satir in f:
+                try:
+                    o = json.loads(satir)
+                except json.JSONDecodeError:
+                    continue
+                if o.get("type") != "user":
+                    continue
+                m = L._metin((o.get("message") or {}).get("content"))
+                if not (m and m.strip()):
+                    continue
+                n += 1
+                if ilk is None:
+                    ilk = m
+                g, s = L.etiketler(m)
+                if g != "-":
+                    return g, s, True
+                if n >= en_cok:
+                    break
+    except Exception:
+        pass
+    g, s = L.etiketler(ilk)
+    return g, s, bool(ilk)
+
+
 def ajan_gorevi(sd: str, inp: dict) -> tuple[str, str]:
-    """Alt ajanın #GOREV/#SUREC etiketleri (önbellekli)."""
+    """Alt ajanın #GOREV/#SUREC etiketleri (önbellekli; '-' sonucu önbelleğe yazılmaz)."""
     aid = inp.get("agent_id")
     if not aid:
         return "-", "orkestrasyon"
@@ -63,23 +156,13 @@ def ajan_gorevi(sd: str, inp: dict) -> tuple[str, str]:
     try:
         with open(onbellek, encoding="utf-8") as f:
             d = json.load(f)
-            return d["gorev"], d["surec"]
+            if d["gorev"] != "-":
+                return d["gorev"], d["surec"]
     except Exception:
         pass
-    tp = inp.get("agent_transcript_path") or L.alt_ajan_transkripti(inp.get("transcript_path", ""), inp.get("session_id", ""), aid)
-    ilk = None
-    try:
-        with open(tp, encoding="utf-8", errors="replace") as f:
-            for satir in f:
-                o = json.loads(satir)
-                if o.get("type") == "user":
-                    ilk = L._metin((o.get("message") or {}).get("content"))
-                    if ilk and ilk.strip():
-                        break
-    except Exception:
-        pass
-    gorev, surec = L.etiketler(ilk)
-    if ilk:
+    tp = inp.get("agent_transcript_path") or transkript_bul(inp.get("transcript_path", ""), inp.get("session_id", ""), aid)
+    gorev, surec, var = transkript_etiketleri(tp)
+    if var and gorev != "-":
         os.makedirs(os.path.dirname(onbellek), exist_ok=True)
         L.atomik_yaz(onbellek, json.dumps({"gorev": gorev, "surec": surec, "ajan": inp.get("agent_type") or "?"}))
     return gorev, surec
@@ -112,10 +195,25 @@ def pre_tool_use(inp: dict):
             gec()
         proje = L.proje_dizini(inp.get("cwd"))
         oid = inp.get("session_id")
+        trel = _rel(proje, tam)
+        if trel is not None:  # kilitli test: ana ajan dahil herkese kapalı
+            for y, kid in kilitli_testler(sd).items():
+                if os.path.normcase(y) == os.path.normcase(trel):
+                    reddet(f"kilitli test: {y} ({kid} kartının test kilidi). Kırmızı sonrası test dosyaları değişmez; "
+                           "değişiklik gerekiyorsa ana ajan `orkestra kart test-kilit-ac` ile kilidi açar.")
         if aid:
-            gorev, _ = ajan_gorevi(sd, inp)
+            gorev, surec = ajan_gorevi(sd, inp)
             if gorev != "-":
                 k = L.kart_oku(sd, gorev)
+                if k and k.get("sinif") == "kod" and k.get("test_alani") and trel is not None:
+                    icinde = test_alaninda_mi(trel, k["test_alani"])
+                    if surec == "test-yaz":
+                        if not icinde:
+                            reddet(f"{gorev}: #SUREC:test-yaz yalnız test_alani içine yazar ({', '.join(k['test_alani'])}).")
+                        gec()
+                    elif icinde:
+                        reddet(f"{gorev}: test_alani ({', '.join(k['test_alani'])}) yalnız #SUREC:test-yaz ile yazılır; "
+                               "testleri kod işçisi değiştiremez.")
                 if k and k.get("yazma_alani") and not L.yazma_alaninda_mi(proje, tam, k["yazma_alani"]):
                     reddet(f"{gorev} kartının yazma alanı dışında ({', '.join(k['yazma_alani'])}). Paralel işler çakışmasın diye "
                            "yalnız kendi alanına yaz; gerekiyorsa ana ajana bildir.")
@@ -130,6 +228,10 @@ def pre_tool_use(inp: dict):
 
     if arac in KABUK_ARACLARI:
         komut = girdi.get("command") or ""
+        kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd))
+        if kgid:
+            reddet(f"kilitli test: komut {kgid} kartının kilitli test dosyasına yazıyor/siliyor. Kilit yalnız ana ajanın "
+                   "`orkestra kart test-kilit-ac` komutuyla açılır.")
         # Tırnak içi metin veridir (heredoc dışı argüman, python -c kodu): komut analizinden çıkarılır.
         # İstisna: tırnaklanmış program yolu "…/orkestra.py" korunur (tırnakları atılır).
         yol_acik = re.sub(r'["\']([^"\']*orkestra(?:\.py|\.cmd))["\']', lambda m: m.group(1).replace(" ", "_"), komut)
@@ -194,16 +296,17 @@ def subagent_stop(inp: dict):
         os.remove(os.path.join(sd, "oturumlar", f"acik_ajan_{aid}.json"))
     except OSError:
         pass
-    tp = inp.get("agent_transcript_path") or L.alt_ajan_transkripti(inp.get("transcript_path", ""), inp.get("session_id", ""), aid)
+    tp = inp.get("agent_transcript_path") or transkript_bul(inp.get("transcript_path", ""), inp.get("session_id", ""), aid)
     ozet = L.transkript_oku(tp)
     meta = L.alt_ajan_meta(tp)
     atip = inp.get("agent_type") or meta.get("agentType") or "?"
-    gorev, surec = L.etiketler(ozet["ilk_kullanici"])
+    gorev, surec, _var = transkript_etiketleri(tp)
     if surec == "bilinmiyor":
         surec = "denetim" if "denetci" in atip else ("arastirma" if atip in ("Explore", "orkestra:arastirmaci") else
                                                       "ruya" if "ruya" in atip else "is" if "isci" in atip else "bilinmiyor")
     # Sayaç modülünün (maliyet tur) aynı ajanı görev/süreç/tip ile eşleyebilmesi için önbellek.
-    L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip}))
+    if gorev != "-":
+        L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip}))
     taban = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "ajan": atip,
              "agent_id": aid, "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
              "arac_cagrisi": ozet["arac_cagrisi"], "ruya": bool(os.environ.get("ORKESTRA_RUYA")), "kaynak": "hook"}
