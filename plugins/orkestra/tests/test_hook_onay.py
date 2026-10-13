@@ -93,7 +93,7 @@ class HookOnay(unittest.TestCase):
         from unittest import mock
         import hook
         import ork_lib as L
-        import ruya
+        import perspektif
         for i in range(8):
             r = self.kos([CLI, "kart", "yeni", "--baslik", f"Çok uzun başlıklı açık kart numara {i} " * 3, "--basamak", "T1",
                           "--kabul", "x", "--yazma", "docs/**"])
@@ -107,7 +107,7 @@ class HookOnay(unittest.TestCase):
         rapor = {"okunmamis_rapor": "ruya_20261013_1500.md" * 3, "zamani_geldi": False, "calisiyor": False}
         cikti = io.StringIO()
         env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
-        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(L, "bayatlik", return_value=bayat),                 mock.patch.object(ruya, "durum", return_value=rapor), contextlib.redirect_stdout(cikti):
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(L, "bayatlik", return_value=bayat),                 mock.patch.object(perspektif, "durum", return_value=rapor), contextlib.redirect_stdout(cikti):
             with self.assertRaises(SystemExit):
                 hook.session_start({"session_id": OTURUM, "cwd": self.proje})
         m = json.loads(cikti.getvalue())["hookSpecificOutput"]["additionalContext"]

@@ -110,8 +110,8 @@ class PanelOnay(unittest.TestCase):
         self.assertEqual(panel._perspektif(self.sd)["rapor"], onay.en_yeni_rapor(self.sd))
         self.assertNotEqual(panel._perspektif(self.sd)["rapor"], p)
 
-    def test_perspektif_ruya_modulu_yoksa_null(self):
-        with mock.patch.dict(sys.modules, {"ruya": None}):
+    def test_perspektif_modulu_yoksa_null(self):
+        with mock.patch.dict(sys.modules, {"perspektif": None}):
             p = panel._perspektif(self.sd)
         self.assertIsNone(p["durum"])
         self.assertTrue(p["rapor"])

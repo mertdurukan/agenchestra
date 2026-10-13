@@ -209,7 +209,7 @@ def olustur(sd: str, proje: str) -> dict:
                           "motor_usd": s["motor_usd"], "defter_usd": s["defter_usd"], "son": s["son"],
                           "modeller": s["modeller"]})
 
-    # --- defter ve rüya
+    # --- defter ve perspektif
     kart_oturum = {k["id"]: k.get("oturum") for k in ks}
     defter = []
     kayitlar_d = L.defter_kayitlari(sd)
@@ -220,8 +220,8 @@ def olustur(sd: str, proje: str) -> dict:
         defter.append({"zaman": r.get("zaman"), "gorev": gorev, "surec": r.get("surec", "-"),
                        "ajan": r.get("ajan", "-"), "oturum": bo,
                        "metin": metin, "olay": _olay_mi(metin, gorev)})
-    import ruya
-    rd = ruya.durum(sd)
+    import perspektif
+    rd = perspektif.durum(sd)
     try:
         import onay
         onaylar = onay.sayac(sd)
@@ -244,8 +244,8 @@ def olustur(sd: str, proje: str) -> dict:
         "sohbetler": sohbetler,
         "asili_ajanlar": asili_ajanlar(sd),
         "defter": defter,
-        "ruya": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"]),
-                 "son_ruya": rd["son_ruya"]},
+        "perspektif": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"]),
+                 "son_perspektif": rd["son_perspektif"]},
         "onaylar": onaylar,
     }
 
@@ -293,7 +293,7 @@ def _hafif(alan: dict) -> dict:
         "kartlar": [], "sayac": {},
         "maliyet": {"bugun": round(bugun_usd, 4), "toplam": round(sum(s["usd"] for s in sohbetler), 4), "surec": {},
                     "model": _yuvarla(dict(model.most_common(6))), "ajan_surec": [], "oturumlar": oturumlar},
-        "sohbetler": sohbetler, "defter": [], "ruya": None,
+        "sohbetler": sohbetler, "defter": [], "perspektif": None,
     }
 
 

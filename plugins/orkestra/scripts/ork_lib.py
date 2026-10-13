@@ -6,7 +6,7 @@ Durum klasörü: <proje>/.claude/orkestra/  (yalnız `orkestra baslat` ile açı
   maliyet.jsonl             ajan x süreç x model token ve maliyet kaydı
   gunluk.jsonl              olay günlüğü (istekler, skill/ajan kullanımı) — skill avcısı okur
   oturumlar/<id>.json       oturum başına transkript okuma ofseti
-  ruya/                     rüya (hafıza bakımı) raporları ve zaman damgası
+  perspektif/                     perspektif (hafıza bakımı) raporları ve zaman damgası
   onerilen_skill/           skill avcısının taslakları
 Bağımlılık yok: yalnız Python standart kütüphanesi.
 """
@@ -18,6 +18,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,7 +28,7 @@ from contextlib import contextmanager
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SURECLER = (
     "triyaj", "plan", "is", "denetim", "duzeltme", "yukseltme", "sentez",
-    "arsiv", "ruya", "skill-avi", "arastirma", "orkestrasyon", "bilinmiyor",
+    "arsiv", "perspektif", "skill-avi", "arastirma", "orkestrasyon", "bilinmiyor",
 )
 ACIK_DURUMLAR = ("isleniyor", "denetimde", "reddedildi", "onaylandi")
 KAPALI_DURUMLAR = ("teslim", "iptal", "beklemede", "planlandi")
@@ -55,12 +56,45 @@ def proje_dizini(cwd: str | None = None) -> str:
         d = ust
 
 
+ESKI_AD = "ruya"  # geriye uyum: perspektifin eski adı (durum klasörü, rapor öneki, süreç etiketi, ajan adı)
+
+
+def perspektif_goc(p: str) -> None:
+    """Eski <durum>/ruya klasörünü <durum>/perspektif'e taşır (yoksa). Taşıyamazsa kopyalar; eskiyi silmez.
+    Eski ruya_*.md raporları adlarıyla kalır ve perspektif.py tarafından bulunur."""
+    eski, yeni = os.path.join(p, ESKI_AD), os.path.join(p, "perspektif")
+    if os.path.isdir(yeni) or not os.path.isdir(eski):
+        return
+    try:
+        os.replace(eski, yeni)
+    except OSError:
+        try:
+            shutil.copytree(eski, yeni)
+        except Exception:
+            return
+    dj = os.path.join(yeni, "durum.json")
+    try:
+        with open(dj, encoding="utf-8") as f:
+            d = json.load(f)
+        if "son_ruya" in d:
+            d["son_perspektif"] = d.pop("son_ruya")
+        sr = d.get("son_rapor")
+        if sr and not os.path.exists(sr):
+            aday = os.path.join(yeni, os.path.basename(sr))
+            if os.path.exists(aday):
+                d["son_rapor"] = aday
+        atomik_yaz(dj, json.dumps(d, ensure_ascii=False, indent=2))
+    except Exception:
+        pass
+
+
 def durum_dizini(cwd: str | None = None, olustur: bool = False) -> str | None:
     p = os.path.join(proje_dizini(cwd), ".claude", "orkestra")
     if os.path.isdir(p):
+        perspektif_goc(p)
         return p
     if olustur:
-        for alt in ("gorevler", "oturumlar", "ruya", "onerilen_skill", "raporlar"):
+        for alt in ("gorevler", "oturumlar", "perspektif", "onerilen_skill", "raporlar"):
             os.makedirs(os.path.join(p, alt), exist_ok=True)
         return p
     return None
@@ -287,7 +321,9 @@ def etiketler(metin: str | None) -> tuple[str, str]:
     metin = metin or ""
     g = ETIKET_GOREV.search(metin)
     s = ETIKET_SUREC.search(metin)
-    surec = s.group(1) if s and s.group(1) in SURECLER else "bilinmiyor"
+    surec = s.group(1) if s and s.group(1) in SURECLER + (ESKI_AD,) else "bilinmiyor"
+    if surec == ESKI_AD:  # eski #SUREC:ruya etiketi
+        surec = "perspektif"
     return (g.group(1) if g else "-"), surec
 
 
@@ -913,7 +949,7 @@ def _defter_dondur(sd: str) -> None:
 def defter_ekle(sd: str, kayit: dict) -> None:
     kayit = dict(kayit)
     kayit.setdefault("zaman", simdi())
-    if not kayit.get("oturum"):  # CLI/ruya yolu: yazan oturumun kimliği ortamdan (alt ajanda üst oturum)
+    if not kayit.get("oturum"):  # CLI/perspektif yolu: yazan oturumun kimliği ortamdan (alt ajanda üst oturum)
         kayit["oturum"] = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or None
     for alan in ("yaptim", "sonuc", "not"):
         if kayit.get(alan):

@@ -31,14 +31,14 @@ const HAM: HamOzet = {
     // olay alanı yok (eski ozet.json): mod kısa durum işaretini kendisi sezer
     { zaman: '2026-10-13T10:06:00+03:00', gorev: 'G-002', surec: 'denetim', ajan: 'orkestra:denetci', metin: 'TESLİM' },
   ],
-  ruya: { zamani_geldi: false, rapor: true, calisiyor: false },
+  perspektif: { zamani_geldi: false, rapor: true, calisiyor: false },
 }
 
 const SAAT = HAM.uretim.slice(11, 16)
 const ESKI: HamOzet = { ...HAM, uretim: dkOnce(30) }
 const ESKI_SAAT = ESKI.uretim.slice(11, 16)
 // Yalnız teslim edilmiş kart, ret/teslim bekleyen yok, rapor yok: bant çizilmemeli, pane "Açık iş yok" demeli.
-const SESSIZ: HamOzet = { ...HAM, kartlar: [HAM.kartlar![2]], sayac: {}, ruya: { zamani_geldi: false, rapor: false, calisiyor: false } }
+const SESSIZ: HamOzet = { ...HAM, kartlar: [HAM.kartlar![2]], sayac: {}, perspektif: { zamani_geldi: false, rapor: false, calisiyor: false } }
 
 const PANE_PROPS = {
   title: 'Orkestra', isFocused: false, bodyColumns: 100, placement: 'dock' as const,
@@ -90,18 +90,18 @@ test('eylemImzasi: yalnız ret/teslim bekleyen/rapor imza üretir; kart değişi
 })
 
 for (const surface of ['terminal', 'desktop'] as const) {
-  test(`pane özet sırasını uygular: dikkat, çalışan, maliyet, olaylar, rüya, alt satır (${surface})`, async ($, on) => {
+  test(`pane özet sırasını uygular: dikkat, çalışan, maliyet, olaylar, perspektif, alt satır (${surface})`, async ($, on) => {
     sahte(on, HAM)
     await $.command.run({ command: 'orkestra', args: '' })
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
     const t = metin(await ui.drawn())
     for (const parca of ['Kod taraması', 'G-002 · T2 · Reddedildi · $0,20', 'Yeni iş', 'G-004 · T2 · Çalışıyor · $0,12',
       '1 kart teslim edildi', 'Bu sohbet $0,42 · bugün $1,50', 'Son olaylar', 'README satırı eklendi',
-      'Rüya raporu hazır → /orkestra:ruya', 'Ayrıntı: /orkestra-web', `veri ${SAAT}`]) {
+      'Perspektif raporu hazır → /orkestra:perspektif', 'Ayrıntı: /orkestra-web', `veri ${SAAT}`]) {
       expect(t).toContain(parca)
     }
-    // sıra: dikkat < çalışan < maliyet < olaylar < rüya < alt satır
-    const sira = ['Kod taraması', 'Yeni iş', 'Bu sohbet', 'Son olaylar', 'Rüya raporu hazır', 'Ayrıntı:'].map(p => t.indexOf(p))
+    // sıra: dikkat < çalışan < maliyet < olaylar < perspektif < alt satır
+    const sira = ['Kod taraması', 'Yeni iş', 'Bu sohbet', 'Son olaylar', 'Perspektif raporu hazır', 'Ayrıntı:'].map(p => t.indexOf(p))
     expect(sira).toEqual([...sira].sort((a, b) => a - b))
     expect(t).not.toContain('Eski teslim')  // teslim edilmiş kart yalnız sayı
     for (const yok of ['isleniyor', 'orkestra:isci', 'Sohbetler (bu', 'Orkestrasyon', 'Token ve maliyet', '$0.42', 'veri eski']) {
@@ -136,7 +136,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
   })
 
   test(`çalışan kart varken "Açık iş yok" yazılmaz; uretim yoksa veri parçası yazılmaz (${surface})`, async ($, on) => {
-    const calisan: HamOzet = { ...HAM, uretim: undefined as unknown as string, kartlar: [HAM.kartlar![3]], sayac: {}, ruya: { zamani_geldi: false, rapor: false, calisiyor: false } }
+    const calisan: HamOzet = { ...HAM, uretim: undefined as unknown as string, kartlar: [HAM.kartlar![3]], sayac: {}, perspektif: { zamani_geldi: false, rapor: false, calisiyor: false } }
     sahte(on, calisan)
     await $.command.run({ command: 'orkestra', args: '' })
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
@@ -161,7 +161,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     const once = metin(await ui.drawn())
     expect(once).toContain('1 ret')
     expect(once).toContain('teslime hazır')
-    expect(once).toContain('rüya raporu hazır')
+    expect(once).toContain('perspektif raporu hazır')
     expect(once).not.toContain('oturum $')  // maliyet bantta yok
     await ui.press({ key: 'gizle' })
     const sonra = await ui.drawn().then(metin, () => '')

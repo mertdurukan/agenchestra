@@ -140,7 +140,7 @@
 
     <section class="bolum" id="saglik" aria-labelledby="saglikBaslik">
       <h2 id="saglikBaslik">Sağlık <span id="saglikBayat"></span></h2>
-      <p class="aciklama">Hafıza, rüya, etiketsiz koşular ve hook hataları. Ayrıntı için karoya gel ya da odaklan.</p>
+      <p class="aciklama">Hafıza, perspektif, etiketsiz koşular ve hook hataları. Ayrıntı için karoya gel ya da odaklan.</p>
       <div id="saglikIcerik"><p class="bos">Yükleniyor…</p></div>
     </section>
   </div>
@@ -497,7 +497,7 @@
     const kul = Object.entries(s.kullanim || {}).sort((p, q) => q[1] - p[1]);
     const adaylar = Array.isArray(s.adaylar) ? s.adaylar : [];
     if (!kul.length && !adaylar.length) {
-      yerlestir($('#skillIcerik'), '<p class="bos">Henüz skill kullanımı ya da adayı kaydı yok. <code>/orkestra:skill-avi</code> ya da rüya önerdiğinde burada listelenir.</p>');
+      yerlestir($('#skillIcerik'), '<p class="bos">Henüz skill kullanımı ya da adayı kaydı yok. <code>/orkestra:skill-avi</code> ya da perspektif önerdiğinde burada listelenir.</p>');
       return;
     }
     const toplamKul = kul.reduce((t, [, n]) => t + n, 0);
@@ -515,7 +515,7 @@
           <td>${a.tasarruf_usd != null ? '<b>' + B.usd(a.tasarruf_usd) + '</b> ' : ''}<span class="meta" style="display:inline">${metin(a.tasarruf_metni || 'gerekçede belirtilmemiş')}</span></td></tr>`).join('') + '</table></div>';
     } else html += '<p class="bos">Henüz skill adayı yok.</p>';
     html += `<details class="nasil"><summary>Nasıl hesaplanır?</summary>
-      <p>Kullanım: kayıt başladığından beri her skill'in kaç kez çağrıldığı. Aday: skill avcısının ya da rüyanın önerdiği, henüz yazılmamış tekrarlı iş; tasarruf, gerekçesinde belirtilen tahmindir.</p></details>`;
+      <p>Kullanım: kayıt başladığından beri her skill'in kaç kez çağrıldığı. Aday: skill avcısının ya da perspektifin önerdiği, henüz yazılmamış tekrarlı iş; tasarruf, gerekçesinde belirtilen tahmindir.</p></details>`;
     yerlestir($('#skillIcerik'), html);
   }
 
@@ -528,12 +528,12 @@
   function saglikCiz() {
     const v = veri(), s = v && v.saglik;
     if (!s) return;
-    const h = s.hafiza || {}, r = s.ruya || {}, e = s.etiketsiz || {}, k = s.hook || {};
+    const h = s.hafiza || {}, r = s.perspektif || {}, e = s.etiketsiz || {}, k = s.hook || {};
     const buyuk = Array.isArray(h.en_buyuk) ? h.en_buyuk : [];
     const hIp = `<b>Hafıza okuma sınırı</b>` + '<div class="meta">MEMORY.md (okunan dizin)</div>' + sat('Satır', B.sayi(h.satir) + ' / ' + B.sayi(h.satir_sinir)) + sat('Bayt', B.sayi(h.bayt) + ' / ' + B.sayi(h.bayt_sinir)) + '<div class="meta">Tüm hafıza</div>' + sat('Konu dosyası', B.sayi(h.dosya)) + sat('Toplam boyut', B.sayi(h.toplam_bayt) + ' bayt') +
       (buyuk.length ? `<div class="meta">En büyük dosyalar</div>` + buyuk.map(([ad, bayt]) => sat(String(ad), B.sayi(bayt) + ' bayt')).join('') : '') +
       (h.yol ? `<div class="meta">${esc(O.yolGizle(h.yol))}</div>` : '');
-    const rIp = `<b>Son rüya</b>` + sat('Zaman', B.tarih(r.son)) + sat('Bekleyen oturum', B.sayi(r.oturum_sayaci)) + sat('Okunmamış rapor', r.okunmamis_rapor ? 'var' : 'yok') +
+    const rIp = `<b>Son perspektif</b>` + sat('Zaman', B.tarih(r.son)) + sat('Bekleyen oturum', B.sayi(r.oturum_sayaci)) + sat('Okunmamış rapor', r.okunmamis_rapor ? 'var' : 'yok') +
       sat('Zamanı geldi', r.zamani_geldi ? 'evet' : 'hayır') + (r.son_hata ? `<div class="meta">Son hata kaydı: ${esc(r.son_hata)}</div>` : '');
     const ajanlar = Object.entries(e.ajanlar || {});
     const eIp = `<b>Etiketsiz koşular (7 gün)</b>` + (ajanlar.length ? ajanlar.map(([ad, n]) => sat(E.ajan(ad), '×' + B.sayi(n))).join('') : '<div class="meta">Etiketsiz koşu yok.</div>') +
@@ -546,7 +546,7 @@
     const html = '<div class="karolar">' +
       saglikKaro(h.seviye, 'Hafıza okuma sınırı (MEMORY.md)', h.var ? `${B.sayi(h.satir)}/${B.sayi(h.satir_sinir)} satır` : 'MEMORY.md yok',
         h.var ? `MEMORY.md: ${B.sayi(h.bayt)} / ${B.sayi(h.bayt_sinir)} bayt · sınıra ${B.yuzde(1 - (h.doluluk || 0))} var · tüm hafıza: ${B.sayi(h.dosya)} dosya, ${B.sayi(h.toplam_bayt)} bayt` : 'hafıza dizini bulunamadı', hIp) +
-      saglikKaro(r.seviye, 'Son rüya', rGun,
+      saglikKaro(r.seviye, 'Son perspektif', rGun,
         [B.tarih(r.son), `${B.sayi(r.oturum_sayaci)} oturumdur bekliyor`, r.okunmamis_rapor ? 'okunmamış rapor var' : '', r.zamani_geldi ? 'zamanı geldi' : '', r.son_hata ? 'hata kaydı var' : ''].filter(x => x && x !== '–').join(' · '), rIp) +
       saglikKaro(e.seviye, 'Etiketsiz koşu oranı (7 gün)', B.yuzde(e.oran), `${B.sayi(e.etiketsiz)}/${B.sayi(e.kosu)} alt ajan koşusunda etiket yok`, eIp) +
       saglikKaro(k.seviye, 'Hook hataları (7 gün)', B.sayi(k.son7), k.son ? `son: ${B.tarih(k.son.zaman)}` : `toplam ${B.sayi(k.toplam)}`, kIp) + '</div>';

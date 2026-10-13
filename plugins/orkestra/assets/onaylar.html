@@ -139,7 +139,7 @@
     const tarih = m ? ` · ${m[3]}.${m[2]}.${m[1]}` : '';
     const calisiyor = p.durum && p.durum.calisiyor;
     return `<h3 class="grup-baslik">Perspektif raporu: ${esc(ad)}${esc(tarih)} · ${bekleyen} madde bekliyor</h3>` +
-      (calisiyor ? '<p class="meta">Rüya şu an çalışıyor; yeni öneriler gelebilir.</p>' : '');
+      (calisiyor ? '<p class="meta">Perspektif şu an çalışıyor; yeni öneriler gelebilir.</p>' : '');
   }
 
   // Bir kabın içini yalnız HTML değiştiyse yeniden kurar; odaktaki öğe (data-anahtar) korunur.

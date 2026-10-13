@@ -2,7 +2,7 @@
 birim maliyet, skill getirisi, sağlık ve tüm çalışma alanlarının karşılaştırması.
 
 Yalnız okur; kaynaklar:
-  <durum>/maliyet.jsonl, gorevler/*.json, gunluk.jsonl, ruya/durum.json, onerilen_skill/*   (proje)
+  <durum>/maliyet.jsonl, gorevler/*.json, gunluk.jsonl, perspektif/durum.json, onerilen_skill/*   (proje)
   ~/.claude/projects/<proje>/memory/MEMORY.md                                              (hafıza)
   ~/.claude/orkestra-panel/kota.jsonl   (durum satırı komutu kota.py yazar; 5 saatlik ve haftalık sınır)
 Tutarlar API liste fiyatıyla tahmindir; abonelikte fatura değil kota karşılığıdır.
@@ -82,13 +82,13 @@ def _formul_usd(r: dict, model: str) -> float:
 
 AJAN_ADLARI = {
     "ana-ajan": "Ana ajan", "ana": "Ana ajan", "orkestra:denetci": "Denetçi", "orkestra:arastirmaci": "Araştırmacı",
-    "orkestra:triyaj": "Triyaj", "orkestra:ruya-ajani": "Rüya ajanı", "orkestra:skill-avcisi": "Skill avcısı",
+    "orkestra:triyaj": "Triyaj", "orkestra:perspektif-ajani": "Perspektif ajanı", "orkestra:ruya-ajani": "Perspektif ajanı", "orkestra:skill-avcisi": "Skill avcısı",
     "orkestra:hafiza-bakimcisi": "Hafıza bakımcısı", "orkestra:arsivci": "Arşivci", "general-purpose": "Genel alt ajan",
     "Explore": "Keşif ajanı", "Plan": "Plan ajanı", "claude-code-guide": "Claude Code rehberi",
 }
 SUREC_ADLARI = {
     "orkestrasyon": "planlama ve koordinasyon", "is": "işçi çalışması", "denetim": "denetim", "duzeltme": "düzeltme",
-    "arastirma": "araştırma", "sentez": "sentez", "ruya": "rüya (bakım)", "gecmis-ana": "orkestra öncesi · ana ajan",
+    "arastirma": "araştırma", "sentez": "sentez", "perspektif": "perspektif (bakım)", "ruya": "perspektif (bakım)", "gecmis-ana": "orkestra öncesi · ana ajan",
     "gecmis-alt": "orkestra öncesi · alt ajan",
 }
 
@@ -132,7 +132,7 @@ def _rol(ajan: str | None) -> str:
         return "denetci"
     if "isci" in a:
         return "isci"
-    if "ruya" in a or "skill-avcisi" in a or "hafiza" in a:
+    if "perspektif" in a or "ruya" in a or "skill-avcisi" in a or "hafiza" in a:
         return "bakim"
     return "diger"
 
@@ -511,8 +511,8 @@ def _skill(sd: str, kayitlar: list[dict]) -> dict:
 
 def _saglik(sd: str, proje: str, kayitlar: list[dict]) -> dict:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import ruya  # noqa: E402
-    hafiza = os.path.join(ruya.hafiza_dizini(proje), "MEMORY.md")
+    import perspektif  # noqa: E402
+    hafiza = os.path.join(perspektif.hafiza_dizini(proje), "MEMORY.md")
     h = {"yol": hafiza, "var": os.path.exists(hafiza), "satir": 0, "bayt": 0,
          "satir_sinir": HAFIZA_SATIR_SINIRI, "bayt_sinir": HAFIZA_BAYT_SINIRI, "dosya": 0, "toplam_bayt": 0}
     if h["var"]:
@@ -527,9 +527,9 @@ def _saglik(sd: str, proje: str, kayitlar: list[dict]) -> dict:
     h["doluluk"] = _r(max(h["satir"] / HAFIZA_SATIR_SINIRI, h["bayt"] / HAFIZA_BAYT_SINIRI), 3)
     h["seviye"] = "kritik" if h["doluluk"] >= 0.9 else "uyari" if h["doluluk"] >= 0.7 else "iyi"
 
-    rd = ruya.durum(sd)
-    hatalar = sorted(glob.glob(os.path.join(sd, "ruya", "ruya_hata_*.md")))
-    r = {"son": rd.get("son_ruya"), "gun_once": rd.get("gun_once"), "zamani_geldi": rd.get("zamani_geldi"),
+    rd = perspektif.durum(sd)
+    hatalar = sorted(glob.glob(os.path.join(sd, "perspektif", "perspektif_hata_*.md")))
+    r = {"son": rd.get("son_perspektif"), "gun_once": rd.get("gun_once"), "zamani_geldi": rd.get("zamani_geldi"),
          "oturum_sayaci": rd.get("oturum_sayaci"), "okunmamis_rapor": bool(rd.get("okunmamis_rapor")),
          "son_hata": os.path.basename(hatalar[-1]) if hatalar else None}
     r["seviye"] = "uyari" if rd.get("zamani_geldi") or r["gun_once"] is None else "iyi"
@@ -553,7 +553,7 @@ def _saglik(sd: str, proje: str, kayitlar: list[dict]) -> dict:
     k = {"toplam": len(hh), "son7": len(hh7), "son": hh[-1] if hh else None,
          "olaylar": dict(collections.Counter(o.get("olay") for o in hh7).most_common(5))}
     k["seviye"] = "kritik" if len(hh7) >= 5 else "uyari" if hh7 else "iyi"
-    return {"hafiza": h, "ruya": r, "etiketsiz": e, "hook": k}
+    return {"hafiza": h, "perspektif": r, "etiketsiz": e, "hook": k}
 
 
 # ---------------------------------------------------------------- tek alan / tüm alanlar

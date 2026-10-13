@@ -23,7 +23,7 @@ export type UiOzet = {
   // Teslim edilmiş kartlar yalnız sayı olarak; son teslim "açık iş yok" satırı için.
   teslim?: { sayi: number; sonId?: string; sonSaat?: string }
   defter?: DefterSatiri[]  // olay olmayan, temiz son 3 satır
-  ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
+  perspektif?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
 }
 
 // Çekirdeğin yazdığı ham anlık görüntü (.claude/orkestra/ozet.json, surum 2).
@@ -43,7 +43,8 @@ export type HamOzet = {
   }
   sohbetler?: { oturum: string; baslik: string; usd: number; kaynak: 'motor' | 'defter'; son: string }[]
   defter?: { zaman?: string; gorev: string; surec: string; ajan: string; metin: string; oturum?: string | null; olay?: boolean }[]
-  ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
+  perspektif?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
+  ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }  // eski anahtar (geriye uyum)
 }
 
 declare module 'claude-code' {

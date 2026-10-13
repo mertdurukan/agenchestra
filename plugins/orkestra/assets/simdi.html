@@ -164,7 +164,7 @@
     const red = ks.filter(k => k.durum === 'reddedildi');
     const onay = ks.filter(k => k.durum === 'onaylandi');
     const sen = oturumlar().filter(r => r.bekleyen === 'sen');
-    const ruya = !!(S.ozet && S.ozet.ruya && S.ozet.ruya.rapor);
+    const perspektif = !!(S.ozet && S.ozet.perspektif && S.ozet.perspektif.rapor);
     const adlar = (liste, al) => liste.slice(0, 3).map(al).join(' · ') + (liste.length > 3 ? ` · +${liste.length - 3}` : '');
     const ogeler = [];
     if (red.length) ogeler.push(`<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
@@ -176,8 +176,8 @@
     if (onay.length) ogeler.push(`<div class="dikkat" style="--renk:var(--good)"><span class="simge" aria-hidden="true">✓</span>
       <span class="metin"><b>${onay.length} kart onaylandı, teslim bekliyor</b><span class="meta">${esc(adlar(onay, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
       <span class="eylem"><a href="#kartlar">Kartlara git</a></span></div>`);
-    if (ruya) ogeler.push(`<div class="dikkat" style="--renk:var(--s7)"><span class="simge" aria-hidden="true">☾</span>
-      <span class="metin"><b>Rüya raporu hazır</b><span class="meta">Claude içinde <code>/orkestra:ruya</code> ile oku.</span></span></div>`);
+    if (perspektif) ogeler.push(`<div class="dikkat" style="--renk:var(--s7)"><span class="simge" aria-hidden="true">☾</span>
+      <span class="metin"><b>Perspektif raporu hazır</b><span class="meta">Claude içinde <code>/orkestra:perspektif</code> ile oku.</span></span></div>`);
     // Kaynak hatası şeridi: yalnız hiç veri gelmemişken ya da hata uzun sürünce (≥ 3 yoklama / ≥ 10 sn).
     // Kısa kopukluğu yalnız canlı göstergesi ve bölüm başlığındaki işaret anlatır. Şerit mevcutların ÜSTÜNE eklenir.
     const uyarilar = [];
@@ -470,7 +470,7 @@
     durum: () => ciz(dikkatCiz, bayatCiz, ...(S.ozet ? [] : [kartCiz, olayCiz])),
   });
   // Alan değişince eski alanın kartları "son iyi veri" değildir. KO'nun dinleyicisi (yukarıda kayıtlı, önce çalışır)
-  // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları, sayacı, ret/onay/rüya şeritleri ve
+  // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları, sayacı, ret/onay/perspektif şeritleri ve
   // defter satırları kaldırılır: kart bölümü ve Dikkat "Yükleniyor…", olaylarda yalnız sohbet akışı kalır.
   window.addEventListener('orkestra:alan', () => {
     S.ozet = null; S.teslimAcik = false;

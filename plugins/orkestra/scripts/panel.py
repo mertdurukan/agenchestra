@@ -81,17 +81,18 @@ def _alan_kisa(a: dict) -> dict:
 
 
 def _perspektif(sd: str) -> dict:
-    """En yeni rapor (sd/perspektif/ ve sd/ruya/ içinden tarih damgasına göre) ve ruya durumu; modül yoksa durum None."""
+    """En yeni rapor (sd/perspektif/ ve sd/ruya/ içinden tarih damgasına göre) ve perspektif durumu; modül yoksa durum None."""
     rapor = None
     try:
         rapor = onay.en_yeni_rapor(sd)
     except Exception:  # noqa: BLE001
         rapor = None
     try:
-        import ruya  # noqa: PLC0415
-        d = ruya.durum(sd)
-        return {"rapor": rapor, "durum": {"son_ruya": d.get("son_ruya"), "calisiyor": d.get("calisiyor"),
-                                          "okunmamis_rapor": d.get("okunmamis_rapor")}}
+        import perspektif  # noqa: PLC0415
+        d = perspektif.durum(sd)
+        son = d.get("son_perspektif")
+        return {"rapor": rapor, "durum": {"son_perspektif": son, "son_ruya": son,  # son_ruya: eski anahtar (geriye uyum)
+                                          "calisiyor": d.get("calisiyor"), "okunmamis_rapor": d.get("okunmamis_rapor")}}
     except Exception:  # noqa: BLE001
         return {"rapor": rapor, "durum": None}
 
