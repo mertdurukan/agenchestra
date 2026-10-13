@@ -6,36 +6,6 @@
 <title>Orkestra Paneli</title>
 <style>
   :root {
-    color-scheme: light;
-    --surface-0: #f4f4f2;
-    --surface-1: #fcfcfb;
-    --line: #e4e3df;
-    --text-primary: #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted: #7a7974;
-    --series-1: #2a78d6;
-    --series-1-wash: rgba(42, 120, 214, 0.10);
-    --good: #0ca30c;
-    --warning: #fab219;
-    --serious: #ec835a;
-    --critical: #d03b3b;
-    --neutral: #9a9994;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) {
-      color-scheme: dark;
-      --surface-0: #121211;
-      --surface-1: #1a1a19;
-      --line: #2e2e2c;
-      --text-primary: #ffffff;
-      --text-secondary: #c3c2b7;
-      --text-muted: #8f8e86;
-      --series-1: #3987e5;
-      --series-1-wash: rgba(57, 135, 229, 0.14);
-      --neutral: #6f6e68;
-    }
-  }
-  :root[data-theme="dark"] {
     color-scheme: dark;
     --surface-0: #121211;
     --surface-1: #1a1a19;
@@ -44,7 +14,10 @@
     --text-secondary: #c3c2b7;
     --text-muted: #8f8e86;
     --series-1: #3987e5;
-    --series-1-wash: rgba(57, 135, 229, 0.14);
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
     --neutral: #6f6e68;
   }
   * { box-sizing: border-box; }
@@ -90,6 +63,10 @@
   .uyari { background: var(--surface-1); border: 1px solid var(--critical); color: var(--text-primary); border-radius: 8px;
            padding: 8px 12px; margin: 12px 20px 0; display: none; }
   .bos { color: var(--text-muted); }
+  .bilgi { background: var(--surface-1); border: 1px solid var(--line); color: var(--text-secondary); border-radius: 8px;
+           padding: 8px 12px; margin: 12px 20px 0; display: none; }
+  .bilgi code { color: var(--text-primary); }
+  .gizli { display: none !important; }
   #ipucu { position: fixed; pointer-events: none; z-index: 10; background: var(--surface-1); color: var(--text-primary);
            border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.18);
            display: none; max-width: 320px; }
@@ -99,25 +76,28 @@
 </head>
 <body>
 <header>
-  <h1>Orkestra · <span id="proje">—</span></h1>
+  <h1>Orkestra</h1>
+  <label>Çalışma alanı:
+    <select id="alanSec"></select>
+  </label>
   <span class="canli" id="canli"><i></i><span id="guncelleme">bağlanıyor…</span></span>
   <span class="bosluk"></span>
   <label>Sohbet:
     <select id="sohbetSec"><option value="">Tümü (bugün)</option></select>
   </label>
-  <button id="tema" title="Açık / koyu tema">Tema</button>
 </header>
 <div class="uyari" id="uyari"></div>
+<div class="bilgi" id="bilgi"></div>
 <main>
   <div class="karolar genis" id="karolar"></div>
 
   <section class="genis">
     <h2>Sohbetler · maliyet</h2>
     <div class="cubuklar" id="sohbetler"></div>
-    <div class="not">Kapanmış sohbet: Claude'un kendi hesabı. Açık sohbet: orkestra defteri <span class="kaynak">≈</span>. Bir sohbete tıklayınca aşağıdaki kırılımlar ona göre süzülür. API liste fiyatıyla tahmindir.</div>
+    <div class="not">Kapanmış sohbet: Claude'un kendi hesabı. Açık sohbet: orkestra defteri <span class="kaynak">≈</span> ya da transkript tahmini <span class="kaynak">~</span>. Bir sohbete tıklayınca aşağıdaki kırılımlar ona göre süzülür. API liste fiyatıyla tahmindir.</div>
   </section>
 
-  <section>
+  <section id="surecBolum">
     <h2 id="surecBaslik">Süreç payı</h2>
     <div class="cubuklar" id="surec"></div>
   </section>
@@ -126,19 +106,19 @@
     <div class="cubuklar" id="model"></div>
   </section>
 
-  <section class="genis">
+  <section class="genis" id="ajanBolum">
     <h2 id="ajanBaslik">Ajan × süreç (bugün)</h2>
     <table><thead><tr><th>Ajan</th><th>Süreç</th><th class="sayi">Koşu</th><th class="sayi">Giriş tok.</th><th class="sayi">Çıkış tok.</th><th class="sayi">≈$</th></tr></thead>
       <tbody id="ajanSurec"></tbody></table>
   </section>
 
-  <section class="genis">
+  <section class="genis" id="kartBolum">
     <h2>Görev kartları</h2>
     <table><thead><tr><th>Kart</th><th>Durum</th><th>Basamak</th><th>Görev</th><th class="sayi">İşçi</th><th>Son denetim</th><th class="sayi">≈$</th></tr></thead>
       <tbody id="kartlar"></tbody></table>
   </section>
 
-  <section class="genis">
+  <section class="genis" id="defterBolum">
     <h2>Ortak defter (son kayıtlar)</h2>
     <ul class="defter" id="defter"></ul>
   </section>
@@ -160,16 +140,31 @@
     al(k) { try { return localStorage.getItem(k); } catch { return null; } },
     koy(k, v) { try { localStorage.setItem(k, v); } catch {} },
   };
-  let secili = depo.al('orkestra.sohbet') || '';
+  let secili = '';
   let son = null;
 
-  // Tema düğmesi: OS tercihini ezer; yeniden basınca döngü.
-  const temaUygula = t => { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; };
-  temaUygula(depo.al('orkestra.tema'));
-  $('tema').onclick = () => {
-    const simdi = document.documentElement.dataset.theme;
-    const yeni = simdi === 'dark' ? 'light' : simdi === 'light' ? '' : 'dark';
-    temaUygula(yeni); depo.koy('orkestra.tema', yeni);
+  // Çalışma alanı: URL ?alan= > son seçim > sunucunun varsayılanı
+  const url = new URL(location.href);
+  let alan = url.searchParams.get('alan') || depo.al('orkestra.alan') || '';
+  const sohbetAnahtari = () => 'orkestra.sohbet.' + alan;
+  secili = depo.al(sohbetAnahtari()) || '';
+  let alanlar = [];
+  async function alanlariYukle() {
+    try {
+      alanlar = await (await fetch('alanlar.json', { cache: 'no-store' })).json();
+      const sec = $('alanSec');
+      sec.innerHTML = alanlar.map(a => `<option value="${kacis(a.id)}">${kacis(a.ad)}${a.orkestra ? '' : ' · yalnız sohbet maliyeti'}</option>`).join('');
+      if (!alanlar.some(a => a.id === alan)) alan = (alanlar.find(a => a.orkestra) || alanlar[0] || {}).id || '';
+      sec.value = alan;
+      sec.title = (alanlar.find(a => a.id === alan) || {}).yol || '';
+    } catch {}
+  }
+  $('alanSec').onchange = e => {
+    alan = e.target.value; depo.koy('orkestra.alan', alan);
+    url.searchParams.set('alan', alan); history.replaceState(null, '', url);
+    secili = depo.al(sohbetAnahtari()) || '';
+    $('alanSec').title = (alanlar.find(a => a.id === alan) || {}).yol || '';
+    yenile();
   };
 
   // İpucu
@@ -205,7 +200,6 @@
 
   function ciz(o) {
     son = o;
-    $('proje').textContent = o.proje || '—';
     const m = o.maliyet || {};
     const sy = o.sayac || {};
     const sohbetler = o.sohbetler || [];
@@ -217,30 +211,34 @@
     sec.value = sohbetler.some(s => s.oturum === onceki) ? onceki : '';
     secili = sec.value;
 
+    const ork = o.orkestra !== false;
+    for (const id of ['kartBolum', 'ajanBolum', 'defterBolum', 'surecBolum']) $(id).classList.toggle('gizli', !ork);
+    $('bilgi').style.display = ork ? 'none' : 'block';
+    if (!ork) $('bilgi').innerHTML = 'Bu çalışma alanında orkestra kurulu değil: yalnız sohbet maliyetleri gösteriliyor. ' +
+      'Kurmak için: <code>python C:\\Users\\PC\\Desktop\\Claude-Orchestration\\araclar\\projeye_kur.py "' + kacis((o.alan || {}).yol || '') + '"</code>';
     // Karolar
     const secSohbet = sohbetler.find(s => s.oturum === secili);
     $('karolar').innerHTML =
       karo('Bugün', usd(m.bugun)) +
       karo(secSohbet ? 'Seçili sohbet' : 'Toplam (kayıtlı)', usd(secSohbet ? secSohbet.usd : m.toplam)) +
-      karo('İşleniyor', sayi(sy.isleniyor)) +
-      karo('Denetimde', sayi(sy.denetimde)) +
-      karo('Ret', sayi(sy.reddedildi)) +
-      karo('Teslime hazır', sayi(sy.onaylandi));
+      (ork ? karo('İşleniyor', sayi(sy.isleniyor)) + karo('Denetimde', sayi(sy.denetimde)) +
+             karo('Ret', sayi(sy.reddedildi)) + karo('Teslime hazır', sayi(sy.onaylandi))
+           : karo('Sohbet', sayi(sohbetler.length)));
 
     // Sohbetler
     const sirali = sohbetler.slice().sort((a, b) => b.usd - a.usd);  // maliyete göre sabit sıra: tıklarken kaymaz
     cubuklar($('sohbetler'), sirali.map(s => ({
-      etiket: s.baslik, deger: s.usd, isaret: s.kaynak === 'defter' ? '≈' : '', secili: s.oturum === secili,
+      etiket: s.baslik, deger: s.usd, isaret: s.kaynak === 'defter' ? '≈' : s.kaynak === 'tahmin' ? '~' : '', secili: s.oturum === secili,
       oturum: s.oturum,
-      ipucu: `<b>${kacis(s.baslik)}</b>${usd(s.usd)} · ${s.kaynak === 'motor' ? "Claude'un hesabı" : 'orkestra defteri (açık sohbet)'}<br>` +
+      ipucu: `<b>${kacis(s.baslik)}</b>${usd(s.usd)} · ${s.kaynak === 'motor' ? "Claude'un hesabı" : s.kaynak === 'defter' ? 'orkestra defteri (açık sohbet)' : 'transkript tahmini'}<br>` +
              `Son etkinlik: ${kacis((s.son || '').replace('T', ' ').slice(0, 16))}<br>` +
              Object.entries(s.modeller || {}).map(([k, v]) => `${kacis(k.replace('claude-', ''))}: ${usd(v)}`).join('<br>'),
-    })), s => { secili = secili === s.oturum ? '' : s.oturum; depo.koy('orkestra.sohbet', secili); ciz(son); });
+    })), s => { secili = secili === s.oturum ? '' : s.oturum; depo.koy(sohbetAnahtari(), secili); ciz(son); });
 
     // Süreç / model (seçili sohbet ya da bugün)
     const kirilim = secili && m.oturumlar && m.oturumlar[secili] ? m.oturumlar[secili] : { surec: m.surec || {}, model: m.model || {} };
     $('surecBaslik').textContent = 'Süreç payı · ' + (secSohbet ? secSohbet.baslik : 'bugün');
-    $('modelBaslik').textContent = 'Model payı · ' + (secSohbet ? secSohbet.baslik : 'bugün');
+    $('modelBaslik').textContent = 'Model payı · ' + (secSohbet ? secSohbet.baslik : (ork ? 'bugün' : 'tüm sohbetler'));
     cubuklar($('surec'), Object.entries(kirilim.surec || {}).map(([k, v]) => ({ etiket: k, deger: v })));
     cubuklar($('model'), Object.entries(kirilim.model || {}).map(([k, v]) => ({ etiket: k, deger: v })));
 
@@ -270,11 +268,11 @@
     $('guncelleme').textContent = 'canlı · ' + new Date().toLocaleTimeString('tr-TR');
   }
 
-  $('sohbetSec').onchange = e => { secili = e.target.value; depo.koy('orkestra.sohbet', secili); if (son) ciz(son); };
+  $('sohbetSec').onchange = e => { secili = e.target.value; depo.koy(sohbetAnahtari(), secili); if (son) ciz(son); };
 
   async function yenile() {
     try {
-      const r = await fetch('ozet.json', { cache: 'no-store' });
+      const r = await fetch('ozet.json?alan=' + encodeURIComponent(alan), { cache: 'no-store' });
       const o = await r.json();
       $('canli').classList.remove('kopuk');
       if (!o.acik) {
@@ -289,8 +287,9 @@
       $('guncelleme').textContent = 'bağlantı yok (sunucu kapalı mı? `orkestra panel`)';
     }
   }
-  yenile();
+  alanlariYukle().then(yenile);
   setInterval(yenile, 3000);
+  setInterval(alanlariYukle, 15000);
 })();
 </script>
 </body>

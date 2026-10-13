@@ -57,7 +57,7 @@ def olustur(sd: str, proje: str) -> dict:
         a["cikis"] += r.get("cikis", 0) or 0
         a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
 
-    sohbet_listesi = L.sohbetler(sd, proje, limit=15)
+    sohbet_listesi = L.sohbetler(sd, proje, limit=15, tahmin=True)
     oturum_ids = {s["oturum"] for s in sohbet_listesi}
     oturumlar: dict = {}
     for r in kayitlar:
@@ -83,11 +83,16 @@ def olustur(sd: str, proje: str) -> dict:
 
     sohbetler = []
     for s in sohbet_listesi:
-        usd = s["motor_usd"] if s["motor_usd"] is not None else s["defter_usd"]
+        if s["motor_usd"]:
+            usd, kaynak = s["motor_usd"], "motor"
+        elif s["defter_usd"]:
+            usd, kaynak = s["defter_usd"], "defter"
+        else:
+            usd, kaynak = s.get("tahmin_usd") or 0.0, "tahmin"
         if not usd:
             continue
         sohbetler.append({"oturum": s["oturum"], "baslik": s["baslik"], "usd": round(usd, 4),
-                          "kaynak": "motor" if s["motor_usd"] is not None else "defter",
+                          "kaynak": kaynak,
                           "motor_usd": s["motor_usd"], "defter_usd": s["defter_usd"], "son": s["son"],
                           "modeller": s["modeller"]})
 
@@ -100,7 +105,7 @@ def olustur(sd: str, proje: str) -> dict:
     rd = ruya.durum(sd)
 
     return {
-        "surum": SURUM, "acik": True, "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)),
+        "surum": SURUM, "acik": True, "orkestra": True, "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)),
         "kartlar": kartlar,
         "sayac": dict(collections.Counter(k["durum"] for k in acik)),
         "maliyet": {
@@ -131,3 +136,48 @@ def yaz(sd: str, proje: str) -> dict | None:
         except Exception:
             pass
         return None
+
+
+# ---------------------------------------------------------------- çoklu çalışma alanı
+
+def _hafif(alan: dict) -> dict:
+    """Orkestra kurulu olmayan çalışma alanı: yalnız sohbet maliyetleri (Claude'un hesabı ya da transkript tahmini)."""
+    sohbet_listesi = L.sohbetler(None, alan["yol"], limit=15, tahmin=True,
+                                 oturum_dizini=os.path.join(os.path.expanduser("~"), ".claude", "projects", alan["id"]))
+    sohbetler, model, oturumlar = [], collections.Counter(), {}
+    bugun = datetime.date.today().isoformat()
+    bugun_usd = 0.0
+    for s in sohbet_listesi:
+        usd = s["motor_usd"] if s["motor_usd"] else (s.get("tahmin_usd") or 0.0)
+        if not usd:
+            continue
+        kaynak = "motor" if s["motor_usd"] else "tahmin"
+        sohbetler.append({"oturum": s["oturum"], "baslik": s["baslik"], "usd": round(usd, 4), "kaynak": kaynak,
+                          "motor_usd": s["motor_usd"], "defter_usd": 0.0, "son": s["son"], "modeller": s["modeller"]})
+        for m, v in (s["modeller"] or {}).items():
+            model[m.replace("claude-", "")] += v
+        oturumlar[s["oturum"]] = {"usd": round(usd, 4), "surec": {},
+                                  "model": _yuvarla({m.replace("claude-", ""): v for m, v in (s["modeller"] or {}).items()}),
+                                  "ajan_surec": []}
+        if (s["son"] or "").startswith(bugun):
+            bugun_usd += usd
+    return {
+        "surum": SURUM, "acik": True, "orkestra": False, "uretim": L.simdi(), "proje": alan["ad"],
+        "kartlar": [], "sayac": {},
+        "maliyet": {"bugun": round(bugun_usd, 4), "toplam": round(sum(s["usd"] for s in sohbetler), 4), "surec": {},
+                    "model": _yuvarla(dict(model.most_common(6))), "ajan_surec": [], "oturumlar": oturumlar},
+        "sohbetler": sohbetler, "defter": [], "ruya": None,
+    }
+
+
+def alan_ozeti(alan_id: str | None) -> dict:
+    """Panel için seçili çalışma alanının anlık görüntüsü (orkestra varsa tam, yoksa hafif)."""
+    alanlar = L.calisma_alanlari()
+    alan = next((a for a in alanlar if a["id"] == alan_id), None) or next((a for a in alanlar if a["orkestra"]), None) \
+        or (alanlar[0] if alanlar else None)
+    if alan is None:
+        return {"acik": False, "hata": "Bu bilgisayarda Claude çalışma alanı bulunamadı."}
+    sd = os.path.join(alan["yol"], ".claude", "orkestra")
+    o = olustur(sd, alan["yol"]) if alan["orkestra"] else _hafif(alan)
+    o["alan"] = {"id": alan["id"], "ad": alan["ad"], "yol": alan["yol"], "orkestra": alan["orkestra"]}
+    return o

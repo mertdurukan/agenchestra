@@ -16,10 +16,11 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 - **Rüya:** Oturumlar arasında arka planda hafıza bakımı ve skill avı yapılır. Yalnız öneri üretir; hafızayı onayınla değiştirir.
 - **Arayüz (iki görünüm, tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
   - **Claude içinde:** `/orkestra` sohbetin yanında bir panel açar: kartlar, bu oturumun maliyeti, sohbetler, defter. Prompt üstünde tek satırlık bir bant da çıkar.
-  - **HTML canlı panel:** `/orkestra-web` (ya da Bash'te `orkestra panel`) yerel bir sayfa açar: `http://127.0.0.1:8765/`. Sayfa üç saniyede bir yenilenir.
+  - **HTML canlı panel:** `/orkestra-web` (ya da Bash'te `orkestra panel`, ya da `araclarpaneli_ac.cmd`) yerel bir sayfa açar: `http://127.0.0.1:8765/`. Sayfa üç saniyede bir yenilenir.
+    - Bu bilgisayardaki bütün Claude çalışma alanları başlıktaki seçiciden seçilir. Orkestra kurulu alanlarda tam görünüm, kurulu olmayanlarda sohbet maliyetleri gösterilir.
+    - Sayfa yalnız koyu temadadır.
     - Sohbet başına maliyet çubukları yer alır; bir sohbete tıklayınca süreç, model ve ajan × süreç kırılımları ona göre süzülür.
     - Görev kartları ve ortak defter de gösterilir.
-    - Açık ve koyu tema vardır.
     - Sayfa yalnız bu bilgisayardan erişilebilir.
 
 ## Yapı

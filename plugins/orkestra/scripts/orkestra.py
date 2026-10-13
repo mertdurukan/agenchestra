@@ -551,10 +551,14 @@ def cmd_ui_ozet(a):
 
 
 def cmd_panel(a):
-    """HTML canlı paneli başlatır (yalnız 127.0.0.1) ve adresini yazar."""
-    sd = sd_gerekli()
+    """HTML canlı paneli başlatır (tüm çalışma alanları; yalnız 127.0.0.1) ve adresini yazar.
+
+    Bulunulan klasör bir Claude çalışma alanıysa panel onu seçili açar."""
     import panel
-    sonuc = panel.baslat(sd, L.proje_dizini(), a.port, on_planda=a.on_planda)
+    alan_id = os.path.basename(L.proje_oturum_dizini(L.proje_dizini()))
+    if not os.path.isdir(L.proje_oturum_dizini(L.proje_dizini())):
+        alan_id = None
+    sonuc = panel.baslat(a.port, alan_id, on_planda=a.on_planda)
     print(sonuc)
     if a.ac and sonuc.startswith("http"):
         import webbrowser

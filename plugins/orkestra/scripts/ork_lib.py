@@ -498,14 +498,36 @@ def _son_json_satiri(veri: bytes, isaret: bytes) -> dict | None:
         return None
 
 
-def sohbetler(sd: str, proje: str, limit: int = 12) -> list[dict]:
-    """Çalışma alanının sohbetleri (kenar çubuğundaki adlarıyla), motorun maliyeti ve defterdeki maliyet.
+GENEL_DIZIN = os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel")
 
-    Ad: transkriptteki son `custom-title`. Motor maliyeti: son `cost-state.totalCostUSD` (motorun kendi hesabı;
-    alt ajanlar dahil). Büyük transkriptler yalnız boyut/zaman değişince yeniden okunur.
+
+def _transkript_tahmini(ana: str) -> tuple[float, dict]:
+    """cost-state yokken (açık sohbet) transkriptten maliyet tahmini: ana zincir + alt ajanlar."""
+    toplam, modeller = 0.0, {}
+    oid = os.path.basename(ana)[:-6]
+    yollar = [(ana, False)] + [(a, None) for a in glob.glob(os.path.join(os.path.dirname(ana), oid, "subagents", "agent-*.jsonl"))]
+    for yol, zincir in yollar:
+        o = transkript_oku(yol, 0, yan_zincir=zincir)
+        for m, d in o["modeller"].items():
+            modeller[m] = round(modeller.get(m, 0.0) + d["maliyet_usd"], 4)
+            toplam += d["maliyet_usd"]
+    return round(toplam, 4), modeller
+
+
+def sohbetler(sd: str | None, proje: str, limit: int = 12, tahmin: bool | None = None,
+              oturum_dizini: str | None = None) -> list[dict]:
+    """Çalışma alanının sohbetleri (kenar çubuğundaki adlarıyla) ve maliyetleri.
+
+    Ad: transkriptteki son `custom-title`. Kesin maliyet: son `cost-state.totalCostUSD` (Claude'un kendi hesabı;
+    sohbet kapanınca yazılır). Açık sohbette: orkestra defteri (`sd` varsa) ya da transkript tahmini.
+    Büyük transkriptler yalnız boyut/zaman değişince yeniden okunur; önbellek orkestra varsa durum klasöründe,
+    yoksa ~/.claude/orkestra-panel altında.
     """
-    dizin = proje_oturum_dizini(proje)
-    onb_yolu = os.path.join(sd, "oturumlar", "sohbet_onbellek.json")
+    dizin = oturum_dizini or proje_oturum_dizini(proje)
+    if tahmin is None:
+        tahmin = sd is None
+    onb_yolu = (os.path.join(sd, "oturumlar", "sohbet_onbellek.json") if sd
+                else os.path.join(GENEL_DIZIN, "onbellek", os.path.basename(dizin) + ".json"))
     try:
         with open(onb_yolu, encoding="utf-8") as f:
             onb = json.load(f)
@@ -518,7 +540,7 @@ def sohbetler(sd: str, proje: str, limit: int = 12) -> list[dict]:
         st = os.stat(p)
         imza = f"{st.st_size}:{int(st.st_mtime)}"
         k = onb.get(oid)
-        if not k or k.get("imza") != imza:
+        if not k or k.get("imza") != imza or (tahmin and "tahmin_usd" not in k and not k.get("motor_usd")):
             with open(p, "rb") as f:
                 veri = f.read()
             baslik = _son_json_satiri(veri, b'"type":"custom-title"') or {}
@@ -537,15 +559,69 @@ def sohbetler(sd: str, proje: str, limit: int = 12) -> list[dict]:
             k = {"imza": imza, "baslik": baslik.get("customTitle") or ilk or oid[:8],
                  "motor_usd": maliyet.get("totalCostUSD"),
                  "modeller": {m: round(v.get("costUSD", 0) or 0, 4) for m, v in (maliyet.get("modelUsage") or {}).items()}}
+            if tahmin and not k["motor_usd"]:
+                k["tahmin_usd"], tm = _transkript_tahmini(p)
+                k["modeller"] = tm
             onb[oid] = k
             degisti = True
         out.append({"oturum": oid, "baslik": k["baslik"], "motor_usd": k["motor_usd"], "modeller": k["modeller"],
+                    "tahmin_usd": k.get("tahmin_usd"),
                     "son": datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat(timespec="minutes")})
     if degisti:
         atomik_yaz(onb_yolu, json.dumps(onb, ensure_ascii=False))
     defter: dict = {}
-    for r in maliyet_kayitlari(sd):
-        defter[r.get("oturum")] = defter.get(r.get("oturum"), 0.0) + (r.get("maliyet_usd") or 0.0)
+    if sd:
+        for r in maliyet_kayitlari(sd):
+            defter[r.get("oturum")] = defter.get(r.get("oturum"), 0.0) + (r.get("maliyet_usd") or 0.0)
     for s in out:
         s["defter_usd"] = round(defter.get(s["oturum"], 0.0), 4)
     return out
+
+
+def calisma_alanlari() -> list[dict]:
+    """Bu bilgisayardaki Claude çalışma alanları (~/.claude/projects): ad, gerçek yol, orkestra kurulu mu, son etkinlik.
+
+    Gerçek yol transkriptteki `cwd`dan okunur (önbellekli). Geçici klasörler (Temp altındakiler) listelenmez.
+    """
+    kok = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    onb_yolu = os.path.join(GENEL_DIZIN, "alanlar.json")
+    try:
+        with open(onb_yolu, encoding="utf-8") as f:
+            onb = json.load(f)
+    except Exception:
+        onb = {}
+    out, degisti = [], False
+    for d in sorted(glob.glob(os.path.join(kok, "*"))):
+        if not os.path.isdir(d):
+            continue
+        dosyalar = glob.glob(os.path.join(d, "*.jsonl"))
+        if not dosyalar:
+            continue
+        aid = os.path.basename(d)
+        son = max(dosyalar, key=os.path.getmtime)
+        yol = (onb.get(aid) or {}).get("yol")
+        if not yol:
+            with open(son, "rb") as f:
+                bas = f.read(400_000)
+            m = re.search(rb'"cwd":"((?:[^"\\]|\\.)*)"', bas)
+            yol = json.loads(b'"' + m.group(1) + b'"') if m else None
+            if yol:
+                onb[aid] = {"yol": yol}
+                degisti = True
+        if not yol or re.search(r"[\\/]AppData[\\/]Local[\\/]Temp[\\/]", yol, re.I):
+            continue
+        out.append({"id": aid, "ad": os.path.basename(yol.rstrip("\\/")) or yol, "yol": yol,
+                    "orkestra": os.path.isdir(os.path.join(yol, ".claude", "orkestra")),
+                    "sohbet": len(dosyalar),
+                    "son": datetime.datetime.fromtimestamp(os.path.getmtime(son)).astimezone().isoformat(timespec="minutes")})
+    adlar = {}
+    for a in out:
+        adlar.setdefault(a["ad"], []).append(a)
+    for ayni in adlar.values():
+        if len(ayni) > 1:
+            for a in ayni:
+                ust = os.path.basename(os.path.dirname(a["yol"].rstrip("\\/")))
+                a["ad"] = f"{a['ad']} ({ust[:30]})"
+    if degisti:
+        atomik_yaz(onb_yolu, json.dumps(onb, ensure_ascii=False))
+    return sorted(out, key=lambda a: a["son"], reverse=True)
