@@ -658,13 +658,13 @@ def pazar_kaynagi(pazar: str = "claude-orchestration") -> str | None:
 
 
 def icerik_ozetleri(kok: str) -> dict[str, str]:
-    """{göreli yol: sha1}; __pycache__, .in_use, .pyc hariç; CRLF/LF farkı yok sayılır."""
+    """{göreli yol: sha1}; __pycache__ ve .in_use klasörleri, .in_use / .orphaned_at / .pyc dosyaları hariç; CRLF/LF farkı yok sayılır."""
     import hashlib
     out = {}
     for d, altlar, dosyalar in os.walk(kok):
-        altlar[:] = [x for x in altlar if x != "__pycache__"]
+        altlar[:] = [x for x in altlar if x not in ("__pycache__", ".in_use")]
         for ad in dosyalar:
-            if ad == ".in_use" or ad.endswith(".pyc"):
+            if ad in (".in_use", ".orphaned_at") or ad.endswith(".pyc"):
                 continue
             tam = os.path.join(d, ad)
             try:

@@ -407,6 +407,15 @@ class Bayatlik(unittest.TestCase):
             f.write("1")
         self.assertIsNone(self.L.bayatlik(self.kopya, self.depo))
 
+    def test_in_use_klasoru_ve_orphaned_at_yok_sayilir(self):
+        os.makedirs(os.path.join(self.kopya, ".in_use"))
+        for pid in ("123", "20952"):
+            with open(os.path.join(self.kopya, ".in_use", pid), "w") as f:
+                f.write(pid)
+        with open(os.path.join(self.kopya, ".orphaned_at"), "w") as f:
+            f.write("2026-10-13")
+        self.assertIsNone(self.L.bayatlik(self.kopya, self.depo))
+
     def test_farkli_dosya_sayilir(self):
         with open(os.path.join(self.kopya, "scripts", "a.py"), "w", encoding="utf-8") as f:
             f.write("print(2)" + chr(10))
