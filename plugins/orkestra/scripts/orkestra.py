@@ -1,0 +1,660 @@
+"""orkestra — görev kartları, ortak defter, token defteri ve rüya için komut satırı aracı.
+
+Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
+  orkestra baslat                                   bu projede durum klasörünü açar
+  orkestra kart yeni --baslik T --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
+  orkestra kart toplu --json-dosya plan.json       (liste: [{baslik, basamak, kabul_kriterleri, yazma_alani, bagimliliklar, ...}])
+  orkestra kart goster G-001 | liste [--hepsi] [--json]
+  orkestra kart durum G-001 isleniyor|is-bitti|beklemede|iptal|planlandi [--ozet M] [--cikti YOL]... [--not M]
+  orkestra kart denetim G-001 --karar onay|ret --gerekce M [--talimat M]      (yalnız denetçi ajan)
+  orkestra kart yukselt G-001 --basamak T3 --neden M
+  orkestra kart teslim G-001 [--ozet M]                                        (yalnız ana ajan, onaylı kart)
+  orkestra defter ekle G-001 --surec is [--yaptim M] [--sonuc M] [--not M]
+  orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
+  orkestra defter oku [--gorev G] [--son N] | ozet
+  orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json]
+  orkestra ruya durum | basla | bitti
+  orkestra gunluk ozet [--gun 7]
+`--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
+"""
+from __future__ import annotations
+
+import argparse
+import collections
+import csv
+import datetime
+import io
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ork_lib as L  # noqa: E402
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+BASAMAKLAR = ("T0", "T1", "T2", "T3", "T4")
+
+
+def hata(mesaj: str, kod: int = 2):
+    print(f"orkestra: {mesaj}", file=sys.stderr)
+    sys.exit(kod)
+
+
+def sd_gerekli() -> str:
+    sd = L.durum_dizini()
+    if not sd:
+        hata("bu projede orkestra açık değil (`orkestra baslat`).")
+    return sd
+
+
+def oturum_id() -> str:
+    return os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or "-"
+
+
+# ---------------------------------------------------------------- baslat
+
+README = """# .claude/orkestra — çalışma zamanı durumu
+
+Bu klasörü orkestra plugin'i yönetir; elle düzenleme yapma (hook'lar engeller).
+
+| Dosya | Ne | Kim yazar |
+|---|---|---|
+| `gorevler/<id>.json` | Görev kartları: kabul kriteri, yazma alanı, bağımlılık, denetimler | `orkestra kart …` |
+| `ortak_defter.md` / `.jsonl` | Herkes ne yaptığını yazar; yalnız sona ekleme | SubagentStop/Stop hook'ları + `orkestra defter ekle` |
+| `maliyet.jsonl` | Her ajanın her süreç için token ve maliyet kaydı | SubagentStop/Stop hook'ları |
+| `gunluk.jsonl` | İstekler (maskeli), skill/ajan kullanımı — skill avcısı okur | UserPromptSubmit/PostToolUse hook'ları |
+| `ruya/` | Hafıza bakım raporları | rüya koşusu |
+| `onerilen_skill/` | Skill avcısının taslakları (onayın gerekir) | skill-avcisi |
+| `raporlar/` | `orkestra maliyet rapor` çıktıları | CLI |
+"""
+
+
+def cmd_baslat(a):
+    sd = L.durum_dizini(olustur=True)
+    rd = os.path.join(sd, "README.md")
+    if not os.path.exists(rd):
+        L.atomik_yaz(rd, README)
+    print(sd)
+
+
+# ---------------------------------------------------------------- kart
+
+def _kart_al(sd, gid):
+    k = L.kart_oku(sd, gid)
+    if not k:
+        hata(f"kart yok: {gid}")
+    return k
+
+
+def _kart_kur(sd, d: dict) -> dict:
+    basamak = (d.get("basamak") or "T2").upper()
+    if basamak not in BASAMAKLAR:
+        hata(f"basamak T0..T4 olmalı: {basamak}")
+    gid = d.get("id") or L.yeni_kart_id(sd)
+    if L.kart_oku(sd, gid):
+        hata(f"kart zaten var: {gid}")
+    return {
+        "id": gid,
+        "baslik": d.get("baslik") or "(başlıksız)",
+        "sinif": d.get("sinif") or "-",
+        "basamak": basamak,
+        "baslangic_basamak": basamak,
+        "girdi": d.get("girdi") or "",
+        "kabul_kriterleri": list(d.get("kabul_kriterleri") or []),
+        "yazma_alani": list(d.get("yazma_alani") or []),
+        "bagimliliklar": list(d.get("bagimliliklar") or []),
+        "durum": "planlandi",
+        "oturum": oturum_id(),
+        "olusturma": L.simdi(),
+        "isciler": [],
+        "denetciler": [],
+        "denetimler": [],
+        "ciktilar": [],
+        "gecmis": [{"zaman": L.simdi(), "olay": "olusturuldu", "basamak": basamak}],
+    }
+
+
+def cmd_kart_yeni(a):
+    sd = sd_gerekli()
+    k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
+                       "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli})
+    if not k["kabul_kriterleri"]:
+        hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
+    L.kart_yaz(sd, k)
+    print(k["id"])
+
+
+def cmd_kart_toplu(a):
+    sd = sd_gerekli()
+    with open(a.json_dosya, encoding="utf-8") as f:
+        liste = json.load(f)
+    if isinstance(liste, dict):
+        liste = liste.get("gorevler") or []
+    yerel = {}
+    olusan = []
+    for d in liste:
+        if not d.get("kabul_kriterleri"):
+            hata(f"kabul kriteri eksik: {d.get('baslik')}")
+    for d in liste:
+        takma = d.pop("ref", None)
+        d["bagimliliklar"] = [yerel.get(b, b) for b in d.get("bagimliliklar") or []]
+        k = _kart_kur(sd, d)
+        L.kart_yaz(sd, k)
+        if takma:
+            yerel[takma] = k["id"]
+        olusan.append(k)
+    # döngü kontrolü
+    harita = {k["id"]: k["bagimliliklar"] for k in L.kartlar(sd)}
+
+    def dongu(n, yol):
+        if n in yol:
+            return True
+        return any(dongu(m, yol | {n}) for m in harita.get(n, []))
+    for k in olusan:
+        if dongu(k["id"], set()):
+            hata(f"bağımlılık döngüsü: {k['id']}")
+    print(json.dumps([{"id": k["id"], "baslik": k["baslik"], "basamak": k["basamak"], "bagimliliklar": k["bagimliliklar"]}
+                      for k in olusan], ensure_ascii=False))
+
+
+def cmd_kart_goster(a):
+    sd = sd_gerekli()
+    k = _kart_al(sd, a.gid)
+    k["durum"] = L.kart_durumu_hesapla(k)
+    print(json.dumps(k, ensure_ascii=False, indent=2))
+
+
+def cmd_kart_liste(a):
+    sd = sd_gerekli()
+    oid = oturum_id()
+    ks = [k for k in L.kartlar(sd) if a.hepsi or k.get("oturum") == oid or k.get("durum") in L.ACIK_DURUMLAR]
+    for k in ks:
+        k["durum"] = L.kart_durumu_hesapla(k)
+    if a.json:
+        print(json.dumps(ks, ensure_ascii=False))
+        return
+    for k in ks:
+        print(f"{k['id']:7s} {k['durum']:11s} {k['basamak']} {k['baslik'][:70]}"
+              + (f"  ← {','.join(k['bagimliliklar'])}" if k["bagimliliklar"] else ""))
+    if not ks:
+        print("(kart yok)")
+
+
+def _kim(a):
+    return (a.ajan_id or "bilinmiyor"), (a.ajan_tipi or "bilinmiyor")
+
+
+def cmd_kart_durum(a):
+    sd = sd_gerekli()
+    ajan_id, ajan_tipi = _kim(a)
+    path = L.kart_yolu(sd, a.gid)
+    with L.kilit(path):
+        k = _kart_al(sd, a.gid)
+        if a.durum == "is-bitti":
+            if ajan_tipi == "ana":
+                hata("ana ajan işçi işi bitiremez: işi bir işçi ajana ver.")
+            k["son_is_zamani"] = L.simdi()
+            k["son_is_sira"] = L.sonraki_sira(k)
+            if ajan_id not in k["isciler"]:
+                k["isciler"].append(ajan_id)
+            for c in a.cikti or []:
+                if c not in k["ciktilar"]:
+                    k["ciktilar"].append(c)
+            if a.ozet:
+                k["son_ozet"] = L.maskele(a.ozet)[:2000]
+            k["durum"] = "denetimde"
+        else:
+            if a.durum in ("iptal", "beklemede", "planlandi") and ajan_tipi not in ("ana", "bilinmiyor"):
+                hata("kartı iptal/beklemeye yalnız ana ajan alır.")
+            k["durum"] = a.durum
+        k["gecmis"].append({"zaman": L.simdi(), "olay": a.durum, "ajan": ajan_tipi, "agent_id": ajan_id,
+                            "not": L.maskele(a.not_ or "")[:500]})
+        L.kart_yaz(sd, k)
+    print(f"{a.gid} → {k['durum']}")
+
+
+def cmd_kart_denetim(a):
+    sd = sd_gerekli()
+    ajan_id, ajan_tipi = _kim(a)
+    if not ajan_tipi.endswith("denetci"):
+        hata(f"denetim kararını yalnız denetçi ajan yazar (sen: {ajan_tipi}).", 3)
+    path = L.kart_yolu(sd, a.gid)
+    with L.kilit(path):
+        k = _kart_al(sd, a.gid)
+        if ajan_id in k["isciler"]:
+            hata("bu kartta işçi olarak çalışan ajan kendi işini denetleyemez.", 3)
+        if not k.get("son_is_zamani"):
+            hata("denetlenecek işçi çıktısı yok (işçi `kart durum … is-bitti` demedi).", 3)
+        kayit = {"zaman": L.simdi(), "sira": L.sonraki_sira(k), "karar": a.karar, "gerekce": L.maskele(a.gerekce)[:3000],
+                 "talimat": L.maskele(a.talimat or "")[:3000], "agent_id": ajan_id, "ajan": ajan_tipi,
+                 "basamak": k["basamak"]}
+        k["denetimler"].append(kayit)
+        if ajan_id not in k["denetciler"]:
+            k["denetciler"].append(ajan_id)
+        k["durum"] = L.kart_durumu_hesapla(k)
+        k["gecmis"].append({"zaman": kayit["zaman"], "olay": f"denetim:{a.karar}", "ajan": ajan_tipi, "agent_id": ajan_id})
+        L.kart_yaz(sd, k)
+        L.atomik_yaz(os.path.join(sd, "gorevler", f"{a.gid}.denetim.json"),
+                     json.dumps(k["denetimler"], ensure_ascii=False, indent=2) + "\n")
+    print(f"{a.gid} denetim: {a.karar} → {k['durum']}")
+
+
+def cmd_kart_yukselt(a):
+    sd = sd_gerekli()
+    b = a.basamak.upper()
+    if b not in BASAMAKLAR:
+        hata("basamak T0..T4 olmalı")
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        if BASAMAKLAR.index(b) <= BASAMAKLAR.index(k["basamak"]):
+            hata("yükseltme yalnız yukarı yapılır.")
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "yukseltme", "eski": k["basamak"], "yeni": b, "not": a.neden})
+        k["basamak"] = b
+        k["durum"] = "isleniyor"
+        k.pop("son_is_zamani", None)
+        k.pop("son_is_sira", None)
+        L.kart_yaz(sd, k)
+    print(f"{a.gid} → {b}")
+
+
+def cmd_kart_teslim(a):
+    sd = sd_gerekli()
+    _, ajan_tipi = _kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("teslimi yalnız ana ajan yapar.", 3)
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        durum = L.kart_durumu_hesapla(k)
+        if durum != "onaylandi":
+            hata(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
+        k["durum"] = "teslim"
+        k["teslim_ozeti"] = L.maskele(a.ozet or "")[:2000]
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "teslim"})
+        L.kart_yaz(sd, k)
+    L.defter_ekle(sd, {"gorev": a.gid, "surec": "sentez", "ajan": "ana-ajan", "model": "-",
+                       "yaptim": "Onaylı çıktıyı topladım ve teslim ettim.", "sonuc": "TESLİM", "not": a.ozet or ""})
+    print(f"{a.gid} → teslim")
+
+
+# ---------------------------------------------------------------- defter
+
+def cmd_defter_ekle(a):
+    sd = sd_gerekli()
+    ajan_id, ajan_tipi = _kim(a)
+    if a.surec not in L.SURECLER:
+        hata(f"süreç şunlardan biri olmalı: {', '.join(L.SURECLER)}")
+    L.defter_ekle(sd, {"gorev": a.gid, "surec": a.surec, "ajan": ajan_tipi, "agent_id": None if ajan_id in ("ana", "bilinmiyor") else ajan_id,
+                       "model": "-", "yaptim": a.yaptim, "sonuc": a.sonuc, "not": a.not_, "kaynak": "ajan"})
+    print("eklendi")
+
+
+def _blok_metni(r: dict) -> str:
+    return L.defter_blogu(r).strip()
+
+
+def cmd_defter_baglam(a):
+    sd = sd_gerekli()
+    k = _kart_al(sd, a.gid)
+    ilgili = set(k["bagimliliklar"]) | {a.gid}
+    parcalar = [f"# Bağlam: {a.gid} — {k['baslik']}",
+                f"Basamak {k['basamak']} · durum {L.kart_durumu_hesapla(k)}",
+                "Kabul kriterleri:\n" + "\n".join(f"  {i+1}. {c}" for i, c in enumerate(k["kabul_kriterleri"])),
+                "Yazma alanı: " + (", ".join(k["yazma_alani"]) or "(sınırsız)")]
+    if k.get("girdi"):
+        parcalar.append("Girdi: " + k["girdi"])
+    son_ret = [d for d in k["denetimler"] if d["karar"] == "ret"][-1:]
+    if son_ret:
+        parcalar.append("SON RET — düzeltme talimatı: " + (son_ret[0].get("talimat") or son_ret[0].get("gerekce")))
+    for b in k["bagimliliklar"]:
+        bk = L.kart_oku(sd, b)
+        if bk:
+            parcalar.append(f"Bağımlılık {b} ({L.kart_durumu_hesapla(bk)}): çıktılar {', '.join(bk.get('ciktilar') or []) or '-'}"
+                            + (f"\n  özet: {bk.get('son_ozet', '')[:400]}" if bk.get("son_ozet") else ""))
+    kayitlar = [r for r in L.defter_kayitlari(sd) if r.get("gorev") in ilgili]
+    metin = "\n".join(parcalar) + "\n\n# İlgili defter kayıtları (en yeni sonda)\n"
+    bloklar = [_blok_metni(r) for r in kayitlar]
+    secili = []
+    toplam = len(metin)
+    for b in reversed(bloklar):
+        if toplam + len(b) > a.max:
+            break
+        secili.insert(0, b)
+        toplam += len(b) + 2
+    if len(secili) < len(bloklar):
+        metin += f"(… {len(bloklar) - len(secili)} eski kayıt atlandı: `orkestra defter oku --gorev {a.gid}`)\n"
+    print(metin + "\n\n".join(secili))
+
+
+def cmd_defter_oku(a):
+    sd = sd_gerekli()
+    kayitlar = L.defter_kayitlari(sd)
+    if a.gorev:
+        kayitlar = [r for r in kayitlar if r.get("gorev") == a.gorev]
+    for r in kayitlar[-a.son:]:
+        print(_blok_metni(r) + "\n")
+
+
+def cmd_defter_ozet(a):
+    sd = sd_gerekli()
+    son = {}
+    for r in L.defter_kayitlari(sd):
+        son[r.get("gorev", "-")] = r
+    for g, r in son.items():
+        print(f"{g:8s} {r.get('zaman', '')[:16]} {r.get('surec', '-'):10s} {r.get('ajan', '-'):24s} {str(r.get('sonuc') or r.get('yaptim') or '')[:80]}")
+
+
+# ---------------------------------------------------------------- maliyet
+
+def _maliyet_kayitlari(sd, gun):
+    kayitlar = L.jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    if gun:
+        esik = (datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)).isoformat()
+        kayitlar = [r for r in kayitlar if r.get("zaman", "") >= esik]
+    return kayitlar
+
+
+def _pivot(kayitlar, anahtarlar):
+    p = collections.OrderedDict()
+    for r in kayitlar:
+        k = tuple(str(r.get(x, "-")) for x in anahtarlar)
+        d = p.setdefault(k, {"kosu": 0, "giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0})
+        d["kosu"] += 1
+        for f in ("giris", "cikis", "onbellek_okuma", "onbellek_yazma"):
+            d[f] += r.get(f, 0) or 0
+        d["maliyet_usd"] += r.get("maliyet_usd", 0) or 0
+    return p
+
+
+def _md_tablo(baslik, anahtarlar, p):
+    satirlar = [f"### {baslik}", "", "| " + " | ".join(anahtarlar) + " | koşu | giriş | çıkış | önbellek okuma | önbellek yazma | ≈$ |",
+                "|" + "---|" * (len(anahtarlar) + 6)]
+    for k, d in sorted(p.items(), key=lambda x: -x[1]["maliyet_usd"]):
+        satirlar.append("| " + " | ".join(k) + f" | {d['kosu']} | {d['giris']:,} | {d['cikis']:,} | {d['onbellek_okuma']:,} | {d['onbellek_yazma']:,} | {d['maliyet_usd']:.3f} |")
+    return "\n".join(satirlar).replace(",", ".") + "\n"
+
+
+def cmd_maliyet_rapor(a):
+    sd = sd_gerekli()
+    kayitlar = _maliyet_kayitlari(sd, a.gun)
+    if a.csv:
+        buf = io.StringIO()
+        alanlar = ["zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "giris", "cikis", "onbellek_okuma",
+                   "onbellek_yazma", "maliyet_usd", "sure_ms", "tur", "arac_cagrisi"]
+        w = csv.DictWriter(buf, fieldnames=alanlar, extrasaction="ignore")
+        w.writeheader()
+        for r in kayitlar:
+            w.writerow(r)
+        metin = buf.getvalue()
+    else:
+        toplam = sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar)
+        metin = f"# Token ve maliyet raporu ({'son ' + str(a.gun) + ' gün' if a.gun else 'tümü'}) — {L.simdi()[:16]}\n\n"
+        metin += f"Toplam {len(kayitlar)} koşu, ≈${toplam:.2f} (API liste fiyatıyla tahmin).\n\n"
+        metin += _md_tablo("Görev × süreç", ["gorev", "surec"], _pivot(kayitlar, ["gorev", "surec"]))
+        metin += "\n" + _md_tablo("Ajan × model", ["ajan", "model"], _pivot(kayitlar, ["ajan", "model"]))
+        metin += "\n" + _md_tablo("Süreç", ["surec"], _pivot(kayitlar, ["surec"]))
+        metin += "\n" + _md_tablo("Gün", ["gun"], _pivot([dict(r, gun=r.get("zaman", "")[:10]) for r in kayitlar], ["gun"]))
+    if a.cikti:
+        L.atomik_yaz(a.cikti, metin)
+        print(a.cikti)
+    else:
+        print(metin)
+
+
+def cmd_maliyet_gecmis(a):
+    """Projenin geçmiş Claude oturumlarındaki token kullanımını maliyet defterine bir kez aktarır (ajan × süreç × model)."""
+    sd = sd_gerekli()
+    import glob as _glob
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import ruya
+    pdir = os.path.dirname(ruya.hafiza_dizini(L.proje_dizini()))
+    yol = os.path.join(sd, "maliyet.jsonl")
+    mevcut = {(r.get("oturum"), r.get("agent_id"), r.get("model")) for r in L.jsonl_oku(yol)}
+    yeni = 0
+    for ana in sorted(_glob.glob(os.path.join(pdir, "*.jsonl"))):
+        oid = os.path.basename(ana)[:-6]
+        if oid == oturum_id() and not a.bu_oturum_dahil:
+            continue
+        ozet = L.transkript_oku(ana, 0, yan_zincir=False)
+        for model, m in ozet["modeller"].items():
+            if (oid, None, model) in mevcut:
+                continue
+            L.jsonl_ekle(yol, dict({"zaman": ozet["son_zaman"] or L.simdi(), "oturum": oid, "gorev": "-", "surec": "gecmis-ana",
+                                    "ajan": "ana-ajan", "agent_id": None, "tur": ozet["tur"], "arac_cagrisi": ozet["arac_cagrisi"],
+                                    "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "kaynak": "gecmis"}, model=model, **m))
+            yeni += 1
+        for alt in sorted(_glob.glob(os.path.join(pdir, oid, "subagents", "agent-*.jsonl"))):
+            aid = os.path.basename(alt)[len("agent-"):-6]
+            meta = L.alt_ajan_meta(alt)
+            o2 = L.transkript_oku(alt)
+            gorev, surec = L.etiketler(o2["ilk_kullanici"])
+            for model, m in o2["modeller"].items():
+                if (oid, aid, model) in mevcut:
+                    continue
+                L.jsonl_ekle(yol, dict({"zaman": o2["son_zaman"] or L.simdi(), "oturum": oid, "gorev": gorev,
+                                        "surec": surec if surec != "bilinmiyor" else "gecmis-alt", "ajan": meta.get("agentType") or "?",
+                                        "agent_id": aid, "tur": o2["tur"], "arac_cagrisi": o2["arac_cagrisi"],
+                                        "sure_ms": L.sure_ms(o2["ilk_zaman"], o2["son_zaman"]), "aciklama": meta.get("description"),
+                                        "kaynak": "gecmis"}, model=model, **m))
+                yeni += 1
+    print(f"{yeni} satır aktarıldı → {yol}")
+
+
+def cmd_maliyet_ozet(a):
+    sd = sd_gerekli()
+    kayitlar = L.jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    bugun = datetime.date.today().isoformat()
+    oid = oturum_id()
+    o = {"bugun_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar if r.get("zaman", "").startswith(bugun)), 4),
+         "oturum_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar if r.get("oturum") == oid), 4),
+         "toplam_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar), 4), "kosu": len(kayitlar)}
+    print(json.dumps(o) if a.json else f"bugün ≈${o['bugun_usd']:.2f} · bu oturum ≈${o['oturum_usd']:.2f} · toplam ≈${o['toplam_usd']:.2f} ({o['kosu']} koşu)")
+
+
+# ---------------------------------------------------------------- rüya
+
+def cmd_ruya(a):
+    sd = sd_gerekli()
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import ruya
+    if a.islem == "durum":
+        print(json.dumps(ruya.durum(sd), ensure_ascii=False, indent=2))
+    elif a.islem == "basla":
+        print(ruya.baslat(sd, L.proje_dizini(), zorla=True))
+    elif a.islem == "bitti":
+        ruya.bitti_isaretle(sd)
+        print("rüya raporu okundu olarak işaretlendi")
+    elif a.islem == "basladi":
+        ruya.basladi_isaretle(sd)
+        print("rüya başladı")
+    elif a.islem == "kaydet":
+        if not a.yol or not os.path.exists(a.yol):
+            hata("rapor yolu gerekli ve var olmalı: orkestra ruya kaydet <yol>")
+        ruya.kaydet(sd, a.yol)
+        print(f"rüya raporu kaydedildi: {a.yol}")
+    elif a.islem == "hafiza":
+        print(ruya.hafiza_dizini(L.proje_dizini()))
+
+
+# ---------------------------------------------------------------- günlük
+
+def cmd_gunluk_ozet(a):
+    sd = sd_gerekli()
+    esik = (datetime.datetime.now().astimezone() - datetime.timedelta(days=a.gun)).isoformat()
+    kayitlar = [r for r in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")) if r.get("zaman", "") >= esik]
+    tur = collections.Counter(r.get("tur") for r in kayitlar)
+    skill = collections.Counter(r.get("skill") for r in kayitlar if r.get("tur") == "skill")
+    ajan = collections.Counter(r.get("ajan") for r in kayitlar if r.get("tur") == "ajan")
+    print(f"Son {a.gun} gün: {len(kayitlar)} olay — " + ", ".join(f"{k}: {v}" for k, v in tur.items()))
+    print("Skill kullanımı: " + (", ".join(f"{k} ×{v}" for k, v in skill.most_common()) or "-"))
+    print("Ajan kullanımı: " + (", ".join(f"{k} ×{v}" for k, v in ajan.most_common()) or "-"))
+    print("\nİstekler (maskeli, en yeni 40):")
+    for r in [r for r in kayitlar if r.get("tur") == "istek"][-40:]:
+        print(f"- {r.get('zaman', '')[:16]} {r.get('metin', '')[:160]}")
+
+
+# ---------------------------------------------------------------- arayüz özeti
+
+def cmd_ui_ozet(a):
+    """orkestra-ui modu için tek JSON: kartlar, sayaçlar, maliyet, defterin son satırları, rüya."""
+    sd = L.durum_dizini()
+    if not sd:
+        print(json.dumps({"acik": False}))
+        return
+    oid = a.oturum or oturum_id()
+    ks = []
+    for k in L.kartlar(sd):
+        d = L.kart_durumu_hesapla(k)
+        if d in L.ACIK_DURUMLAR or d == "beklemede" or k.get("oturum") == oid:
+            son = (k.get("denetimler") or [{}])[-1]
+            ks.append({"id": k["id"], "baslik": k["baslik"][:60], "durum": d, "basamak": k["basamak"],
+                       "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
+                       "usd": round((k.get("token") or {}).get("maliyet_usd", 0.0), 3)})
+    ks = sorted(ks, key=lambda x: x["id"])[-25:]
+    sayac = collections.Counter(k["durum"] for k in ks)
+    kayitlar = L.jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    bugun = datetime.date.today().isoformat()
+    surec = collections.Counter()
+    model = collections.Counter()
+    for r in kayitlar:
+        if r.get("oturum") == oid:
+            surec[r.get("surec", "-")] += r.get("maliyet_usd", 0) or 0
+            model[(r.get("model") or "-").replace("claude-", "")] += r.get("maliyet_usd", 0) or 0
+    defter = []
+    for r in L.defter_kayitlari(sd)[-6:]:
+        defter.append(f"{r.get('zaman', '')[11:16]} {r.get('gorev', '-')} {r.get('surec', '-')} · {r.get('ajan', '-')}: "
+                      f"{str(r.get('sonuc') or r.get('yaptim') or '')[:70]}")
+    import ruya
+    rd = ruya.durum(sd)
+    print(json.dumps({
+        "acik": True, "kartlar": ks, "sayac": dict(sayac),
+        "maliyet": {"bugun": round(sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar if r.get("zaman", "").startswith(bugun)), 3),
+                    "oturum": round(sum(surec.values()), 3),
+                    "surec": {k: round(v, 3) for k, v in surec.most_common(6)},
+                    "model": {k: round(v, 3) for k, v in model.most_common(4)}},
+        "defter": defter,
+        "ruya": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"])},
+    }, ensure_ascii=False))
+
+
+# ---------------------------------------------------------------- argparse
+
+def main():
+    p = argparse.ArgumentParser(prog="orkestra", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--ajan-id", dest="ajan_id", help=argparse.SUPPRESS)
+    p.add_argument("--ajan-tipi", dest="ajan_tipi", help=argparse.SUPPRESS)
+    alt = p.add_subparsers(dest="komut", required=True)
+
+    alt.add_parser("baslat").set_defaults(f=cmd_baslat)
+
+    kart = alt.add_parser("kart").add_subparsers(dest="alt", required=True)
+    y = kart.add_parser("yeni")
+    y.add_argument("--baslik", required=True)
+    y.add_argument("--basamak", default="T2")
+    y.add_argument("--sinif")
+    y.add_argument("--girdi")
+    y.add_argument("--kabul", action="append", default=[])
+    y.add_argument("--yazma", action="append", default=[])
+    y.add_argument("--bagimli", action="append", default=[])
+    y.set_defaults(f=cmd_kart_yeni)
+    t = kart.add_parser("toplu")
+    t.add_argument("--json-dosya", required=True)
+    t.set_defaults(f=cmd_kart_toplu)
+    g = kart.add_parser("goster")
+    g.add_argument("gid")
+    g.set_defaults(f=cmd_kart_goster)
+    li = kart.add_parser("liste")
+    li.add_argument("--hepsi", action="store_true")
+    li.add_argument("--json", action="store_true")
+    li.set_defaults(f=cmd_kart_liste)
+    du = kart.add_parser("durum")
+    du.add_argument("gid")
+    du.add_argument("durum", choices=["isleniyor", "is-bitti", "beklemede", "iptal", "planlandi"])
+    du.add_argument("--ozet")
+    du.add_argument("--cikti", action="append", default=[])
+    du.add_argument("--not", dest="not_")
+    du.set_defaults(f=cmd_kart_durum)
+    de = kart.add_parser("denetim")
+    de.add_argument("gid")
+    de.add_argument("--karar", required=True, choices=["onay", "ret"])
+    de.add_argument("--gerekce", required=True)
+    de.add_argument("--talimat")
+    de.set_defaults(f=cmd_kart_denetim)
+    yu = kart.add_parser("yukselt")
+    yu.add_argument("gid")
+    yu.add_argument("--basamak", required=True)
+    yu.add_argument("--neden", required=True)
+    yu.set_defaults(f=cmd_kart_yukselt)
+    te = kart.add_parser("teslim")
+    te.add_argument("gid")
+    te.add_argument("--ozet")
+    te.set_defaults(f=cmd_kart_teslim)
+
+    defter = alt.add_parser("defter").add_subparsers(dest="alt", required=True)
+    e = defter.add_parser("ekle")
+    e.add_argument("gid")
+    e.add_argument("--surec", required=True)
+    e.add_argument("--yaptim")
+    e.add_argument("--sonuc")
+    e.add_argument("--not", dest="not_")
+    e.set_defaults(f=cmd_defter_ekle)
+    b = defter.add_parser("baglam")
+    b.add_argument("gid")
+    b.add_argument("--max", type=int, default=2000)
+    b.set_defaults(f=cmd_defter_baglam)
+    o = defter.add_parser("oku")
+    o.add_argument("--gorev")
+    o.add_argument("--son", type=int, default=10)
+    o.set_defaults(f=cmd_defter_oku)
+    defter.add_parser("ozet").set_defaults(f=cmd_defter_ozet)
+
+    mal = alt.add_parser("maliyet").add_subparsers(dest="alt", required=True)
+    r = mal.add_parser("rapor")
+    r.add_argument("--gun", type=int, default=0)
+    r.add_argument("--md", action="store_true")
+    r.add_argument("--csv", action="store_true")
+    r.add_argument("--cikti")
+    r.set_defaults(f=cmd_maliyet_rapor)
+    ge = mal.add_parser("gecmis")
+    ge.add_argument("--bu-oturum-dahil", action="store_true")
+    ge.set_defaults(f=cmd_maliyet_gecmis)
+    oz = mal.add_parser("ozet")
+    oz.add_argument("--json", action="store_true")
+    oz.set_defaults(f=cmd_maliyet_ozet)
+
+    ru = alt.add_parser("ruya")
+    ru.add_argument("islem", choices=["durum", "basla", "basladi", "kaydet", "bitti", "hafiza"])
+    ru.add_argument("yol", nargs="?")
+    ru.set_defaults(f=cmd_ruya)
+
+    ui = alt.add_parser("ui-ozet")
+    ui.add_argument("--oturum")
+    ui.set_defaults(f=cmd_ui_ozet)
+
+    gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
+    go = gu.add_parser("ozet")
+    go.add_argument("--gun", type=int, default=7)
+    go.set_defaults(f=cmd_gunluk_ozet)
+
+    # Hook, kimlik argümanlarını komutun SONUNA ekler; argparse'tan önce her yerden ayıkla.
+    argv, kimlik = [], {}
+    it = iter(sys.argv[1:])
+    for x in it:
+        if x in ("--ajan-id", "--ajan-tipi"):
+            kimlik[x] = next(it, "")
+        elif x.startswith(("--ajan-id=", "--ajan-tipi=")):
+            k, v = x.split("=", 1)
+            kimlik[k] = v
+        else:
+            argv.append(x)
+    a = p.parse_args(argv)
+    a.ajan_id = kimlik.get("--ajan-id") or None
+    a.ajan_tipi = kimlik.get("--ajan-tipi") or None
+    a.f(a)
+
+
+if __name__ == "__main__":
+    main()

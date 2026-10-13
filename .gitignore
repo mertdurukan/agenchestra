@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.claude/
+evals/results/
+plugins/*/evals/results/
+plugins/*/.claude-plugin/types/
+*.lock
