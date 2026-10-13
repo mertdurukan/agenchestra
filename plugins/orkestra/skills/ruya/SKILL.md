@@ -24,9 +24,10 @@ Rüya, oturumlar arasında arka planda çalışan hafıza bakımıdır:
    - eskimiş kayıtlar;
    - boyut;
    - skill adayları.
-4. Önerilen değişiklikleri numaralı liste olarak sun. Kullanıcıya hangilerinin uygulanacağını sor. Varsayılan "hiçbiri" kabul edilir: onaysız hiçbir hafıza değişmez.
-5. Onaylananları Agent aracıyla `orkestra:hafiza-bakimcisi` ajanına ver. Ajana şunları ilet:
-   - hafıza klasörünün yolu (`~/.claude/projects/<proje>/memory/`);
-   - onaylı maddelerin tam metni.
-6. Sonra `orkestra ruya bitti` çalıştır.
+4. Panel kararlarını al: `orkestra onay liste --tur perspektif`.
+   - Panelde karar verilmiş (onaylandi, reddedildi, uygulandi) maddeleri kullanıcıya yeniden sorma.
+   - Bekleyen maddeler için kullanıcıya iki yol öner: panelin Onaylar sayfası (`orkestra panel` ile açılır) ya da sohbette numara vererek onay.
+   - Sohbette verilen onay ya da ret'i `orkestra onay karar <id> --onay` / `--ret` (gerekirse `--not "..."`) ile kaydet; panel de görsün. Varsayılan "hiçbiri" kabul edilir: onaysız hiçbir hafıza değişmez.
+5. Onaylananları `/orkestra:onay` akışıyla uygula (hafıza bakımcısı ajanı ve `orkestra onay uygulandi` orada).
+6. Rapordaki tüm perspektif kayıtları kapanınca `orkestra ruya bitti` çalıştır (`/orkestra:onay` bunu da yapar).
 7. Skill adayları varsa `/orkestra:skill-avi` ile ilerlemeyi öner.

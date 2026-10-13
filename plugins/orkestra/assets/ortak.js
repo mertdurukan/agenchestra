@@ -315,7 +315,8 @@
   O.alan = url.searchParams.get('alan') || O.depo.al('orkestra.alan') || '';
   O.alanlar = [];
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
-  const SEKMELER = [['simdi', 'Şimdi', '/'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim']];
+  const SEKMELER = [['simdi', 'Şimdi', '/'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
+    ['onaylar', 'Onaylar', '/onaylar'], ['kurallar', 'Kurallar', '/kurallar']];
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {
     document.querySelectorAll('#kabuk [data-sekme]').forEach(a => { a.href = a.dataset.yol + sorgu(); });
@@ -354,6 +355,43 @@
     alanYaz(hedef, true);
   }
 
+  // Onaylar sekmesi rozeti: /onay-sayac.json ({alan_id: sayaç}) tek uçuşlu yoklanır; seçili alanın 'bekliyor' sayısı > 0 ise görünür.
+  let rozetYolda = null, rozetSayac = null;
+  function rozetYaz() {
+    const a = document.querySelector('#kabuk [data-sekme="onaylar"]');
+    if (!a) return;
+    const s = rozetSayac && rozetSayac[O.alan];
+    const n = s && Number(s.bekliyor) > 0 ? Number(s.bekliyor) : 0;
+    let r = a.querySelector('.sekme-rozet');
+    if (!n) { if (r) r.remove(); return; }
+    if (!r) { r = document.createElement('span'); r.className = 'sekme-rozet'; r.setAttribute('role', 'img'); a.appendChild(r); }
+    r.textContent = n > 99 ? '99+' : String(n);
+    r.setAttribute('aria-label', n + ' onay bekliyor');
+  }
+  O.rozetTazele = () => {
+    if (rozetYolda) return rozetYolda;
+    rozetYolda = fetch('/onay-sayac.json', { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(v => { if (v && typeof v === 'object' && !v.hata) rozetSayac = v; rozetYaz(); })
+      .catch(() => { /* rozet ikincil: hata kullanıcıya gösterilmez, eski sayı kalır */ })
+      .finally(() => { rozetYolda = null; });
+    return rozetYolda;
+  };
+  window.addEventListener('orkestra:alan', rozetYaz);
+
+  // Panelden yazma: POST, X-Orkestra: 1 ve JSON başlıklarıyla; yanıt JSON. tamam false ise Error(hata).
+  O.gonder = async (yol, govde) => {
+    let r;
+    try {
+      r = await fetch(yol, { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde ?? {}) });
+    } catch (e) { throw new Error(O.hataMetni(e)); }
+    let v = null;
+    try { v = await r.json(); } catch (e) { /* JSON olmayan yanıt */ }
+    if (!r.ok || !v || v.tamam === false) throw new Error((v && v.hata) || (r.ok ? 'beklenmeyen yanıt' : 'HTTP ' + r.status));
+    O.rozetTazele();
+    return v;
+  };
+
   let hazirCoz;
   O.hazir = new Promise(c => { hazirCoz = c; });
   O.kabuk = ({ sayfa } = {}) => {
@@ -384,6 +422,8 @@
     yeniden.set('Çalışma alanları', alanTazele);
     alanTazele().finally(() => hazirCoz(O.alan));
     setInterval(alanTazele, 15000);
+    O.rozetTazele();
+    setInterval(() => { if (!document.hidden) O.rozetTazele(); }, 15000);
     return O.hazir;
   };
 

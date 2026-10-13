@@ -112,6 +112,9 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | `/orkestra:defter [görev]` | Ortak defterin son kayıtları |
 | `/orkestra:ruya [şimdi]` | Rüya raporunu gösterir, onaylananları uygular |
 | `/orkestra:skill-avi` | Tekrar eden işlerden skill taslağı çıkarır |
+| `/orkestra:onay` | Panelde onaylanan kararları (perspektif/rüya önerileri, skill taslakları, ajan soruları) uygular |
+| `orkestra onay liste/goster/iste/karar/al/uygulandi/iptal/esitle` | Onay kuyruğu: panelin Onaylar sayfasıyla aynı kayıtlar; `iste` ajanın panelden karar istemesi, `karar --onay\|--ret` sohbette verilen kararı kaydeder |
+| `orkestra kural liste/oner/ekle/duzenle/kaldir` | Kalıcı kurallar: `oner` panelde Kurallar sayfasında onaya düşer, etkin kurallar `.claude/rules/orkestra_kurallari.md` olarak yazılır |
 | `orkestra …` (Bash) | Kart, defter, maliyet, rüya CLI'ı (`orkestra --help`) |
 
 ## Basamaklar ve denetim eşlemesi

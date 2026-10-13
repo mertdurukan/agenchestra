@@ -15,6 +15,9 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json]
   orkestra ruya durum | basla | bitti
   orkestra gunluk ozet [--gun 7]
+  orkestra onay liste [--durum D] [--tur T] [--json] | goster ID | iste --baslik B --metin M [--secenek S]... [--oturum O]
+  orkestra onay karar ID (--onay|--ret) [--secim S] [--not N] | al ID [--oturum O] | uygulandi ID --ozet Z | iptal ID --not N | esitle
+  orkestra kural liste [--json] | oner --metin M [--neden N] | ekle --metin M [--neden N] | duzenle ID --metin M | kaldir ID --not N
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
 `--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
 """
@@ -523,6 +526,95 @@ def cmd_ruya(a):
         print(ruya.hafiza_dizini(L.proje_dizini()))
 
 
+# ---------------------------------------------------------------- onay merkezi
+
+def _onay_oturumu(a) -> str:
+    o = getattr(a, "oturum", None) or os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CLAUDE_CODE_SESSION_ID")
+    return o or "cli"
+
+
+def _onay_calistir(f, *args, **kw):
+    import onay
+    try:
+        return f(onay, *args, **kw)
+    except ValueError as e:
+        hata(str(e))
+
+
+def _onay_satir(k: dict) -> str:
+    return f"{k['id']}  {k['durum']:<11} {k['tur']:<10} {k['baslik']}"
+
+
+def cmd_onay(a):
+    sd = sd_gerekli()
+    import onay
+    i = a.alt
+    if i == "liste":
+        onay.esitle(sd)
+        kayitlar = onay.liste(sd, durum=a.durum, tur=a.tur)
+        if a.json:
+            print(json.dumps(kayitlar, ensure_ascii=False, indent=2))
+        else:
+            for k in kayitlar:
+                print(_onay_satir(k))
+            if not kayitlar:
+                print("kayıt yok")
+    elif i == "goster":
+        k = onay.goster(sd, a.id)
+        if not k:
+            hata(f"onay kaydı bulunamadı: {a.id}")
+        print(json.dumps(k, ensure_ascii=False, indent=2))
+    elif i == "iste":
+        k = _onay_calistir(lambda m: m.iste(sd, a.baslik, a.metin, secenekler=a.secenek, oturum=a.oturum))
+        print(k["id"])
+    elif i == "karar":
+        k = _onay_calistir(lambda m: m.karar_ver(sd, a.id, "onay" if a.onay else "ret", secim=a.secim,
+                                                 not_=a.not_, kim="cli"))
+        print(f"{k['id']} → {k['durum']}")
+    elif i == "al":
+        k = _onay_calistir(lambda m: m.al(sd, a.id, _onay_oturumu(a)))
+        print(f"{k['id']} → {k['durum']}")
+    elif i == "uygulandi":
+        k = _onay_calistir(lambda m: m.uygulandi(sd, a.id, a.ozet, oturum=_onay_oturumu(a)))
+        print(f"{k['id']} → {k['durum']}")
+    elif i == "iptal":
+        k = _onay_calistir(lambda m: m.iptal(sd, a.id, a.not_))
+        print(f"{k['id']} → {k['durum']}")
+    elif i == "esitle":
+        onay.esitle(sd)
+        s = onay.sayac(sd)
+        print(f"eşitlendi: {s['bekliyor']} bekliyor, {s['uygulanacak']} uygulanacak")
+
+
+def cmd_kural(a):
+    sd = sd_gerekli()
+    import onay
+    i = a.alt
+    kaynak = _onay_oturumu(a) if os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CLAUDE_CODE_SESSION_ID") else "cli"
+    if i == "liste":
+        kayitlar = onay.kurallar(sd)
+        if a.json:
+            print(json.dumps(kayitlar, ensure_ascii=False, indent=2))
+        else:
+            for r in kayitlar:
+                print(f"{r['id']}  {r['durum']:<11} {r['metin']}")
+            if not kayitlar:
+                print("kural yok")
+    elif i == "oner":
+        r = _onay_calistir(lambda m: m.kural_oner(sd, a.metin, a.neden, kaynak))
+        k = onay._anahtarli(sd, f"kural:{r['id']}")
+        print(f"{r['id']} önerildi" + (f" (onay {k['id']})" if k else ""))
+    elif i == "ekle":
+        r = _onay_calistir(lambda m: m.kural_ekle(sd, a.metin, a.neden, kaynak="cli"))
+        print(f"{r['id']} etkin")
+    elif i == "duzenle":
+        r = _onay_calistir(lambda m: m.kural_duzenle(sd, a.id, a.metin, a.neden))
+        print(f"{r['id']} güncellendi")
+    elif i == "kaldir":
+        r = _onay_calistir(lambda m: m.kural_kaldir(sd, a.id, a.not_))
+        print(f"{r['id']} → {r['durum']}")
+
+
 # ---------------------------------------------------------------- günlük
 
 def cmd_gunluk_ozet(a):
@@ -730,6 +822,54 @@ def main():
     pa.add_argument("--on-planda", action="store_true", help="sunucuyu bu süreçte çalıştır (Ctrl+C ile durur)")
     pa.add_argument("--ac", action="store_true", help="adresi varsayılan tarayıcıda aç")
     pa.set_defaults(f=cmd_panel)
+
+    on = alt.add_parser("onay").add_subparsers(dest="alt", required=True)
+    x = on.add_parser("liste")
+    x.add_argument("--durum")
+    x.add_argument("--tur")
+    x.add_argument("--json", action="store_true")
+    x = on.add_parser("goster")
+    x.add_argument("id")
+    x = on.add_parser("iste")
+    x.add_argument("--baslik", required=True)
+    x.add_argument("--metin", required=True)
+    x.add_argument("--secenek", action="append", default=[])
+    x.add_argument("--oturum")
+    x = on.add_parser("karar")
+    x.add_argument("id")
+    g_ = x.add_mutually_exclusive_group(required=True)
+    g_.add_argument("--onay", action="store_true")
+    g_.add_argument("--ret", action="store_true")
+    x.add_argument("--secim")
+    x.add_argument("--not", dest="not_")
+    x = on.add_parser("al")
+    x.add_argument("id")
+    x.add_argument("--oturum")
+    x = on.add_parser("uygulandi")
+    x.add_argument("id")
+    x.add_argument("--ozet", required=True)
+    x.add_argument("--oturum")
+    x = on.add_parser("iptal")
+    x.add_argument("id")
+    x.add_argument("--not", dest="not_", required=True)
+    on.add_parser("esitle")
+    alt.choices["onay"].set_defaults(f=cmd_onay)
+
+    ku = alt.add_parser("kural").add_subparsers(dest="alt", required=True)
+    x = ku.add_parser("liste")
+    x.add_argument("--json", action="store_true")
+    for ad in ("oner", "ekle"):
+        x = ku.add_parser(ad)
+        x.add_argument("--metin", required=True)
+        x.add_argument("--neden", default="")
+    x = ku.add_parser("duzenle")
+    x.add_argument("id")
+    x.add_argument("--metin", required=True)
+    x.add_argument("--neden")
+    x = ku.add_parser("kaldir")
+    x.add_argument("id")
+    x.add_argument("--not", dest="not_", required=True)
+    alt.choices["kural"].set_defaults(f=cmd_kural)
 
     import niyet
     niyet.ekle_ayristirici(alt)

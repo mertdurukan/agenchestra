@@ -276,3 +276,62 @@ main.hazirlaniyor h1 { font-size: var(--t-20); color: var(--text-primary); }
   .cubuk .yol { grid-column: 1 / -1; grid-row: 2; }
   .karo b { font-size: var(--t-20); }
 }
+
+/* Onaylar ve Kurallar */
+.sekme-rozet {
+  display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 6px; border-radius: 999px; text-align: center;
+  background: var(--warning); color: var(--surface-0); font-size: var(--t-12); font-weight: 700; line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.onay-liste { display: grid; gap: var(--a-12); }
+.onay-kart {
+  background: var(--surface-0); border: 1px solid var(--line); border-left: 4px solid var(--renk, var(--neutral));
+  border-radius: var(--k-10); padding: var(--a-12) var(--a-16); min-width: 0;
+}
+.onay-kart.sonuk { opacity: .65; }
+.onay-kart header { display: flex; gap: var(--a-8); align-items: baseline; flex-wrap: wrap; }
+.onay-kart header h3 {
+  margin: 0; font-size: var(--t-14); font-weight: 650; color: var(--text-primary); text-transform: none; letter-spacing: 0;
+  flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere;
+}
+.tur-etiket {
+  font-size: var(--t-12); font-weight: 600; color: var(--text-secondary); border: 1px solid var(--line); border-radius: 999px;
+  padding: 0 var(--a-8); white-space: nowrap;
+}
+.onay-metin { margin: var(--a-8) 0 0; color: var(--text-secondary); font-size: var(--t-13); overflow-wrap: anywhere; }
+.onay-metin p { margin: 0 0 var(--a-8); white-space: pre-wrap; }
+.onay-metin.kati { max-height: 9em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.onay-metin pre {
+  margin: 0 0 var(--a-8); padding: var(--a-8) var(--a-12); background: var(--surface-1); border: 1px solid var(--line);
+  border-radius: var(--k-6); overflow-x: auto; font-size: var(--t-12);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--text-primary);
+}
+.onay-metin pre .ek { color: #5fd35f; display: block; }
+.onay-metin pre .cik { color: #f08a8a; display: block; }
+.onay-metin pre .sat { display: block; }
+.onay-eylem { margin-top: var(--a-12); display: grid; gap: var(--a-8); }
+.onay-eylem fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: var(--a-4); }
+.onay-eylem legend { color: var(--text-muted); font-size: var(--t-12); padding: 0; margin-bottom: var(--a-4); }
+.onay-eylem label.sec { display: flex; gap: var(--a-8); align-items: center; font-size: var(--t-13); cursor: pointer; }
+.onay-eylem input[type="text"], .onay-eylem textarea, .kural-form input[type="text"], .kural-form textarea {
+  width: 100%; background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--k-6);
+  padding: var(--a-4) var(--a-8); font: inherit; font-size: var(--t-13); color: var(--text-primary);
+}
+textarea { resize: vertical; min-height: 56px; }
+.dugmeler { display: flex; gap: var(--a-8); flex-wrap: wrap; align-items: center; }
+button.onayla { border-color: var(--good); }
+button.reddet { border-color: var(--serious); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.hata-satir { color: var(--critical); font-size: var(--t-13); margin: 0; }
+.hata-satir:empty { display: none; }
+.kural-liste { display: grid; gap: var(--a-8); margin: 0; padding: 0; list-style: none; }
+.kural-satir { background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--k-6); padding: var(--a-8) var(--a-12); }
+.kural-satir .kural-metin { margin: 0 0 var(--a-4); overflow-wrap: anywhere; }
+.kural-form { display: grid; gap: var(--a-8); margin-top: var(--a-8); }
+.kural-form label { display: grid; gap: var(--a-4); font-size: var(--t-12); color: var(--text-muted); }
+details.kaynak { margin: 0 0 var(--a-8); }
+details.kaynak > summary { cursor: pointer; color: var(--text-secondary); font-size: var(--t-13); }
+details.kaynak pre {
+  margin: var(--a-8) 0 0; padding: var(--a-8) var(--a-12); background: var(--surface-0); border: 1px solid var(--line);
+  border-radius: var(--k-6); overflow-x: auto; white-space: pre-wrap; font-size: var(--t-12); color: var(--text-secondary);
+}

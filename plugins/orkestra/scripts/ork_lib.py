@@ -131,7 +131,15 @@ def atomik_yaz(yol: str, metin: str) -> None:
     fd, gecici = tempfile.mkstemp(dir=os.path.dirname(yol), prefix=".tmp_")
     with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
         f.write(metin)
-    os.replace(gecici, yol)
+    for deneme in range(5):
+        try:
+            os.replace(gecici, yol)
+            return
+        except PermissionError:
+            # Windows: hedef başka bir okuyucuda açıkken kısa süre reddedilebilir.
+            if deneme == 4:
+                raise
+            time.sleep(0.02 * (deneme + 1))
 
 
 # ---------------------------------------------------------------- maskeleme
