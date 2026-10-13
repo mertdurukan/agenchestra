@@ -24,6 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import ret_nedeni as RN  # noqa: E402
 
 GENEL_DIZIN = os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel")
 KOTA_YOLU = os.path.join(GENEL_DIZIN, "kota.jsonl")
@@ -557,6 +558,64 @@ def _saglik(sd: str, proje: str, kayitlar: list[dict]) -> dict:
 
 # ---------------------------------------------------------------- tek alan / tüm alanlar
 
+def _sinif(k: dict) -> str:
+    s = k.get("sinif")
+    return s if s and s != "-" else "sınıfsız"
+
+
+def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
+    """Ret nedenleri (sınıf x basamak) ve verim (sınıf x başlangıç basamağı)."""
+    kart_usd = collections.Counter()
+    for r in kayitlar:
+        if r.get("gorev") not in (None, "-"):
+            kart_usd[r["gorev"]] += r.get("maliyet_usd") or 0.0
+    ned: dict = {}
+    ver: dict = {}
+    for k in kartlar:
+        sinif = _sinif(k)
+        bas = k.get("baslangic_basamak") or k.get("basamak")
+        for d in k.get("denetimler") or []:
+            if d.get("karar") != "ret":
+                continue
+            kod = d.get("neden")
+            kod = kod if kod in RN.NEDENLER else RN.SINIFLANMAMIS
+            e = ned.setdefault((sinif, d.get("basamak") or bas),
+                               {"ret": 0, "nedenler": collections.Counter(), "kok": collections.Counter()})
+            e["ret"] += 1
+            e["nedenler"][kod] += 1
+            e["kok"][RN.kok(kod)] += 1
+        v = ver.setdefault((sinif, bas), {"kart": 0, "onaylanan": 0, "tur": 0, "usd": 0.0})
+        v["kart"] += 1
+        v["tur"] += sum(1 for g in k.get("gecmis") or [] if g.get("olay") == "is-bitti")
+        v["usd"] += kart_usd.get(k.get("id"), 0.0)
+        v["onaylanan"] += int(k.get("durum") in ("onaylandi", "teslim")
+                              or L.kart_durumu_hesapla(k) in ("onaylandi", "teslim"))
+
+    def _sira(a):
+        return tuple(str(x) for x in a[0])
+
+    nedenler = [{"sinif": s, "basamak": b, "ret": e["ret"], "nedenler": dict(e["nedenler"]), "kok": dict(e["kok"])}
+                for (s, b), e in sorted(ned.items(), key=_sira)]
+    verim = [{"sinif": s, "baslangic_basamak": b, "kart": v["kart"], "onaylanan": v["onaylanan"],
+              "ort_tur": round(v["tur"] / v["kart"], 2), "toplam_usd": _r(v["usd"]),
+              "onayli_is_basi_usd": _r(v["usd"] / v["onaylanan"]) if v["onaylanan"] else None}
+             for (s, b), v in sorted(ver.items(), key=_sira)]
+    kart_t = sum(v["kart"] for v in ver.values())
+    onay_t = sum(v["onaylanan"] for v in ver.values())
+    usd_t = sum(v["usd"] for v in ver.values())
+    tur_t = sum(v["tur"] for v in ver.values())
+    kod_t, kok_t = collections.Counter(), collections.Counter()
+    for e in ned.values():
+        kod_t.update(e["nedenler"])
+        kok_t.update(e["kok"])
+    return {
+        "nedenler": nedenler, "verim": verim,
+        "toplam": {"ret": sum(e["ret"] for e in ned.values()), "nedenler": dict(kod_t), "kok": dict(kok_t),
+                   "kart": kart_t, "onaylanan": onay_t, "ort_tur": round(tur_t / kart_t, 2) if kart_t else None,
+                   "toplam_usd": _r(usd_t), "onayli_is_basi_usd": _r(usd_t / onay_t) if onay_t else None},
+    }
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     kartlar = L.kartlar(sd)
@@ -573,6 +632,7 @@ def olustur(sd: str, proje: str) -> dict:
         "trend": trend, "kota": _kota(), "basamak": _basamak(kartlar, kayitlar), "tasarruf": _tasarruf(kayitlar),
         "akis": _akis(kartlar, kayitlar), "birim": _birim(kartlar, kayitlar, sohbetler, trend),
         "skill": _skill(sd, kayitlar), "saglik": _saglik(sd, proje, kayitlar),
+        "ders": _ders(kartlar, kayitlar),
     }
 
 
