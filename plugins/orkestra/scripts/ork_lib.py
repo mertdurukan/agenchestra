@@ -654,10 +654,79 @@ def kart_proje_koku(proje: str, kart: dict) -> str:
     return os.path.abspath(ca["yol"] if r == "." else os.path.join(ca["yol"], r))
 
 
-def kart_agaci_birlestir(kart: dict, mesaj: str | None = None) -> dict:
+def _git_bayt(args: list[str], cwd: str) -> bytes | None:
+    """git çıktısı ham bayt olarak (dosya içeriği, -z listeleri); hata ya da sıfırdan farklı çıkışta None."""
+    try:
+        r = subprocess.run(["git", "-C", cwd] + list(args), capture_output=True)
+    except (OSError, ValueError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def _goreli_anahtar(rel: str) -> str:
+    r = rel.replace("\\", "/")
+    return r.lower() if os.name == "nt" else r
+
+
+def birlestirme_kilit_ihlalleri(proje: str, kart: dict, ks: list[dict]) -> tuple[list[tuple[str, str, str]], str | None]:
+    """Birleştirme öncesi deterministik kilit kapısı: hook'u atlatan dolaylı yazımların (ağaçta git checkout, betik,
+    doğrudan dosya sistemi + commit) son savunması.
+
+    Kart dalında değişen dosyalar (`git diff --name-only --no-renames -z` ile `<taban>...<dal>` ve `HEAD...<dal>`
+    birleşimi) paylaşılan proje-göreli yola çevrilir. Teslim/iptal dışındaki herhangi bir kartın (kartın kendisi dahil)
+    kilitli test dosyasıyla kesişen her dosyanın DAL UCUNDAKİ içeriği kilitteki özetle karşılaştırılır; değişmiş ya da
+    silinmişse ihlaldir (birleşme kilitli testi paylaşılan ağaçta değiştirirdi; kartın kendi kilidiyse kilit bozulmuş
+    demektir). Dalda yeni yazılıp kilitlenmiş testin kilitteki hâliyle gelmesi ihlal değildir (olağan akış). Satır sonu
+    dönüşümü (core.autocrlf) yanlış ret üretmesin diye ham blob ve çıkış filtresinden geçmiş içerik birlikte denenir.
+
+    Dönen: ([(proje-göreli yol, kilit sahibi kart, 'değişmiş'|'silinmiş')], okuma hatası ya da None)."""
+    import hashlib
+    ca = kart.get("calisma_agaci") or {}
+    depo, dal, taban = ca.get("depo"), ca.get("dal"), ca.get("taban")
+    kilitler: dict[str, list[tuple[str, str, str]]] = {}
+    for k in [kart] + [x for x in ks if x.get("id") != kart.get("id")]:
+        if k.get("durum") in ("teslim", "iptal"):
+            continue
+        d = (k.get("test_kilidi") or {}).get("dosyalar")
+        if isinstance(d, dict):
+            for y, h in d.items():
+                kilitler.setdefault(_goreli_anahtar(y), []).append((y.replace("\\", "/"), k.get("id", "?"), h))
+    if not kilitler:
+        return [], None
+    adlar = set()
+    for aralik in ([f"{taban}...{dal}"] if taban else []) + [f"HEAD...{dal}"]:
+        b = _git_bayt(["diff", "--name-only", "--no-renames", "-z", aralik], depo)
+        if b is None:
+            return [], f"kart dalının farkı okunamadı ({aralik})"
+        adlar.update(x for x in b.decode("utf-8", "surrogateescape").split("\0") if x)
+    filtre_cwd = ca["yol"] if ca.get("yol") and os.path.isdir(ca["yol"]) else depo
+    ihlaller = []
+    for p in sorted(adlar):
+        tam = depo.rstrip("/\\") + "/" + p
+        if not yol_altinda(tam, proje):
+            continue
+        sahipler = kilitler.get(_goreli_anahtar(os.path.relpath(os.path.abspath(tam), os.path.abspath(proje))))
+        if not sahipler:
+            continue
+        ozet = set()
+        for args in (["cat-file", "blob", f"{dal}:{p}"], ["cat-file", "--filters", f"{dal}:{p}"]):
+            icerik = _git_bayt(args, filtre_cwd)
+            if icerik is not None:
+                ozet.add(hashlib.sha256(icerik).hexdigest())
+        for rel, gid, h in sahipler:
+            if h not in ozet:
+                ihlaller.append((rel, gid, "değişmiş" if ozet else "silinmiş"))
+    return ihlaller, None
+
+
+def kart_agaci_birlestir(kart: dict, mesaj: str | None = None, proje: str | None = None,
+                         ks: list[dict] | None = None) -> dict:
     """Kart dalını deponun güncel dalına `--no-ff` ile birleştirir. Sessiz ezme ve otomatik çözüm yok.
 
-    Dönen: {"sonuc": "tamam"|"kirli-kart"|"kirli-ana"|"catisma"|"hata", "mesaj": str, "dosyalar": [..], "commit": sha}"""
+    Merge'den önce kilit kapısı (`birlestirme_kilit_ihlalleri`; `ks` diğer kartlar, kartın kendi kilidi her zaman):
+    ihlalde birleştirme yapılmaz, worktree ve dal korunur.
+    Dönen: {"sonuc": "tamam"|"kirli-kart"|"kilit"|"kirli-ana"|"catisma"|"hata", "mesaj": str, "dosyalar": [..],
+    "commit": sha}"""
     ca = kart.get("calisma_agaci") or {}
     depo, yol, dal = ca.get("depo"), ca.get("yol"), ca.get("dal")
     if not (depo and dal):
@@ -670,6 +739,19 @@ def kart_agaci_birlestir(kart: dict, mesaj: str | None = None) -> dict:
         if kirli:
             return {"sonuc": "kirli-kart", "dosyalar": kirli,
                     "mesaj": f"kart dalında commitlenmemiş değişiklik var ({yol}): {', '.join(kirli[:10])} — önce commit et"}
+    ihlaller, okuma_hatasi = birlestirme_kilit_ihlalleri(proje or proje_dizini(), kart, ks or [])
+    if okuma_hatasi:
+        return {"sonuc": "hata", "dosyalar": [], "mesaj": f"kilit kapısı: {okuma_hatasi} — birleştirme yapılmadı"}
+    if ihlaller:
+        kendi = kart.get("id")
+        liste = "; ".join(f"{rel} ({gid} kartının kilidi{' — kartın kendisi, kilit bozulmuş' if gid == kendi else ''}, "
+                          f"dalda {neden})" for rel, gid, neden in ihlaller)
+        sahipler = ", ".join(sorted({gid for _, gid, _ in ihlaller}))
+        return {"sonuc": "kilit", "dosyalar": sorted({rel for rel, _, _ in ihlaller}),
+                "mesaj": f"kilitli test birleştirmeyi engelliyor: {liste}. Birleştirme yapılmadı (paylaşılan ağaç "
+                         f"değişmedi); worktree ve {dal} korunuyor. Dalda dosyayı kilitteki hâline döndürüp commitle; "
+                         f"değişiklik gerçekten gerekiyorsa kilit sahibi ({sahipler}) bitene kadar bekle ya da ana ajan "
+                         "`orkestra kart test-kilit-ac` ile kilidi açsın."}
     r = git(["diff", "--name-only", f"HEAD...{dal}"], depo)
     if r.returncode != 0:
         return {"sonuc": "hata", "mesaj": f"kart dalı okunamadı ({dal}): {(r.stderr or r.stdout).strip()}", "dosyalar": []}

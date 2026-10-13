@@ -190,6 +190,92 @@ class AgacTestKapisi(unittest.TestCase):
         self.assertEqual(self.karar(hedef, "is", gorev=g2)[0], "deny")
         self.assertEqual(self.karar(hedef, "is", ana=True)[0], "deny")
 
+    # ---------------------------------------------------------- (g) birleştirme kilit kapısı
+    def goster(self, gid):
+        r = self.cli("kart", "goster", gid)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)
+
+    def commit(self, yol, mesaj="c"):
+        git(yol, "add", "-A")
+        git(yol, "commit", "-q", "-m", mesaj)
+
+    def test_g_baska_kartin_kilitli_testini_degistiren_dal_birlesmez(self):
+        self.kirmizi()  # G1 tests/test_x.py'yi kilitler
+        r = self.cli("kart", "yeni", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok",
+                     "--yazma", "tests/**", "--yazma", "src/**")
+        g2 = r.stdout.strip()
+        yol2 = self.cli("kart", "agac", g2).stdout.strip()
+        # hook dışı yol: doğrudan dosya sistemi + commit (git checkout benzeri dolaylı yazım)
+        yaz(os.path.join(yol2, "tests", "test_x.py"), "import unittest\n")
+        self.commit(yol2, "kilitli testi değiştir")
+        isci = dict(ajan_id="w2", ajan_tipi="orkestra:isci-t2")
+        self.assertEqual(self.cli("kart", "durum", g2, "is-bitti", "--ozet", "b", **isci).returncode, 0)
+        r = self.cli("kart", "denetim", g2, "--karar", "onay", "--gerekce", "t", ajan_id="d1", ajan_tipi="orkestra:denetci")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        bas = git(self.proje, "rev-parse", "HEAD").strip()
+        for komut in (("kart", "teslim", g2), ("kart", "birlestir", g2)):
+            r = self.cli(*komut)
+            self.assertEqual(r.returncode, 4, f"{komut}: {r.stdout}{r.stderr}")
+            self.assertIn("kilitli test", r.stderr)
+            self.assertIn(self.g, r.stderr)  # kilit sahibi
+            self.assertIn("tests/test_x.py", r.stderr)
+            self.assertEqual(git(self.proje, "rev-parse", "HEAD").strip(), bas, komut)  # main değişmedi
+            with open(os.path.join(self.proje, "tests", "test_x.py"), encoding="utf-8") as f:
+                self.assertEqual(f.read(), KIRMIZI_TEST)
+            k = self.goster(g2)
+            self.assertEqual(k["durum"], "beklemede", komut)
+            self.assertTrue((k.get("calisma_agaci") or {}).get("yol"), komut)  # worktree korunur
+            self.assertTrue(os.path.isdir(yol2), komut)
+            self.assertTrue(git(self.proje, "branch", "--list", f"kart/{g2}").strip(), komut)
+        # kilitli test eski hâline döner, kilitsiz dosya değişir → birleştirme geçer
+        yaz(os.path.join(yol2, "tests", "test_x.py"), KIRMIZI_TEST)
+        yaz(os.path.join(yol2, "src", "y.py"), "Y = 1\n")
+        self.commit(yol2, "geri al + kilitsiz dosya")
+        r = self.cli("kart", "birlestir", g2)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotEqual(git(self.proje, "rev-parse", "HEAD").strip(), bas)
+        self.assertTrue(os.path.isfile(os.path.join(self.proje, "src", "y.py")))
+        with open(os.path.join(self.proje, "tests", "test_x.py"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), KIRMIZI_TEST)
+
+    def test_g_kendi_kilitli_testi_dalda_degisirse_birlesmez(self):
+        yol = self.agac()
+        test_y = "import unittest\nclass Y(unittest.TestCase):\n    def test_y(self):\n        pass\n"
+        yaz(os.path.join(yol, "tests", "test_y.py"), test_y)
+        self.kirmizi()  # ağaçta: test_x.py ve test_y.py kilitlenir
+        self.assertIn("tests/test_y.py", self.goster(self.g)["test_kilidi"]["dosyalar"])
+        yaz(os.path.join(yol, "src", "x.py"), "def f():\n    return 2\n")
+        self.commit(yol, "testler + düzeltme")
+        yaz(os.path.join(yol, "tests", "test_y.py"), "import unittest\n")  # hook dışı: kilit bozulur
+        self.commit(yol, "kilitli testi boz")
+        bas = git(self.proje, "rev-parse", "HEAD").strip()
+        r = self.cli("kart", "birlestir", self.g)
+        self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
+        self.assertIn("kilitli test", r.stderr)
+        self.assertIn("tests/test_y.py", r.stderr)
+        self.assertIn(self.g, r.stderr)
+        self.assertEqual(git(self.proje, "rev-parse", "HEAD").strip(), bas)
+        self.assertTrue(os.path.isdir(yol))
+        # dalda kilitteki içerik geri gelince (yeni kilitli test kilitteki hâliyle) birleştirme geçer
+        yaz(os.path.join(yol, "tests", "test_y.py"), test_y)
+        self.commit(yol, "geri al")
+        r = self.cli("kart", "birlestir", self.g)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(self.proje, "tests", "test_y.py")))
+
+    def test_g_satir_sonu_donusumu_kilidi_bozmaz(self):
+        git(self.proje, "config", "core.autocrlf", "true")  # ağaç aynı yapılandırmayı paylaşır
+        yol = self.agac()
+        with open(os.path.join(yol, "tests", "test_crlf.py"), "wb") as f:
+            f.write(b"import unittest\r\nclass C(unittest.TestCase):\r\n    def test_c(self):\r\n        pass\r\n")
+        with open(os.path.join(yol, "tests", "test_lf.py"), "wb") as f:
+            f.write(b"import unittest\nclass L(unittest.TestCase):\n    def test_l(self):\n        pass\n")
+        self.kirmizi()
+        self.commit(yol, "crlf ve lf testler")
+        r = self.cli("kart", "birlestir", self.g)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
 
 # ---------------------------------------------------------- (f) depo projenin alt klasörü
 class AgacProjeKokunuKapsamiyor(unittest.TestCase):

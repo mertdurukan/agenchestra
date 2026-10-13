@@ -464,7 +464,7 @@ def cmd_kart_teslim(a):
         if durum != "onaylandi":
             hata(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
         if (k.get("calisma_agaci") or {}).get("yol"):
-            ok, mesaj = _birlestir(k)
+            ok, mesaj = _birlestir(sd, k)
             L.kart_yaz(sd, k)
             if not ok:
                 hata(f"teslim reddedildi: kart çalışma ağacı birleşmedi — {mesaj}", 4)
@@ -507,9 +507,10 @@ def cmd_kart_agac(a):
     print(ca["yol"])
 
 
-def _birlestir(k) -> tuple[bool, str]:
-    """Kartın çalışma ağacını birleştirir ve kartı günceller (yazmaz). Çatışmada kart beklemede, dosyalar not edilir."""
-    s = L.kart_agaci_birlestir(k)
+def _birlestir(sd, k) -> tuple[bool, str]:
+    """Kartın çalışma ağacını birleştirir ve kartı günceller (yazmaz). Çatışmada ya da kilit kapısı ihlalinde kart
+    beklemede, dosyalar not edilir; worktree korunur. Kilit kapısı bütün kartların test kilitlerine bakar."""
+    s = L.kart_agaci_birlestir(k, proje=L.proje_dizini(), ks=L.kartlar(sd))
     if s["sonuc"] == "tamam":
         ca = k.pop("calisma_agaci")
         ca.update(birlesme=L.simdi(), commit=s.get("commit"))
@@ -518,15 +519,22 @@ def _birlestir(k) -> tuple[bool, str]:
             k["yazma_alani"] = k.pop("yazma_alani_ilk")
         k["girdi"] = _girdi_agacsiz(k.get("girdi"))
         k.pop("birlestirme_catismasi", None)
+        k.pop("birlestirme_kilidi", None)
         k["gecmis"].append({"zaman": L.simdi(), "olay": "birlestirildi", "commit": s.get("commit"), "not": s["mesaj"][:500]})
         return True, s["mesaj"]
-    if s["sonuc"] == "catisma":
+    if s["sonuc"] in ("catisma", "kilit"):
         k["durum"] = "beklemede"
         k["beklemede_sira"] = L.sonraki_sira(k)
-        k["birlestirme_catismasi"] = s["dosyalar"]
-        k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemede", "ajan": "orkestra",
-                            "not": ("birleştirme çatışması (otomatik çözülmedi): " + ", ".join(s["dosyalar"]))[:500]})
-        return False, s["mesaj"] + " — kart beklemede; çatışmayı elle çöz, sonra yeniden birleştir"
+        if s["sonuc"] == "catisma":
+            k["birlestirme_catismasi"] = s["dosyalar"]
+            not_ = "birleştirme çatışması (otomatik çözülmedi): " + ", ".join(s["dosyalar"])
+            ek = " — kart beklemede; çatışmayı elle çöz, sonra yeniden birleştir"
+        else:
+            k["birlestirme_kilidi"] = s["dosyalar"]
+            not_ = "birleştirme kilit kapısı: " + s["mesaj"]
+            ek = " — kart beklemede"
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemede", "ajan": "orkestra", "not": not_[:500]})
+        return False, s["mesaj"] + ek
     k["gecmis"].append({"zaman": L.simdi(), "olay": "birlestirme-ret", "not": s["mesaj"][:500]})
     return False, s["mesaj"]
 
@@ -540,7 +548,7 @@ def cmd_kart_birlestir(a):
         k = _kart_al(sd, a.gid)
         if not (k.get("calisma_agaci") or {}).get("yol"):
             hata(f"{a.gid} kartının çalışma ağacı yok (`orkestra kart agac {a.gid}`).")
-        ok, mesaj = _birlestir(k)
+        ok, mesaj = _birlestir(sd, k)
         L.kart_yaz(sd, k)
     if not ok:
         hata(mesaj, 4)
