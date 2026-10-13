@@ -52,6 +52,36 @@ _DEFTER_METIN_ALANLARI = ("sonuc", "yaptim", "not", "sonraki", "ozet", "aciklama
 _DEFTER_METIN_DISI = {"zaman", "gorev", "surec", "ajan", "agent_id", "oturum", "model", "kaynak", "dokunulan", "token"}
 
 
+GERI_DOLDUR_SN = 2
+
+
+def _geri_doldur(sd: str, satirlar: list, kart_oturum: dict) -> list:
+    """Her defter satırı için oturum kimliği (yalnız okurken türetilir, dosya değişmez).
+
+    Sıra: satırın kendi alanı, kart oturumu, maliyet.jsonl'de aynı ajan ve ±GERI_DOLDUR_SN sn içinde en yakın kaydın oturumu
+    (en yakında farklı oturumlar eşitse None), yoksa None.
+    """
+    maliyet = None
+    out = []
+    for r in satirlar:
+        o = r.get("oturum") or kart_oturum.get(r.get("gorev", "-"))
+        if not o:
+            if maliyet is None:
+                maliyet = [(m, A._zaman(m.get("zaman"))) for m in L.jsonl_oku(os.path.join(sd, "maliyet.jsonl")) if m.get("oturum")]
+            z = A._zaman(r.get("zaman"))
+            if z is not None:
+                # pencere içinde |dt| en küçük kayıt; en küçük mesafede farklı oturumlar eşitse belirsiz → None
+                adaylar = [(abs((mz - z).total_seconds()), m["oturum"]) for m, mz in maliyet
+                           if mz is not None and m.get("ajan") == r.get("ajan")]
+                adaylar = [x for x in adaylar if x[0] <= GERI_DOLDUR_SN]
+                if adaylar:
+                    en_az = min(d for d, _ in adaylar)
+                    ids = {oid for d, oid in adaylar if d == en_az}
+                    o = ids.pop() if len(ids) == 1 else None
+        out.append(o or None)
+    return out
+
+
 def defter_metni(r: dict) -> str:
     """Defter kaydının gösterilecek metni: sonuc/yaptim boşsa not/sonraki ve kayıttaki diğer metin alanlarına düşer."""
     adaylar = [r.get(k) for k in _DEFTER_METIN_ALANLARI]
@@ -147,11 +177,13 @@ def olustur(sd: str, proje: str) -> dict:
     # --- defter ve rüya
     kart_oturum = {k["id"]: k.get("oturum") for k in ks}
     defter = []
-    for r in L.defter_kayitlari(sd)[-20:]:
+    kayitlar_d = L.defter_kayitlari(sd)
+    bf = _geri_doldur(sd, kayitlar_d[-20:], kart_oturum)
+    for r, bo in zip(kayitlar_d[-20:], bf):
         metin = defter_metni(r)
         gorev = r.get("gorev", "-")
         defter.append({"zaman": r.get("zaman"), "gorev": gorev, "surec": r.get("surec", "-"),
-                       "ajan": r.get("ajan", "-"), "oturum": r.get("oturum") or kart_oturum.get(gorev) or None,
+                       "ajan": r.get("ajan", "-"), "oturum": bo,
                        "metin": metin, "olay": _olay_mi(metin, gorev)})
     import ruya
     rd = ruya.durum(sd)

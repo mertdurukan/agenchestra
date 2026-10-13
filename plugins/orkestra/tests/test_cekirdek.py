@@ -282,6 +282,36 @@ class Cekirdek(unittest.TestCase):
         olusan = json.loads(r.stdout)
         self.assertEqual(olusan[1]["bagimliliklar"], [olusan[0]["id"]])
 
+    def test_yeni_defter_kaydi_oturum_tasir(self):
+        tr = os.path.join(self.tdir, OTURUM, "subagents", "agent-ab12.jsonl")
+        satir = {"type": "assistant", "timestamp": "2026-10-13T10:00:00Z",
+                 "message": {"model": "claude-sonnet-5-5", "content": [{"type": "text", "text": "x"}],
+                             "usage": {"input_tokens": 1, "output_tokens": 1}}}
+        with open(tr, "w", encoding="utf-8") as f:
+            f.write(json.dumps(satir) + chr(10))
+        # hook yolu: ortamdaki oturum kimliği HOOK girdisindekinden farklı; oturum girdiden gelmeli
+        def hook_kos(olay, g):
+            g = dict({"session_id": OTURUM, "cwd": self.proje, "transcript_path": self.ana_tr, "hook_event_name": olay}, **g)
+            r = kos([HOOK, olay], self.proje, ortam={"CLAUDE_CODE_SESSION_ID": "ortam-baska"}, stdin=json.dumps(g))
+            self.assertEqual(r.returncode, 0, r.stderr)
+        hook_kos("SubagentStop", {"agent_id": "ab12", "agent_type": "orkestra:isci-t2", "agent_transcript_path": tr,
+                                  "last_assistant_message": "bitti"})
+        # Stop yolu (ana ajan, gorev '-'): araç çağıran bir tur
+        ana = {"type": "assistant", "timestamp": "2026-10-13T10:00:00Z",
+               "message": {"model": "claude-opus-5-5", "content": [{"type": "tool_use", "name": "Agent", "input": {}}],
+                           "usage": {"input_tokens": 1, "output_tokens": 1}}}
+        with open(self.ana_tr, "w", encoding="utf-8") as f:
+            f.write(json.dumps(ana) + chr(10))
+        hook_kos("Stop", {"last_assistant_message": "tur bitti"})
+        kay = [json.loads(s) for s in open(os.path.join(self.sd, "ortak_defter.jsonl"), encoding="utf-8")]
+        self.assertEqual({k["ajan"] for k in kay}, {"orkestra:isci-t2", "ana-ajan"}, kay)
+        self.assertTrue(all(k.get("oturum") == OTURUM for k in kay), kay)
+        # CLI yolu: oturum ortam değişkeninden
+        self.cli("defter", "ekle", "G-001", "--surec", "is", "--yaptim", "y")
+        son = [json.loads(s) for s in open(os.path.join(self.sd, "ortak_defter.jsonl"), encoding="utf-8")][-1]
+        self.assertEqual(son["oturum"], OTURUM)
+
+
 class PanelVeri(unittest.TestCase):
     """Panel veri katmanı: ozet.py defter ve bugün, analitik.py trend ve sıçrama uyarıları (geçici durum klasörü)."""
 
@@ -341,6 +371,31 @@ class PanelVeri(unittest.TestCase):
         self._yaz("ortak_defter.jsonl", [{"gorev": "-", "surec": "is", "ajan": "a", "sonuc": f"kayıt {i} burada uzun bir cümledir"}
                                          for i in range(30)])
         self.assertEqual(len(self.O.olustur(self.sd, self.proje)["defter"]), 20)
+
+    def test_eski_defter_kaydi_maliyetten_geri_dolar(self):
+        d = [{"gorev": "-", "surec": "orkestrasyon", "ajan": "ana-ajan", "zaman": "2026-10-13T10:00:00+03:00", "sonuc": "a"},
+             {"gorev": "-", "surec": "orkestrasyon", "ajan": "ana-ajan", "zaman": "2026-10-13T11:00:00+03:00", "sonuc": "b"},
+             {"gorev": "-", "surec": "orkestrasyon", "ajan": "baska", "zaman": "2026-10-13T10:00:00+03:00", "sonuc": "c"},
+             {"gorev": "-", "surec": "orkestrasyon", "ajan": "ana-ajan", "zaman": "2026-10-13T12:00:00+03:00", "oturum": "kendi", "sonuc": "d"}]
+        self._yaz("ortak_defter.jsonl", d)
+        self._yaz("maliyet.jsonl", [
+            self._maliyet(0, 1, 1.0, zaman="2026-10-13T10:00:02+03:00", oturum="oA"),   # +2 sn: eşleşir
+            self._maliyet(0, 1, 1.0, zaman="2026-10-13T11:00:03+03:00", oturum="oB")])  # +3 sn: eşleşmez
+        raw = open(os.path.join(self.sd, "ortak_defter.jsonl"), "rb").read()
+        sonuc = [r["oturum"] for r in self.O.olustur(self.sd, self.proje)["defter"]]
+        self.assertEqual(sonuc, ["oA", None, None, "kendi"])
+        self.assertEqual(raw, open(os.path.join(self.sd, "ortak_defter.jsonl"), "rb").read())  # dosya değişmez
+
+    def test_geri_doldur_en_yakin_ve_esitlikte_none(self):
+        d = [{"gorev": "-", "surec": "o", "ajan": "ana-ajan", "zaman": "2026-10-13T10:00:00+03:00", "sonuc": "a"},
+             {"gorev": "-", "surec": "o", "ajan": "ana-ajan", "zaman": "2026-10-13T11:00:00+03:00", "sonuc": "b"}]
+        self._yaz("ortak_defter.jsonl", d)
+        self._yaz("maliyet.jsonl", [
+            self._maliyet(0, 1, 1.0, zaman="2026-10-13T09:59:59+03:00", oturum="oA"),   # -1 sn
+            self._maliyet(0, 1, 1.0, zaman="2026-10-13T10:00:00+03:00", oturum="oB"),   # 0 sn → kazanır
+            self._maliyet(0, 1, 1.0, zaman="2026-10-13T10:59:59+03:00", oturum="oC"),   # eşit mesafe, farklı oturum
+            self._maliyet(0, 1, 1.0, zaman="2026-10-13T11:00:01+03:00", oturum="oD")])
+        self.assertEqual([r["oturum"] for r in self.O.olustur(self.sd, self.proje)["defter"]], ["oB", None])
 
     def test_bugun_uc_kaynakta_tutarli(self):
         kay = [self._maliyet(0, 1, 5.55), self._maliyet(0, 2, 1.1),

@@ -198,7 +198,7 @@ def subagent_stop(inp: dict):
     _maliyet_satirlari(sd, ozet, taban)
     ana_model = max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0] if ozet["modeller"] else "-"
     ilk = re.sub(r"#(GOREV|SUREC):\S+", "", ozet["ilk_kullanici"] or "").strip().replace("\n", " ")
-    L.defter_ekle(sd, {"gorev": gorev, "surec": surec, "ajan": atip, "agent_id": aid, "model": ana_model,
+    L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "ajan": atip, "agent_id": aid, "model": ana_model,
                        "yaptim": meta.get("description") or ilk[:200], "sonuc": (inp.get("last_assistant_message") or "")[:600],
                        "dokunulan": ozet["dokunulan"], "token": ozet["toplam"], "kaynak": "hook"})
     if gorev != "-":
@@ -247,7 +247,7 @@ def stop(inp: dict):
     kayda_deger = any(a in ozet["araclar"] for a in ("Agent", "Task", "Workflow")) or ozet["dokunulan"]
     if kayda_deger and ozet["modeller"]:
         araclar = ", ".join(f"{k}×{v}" for k, v in sorted(ozet["araclar"].items(), key=lambda x: -x[1])[:6])
-        L.defter_ekle(sd, {"gorev": "-", "surec": surec, "ajan": ajan, "model": max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0],
+        L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": "-", "surec": surec, "ajan": ajan, "model": max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0],
                            "yaptim": f"Tur: {ozet['arac_cagrisi']} araç çağrısı ({araclar})",
                            "sonuc": (inp.get("last_assistant_message") or "")[:400], "dokunulan": ozet["dokunulan"],
                            "token": ozet["toplam"], "kaynak": "hook"})

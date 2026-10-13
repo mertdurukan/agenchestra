@@ -266,15 +266,29 @@
     let html = '';
     if (!o.kart) html = '<p class="bos">Henüz teslim edilen kart yok; akış teslimden sonra ölçülür.</p>';
     else html = '<div class="karolar">' +
-      `<div class="karo"><b>${B.dk(o.toplam_ort)}</b><span>Plandan teslime (ort.)</span><small>medyan ${B.dk(o.toplam_medyan)} · ${B.sayi(o.kart)} teslim kart</small></div>` +
+      `<div class="karo"><b>${B.dk(o.toplam_ort)}</b><span>Plandan teslime (ort.)</span><small>medyan ${B.dk(o.toplam_medyan)} · @@SAYIM@@</small></div>` +
       kt('kuyruk', o.kuyruk_ort, 'Kuyrukta bekleme', 'kart → işçi başladı', ASAMA[0][3]) +
       kt('is', o.is_ort, 'İş süresi', 'işçi çalışması, düzeltmeler dahil', ASAMA[1][3]) +
       kt('denetim bekleme', o.denetim_bekleme_ort, 'Denetimde bekleme', 'iş bitti → denetim kararı', ASAMA[2][3]) + '</div>';
-    const tum = (Array.isArray(a.kartlar) ? a.kartlar : []).filter(k => k.toplam_dk != null || k.kuyruk_dk != null).reverse();   // en yeni önce
+    const teslimMi = k => k.toplam_dk != null || k.durum === 'teslim';
+    const acikMi = k => !teslimMi(k) && k.durum !== 'iptal';
+    // teslimler ölçümü olanlar; açık kartlar (Sırada dahil) ölçümsüz de gelir
+    const tum = (Array.isArray(a.kartlar) ? a.kartlar : []).filter(k => teslimMi(k) ? (k.toplam_dk != null || k.kuyruk_dk != null) : acikMi(k)).reverse();   // en yeni önce
+    // kuyruk süresi: ölçülmüşse o; Sırada kartta oluşturulma zamanından şimdiye; yoksa null
+    const kuyrukDk = k => {
+      if (k.kuyruk_dk != null) return k.kuyruk_dk;
+      if (k.durum !== 'planlandi' || !k.olusturma) return null;
+      const t = Date.parse(k.olusturma);
+      return isNaN(t) ? null : Math.max(0, (Date.now() - t) / 60000);
+    };
+    const deg = (k, f) => f === 'kuyruk_dk' ? kuyrukDk(k) : k[f];
+    const teslimSay = tum.filter(teslimMi).length, siradaSay = tum.filter(k => k.durum === 'planlandi').length, surenSay = tum.length - teslimSay - siradaSay;
+    const sayim = `${B.sayi(teslimSay)} teslim · ${B.sayi(surenSay)} süren · ${B.sayi(siradaSay)} sırada`;
     if (tum.length) {
-      const LIMIT = 8, liste = S.tumKart ? tum : tum.slice(0, LIMIT);
-      const teslimMi = k => k.toplam_dk != null;
-      const teslimSay = tum.filter(teslimMi).length, surenSay = tum.length - teslimSay;
+      const LIMIT = 8;
+      let tSira = 0;
+      const liste = S.tumKart ? tum : tum.filter(k => acikMi(k) || tSira++ < LIMIT);
+
       // ölçek yalnız teslim edilen kartlardan; süren kartın çubuğu taralıdır ve ölçeği aşarsa kırpılır
       const maks = Math.max(...tum.filter(teslimMi).map(k => ASAMA.reduce((t, [, f]) => t + (k[f] || 0), 0)), 0.0001);
       // süren aşama kartın durumundan: Sırada → kuyruk, Çalışıyor/Reddedildi → iş, Denetimde → denetim bekleme
@@ -282,18 +296,18 @@
       const baslik = (ad, anahtar) => `<th class="sayi${anahtar === darbogaz ? ' vurgu-sutun' : ''}">${ad}${anahtar === darbogaz ? ' ▲' : ''}</th>`;
       const hucre = (k, anahtar, f) => {
         const suren = !teslimMi(k) && SUREN[k.durum] === anahtar;
-        const deger = k[f] != null ? B.dk(k[f]) : '–';
-        return `<td class="sayi${anahtar === darbogaz ? ' vurgu-sutun' : ''}">${suren ? (k[f] != null ? deger + ' · ' : '') + '<em>sürüyor</em>' : deger}</td>`;
+        const dv = deg(k, f), deger = dv != null ? B.dk(dv) : '–';
+        return `<td class="sayi${anahtar === darbogaz ? ' vurgu-sutun' : ''}">${suren ? deger + ' · <em>sürüyor</em>' : deger}</td>`;
       };
       const durumEt = k => { if (teslimMi(k)) return ''; const d = E.durum(k.durum); return ` ${rozet(d.ad, d.renk)}`; };
       const cubuk = k => {
         const tarali = !teslimMi(k);
-        const parca = ASAMA.map(([, f, , r]) => k[f] ? [k[f], r] : null).filter(Boolean);
+        const parca = ASAMA.map(([, f, , r]) => deg(k, f) ? [deg(k, f), r] : null).filter(Boolean);
         const toplamK = parca.reduce((t, p) => t + p[0], 0);
         const olcek = tarali && toplamK > maks ? maks / toplamK : 1;       // ölçeği aşan süren kart kırpılır
         return `<span class="asama${tarali ? ' suren' : ''}" aria-hidden="true">${parca.map(([d, r]) => `<i${tarali ? ' class="tarali"' : ''} style="width:${yz(d * olcek / maks * 100)}%;--renk:${r}"></i>`).join('')}${tarali && toplamK > maks ? '<b>…</b>' : ''}</span>`;
       };
-      html += `<p class="meta tablo-ust">Tablo: ${B.sayi(teslimSay)} teslim · ${B.sayi(surenSay)} süren kart. Süren kartların ölçümü sürüyor; toplamı ve aşamalar eksik.</p>`;
+      html += `<p class="meta tablo-ust">Tablo: ${sayim}. Süren ve sıradaki kartların ölçümü sürüyor; toplamı ve aşamalar eksik.</p>`;
       html += `<div class="tablo-kap"><table class="tablo"><tr><th>Kart</th><th>Basamak</th><th class="sayi">Tur</th>${baslik('Kuyruk', 'kuyruk')}${baslik('İş', 'is')}${baslik('Denetim bekleme', 'denetim bekleme')}
         <th class="sayi">Toplam</th><th>Aşamalar</th></tr>` +
         liste.map(k => `<tr><td class="ad">${esc(k.id)}${durumEt(k)}<span class="meta">${metin(kisalt(k.baslik, 70))}</span></td><td>${esc(k.basamak || '–')}</td><td class="sayi">${B.sayi(k.tur)}</td>
@@ -301,11 +315,11 @@
           <td class="sayi">${teslimMi(k) ? B.dk(k.toplam_dk) : '–'}</td>
           <td>${cubuk(k)}</td></tr>`).join('') + '</table></div>';
       html += `<div class="lejant">${ASAMA.map(([, , ad, r]) => `<span><i style="--renk:${r}"></i>${ad}</span>`).join('')}</div>`;
-      if (tum.length > LIMIT) html += `<button type="button" class="tablo-dugme" id="tumKartDugme" data-anahtar="tumkart" aria-expanded="${S.tumKart}">${S.tumKart ? `Yalnız son ${LIMIT} kartı göster` : `Tümünü göster · ${tum.length} kart (${teslimSay} teslim, ${surenSay} süren)`}</button>`;
+      if (tum.length > liste.length || S.tumKart) html += `<button type="button" class="tablo-dugme" id="tumKartDugme" data-anahtar="tumkart" aria-expanded="${S.tumKart}">${S.tumKart ? `Yalnız son ${LIMIT} teslim ve açık kartları göster` : `Tümünü göster · ${sayim}`}</button>`;
     } else if (o.kart) html += '<p class="bos">Akışı ölçülebilen kart yok.</p>';
     html += `<details class="nasil"><summary>Nasıl hesaplanır?</summary>
       <p>Kuyruk: kart oluşturulduktan işçi başlayana kadar. İş: işçi çalışma süreleri toplamı. Denetimde bekleme: iş bitti ile denetim kararı arası. Darboğaz, ortalaması en uzun olan aşamadır; tabloda o sütun vurgulanır.</p></details>`;
-    yerlestir($('#akisIcerik'), html);
+    yerlestir($('#akisIcerik'), html.replace('@@SAYIM@@', sayim));
   }
 
   // ------------------------------------------------------------ 4. Paralel zaman çizelgesi

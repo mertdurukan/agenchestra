@@ -529,9 +529,9 @@
     if (!kota) { yerlestir(kap, yuklemeSatiri(orkYok ? KT : KA, 'Kota verisi')); return; }
     const olculen = kota.kaynak ? KOTA_PENCERE.filter(([a]) => kota[a]) : [];
     if (!olculen.length) {
-      $('#kotaAciklama').textContent = 'Ölçüm yok.';
-      yerlestir(kap, `<details class="nasil"><summary>Nasıl kurulur?</summary>
-        <p>Kota değerini Claude yalnız durum satırına verir; orkestranın <code>kota.py</code> betiği bu satıra bağlıdır, bir terminal oturumunda (<code>claude</code>) mesaj gönderince ölçüm burada görünür.</p></details>`);
+      $('#kotaAciklama').textContent = 'Ölçüm yok: masaüstü uygulaması kota bilgisini vermiyor.';
+      yerlestir(kap, `<details class="nasil"><summary>Ölçüm nasıl gelir?</summary>
+        <p>Kota değerini Claude yalnız terminaldeki oturumun durum satırına verir. Bir terminalde <code>claude</code> ile bir mesaj gönderince ölçüm burada görünür.</p></details>`);
       return;
     }
     $('#kotaAciklama').textContent = '5 saatlik ve haftalık kullanım sınırı; Claude\'un durum satırından kaydedilir, hesap geneli.';

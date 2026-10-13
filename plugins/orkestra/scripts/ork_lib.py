@@ -428,6 +428,8 @@ def _defter_dondur(sd: str) -> None:
 def defter_ekle(sd: str, kayit: dict) -> None:
     kayit = dict(kayit)
     kayit.setdefault("zaman", simdi())
+    if not kayit.get("oturum"):  # CLI/ruya yolu: yazan oturumun kimliği ortamdan (alt ajanda üst oturum)
+        kayit["oturum"] = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or None
     for alan in ("yaptim", "sonuc", "not"):
         if kayit.get(alan):
             kayit[alan] = maskele(str(kayit[alan]))[:900]
