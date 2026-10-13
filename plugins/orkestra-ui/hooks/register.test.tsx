@@ -12,6 +12,10 @@ const ORNEK: UiOzet = {
   sayac: { onaylandi: 1, reddedildi: 1 },
   maliyet: { bugun: 1.5, oturum: 0.42, surec: { is: 0.3, denetim: 0.12 }, model: { 'sonnet-5-5': 0.3 } },
   defter: ['10:00 G-001 is · orkestra:isci-t1: README satırı eklendi'],
+  sohbetler: [
+    { baslik: 'Orkestrasyon', usd: 39.06, kaynak: 'defter', bu: true, son: '10-13 10:46' },
+    { baslik: 'Karar Defteri detaylı yapılandırması', usd: 8.21, kaynak: 'motor', bu: false, son: '10-13 10:40' },
+  ],
   ruya: { zamani_geldi: false, rapor: true, calisiyor: false },
 }
 
@@ -46,7 +50,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(argv[0]?.slice(-3)).toEqual(['ui-ozet', '--oturum', 'test-oturum'])
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
     const t = metin(await ui.drawn())
-    for (const parca of ['G-001', 'reddedildi', 'Bu oturum ', '$0.42', 'rüya raporu hazır', 'README satırı eklendi']) {
+    for (const parca of ['G-001', 'reddedildi', 'Bu oturum ', '$0.42', 'rüya raporu hazır', 'README satırı eklendi',
+      'Sohbetler (bu çalışma alanı)', 'Orkestrasyon', '$39.06', 'Karar Defteri detaylı yapılandırması', '$8.21']) {
       expect(t).toContain(parca)
     }
   })

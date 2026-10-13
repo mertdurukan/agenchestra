@@ -3,7 +3,18 @@
   "displayName": "Orkestra",
   "version": "1.0.0",
   "description": "Claude ekosistemi içinde maliyet basamaklı (betik → Haiku → Sonnet → Opus → Fable) ajan orkestrasyonu: ana ajan planlar, dağıtır, toplar; her iş ayrı bir denetçiden geçer; bağımsız işler paralel koşar; ortak defter ve ajan x süreç token defteri; rüya (hafıza bakımı) ve skill avı.",
-  "author": { "name": "Mert Durukan" },
+  "author": {
+    "name": "Mert Durukan"
+  },
   "license": "UNLICENSED",
-  "keywords": ["orchestration", "subagents", "workflow", "memory", "cost"]
+  "keywords": [
+    "orchestration",
+    "subagents",
+    "workflow",
+    "memory",
+    "cost"
+  ],
+  "hooks": [
+    "./hooks/sayac.json"
+  ]
 }

@@ -21,7 +21,13 @@ ORK_KOMUT = re.compile(r"""(?:^|[\s/\\"'])orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
 YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
-KABUK_YAZMA = re.compile(r"(>|\btee\b|Set-Content|Out-File|Add-Content|\bsed\s+-i|\brm\b|\bmv\b|\bcp\b|\bdel\b|Remove-Item|Move-Item|Copy-Item|python[0-9.]*\s+-c|open\()", re.I)
+_KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
+# Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
+# ya da open(<korunan>, 'w'/'a'). Komut gövdesinde (heredoc, kod) korunan adın geçmesi tek başına yetmez.
+KABUK_YAZMA_HEDEF = re.compile(
+    r"(?:>>?|\btee\b|Set-Content|Add-Content|Out-File|\bsed\s+-i\S*|\brm\b|\bmv\b|\bcp\b|\bdel\b|Remove-Item|Move-Item|Copy-Item)"
+    r"[^|;&\n]*?" + _KORUNAN
+    + r"|open\([^)\n]*" + _KORUNAN + r"[^)\n]*,\s*['\"][wa]", re.I)
 
 
 def izin_ver(guncel_girdi: dict | None = None, neden: str = ""):
@@ -70,7 +76,7 @@ def ajan_gorevi(sd: str, inp: dict) -> tuple[str, str]:
     gorev, surec = L.etiketler(ilk)
     if ilk:
         os.makedirs(os.path.dirname(onbellek), exist_ok=True)
-        L.atomik_yaz(onbellek, json.dumps({"gorev": gorev, "surec": surec}))
+        L.atomik_yaz(onbellek, json.dumps({"gorev": gorev, "surec": surec, "ajan": inp.get("agent_type") or "?"}))
     return gorev, surec
 
 
@@ -131,7 +137,7 @@ def pre_tool_use(inp: dict):
             kimlik_tip = atip or ("ana" if not aid else "bilinmiyor")
             girdi["command"] = f"{temiz} --ajan-id {kimlik_id} --ajan-tipi {kimlik_tip}"
             izin_ver(girdi, "orkestra CLI (kimlik eklendi)")
-        if KORUNAN_IZ.search(komut) and KABUK_YAZMA.search(komut):
+        if KABUK_YAZMA_HEDEF.search(komut):
             reddet("orkestra durum dosyalarına kabukla yazılmaz; `orkestra` CLI'ını kullan.")
         gec()
     gec()
@@ -175,10 +181,12 @@ def subagent_stop(inp: dict):
     gorev, surec = L.etiketler(ozet["ilk_kullanici"])
     if surec == "bilinmiyor":
         surec = "denetim" if "denetci" in atip else ("arastirma" if atip in ("Explore", "orkestra:arastirmaci") else
-                                                      "is" if "isci" in atip else "bilinmiyor")
+                                                      "ruya" if "ruya" in atip else "is" if "isci" in atip else "bilinmiyor")
+    # Sayaç modülünün (maliyet tur) aynı ajanı görev/süreç/tip ile eşleyebilmesi için önbellek.
+    L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip}))
     taban = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "ajan": atip,
              "agent_id": aid, "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
-             "arac_cagrisi": ozet["arac_cagrisi"], "ruya": bool(os.environ.get("ORKESTRA_RUYA"))}
+             "arac_cagrisi": ozet["arac_cagrisi"], "ruya": bool(os.environ.get("ORKESTRA_RUYA")), "kaynak": "hook"}
     _maliyet_satirlari(sd, ozet, taban)
     ana_model = max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0] if ozet["modeller"] else "-"
     ilk = re.sub(r"#(GOREV|SUREC):\S+", "", ozet["ilk_kullanici"] or "").strip().replace("\n", " ")
@@ -223,7 +231,7 @@ def stop(inp: dict):
     if ozet["modeller"]:
         taban = {"zaman": L.simdi(), "oturum": oid, "gorev": "-", "surec": surec, "ajan": ajan, "agent_id": None,
                  "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
-                 "arac_cagrisi": ozet["arac_cagrisi"], "ruya": ruya}
+                 "arac_cagrisi": ozet["arac_cagrisi"], "ruya": ruya, "kaynak": "hook"}
         _maliyet_satirlari(sd, ozet, taban)
     kayda_deger = any(a in ozet["araclar"] for a in ("Agent", "Task", "Workflow")) or ozet["dokunulan"]
     if kayda_deger and ozet["modeller"]:

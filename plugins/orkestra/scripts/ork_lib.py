@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime
 import fnmatch
+import glob
 import json
 import os
 import re
@@ -462,3 +463,89 @@ def stdin_json() -> dict:
         return json.loads(ham) if ham.strip() else {}
     except json.JSONDecodeError:
         return {}
+
+
+# ---------------------------------------------------------------- maliyet okuma (tekilleştirilmiş)
+
+def maliyet_kayitlari(sd: str) -> list[dict]:
+    """Token defteri satırları, tekilleştirilmiş.
+
+    Kaynaklar: 'tur' = sayaç modülü, motorun turn.complete kullanımı (kesin); 'hook' = SubagentStop/Stop
+    transkript okuması (alt ajan çıkış tokenı eksik sayılır); 'gecmis' = geçmiş aktarımı.
+    Aynı (oturum, agent_id) için 'tur' satırı varsa o grubun diğer satırları atılır.
+    """
+    rows = jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    tur_var = {(r.get("oturum"), r.get("agent_id")) for r in rows if r.get("kaynak") == "tur"}
+    return [r for r in rows if r.get("kaynak") == "tur" or (r.get("oturum"), r.get("agent_id")) not in tur_var]
+
+
+# ---------------------------------------------------------------- sohbetler (çalışma alanındaki oturumlar)
+
+def proje_oturum_dizini(proje: str) -> str:
+    ad = re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(proje))
+    return os.path.join(os.path.expanduser("~"), ".claude", "projects", ad)
+
+
+def _son_json_satiri(veri: bytes, isaret: bytes) -> dict | None:
+    i = veri.rfind(isaret)
+    if i < 0:
+        return None
+    bas = veri.rfind(b"\n", 0, i) + 1
+    son = veri.find(b"\n", i)
+    try:
+        return json.loads(veri[bas: son if son >= 0 else len(veri)].decode("utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return None
+
+
+def sohbetler(sd: str, proje: str, limit: int = 12) -> list[dict]:
+    """Çalışma alanının sohbetleri (kenar çubuğundaki adlarıyla), motorun maliyeti ve defterdeki maliyet.
+
+    Ad: transkriptteki son `custom-title`. Motor maliyeti: son `cost-state.totalCostUSD` (motorun kendi hesabı;
+    alt ajanlar dahil). Büyük transkriptler yalnız boyut/zaman değişince yeniden okunur.
+    """
+    dizin = proje_oturum_dizini(proje)
+    onb_yolu = os.path.join(sd, "oturumlar", "sohbet_onbellek.json")
+    try:
+        with open(onb_yolu, encoding="utf-8") as f:
+            onb = json.load(f)
+    except Exception:
+        onb = {}
+    dosyalar = sorted(glob.glob(os.path.join(dizin, "*.jsonl")), key=os.path.getmtime, reverse=True)[:limit]
+    out, degisti = [], False
+    for p in dosyalar:
+        oid = os.path.basename(p)[:-6]
+        st = os.stat(p)
+        imza = f"{st.st_size}:{int(st.st_mtime)}"
+        k = onb.get(oid)
+        if not k or k.get("imza") != imza:
+            with open(p, "rb") as f:
+                veri = f.read()
+            baslik = _son_json_satiri(veri, b'"type":"custom-title"') or {}
+            maliyet = _son_json_satiri(veri, b'"type":"cost-state"') or {}
+            ilk = None
+            if not baslik:
+                for satir in veri.splitlines()[:60]:
+                    try:
+                        o = json.loads(satir)
+                    except Exception:
+                        continue
+                    if o.get("type") == "user":
+                        ilk = _metin((o.get("message") or {}).get("content")).strip().replace("\n", " ")[:50]
+                        if ilk:
+                            break
+            k = {"imza": imza, "baslik": baslik.get("customTitle") or ilk or oid[:8],
+                 "motor_usd": maliyet.get("totalCostUSD"),
+                 "modeller": {m: round(v.get("costUSD", 0) or 0, 4) for m, v in (maliyet.get("modelUsage") or {}).items()}}
+            onb[oid] = k
+            degisti = True
+        out.append({"oturum": oid, "baslik": k["baslik"], "motor_usd": k["motor_usd"], "modeller": k["modeller"],
+                    "son": datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat(timespec="minutes")})
+    if degisti:
+        atomik_yaz(onb_yolu, json.dumps(onb, ensure_ascii=False))
+    defter: dict = {}
+    for r in maliyet_kayitlari(sd):
+        defter[r.get("oturum")] = defter.get(r.get("oturum"), 0.0) + (r.get("maliyet_usd") or 0.0)
+    for s in out:
+        s["defter_usd"] = round(defter.get(s["oturum"], 0.0), 4)
+    return out

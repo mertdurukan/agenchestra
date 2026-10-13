@@ -14,6 +14,7 @@ export type UiOzet = {
   sayac?: Record<string, number>
   maliyet?: { bugun: number; oturum: number; surec: Record<string, number>; model: Record<string, number> }
   defter?: string[]
+  sohbetler?: { baslik: string; usd: number; kaynak: 'motor' | 'defter'; bu: boolean; son: string }[]
   ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
 }
 

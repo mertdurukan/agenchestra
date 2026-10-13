@@ -7,7 +7,12 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 - **Ayrı denetçi:** Her işçi çıktısını ayrı bir `denetci` ajanı kabul kriterlerine göre denetler. Kimse kendi işini onaylayamaz. Kural üç katmanda zorlanır: ajan araç kısıtı, hook kimlik enjeksiyonu ve CLI kontrolü.
 - **Paralellik:** Görev kartları bağımlılık grafiği olarak yürür. Yazma alanı kesişmeyen işler aynı anda koşar. Bir hook alan dışına yazmayı reddeder.
 - **Ortak defter:** Her ajan bitince ne yaptığı otomatik olarak deftere eklenir. İhtiyacı olan ajan yalnız ilgili kayıtları okur.
-- **Token defteri:** Her ajanın her süreç için harcadığı token ve maliyet kaydedilir. Kırılım: ajan × süreç × model; kayıtlar oturum dökümünden tekilleştirilir.
+- **Token defteri:** Her ajanın her süreç için harcadığı token ve maliyet kaydedilir; kırılım ajan × süreç × model.
+  - Kesin değeri `sayac` modülü yazar: motorun her tur sonunda bildirdiği kullanımı kaydeder.
+  - Yedek kaynak, hook'ların transkript okumasıdır. Alt ajan transkriptleri çıkış tokenını eksik tuttuğu için bu yalnız tahmindir.
+- **Sohbet maliyeti:** Çalışma alanındaki her sohbet, kenar çubuğundaki adıyla ve maliyetiyle panelde listelenir.
+  - Kapanmış sohbetlerde motorun kendi hesabı (`cost-state`) gösterilir.
+  - Açık sohbetlerde defter değeri gösterilir ve `≈` ile işaretlenir.
 - **Rüya:** Oturumlar arasında arka planda hafıza bakımı ve skill avı yapılır. Yalnız öneri üretir; hafızayı onayınla değiştirir.
 - **Arayüz:** Bir Orkestra paneli, prompt üstünde bir durum bandı ve `/orkestra` komutu.
 
@@ -19,7 +24,7 @@ plugins/orkestra/                   çekirdek plugin
   agents/      triyaj, isci-t1..t4, denetci, arastirmaci, hafiza-bakimcisi, skill-avcisi, arsivci
   skills/      is, baslat, maliyet, defter, ruya, skill-avi        →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
-  hooks/       hooks.json → scripts/hook.py (9 olay)
+  hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
   scripts/     ork_lib.py, orkestra.py (CLI), hook.py, ruya.py
   bin/         orkestra, orkestra.cmd (CLI'yı PATH'e koyar), fiyat.json
   tests/       test_cekirdek.py (python -m unittest)

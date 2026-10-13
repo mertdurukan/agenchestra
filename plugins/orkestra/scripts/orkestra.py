@@ -350,7 +350,7 @@ def cmd_defter_ozet(a):
 # ---------------------------------------------------------------- maliyet
 
 def _maliyet_kayitlari(sd, gun):
-    kayitlar = L.jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    kayitlar = L.maliyet_kayitlari(sd)
     if gun:
         esik = (datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)).isoformat()
         kayitlar = [r for r in kayitlar if r.get("zaman", "") >= esik]
@@ -397,6 +397,15 @@ def cmd_maliyet_rapor(a):
         metin += "\n" + _md_tablo("Ajan × model", ["ajan", "model"], _pivot(kayitlar, ["ajan", "model"]))
         metin += "\n" + _md_tablo("Süreç", ["surec"], _pivot(kayitlar, ["surec"]))
         metin += "\n" + _md_tablo("Gün", ["gun"], _pivot([dict(r, gun=r.get("zaman", "")[:10]) for r in kayitlar], ["gun"]))
+        sohbet = {s["oturum"]: s for s in L.sohbetler(sd, L.proje_dizini(), limit=500)}
+        satirlar = ["", "### Sohbet (çalışma alanındaki oturumlar)", "",
+                    "| sohbet | son etkinlik | defter ≈$ | motor $ (sohbet kapanınca yazılır) |", "|---|---|---|---|"]
+        for s in sorted(sohbet.values(), key=lambda x: -(x["motor_usd"] or x["defter_usd"] or 0)):
+            if not (s["motor_usd"] or s["defter_usd"]):
+                continue
+            motor = f"{s['motor_usd']:.2f}" if s["motor_usd"] is not None else "—"
+            satirlar.append(f"| {s['baslik']} | {s['son'][:16].replace('T', ' ')} | {s['defter_usd']:.2f} | {motor} |")
+        metin += "\n".join(satirlar) + "\n"
     if a.cikti:
         L.atomik_yaz(a.cikti, metin)
         print(a.cikti)
@@ -443,9 +452,41 @@ def cmd_maliyet_gecmis(a):
     print(f"{yeni} satır aktarıldı → {yol}")
 
 
+def cmd_maliyet_tur(a):
+    """Sayaç modülünden gelen KESİN tur kullanımını deftere yazar (orkestra kapalıysa sessizce çıkar)."""
+    sd = L.durum_dizini()
+    if not sd:
+        return
+    gorev, surec, ajan = "-", "orkestrasyon", "ana-ajan"
+    if a.agent_id:
+        ajan, surec = "?", "bilinmiyor"
+        onb = os.path.join(sd, "oturumlar", f"ajan_{a.agent_id}.json")
+        try:
+            with open(onb, encoding="utf-8") as f:
+                d = json.load(f)
+            gorev, surec, ajan = d.get("gorev", "-"), d.get("surec", "bilinmiyor"), d.get("ajan", "?")
+        except Exception:
+            tr = os.path.join(L.proje_oturum_dizini(L.proje_dizini()), a.oturum, "subagents", f"agent-{a.agent_id}.jsonl")
+            o = L.transkript_oku(tr)
+            gorev, surec = L.etiketler(o["ilk_kullanici"])
+            ajan = L.alt_ajan_meta(tr).get("agentType") or "?"
+            if surec == "bilinmiyor":
+                surec = "denetim" if "denetci" in ajan else ("is" if "isci" in ajan else ("ruya" if "ruya" in ajan else
+                        "arastirma" if ajan in ("Explore", "orkestra:arastirmaci") else "bilinmiyor"))
+            L.atomik_yaz(onb, json.dumps({"gorev": gorev, "surec": surec, "ajan": ajan}))
+    elif os.environ.get("ORKESTRA_RUYA"):
+        surec, ajan = "ruya", "ruya-bakimcisi"
+    u = {"input_tokens": a.giris, "output_tokens": a.cikis, "cache_read_input_tokens": a.onb_okuma,
+         "cache_creation_input_tokens": a.onb_yazma}
+    L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), {
+        "zaman": L.simdi(), "oturum": a.oturum, "gorev": gorev, "surec": surec, "ajan": ajan, "agent_id": a.agent_id,
+        "model": a.model, "giris": a.giris, "cikis": a.cikis, "onbellek_okuma": a.onb_okuma, "onbellek_yazma": a.onb_yazma,
+        "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur"})
+
+
 def cmd_maliyet_ozet(a):
     sd = sd_gerekli()
-    kayitlar = L.jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    kayitlar = L.maliyet_kayitlari(sd)
     bugun = datetime.date.today().isoformat()
     oid = oturum_id()
     o = {"bugun_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar if r.get("zaman", "").startswith(bugun)), 4),
@@ -505,6 +546,11 @@ def cmd_ui_ozet(a):
         print(json.dumps({"acik": False}))
         return
     oid = a.oturum or oturum_id()
+    kayitlar = L.maliyet_kayitlari(sd)
+    kart_usd = collections.Counter()
+    for r in kayitlar:
+        if r.get("gorev") not in (None, "-"):
+            kart_usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
     ks = []
     for k in L.kartlar(sd):
         d = L.kart_durumu_hesapla(k)
@@ -512,10 +558,16 @@ def cmd_ui_ozet(a):
             son = (k.get("denetimler") or [{}])[-1]
             ks.append({"id": k["id"], "baslik": k["baslik"][:60], "durum": d, "basamak": k["basamak"],
                        "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
-                       "usd": round((k.get("token") or {}).get("maliyet_usd", 0.0), 3)})
+                       "usd": round(kart_usd.get(k["id"], 0.0), 3)})
     ks = sorted(ks, key=lambda x: x["id"])[-25:]
     sayac = collections.Counter(k["durum"] for k in ks)
-    kayitlar = L.jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    sohbetler = []
+    for s in L.sohbetler(sd, L.proje_dizini(), limit=12):
+        usd = s["motor_usd"] if s["motor_usd"] is not None else s["defter_usd"]
+        if not usd:
+            continue
+        sohbetler.append({"baslik": s["baslik"][:48], "usd": round(usd, 2), "kaynak": "motor" if s["motor_usd"] is not None else "defter",
+                          "bu": s["oturum"] == oid, "son": s["son"][5:16].replace("T", " ")})
     bugun = datetime.date.today().isoformat()
     surec = collections.Counter()
     model = collections.Counter()
@@ -536,6 +588,7 @@ def cmd_ui_ozet(a):
                     "surec": {k: round(v, 3) for k, v in surec.most_common(6)},
                     "model": {k: round(v, 3) for k, v in model.most_common(4)}},
         "defter": defter,
+        "sohbetler": sohbetler[:8],
         "ruya": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"])},
     }, ensure_ascii=False))
 
@@ -618,6 +671,13 @@ def main():
     r.add_argument("--csv", action="store_true")
     r.add_argument("--cikti")
     r.set_defaults(f=cmd_maliyet_rapor)
+    tu = mal.add_parser("tur")
+    tu.add_argument("--oturum", required=True)
+    tu.add_argument("--agent-id")
+    tu.add_argument("--model", required=True)
+    for ad in ("--giris", "--cikis", "--onb-okuma", "--onb-yazma", "--sure-ms"):
+        tu.add_argument(ad, type=int, default=0)
+    tu.set_defaults(f=cmd_maliyet_tur)
     ge = mal.add_parser("gecmis")
     ge.add_argument("--bu-oturum-dahil", action="store_true")
     ge.set_defaults(f=cmd_maliyet_gecmis)

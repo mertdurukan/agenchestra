@@ -123,6 +123,17 @@ export const register: Register = on => {
         {surec !== '' && <Text dimColor wrap="truncate">Süreç: {surec}</Text>}
         {model !== '' && <Text dimColor wrap="truncate">Model: {model}</Text>}
         <Text> </Text>
+        <Text bold>Sohbetler (bu çalışma alanı)</Text>
+        {(o.sohbetler ?? []).length === 0 && <Text dimColor>Henüz maliyetli sohbet yok.</Text>}
+        {(o.sohbetler ?? []).map(s => (
+          <Text wrap="truncate">
+            <Text color={s.bu ? 'claude' : 'text'}>{s.bu ? '▸ ' : '  '}{usd(s.usd).padStart(8)} </Text>
+            {kes(s.baslik, w - 30)}
+            <Text dimColor> {s.son}{s.kaynak === 'defter' ? ' ≈' : ''}</Text>
+          </Text>
+        ))}
+        <Text dimColor>≈ açık sohbet: orkestra defteri; kapanınca motorun kendi hesabı gösterilir.</Text>
+        <Text> </Text>
         <Text bold>Ortak defter (son kayıtlar)</Text>
         {(o.defter ?? []).length === 0 && <Text dimColor>Henüz kayıt yok.</Text>}
         {(o.defter ?? []).map(s => <Text dimColor wrap="truncate">{kes(s, w)}</Text>)}
