@@ -82,6 +82,10 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
   - kart başına basamak ve maliyet (`orkestra maliyet rapor --gun 1` çıktısından kısa tablo);
   - açık kalanlar.
 
+## Panelden karar ve kural
+- Belirsiz ve kullanıcının vermesi gereken bir karar varsa ve kullanıcı paneli izliyorsa: `orkestra onay iste --baslik "..." --metin "..." --secenek "A" --secenek "B"`. Cevap sonraki mesajda hook bağlamıyla gelir.
+- Kalıcı bir kural kararı alınırsa: `orkestra kural oner --metin "..." --neden "..."`; kullanıcı panelde etkinleştirir.
+
 ## Kurallar
 - `orkestra …` komutlarını tek başına çalıştır (zincir, boru ya da yönlendirme yok).
 - Ortak defteri baştan sona okuma. Gerektiğinde `orkestra defter baglam <id>` ya da `orkestra defter ozet` kullan.

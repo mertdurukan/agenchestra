@@ -490,7 +490,8 @@ def session_start(inp: dict):
         pass
     r = ruya.durum(sd)
     if r.get("okunmamis_rapor"):
-        satirlar.append(f"Rüya raporu hazır: {r['okunmamis_rapor']} — kullanıcıya kısaca özetle ve `/orkestra:ruya` ile uygulamayı öner.")
+        satirlar.append(f"Perspektif (rüya) raporu hazır: {r['okunmamis_rapor']} — öneriler panelde Onaylar sayfasında; "
+                        "kullanıcı orada onaylayabilir ya da /orkestra:ruya ile sohbette ilerleyebilir.")
     elif r.get("zamani_geldi") and not r.get("calisiyor"):
         hafiza = ruya.hafiza_dizini(L.proje_dizini(inp.get("cwd")), inp.get("transcript_path"))
         satirlar.append("RÜYA ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
@@ -499,7 +500,14 @@ def session_start(inp: dict):
     uyari = asili_uyari(sd)
     if uyari:
         satirlar.append(uyari)
-    L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "\n".join(satirlar)[:1800]}})
+    om = ""
+    try:  # panel onay kararları: hata hook'u düşürmez
+        import onay
+        om = onay.baglam_metni(sd, inp.get("session_id"), "SessionStart") or ""
+    except Exception:
+        pass
+    ek = "\n".join(satirlar)[:1800 - len(om) - 1] + "\n" + om if om else "\n".join(satirlar)[:1800]  # onay yönlendirmesi kesilmesin
+    L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
 
 
 def user_prompt_submit(inp: dict):
@@ -513,8 +521,16 @@ def user_prompt_submit(inp: dict):
         sistem = metin.lstrip().startswith("<")
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
+            parcalar = [niyet.baglam_metni(inp.get("session_id")), asili_uyari(sd)]
+            try:  # panel onay kararları: hata hook'u düşürmez
+                import onay
+                om = onay.baglam_metni(sd, inp.get("session_id"), "UserPromptSubmit")
+                if om:
+                    parcalar.append(om)
+            except Exception:
+                pass
             L.hook_cikti({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
-                                                 "additionalContext": "\n".join(x for x in (niyet.baglam_metni(inp.get("session_id")), asili_uyari(sd)) if x)}})
+                                                 "additionalContext": "\n".join(p for p in parcalar if p)}})
     gec()
 
 

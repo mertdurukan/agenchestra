@@ -222,6 +222,11 @@ def olustur(sd: str, proje: str) -> dict:
                        "metin": metin, "olay": _olay_mi(metin, gorev)})
     import ruya
     rd = ruya.durum(sd)
+    try:
+        import onay
+        onaylar = onay.sayac(sd)
+    except Exception:
+        onaylar = None
 
     return {
         "surum": SURUM, "acik": True, "orkestra": True, "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)),
@@ -241,6 +246,7 @@ def olustur(sd: str, proje: str) -> dict:
         "defter": defter,
         "ruya": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"]),
                  "son_ruya": rd["son_ruya"]},
+        "onaylar": onaylar,
     }
 
 
