@@ -28,7 +28,24 @@ plugins/orkestra-ui/                arayüz modu (Pane + AbovePrompt bandı + /o
 araclar/sifre_temizle.py            oturum kayıtlarından düz metin şifre temizleme (elle çalıştırılır)
 ```
 
-## Kurulum (çalışma alanına özgü)
+## Yeni bir projeye kurmak (tek komut)
+
+```
+python C:\Users\PC\Desktop\Claude-Orchestration\araclar\projeye_kur.py <proje klasörü>
+```
+
+Komut şunları yapar:
+- Plugin'leri proje kapsamında kurar.
+- Proje ayarlarına orkestra varsayılanlarını ekler; var olan değerin üstüne yazmaz.
+- Durum klasörünü açar.
+- Git deposuysa `.gitignore` dosyasına satır ekler.
+- `CLAUDE.md` dosyasına kısa bir bölüm ekler.
+
+Genel ayarlara dokunmaz ve tekrar çalıştırmak güvenlidir.
+- Önizleme için `--kuru`, arayüz olmadan kurmak için `--ui-yok`, projeden çıkarmak için `--kaldir` kullan.
+- Kurulumdan sonra o projede yeni bir Claude oturumu aç.
+
+## Kurulum ayrıntısı (çalışma alanına özgü)
 
 Ayarlar bilgisayara değil çalışma alanına bağlıdır. Plugin'ler **proje kapsamında** kurulur ve yalnız o projede etkindir. Genel ayar dosyası (`~/.claude/settings.json`) boş kalır.
 

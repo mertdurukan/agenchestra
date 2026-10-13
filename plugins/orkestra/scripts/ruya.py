@@ -191,19 +191,26 @@ def _kos(sd: str, proje: str, hafiza: str, exe: str):
     rapor = os.path.join(sd, "ruya", f"ruya_{damga}.md")
     komut = [exe, "-p", istem, "--model", "sonnet", "--effort", "medium", "--max-turns", "60",
              "--allowedTools", "Read", "Glob", "Grep", "--add-dir", hafiza, "--output-format", "text"]
+    basarili = False
     try:
         r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=3600)
-        metin = r.stdout.strip() or f"(boş çıktı; çıkış kodu {r.returncode})\n\n```\n{r.stderr[-2000:]}\n```"
+        metin = r.stdout.strip()
+        basarili = r.returncode == 0 and len(metin) > 200 and "Not logged in" not in metin
+        if not basarili:
+            metin = f"(çıkış kodu {r.returncode})\n\n{metin[-2000:]}\n\n{r.stderr[-2000:]}"
     except Exception as e:
         metin = f"(rüya koşusu başarısız: {type(e).__name__}: {e})"
+    if not basarili:
+        hata_yolu = os.path.join(sd, "ruya", f"ruya_hata_{damga}.md")
+        L.atomik_yaz(hata_yolu, f"# Rüya koşusu başarısız — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")
+        with L.kilit(_durum_yolu(sd)):
+            st = _oku(sd)
+            st["calisiyor"] = None
+            st["headless"] = {"zaman": L.simdi(), "mumkun": False}
+            _yaz(sd, st)
+        return
     L.atomik_yaz(rapor, f"# Rüya raporu — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")
-    with L.kilit(_durum_yolu(sd)):
-        st = _oku(sd)
-        st.update(son_ruya=L.simdi(), oturum_sayaci=0, son_rapor=rapor, rapor_okundu=False, calisiyor=None)
-        _yaz(sd, st)
-    L.defter_ekle(sd, {"gorev": "-", "surec": "ruya", "ajan": "ruya-bakimcisi", "model": "sonnet",
-                       "yaptim": "Arka planda hafıza bakımı ve skill avı yaptım (yalnız okuma).", "sonuc": f"Rapor: {rapor}",
-                       "kaynak": "ruya"})
+    kaydet(sd, rapor)
 
 
 if __name__ == "__main__":
