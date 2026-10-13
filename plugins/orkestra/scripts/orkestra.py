@@ -3,10 +3,17 @@
 Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra baslat                                   bu projede durum klasörünü açar
   orkestra kart yeni --baslik T --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
-  orkestra kart toplu --json-dosya plan.json       (liste: [{baslik, basamak, kabul_kriterleri, yazma_alani, bagimliliklar, ...}])
+                     [--test-komutu M] [--test-alani GLOB]...     (--sinif kod ise ikisi ZORUNLU; glob proje köküne göre)
+  orkestra kart toplu plan.json | --json-dosya plan.json   (liste: [{baslik, basamak, kabul_kriterleri, yazma_alani, bagimliliklar,
+                                                    test_komutu, test_alani, ...}])
   orkestra kart goster G-001 | liste [--hepsi] [--json]
   orkestra kart durum G-001 isleniyor|is-bitti|beklemede|iptal|planlandi [--ozet M] [--cikti YOL]... [--not M]
-  orkestra kart denetim G-001 --karar onay|ret --gerekce M [--talimat M]      (yalnız denetçi ajan)
+  orkestra kart test-kos G-001 --asama kirmizi|yesil [--zaman-asimi SN]     (kod kartı; geçti → 0, geçmedi → 4)
+        kirmizi: kod yokken test BAŞARISIZ olmalı; olursa test dosyaları sha256 ile kilitlenir (kilitliyken hata)
+        yesil:   test GEÇMELİ ve test dosyaları kilitle birebir aynı olmalı
+  orkestra kart test-kilit-ac G-001 --neden M                                (yalnız ana ajan)
+  orkestra kart denetim G-001 --karar onay|ret --gerekce M [--talimat M]      (yalnız denetçi ajan;
+        kod kartında onay için son is-bitti'den sonraki en son test koşusu geçen yeşil olmalı ve dosyalar kilitle aynı)
   orkestra kart yukselt G-001 --basamak T3 --neden M
   orkestra kart teslim G-001 [--ozet M]                                        (yalnız ana ajan, onaylı kart)
   orkestra defter ekle G-001 --surec is [--yaptim M] [--sonuc M] [--not M]
@@ -95,10 +102,11 @@ def _kart_kur(sd, d: dict) -> dict:
     basamak = (d.get("basamak") or "T2").upper()
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
+    test_alanlari = _test_alanlari_dogrula(d)
     gid = d.get("id") or L.yeni_kart_id(sd)
     if L.kart_oku(sd, gid):
         hata(f"kart zaten var: {gid}")
-    return {
+    k = {
         "id": gid,
         "baslik": d.get("baslik") or "(başlıksız)",
         "sinif": d.get("sinif") or "-",
@@ -117,12 +125,33 @@ def _kart_kur(sd, d: dict) -> dict:
         "ciktilar": [],
         "gecmis": [{"zaman": L.simdi(), "olay": "olusturuldu", "basamak": basamak}],
     }
+    if test_alanlari:
+        k.update(test_alanlari)
+    return k
+
+
+def _test_alanlari_dogrula(d: dict) -> dict | None:
+    """sinif 'kod' ise test_komutu (boş olmayan metin) ve test_alani (boş olmayan glob listesi) zorunlu; değilse None."""
+    if (d.get("sinif") or "").strip().lower() != "kod":
+        return None
+    ad = d.get("baslik") or "(başlıksız)"
+    komut = d.get("test_komutu")
+    if not isinstance(komut, str) or not komut.strip():
+        hata(f"kod kartında test_komutu zorunlu (boş olmayan metin; --test-komutu): {ad}")
+    alan = d.get("test_alani")
+    if isinstance(alan, str):
+        alan = [alan]
+    if not isinstance(alan, list) or not [g for g in alan if isinstance(g, str) and g.strip()]:
+        hata(f"kod kartında test_alani zorunlu (boş olmayan glob listesi; --test-alani): {ad}")
+    return {"test_komutu": komut.strip(), "test_alani": [g.strip() for g in alan if isinstance(g, str) and g.strip()],
+            "test_kilidi": None, "test_kosulari": []}
 
 
 def cmd_kart_yeni(a):
     sd = sd_gerekli()
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
-                       "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli})
+                       "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
+                       "test_komutu": a.test_komutu, "test_alani": a.test_alani})
     if not k["kabul_kriterleri"]:
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     L.kart_yaz(sd, k)
@@ -131,15 +160,19 @@ def cmd_kart_yeni(a):
 
 def cmd_kart_toplu(a):
     sd = sd_gerekli()
-    with open(a.json_dosya, encoding="utf-8") as f:
+    yol = a.json_dosya or a.json_yol
+    if not yol:
+        hata("plan dosyası gerekli: orkestra kart toplu plan.json (ya da --json-dosya plan.json)")
+    with open(yol, encoding="utf-8") as f:
         liste = json.load(f)
     if isinstance(liste, dict):
         liste = liste.get("gorevler") or []
     yerel = {}
     olusan = []
-    for d in liste:
+    for d in liste:  # hiçbir kart oluşmadan önce hepsini doğrula
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
+        _test_alanlari_dogrula(d)
     for d in liste:
         takma = d.pop("ref", None)
         d["bagimliliklar"] = [yerel.get(b, b) for b in d.get("bagimliliklar") or []]
@@ -230,6 +263,11 @@ def cmd_kart_denetim(a):
             hata("bu kartta işçi olarak çalışan ajan kendi işini denetleyemez.", 3)
         if not k.get("son_is_zamani"):
             hata("denetlenecek işçi çıktısı yok (işçi `kart durum … is-bitti` demedi).", 3)
+        if a.karar == "onay" and k.get("sinif") == "kod":
+            engel = _yesil_kapi_engeli(k)
+            if engel:
+                hata(f"kod kartında onay için taze ve geçen bir yeşil test koşusu gerekli: {engel} "
+                     f"(`orkestra kart test-kos {a.gid} --asama yesil`). Karar kaydedilmedi.", 3)
         kayit = {"zaman": L.simdi(), "sira": L.sonraki_sira(k), "karar": a.karar, "gerekce": L.maskele(a.gerekce)[:3000],
                  "talimat": L.maskele(a.talimat or "")[:3000], "agent_id": ajan_id, "ajan": ajan_tipi,
                  "basamak": k["basamak"]}
@@ -242,6 +280,106 @@ def cmd_kart_denetim(a):
         L.atomik_yaz(os.path.join(sd, "gorevler", f"{a.gid}.denetim.json"),
                      json.dumps(k["denetimler"], ensure_ascii=False, indent=2) + "\n")
     print(f"{a.gid} denetim: {a.karar} → {k['durum']}")
+
+
+def _yesil_kapi_engeli(k: dict) -> str | None:
+    """Kod kartı onayı için engel metni; engel yoksa None. Koşul: son is-bitti'den SONRAKİ en son test koşusu
+    geçen bir yeşil VE şu an yeniden hesaplanan test dosyası özetleri kilitle birebir aynı."""
+    kosular = k.get("test_kosulari") or []
+    son_is_sira = k.get("son_is_sira")
+    if son_is_sira is not None:
+        sonraki = [x for x in kosular if (x.get("sira") or 0) > son_is_sira]
+    else:
+        sonraki = [x for x in kosular if x.get("zaman", "") >= (k.get("son_is_zamani") or "")]
+    if not sonraki:
+        return "son is-bitti'den sonra yeşil koşu yok (yoksa bayat)"
+    son = sonraki[-1]
+    if son.get("asama") != "yesil":
+        return "en son test koşusu yeşil değil"
+    if not son.get("gecti"):
+        return "en son yeşil koşu geçmedi"
+    if not k.get("test_kilidi"):
+        return "test kilidi yok"
+    mevcut = L.test_dosyasi_ozetleri(L.proje_dizini(), k.get("test_alani") or [])
+    if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
+        fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
+        return "yeşilden sonra test dosyaları kilitten saptı (" + ", ".join(
+            f"{ad}: {len(v)}" for ad, v in fark.items() if v) + ")"
+    return None
+
+
+def cmd_kart_test_kos(a):
+    sd = sd_gerekli()
+    ajan_id, ajan_tipi = _kim(a)
+    path = L.kart_yolu(sd, a.gid)
+    k = _kart_al(sd, a.gid)
+    if k.get("sinif") != "kod":
+        hata(f"test-kos yalnız kod kartında çalışır (sinif: {k.get('sinif')}).")
+    if not k.get("test_komutu") or not k.get("test_alani"):
+        hata("kartta test_komutu/test_alani yok.")
+    if a.asama == "kirmizi" and k.get("test_kilidi"):
+        hata("test dosyaları zaten kilitli: kırmızı yeniden koşulamaz (kilidi yalnız ana ajan açar: `kart test-kilit-ac`).")
+    if a.asama == "yesil" and not k.get("test_kilidi"):
+        hata("test dosyalarında kilit yok: önce kırmızı aşama koşulmalı (`kart test-kos … --asama kirmizi`).")
+    if a.zaman_asimi <= 0:
+        hata("--zaman-asimi pozitif olmalı.")
+    proje = L.proje_dizini()
+    once = L.test_dosyasi_ozetleri(proje, k["test_alani"])
+    if not once:
+        hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) hiçbir proje dosyasına uymuyor.")
+    zaman = L.simdi()
+    kod, cikti, sure = L.kabuk_kos(k["test_komutu"], proje, a.zaman_asimi)
+    sonra = L.test_dosyasi_ozetleri(proje, k["test_alani"])
+    with L.kilit(path):
+        k = _kart_al(sd, a.gid)  # koşu sürerken kart değişmiş olabilir
+        k.setdefault("test_kosulari", [])
+        if a.asama == "kirmizi":
+            if k.get("test_kilidi"):
+                hata("test dosyaları koşu sırasında kilitlendi; kırmızı kaydedilmedi.")
+            gecti = kod not in (0, -1)
+            hash_tutarli = None  # kırmızıda kıyas yok: kilidi bu koşu kurar
+            if gecti:
+                k["test_kilidi"] = {"zaman": L.simdi(), "dosyalar": once}
+        else:
+            if not k.get("test_kilidi"):
+                hata("test kilidi koşu sırasında açıldı; yeşil kaydedilmedi.")
+            hash_tutarli = L.kilitle_tutarli(k["test_kilidi"], once) and L.kilitle_tutarli(k["test_kilidi"], sonra)
+            gecti = kod == 0 and hash_tutarli
+        kayit = {"zaman": zaman, "sira": L.sonraki_sira(k), "asama": a.asama, "cikis_kodu": kod,
+                 "hash_tutarli": hash_tutarli, "gecti": gecti, "sure_s": sure,
+                 "cikti_kuyrugu": L.maskele(cikti)[-L.TEST_KUYRUK_MAX:], "ajan": ajan_tipi, "agent_id": ajan_id}
+        k["test_kosulari"].append(kayit)
+        L.kart_yaz(sd, k)
+    durum = "GEÇTİ" if gecti else "GEÇMEDİ"
+    ek = ""
+    if a.asama == "kirmizi" and not gecti:
+        ek = " (kırmızı aşamada test BAŞARISIZ olmalıydı; kilit yazılmadı)" if kod == 0 else " (zaman aşımı; kilit yazılmadı)"
+    elif a.asama == "kirmizi":
+        ek = f" — {len(once)} test dosyası kilitlendi"
+    elif not hash_tutarli:
+        fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), sonra)
+        ek = " — test dosyaları kilitten saptı: " + ", ".join(f"{ad} {', '.join(v)}" for ad, v in fark.items() if v)
+    print(f"{a.gid} test {a.asama}: {durum} (çıkış {kod}, {sure} sn){ek}")
+    if not gecti:
+        sys.exit(4)
+
+
+def cmd_kart_test_kilit_ac(a):
+    sd = sd_gerekli()
+    ajan_id, ajan_tipi = _kim(a)
+    if ajan_tipi != "ana":
+        hata(f"test kilidini yalnız ana ajan açar (sen: {ajan_tipi}).", 3)
+    if not (a.neden or "").strip():
+        hata("--neden boş olamaz.")
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        if not k.get("test_kilidi"):
+            hata("kartta açılacak test kilidi yok.")
+        k["test_kilidi"] = None
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "test-kilit-ac", "ajan": ajan_tipi, "agent_id": ajan_id,
+                            "not": L.maskele(a.neden)[:500]})
+        L.kart_yaz(sd, k)
+    print(f"{a.gid} test kilidi açıldı")
 
 
 def cmd_kart_yukselt(a):
@@ -641,10 +779,23 @@ def main():
     y.add_argument("--kabul", action="append", default=[])
     y.add_argument("--yazma", action="append", default=[])
     y.add_argument("--bagimli", action="append", default=[])
+    y.add_argument("--test-komutu", dest="test_komutu", help="kod kartında zorunlu: proje kökünde kabukla koşulan test komutu")
+    y.add_argument("--test-alani", dest="test_alani", action="append", default=[],
+                   help="kod kartında zorunlu (tekrarlanabilir): test dosyası glob'u, proje köküne göre")
     y.set_defaults(f=cmd_kart_yeni)
     t = kart.add_parser("toplu")
-    t.add_argument("--json-dosya", required=True)
+    t.add_argument("json_yol", nargs="?")
+    t.add_argument("--json-dosya")
     t.set_defaults(f=cmd_kart_toplu)
+    tk = kart.add_parser("test-kos")
+    tk.add_argument("gid")
+    tk.add_argument("--asama", required=True, choices=["kirmizi", "yesil"])
+    tk.add_argument("--zaman-asimi", dest="zaman_asimi", type=float, default=600)
+    tk.set_defaults(f=cmd_kart_test_kos)
+    ka = kart.add_parser("test-kilit-ac")
+    ka.add_argument("gid")
+    ka.add_argument("--neden", required=True)
+    ka.set_defaults(f=cmd_kart_test_kilit_ac)
     g = kart.add_parser("goster")
     g.add_argument("gid")
     g.set_defaults(f=cmd_kart_goster)

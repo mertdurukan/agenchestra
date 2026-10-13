@@ -23,13 +23,19 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
   - `kabul_kriterleri`: ölçülebilir, kanıtla doğrulanabilir.
   - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
+- Kod üreten (program, betik, modül değiştiren) her alt iş test-önce yürür. Kartına ayrıca şunları yaz:
+  - `sinif`: `"kod"`;
+  - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`);
+  - `test_alani`: test dosyalarının glob listesi (proje köküne göre). Testleri `orkestra:test-yazari` yalnız buraya yazar.
+  - İşçinin `yazma_alani` `test_alani`'nı İÇERMEZ (kesişmez). İşçi testi değiştiremez, yalnız testleri geçirecek kodu yazar.
+  - CLI, `sinif: kod` kartında `test_komutu` ve `test_alani` olmadan kartı kabul etmez.
 - Planı bir JSON dosyasına yaz (scratchpad'e; `ref` alanı ile birbirine bağla) ve kartları oluştur:
   `orkestra kart toplu --json-dosya <plan.json>` → çıktıdaki kart listesini sakla.
 - Kullanıcıya planı 3-8 satırla göster (kart, basamak, paralel gruplar). Kullanıcı açıkça "önce planı göster" demediyse onay beklemeden devam et.
 
 ## 2. Dağıt
 Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
-- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun.
+- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani`.
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
 - Betik her kart için şunu yapar:
   - basamağa uygun işçi ajanı çalıştırır;
@@ -37,6 +43,13 @@ Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
   - T3 ve üstünde iki mercekle denetler;
   - aynı basamakta iki ret gelirse basamağı yükseltir;
   - bağımlılık onaylanmadıysa o işi atlar.
+- Kod kartında (`sinif: kod`) sıra şöyledir:
+  1. **Test:** `orkestra:test-yazari` (`#SUREC:test-yaz`) kabul kriterlerinden testleri `test_alani`'na yazar.
+  2. **Kırmızı kapı:** `orkestra:isci-t1` (`#SUREC:test-kapisi`) `orkestra kart test-kos <id> --asama kirmizi` çalıştırır. Kod yokken testler başarısız olmalıdır; geçerse test dosyaları kilitlenir. Geçmezse test yazarına geri bildirimle en çok 2 yeniden deneme yapılır; yine geçmezse kart `reddedildi` (neden `kirmizi-teyit`).
+  3. **İş:** basamağa uygun işçi kodu yazar (testlere dokunmaz).
+  4. **Yeşil kapı:** aynı kapı ajanı `--asama yesil` çalıştırır. Geçmezse denetçi ÇAĞRILMAZ; işçiye test çıktı kuyruğuyla düzeltme turu açılır. Bu tur ret sayılır ve basamak yükseltmeye dahildir.
+  5. **Denetim:** mercekler + `test kalitesi` merceği. Denetçi yeşil kayıt yoksa onay yazamaz (CLI zorlar).
+  - Denetçi `TEST:` önekli bulgu ile ret verirse kart `reddedildi` (neden `test-kalitesi`) döner; işçiye düzeltme açılmaz.
 
 Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Bağımsız kartlar için Agent aracını AYNI mesajda birden çok kez çağır, `run_in_background: true` ile.
@@ -44,6 +57,18 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Her ajanın istemi `#GOREV:<id> #SUREC:is` satırıyla başlar.
 - Her işçi bitince ayrı bir `orkestra:denetci` çalıştır. Çağrıda `model` işçinin bir üstü olsun: T1→sonnet, T2→opus, T3/T4→opus. İstem `#GOREV:<id> #SUREC:denetim` ile başlar.
 - Ret gelirse aynı basamakta en çok iki düzeltme dene (`#SUREC:duzeltme`). Hâlâ ret varsa `orkestra kart yukselt <id> --basamak <üst> --neden "..."` ile yükselt ve bir üst işçiyle yeniden dene.
+- Kod kartında (`sinif: kod`) elle dağıtımda da aynı sıra izlenir:
+  1. `orkestra:test-yazari` çalıştır (istem `#GOREV:<id> #SUREC:test-yaz`; test komutu ve test alanını yaz).
+  2. Kırmızı kapı: `orkestra:isci-t1` ile (istem `#GOREV:<id> #SUREC:test-kapisi`) `orkestra kart test-kos <id> --asama kirmizi` koştur. Geçmezse test yazarına geri bildirimle en çok 2 kez yeniden dene; yine geçmezse kartı reddedilmiş say (neden `kirmizi-teyit`) ve planı düzelt.
+  3. İşçiyi çalıştır.
+  4. Yeşil kapı: aynı biçimde `--asama yesil`. Geçmezse denetçiyi çağırma; işçiye test çıktı kuyruğuyla `#SUREC:duzeltme` turu aç (ret sayılır, iki retten sonra yükselt).
+  5. Yeşil geçince denetçiyi çalıştır; mercek listesine `test kalitesi` ekle.
+
+## Test kalitesi reddi (kod kartı)
+- Denetçi `TEST:` önekli bulgu ile ret verdiyse sorun koddaki değil testteki eksiktir. Testler kilitli olduğu için işçi bunu düzeltemez.
+- Kilidi yalnız sen açarsın: `orkestra kart test-kilit-ac <id> --neden "<denetçinin TEST: bulgusu>"`.
+- Sonra kartı yeniden planla (gerekirse kabul kriterlerini ya da `test_alani`'nı düzelt) ve test-önce akışını baştan yürüt: test yazarı → kırmızı → işçi → yeşil → denetim.
+- Kırmızı teyit reddinde (`kirmizi-teyit`) kilit yoktur. Kriterlerin test edilebilirliğini ve `test_komutu`'nu gözden geçirip yeniden dağıt.
 
 ## 3. Topla ve getir
 - Workflow sonucunu ya da işçi ve denetçi yanıtlarını oku. `orkestra kart liste` ile durumları doğrula.
