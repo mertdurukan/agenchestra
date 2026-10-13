@@ -124,6 +124,29 @@ class KartIzolasyonu(unittest.TestCase):
             self.assertEqual(r.returncode, 5, desen)
             self.assertIn("kökünü", r.stderr)
 
+    def test_depoyu_ust_klasorden_kapsayan_desenler_reddedilir(self):
+        ust = self.taban.replace("\\", "/")
+        depo = self.proje.replace("\\", "/")
+        baska = os.path.join(self.taban, "baska_depo")  # yalnız önekin alt klasör taramasıyla bulunan kardeş depo
+        os.makedirs(baska)
+        git(baska, "init", "-q")
+        # projeyi İÇERMEYEN üst klasör: depo yalnız alt klasör taramasıyla bulunur (eski kural bunları geçiriyordu)
+        dis = os.path.join(self.taban, "dis")
+        os.makedirs(os.path.join(dis, "kardes_depo"))
+        git(os.path.join(dis, "kardes_depo"), "init", "-q")
+        dis_u = dis.replace("\\", "/")
+        for desen in (ust + "/**", depo + "*/**", ust + "/*", "*/**", ust + "/bas*/**", dis_u + "/**", dis_u + "/kar*/**",
+                      dis_u + "/*"):
+            g, _ = self.kart(desen)
+            r = self.isleniyor(g)
+            self.assertEqual(r.returncode, 5, f"{desen}: {r.stdout}{r.stderr}")
+            self.assertIn("kökünü", r.stderr, desen)
+        for desen in ("src/*/**", ust + "/bas*/src/**", ust + "/*.txt"):  # depoyu bütünüyle kapsamayanlar geçer
+            g, _ = self.kart(desen)
+            r = self.isleniyor(g)
+            self.assertEqual(r.returncode, 0, f"{desen}: {r.stderr}")
+            self.cli("kart", "durum", g, "iptal")
+
     def test_farkli_calisma_agacindaki_kartlar_cakismaz(self):
         g1, _ = self.kart("src/**")
         self.assertEqual(self.isleniyor(g1).returncode, 0)

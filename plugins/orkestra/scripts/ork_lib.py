@@ -510,18 +510,57 @@ def git_koku(yol: str, onbellek: dict | None = None) -> str | None:
     return kok
 
 
-def kok_kapsiyor_mu(proje: str, desen: str, onbellek: dict | None = None) -> bool:
-    """Desen bir git deposunun kökünü ya da '**'ini (tüm depoyu) kapsıyor mu."""
-    onek, kalan = desen_parcala(proje, desen)
-    genis = kalan in ("", "*") or kalan.startswith("**")
-    if not genis:
-        return False
-    kok = git_koku(onek, onbellek)
-    if kok:
-        return _kiyas(kok) == _kiyas(onek)
-    # git dışı önek: projeyi ya da projenin deposunu kapsıyorsa
+_YOKLAMA = "/zz_orkestra_yoklama/zz/yy.qq"  # bir klasörün TÜM alt klasörlerini kapsayan desen bu yolu da kapsar
+
+
+def _depo_kokleri(proje: str, onek: str, onbellek: dict | None, ek_kokler=()) -> list[str]:
+    """Bir desenin kapsayabileceği aday depo kökleri: proje ve deposu (+ o deponun worktree'leri), açık kartların
+    desenlerinin git kökleri, önekin içinde bulunduğu depo ve önekin doğrudan alt klasörlerinden .git taşıyanlar
+    (joker öncesi sabit kısım önek sayıldığı için 'Depo*' gibi desenlerin eşleşen kardeş klasörleri de buradadır)."""
     proje_kok = git_koku(proje, onbellek)
-    return yol_altinda(proje, onek) or bool(proje_kok and yol_altinda(proje_kok, onek))
+    adaylar = [proje, proje_kok, git_koku(onek, onbellek)] + list(ek_kokler)
+    if proje_kok:
+        anahtar = ("worktree", proje_kok)
+        if onbellek is not None and anahtar in onbellek:
+            adaylar += onbellek[anahtar]
+        else:
+            r = git(["worktree", "list", "--porcelain"], proje_kok)
+            wt = [s[9:].strip() for s in r.stdout.splitlines() if s.startswith("worktree ")] if r.returncode == 0 else []
+            if onbellek is not None:
+                onbellek[anahtar] = wt
+            adaylar += wt
+    try:
+        with os.scandir(onek) as it:
+            for e in it:
+                if e.is_dir() and os.path.exists(os.path.join(e.path, ".git")):
+                    adaylar.append(e.path)
+    except OSError:
+        pass
+    gorulen, out = set(), []
+    for a in adaylar:
+        if a and _kiyas(os.path.abspath(a)) not in gorulen:
+            gorulen.add(_kiyas(os.path.abspath(a)))
+            out.append(os.path.abspath(a).replace("\\", "/"))
+    return out
+
+
+def kok_kapsiyor_mu(proje: str, desen: str, onbellek: dict | None = None, ek_kokler=()) -> bool:
+    """Desen bir git deposunun kökünü ya da tamamını kapsıyor mu (depo kökünün ATASINI kapsayan desen dahil).
+
+    Kapsama: (1) önek bir depo kökü ve kalan boş/'*'/'**…'; (2) literal desen bir aday kökün atası ya da kendisi;
+    (3) desen aday kökün tüm alt klasörlerini kapsıyor ('Üst/**', 'Depo*/**', 'Üst/*', '*/**' gibi)."""
+    onek, kalan = desen_parcala(proje, desen)
+    kok = git_koku(onek, onbellek)
+    if kok and _kiyas(kok) == _kiyas(onek) and (kalan in ("", "*") or kalan.startswith("**")):
+        return True
+    tam = _kiyas(desen_mutlak(proje, desen))
+    for r in _depo_kokleri(proje, onek, onbellek, ek_kokler):
+        if not kalan:
+            if yol_altinda(r, onek):
+                return True
+        elif fnmatch.fnmatchcase(_kiyas(r).rstrip("/") + _YOKLAMA, tam):
+            return True
+    return False
 
 
 def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
@@ -534,8 +573,11 @@ def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
     onbellek: dict = {}
     hatalar = []
     if not (kart.get("calisma_agaci") or {}).get("yol"):
+        ek_kokler = {git_koku(desen_parcala(proje, b)[0], onbellek) for k in kartlar(sd)
+                     if k.get("id") != kart.get("id") and kart_durumu_hesapla(k) in ACIK_DURUMLAR
+                     for b in k.get("yazma_alani") or [] if (b or "").strip()} - {None}
         for d in desenler:
-            if kok_kapsiyor_mu(proje, d, onbellek):
+            if kok_kapsiyor_mu(proje, d, onbellek, ek_kokler):
                 hatalar.append(f"'{d}' bir git deposunun kökünü/'**'ini kapsıyor; paylaşılan ağaçta izinli değil — alanı "
                                f"daralt ya da ayrı çalışma ağacı aç (`orkestra kart agac {kart.get('id')}`)")
     for k in kartlar(sd):

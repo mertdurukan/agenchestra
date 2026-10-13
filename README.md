@@ -132,6 +132,14 @@ Paralel oturumlar ve işçiler aynı commitlenmemiş çalışma ağacını payla
   - Ana ağaçta kartın dosyalarında commitlenmemiş değişiklik varsa reddeder; sessiz ezme yoktur.
   - Çatışmada `git merge --abort` yapar, kartı `beklemede`ye alır ve çatışan dosyaları karta not eder. Çatışmayı asla otomatik çözmez.
   - `orkestra kart teslim`, çalışma ağacı olan kartta önce birleştirir; birleşmezse teslimi reddeder.
+  - Bir git deposunun kökünü kapsama kuralı, depoyu üst klasörden kapsayan desenleri de içerir: `Üst/**`, `Depo*/**`, `Üst/*`, göreli `*/**`. Aday kökler şunlardır: proje deposu ve worktree'leri, açık kartların depoları, önekin `.git` taşıyan doğrudan alt klasörleri.
+
+Çatışma yüzünden `beklemede` kalan kart, çalışma ağacı ve dalı korunmuş hâlde bekler. Yeniden birleştirmek için çatışmayı kart dalında çöz:
+1. Kartın çalışma ağacında ana dalı birleştir: `git -C <kart ağacı> merge <ana dal>`.
+2. Çatışan dosyaları (`birlestirme_catismasi` alanı) elle düzelt ve commit et.
+3. `orkestra kart birlestir <id>` komutunu yeniden çalıştır; bu kez çatışmasız birleşir ve worktree temizlenir.
+
+Çözüm işin kendisini değiştirdiği için kart yeniden işçi ve denetçiden geçer: `isleniyor` → `is-bitti` → onay → `orkestra kart teslim <id>`.
 
 ## Basamaklar ve denetim eşlemesi
 
