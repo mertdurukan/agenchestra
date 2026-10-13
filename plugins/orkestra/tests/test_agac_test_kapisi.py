@@ -86,15 +86,16 @@ class AgacTestKapisi(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 
-    def karar(self, dosya, surec="is", ana=False):
+    def karar(self, dosya, surec="is", ana=False, gorev=None):
         """(karar, neden) — karar None ise hook geçti."""
         girdi = {"session_id": OTURUM, "cwd": self.proje, "hook_event_name": "PreToolUse", "tool_name": "Write",
                  "tool_input": {"file_path": dosya, "content": "x"}}
         if not ana:
             # Etiket önbelleği (test_test_kilidi_hook.py ile aynı yol): hook #GOREV/#SUREC'i buradan okur.
-            aid = "w-" + surec
+            gorev = gorev or self.g
+            aid = f"w-{gorev}-{surec}"
             yaz(os.path.join(self.proje, ".claude", "orkestra", "oturumlar", f"ajan_{aid}.json"),
-                json.dumps({"gorev": self.g, "surec": surec, "ajan": "orkestra:isci-t2"}))
+                json.dumps({"gorev": gorev, "surec": surec, "ajan": "orkestra:isci-t2"}))
             girdi.update(agent_id=aid, agent_type="orkestra:isci-t2")
         r = kos([HOOK, "PreToolUse"], self.proje, stdin=json.dumps(girdi))
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -160,6 +161,119 @@ class AgacTestKapisi(unittest.TestCase):
         r = self.cli("kart", "test-kos", self.g, "--asama", "yesil", ajan_id="tw", ajan_tipi="orkestra:isci-t2")
         self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
         self.assertIn("kilitten saptı", r.stdout)
+
+    # ---------------------------------------------------------- (e) kilit sahibi ≠ ağaç sahibi
+    def test_e_baska_kartin_agacinda_kilitli_test_yazilamaz(self):
+        self.kirmizi()  # G1 (self.g) tests/test_x.py'yi kilitler
+        r = self.cli("kart", "yeni", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok",
+                     "--yazma", "tests/**", "--yazma", "src/**")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        g2 = r.stdout.strip()
+        r = self.cli("kart", "agac", g2)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        yol2 = r.stdout.strip()
+        hedef = os.path.join(yol2, "tests", "test_x.py")
+        yazimlar = [hedef]
+        if os.name == "nt":
+            yazimlar.append(hedef.upper().replace("/", "\\"))
+        for dosya in yazimlar:
+            for surec, ana in (("is", False), ("test-yaz", False), ("is", True)):
+                k, neden = self.karar(dosya, surec, ana=ana, gorev=g2)
+                self.assertEqual(k, "deny", f"{dosya} {surec} ana={ana}")
+                self.assertIn("kilitli test", neden)
+                self.assertIn(self.g, neden)  # kilit sahibi G1, ağaç sahibi G2
+        # G2'nin kilitsiz dosyaları açık kalır
+        self.assertIsNone(self.karar(os.path.join(yol2, "src", "y.py"), "is", gorev=g2)[0])
+        self.assertIsNone(self.karar(os.path.join(yol2, "tests", "test_y.py"), "is", gorev=g2)[0])
+        # G1 kendi ağacını da açınca G2 ağacındaki karşılık yine kapalı
+        self.agac()
+        self.assertEqual(self.karar(hedef, "is", gorev=g2)[0], "deny")
+        self.assertEqual(self.karar(hedef, "is", ana=True)[0], "deny")
+
+
+# ---------------------------------------------------------- (f) depo projenin alt klasörü
+class AgacProjeKokunuKapsamiyor(unittest.TestCase):
+    """Depo projenin alt klasörüyken kart ağacı proje kökünü kapsamaz: test_komutu proje kökünde koşar, ağaçtaki kodu
+    sınayamaz. Kod kartına ağaç açılmaz; eski (önceden açılmış) ağaçlı kod kartında test-kos ve onay kapısı açık hata verir."""
+
+    def setUp(self):
+        self.taban = os.path.realpath(tempfile.mkdtemp(prefix="ork_agk_"))
+        self.proje = os.path.join(self.taban, "proje")  # git deposu değil
+        self.depo = os.path.join(self.proje, "depo")
+        os.makedirs(self.depo)
+        git(self.depo, "init", "-q", "-b", "main")
+        git(self.depo, "config", "user.name", "Test")
+        git(self.depo, "config", "user.email", "test@example.invalid")
+        git(self.depo, "config", "core.autocrlf", "false")
+        yaz(os.path.join(self.depo, ".gitignore"), "__pycache__/\n")
+        yaz(os.path.join(self.depo, "src", "x.py"), "def f():\n    return 1\n")
+        yaz(os.path.join(self.depo, "tests", "test_x.py"), KIRMIZI_TEST)
+        git(self.depo, "add", ".")
+        git(self.depo, "commit", "-q", "-m", "ilk")
+        r = kos([CLI, "baslat"], self.proje)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod",
+                     "--test-komutu", f'"{sys.executable}" -m unittest discover -s depo/tests',
+                     "--test-alani", "depo/tests/**", "--yazma", "depo/src/**", "--yazma", "depo/tests/**")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.g = r.stdout.strip()
+
+    def tearDown(self):
+        for satir in git(self.depo, "worktree", "list", "--porcelain").splitlines():
+            if satir.startswith("worktree ") and os.path.realpath(satir[9:]) != self.depo:
+                subprocess.run(["git", "-C", self.depo, "worktree", "remove", "--force", satir[9:]], capture_output=True)
+        shutil.rmtree(self.taban, ignore_errors=True)
+
+    def cli(self, *args, ajan_id="ana", ajan_tipi="ana"):
+        return kos([CLI] + list(args) + ["--ajan-id", ajan_id, "--ajan-tipi", ajan_tipi], self.proje)
+
+    def kart(self, gid=None):
+        with open(os.path.join(self.proje, ".claude", "orkestra", "gorevler", f"{gid or self.g}.json"),
+                  encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_f1_kod_kartina_proje_kokunu_kapsamayan_agac_acilmaz(self):
+        r = self.cli("kart", "agac", self.g)
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("proje kökünü kapsamıyor", r.stderr)
+        self.assertFalse(os.path.exists(f"{self.depo}-kart-{self.g}"))
+        self.assertEqual(git(self.depo, "branch", "--list", f"kart/{self.g}").strip(), "")
+        self.assertNotIn("calisma_agaci", self.kart())
+        # kod kartı olmayan kart aynı düzende ağaç açabilir (testi yok, kapı yok)
+        r = self.cli("kart", "yeni", "--baslik", "belge", "--basamak", "T2", "--kabul", "ok", "--yazma", "depo/src/**")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        g2 = r.stdout.strip()
+        r = self.cli("kart", "agac", g2)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_f2_eski_agacli_kod_kartinda_test_kos_ve_onay_acik_hata(self):
+        isci = dict(ajan_id="tw", ajan_tipi="orkestra:isci-t2")
+        r = self.cli("kart", "test-kos", self.g, "--asama", "kirmizi", **isci)  # paylaşılan ağaçta, ağaç yokken
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        r = self.cli("kart", "durum", self.g, "is-bitti", "--ozet", "bitti", **isci)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        yaz(os.path.join(self.depo, "src", "x.py"), "def f():\n    return 2\n")
+        r = self.cli("kart", "test-kos", self.g, "--asama", "yesil", **isci)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        # Bu sürümden önce açılmış ağaç: depo projenin altında, ağaç proje kökünü kapsamıyor
+        yol = f"{self.depo}-kart-{self.g}"
+        git(self.depo, "worktree", "add", "-q", "-b", f"kart/{self.g}", yol, "HEAD")
+        k = self.kart()
+        k["calisma_agaci"] = {"depo": self.depo.replace("\\", "/"), "yol": yol.replace("\\", "/"),
+                              "dal": f"kart/{self.g}", "taban": "HEAD"}
+        yaz(os.path.join(self.proje, ".claude", "orkestra", "gorevler", f"{self.g}.json"),
+            json.dumps(k, ensure_ascii=False, indent=2) + "\n")
+        kosu_sayisi = len(k["test_kosulari"])
+        r = self.cli("kart", "test-kos", self.g, "--asama", "yesil", **isci)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("proje kökünü kapsamıyor", r.stderr)
+        self.assertNotIn("GEÇTİ", r.stdout)
+        self.assertEqual(len(self.kart()["test_kosulari"]), kosu_sayisi)  # paylaşılan ağaçta koşu kaydedilmedi
+        r = self.cli("kart", "denetim", self.g, "--karar", "onay", "--gerekce", "tamam",
+                     ajan_id="d1", ajan_tipi="orkestra:denetci")
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("proje kökünü kapsamıyor", r.stderr)
+        self.assertEqual(self.kart()["denetimler"], [])
 
 
 if __name__ == "__main__":

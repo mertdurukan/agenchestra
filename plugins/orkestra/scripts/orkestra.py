@@ -331,6 +331,10 @@ def cmd_kart_denetim(a):
 def _yesil_kapi_engeli(k: dict) -> str | None:
     """Kod kartı onayı için engel metni; engel yoksa None. Koşul: son is-bitti'den SONRAKİ en son test koşusu
     geçen bir yeşil VE şu an yeniden hesaplanan test dosyası özetleri kilitle birebir aynı."""
+    try:  # ağaç proje kökünü kapsamıyorsa paylaşılan ağaca sessizce düşülmez (önceki yeşil de ağacı sınamadı)
+        kok = L.kart_proje_koku(L.proje_dizini(), k)
+    except ValueError as e:
+        return str(e)
     kosular = k.get("test_kosulari") or []
     son_is_sira = k.get("son_is_sira")
     if son_is_sira is not None:
@@ -346,7 +350,7 @@ def _yesil_kapi_engeli(k: dict) -> str | None:
         return "en son yeşil koşu geçmedi"
     if not k.get("test_kilidi"):
         return "test kilidi yok"
-    mevcut = L.test_dosyasi_ozetleri(L.kart_proje_koku(L.proje_dizini(), k), k.get("test_alani") or [])
+    mevcut = L.test_dosyasi_ozetleri(kok, k.get("test_alani") or [])
     if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
         fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
         return "yeşilden sonra test dosyaları kilitten saptı (" + ", ".join(
@@ -369,7 +373,10 @@ def cmd_kart_test_kos(a):
         hata("test dosyalarında kilit yok: önce kırmızı aşama koşulmalı (`kart test-kos … --asama kirmizi`).")
     if a.zaman_asimi <= 0:
         hata("--zaman-asimi pozitif olmalı.")
-    proje = L.kart_proje_koku(L.proje_dizini(), k)  # kart ağacı varsa testler ve özetler ağaçtaki karşılıkta
+    try:  # kart ağacı varsa testler ve özetler ağaçtaki karşılıkta; ağaç proje kökünü kapsamıyorsa açık hata
+        proje = L.kart_proje_koku(L.proje_dizini(), k)
+    except ValueError as e:
+        hata(str(e))
     once = L.test_dosyasi_ozetleri(proje, k["test_alani"])
     if not once:
         hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) hiçbir proje dosyasına uymuyor.")

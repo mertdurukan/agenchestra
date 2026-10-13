@@ -582,6 +582,7 @@ def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
 
 
 CALISMA_AGACI_ONEKI = "Çalışma ağacı: "
+AGAC_KOK_KAPSAMIYOR = "kart ağacı proje kökünü kapsamıyor; test-kos ağaçta koşamaz"
 
 
 def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, list[str]]:
@@ -597,6 +598,10 @@ def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, li
         raise ValueError("yazma alanı tek bir git deposunun içinde olmalı (bulunan: "
                          + ", ".join(sorted(str(k) for k in kokler)) + ")")
     depo = kokler.pop()
+    if kart.get("sinif") == "kod" and kart.get("test_alani") and not yol_altinda(proje, depo):
+        raise ValueError(f"{gid}: {AGAC_KOK_KAPSAMIYOR} (depo {depo}, proje {os.path.abspath(proje)}); kod kartının "
+                         "test_komutu ve test_alani proje köküne göredir, ağaçtaki kodu sınayamaz. Kartı paylaşılan "
+                         "ağaçta yürüt ya da depoyu kapsayan bir projeden çalış.")
     yol = f"{depo}-kart-{gid}"
     dal = f"kart/{gid}"
     if os.path.exists(yol):
@@ -631,12 +636,22 @@ def agac_esdegeri(kart: dict, yol: str) -> str | None:
 
 def kart_proje_koku(proje: str, kart: dict) -> str:
     """Kartın testlerinin koşacağı ve test özetlerinin alınacağı kök: kart ağacı varsa projenin ağaçtaki karşılığı
-    (ağaç yolu + relpath(proje, depo)), yoksa proje. Proje deponun içinde değilse (depo projenin altındaysa) proje."""
+    (ağaç yolu + relpath(proje, depo)), ağaç yoksa proje.
+
+    Ağaç proje kökünü kapsamıyorsa (depo projenin alt klasörü ya da projeden ayrık) ValueError: test_komutu ve
+    test_alani proje köküne göredir, ağaçta karşılıkları yoktur. Paylaşılan köke düşmek ağaçtaki kodu sınamaz ve
+    yeşil kapıyı yanıltır; çağıran (test-kos, onay kapısı) açık hata verir. `kart_agaci_ac` bu düzende kod kartına
+    ağaç açmaz; bu dal o denetimden önce açılmış ağaçlar içindir."""
     ca = (kart or {}).get("calisma_agaci") or {}
-    if ca.get("yol") and ca.get("depo") and yol_altinda(proje, ca["depo"]):
-        r = os.path.relpath(os.path.abspath(proje), os.path.abspath(ca["depo"]))
-        return os.path.abspath(ca["yol"] if r == "." else os.path.join(ca["yol"], r))
-    return proje
+    if not ca.get("yol"):
+        return proje
+    if not (ca.get("depo") and yol_altinda(proje, ca["depo"])):
+        raise ValueError(f"{AGAC_KOK_KAPSAMIYOR} (depo {ca.get('depo') or '-'}, ağaç {ca['yol']}, proje "
+                         f"{os.path.abspath(proje)}). Paylaşılan ağaçta koşmak ağaçtaki kodu sınamaz; ağacı "
+                         f"`orkestra kart birlestir {(kart or {}).get('id', '<id>')}` ile paylaşılan ağaca al, "
+                         "sonra test-kos koş.")
+    r = os.path.relpath(os.path.abspath(proje), os.path.abspath(ca["depo"]))
+    return os.path.abspath(ca["yol"] if r == "." else os.path.join(ca["yol"], r))
 
 
 def kart_agaci_birlestir(kart: dict, mesaj: str | None = None) -> dict:

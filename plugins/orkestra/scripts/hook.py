@@ -46,10 +46,10 @@ def _rel(proje: str, tam: str) -> str | None:
     return None if r == ".." or r.startswith("../") else r
 
 
-def kilitli_testler(sd: str) -> dict[str, str]:
+def kilitli_testler(sd: str, ks: list[dict] | None = None) -> dict[str, str]:
     """Teslim/iptal olmayan kartların kilitli test dosyaları → {göreli yol: kart kimliği}."""
     out = {}
-    for k in L.kartlar(sd):
+    for k in L.kartlar(sd) if ks is None else ks:
         if k.get("durum") in ("teslim", "iptal"):
             continue
         d = (k.get("test_kilidi") or {}).get("dosyalar")
@@ -59,27 +59,55 @@ def kilitli_testler(sd: str) -> dict[str, str]:
     return out
 
 
-def kilitli_test_bul(sd: str, proje: str, tam: str) -> tuple[str, str] | None:
-    """Yazım hedefi açık bir kartın kilitli test dosyasıysa (göreli yol, kart kimliği). Proje içi yol her kartın kilidiyle;
-    bir kartın çalışma ağacındaki yol, o kartın kilidiyle paylaşılan depodaki karşılığı üzerinden karşılaştırılır."""
-    trel = _rel(proje, tam)
-    for k in L.kartlar(sd):
-        if k.get("durum") in ("teslim", "iptal"):
-            continue
-        d = (k.get("test_kilidi") or {}).get("dosyalar")
-        if not isinstance(d, dict) or not d:
-            continue
-        adaylar = set()
-        es = L.agac_esdegeri(k, tam)
-        if es is not None:
-            r = _rel(proje, es)
+def _anahtar(rel: str) -> str:
+    """Paylaşılan proje-göreli yolun kıyas biçimi: '/' ayraçlı; Windows'ta büyük/küçük harf duyarsız."""
+    return os.path.normcase(rel.replace("\\", "/")).replace("\\", "/")
+
+
+def _bicimler(yol: str) -> set[str]:
+    """Yolun mutlak ve gerçek (bağlantı/kısa ad çözülmüş) biçimleri."""
+    a = os.path.abspath(yol)
+    try:
+        return {a, os.path.realpath(a)}
+    except (OSError, ValueError):
+        return {a}
+
+
+def paylasilan_goreli(proje: str, tam: str, ks: list[dict]) -> set[str]:
+    """Yazım hedefi → paylaşılan proje-göreli yol uzayındaki karşılıkları (kıyas biçiminde; proje dışıysa boş küme).
+
+    Kilitler bu uzaydadır. Hedef HERHANGİ bir kartın çalışma ağacındaysa o ağaçtan paylaşılan depoya çevrilir
+    (`L.agac_esdegeri`); proje içindeyse doğrudan göreli yolu da eklenir. Ağaç sahibi kartın kim olduğu ve durumu
+    önemsizdir: kilit sahibi başka bir kart olabilir, iptal kartı da `kart durum … isleniyor` ile yeniden açılabilir.
+    Teslim edilen kartın ağacı birleşmede kaldırılır (`calisma_agaci` düşer), eşlemeye girmez."""
+    out = set()
+    agacli = [k for k in ks if (k.get("calisma_agaci") or {}).get("yol")]
+    for t in _bicimler(tam):
+        for p in _bicimler(proje):
+            r = _rel(p, t)
             if r is not None:
-                adaylar.add(os.path.normcase(r))
-        if trel is not None:
-            adaylar.add(os.path.normcase(trel))
-        for y in d:
-            if os.path.normcase(y.replace("\\", "/")) in adaylar:
-                return y.replace("\\", "/"), k.get("id", "?")
+                out.add(_anahtar(r))
+            for k in agacli:
+                es = L.agac_esdegeri(k, t)
+                r = _rel(p, es) if es is not None else None
+                if r is not None:
+                    out.add(_anahtar(r))
+    return out
+
+
+def kilitli_test_bul(sd: str, proje: str, tam: str) -> tuple[str, str] | None:
+    """Yazım hedefi açık bir kartın kilitli test dosyasıysa (göreli yol, kilit sahibi kart), değilse None.
+
+    Hedef önce paylaşılan proje-göreli uzaya normalize edilir, sonra TÜM açık kartların kilit kümesiyle tek sorguda
+    karşılaştırılır; ağaç sayısından ve ağaç/kilit sahibi eşleşmesinden bağımsızdır. Örnek: G1 tests/test_x.py'yi
+    kilitlediyse G2'nin ağacındaki tests/test_x.py de kapalıdır (G2 teslimde birleşince G1'in kilitli testi değişirdi)."""
+    ks = L.kartlar(sd)
+    kilit = {_anahtar(y): (y, gid) for y, gid in kilitli_testler(sd, ks).items()}
+    if not kilit:
+        return None
+    for a in sorted(paylasilan_goreli(proje, tam, ks)):
+        if a in kilit:
+            return kilit[a]
     return None
 
 
