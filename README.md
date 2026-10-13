@@ -114,6 +114,25 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | `/orkestra:skill-avi` | Tekrar eden işlerden skill taslağı çıkarır |
 | `orkestra …` (Bash) | Kart, defter, maliyet, rüya CLI'ı (`orkestra --help`) |
 
+## Paralel çalışma
+
+Paralel oturumlar ve işçiler aynı commitlenmemiş çalışma ağacını paylaşır. Bir işçi dosyayı baştan yazarsa başka bir oturumun arada yaptığı değişiklik sessizce silinebilir. İki deterministik kapı bunu önler:
+
+- **Çakışma kapısı:** Kart `isleniyor`a geçerken (`orkestra kart durum <id> isleniyor`) yazma alanı, aynı fiziksel ağaçta açık olan bütün kartların (hangi oturumdan olursa olsun) alanlarıyla karşılaştırılır.
+  - Kesişim muhafazakârdır: iki desenden birinin literal öneki diğerinin altındaysa ya da desenler fnmatch ile birbirine uyuyorsa kesişir.
+  - Kesişme varsa geçiş reddedilir: `çakışma: G-0xx (<desen>) — bekle ya da ayrı çalışma ağacı aç`.
+  - Bir git deposunun kökünü ya da `**`ini kapsayan alan paylaşılan ağaçta reddedilir.
+  - `kart yeni` ve `kart toplu` aynı denetimi yalnız uyarı olarak yazar. Yazma alanı boş kart denetlenmez.
+- **Kart çalışma ağacı:** `orkestra kart agac <id>` kartın deposunda `<depo>-kart-<id>` klasörüne `kart/<id>` dalıyla bir git worktree açar.
+  - Kartın yazma alanı yeni köke çevrilir. `calisma_agaci` alanı (`depo`, `yol`, `dal`, `taban`) karta yazılır. `Çalışma ağacı: <yol>` satırı kartın girdisinin başına eklenir; işçi istemi bu satırı görür.
+  - Farklı çalışma ağaçlarındaki kartlar birbiriyle çakışmaz.
+  - Hook, işçinin yazımını kartın çalışma ağacında denetler; paylaşılan ağaca yazmasını reddeder.
+- **Birleştirme:** `orkestra kart birlestir <id>` kart dalını `git merge --no-ff` ile birleştirir, sonra worktree'yi kaldırır ve dalı siler.
+  - Kart dalında commitlenmemiş değişiklik varsa reddeder.
+  - Ana ağaçta kartın dosyalarında commitlenmemiş değişiklik varsa reddeder; sessiz ezme yoktur.
+  - Çatışmada `git merge --abort` yapar, kartı `beklemede`ye alır ve çatışan dosyaları karta not eder. Çatışmayı asla otomatik çözmez.
+  - `orkestra kart teslim`, çalışma ağacı olan kartta önce birleştirir; birleşmezse teslimi reddeder.
+
 ## Basamaklar ve denetim eşlemesi
 
 | İşçi basamağı | İşçi | Denetçi |

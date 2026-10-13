@@ -24,7 +24,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -116,6 +116,16 @@ def pre_tool_use(inp: dict):
             gorev, _ = ajan_gorevi(sd, inp)
             if gorev != "-":
                 k = L.kart_oku(sd, gorev)
+                ca = (k or {}).get("calisma_agaci") or {}
+                if k and ca.get("yol"):
+                    # Kartın kendi çalışma ağacı var: işçi orada, (köke çevrilmiş) yazma alanı içinde yazar.
+                    if L.yol_altinda(tam, ca["yol"]):
+                        if k.get("yazma_alani") and not L.desen_eslesir(proje, tam, k["yazma_alani"]):
+                            reddet(f"{gorev} kartının yazma alanı dışında ({', '.join(k['yazma_alani'])}); çalışma ağacı: {ca['yol']}.")
+                        gec()
+                    if ca.get("depo") and L.yol_altinda(tam, ca["depo"]):
+                        reddet(f"{gorev} kartının çalışma ağacı var; paylaşılan ağaca ({ca['depo']}) değil, "
+                               f"{L.CALISMA_AGACI_ONEKI.lower()}{ca['yol']} altına yaz.")
                 if k and k.get("yazma_alani") and not L.yazma_alaninda_mi(proje, tam, k["yazma_alani"]):
                     reddet(f"{gorev} kartının yazma alanı dışında ({', '.join(k['yazma_alani'])}). Paralel işler çakışmasın diye "
                            "yalnız kendi alanına yaz; gerekiyorsa ana ajana bildir.")
@@ -123,7 +133,7 @@ def pre_tool_use(inp: dict):
         # ana ajan: o anda işçide olan kartların alanına yazmaz (paralel güvenlik + rol ayrımı)
         for k in L.kartlar(sd):
             if k.get("oturum") == oid and k.get("durum") == "isleniyor" and k.get("yazma_alani") \
-                    and L.yazma_alaninda_mi(proje, tam, k["yazma_alani"]):
+                    and L.desen_eslesir(proje, tam, k["yazma_alani"]):  # mutlak/çalışma ağacı desenleri dahil
                 reddet(f"bu dosya şu an {k['id']} işçisinin yazma alanında. Ana ajan planlar, dağıtır, toplar; "
                        "işçi işini yapmaz. Değişiklik gerekiyorsa işi bir işçiye ver ya da kartı `beklemede`ye al.")
         gec()

@@ -18,6 +18,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -404,19 +405,245 @@ def sonraki_sira(kart: dict) -> int:
 
 
 def yazma_alaninda_mi(proje: str, yol: str, desenler: list[str]) -> bool:
+    """Yol kartın yazma alanında mı. Göreli desen projeye göredir, mutlak desen olduğu gibi; ikisi de normalize edilmiş
+    mutlak yola çevrilip karşılaştırılır (Windows'ta büyük/küçük harf ve / \\ farkı yok sayılır).
+
+    Proje dışı yol serbest DEĞİLDİR, desene göre karar verilir. Tek istisna: geçici klasördeki git dışı yollar
+    (scratchpad, ara çıktı) serbesttir."""
     if not desenler:
         return True
-    try:
-        rel = os.path.relpath(os.path.abspath(yol), proje).replace("\\", "/")
-    except ValueError:
-        return True  # farklı sürücü: proje dışı
-    if rel.startswith(".."):
-        return True  # proje dışı (scratchpad vb.) serbest
-    for d in desenler:
-        d = d.replace("\\", "/").rstrip("/")
-        if fnmatch.fnmatch(rel, d) or rel == d or rel.startswith(d + "/") or fnmatch.fnmatch(rel, d + "/**"):
+    tam = os.path.abspath(yol)
+    if desen_eslesir(proje, tam, desenler):
+        return True
+    if yol_altinda(tam, proje):
+        return False
+    return yol_altinda(tam, tempfile.gettempdir()) and not git_koku(tam)
+
+
+# ---------------------------------------------------------------- kart izolasyonu
+# Paralel kartlar aynı fiziksel çalışma ağacında aynı dosyalara yazmasın: yazma alanı çakışma kapısı (muhafazakâr glob
+# kesişimi) ve kart başına git çalışma ağacı (`kart/<id>` dalı) + teslimde `--no-ff` birleştirme. Çatışma asla otomatik
+# çözülmez.
+
+_GLOB_KARAKTER = re.compile(r"[*?\[]")
+
+
+def _kiyas(yol: str) -> str:
+    y = yol.replace("\\", "/").rstrip("/") or "/"
+    return y.lower() if os.name == "nt" else y
+
+
+def yol_altinda(yol: str, kok: str) -> bool:
+    """`yol`, `kok` ile aynı ya da onun altında mı (bileşen bazında; Windows'ta büyük/küçük harf duyarsız)."""
+    y, k = _kiyas(os.path.abspath(yol)), _kiyas(os.path.abspath(kok))
+    return y == k or y.startswith(k.rstrip("/") + "/")
+
+
+def desen_parcala(proje: str, desen: str) -> tuple[str, str]:
+    """Deseni (mutlak literal önek, glob kalanı) olarak böler; göreli desen projeye göredir. Ayraç '/'."""
+    d = (desen or "").replace("\\", "/").strip()
+    while len(d) > 1 and d.endswith("/"):
+        d = d[:-1]
+    if not (os.path.isabs(d) or re.match(r"^[A-Za-z]:", d)):
+        d = proje.replace("\\", "/").rstrip("/") + "/" + d
+    parcalar = d.split("/")
+    i = next((n for n, p in enumerate(parcalar) if _GLOB_KARAKTER.search(p)), len(parcalar))
+    onek = "/".join(parcalar[:i]) or "/"
+    if re.fullmatch(r"[A-Za-z]:", onek):
+        onek += "/"
+    onek = os.path.abspath(onek).replace("\\", "/")
+    return onek, "/".join(parcalar[i:])
+
+
+def desen_mutlak(proje: str, desen: str) -> str:
+    onek, kalan = desen_parcala(proje, desen)
+    return onek.rstrip("/") + "/" + kalan if kalan else onek
+
+
+def desen_eslesir(proje: str, yol: str, desenler: list[str]) -> bool:
+    """Mutlak yolun desenlerden birine GERÇEKTEN uyup uymadığı (proje dışı yollar serbest sayılmaz)."""
+    y = _kiyas(os.path.abspath(yol))
+    for d in desenler or []:
+        onek, kalan = desen_parcala(proje, d)
+        if not kalan:
+            if yol_altinda(yol, onek):
+                return True
+            continue
+        tam = _kiyas(onek.rstrip("/") + "/" + kalan)
+        if fnmatch.fnmatchcase(y, tam) or fnmatch.fnmatchcase(y, tam + "/**"):
             return True
     return False
+
+
+def desen_kesisir(proje: str, a: str, b: str) -> bool:
+    """Muhafazakâr kesişim: literal öneklerden biri diğerinin altındaysa ya da desenler birbirine fnmatch ile uyuyorsa."""
+    oa, ka = desen_parcala(proje, a)
+    ob, kb = desen_parcala(proje, b)
+    if yol_altinda(oa, ob) or yol_altinda(ob, oa):
+        return True
+    ta, tb = _kiyas(desen_mutlak(proje, a)), _kiyas(desen_mutlak(proje, b))
+    return fnmatch.fnmatchcase(ta, tb) or fnmatch.fnmatchcase(tb, ta)
+
+
+def git(args: list[str], cwd: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", cwd] + list(args), capture_output=True, text=True, encoding="utf-8",
+                          errors="replace")
+
+
+def git_koku(yol: str, onbellek: dict | None = None) -> str | None:
+    """Yolun (ya da var olan en yakın üst klasörünün) içinde bulunduğu git çalışma ağacının kökü; yoksa None."""
+    d = os.path.abspath(yol)
+    while not os.path.isdir(d):
+        ust = os.path.dirname(d)
+        if ust == d:
+            return None
+        d = ust
+    if onbellek is not None and d in onbellek:
+        return onbellek[d]
+    try:
+        r = git(["rev-parse", "--show-toplevel"], d)
+        kok = os.path.abspath(r.stdout.strip()).replace("\\", "/") if r.returncode == 0 and r.stdout.strip() else None
+    except (OSError, ValueError):
+        kok = None
+    if onbellek is not None:
+        onbellek[d] = kok
+    return kok
+
+
+def kok_kapsiyor_mu(proje: str, desen: str, onbellek: dict | None = None) -> bool:
+    """Desen bir git deposunun kökünü ya da '**'ini (tüm depoyu) kapsıyor mu."""
+    onek, kalan = desen_parcala(proje, desen)
+    genis = kalan in ("", "*") or kalan.startswith("**")
+    if not genis:
+        return False
+    kok = git_koku(onek, onbellek)
+    if kok:
+        return _kiyas(kok) == _kiyas(onek)
+    # git dışı önek: projeyi ya da projenin deposunu kapsıyorsa
+    proje_kok = git_koku(proje, onbellek)
+    return yol_altinda(proje, onek) or bool(proje_kok and yol_altinda(proje_kok, onek))
+
+
+def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
+    """Kartın yazma alanını AYNI fiziksel ağaçta açık olan diğer kartlarla (hangi oturumdan olursa olsun) karşılaştırır.
+
+    Dönen: hata/uyarı metinleri (boşsa çakışma yok). Kendi çalışma ağacı olan kart paylaşılan ağaçta sayılmaz."""
+    desenler = [d for d in kart.get("yazma_alani") or [] if (d or "").strip()]
+    if not desenler:
+        return []
+    onbellek: dict = {}
+    hatalar = []
+    if not (kart.get("calisma_agaci") or {}).get("yol"):
+        for d in desenler:
+            if kok_kapsiyor_mu(proje, d, onbellek):
+                hatalar.append(f"'{d}' bir git deposunun kökünü/'**'ini kapsıyor; paylaşılan ağaçta izinli değil — alanı "
+                               f"daralt ya da ayrı çalışma ağacı aç (`orkestra kart agac {kart.get('id')}`)")
+    for k in kartlar(sd):
+        if k.get("id") == kart.get("id") or kart_durumu_hesapla(k) not in ACIK_DURUMLAR:
+            continue
+        bulundu = None
+        for a in desenler:
+            agac_a = git_koku(desen_parcala(proje, a)[0], onbellek)
+            for b in k.get("yazma_alani") or []:
+                if not (b or "").strip():
+                    continue
+                agac_b = git_koku(desen_parcala(proje, b)[0], onbellek)
+                if agac_a and agac_b and _kiyas(agac_a) != _kiyas(agac_b):
+                    continue  # farklı fiziksel çalışma ağaçları çakışmaz
+                if desen_kesisir(proje, a, b):
+                    bulundu = b
+                    break
+            if bulundu:
+                break
+        if bulundu:
+            hatalar.append(f"çakışma: {k['id']} ({bulundu}) — bekle ya da ayrı çalışma ağacı aç "
+                           f"(`orkestra kart agac {kart.get('id')}`)")
+    return hatalar
+
+
+CALISMA_AGACI_ONEKI = "Çalışma ağacı: "
+
+
+def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, list[str]]:
+    """Kartın yazma alanının bulunduğu git deposunda `<depo>-kart-<id>` klasörüne `kart/<id>` dalıyla worktree açar.
+
+    Dönen: (calisma_agaci, yeni köke çevrilmiş yazma alanı). Hata durumunda ValueError."""
+    gid = kart["id"]
+    if (kart.get("calisma_agaci") or {}).get("yol"):
+        raise ValueError(f"{gid} kartının zaten çalışma ağacı var: {kart['calisma_agaci']['yol']}")
+    desenler = [d for d in kart.get("yazma_alani") or [] if (d or "").strip()]
+    kokler = {git_koku(desen_parcala(proje, d)[0]) for d in desenler} if desenler else {git_koku(proje)}
+    if None in kokler or len(kokler) != 1:
+        raise ValueError("yazma alanı tek bir git deposunun içinde olmalı (bulunan: "
+                         + ", ".join(sorted(str(k) for k in kokler)) + ")")
+    depo = kokler.pop()
+    yol = f"{depo}-kart-{gid}"
+    dal = f"kart/{gid}"
+    if os.path.exists(yol):
+        raise ValueError(f"çalışma ağacı klasörü zaten var: {yol}")
+    r = git(["rev-parse", "--verify", taban + "^{commit}"], depo)
+    if r.returncode != 0:
+        raise ValueError(f"taban okunamadı ({taban}): {(r.stderr or r.stdout).strip()}")
+    taban_sha = r.stdout.strip()
+    r = git(["worktree", "add", "-b", dal, yol, taban_sha], depo)
+    if r.returncode != 0:
+        raise ValueError(f"git worktree add başarısız: {(r.stderr or r.stdout).strip()}")
+    yeni = []
+    for d in desenler:
+        tam = desen_mutlak(proje, d)
+        if _kiyas(tam) == _kiyas(depo) or _kiyas(tam).startswith(_kiyas(depo) + "/"):
+            tam = yol + tam[len(depo.rstrip("/")):]
+        yeni.append(tam)
+    return {"depo": depo, "yol": yol, "dal": dal, "taban": taban_sha}, yeni
+
+
+def kart_agaci_birlestir(kart: dict, mesaj: str | None = None) -> dict:
+    """Kart dalını deponun güncel dalına `--no-ff` ile birleştirir. Sessiz ezme ve otomatik çözüm yok.
+
+    Dönen: {"sonuc": "tamam"|"kirli-kart"|"kirli-ana"|"catisma"|"hata", "mesaj": str, "dosyalar": [..], "commit": sha}"""
+    ca = kart.get("calisma_agaci") or {}
+    depo, yol, dal = ca.get("depo"), ca.get("yol"), ca.get("dal")
+    if not (depo and dal):
+        return {"sonuc": "hata", "mesaj": "kartın çalışma ağacı yok", "dosyalar": []}
+    if yol and os.path.isdir(yol):
+        r = git(["status", "--porcelain", "--untracked-files=all"], yol)
+        if r.returncode != 0:
+            return {"sonuc": "hata", "mesaj": f"kart ağacı okunamadı: {(r.stderr or r.stdout).strip()}", "dosyalar": []}
+        kirli = [s[3:] for s in r.stdout.splitlines() if s.strip()]
+        if kirli:
+            return {"sonuc": "kirli-kart", "dosyalar": kirli,
+                    "mesaj": f"kart dalında commitlenmemiş değişiklik var ({yol}): {', '.join(kirli[:10])} — önce commit et"}
+    r = git(["diff", "--name-only", f"HEAD...{dal}"], depo)
+    if r.returncode != 0:
+        return {"sonuc": "hata", "mesaj": f"kart dalı okunamadı ({dal}): {(r.stderr or r.stdout).strip()}", "dosyalar": []}
+    dosyalar = [s for s in r.stdout.splitlines() if s.strip()]
+    if dosyalar:
+        r = git(["status", "--porcelain", "--untracked-files=all", "--"] + dosyalar, depo)
+        kirli = [s[3:] for s in r.stdout.splitlines() if s.strip()]
+        if r.returncode != 0 or kirli:
+            return {"sonuc": "kirli-ana", "dosyalar": kirli,
+                    "mesaj": f"ana ağaçta kartın dosyalarında commitlenmemiş değişiklik var ({depo}): {', '.join(kirli[:10])} "
+                             "— sessiz ezme yok; önce o değişiklikleri commitle ya da kaldır"}
+    r = git(["merge", "--no-ff", "--no-edit", "-m", mesaj or f"Kart {kart.get('id')} birleştirme ({dal})", dal], depo)
+    if r.returncode != 0:
+        cat = git(["diff", "--name-only", "--diff-filter=U"], depo)
+        catisan = [s for s in cat.stdout.splitlines() if s.strip()]
+        ab = git(["merge", "--abort"], depo)
+        if catisan or ab.returncode == 0:
+            return {"sonuc": "catisma", "dosyalar": catisan,
+                    "mesaj": f"birleştirme çatıştı, geri alındı (merge --abort): {', '.join(catisan) or '-'}"}
+        return {"sonuc": "hata", "dosyalar": [], "mesaj": f"git merge başarısız: {(r.stderr or r.stdout).strip()}"}
+    commit = git(["rev-parse", "HEAD"], depo).stdout.strip()
+    uyari = []
+    if yol and os.path.isdir(yol):
+        rr = git(["worktree", "remove", yol], depo)
+        if rr.returncode != 0:
+            uyari.append(f"worktree kaldırılamadı: {(rr.stderr or rr.stdout).strip()}")
+    rr = git(["branch", "-d", dal], depo)
+    if rr.returncode != 0:
+        uyari.append(f"dal silinemedi: {(rr.stderr or rr.stdout).strip()}")
+    return {"sonuc": "tamam", "dosyalar": dosyalar, "commit": commit,
+            "mesaj": f"{dal} → {depo} birleştirildi ({commit[:8]})" + ("; " + "; ".join(uyari) if uyari else "")}
 
 
 # ---------------------------------------------------------------- ortak defter
