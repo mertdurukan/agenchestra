@@ -206,11 +206,11 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
 
     yan_zincir=False: yalnız ana zincir (isSidechain false) satırları sayılır.
     Dönen: {modeller:{model:{giris,cikis,onbellek_okuma,onbellek_yazma,maliyet_usd}}, toplam:{...},
-            ilk_kullanici, tur, arac_cagrisi, araclar:Counter-dict, dokunulan:[...], ilk_zaman, son_zaman, ofset}
+            ilk_kullanici, tur, arac_cagrisi, araclar:Counter-dict, dokunulan:[...] (yazılanlar), okunan:[...] (Read), ilk_zaman, son_zaman, ofset}
     """
     sonuc = {
         "modeller": {}, "toplam": {"giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0},
-        "ilk_kullanici": None, "tur": 0, "arac_cagrisi": 0, "araclar": {}, "dokunulan": [],
+        "ilk_kullanici": None, "tur": 0, "arac_cagrisi": 0, "araclar": {}, "dokunulan": [], "okunan": [],
         "ilk_zaman": None, "son_zaman": None, "ofset": ofset,
     }
     if not yol or not os.path.exists(yol):
@@ -255,6 +255,9 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
                 fp = giris.get("file_path") or giris.get("notebook_path")
                 if ad in ("Write", "Edit", "MultiEdit", "NotebookEdit") and fp and fp not in sonuc["dokunulan"]:
                     sonuc["dokunulan"].append(fp)
+                rp = giris.get("file_path")
+                if ad == "Read" and rp and rp not in sonuc["okunan"]:
+                    sonuc["okunan"].append(rp)
     tablo = fiyat_tablosu()
     for model, u in son_kullanim.values():
         if model == "<synthetic>":

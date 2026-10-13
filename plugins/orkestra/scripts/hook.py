@@ -13,6 +13,7 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import baglam as B  # noqa: E402
 
 KORUNAN_ADLAR = {"ortak_defter.md", "ortak_defter.jsonl", "maliyet.jsonl", "gunluk.jsonl"}
 YAZAN_ARACLAR = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
@@ -287,6 +288,14 @@ def _maliyet_satirlari(sd, ozet, taban):
         L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), dict(taban, model=model, **m))
 
 
+def _oturum_baglami(sd: str, oid: str | None) -> str:
+    try:
+        with open(os.path.join(sd, "oturumlar", f"{oid}.json"), encoding="utf-8") as f:
+            return str(json.load(f).get("baglam") or "")
+    except Exception:
+        return ""
+
+
 def subagent_stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -301,19 +310,26 @@ def subagent_stop(inp: dict):
     meta = L.alt_ajan_meta(tp)
     atip = inp.get("agent_type") or meta.get("agentType") or "?"
     gorev, surec, _var = transkript_etiketleri(tp)
+    try:
+        esleme = B.esleme_oku(sd)
+        baglam = B.coz(esleme, L.proje_dizini(inp.get("cwd")), ozet["dokunulan"], ozet["okunan"]) if esleme else ""
+        if esleme and not baglam:
+            baglam = _oturum_baglami(sd, inp.get("session_id"))
+    except Exception:
+        baglam = ""
     if surec == "bilinmiyor":
         surec = "denetim" if "denetci" in atip else ("arastirma" if atip in ("Explore", "orkestra:arastirmaci") else
                                                       "ruya" if "ruya" in atip else "is" if "isci" in atip else "bilinmiyor")
     # Sayaç modülünün (maliyet tur) aynı ajanı görev/süreç/tip ile eşleyebilmesi için önbellek.
     if gorev != "-":
-        L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip}))
-    taban = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "ajan": atip,
+        L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip, "baglam": baglam}))
+    taban = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "baglam": baglam, "ajan": atip,
              "agent_id": aid, "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
              "arac_cagrisi": ozet["arac_cagrisi"], "ruya": bool(os.environ.get("ORKESTRA_RUYA")), "kaynak": "hook"}
     _maliyet_satirlari(sd, ozet, taban)
     ana_model = max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0] if ozet["modeller"] else "-"
     ilk = re.sub(r"#(GOREV|SUREC):\S+", "", ozet["ilk_kullanici"] or "").strip().replace("\n", " ")
-    L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "ajan": atip, "agent_id": aid, "model": ana_model,
+    L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "baglam": baglam, "ajan": atip, "agent_id": aid, "model": ana_model,
                        "yaptim": meta.get("description") or ilk[:200], "sonuc": (inp.get("last_assistant_message") or "")[:600],
                        "dokunulan": ozet["dokunulan"], "token": ozet["toplam"], "kaynak": "hook"})
     if gorev != "-":
@@ -346,23 +362,35 @@ def stop(inp: dict):
     ofset_yolu = os.path.join(sd, "oturumlar", f"{oid}.json")
     try:
         with open(ofset_yolu, encoding="utf-8") as f:
-            ofset = json.load(f).get("ofset", 0)
+            onceki = json.load(f)
+        ofset = onceki.get("ofset", 0)
+        onceki_baglam = str(onceki.get("baglam") or "")
     except Exception:
-        ofset = 0
+        ofset, onceki_baglam = 0, ""
     ozet = L.transkript_oku(inp.get("transcript_path"), ofset, yan_zincir=False)
-    L.atomik_yaz(ofset_yolu, json.dumps({"ofset": ozet["ofset"], "guncelleme": L.simdi()}))
+    baglam = ""
+    try:
+        esleme = B.esleme_oku(sd)
+        if esleme:
+            baglam = B.coz(esleme, L.proje_dizini(inp.get("cwd")), ozet["dokunulan"], ozet["okunan"]) or onceki_baglam
+            if not baglam:
+                import niyet
+                baglam = niyet.son_baglam(oid)
+    except Exception:
+        baglam = ""
+    L.atomik_yaz(ofset_yolu, json.dumps({"ofset": ozet["ofset"], "baglam": baglam, "guncelleme": L.simdi()}))
     ruya = bool(os.environ.get("ORKESTRA_RUYA"))
     ajan = "ruya-bakimcisi" if ruya else "ana-ajan"
     surec = "ruya" if ruya else "orkestrasyon"
     if ozet["modeller"]:
-        taban = {"zaman": L.simdi(), "oturum": oid, "gorev": "-", "surec": surec, "ajan": ajan, "agent_id": None,
+        taban = {"zaman": L.simdi(), "oturum": oid, "gorev": "-", "surec": surec, "baglam": baglam, "ajan": ajan, "agent_id": None,
                  "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
                  "arac_cagrisi": ozet["arac_cagrisi"], "ruya": ruya, "kaynak": "hook"}
         _maliyet_satirlari(sd, ozet, taban)
     kayda_deger = any(a in ozet["araclar"] for a in ("Agent", "Task", "Workflow")) or ozet["dokunulan"]
     if kayda_deger and ozet["modeller"]:
         araclar = ", ".join(f"{k}×{v}" for k, v in sorted(ozet["araclar"].items(), key=lambda x: -x[1])[:6])
-        L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": "-", "surec": surec, "ajan": ajan, "model": max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0],
+        L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": "-", "surec": surec, "baglam": baglam, "ajan": ajan, "model": max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0],
                            "yaptim": f"Tur: {ozet['arac_cagrisi']} araç çağrısı ({araclar})",
                            "sonuc": (inp.get("last_assistant_message") or "")[:400], "dokunulan": ozet["dokunulan"],
                            "token": ozet["toplam"], "kaynak": "hook"})

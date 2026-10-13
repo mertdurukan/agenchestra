@@ -186,6 +186,12 @@ def son_niyet(oturum: str) -> dict | None:
     return son
 
 
+def son_baglam(oturum: str | None) -> str:
+    """Bu oturumun son niyet kaydındaki `--baglam` değeri (yoksa '')."""
+    k = son_niyet(oturum) if oturum else None
+    return (k.get("baglam") or "") if k and k.get("tur") == "niyet" else ""
+
+
 def baglam_metni(oturum: str | None) -> str:
     """UserPromptSubmit'te ana ajana verilen kısa hatırlatma."""
     k = son_niyet(oturum) if oturum else None
@@ -194,6 +200,7 @@ def baglam_metni(oturum: str | None) -> str:
     return ("Orkestra niyet kaydı (kullanıcı birden çok sohbeti panelden izliyor). " + kayitli + " "
             "Bu istek YENİ bir iş başlatıyor ya da işi değiştiriyorsa, ilk araç çağrılarınla birlikte bir kez çalıştır: "
             "`orkestra niyet --ne \"<şu an ne yapılıyor, en çok 12 kelime>\" --neden \"<bu neye yarayacak, hangi hedefe hizmet ediyor; en çok 15 kelime>\"`. "
+            "İstersen `--baglam \"<Proje/Süreç/Görev>\"` ekle (hangi proje/süreç/görev klasöründe çalışıldığı). "
             "Aynı işin devamıysa YAZMA. İş bitince: `orkestra niyet --sonuc \"<ne çıktı, en çok 15 kelime>\"`. "
             "Kullanıcıya bundan söz etme.")
 
@@ -403,7 +410,8 @@ def cmd(a) -> None:
     if a.ne or a.neden:
         if not (a.ne and a.neden):
             sys.exit("niyet: --ne ile --neden birlikte verilir.")
-        olay(oturum, proje, "niyet", ne=_kisalt(a.ne, 140), neden=_kisalt(a.neden, 160))
+        olay(oturum, proje, "niyet", ne=_kisalt(a.ne, 140), neden=_kisalt(a.neden, 160),
+             baglam=_kisalt(getattr(a, "baglam", None), 200))
     if a.sonuc:
         olay(oturum, proje, "sonuc", sonuc=_kisalt(a.sonuc, 160))
     if not (a.ne or a.sonuc):
@@ -415,6 +423,7 @@ def ekle_ayristirici(alt) -> None:
     p = alt.add_parser("niyet", help="sohbetin şu an ne yaptığını ve neye yarayacağını kaydet (panel 'Şu an' şeridi)")
     p.add_argument("--ne", help="şu an ne yapılıyor (≤12 kelime)")
     p.add_argument("--neden", help="neye yarayacak, hangi hedefe hizmet ediyor (≤15 kelime)")
+    p.add_argument("--baglam", help="isteğe bağlı: çalışılan klasör bağlamı 'Proje/Süreç/Görev' (maliyet/defter kayıtlarında yedek)")
     p.add_argument("--sonuc", help="iş bitince ne çıktı (≤15 kelime)")
     p.add_argument("--oturum", help="oturum kimliği (varsayılan: CLAUDE_CODE_SESSION_ID)")
     p.add_argument("--goster", action="store_true", help="bütün sohbetlerin şu anki durumunu yaz")

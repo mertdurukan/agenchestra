@@ -616,6 +616,62 @@ def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
     }
 
 
+# ---------------------------------------------------------------- baglam kırılımı
+
+BELIRSIZ = "(belirsiz)"
+
+
+def _oturum_baglami(sd: str, ad: str, onb: dict) -> str:
+    if ad not in onb:
+        try:
+            with open(os.path.join(sd, "oturumlar", ad + ".json"), encoding="utf-8") as f:
+                v = json.load(f).get("baglam")
+        except (OSError, ValueError, AttributeError):
+            v = None
+        onb[ad] = v if isinstance(v, str) else ""
+    return onb[ad]
+
+
+def baglam_coz(sd: str, kayitlar: list[dict]) -> list[dict]:
+    """Her satıra çözülmüş 'baglam' ekler (kopya döner). Sıra: satır > ajan_<aid>.json > <oturum>.json > '(belirsiz)'."""
+    onb: dict = {}
+    out = []
+    for r in kayitlar:
+        b = r.get("baglam") if isinstance(r.get("baglam"), str) else ""
+        if not b and r.get("agent_id"):
+            b = _oturum_baglami(sd, "ajan_" + str(r["agent_id"]), onb)
+        if not b and r.get("oturum"):
+            b = _oturum_baglami(sd, str(r["oturum"]), onb)
+        out.append(dict(r, baglam=b or BELIRSIZ))
+    return out
+
+
+def baglam_filtre(kayitlar: list[dict], onek: str | None) -> list[dict]:
+    """Çözülmüş baglamı verilen önekle başlayan satırlar."""
+    if not onek:
+        return kayitlar
+    return [r for r in kayitlar if (r.get("baglam") or BELIRSIZ).startswith(onek)]
+
+
+def baglam_kirilim(kayitlar: list[dict]) -> dict:
+    """Çözülmüş satırlardan proje (ilk parça) ve tam baglam düzeyinde USD kırılımı."""
+    tam: dict = collections.defaultdict(float)
+    for r in kayitlar:
+        tam[r.get("baglam") or BELIRSIZ] += r.get("maliyet_usd") or 0.0
+    toplam = sum(tam.values())
+    pay = lambda v: _r(v / toplam, 4) if toplam else 0.0  # noqa: E731
+    proj: dict = collections.defaultdict(list)
+    for b, v in tam.items():
+        proj[b.split("/")[0]].append((b, v))
+    projeler = []
+    for pr, lst in proj.items():
+        pu = sum(v for _, v in lst)
+        projeler.append({"proje": pr, "usd": _r(pu), "pay": pay(pu),
+                         "baglamlar": [{"baglam": b, "usd": _r(v), "pay": pay(v)} for b, v in sorted(lst, key=lambda x: -x[1])]})
+    projeler.sort(key=lambda x: -x["usd"])
+    return {"toplam_usd": _r(toplam), "projeler": projeler}
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     kartlar = L.kartlar(sd)
@@ -633,6 +689,7 @@ def olustur(sd: str, proje: str) -> dict:
         "akis": _akis(kartlar, kayitlar), "birim": _birim(kartlar, kayitlar, sohbetler, trend),
         "skill": _skill(sd, kayitlar), "saglik": _saglik(sd, proje, kayitlar),
         "ders": _ders(kartlar, kayitlar),
+        "baglam": baglam_kirilim(baglam_coz(sd, kayitlar)),
     }
 
 
