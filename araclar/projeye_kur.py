@@ -5,7 +5,8 @@ Kullanım:
     python ...\\projeye_kur.py <proje klasörü> --kaldir
 
 Ne yapar (hepsi o projenin içinde):
-  1. Marketplace'i bu bilgisayarda tanıtır (claude plugin marketplace add; zaten varsa geçer).
+  1. Marketplace'i yayın klonundan (Claude_Orkestrasyon/plugin_yayin; --yayin ya da ORKESTRA_YAYIN ile değişir)
+     bu bilgisayarda tanıtır (claude plugin marketplace add; zaten varsa geçer). Klon yoksa önce araclar/yayin_kur.py.
      Bu, ayar değil, makinenin plugin kaydıdır (~/.claude/plugins/known_marketplaces.json).
   2. orkestra ve orkestra-ui plugin'lerini PROJE kapsamında kurar → <proje>/.claude/settings.json.
   3. Proje ayarlarına orkestra varsayılanlarını EKLER (var olan değerin üstüne yazmaz):
@@ -29,6 +30,9 @@ import sys
 
 DEPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARKET = "claude-orchestration"
+# Marketplace kaynağı: geliştirme deposunun temiz git klonu (yalnız commitlenmiş kod). Kurulum: araclar/yayin_kur.py
+VARSAYILAN_YAYIN = "C:/Mert/McD/Claude_Orkestrasyon/plugin_yayin"
+YAYIN = (os.environ.get("ORKESTRA_YAYIN") or VARSAYILAN_YAYIN).replace("\\", "/")
 PLUGINLER = ["orkestra", "orkestra-ui"]
 VARSAYILAN = {
     "model": "claude-opus-5-5",
@@ -94,7 +98,7 @@ def ayar_birlestir(proje, ui, kuru):
     if "statusLine" not in s:  # kullanıcının kendi durum satırı varsa dokunma
         s["statusLine"] = {"type": "command", "command": KOTA_KOMUTU}
     girdi = s.setdefault("extraKnownMarketplaces", {}).setdefault(MARKET, {})
-    girdi.setdefault("source", {"source": "directory", "path": DEPO.replace("\\", "/")})
+    girdi.setdefault("source", {"source": "directory", "path": YAYIN})
     girdi["autoUpdate"] = True
     ep = s.setdefault("enabledPlugins", {})
     ep[f"orkestra@{MARKET}"] = True
@@ -137,7 +141,7 @@ def kur(proje, ui, kuru):
     print(f"Orkestra kuruluyor → {proje}")
     kod, cikti = kos([exe, "plugin", "marketplace", "list"], proje, False)
     if MARKET not in cikti:
-        kos([exe, "plugin", "marketplace", "add", DEPO], proje, kuru)
+        kos([exe, "plugin", "marketplace", "add", YAYIN], proje, kuru)
     for p in PLUGINLER if ui else PLUGINLER[:1]:
         kos([exe, "plugin", "install", f"{p}@{MARKET}", "--scope", "project", "-y"], proje, kuru)
     ayar_birlestir(proje, ui, kuru)
@@ -174,7 +178,11 @@ def main():
     p.add_argument("--ui-yok", action="store_true", help="arayüz modunu kurma")
     p.add_argument("--kuru", action="store_true", help="yalnız ne yapılacağını göster")
     p.add_argument("--kaldir", action="store_true", help="bu projeden kaldır")
+    p.add_argument("--yayin", help="marketplace kaynağı (yayın klonu); varsayılan ORKESTRA_YAYIN ya da " + VARSAYILAN_YAYIN)
     a = p.parse_args()
+    if a.yayin:
+        global YAYIN
+        YAYIN = a.yayin.replace("\\", "/")
     proje = os.path.abspath(a.proje)
     if not os.path.isdir(proje):
         sys.exit(f"klasör yok: {proje}")

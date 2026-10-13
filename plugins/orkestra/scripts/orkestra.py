@@ -573,6 +573,24 @@ def cmd_guncelle(a):
     exe = L.claude_exe()
     if not exe:
         hata("claude.exe bulunamadı (CLAUDE_CODE_EXECPATH ya da %APPDATA%/Claude/claude-code/<sürüm>/*/claude.exe).")
+    kaynak = L.pazar_kaynagi(pazar)
+    if kaynak and os.path.isdir(os.path.join(kaynak, ".git")):
+        # Yayın klonu: önce kaynağı ilerlet; kirliyse (elle düzenlenmiş) güncellemeyi reddet.
+        g = ["git", "-C", kaynak]
+        print("$ " + " ".join(g + ["status", "--porcelain"]))
+        if not a.kuru:
+            r = subprocess.run(g + ["status", "--porcelain"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+            if r.returncode != 0:
+                hata(f"yayın klonu okunamadı ({kaynak}): {(r.stderr or r.stdout).strip()}")
+            if r.stdout.strip():
+                hata(f"yayın klonunda commitlenmemiş değişiklik var ({kaynak}); güncelleme reddedildi. Klon elle düzenlenmez: değişiklikleri geri al (git -C {kaynak} checkout -f .) ya da klonu yeniden kur (araclar/yayin_kur.py).")
+        for k in (g + ["fetch", "-q", "origin"], g + ["merge", "--ff-only", "-q", "@{u}"]):
+            print("$ " + " ".join(k))
+            if a.kuru:
+                continue
+            r = subprocess.run(k, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            if r.returncode != 0:
+                hata(f"yayın klonu ilerletilemedi ({' '.join(k[3:])}): {(r.stderr or r.stdout).strip()}")
     proje = L.proje_dizini()
     adlar = []
     try:

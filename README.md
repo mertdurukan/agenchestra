@@ -44,6 +44,7 @@ plugins/orkestra/                   çekirdek plugin
   evals/       claude plugin eval vakaları
 plugins/orkestra-ui/                arayüz modu (Pane + AbovePrompt bandı + /orkestra)
 araclar/sifre_temizle.py            oturum kayıtlarından düz metin şifre temizleme (elle çalıştırılır)
+araclar/yayin_kur.py                yayın klonunu açar, git hook'larını yazar; araclar/git_hooklar/ hook şablonları
 ```
 
 ## Yeni bir projeye kurmak (tek komut)
@@ -69,7 +70,7 @@ Ayarlar bilgisayara değil çalışma alanına bağlıdır. Plugin'ler **proje k
 
 ```
 cd <proje klasörü>
-claude plugin marketplace add C:\Users\PC\Desktop\Claude-Orchestration
+claude plugin marketplace add C:\Mert\McD\Claude_Orkestrasyon\plugin_yayin
 claude plugin install orkestra@claude-orchestration --scope project
 claude plugin install orkestra-ui@claude-orchestration --scope project
 ```
@@ -80,11 +81,19 @@ Model, effort, hafıza ve rüya ayarları da aynı dosyadadır. Proje ayarı, ge
 
 Masaüstü uygulamasında `claude` PATH'te yoktur. Gömülü ikili `%APPDATA%\Claude\claude-code\<sürüm>\…\claude.exe` altında bulunur. Hook'ların içinde aynı yol `CLAUDE_CODE_EXECPATH` değişkeninde durur.
 
-Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. `plugin.json` ve `marketplace.json` içinde `version` alanı bilerek yoktur; git deposundaki göreli yol girdilerinde sürüm commit SHA'sı olur. Bu yüzden bir değişiklik commitlenmeden kopyaya geçmez (`claude plugin validate --strict` yalnız bu eksik sürüm uyarısı yüzünden hata verir; `--strict`siz geçer). Akış:
-- Değişikliği bu klasörde commitle (push gerekmez).
+Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. `plugin.json` ve `marketplace.json` içinde `version` alanı bilerek yoktur; git deposundaki göreli yol girdilerinde sürüm commit SHA'sı olur. Bu yüzden bir değişiklik commitlenmeden kopyaya geçmez (`claude plugin validate --strict` yalnız bu eksik sürüm uyarısı yüzünden hata verir; `--strict`siz geçer). Marketplace bu klasörden değil **yayın klonundan** okur (aşağıda). Akış: geliştir → commitle (push gerekmez) → yayın klonu otomatik ilerler → autoUpdate ya da `orkestra guncelle`.
+- Değişikliği bu klasörde commitle. Commitlenmemiş (başka oturumların yarım) işler plugin kopyasına girmez.
 - Otomatik: projenin `extraKnownMarketplaces.claude-orchestration.autoUpdate` değeri `true` (`projeye_kur.py` yazar). Claude Code ilk mesajdan sonra en çok 10 dakika içinde günceller, yeni kopya sonraki oturumda yüklenir.
 - Hemen için: proje klasöründe `orkestra guncelle` (`--kuru` yalnız komutları yazar). Marketplace'i ve projede kurulu her plugin'i günceller; ardından yeni oturum aç ya da `/reload-plugins`.
 - Oturum açılışında çalışan kopya kaynaktan farklıysa bağlama tek satır uyarı düşer (kaç dosya farklı, kaynakta commitlenmemiş değişiklik var mı).
+
+### Yayın klonu (plugin_yayin)
+
+`claude plugin update` commit'i değil marketplace klasörünün o anki çalışma ağacını kopyalar. Paralel oturumların commitlenmemiş işi çalışan plugin'e sızmasın diye marketplace bu klasörden değil, bu deponun temiz git klonundan okur: `C:\Mert\McD\Claude_Orkestrasyon\plugin_yayin` (origin = bu klasör).
+- Kurulum (tek komut, tekrar güvenli): `python araclar\yayin_kur.py` (`--yayin <yol>` ya da `ORKESTRA_YAYIN` ile yol değişir). Klonu açar ve `.git/hooks/` altına `post-commit`, `post-rewrite` (amend/rebase) ve `orkestra-yayin-esitle.sh` yazar; hook şablonları `araclar/git_hooklar/` altında izlenir.
+- Her commit sonrası hook klonu çalışma dalıyla eşitler. Hata commit'i bozmaz (her zaman 0 çıkar, mesaj stderr'e).
+- Yayın klonu elle düzenlenmez. `orkestra guncelle` önce klonu `fetch` + hızlı ileri sarar; klon kirliyse nedenini yazıp reddeder.
+- `projeye_kur.py` marketplace kaynağını varsayılan olarak bu klondan alır.
 
 HTML panel bu kuralın dışındadır: `python <bu klasör>\plugins\orkestra\scripts\orkestra.py panel` doğrudan bu klasörden çalışır.
 
