@@ -212,6 +212,8 @@ def cmd_kart_durum(a):
             if a.durum in ("iptal", "beklemede", "planlandi") and ajan_tipi not in ("ana", "bilinmiyor"):
                 hata("kartı iptal/beklemeye yalnız ana ajan alır.")
             k["durum"] = a.durum
+            if a.durum == "beklemede":
+                k["beklemede_sira"] = L.sonraki_sira(k)  # sonraki denetimlerle sıralanabilsin
         k["gecmis"].append({"zaman": L.simdi(), "olay": a.durum, "ajan": ajan_tipi, "agent_id": ajan_id,
                             "not": L.maskele(a.not_ or "")[:500]})
         L.kart_yaz(sd, k)

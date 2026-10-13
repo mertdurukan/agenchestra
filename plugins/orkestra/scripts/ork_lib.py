@@ -352,25 +352,50 @@ def yeni_kart_id(sd: str) -> str:
     return f"G-{n:03d}"
 
 
+def _beklemede_konumu(kart: dict):
+    """Kartın beklemede olayının konumu: (sira, zaman). Yeni kartlarda `beklemede_sira`, eskilerde gecmis'teki son
+    beklemede olayının zaman damgası."""
+    sira = kart.get("beklemede_sira")
+    zaman = ""
+    for g in reversed(kart.get("gecmis", [])):
+        if g.get("olay") == "beklemede":
+            zaman = g.get("zaman", "")
+            break
+    return sira, zaman
+
+
 def kart_durumu_hesapla(kart: dict) -> str:
-    """Son işçi çıktısından sonraki denetimlere göre durum: ret varsa reddedildi, onay varsa onaylandi."""
-    if kart.get("durum") in ("teslim", "iptal", "beklemede"):
-        return kart["durum"]
+    """Durum: teslim/iptal yapışkan. Son işçi çıktısından sonraki denetimlerden EN SON olanın (en büyük sira, yoksa
+    zaman) kararı geçerlidir (ret → reddedildi, onay → onaylandi). beklemede yalnız kendisinden sonra denetim yoksa
+    yapışkandır."""
+    durum = kart.get("durum")
+    if durum in ("teslim", "iptal"):
+        return durum
     # Sıra numarası (aynı saniyedeki olayları da doğru sıralar); eski kartlarda zaman damgasına düşer.
     son_is_sira = kart.get("son_is_sira")
     son_is = kart.get("son_is_zamani")
+    denetimler = [d for d in kart.get("denetimler", []) if d.get("karar") in ("ret", "onay")]
     if son_is_sira is not None:
-        sonraki = [d for d in kart.get("denetimler", []) if d.get("sira", -1) > son_is_sira]
+        sonraki = [d for d in denetimler if d.get("sira", -1) > son_is_sira]
     else:
-        sonraki = [d for d in kart.get("denetimler", []) if not son_is or d.get("zaman", "") >= son_is]
+        sonraki = [d for d in denetimler if not son_is or d.get("zaman", "") >= son_is]
+    if durum == "beklemede":
+        b_sira, b_zaman = _beklemede_konumu(kart)
+        if b_sira is not None:
+            sonraki = [d for d in sonraki if d.get("sira", -1) > b_sira]
+        else:
+            sonraki = [d for d in sonraki if d.get("zaman", "") > b_zaman]
+        if not sonraki:
+            return "beklemede"
     if sonraki:
-        if any(d.get("karar") == "ret" for d in sonraki):
-            return "reddedildi"
-        if any(d.get("karar") == "onay" for d in sonraki):
-            return "onaylandi"
+        if all("sira" in d for d in sonraki):
+            son = max(sonraki, key=lambda d: d["sira"])
+        else:
+            son = max(sonraki, key=lambda d: d.get("zaman", ""))
+        return "reddedildi" if son.get("karar") == "ret" else "onaylandi"
     if son_is:
         return "denetimde"
-    return kart.get("durum", "planlandi")
+    return durum or "planlandi"
 
 
 def sonraki_sira(kart: dict) -> int:
