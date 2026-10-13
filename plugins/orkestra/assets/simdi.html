@@ -402,6 +402,23 @@
   async function sohbetAc(oturum) {
     if (!oturum) return;
     O.ipucu.gizle();
+    // Uygulama bağlantısı varsa tarayıcı açar (tıklama anında, await'ten önce): Windows yalnız öndeki sürecin
+    // başlattığı uygulamayı öne getirir; sunucunun os.startfile'ı Claude'u arkada bırakıyordu.
+    const r0 = oturumlar().find(x => x.oturum === oturum);
+    const link = r0 && typeof r0.link === 'string' && /^claude:\/\/claude\.ai\/epitaxy\/[\w-]+$/.test(r0.link) ? r0.link : '';
+    if (link) {
+      // Bağlantıyı işletim sistemine iletmeyen gömülü görünümlerde sayfa odağı kaybetmez → sunucu yoluna düş.
+      let gitti = false;
+      const kayip = () => { gitti = true; };
+      window.addEventListener('blur', kayip, { once: true });
+      document.addEventListener('visibilitychange', kayip, { once: true });
+      location.href = link;
+      O.bildirim(`Açılıyor: ${r0.sohbet || 'sohbet'}`);
+      await new Promise(c => setTimeout(c, 1500));
+      window.removeEventListener('blur', kayip);
+      document.removeEventListener('visibilitychange', kayip);
+      if (gitti) return;
+    }
     O.bildirim('Sohbet açılıyor…');
     try {
       const r = await fetch('/ac?oturum=' + encodeURIComponent(oturum), { method: 'POST', headers: { 'X-Orkestra': '1' } }).then(x => x.json());
