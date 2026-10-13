@@ -158,6 +158,14 @@ def subagent_start(inp: dict):
     if not sd:
         gec()
     gorev, surec = ajan_gorevi(sd, inp)
+    aid = inp.get("agent_id")
+    if aid:  # açık ajan kaydı: bitişi hiç gelmeyen (asılı) ajanları görünür kılar; subagent_stop siler
+        try:
+            L.atomik_yaz(os.path.join(sd, "oturumlar", f"acik_ajan_{aid}.json"), json.dumps(
+                {"zaman": L.simdi(), "oturum": inp.get("session_id"), "agent_id": aid, "ajan": inp.get("agent_type") or "?",
+                 "gorev": gorev, "surec": surec}, ensure_ascii=False))
+        except Exception:
+            pass
     if gorev == "-" or not L.kart_oku(sd, gorev):
         gec()
     try:
@@ -182,6 +190,10 @@ def subagent_stop(inp: dict):
     if not sd:
         gec()
     aid = inp.get("agent_id") or "?"
+    try:
+        os.remove(os.path.join(sd, "oturumlar", f"acik_ajan_{aid}.json"))
+    except OSError:
+        pass
     tp = inp.get("agent_transcript_path") or L.alt_ajan_transkripti(inp.get("transcript_path", ""), inp.get("session_id", ""), aid)
     ozet = L.transkript_oku(tp)
     meta = L.alt_ajan_meta(tp)
@@ -274,6 +286,20 @@ def stop(inp: dict):
 
 # ---------------------------------------------------------------- diğer olaylar
 
+def asili_uyari(sd: str) -> str:
+    """Bitmeyen alt ajan varsa tek satırlık uyarı, yoksa boş metin (hatada sessiz)."""
+    try:
+        import ozet
+        a = ozet.asili_ajanlar(sd)
+    except Exception:
+        return ""
+    if not a:
+        return ""
+    liste = "; ".join(f"{x['ajan']} {x['gorev']} ({x['dakika']} dk)" for x in a[:5])
+    return (f"Orkestra: {ozet.ASILI_AJAN_DK} dakikadır bitmeyen ajan(lar): {liste}; "
+            "takıldıysa TaskStop ile durdur ya da kartı beklemede yap.")
+
+
 def session_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -301,6 +327,9 @@ def session_start(inp: dict):
         satirlar.append("RÜYA ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
                         "`orkestra:ruya-ajani` ajanını run_in_background: true ile başlat; istem: "
                         f"`#SUREC:ruya hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
+    uyari = asili_uyari(sd)
+    if uyari:
+        satirlar.append(uyari)
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "\n".join(satirlar)[:1800]}})
 
 
@@ -316,7 +345,7 @@ def user_prompt_submit(inp: dict):
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
             L.hook_cikti({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
-                                                 "additionalContext": niyet.baglam_metni(inp.get("session_id"))}})
+                                                 "additionalContext": "\n".join(x for x in (niyet.baglam_metni(inp.get("session_id")), asili_uyari(sd)) if x)}})
     gec()
 
 

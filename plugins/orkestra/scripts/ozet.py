@@ -18,6 +18,8 @@ import ork_lib as L  # noqa: E402
 import analitik as A  # noqa: E402  (bugün hesabı ve ajan adı eşlemesi tek yerde)
 
 SURUM = 2
+ASILI_AJAN_DK = 30
+ASILI_AJAN_TEMIZLE_SAAT = 24
 
 
 def _yuvarla(d: dict, n: int = 4) -> dict:
@@ -98,6 +100,39 @@ def kisalt_baslik(s, sinir: int = 80) -> str:
     """Kart başlığını sınırlar; kesilirse sonuna '…' ekler (toplam uzunluk sinir)."""
     s = str(s or "")
     return s if len(s) <= sinir else s[:sinir - 1].rstrip() + "…"
+
+
+def asili_ajanlar(sd: str, simdi=None) -> list:
+    """`oturumlar/acik_ajan_*.json` kayıtlarından başlangıcı ASILI_AJAN_DK'dan eski olanları döner;
+    ASILI_AJAN_TEMIZLE_SAAT'ten eski kayıtları siler (bitişi hiç gelmeyen ajanların kalıntısı)."""
+    simdi = simdi or datetime.datetime.now().astimezone()
+    out = []
+    try:
+        adlar = sorted(os.listdir(os.path.join(sd, "oturumlar")))
+    except OSError:
+        return out
+    for ad in adlar:
+        if not (ad.startswith("acik_ajan_") and ad.endswith(".json")):
+            continue
+        yol = os.path.join(sd, "oturumlar", ad)
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        z = A._zaman(d.get("zaman"))
+        if not z:
+            continue
+        dk = (simdi - z).total_seconds() / 60
+        if dk > ASILI_AJAN_TEMIZLE_SAAT * 60:
+            try:
+                os.remove(yol)
+            except OSError:
+                pass
+        elif dk >= ASILI_AJAN_DK:
+            out.append({"agent_id": d.get("agent_id"), "ajan": d.get("ajan"), "gorev": d.get("gorev", "-"),
+                        "surec": d.get("surec"), "oturum": d.get("oturum"), "dakika": int(dk)})
+    return out
 
 
 def olustur(sd: str, proje: str) -> dict:
@@ -202,6 +237,7 @@ def olustur(sd: str, proje: str) -> dict:
             "oturumlar": oturumlar,
         },
         "sohbetler": sohbetler,
+        "asili_ajanlar": asili_ajanlar(sd),
         "defter": defter,
         "ruya": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"]),
                  "son_ruya": rd["son_ruya"]},
