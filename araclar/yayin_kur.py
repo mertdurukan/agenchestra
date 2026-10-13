@@ -8,9 +8,10 @@ böylece plugin önbelleğine yalnız commitlenmiş kod girer. Klon elle düzenl
 Varsayılan yol: ortam değişkeni ORKESTRA_YAYIN ya da C:/Mert/McD/Claude_Orkestrasyon/plugin_yayin.
 
 Yapılanlar:
-  1. Klon yoksa `git clone` (origin = bu depo, dal = çalışma dalı); varsa eşitler.
+  1. Klon yoksa `git clone` (origin = bu depo, dal = çalışma dalı); varsa yalnız bildirip geçer (eşitlemeyi hook yapar).
   2. .git/hooks/post-commit, post-rewrite (amend/rebase) ve orkestra-yayin-esitle.sh yazılır;
-     her commit sonrası klon hızlı ileri sarılır/eşitlenir, hata commit'i bozmaz.
+     her commit sonrası, yalnız klonun izlediği dalda (main) klon eşitlenir (klondaki yerel değişiklik ezilir);
+     başka dalda hiçbir şey yapılmaz. Hata commit'i bozmaz.
 """
 from __future__ import annotations
 

@@ -91,6 +91,7 @@ Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `
 
 `claude plugin update` commit'i değil marketplace klasörünün o anki çalışma ağacını kopyalar. Paralel oturumların commitlenmemiş işi çalışan plugin'e sızmasın diye marketplace bu klasörden değil, bu deponun temiz git klonundan okur: `C:\Mert\McD\Claude_Orkestrasyon\plugin_yayin` (origin = bu klasör).
 - Kurulum (tek komut, tekrar güvenli): `python araclar\yayin_kur.py` (`--yayin <yol>` ya da `ORKESTRA_YAYIN` ile yol değişir). Klonu açar ve `.git/hooks/` altına `post-commit`, `post-rewrite` (amend/rebase) ve `orkestra-yayin-esitle.sh` yazar; hook şablonları `araclar/git_hooklar/` altında izlenir.
+- `plugin_yayin` elle düzenlenmez: hook klondaki yerel değişikliği `checkout -f` ile ezer; yalnız main'deki commit'ler yayına çıkar (başka dalda atılan commit klona dokunmaz).
 - Her commit sonrası hook klonu çalışma dalıyla eşitler. Hata commit'i bozmaz (her zaman 0 çıkar, mesaj stderr'e).
 - Yayın klonu elle düzenlenmez. `orkestra guncelle` önce klonu `fetch` + hızlı ileri sarar; klon kirliyse nedenini yazıp reddeder.
 - `projeye_kur.py` marketplace kaynağını varsayılan olarak bu klondan alır.
