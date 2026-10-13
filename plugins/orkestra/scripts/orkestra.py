@@ -554,7 +554,11 @@ def cmd_panel(a):
     """HTML canlı paneli başlatır (yalnız 127.0.0.1) ve adresini yazar."""
     sd = sd_gerekli()
     import panel
-    print(panel.baslat(sd, L.proje_dizini(), a.port, on_planda=a.on_planda))
+    sonuc = panel.baslat(sd, L.proje_dizini(), a.port, on_planda=a.on_planda)
+    print(sonuc)
+    if a.ac and sonuc.startswith("http"):
+        import webbrowser
+        webbrowser.open(sonuc.split()[0])
 
 
 # ---------------------------------------------------------------- argparse
@@ -661,6 +665,7 @@ def main():
     pa = alt.add_parser("panel")
     pa.add_argument("--port", type=int, default=8765)
     pa.add_argument("--on-planda", action="store_true", help="sunucuyu bu süreçte çalıştır (Ctrl+C ile durur)")
+    pa.add_argument("--ac", action="store_true", help="adresi varsayılan tarayıcıda aç")
     pa.set_defaults(f=cmd_panel)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)

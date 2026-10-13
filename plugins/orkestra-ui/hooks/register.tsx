@@ -124,7 +124,60 @@ export const register: Register = on => {
     return sonuc
   })
 
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+  // Pane: kimliği tam eşleşmeyebilir (düğmeden/komuttan açılış); "orkestra" içeren her örneği çiz, gerisini motora bırak.
+  // Çizim hata verirse boş pencere yerine hatanın kendisi gösterilir (.catch: zaman aşımı / istisna).
+  on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    if (!String(e.requestId ?? '').includes(PANE)) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    try {
+      return await paneCiz($, e)
+    } catch (hata) {
+      return (
+        <Box flexDirection="column">
+          <Text color="error">Panel çizilemedi: {kes(hata instanceof Error ? hata.message : String(hata), 300)}</Text>
+          <Text dimColor>Canlı HTML panel çalışıyor: /orkestra-web</Text>
+        </Box>
+      )
+    }
+  }).catch(($, e, next) => {
+    if (!String(e.requestId ?? '').includes(PANE)) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="column">
+        <Text color="error">Panel zamanında çizilemedi ({next.error?.kind ?? 'hata'}).</Text>
+        <Text dimColor>Canlı HTML panel çalışıyor: /orkestra-web</Text>
+      </Box>
+    )
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const o = await read($, veri)
+    if (e.props.hasSurvey || o === null || !o.acik || o.kartlar === undefined || (await read($, bantGizli))) return next(e)
+    const s = o.sayac ?? {}
+    const acik = (s.isleniyor ?? 0) + (s.denetimde ?? 0) + (s.reddedildi ?? 0) + (s.onaylandi ?? 0)
+    const oturum = o.maliyet?.oturum ?? 0
+    if (acik === 0 && oturum === 0 && !o.ruya?.rapor) return next(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+    const parca: string[] = []
+    if (s.isleniyor) parca.push(`${s.isleniyor} işleniyor`)
+    if (s.denetimde) parca.push(`${s.denetimde} denetimde`)
+    if (s.reddedildi) parca.push(`${s.reddedildi} ret`)
+    if (s.onaylandi) parca.push(`${s.onaylandi} teslime hazır`)
+    parca.push(`oturum ${usd(oturum)}`)
+    if (o.ruya?.rapor) parca.push('rüya raporu hazır')
+    return (
+      <Box>
+        <Text dimColor>Orkestra · {parca.join(' · ')} </Text>
+        <Button key="panel" label="Panel" onPress={() => $.ui.open({ id: PANE, title: 'Orkestra' })} />
+        <Button key="gizle" label="Gizle" onPress={() => update($, bantGizli, () => true)} />
+      </Box>
+    )
+  })
+}
+
+// Panel ağacı (satırlar iç içe Text yerine Box içinde yan yana Text: her yüzeyde güvenli).
+async function paneCiz($: EngineInterface, e: Parameters<EngineInterface['ui']['resolve']>[0] & { props: { bodyColumns?: number } }) {
+  {
     const { Box, Text } = $.ui.resolve(e)
     const o = await read($, veri)
     const w = Math.max(40, e.props.bodyColumns ?? 80)
@@ -157,11 +210,11 @@ export const register: Register = on => {
         <Text bold>Görev kartları</Text>
         {kartlar.length === 0 && <Text dimColor>Açık kart yok. İş başlatmak için /orkestra:is &lt;istek&gt;</Text>}
         {kartlar.map(k => (
-          <Text wrap="truncate">
+          <Box>
             <Text color={DURUM_RENGI[k.durum] ?? 'text'}>{k.id.padEnd(6)} {k.durum.padEnd(10)}</Text>
             <Text dimColor> {k.basamak} işçi:{k.isci} den:{k.denetim} {usd(k.usd)} </Text>
-            {kes(k.baslik, w - 48)}
-          </Text>
+            <Text wrap="truncate">{kes(k.baslik, w - 48)}</Text>
+          </Box>
         ))}
         <Text> </Text>
         <Text bold>Token ve maliyet</Text>
@@ -172,11 +225,11 @@ export const register: Register = on => {
         <Text bold>Sohbetler (bu çalışma alanı)</Text>
         {(o.sohbetler ?? []).length === 0 && <Text dimColor>Henüz maliyetli sohbet yok.</Text>}
         {(o.sohbetler ?? []).map(s => (
-          <Text wrap="truncate">
+          <Box>
             <Text color={s.bu ? 'claude' : 'text'}>{s.bu ? '▸ ' : '  '}{usd(s.usd).padStart(8)} </Text>
-            {kes(s.baslik, w - 30)}
+            <Text wrap="truncate">{kes(s.baslik, w - 30)}</Text>
             <Text dimColor> {s.son}{s.kaynak === 'defter' ? ' ≈' : ''}</Text>
-          </Text>
+          </Box>
         ))}
         <Text dimColor>≈ açık sohbet: orkestra defteri; kapanınca Claude'un kendi hesabı. Zengin görünüm: /orkestra-web</Text>
         <Text> </Text>
@@ -188,29 +241,5 @@ export const register: Register = on => {
         {o.uretim !== undefined && <Text dimColor>veri: {o.uretim.slice(11, 19)}</Text>}
       </Box>
     )
-  })
-
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const o = await read($, veri)
-    if (e.props.hasSurvey || o === null || !o.acik || o.kartlar === undefined || (await read($, bantGizli))) return next(e)
-    const s = o.sayac ?? {}
-    const acik = (s.isleniyor ?? 0) + (s.denetimde ?? 0) + (s.reddedildi ?? 0) + (s.onaylandi ?? 0)
-    const oturum = o.maliyet?.oturum ?? 0
-    if (acik === 0 && oturum === 0 && !o.ruya?.rapor) return next(e)
-    const { Box, Button, Text } = $.ui.resolve(e)
-    const parca: string[] = []
-    if (s.isleniyor) parca.push(`${s.isleniyor} işleniyor`)
-    if (s.denetimde) parca.push(`${s.denetimde} denetimde`)
-    if (s.reddedildi) parca.push(`${s.reddedildi} ret`)
-    if (s.onaylandi) parca.push(`${s.onaylandi} teslime hazır`)
-    parca.push(`oturum ${usd(oturum)}`)
-    if (o.ruya?.rapor) parca.push('rüya raporu hazır')
-    return (
-      <Box>
-        <Text dimColor>Orkestra · {parca.join(' · ')} </Text>
-        <Button key="panel" label="Panel" onPress={() => $.ui.open({ id: PANE, title: 'Orkestra' })} />
-        <Button key="gizle" label="Gizle" onPress={() => update($, bantGizli, () => true)} />
-      </Box>
-    )
-  })
+  }
 }
