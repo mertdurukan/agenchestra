@@ -10,7 +10,8 @@ Ne yapar (hepsi o projenin içinde):
   2. orkestra ve orkestra-ui plugin'lerini PROJE kapsamında kurar → <proje>/.claude/settings.json.
   3. Proje ayarlarına orkestra varsayılanlarını EKLER (var olan değerin üstüne yazmaz):
      model, effortLevel, autoMemoryEnabled, autoDreamEnabled, workflowSizeGuideline, env.PYTHONUTF8,
-     permissions.allow "Bash(orkestra *)", extraKnownMarketplaces.
+     permissions.allow "Bash(orkestra *)", extraKnownMarketplaces; statusLine yoksa kota kaydı (scripts/kota.py:
+     5 saatlik ve haftalık kullanım sınırını analitik paneli için kaydeder).
   4. `orkestra baslat` ile <proje>/.claude/orkestra/ durum klasörünü açar.
   5. Proje git deposuysa .gitignore'a çalışma zamanı satırlarını ekler.
   6. CLAUDE.md'ye (yoksa oluşturur) kısa bir "Orkestra" bölümü ekler (zaten varsa dokunmaz).
@@ -45,6 +46,9 @@ CLAUDE_MD_BOLUMU = """
 - Ortak defter `.claude/orkestra/ortak_defter.md` (otomatik; `orkestra defter baglam <id>` ile ihtiyacın olanı oku). Token defteri: `/orkestra:maliyet`. Panel: `/orkestra` (Claude içi), `/orkestra-web` (HTML canlı).
 - Ayarlar bu çalışma alanına özgüdür (`.claude/settings.json`); genel ayar kullanılmaz.
 """
+
+
+KOTA_KOMUTU = 'python "' + os.path.join(DEPO, "plugins", "orkestra", "scripts", "kota.py").replace("\\", "/") + '"'
 
 
 def claude_exe() -> str:
@@ -87,6 +91,8 @@ def ayar_birlestir(proje, ui, kuru):
     izin = s.setdefault("permissions", {}).setdefault("allow", [])
     if "Bash(orkestra *)" not in izin:
         izin.append("Bash(orkestra *)")
+    if "statusLine" not in s:  # kullanıcının kendi durum satırı varsa dokunma
+        s["statusLine"] = {"type": "command", "command": KOTA_KOMUTU}
     s.setdefault("extraKnownMarketplaces", {})[MARKET] = {"source": {"source": "directory", "path": DEPO.replace("\\", "/")}}
     ep = s.setdefault("enabledPlugins", {})
     ep[f"orkestra@{MARKET}"] = True
@@ -151,6 +157,8 @@ def kaldir(proje, kuru):
         for p in PLUGINLER:
             s.get("enabledPlugins", {}).pop(f"{p}@{MARKET}", None)
         s.get("extraKnownMarketplaces", {}).pop(MARKET, None)
+        if (s.get("statusLine") or {}).get("command") == KOTA_KOMUTU:
+            s.pop("statusLine")
         with open(yol, "w", encoding="utf-8") as f:
             json.dump(s, f, ensure_ascii=False, indent=2)
             f.write("\n")

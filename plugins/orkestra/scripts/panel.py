@@ -3,6 +3,10 @@
 GET /                          → panel sayfası (assets/panel.html)
 GET /alanlar.json              → çalışma alanları (ad, yol, orkestra kurulu mu, son etkinlik)
 GET /ozet.json?alan=<id>       → seçili alanın anlık görüntüsü (orkestra varsa tam, yoksa sohbet maliyetleri)
+GET /analitik                  → analitik sayfası (assets/analitik.html)
+GET /analitik.json?alan=<id>   → seçili orkestralı alanın analitiği (analitik.alan_analitigi)
+GET /analitik-tum.json         → bütün alanların toplamı ve karşılaştırması
+GET /simdi.json                → her sohbet: ne yapılıyor, neye yarayacak, kimi bekliyor (niyet.gorunum)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
 """
@@ -22,10 +26,13 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 import ozet  # noqa: E402
+import analitik  # noqa: E402
+import niyet  # noqa: E402
 
 HTML = os.path.join(L.PLUGIN_ROOT, "assets", "panel.html")
+ANALITIK_HTML = os.path.join(L.PLUGIN_ROOT, "assets", "analitik.html")
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "3"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "5"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _isleyici():
@@ -69,6 +76,18 @@ def _isleyici():
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli(("ozet", alan), 1.0, lambda: ozet.alan_ozeti(alan)))
+            if u.path in ("/analitik", "/analitik.html"):
+                with open(ANALITIK_HTML, "rb") as f:
+                    return self._gonder(200, "text/html; charset=utf-8", f.read())
+            if u.path == "/analitik.json":
+                alan = (q.get("alan") or [None])[0]
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli(("analitik", alan), 10.0, lambda: analitik.alan_analitigi(alan)))
+            if u.path == "/analitik-tum.json":
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli("analitik-tum", 20.0, analitik.tum_alanlar))
+            if u.path == "/simdi.json":
+                return self._gonder(200, "application/json; charset=utf-8", onbellekli("simdi", 3.0, niyet.gorunum))
             if u.path == "/saglik":
                 return self._gonder(200, "text/plain", f"ok {SURUM}".encode())
             return self._gonder(404, "text/plain", b"yok")

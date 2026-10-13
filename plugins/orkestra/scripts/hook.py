@@ -225,6 +225,9 @@ def stop(inp: dict):
     if not sd:
         gec()
     oid = inp.get("session_id") or "-"
+    if not os.environ.get("ORKESTRA_RUYA"):
+        import niyet
+        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur")  # Claude turu bitirdi → kullanıcıyı bekliyor
     ofset_yolu = os.path.join(sd, "oturumlar", f"{oid}.json")
     try:
         with open(ofset_yolu, encoding="utf-8") as f:
@@ -299,6 +302,13 @@ def user_prompt_submit(inp: dict):
         metin = L.maskele(inp.get("prompt") or "")
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "istek",
                                                          "metin": metin[:300], "uzunluk": len(metin)})
+        # Niyet kaydı: kullanıcı yazdı → Claude çalışıyor. Sistem iletileri (<agent-message>, <task-notification>) istek metni sayılmaz.
+        import niyet
+        sistem = metin.lstrip().startswith("<")
+        niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
+        if not sistem:
+            L.hook_cikti({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                                                 "additionalContext": niyet.baglam_metni(inp.get("session_id"))}})
     gec()
 
 
@@ -326,6 +336,8 @@ def session_end(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd or os.environ.get("ORKESTRA_RUYA"):
         gec()
+    import niyet
+    niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "kapandi")
     import ruya
     if ruya.durum(sd).get("zamani_geldi"):
         ruya.baslat(sd, L.proje_dizini(inp.get("cwd")), transkript=inp.get("transcript_path"))

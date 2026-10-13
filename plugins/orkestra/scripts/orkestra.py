@@ -15,6 +15,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json]
   orkestra ruya durum | basla | bitti
   orkestra gunluk ozet [--gun 7]
+  orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
 `--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
 """
 from __future__ import annotations
@@ -671,6 +672,9 @@ def main():
     pa.add_argument("--on-planda", action="store_true", help="sunucuyu bu süreçte çalıştır (Ctrl+C ile durur)")
     pa.add_argument("--ac", action="store_true", help="adresi varsayılan tarayıcıda aç")
     pa.set_defaults(f=cmd_panel)
+
+    import niyet
+    niyet.ekle_ayristirici(alt)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
     go = gu.add_parser("ozet")
