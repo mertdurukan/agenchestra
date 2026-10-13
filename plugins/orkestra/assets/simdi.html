@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Şimdi</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+  /* Şimdi sayfasına özgü küçük ekler; ortak bileşenler ortak.css'te. */
+  .dikkat-alani { display: grid; gap: var(--a-8); }
+  .ikili { display: grid; gap: var(--a-16); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1000px) { .ikili { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } }
+
+  /* sohbet kartları */
+  .sohbet-liste { display: grid; gap: var(--a-12); grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); }
+  .sohbet {
+    background: var(--surface-0); border: 1px solid var(--line); border-left: 3px solid var(--renk, var(--neutral));
+    border-radius: var(--k-10); padding: var(--a-12) var(--a-16); min-width: 0; cursor: pointer;
+    display: flex; flex-direction: column; gap: var(--a-4); transition: background .12s;
+  }
+  .sohbet:hover { background: var(--surface-2); }
+  .sohbet .ust { display: flex; align-items: baseline; gap: var(--a-8); font-size: var(--t-12); color: var(--text-muted); min-width: 0; }
+  .sohbet .ust .ad { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  .sohbet .ust .ad b { color: var(--text-primary); font-weight: 600; }
+  .sohbet .ne { font-size: var(--t-16); font-weight: 600; line-height: 1.35; margin-top: var(--a-4); overflow-wrap: anywhere; }
+  .sohbet .neden { color: var(--text-secondary); font-size: var(--t-13); overflow-wrap: anywhere; }
+  .sohbet .neden::before { content: "→ "; color: var(--text-muted); }
+  .sohbet .sonuc { color: var(--text-secondary); font-size: var(--t-13); }
+  .sohbet .sonuc::before { content: "✓ "; color: var(--good); }
+  .son-istek { margin-top: var(--a-4); font-size: var(--t-13); color: var(--text-secondary); }
+  .son-istek .etiket { display: block; color: var(--text-muted); font-size: var(--t-12); }
+  .son-istek q {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    border-left: 2px solid var(--line); padding-left: var(--a-8); quotes: none; overflow-wrap: anywhere;
+  }
+  .sohbet .alt { display: flex; gap: var(--a-8); align-items: baseline; margin-top: auto; padding-top: var(--a-4); font-size: var(--t-12); color: var(--text-muted); min-width: 0; }
+  .sohbet .alt .kartlar { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .sohbet .ac { white-space: nowrap; color: var(--text-muted); }
+  .sohbet:hover .ac, .sohbet:focus-visible .ac { color: var(--text-primary); }
+  .sohbet .bilgi { font-size: var(--t-12); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .eskiler { margin-top: var(--a-12); }
+  .alt-not { margin: var(--a-12) 0 0; }
+
+  /* görev kartları */
+  .kart-liste { list-style: none; margin: 0; padding: 0; }
+  .kart { padding: var(--a-8) 0 var(--a-8) var(--a-12); border-left: 3px solid var(--renk, var(--neutral)); margin-bottom: var(--a-8); }
+  .kart:last-child { margin-bottom: 0; }
+  .kart .baslik { font-weight: 600; overflow-wrap: anywhere; }
+  .kart .alt-satir { color: var(--text-muted); font-size: var(--t-12); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kart .alt-satir .rozet { font-weight: 500; color: var(--text-secondary); }
+  .kart .bekliyor { color: var(--text-secondary); }
+  .isaret {
+    display: inline-block; font-size: var(--t-12); font-weight: 500; color: var(--text-secondary); border: 1px solid var(--line);
+    border-radius: 999px; padding: 0 var(--a-8); margin-left: 6px; vertical-align: 1px; white-space: nowrap;
+  }
+  details.teslimler { margin-top: var(--a-16); }
+  details.teslimler > summary { cursor: pointer; color: var(--text-muted); font-size: var(--t-12); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; width: max-content; }
+  details.teslimler > summary:hover { color: var(--text-primary); }
+  details.teslimler[open] > summary { margin-bottom: var(--a-8); }
+  .kart-grup:first-of-type h3 { margin-top: var(--a-8); }
+
+  /* son olaylar */
+  .akis { list-style: none; padding: 0; margin: 0; font-size: var(--t-13); }
+  .akis li { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--a-12); padding: var(--a-8) 0; border-bottom: 1px solid var(--line); }
+  .akis li:last-child { border-bottom: 0; }
+  .akis li[data-oturum] { cursor: pointer; border-radius: var(--k-6); }
+  .akis li[data-oturum]:hover { background: var(--surface-2); }
+  .akis .z { color: var(--text-muted); font-size: var(--t-12); font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .akis .kim { color: var(--text-muted); font-size: var(--t-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .akis .govde { overflow-wrap: anywhere; }
+  .akis .govde b { font-weight: 600; }
+  .akis .govde .meta { margin-right: 4px; }
+  @media (max-width: 600px) { .sohbet { padding: var(--a-12); } }
+</style>
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <section class="dikkat-alani" id="dikkat" aria-labelledby="dikkatBaslik">
+    <h2 id="dikkatBaslik" class="gorunmez">Dikkat</h2>
+    <div id="dikkatIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <section class="bolum" id="sohbetler" aria-labelledby="sohbetBaslik">
+    <h2 id="sohbetBaslik">Sohbetler <span class="meta" id="sohbetSayi"></span><span id="sohbetBayat"></span></h2>
+    <p class="aciklama">Bütün çalışma alanlarındaki sohbetler; seni bekleyenler önce. Bir karta tıklayınca o sohbet Claude uygulamasında açılır.</p>
+    <div class="cipler" id="sohbetCip" role="group" aria-label="Sohbet süzgeci"></div>
+    <div id="sohbetListe"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <div class="ikili">
+    <section class="bolum" id="kartlar" aria-labelledby="kartBaslik">
+      <h2 id="kartBaslik">Görev kartları <span class="meta" id="kartSayi"></span><span id="kartBayat"></span></h2>
+      <p class="aciklama" id="kartAciklama">Seçili çalışma alanının orkestra kartları: önce dikkat isteyenler.</p>
+      <div id="kartIcerik"><p class="bos">Yükleniyor…</p></div>
+    </section>
+
+    <section class="bolum" id="olaylar" aria-labelledby="olayBaslik">
+      <h2 id="olayBaslik">Son olaylar <span id="olayBayat"></span></h2>
+      <p class="aciklama">Sohbet niyetleri ve bu alanın ortak defteri, en yeni önce.</p>
+      <ul class="akis" id="olayListe"><li class="bos">Yükleniyor…</li></ul>
+    </section>
+  </div>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script>
+'use strict';
+(() => {
+  const $ = s => document.querySelector(s);
+  const { B, E, esc } = O;
+  // Ekrana giden serbest metin: markdown soyulur, tam yollar kısaltılır, kaçışlanır.
+  const metin = s => esc(O.yolGizle(O.temizMetin(s)));
+  const kisalt = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+  const zamanMs = s => { const t = Date.parse(s || ''); return isNaN(t) ? 0 : t; };
+  const sat = (ad, deger) => `<div class="sat"><span>${esc(ad)}</span><span>${deger}</span></div>`;
+  const rozet = (d, ek = '') => `<span class="rozet${ek}" style="--renk:${d.renk}"><i></i>${esc(d.ad)}</span>`;
+
+  // Bir kabın içini yalnız HTML değiştiyse yeniden kurar; odaktaki öğe (data-anahtar) korunur.
+  function yerlestir(kap, html) {
+    if (!kap || kap.__html === html) return;
+    const a = document.activeElement;
+    const anahtar = a && kap.contains(a) ? a.dataset.anahtar : null;
+    kap.innerHTML = html; kap.__html = html;
+    if (anahtar) {
+      const y = [...kap.querySelectorAll('[data-anahtar]')].find(el => el.dataset.anahtar === anahtar);
+      if (y) y.focus({ preventScroll: true });
+    }
+  }
+
+  // S.simdi / S.ozet: SON İYİ veri; hata anında silinmez (yalnız alan değişince ozet sıfırlanır).
+  // Kaynak durumu (durum, sonBasari, hataBaslangic, ardisikHata, hata, bayat, uzunHata) O.veri kontrol nesnelerinde: KS, KO.
+  let KS = null, KO = null;
+  const S = { simdi: null, ozet: null, filtre: O.depo.al('orkestra.simdi.filtre') || 'hepsi', eskilerAcik: false, teslimAcik: false };
+  const BEKLEYEN_SIRA = { sen: 0, claude: 1, bitti: 2, beklemede: 3, kapandi: 4 };
+  const ETKIN = new Set(['sen', 'claude', 'bitti']);
+
+  // simdi.json alanlarına korumalı erişim: biçim bozuksa boş liste
+  const oturumlar = () => (S.simdi && Array.isArray(S.simdi.oturumlar)) ? S.simdi.oturumlar : [];
+  const akis = () => (S.simdi && Array.isArray(S.simdi.akis)) ? S.simdi.akis : [];
+  const sayac = () => (S.simdi && S.simdi.sayac && typeof S.simdi.sayac === 'object') ? S.simdi.sayac : {};
+
+  // oturum id → sohbet adı (simdi.json önce, sonra ozet.json sohbetleri)
+  function sohbetAdi(oturum) {
+    if (!oturum) return null;
+    const r = oturumlar().find(x => x.oturum === oturum);
+    if (r) return r.sohbet;
+    const s = S.ozet && (S.ozet.sohbetler || []).find(x => x.oturum === oturum);
+    return s ? s.baslik : null;
+  }
+  const kartlar = () => (S.ozet && S.ozet.acik !== false && Array.isArray(S.ozet.kartlar)) ? S.ozet.kartlar : [];
+  const orkestrali = () => {
+    if (S.ozet && S.ozet.orkestra === false) return false;
+    const b = O.alanBilgi();
+    return b ? !!b.orkestra : true;
+  };
+  // defter satırları: olay=true olanlar kart işaretidir (alan yoksa hepsi olaydır değil, düz satırdır)
+  const defter = () => (S.ozet && Array.isArray(S.ozet.defter)) ? S.ozet.defter : [];
+
+  // ------------------------------------------------------------ 1. Dikkat şeridi
+  function dikkatCiz() {
+    const ks = kartlar();
+    const red = ks.filter(k => k.durum === 'reddedildi');
+    const onay = ks.filter(k => k.durum === 'onaylandi');
+    const sen = oturumlar().filter(r => r.bekleyen === 'sen');
+    const ruya = !!(S.ozet && S.ozet.ruya && S.ozet.ruya.rapor);
+    const adlar = (liste, al) => liste.slice(0, 3).map(al).join(' · ') + (liste.length > 3 ? ` · +${liste.length - 3}` : '');
+    const ogeler = [];
+    if (red.length) ogeler.push(`<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
+      <span class="metin"><b>${red.length} kart reddedildi</b><span class="meta">${esc(adlar(red, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
+      <span class="eylem"><a href="#kartlar">Kartlara git</a></span></div>`);
+    if (sen.length) ogeler.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">?</span>
+      <span class="metin"><b>${sen.length === 1 ? 'Bir sohbet seni bekliyor' : sen.length + ' sohbet seni bekliyor'}</b><span class="meta">${esc(adlar(sen, r => r.proje + ' › ' + r.sohbet))}</span></span>
+      <span class="eylem">${sen.length === 1 ? `<button type="button" data-oturum="${esc(sen[0].oturum)}">Sohbeti aç</button>` : ''}<button type="button" data-filtre="sen">Göster</button></span></div>`);
+    if (onay.length) ogeler.push(`<div class="dikkat" style="--renk:var(--good)"><span class="simge" aria-hidden="true">✓</span>
+      <span class="metin"><b>${onay.length} kart onaylandı, teslim bekliyor</b><span class="meta">${esc(adlar(onay, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
+      <span class="eylem"><a href="#kartlar">Kartlara git</a></span></div>`);
+    if (ruya) ogeler.push(`<div class="dikkat" style="--renk:var(--s7)"><span class="simge" aria-hidden="true">☾</span>
+      <span class="metin"><b>Rüya raporu hazır</b><span class="meta">Claude içinde <code>/orkestra:ruya</code> ile oku.</span></span></div>`);
+    // Kaynak hatası şeridi: yalnız hiç veri gelmemişken ya da hata uzun sürünce (≥ 3 yoklama / ≥ 10 sn).
+    // Kısa kopukluğu yalnız canlı göstergesi ve bölüm başlığındaki işaret anlatır. Şerit mevcutların ÜSTÜNE eklenir.
+    const uyarilar = [];
+    const sure = k => k.sonBasari ? `son başarılı yenileme ${B.saat(k.sonBasari)}` : 'henüz hiç veri alınamadı';
+    if (KO && KO.uzunHata) uyarilar.push(`<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
+      <span class="metin"><b>Görev verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(KO.hamHata || KO.hata))}">${esc(sure(KO))} · ${metin(kisalt(KO.hata, 120))} · yeniden deneniyor</span></span></div>`);
+    if (KS && KS.uzunHata) uyarilar.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">!</span>
+      <span class="metin"><b>Sohbet verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(KS.hamHata || KS.hata))}">${esc(sure(KS))} · ${metin(kisalt(KS.hata, 120))} · yeniden deneniyor</span></span></div>`);
+    // Bir kaynaktan henüz hiç veri yoksa ve hata şeridi de yoksa (ilk yükleme ya da alan değişimi) "Yükleniyor…" eklenir:
+    // eski alanın şeritleri DOM'da kalmaz, yanlış sakin satır da çıkmaz.
+    const yukleniyor = (!S.ozet && !(KO && KO.uzunHata)) || (!S.simdi && !(KS && KS.uzunHata));
+    if (!ogeler.length && !uyarilar.length && !yukleniyor) {
+      // sakin satır yalnız iki kaynaktan da (son) iyi veri varken
+      const son = ks.filter(k => k.durum === 'teslim').sort((a, b) => zamanMs(b.guncelleme) - zamanMs(a.guncelleme))[0];
+      const calisan = sayac().claude || 0;
+      const ek = [calisan ? `${calisan} sohbette Claude çalışıyor` : '', son ? `son teslim ${B.saat(son.guncelleme)} · ${son.id}` : ''].filter(Boolean).join(' · ');
+      ogeler.push(`<div class="dikkat sakin"><span class="simge" aria-hidden="true">✓</span>
+        <span class="metin">Senden beklenen bir şey yok${ek ? `<span class="meta">${esc(ek)}</span>` : ''}</span></div>`);
+    }
+    yerlestir($('#dikkatIcerik'), uyarilar.concat(ogeler).join('') + (yukleniyor ? '<p class="bos">Yükleniyor…</p>' : ''));
+  }
+
+  // Bölüm başlıklarındaki bayatlık işaretleri (gövdeye dokunmaz)
+  function bayatCiz() {
+    yerlestir($('#sohbetBayat'), O.bayatIsaret(KS));
+    yerlestir($('#kartBayat'), orkestrali() ? O.bayatIsaret(KO) : '');
+    yerlestir($('#olayBayat'), O.bayatIsaret(KS, KO));
+  }
+
+  // ------------------------------------------------------------ 2. Sohbetler
+  function sohbetKarti(r) {
+    const d = E.bekleyen(r.bekleyen);
+    const k = r.kartlar || { acik: 0, toplam: 0, teslim: 0, aktif: [] };
+    const kartMetni = k.aktif && k.aktif.length
+      ? `${k.aktif.length} açık kart: ` + k.aktif.map(x => `${x.id} ${x.baslik}`).join('; ')
+      : (k.toplam ? `Kartlar ${k.teslim}/${k.toplam} teslim` : '');
+    let govde;
+    if (r.niyet_var) {
+      govde = `<div class="ne">${metin(r.ne)}</div>${r.neden ? `<div class="neden">${metin(r.neden)}</div>` : ''}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
+    } else if (r.son_istek) {
+      govde = `<div class="son-istek"><span class="etiket">Son istek</span><q>${metin(r.son_istek)}</q></div>`;
+    } else {
+      govde = `<div class="son-istek"><q>${metin(r.yedek || 'Henüz bilgi yok')}</q></div>`;
+    }
+    const acIpucu = r.link ? 'Tıkla: sohbeti Claude uygulamasında aç' : 'Tıkla: terminalde başlamış sohbeti uygulamada sürdür';
+    const ip = `<b>${esc(r.proje)} › ${esc(r.sohbet)}</b>` + sat('Durum', esc(d.ad)) + sat('Son etkinlik', B.tarih(r.son_zaman)) +
+      sat('Başlangıç', B.tarih(r.baslangic)) + sat('İstek', B.sayi(r.istek_sayisi)) +
+      (r.son_istek ? `<div class="meta">Son istek: ${metin(kisalt(r.son_istek, 220))}</div>` : '') + `<div class="meta">${acIpucu}</div>`;
+    return `<div class="sohbet" style="--renk:${d.renk}" data-oturum="${esc(r.oturum)}" data-anahtar="s:${esc(r.oturum)}" tabindex="0" role="button"
+        aria-label="${esc(r.proje + ' › ' + r.sohbet + ' · ' + d.ad + ' · sohbeti aç')}" data-ipucu="${esc(ip)}">
+      <div class="ust">${rozet(d, r.bekleyen === 'claude' ? ' nabiz' : '')}<span class="ad"><b>${esc(r.proje)}</b> › ${esc(r.sohbet)}</span>
+        <span data-once="${esc(r.son_zaman || '')}">${B.once(r.son_zaman)}</span></div>
+      ${govde}
+      <div class="bilgi">Başlangıç ${B.tarih(r.baslangic)} · ${B.sayi(r.istek_sayisi)} istek</div>
+      <div class="alt"><span class="kartlar">${esc(kartMetni)}</span><span class="ac">Sohbeti aç ↗</span></div></div>`;
+  }
+
+  function sohbetCiz() {
+    if (!S.simdi && KS && KS.durum === 'hata') {      // tam hata satırı yalnız son iyi veri yokken
+      $('#sohbetSayi').textContent = '';
+      yerlestir($('#sohbetCip'), '');
+      yerlestir($('#sohbetListe'), `<p class="bos">Sohbet verisi üretilemedi: ${metin(kisalt(KS.hata, 200))}</p>`);
+      return;
+    }
+    const d = S.simdi;
+    if (!d) return;
+    const tum = oturumlar().slice().sort((a, b) =>
+      ((BEKLEYEN_SIRA[a.bekleyen] ?? 9) - (BEKLEYEN_SIRA[b.bekleyen] ?? 9)) || (zamanMs(b.son_zaman) - zamanMs(a.son_zaman)));
+    const projeler = [...new Set(tum.map(r => r.proje))];
+    const say = {};
+    tum.forEach(r => { say[r.bekleyen] = (say[r.bekleyen] || 0) + 1; });
+    const cipler = [['hepsi', `Hepsi · ${tum.length}`]]
+      .concat(['sen', 'claude', 'bitti', 'beklemede', 'kapandi'].filter(k => say[k]).map(k => [k, `${E.bekleyen(k).ad} · ${say[k]}`]))
+      .concat(projeler.length > 1 ? projeler.map(p => ['p:' + p, p]) : []);
+    if (!cipler.some(([v]) => v === S.filtre)) S.filtre = 'hepsi';
+    yerlestir($('#sohbetCip'), cipler.map(([v, ad]) =>
+      `<button type="button" class="cip" data-filtre="${esc(v)}" data-anahtar="c:${esc(v)}" aria-pressed="${S.filtre === v}">${esc(ad)}</button>`).join(''));
+    $('#sohbetSayi').textContent = say.sen ? `${say.sen} seni bekliyor` : '';
+
+    const f = S.filtre;
+    const liste = tum.filter(r => f === 'hepsi' || r.bekleyen === f || 'p:' + r.proje === f);
+    let html;
+    if (!tum.length) {
+      html = '<p class="bos">Son günlerde sohbet kaydı yok.</p>';
+    } else if (f === 'hepsi') {
+      const etkin = liste.filter(r => ETKIN.has(r.bekleyen)), eski = liste.filter(r => !ETKIN.has(r.bekleyen));
+      html = etkin.length ? `<div class="sohbet-liste">${etkin.map(sohbetKarti).join('')}</div>` : '<p class="bos">Şu an etkin sohbet yok.</p>';
+      if (eski.length) {
+        html += `<div class="eskiler"><button type="button" id="eskiDugme" data-anahtar="eski" aria-expanded="${S.eskilerAcik}" aria-controls="eskiListe">${S.eskilerAcik ? 'Eski sohbetleri gizle' : `Eski sohbetler · ${eski.length}`}</button></div>` +
+          (S.eskilerAcik ? `<div class="sohbet-liste eskiler" id="eskiListe">${eski.map(sohbetKarti).join('')}</div>` : '');
+      }
+    } else {
+      html = liste.length ? `<div class="sohbet-liste">${liste.map(sohbetKarti).join('')}</div>` : '<p class="bos">Bu süzgeçte sohbet yok.</p>';
+    }
+    if (d.niyetsiz > 0) html += `<p class="meta alt-not">${d.niyetsiz} etkin sohbette niyet satırı yok; Claude bir sonraki istekte kendisi yazar.</p>`;
+    yerlestir($('#sohbetListe'), html);
+  }
+
+  // ------------------------------------------------------------ 3. Görev kartları
+  function kartSatiri(k, isaretler) {
+    const d = E.durum(k.durum);
+    const durumlar = Object.fromEntries(kartlar().map(x => [x.id, x.durum]));
+    const bag = k.bagimli || [];
+    const acikBag = bag.filter(id => durumlar[id] && durumlar[id] !== 'teslim');
+    const bagMetni = !bag.length ? '' : acikBag.length
+      ? `<span class="bekliyor" title="Önce bitmesi gereken kartlar">bekliyor: ${esc(acikBag.join(', '))}</span>`
+      : `<span title="Bağımlı olduğu kartlar (bitti)">← ${esc(bag.join(', '))}</span>`;
+    const sohbet = sohbetAdi(k.oturum);
+    const parcalar = [esc(k.id), esc(k.basamak || ''), rozet(d)];
+    if (k.usd > 0) parcalar.push(B.usd(k.usd));
+    if (bagMetni) parcalar.push(bagMetni);
+    if (sohbet) parcalar.push(`<span title="Sohbet">${esc(kisalt(sohbet, 40))}</span>`);
+    const isaret = (isaretler[k.id] || []).slice(-2).map(o =>
+      `<span class="isaret" title="${esc(B.tarih(o.zaman) + ' · ' + O.temizMetin(o.metin))}">${esc(kisalt(O.temizMetin(o.metin), 28))} ${B.saat(o.zaman)}</span>`).join('');
+    return `<li class="kart" style="--renk:${d.renk}"><div class="baslik">${metin(k.baslik)}${isaret}</div>
+      <div class="alt-satir">${parcalar.filter(Boolean).join('<span aria-hidden="true">·</span>')}</div></li>`;
+  }
+
+  function kartCiz() {
+    const kap = $('#kartIcerik');
+    if (!S.ozet && KO && KO.durum === 'hata') {       // tam hata satırı yalnız son iyi veri yokken
+      $('#kartSayi').textContent = '';
+      yerlestir(kap, `<p class="bos">Görev verisi alınamadı: ${metin(kisalt(KO.hata, 200))}</p>`);
+      return;
+    }
+    const o = S.ozet;
+    if (!o) {                                          // ilk yükleme ya da alan değişimi: eski alanın kartları ve sayacı kalkar
+      $('#kartSayi').textContent = '';
+      $('#kartAciklama').classList.toggle('gizli', !orkestrali());
+      yerlestir(kap, '<p class="bos">Yükleniyor…</p>');
+      return;
+    }
+    if (o.acik === false || o.hata) {
+      $('#kartSayi').textContent = '';
+      yerlestir(kap, `<p class="bos">${o.hata ? 'Veri üretilemedi: ' + metin(O.hataMetni(o.hata)) : 'Bu çalışma alanında orkestra kapalı.'}</p>`);
+      return;
+    }
+    if (!orkestrali()) {
+      $('#kartSayi').textContent = '';
+      $('#kartAciklama').classList.add('gizli');
+      yerlestir(kap, `<p class="bos">Bu çalışma alanında orkestra kurulu değil; burada yalnız <a href="/maliyet${O.alan ? '?alan=' + encodeURIComponent(O.alan) : ''}">Maliyet</a> sayfası anlamlı.</p>
+        <details class="nasil"><summary>Nasıl kurulur?</summary>
+        <p>Claude-Orchestration klasöründe: <code>python araclar/projeye_kur.py "&lt;proje klasörü&gt;"</code></p>
+        <p>Sonra o projede Claude içinde <code>/orkestra:baslat</code>.</p></details>`);
+      return;
+    }
+    $('#kartAciklama').classList.remove('gizli');
+    const ks = kartlar();
+    // olay=true defter satırları kartın üstüne küçük işaret olarak katlanır
+    const isaretler = {};
+    defter().filter(r => r.olay === true && r.gorev && r.gorev !== '-').forEach(r => { (isaretler[r.gorev] = isaretler[r.gorev] || []).push(r); });
+    const SIRA = { reddedildi: 0, denetimde: 1, onaylandi: 2, isleniyor: 0, beklemede: 1, planlandi: 2 };
+    const sirala = l => l.sort((a, b) => (SIRA[a.durum] - SIRA[b.durum]) || a.id.localeCompare(b.id, 'tr', { numeric: true }));
+    const dikkat = sirala(ks.filter(k => ['reddedildi', 'denetimde', 'onaylandi'].includes(k.durum)));
+    const calisan = sirala(ks.filter(k => ['isleniyor', 'beklemede', 'planlandi'].includes(k.durum)));
+    const teslim = ks.filter(k => ['teslim', 'iptal'].includes(k.durum)).sort((a, b) => zamanMs(b.guncelleme) - zamanMs(a.guncelleme)).slice(0, 5);
+    const grup = (ad, l) => l.length ? `<div class="kart-grup"><h3>${ad} · ${l.length}</h3><ul class="kart-liste">${l.map(k => kartSatiri(k, isaretler)).join('')}</ul></div>` : '';
+    let html = grup('Dikkat', dikkat) + grup('Çalışıyor ve sırada', calisan);
+    if (!dikkat.length && !calisan.length) html = '<p class="bos">Açık kart yok. Claude içinde <code>/orkestra:is</code> ile iş başlat.</p>';
+    if (teslim.length) {
+      html += `<details class="teslimler" id="teslimler"${S.teslimAcik ? ' open' : ''}><summary data-anahtar="teslim">Son teslimler · ${teslim.length}</summary>
+        <ul class="kart-liste">${teslim.map(k => kartSatiri(k, isaretler)).join('')}</ul></details>`;
+    }
+    const acik = dikkat.length + calisan.length;
+    $('#kartSayi').textContent = ks.length ? `${acik} açık` : '';
+    yerlestir(kap, html);
+  }
+
+  // ------------------------------------------------------------ 4. Son olaylar (niyet akışı + defter, tek zaman sırası)
+  function olayCiz() {
+    // bir kaynak henüz hiç veri getirmedi ve hata da vermedi (ilk yükleme ya da alan değişiminde ozet)
+    const bekleniyor = (!S.simdi && !(KS && KS.durum === 'hata')) || (!S.ozet && !(KO && KO.durum === 'hata'));
+    if (!S.simdi && !S.ozet) {
+      yerlestir($('#olayListe'), bekleniyor ? '<li class="bos">Yükleniyor…</li>'
+        : '<li class="bos">Olaylar alınamadı; birkaç saniyede bir yeniden deneniyor.</li>');
+      return;
+    }
+    const ogeler = [];
+    akis().filter(a => (a.tur === 'niyet' && metin(a.ne)) || (a.tur === 'sonuc' && metin(a.sonuc))).forEach(a => {
+      const govde = a.tur === 'sonuc'
+        ? `${rozet(E.bekleyen('bitti'))} ${metin(a.sonuc)}`
+        : `<b>${metin(a.ne)}</b>${a.neden ? ` <span class="meta">→ ${metin(a.neden)}</span>` : ''}`;
+      ogeler.push({ zaman: a.zaman, oturum: a.oturum, kim: `${a.proje} › ${a.sohbet}`, govde });
+    });
+    const proje = (S.ozet && S.ozet.proje) || (O.alanBilgi() || {}).ad || '';
+    const kartOturum = Object.fromEntries(kartlar().map(k => [k.id, k.oturum]));
+    defter().filter(r => r.olay !== true && metin(r.metin)).forEach(r => {   // metni boş satır gösterilmez
+      const oturum = r.oturum || kartOturum[r.gorev] || null;
+      const ad = sohbetAdi(oturum);
+      const etiket = [r.gorev && r.gorev !== '-' ? r.gorev : '', E.ajan(r.ajan), E.surec(r.surec)].filter(Boolean).join(' · ');
+      ogeler.push({ zaman: r.zaman, oturum, kim: ad ? `${proje} › ${ad}` : [proje, E.ajan(r.ajan)].filter(Boolean).join(' · '),
+        govde: `<span class="meta">${esc(etiket)}</span> ${metin(r.metin)}` });
+    });
+    ogeler.sort((a, b) => zamanMs(b.zaman) - zamanMs(a.zaman));
+    // aynı sohbetten aynı metin (ör. her işçi/denetçi turunun tekrar eden satırı) tek satıra iner: en yenisi + "×N"
+    const tekil = [], gorulen = {};
+    ogeler.forEach(x => {
+      const k = x.kim + '|' + x.govde;
+      if (gorulen[k]) gorulen[k].kez++; else { x.kez = 1; gorulen[k] = x; tekil.push(x); }
+    });
+    const html = tekil.length ? tekil.slice(0, 12).map(x => {
+      // odak anahtarı sıra numarası değil: zaman + sohbet + metin başı (yeni olay gelince odak kaymaz)
+      const anahtar = 'o:' + (x.zaman || '') + '|' + x.oturum + '|' + x.govde.replace(/<[^>]*>/g, '').slice(0, 60);
+      const ac = x.oturum ? ` data-oturum="${esc(x.oturum)}" data-anahtar="${esc(anahtar)}" tabindex="0" role="button" aria-label="${esc(x.kim + ' · sohbeti aç')}" title="Sohbeti aç"` : '';
+      return `<li${ac}><span class="z" title="${esc(B.tarih(x.zaman))}">${B.saat(x.zaman)}</span>
+        <div><div class="kim">${esc(x.kim)}</div><div class="govde">${x.govde}${x.kez > 1 ? ` <span class="meta" title="Bu satır ${x.kez} kez yazıldı">×${x.kez}</span>` : ''}</div></div></li>`;
+    }).join('') : bekleniyor ? '<li class="bos">Yükleniyor…</li>'
+      : '<li class="bos">Henüz olay yok. Claude her yeni işin başında tek satır niyet yazar.</li>';
+    yerlestir($('#olayListe'), html);
+  }
+
+  // Bölümler birbirinden bağımsız çizilir: birinin istisnası ötekileri durdurmaz. Hata varsa en sonda yeniden
+  // fırlatılır ki O.veri imzayı yazmasın ve bir sonraki yoklamada yeniden denesin.
+  function ciz(...bolumler) {
+    let ilk = null;
+    bolumler.forEach(f => { try { f(); } catch (e) { console.error('Şimdi:', f.name, e); ilk = ilk || e; } });
+    if (ilk) throw ilk;
+  }
+  const hepsi = () => ciz(dikkatCiz, sohbetCiz, kartCiz, olayCiz, bayatCiz);
+
+  // ------------------------------------------------------------ etkileşim
+  async function sohbetAc(oturum) {
+    if (!oturum) return;
+    O.ipucu.gizle();
+    O.bildirim('Sohbet açılıyor…');
+    try {
+      const r = await fetch('/ac?oturum=' + encodeURIComponent(oturum), { method: 'POST', headers: { 'X-Orkestra': '1' } }).then(x => x.json());
+      O.bildirim(r.tamam ? (r.yol === 'cli' ? 'Sohbet Claude uygulamasında sürdürülüyor' : `Açıldı: ${r.baslik || 'sohbet'}`) : 'Açılamadı: ' + O.yolGizle(O.hataMetni(r.hata || 'bilinmeyen hata')));
+    } catch (e) { O.bildirim('Sunucuya ulaşılamadı'); }
+  }
+  function filtreSec(v, kaydir) {
+    S.filtre = v; O.depo.koy('orkestra.simdi.filtre', v === 'hepsi' ? '' : v);
+    sohbetCiz();
+    if (kaydir) $('#sohbetler').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+  const ana = $('main');
+  ana.addEventListener('click', e => {
+    const f = e.target.closest('[data-filtre]');
+    if (f) return filtreSec(f.dataset.filtre, f.closest('#dikkat') != null);
+    if (e.target.closest('#eskiDugme')) { S.eskilerAcik = !S.eskilerAcik; return sohbetCiz(); }
+    const el = e.target.closest('[data-oturum]');
+    if (el) sohbetAc(el.dataset.oturum);
+  });
+  // role="button" öğeleri (div/li) için Enter ve Space; gerçek <button> bunu kendisi yapar.
+  ana.addEventListener('keydown', e => {
+    const el = e.target.closest('[data-oturum][role="button"]');
+    if (el && el === e.target && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sohbetAc(el.dataset.oturum); }
+  });
+  ana.addEventListener('toggle', e => { if (e.target.id === 'teslimler') S.teslimAcik = e.target.open; }, true);
+
+  // ------------------------------------------------------------ veri
+  O.kabuk({ sayfa: 'simdi' });
+  // Yeni veri → ilgili bölümler çizilir. Durum değişimi (hata/toparlanma) → yalnız şerit ve başlık işaretleri;
+  // son iyi veri yokken ilgili bölüm tam hata satırına geçer. Kısa kopuklukta gövde DOM'u değişmez.
+  KS = O.veri('/simdi.json', {
+    ad: 'Sohbet verisi', aralik: 5000, alanaBagli: false,
+    gecerli: v => Array.isArray(v.oturumlar),
+    cizici: v => { S.simdi = v; hepsi(); },
+    durum: () => ciz(dikkatCiz, bayatCiz, ...(S.simdi ? [] : [sohbetCiz, olayCiz])),
+  });
+  // maliyet tutarları bu sayfada kullanılmaz: imzaya girmez, her kuruş artışında yeniden çizilmez.
+  // sohbetler (ad yedeği) imzada kalır ki ad bayatlamasın; DOM'u yerlestir() yalnız HTML değişince kurar.
+  KO = O.veri(() => '/ozet.json?alan=' + encodeURIComponent(O.alan), {
+    ad: 'Görev verisi', aralik: 3000, yoksay: ['uretim', 'maliyet'],
+    cizici: v => { S.ozet = v; ciz(dikkatCiz, kartCiz, olayCiz, bayatCiz); },
+    durum: () => ciz(dikkatCiz, bayatCiz, ...(S.ozet ? [] : [kartCiz, olayCiz])),
+  });
+  // Alan değişince eski alanın kartları "son iyi veri" değildir. KO'nun dinleyicisi (yukarıda kayıtlı, önce çalışır)
+  // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları, sayacı, ret/onay/rüya şeritleri ve
+  // defter satırları kaldırılır: kart bölümü ve Dikkat "Yükleniyor…", olaylarda yalnız sohbet akışı kalır.
+  window.addEventListener('orkestra:alan', () => {
+    S.ozet = null; S.teslimAcik = false;
+    try { ciz(dikkatCiz, kartCiz, olayCiz, bayatCiz); } catch (e) { /* ciz hatayı konsola yazdı; veri gelince yeniden çizilir */ }
+  });
+})();
+</script>
+</body>
+</html>

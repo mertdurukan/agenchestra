@@ -2,6 +2,7 @@
 
 Gerçek hook girdilerini (stdin JSON) geçici bir projede sınar: kapılar, defter, token defteri, bitiş kapısı.
 """
+import datetime
 import json
 import os
 import shutil
@@ -260,6 +261,123 @@ class Cekirdek(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         olusan = json.loads(r.stdout)
         self.assertEqual(olusan[1]["bagimliliklar"], [olusan[0]["id"]])
+
+class PanelVeri(unittest.TestCase):
+    """Panel veri katmanı: ozet.py defter ve bugün, analitik.py trend ve sıçrama uyarıları (geçici durum klasörü)."""
+
+    def setUp(self):
+        self.proje = tempfile.mkdtemp(prefix="ork_panel_")
+        self.sd = os.path.join(self.proje, ".claude", "orkestra")
+        r = kos([CLI, "baslat"], self.proje)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import analitik
+        import ozet
+        self.A, self.O = analitik, ozet
+
+    def tearDown(self):
+        shutil.rmtree(self.proje, ignore_errors=True)
+
+    def _yaz(self, ad, satirlar):
+        with open(os.path.join(self.sd, ad), "w", encoding="utf-8") as f:
+            for s in satirlar:
+                f.write(json.dumps(s, ensure_ascii=False) + "\n")
+
+    def _maliyet(self, gun_once, saat, usd, **ek):
+        z = (datetime.datetime.now().astimezone().replace(hour=saat, minute=0, second=0, microsecond=0)
+             - datetime.timedelta(days=gun_once))
+        r = {"zaman": z.isoformat(timespec="seconds"), "oturum": "o1", "ajan": "ana-ajan", "surec": "orkestrasyon",
+             "model": "claude-opus-5-5", "gorev": "-", "kaynak": "tur", "maliyet_usd": usd}
+        r.update(ek)
+        return r
+
+    def test_defter_temizleme_ve_olay(self):
+        self._yaz("ortak_defter.jsonl", [
+            {"gorev": "G-001", "surec": "sentez", "ajan": "ana-ajan", "yaptim": "x", "sonuc": "TESLİM", "zaman": "2026-10-13T10:00:00+03:00"},
+            {"gorev": "-", "surec": "orkestrasyon", "ajan": "ana-ajan", "oturum": "o9", "zaman": "2026-10-13T10:05:00+03:00",
+             "yaptim": "x", "sonuc": "**Yargı:** Belge [rapor.md](rapor.md) hazır; `kod` ve __kalın__ yok.\n\n- üç madde daha var ve cümle uzun"},
+            {"gorev": "G-002", "surec": "denetim", "ajan": "orkestra:denetci", "yaptim": "G-002 denetim", "sonuc": "", "zaman": "2026-10-13T10:06:00+03:00"},
+        ])
+        o = self.O.olustur(self.sd, self.proje)
+        d = o["defter"]
+        self.assertEqual([r["olay"] for r in d], [True, False, True])
+        # olay yalnız karta bağlı kayıtlarda; gorev '-' ise kısa cümle bile olay değildir
+        self._yaz("ortak_defter.jsonl", [
+            {"gorev": "G-013", "surec": "is", "ajan": "a", "sonuc": "G-013 Word yeniden üretim"},
+            {"gorev": "G-013", "surec": "sentez", "ajan": "a", "sonuc": "TESLİM"},
+            {"gorev": "-", "surec": "orkestrasyon", "ajan": "a", "sonuc": "Üç denetim de sürüyor."},
+            {"gorev": "-", "surec": "orkestrasyon", "ajan": "a", "sonuc": "G-010 ve G-011 denetimde."},
+            {"gorev": "G-016", "surec": "is", "ajan": "a", "sonuc": "G-016 pane and band"},
+        ])
+        self.assertEqual([r["olay"] for r in self.O.olustur(self.sd, self.proje)["defter"]], [True, True, False, False, True])
+        self.assertEqual(self.O._KART_KIMLIK.pattern, chr(92) + "b[A-Z]{1,3}-" + chr(92) + "d+" + chr(92) + "b")
+        self.assertEqual(d[0]["metin"], "TESLİM")
+        self.assertEqual(d[1]["oturum"], "o9")
+        self.assertNotIn("**", d[1]["metin"])
+        self.assertNotIn("`", d[1]["metin"])
+        self.assertNotIn("](", d[1]["metin"])
+        self.assertIn("Belge rapor.md hazır", d[1]["metin"])
+        self.assertTrue(all(len(r["metin"]) <= 160 and "oturum" in r for r in d))
+        self._yaz("ortak_defter.jsonl", [{"gorev": "-", "surec": "is", "ajan": "a", "sonuc": f"kayıt {i} burada uzun bir cümledir"}
+                                         for i in range(30)])
+        self.assertEqual(len(self.O.olustur(self.sd, self.proje)["defter"]), 20)
+
+    def test_bugun_uc_kaynakta_tutarli(self):
+        kay = [self._maliyet(0, 1, 5.55), self._maliyet(0, 2, 1.1),
+               self._maliyet(1, 3, 40.0), self._maliyet(2, 3, 8.0)]
+        # UTC damgalı kayıt: yerel gün sınırına göre sayılmalı (önek karşılaştırmasıyla değil)
+        yerel = datetime.datetime.now().astimezone().replace(hour=0, minute=30, second=0, microsecond=0)
+        kay.append(dict(self._maliyet(0, 1, 2.2), zaman=yerel.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+        self._yaz("maliyet.jsonl", kay)
+        ozet_bugun = self.O.olustur(self.sd, self.proje)["maliyet"]["bugun"]
+        trend_bugun = self.A.olustur(self.sd, self.proje)["trend"]["gunluk"][-1]["usd"]
+        self.assertAlmostEqual(ozet_bugun, 8.85, places=2)
+        self.assertLessEqual(abs(ozet_bugun - trend_bugun), 0.01)
+        self.assertAlmostEqual(self.A.bugun_usd(self.A.L.maliyet_kayitlari(self.sd)), ozet_bugun, places=3)
+        # tum_alanlar: bu geçici proje çalışma alanı listesinde değilse satır bulunamaz; alan listesini bu projeye sabitle
+        eski = self.A._alan_listesi
+        self.A._alan_listesi = lambda: [{"id": "x", "ad": "x", "yol": self.proje, "orkestra": True}]
+        try:
+            satir = self.A.tum_alanlar()["alanlar"][0]
+        finally:
+            self.A._alan_listesi = eski
+        self.assertLessEqual(abs(satir["bugun"] - ozet_bugun), 0.01)
+
+    def test_trend_ilk_kayit_gununden_baslar_ve_sicrama_metni(self):
+        kay = [self._maliyet(4, 10, 10.0), self._maliyet(3, 10, 12.0), self._maliyet(2, 10, 11.0),
+               self._maliyet(1, 10, 60.0, ajan="orkestra:isci-t2"), self._maliyet(0, 1, 90.0)]
+        self._yaz("maliyet.jsonl", kay)
+        a = self.A.olustur(self.sd, self.proje)
+        g = a["trend"]["gunluk"]
+        ilk = (datetime.date.today() - datetime.timedelta(days=4)).isoformat()
+        self.assertEqual(g[0]["donem"], ilk)
+        self.assertEqual(a["trend"]["ilk_kayit"], ilk)
+        self.assertEqual(len(g), 5)
+        # sıçrama: dünkü tam gün uyarılır, bugünün kısmi günü ($90) uyarılmaz
+        gun = [u for u in a["birim"]["uyarilar"] if u["tur"] == "gun"]
+        self.assertEqual(len(gun), 1)
+        dun = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%d.%m")
+        self.assertRegex(gun[0]["metin"], rf"^{dun}: önceki günlerin 5,\d katı \(\$60 · ort\. \$11\)$")
+        self.assertEqual(self.A.ajan_adi("orkestra:isci-t2"), "İşçi T2")
+        self.assertEqual(self.A.ajan_adi("orkestra:denetci"), "Denetçi")
+        t = self.A.tum_alanlar()
+        self.assertLessEqual(t["gunluk"][0]["donem"], datetime.date.today().isoformat())
+
+
+    def test_defter_metni_dusus_ve_baslik_kesme(self):
+        """Defter metni sonuc/yaptim boşsa not/sonraki ve diğer metin alanlarına düşer; uzun kart başlığı '…' ile kesilir."""
+        O = self.O
+        self.assertEqual(O.defter_metni({"sonuc": "", "yaptim": None, "not": "**önemli** not"}), "önemli not")
+        self.assertEqual(O.defter_metni({"sonuc": " ", "yaptim": "", "sonraki": "denetim bekliyor"}), "denetim bekliyor")
+        self.assertEqual(O.defter_metni({"sonuc": None, "yaptim": None, "gorev": "G-1", "ozel_alan": "serbest metin"}), "serbest metin")
+        self.assertEqual(O.defter_metni({"sonuc": "tamam", "not": "ikincil"}), "tamam")
+        self.assertEqual(O.defter_metni({"gorev": "G-1", "ajan": "ana-ajan", "zaman": "2026-10-13T10:00:00+03:00"}), "")
+        uzun = "x" * 100
+        k = O.kisalt_baslik(uzun)
+        self.assertEqual(len(k), 80)
+        self.assertTrue(k.endswith("…"))
+        self.assertEqual(O.kisalt_baslik("kısa başlık"), "kısa başlık")
+        self.assertEqual(O.kisalt_baslik("y" * 80), "y" * 80)
 
 
 if __name__ == "__main__":

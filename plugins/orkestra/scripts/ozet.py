@@ -10,10 +10,12 @@ import collections
 import datetime
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import analitik as A  # noqa: E402  (bugün hesabı ve ajan adı eşlemesi tek yerde)
 
 SURUM = 2
 
@@ -22,9 +24,55 @@ def _yuvarla(d: dict, n: int = 4) -> dict:
     return {k: round(v, n) for k, v in d.items()}
 
 
+_MD_BAGLANTI = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+_MD_ISARET = re.compile(r"(\*{1,3}|_{2,3}|`+)")
+_KART_KIMLIK = re.compile(r"\b[A-Z]{1,3}-\d+\b")
+
+
+def temiz_metin(s, sinir: int = 160) -> str:
+    """Markdown işaretlerini soyar (**, __, `, [a](b) -> a, satır başı #/-/>), boşlukları sadeleştirir, sınırlar."""
+    s = _MD_BAGLANTI.sub(r"\1", str(s or ""))
+    s = re.sub(r"(?m)^\s*(#{1,6}\s+|[-*+]\s+|>\s*)", "", s)
+    s = _MD_ISARET.sub("", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s if len(s) <= sinir else s[:sinir - 1].rstrip() + "…"
+
+
+def _olay_mi(metin: str, gorev=None) -> bool:
+    """Metin yalnız bir durum işareti mi: kayıt bir karta bağlı (gorev kart kimliği) ve metin en çok 4 kelime,
+    kart kimliği / 'teslim' / 'denetim' içeriyor. Karta bağlı olmayan (gorev '-') kayıtlar olay sayılmaz."""
+    if not isinstance(gorev, str) or not _KART_KIMLIK.fullmatch(gorev):
+        return False
+    if not metin or len(metin.split()) > 4:
+        return False
+    return bool(_KART_KIMLIK.search(metin) or re.search(r"(?i)teslim|denetim", metin))
+
+
+_DEFTER_METIN_ALANLARI = ("sonuc", "yaptim", "not", "sonraki", "ozet", "aciklama", "mesaj", "metin")
+_DEFTER_METIN_DISI = {"zaman", "gorev", "surec", "ajan", "agent_id", "oturum", "model", "kaynak", "dokunulan", "token"}
+
+
+def defter_metni(r: dict) -> str:
+    """Defter kaydının gösterilecek metni: sonuc/yaptim boşsa not/sonraki ve kayıttaki diğer metin alanlarına düşer."""
+    adaylar = [r.get(k) for k in _DEFTER_METIN_ALANLARI]
+    adaylar += [v for k, v in r.items() if k not in _DEFTER_METIN_ALANLARI and k not in _DEFTER_METIN_DISI]
+    for v in adaylar:
+        if isinstance(v, str):
+            t = temiz_metin(v)
+            if t:
+                return t
+    return ""
+
+
+def kisalt_baslik(s, sinir: int = 80) -> str:
+    """Kart başlığını sınırlar; kesilirse sonuna '…' ekler (toplam uzunluk sinir)."""
+    s = str(s or "")
+    return s if len(s) <= sinir else s[:sinir - 1].rstrip() + "…"
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
-    bugun = datetime.date.today().isoformat()
+    bugun = datetime.date.today()  # yerel gün sınırı; analitik.py ile aynı (UTC 'Z' damgaları yerel güne çevrilir)
 
     # --- kartlar
     kart_usd = collections.Counter()
@@ -35,7 +83,7 @@ def olustur(sd: str, proje: str) -> dict:
     for k in L.kartlar(sd):
         d = L.kart_durumu_hesapla(k)
         son = (k.get("denetimler") or [{}])[-1]
-        ks.append({"id": k["id"], "baslik": k["baslik"][:80], "durum": d, "basamak": k["basamak"],
+        ks.append({"id": k["id"], "baslik": kisalt_baslik(k["baslik"]), "durum": d, "basamak": k["basamak"],
                    "oturum": k.get("oturum"), "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
                    "bagimli": k.get("bagimliliklar", []), "usd": round(kart_usd.get(k["id"], 0.0), 4),
                    "guncelleme": k.get("guncelleme")})
@@ -44,7 +92,7 @@ def olustur(sd: str, proje: str) -> dict:
     kartlar = sorted(acik, key=lambda x: x["id"]) + kapali
 
     # --- maliyet
-    bugunku = [r for r in kayitlar if (r.get("zaman") or "").startswith(bugun)]
+    bugunku = [r for r in kayitlar if (z := A._zaman(r.get("zaman"))) and z.date() == bugun]
     surec, model = collections.Counter(), collections.Counter()
     ajan_surec: dict = {}
     for r in bugunku:
@@ -97,10 +145,14 @@ def olustur(sd: str, proje: str) -> dict:
                           "modeller": s["modeller"]})
 
     # --- defter ve rüya
+    kart_oturum = {k["id"]: k.get("oturum") for k in ks}
     defter = []
-    for r in L.defter_kayitlari(sd)[-12:]:
-        defter.append({"zaman": r.get("zaman"), "gorev": r.get("gorev", "-"), "surec": r.get("surec", "-"),
-                       "ajan": r.get("ajan", "-"), "metin": str(r.get("sonuc") or r.get("yaptim") or "")[:160]})
+    for r in L.defter_kayitlari(sd)[-20:]:
+        metin = defter_metni(r)
+        gorev = r.get("gorev", "-")
+        defter.append({"zaman": r.get("zaman"), "gorev": gorev, "surec": r.get("surec", "-"),
+                       "ajan": r.get("ajan", "-"), "oturum": r.get("oturum") or kart_oturum.get(gorev) or None,
+                       "metin": metin, "olay": _olay_mi(metin, gorev)})
     import ruya
     rd = ruya.durum(sd)
 
@@ -109,7 +161,7 @@ def olustur(sd: str, proje: str) -> dict:
         "kartlar": kartlar,
         "sayac": dict(collections.Counter(k["durum"] for k in acik)),
         "maliyet": {
-            "bugun": round(sum(r.get("maliyet_usd", 0) or 0 for r in bugunku), 4),
+            "bugun": round(A.bugun_usd(kayitlar, bugun), 4),
             "toplam": round(sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar), 4),
             "surec": _yuvarla(dict(surec.most_common(10))),
             "model": _yuvarla(dict(model.most_common(6))),
@@ -145,7 +197,7 @@ def _hafif(alan: dict) -> dict:
     sohbet_listesi = L.sohbetler(None, alan["yol"], limit=15, tahmin=True,
                                  oturum_dizini=os.path.join(os.path.expanduser("~"), ".claude", "projects", alan["id"]))
     sohbetler, model, oturumlar = [], collections.Counter(), {}
-    bugun = datetime.date.today().isoformat()
+    bugun = datetime.date.today()
     bugun_usd = 0.0
     for s in sohbet_listesi:
         usd = s["motor_usd"] if s["motor_usd"] else (s.get("tahmin_usd") or 0.0)
@@ -159,7 +211,8 @@ def _hafif(alan: dict) -> dict:
         oturumlar[s["oturum"]] = {"usd": round(usd, 4), "surec": {},
                                   "model": _yuvarla({m.replace("claude-", ""): v for m, v in (s["modeller"] or {}).items()}),
                                   "ajan_surec": []}
-        if (s["son"] or "").startswith(bugun):
+        z = A._zaman(s["son"])
+        if z and z.date() == bugun:
             bugun_usd += usd
     return {
         "surum": SURUM, "acik": True, "orkestra": False, "uretim": L.simdi(), "proje": alan["ad"],

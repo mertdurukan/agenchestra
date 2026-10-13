@@ -14,16 +14,17 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
   - Kapanmış sohbetlerde motorun kendi hesabı (`cost-state`) gösterilir.
   - Açık sohbetlerde defter değeri gösterilir ve `≈` ile işaretlenir.
 - **Rüya:** Oturumlar arasında arka planda hafıza bakımı ve skill avı yapılır. Yalnız öneri üretir; hafızayı onayınla değiştirir.
-- **Arayüz (iki görünüm, tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
-  - **Claude içinde:** `/orkestra` sohbetin yanında bir panel açar: kartlar, bu oturumun maliyeti, sohbetler, defter. Prompt üstünde tek satırlık bir bant da çıkar.
-  - **HTML canlı panel:** `/orkestra-web` (ya da Bash'te `orkestra panel`, ya da `araclarpaneli_ac.cmd`) yerel bir sayfa açar: `http://127.0.0.1:8765/`. Sayfa üç saniyede bir yenilenir.
-    - Bu bilgisayardaki bütün Claude çalışma alanları başlıktaki seçiciden seçilir. Orkestra kurulu alanlarda tam görünüm, kurulu olmayanlarda sohbet maliyetleri gösterilir.
-    - Sayfa yalnız koyu temadadır.
-    - Sohbet başına maliyet çubukları yer alır; bir sohbete tıklayınca süreç, model ve ajan × süreç kırılımları ona göre süzülür.
-    - Görev kartları ve ortak defter de gösterilir.
-    - Sayfa yalnız bu bilgisayardan erişilebilir.
-  - **Analitik** (`http://127.0.0.1:8765/analitik`, paneldeki "Analitik →"): günlük/haftalık/aylık harcama ve model karışımı, ay sonu tahmini; 5 saatlik ve haftalık kota (kalan yüzde, bu hızla dolma zamanı, %80 uyarısı); basamak verimliliği (Haiku/Sonnet'te biten iş payı, hedef %60; ilk seferde geçme, ret, yükseltme); Opus yerine Sonnet ve önbellek tasarrufu; kart akışı (kuyruk, iş, denetim bekleme, darboğaz) ve paralel ajan zaman çizelgesi; kart ve sohbet başı maliyet, en pahalı 10 koşu, sıçrama uyarıları; skill getirisi; sağlık (hafıza sınırı, son rüya, etiketsiz ajan, hook hataları); tüm çalışma alanlarının karşılaştırması. Hesap: `scripts/analitik.py`.
-  - **Şu an** (analitik sayfasının en üstü): her sohbet tek kartta: proje › sohbet adı, **ne** yapılıyor, **neden** (neye yarayacak), **kimi bekliyor** (seni / Claude çalışıyor / bitti / beklemede), açık kartlar; altında "Son işler" akışı. "Kimi bekliyor"u hook'lar kendiliğinden yazar (UserPromptSubmit → Claude çalışıyor, Stop → seni bekliyor, SessionEnd → kapandı). "Ne/neden"i ana ajan yeni bir iş başlarken bir kez yazar: `orkestra niyet --ne "…" --neden "…"`, bitince `--sonuc "…"`; hatırlatmayı UserPromptSubmit hook'u verir. Yazılmamışsa açık kart ya da son istek gösterilir. Kayıt bütün projeler için tek dosyada: `~/.claude/orkestra-panel/niyet.jsonl` (`scripts/niyet.py`).
+- **Arayüz (üç sayfa, tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
+  - **Claude içinde** (`/orkestra`): sohbetin yanında bir özet açılır. En üstte dikkat isteyen kartlar (ret, denetimde, teslim bekleyen), altta çalışan kartlar (en çok altı). Sonra bu sohbetin ve bugünün maliyeti tek satırda, son üç olay, rüya raporu hazırsa bir satır ve veri yaşı. Ayrıntı için `/orkestra-web`.
+  - **Prompt üstü bant:** Yalnız kullanıcıdan eylem beklenen durumda çıkar: ret, teslim bekleyen kart ya da hazır rüya raporu. Yalnız maliyet varsa görünmez. **Gizle** o durumu gizler; yeni bir ret, teslim ya da rapor gelince bant geri gelir.
+  - **HTML canlı panel** (`/orkestra-web`, ya da Bash'te `orkestra panel`, ya da `araclarpaneli_ac.cmd`): `http://127.0.0.1:8765/` adresinde üç sayfa açar. Sayfalar üç saniyede bir yenilenir. Yalnız koyu temadadır ve yalnız bu bilgisayardan erişilebilir.
+    - **Şimdi** (`/`): ne oluyor, senden ne bekleniyor. Sohbetler (kimi bekliyor), görev kartları, son olaylar.
+      "Kimi bekliyor"u hook'lar yazar (UserPromptSubmit → Claude çalışıyor, Stop → seni bekliyor, SessionEnd → kapandı). "Ne/neden"i ana ajan yeni bir iş başlarken `orkestra niyet --ne "…" --neden "…"` ile yazar, bitince `--sonuc "…"` ekler. Kayıt bütün projeler için tek dosyada: `~/.claude/orkestra-panel/niyet.jsonl`.
+    - **Maliyet** (`/maliyet`): ne kadar harcanıyor, nereye. Kapsam seçici, iş türü × model, ajan tablosu, zaman içinde harcama, kota, tüm projeler.
+    - **Verim ve sağlık** (`/verim`): sistem iyi çalışıyor mu. Basamak verimliliği, birim maliyet, kart akışı ve paralel zaman çizelgesi, skill getirisi, sağlık (hafıza sınırı, son rüya, etiketsiz ajan, hook hataları).
+    - `/analitik` ve `/analitik.html` adresleri `/verim`'e yönlendirilir (301, sorgu dizesi korunur).
+    - Çalışma alanı başlıktaki seçiciden seçilir. Orkestra kurulu alanda tam görünüm, kurulu olmayanda yalnız maliyet gösterilir.
+    - Şimdi sayfasındaki **Sohbeti aç** düğmesi sohbeti Claude uygulamasında açmayı dener.
   - **Kota kaydı:** Claude kullanım sınırlarını yalnız durum satırı komutuna verir (Pro/Max). `projeye_kur.py`, proje ayarında `statusLine` yoksa `scripts/kota.py`'yi bağlar; betik değerleri `~/.claude/orkestra-panel/kota.jsonl`'a yazar.
 
 ## Yapı
@@ -35,9 +36,9 @@ plugins/orkestra/                   çekirdek plugin
   skills/      is, baslat, maliyet, defter, ruya, skill-avi        →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
-  scripts/     ork_lib.py, orkestra.py (CLI), hook.py, ruya.py, ozet.py (anlık görüntü), panel.py (HTML panel sunucusu),
-               analitik.py (analitik hesapları), kota.py (durum satırı: kota kaydı), niyet.py (Şu an: ne/neden/kimi bekliyor)
-  assets/      panel.html (HTML canlı panel), analitik.html (analitik sayfası)
+  scripts/     ork_lib.py, orkestra.py (CLI), hook.py, ruya.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: üç sayfa, /analitik → /verim),
+               analitik.py (analitik hesapları), kota.py (durum satırı: kota kaydı), niyet.py (Şimdi sayfasındaki Sohbetler bölümü: ne/neden/kimi bekliyor)
+  assets/      simdi.html (/), maliyet.html (/maliyet), verim.html (/verim); ortak.css ve ortak.js üç sayfanın ortak kabuğu
   bin/         orkestra, orkestra.cmd (CLI'yı PATH'e koyar), fiyat.json
   tests/       test_cekirdek.py (python -m unittest)
   evals/       claude plugin eval vakaları
@@ -79,7 +80,12 @@ Model, effort, hafıza ve rüya ayarları da aynı dosyadadır. Proje ayarı, ge
 
 Masaüstü uygulamasında `claude` PATH'te yoktur. Gömülü ikili `%APPDATA%\Claude\claude-code\<sürüm>\…\claude.exe` altında bulunur. Hook'ların içinde aynı yol `CLAUDE_CODE_EXECPATH` değişkeninde durur.
 
-Plugin'ler kopyadan değil, doğrudan bu klasörden okunur. Bir dosyayı düzenledikten sonra oturumda `/reload-plugins` yeter.
+Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. Kopya yalnız sürüm numarası değişince yenilenir. Bir değişikliği oturumlara geçirmek için:
+- `plugins/<plugin>/.claude-plugin/plugin.json` ve `.claude-plugin/marketplace.json` içindeki `version` değerini artır.
+- Proje klasöründe `claude plugin marketplace update claude-orchestration`, ardından `claude plugin update <plugin>@claude-orchestration --scope project` çalıştır.
+- Yeni bir oturum aç ya da açık oturumu yeniden başlat.
+
+HTML panel bu kuralın dışındadır: `python <bu klasör>\plugins\orkestra\scripts\orkestra.py panel` doğrudan bu klasörden çalışır.
 
 Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız açılmış projelerde iz tutar.
 
@@ -88,10 +94,10 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | Komut | Ne yapar |
 |---|---|
 | `/orkestra:is <istek>` | Planla → kart → paralel işçi + ayrı denetçi → topla ve teslim et |
-| `/orkestra` | Claude içi paneli açar: kartlar, denetim, sohbet maliyeti, defter |
-| `/orkestra-web` | HTML canlı paneli başlatır ve adresini verir (Bash: `orkestra panel`) |
+| `/orkestra` | Claude içi özeti açar: dikkat isteyen kartlar, çalışanlar, tek satır maliyet, son olaylar, veri yaşı |
+| `/orkestra-web` | HTML panelini başlatır (Şimdi, Maliyet, Verim ve sağlık) ve adresini verir (Bash: `orkestra panel`) |
 | `/orkestra:maliyet [gün]` | Ajan × süreç × model token ve maliyet raporu |
-| `orkestra niyet --ne … --neden …` | Sohbetin şu an ne yaptığını ve neye yarayacağını "Şu an" şeridine yazar (ana ajan; `--sonuc`, `--goster`) |
+| `orkestra niyet --ne … --neden …` | Sohbetin şu an ne yaptığını ve neye yarayacağını "Şimdi" sayfasındaki Sohbetler bölümüne yazar (ana ajan; `--sonuc`, `--goster`) |
 | `/orkestra:defter [görev]` | Ortak defterin son kayıtları |
 | `/orkestra:ruya [şimdi]` | Rüya raporunu gösterir, onaylananları uygular |
 | `/orkestra:skill-avi` | Tekrar eden işlerden skill taslağı çıkarır |

@@ -8,7 +8,7 @@ export type KartOzeti = {
   usd: number
 }
 
-export type SohbetOzeti = { baslik: string; usd: number; kaynak: 'motor' | 'defter'; bu: boolean; son: string }
+export type DefterSatiri = { saat: string; gorev: string; metin: string }
 
 // Panelin gösterdiği, bu oturumun gözünden veri.
 export type UiOzet = {
@@ -17,9 +17,12 @@ export type UiOzet = {
   uretim?: string
   kartlar?: KartOzeti[]
   sayac?: Record<string, number>
-  maliyet?: { bugun: number; oturum: number; surec: Record<string, number>; model: Record<string, number> }
-  defter?: string[]
-  sohbetler?: SohbetOzeti[]
+  maliyet?: { bugun: number; oturum: number }
+  // Eylem bekleyen kartlar (reddedildi/onaylandi) "durum:id" olarak sıralı; bant durum imzası bundan kurulur.
+  eylem?: string[]
+  // Teslim edilmiş kartlar yalnız sayı olarak; son teslim "açık iş yok" satırı için.
+  teslim?: { sayi: number; sonId?: string; sonSaat?: string }
+  defter?: DefterSatiri[]  // olay olmayan, temiz son 3 satır
   ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
 }
 
@@ -29,7 +32,7 @@ export type HamOzet = {
   acik: boolean
   uretim: string
   proje: string
-  kartlar?: (KartOzeti & { oturum?: string; bagimli?: string[] })[]
+  kartlar?: (KartOzeti & { oturum?: string; bagimli?: string[]; guncelleme?: string })[]
   sayac?: Record<string, number>
   maliyet?: {
     bugun: number
@@ -39,12 +42,12 @@ export type HamOzet = {
     oturumlar?: Record<string, { usd: number; surec: Record<string, number>; model: Record<string, number> }>
   }
   sohbetler?: { oturum: string; baslik: string; usd: number; kaynak: 'motor' | 'defter'; son: string }[]
-  defter?: { zaman?: string; gorev: string; surec: string; ajan: string; metin: string }[]
+  defter?: { zaman?: string; gorev: string; surec: string; ajan: string; metin: string; oturum?: string | null; olay?: boolean }[]
   ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
 }
 
 declare module 'claude-code' {
   interface PluginState {
-    'orkestra-ui': { veri: UiOzet | null; bantGizli: boolean }
+    'orkestra-ui': { veri: UiOzet | null; bantGizli: string }
   }
 }

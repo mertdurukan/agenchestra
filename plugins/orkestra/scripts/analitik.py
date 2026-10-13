@@ -79,6 +79,50 @@ def _formul_usd(r: dict, model: str) -> float:
             + (r.get("onbellek_yazma") or 0) * f["onbellek_yazma_5dk"]) / 1_000_000
 
 
+AJAN_ADLARI = {
+    "ana-ajan": "Ana ajan", "ana": "Ana ajan", "orkestra:denetci": "Denetçi", "orkestra:arastirmaci": "Araştırmacı",
+    "orkestra:triyaj": "Triyaj", "orkestra:ruya-ajani": "Rüya ajanı", "orkestra:skill-avcisi": "Skill avcısı",
+    "orkestra:hafiza-bakimcisi": "Hafıza bakımcısı", "orkestra:arsivci": "Arşivci", "general-purpose": "Genel alt ajan",
+    "Explore": "Keşif ajanı", "Plan": "Plan ajanı", "claude-code-guide": "Claude Code rehberi",
+}
+SUREC_ADLARI = {
+    "orkestrasyon": "planlama ve koordinasyon", "is": "işçi çalışması", "denetim": "denetim", "duzeltme": "düzeltme",
+    "arastirma": "araştırma", "sentez": "sentez", "ruya": "rüya (bakım)", "gecmis-ana": "orkestra öncesi · ana ajan",
+    "gecmis-alt": "orkestra öncesi · alt ajan",
+}
+
+
+def ajan_adi(k: str | None) -> str:
+    """Ajan kimliği -> kullanıcı dili (ortak.js O.E.ajan karşılığı). Bilinmeyen olduğu gibi döner."""
+    k = k or ""
+    m = re.fullmatch(r"orkestra:isci-t(\d+)", k)
+    if m:
+        return f"İşçi T{m.group(1)}"
+    return AJAN_ADLARI.get(k, k or "Bilinmeyen ajan")
+
+
+def _tr_sayi(v: float, ondalik: int = 1) -> str:
+    return f"{v:.{ondalik}f}".replace(".", ",")
+
+
+def _tr_usd(v: float) -> str:
+    return "$" + _tr_sayi(v, 0 if abs(v) >= 10 else 2)
+
+
+def gun_toplamlari(kayitlar: list[dict]) -> dict:
+    """Kayıtların yerel gün (datetime.date) bazında USD toplamı. Bütün 'bugün' hesapları buradan geçer."""
+    out: dict = collections.defaultdict(float)
+    for r in kayitlar:
+        z = _zaman(r.get("zaman"))
+        if z:
+            out[z.date()] += r.get("maliyet_usd") or 0.0
+    return out
+
+
+def bugun_usd(kayitlar: list[dict], bugun: datetime.date | None = None) -> float:
+    return gun_toplamlari(kayitlar).get(bugun or datetime.date.today(), 0.0)
+
+
 def _rol(ajan: str | None) -> str:
     a = (ajan or "").lower()
     if a == "ana-ajan":
@@ -385,15 +429,19 @@ def _birim(kartlar: list[dict], kayitlar: list[dict], sohbetler: list[dict], tre
             med = statistics.median(grup)
             if k["usd"] >= max(0.5, 3 * med):
                 uyarilar.append({"tur": "kosu", "zaman": k["zaman"], "metin":
-                                 f"{k['ajan']} · {k['surec']} koşusu ${k['usd']:.2f}; bu türün medyanı ${med:.2f} (×{k['usd'] / med:.1f})"
-                                 if med else f"{k['ajan']} koşusu ${k['usd']:.2f}"})
-    gunluk = trend["gunluk"]
+                                 f"{ajan_adi(k['ajan'])} · {SUREC_ADLARI.get(k['surec'], k['surec'] or 'etiketsiz')} koşusu {_tr_usd(k['usd'])}: "
+                                 f"bu türün medyanının {_tr_sayi(k['usd'] / med)} katı (medyan {_tr_usd(med)})"
+                                 if med else f"{ajan_adi(k['ajan'])} koşusu {_tr_usd(k['usd'])}"})
+    # gün sıçraması: yalnız tamamlanmış günler (bugünün kısmi günü dışarıda); önceki en çok 7 dolu günün ortalamasının 2 katı
+    bugun_iso = datetime.date.today().isoformat()
+    gunluk = [g for g in trend["gunluk"] if g["donem"] < bugun_iso]
     for i, g in enumerate(gunluk):
         onceki = [x["usd"] for x in gunluk[max(0, i - 7):i] if x["usd"]]
         if len(onceki) >= 3 and g["usd"] >= 2 * (sum(onceki) / len(onceki)) and g["usd"] >= 2:
             ort = sum(onceki) / len(onceki)
+            gg = datetime.date.fromisoformat(g["donem"]).strftime("%d.%m")
             uyarilar.append({"tur": "gun", "zaman": g["donem"],
-                             "metin": f"{g['donem']} günü ${g['usd']:.2f}; önceki günlerin ortalaması ${ort:.2f} (×{g['usd'] / ort:.1f})"})
+                             "metin": f"{gg}: önceki günlerin {_tr_sayi(g['usd'] / ort)} katı ({_tr_usd(g['usd'])} · ort. {_tr_usd(ort)})"})
     return {"kart_basi": _r(sum(v for _, v in kart_maliyetleri) / len(kart_maliyetleri), 3) if kart_maliyetleri else None,
             "kart_medyan": _medyan([v for _, v in kart_maliyetleri]), "teslim_kart": len(kart_maliyetleri),
             "kart_maliyetleri": kart_maliyetleri[:15],
@@ -542,6 +590,7 @@ def tum_alanlar() -> dict:
     hafta_bas = bugun - datetime.timedelta(days=6)
     ay = bugun.strftime("%Y-%m")
     satirlar, gunluk = [], collections.defaultdict(lambda: collections.Counter())
+    en_erken = [bugun]  # en erken kayıt günü (30 günlük pencereden önceki kayıtlar da sayılır)
     for a in _alan_listesi():
         s = {"id": a["id"], "ad": a["ad"], "yol": a.get("yol"), "orkestra": a.get("orkestra"), "son": a.get("son"),
              "bugun": 0.0, "hafta": 0.0, "ay": 0.0, "toplam": 0.0, "model": collections.Counter(),
@@ -555,6 +604,7 @@ def tum_alanlar() -> dict:
                     if not z:
                         continue
                     d = z.date()
+                    en_erken.append(d)
                     s["toplam"] += usd
                     s["model"][_kisa_model(r.get("model"))] += usd
                     s["bugun"] += usd if d == bugun else 0
@@ -579,6 +629,7 @@ def tum_alanlar() -> dict:
                         s["model"][_kisa_model(m)] += v
                     if z:
                         d = z.date()
+                        en_erken.append(d)
                         s["bugun"] += usd if d == bugun else 0
                         s["hafta"] += usd if d >= hafta_bas else 0
                         s["ay"] += usd if d.strftime("%Y-%m") == ay else 0
@@ -592,7 +643,7 @@ def tum_alanlar() -> dict:
         satirlar.append(s)
     satirlar.sort(key=lambda s: -s["toplam"])
     gunler = []
-    d = bugun - datetime.timedelta(days=29)
+    d = max(min(en_erken), bugun - datetime.timedelta(days=29))  # ilk kayıt gününden başlar, öncesi boş gün yok
     while d <= bugun:
         gunler.append({"donem": d.isoformat(), "alan": {k: _r(v, 2) for k, v in gunluk.get(d.isoformat(), {}).items()}})
         d += datetime.timedelta(days=1)

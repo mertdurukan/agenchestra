@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import collections
 import datetime
+import glob
 import json
 import os
 import re
@@ -34,9 +35,83 @@ def _kisalt(metin: str | None, n: int) -> str:
     return m if len(m) <= n else m[: n - 1].rstrip() + "…"
 
 
+def _gecici(yol: str | None) -> bool:
+    """Testlerin ve geçici çalışma alanlarının projesi (Temp altında): şeride girmez."""
+    return bool(re.search(r"[\\/]appdata[\\/]local[\\/]temp[\\/]|^[\\/]tmp[\\/]", yol or "", re.I))
+
+
+def masaustu_oturumlari() -> dict:
+    """Claude masaüstü uygulamasının sohbet kayıtlarından: CLI oturum kimliği → (uygulama kimliği, başlık, arşivli mi).
+
+    Yalnız bu dört alan okunur. Bağlantı: claude://claude.ai/epitaxy/<uygulama kimliği> (uygulamanın kendi
+    sohbet bağlantısı; belgelenmiş bir arayüz değildir, uygulama sürümüyle değişebilir).
+    """
+    kok = os.path.join(os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming"),
+                       "Claude", "claude-code-sessions")
+    onb_yolu = os.path.join(GENEL_DIZIN, "masaustu_onbellek.json")
+    try:
+        with open(onb_yolu, encoding="utf-8") as f:
+            onb = json.load(f)
+    except Exception:
+        onb = {}
+    out, yeni, degisti = {}, {}, False
+    for p in glob.glob(os.path.join(kok, "*", "*", "local_*.json")):
+        try:
+            imza = f"{os.path.getsize(p)}:{int(os.path.getmtime(p))}"
+        except OSError:
+            continue
+        k = onb.get(p)
+        if not k or k.get("imza") != imza:
+            try:
+                with open(p, encoding="utf-8") as f:
+                    d = json.load(f)
+                k = {"imza": imza, "id": d.get("sessionId"), "cli": d.get("cliSessionId"), "baslik": d.get("title"),
+                     "arsiv": bool(d.get("isArchived"))}
+            except Exception:
+                continue
+            degisti = True
+        yeni[p] = k
+        if k.get("cli") and k.get("id"):
+            out[k["cli"]] = {"id": k["id"], "baslik": k.get("baslik"), "arsiv": k.get("arsiv"),
+                             "link": "claude://claude.ai/epitaxy/" + k["id"]}
+    if degisti or len(yeni) != len(onb):
+        try:
+            L.atomik_yaz(onb_yolu, json.dumps(yeni, ensure_ascii=False))
+        except Exception:
+            pass
+    return out
+
+
+def ac(oturum: str) -> dict:
+    """Sohbeti Claude masaüstü uygulamasında açar.
+
+    Uygulamada kaydı varsa uygulamanın kendi bağlantısı (claude://…/epitaxy/<id>); yoksa (terminalde başlamış
+    sohbet) belgelenmiş yol: `claude --desktop --resume <oturum>`.
+    """
+    if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", oturum or ""):
+        return {"tamam": False, "hata": "geçersiz oturum kimliği"}
+    m = masaustu_oturumlari().get(oturum)
+    if m:
+        if os.name == "nt":
+            os.startfile(m["link"])  # noqa: S606 — yalnız sabit claude:// şeması, kimlik doğrulandı
+        else:
+            import subprocess
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", m["link"]])
+        return {"tamam": True, "yol": "uygulama", "baslik": m.get("baslik")}
+    import subprocess
+    import ruya
+    exe = ruya.claude_exe()
+    if not exe:
+        return {"tamam": False, "hata": f"claude bulunamadı; terminalde: claude --desktop --resume {oturum}"}
+    bayrak = 0x08000000 if os.name == "nt" else 0  # pencere açma
+    subprocess.Popen([exe, "--desktop", "--resume", oturum], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, creationflags=bayrak, close_fds=True)
+    return {"tamam": True, "yol": "cli"}
+
+
 def olay(oturum: str | None, proje: str | None, tur: str, **alan) -> None:
     """Tek olay ekler. Hata asla çağırana taşmaz (hook'ları bozmamalı)."""
-    if not oturum or oturum == "-":
+    if not oturum or oturum == "-" or _gecici(proje):
         return
     try:
         os.makedirs(GENEL_DIZIN, exist_ok=True)
@@ -108,7 +183,7 @@ def _proje_adi(yol: str | None) -> str:
 def gorunum(gun: int = GORUNUM_GUN) -> dict:
     simdi = datetime.datetime.now().astimezone()
     sinir = simdi - datetime.timedelta(days=gun)
-    olaylar = [o for o in L.jsonl_oku(NIYET_YOLU) if (_zaman(o.get("zaman")) or sinir) >= sinir]
+    olaylar = [o for o in L.jsonl_oku(NIYET_YOLU) if (_zaman(o.get("zaman")) or sinir) >= sinir and not _gecici(o.get("proje"))]
     projeler = {o.get("proje") for o in olaylar if o.get("proje")}
     # orkestralı projelerin günlüğünden, niyet kaydı öncesi sohbetleri de getir
     if hasattr(L, "calisma_alanlari"):
@@ -167,8 +242,13 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
                     kartlar[k["oturum"]].append({"id": k["id"], "baslik": _kisalt(k.get("baslik"), 70), "durum": d,
                                                  "teslim_ozeti": _kisalt(k.get("teslim_ozeti"), 120)})
 
+    try:
+        masaustu = masaustu_oturumlari()
+    except Exception:
+        masaustu = {}
     satirlar = []
     for s in oturumlar.values():
+        m = masaustu.get(s["oturum"]) or {}
         z = _zaman(s["son_zaman"])
         yas_gun = (simdi - z).total_seconds() / 86400 if z else 99
         acik_kart = [k for k in kartlar.get(s["oturum"], []) if k["durum"] in L.ACIK_DURUMLAR]
@@ -199,7 +279,9 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
                 yedek = _kisalt(s["son_istek"], 110)
         satirlar.append({
             "oturum": s["oturum"], "kisa": (s["oturum"] or "")[:8], "proje": _proje_adi(s["proje_yol"]), "proje_yol": s["proje_yol"],
-            "sohbet": baslik or (s["oturum"] or "")[:8],
+            "sohbet": m.get("baslik") or baslik or (s["oturum"] or "")[:8],
+            "link": m.get("link"), "arsiv": bool(m.get("arsiv")),
+            "devam": None if m.get("link") else f"claude --resume {s['oturum']}",
             "ne": s["ne"], "neden": s["neden"], "sonuc": s["sonuc"], "yedek": yedek, "niyet_var": bool(s["ne"]),
             "bekleyen": bekleyen, "son_zaman": s["son_zaman"], "baslangic": s["baslangic"], "istek_sayisi": s["istek_sayisi"],
             "son_istek": _kisalt(s["son_istek"], 160),
@@ -207,11 +289,14 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
                         "teslim": sum(1 for k in kartlar.get(s["oturum"], []) if k["durum"] == "teslim"),
                         "aktif": acik_kart[:3]},
         })
+    satirlar = [r for r in satirlar if not r["arsiv"]]
     sira = {"sen": 0, "claude": 1, "bitti": 2, "beklemede": 3, "kapandi": 4}
     satirlar.sort(key=lambda r: (sira.get(r["bekleyen"], 9), -(_zaman(r["son_zaman"]) or sinir).timestamp()))
     for a in akis:
         a["proje"] = _proje_adi(a.get("proje_yol"))
-        a["sohbet"] = (basliklar.get(a["oturum"]) or (None,))[0] or (a["oturum"] or "")[:8]
+        m = masaustu.get(a["oturum"]) or {}
+        a["sohbet"] = m.get("baslik") or (basliklar.get(a["oturum"]) or (None,))[0] or (a["oturum"] or "")[:8]
+        a["link"] = m.get("link")
     akis = sorted([a for a in akis if a["tur"] != "onceki"], key=lambda a: a["zaman"] or "", reverse=True)[:40]
     sayac = collections.Counter(r["bekleyen"] for r in satirlar)
     return {"uretim": L.simdi(), "oturumlar": satirlar, "akis": akis, "sayac": dict(sayac),
