@@ -510,57 +510,37 @@ def git_koku(yol: str, onbellek: dict | None = None) -> str | None:
     return kok
 
 
-_YOKLAMA = "/zz_orkestra_yoklama/zz/yy.qq"  # bir klasörün TÜM alt klasörlerini kapsayan desen bu yolu da kapsar
-
-
-def _depo_kokleri(proje: str, onek: str, onbellek: dict | None, ek_kokler=()) -> list[str]:
-    """Bir desenin kapsayabileceği aday depo kökleri: proje ve deposu (+ o deponun worktree'leri), açık kartların
-    desenlerinin git kökleri, önekin içinde bulunduğu depo ve önekin doğrudan alt klasörlerinden .git taşıyanlar
-    (joker öncesi sabit kısım önek sayıldığı için 'Depo*' gibi desenlerin eşleşen kardeş klasörleri de buradadır)."""
-    proje_kok = git_koku(proje, onbellek)
-    adaylar = [proje, proje_kok, git_koku(onek, onbellek)] + list(ek_kokler)
-    if proje_kok:
-        anahtar = ("worktree", proje_kok)
-        if onbellek is not None and anahtar in onbellek:
-            adaylar += onbellek[anahtar]
-        else:
-            r = git(["worktree", "list", "--porcelain"], proje_kok)
-            wt = [s[9:].strip() for s in r.stdout.splitlines() if s.startswith("worktree ")] if r.returncode == 0 else []
-            if onbellek is not None:
-                onbellek[anahtar] = wt
-            adaylar += wt
+def _gercek(yol: str) -> str:
+    """Bağlantı/junction ve harf farkından bağımsız karşılaştırma biçimi (var olmayan kuyruk olduğu gibi kalır)."""
     try:
-        with os.scandir(onek) as it:
-            for e in it:
-                if e.is_dir() and os.path.exists(os.path.join(e.path, ".git")):
-                    adaylar.append(e.path)
-    except OSError:
-        pass
-    gorulen, out = set(), []
-    for a in adaylar:
-        if a and _kiyas(os.path.abspath(a)) not in gorulen:
-            gorulen.add(_kiyas(os.path.abspath(a)))
-            out.append(os.path.abspath(a).replace("\\", "/"))
-    return out
+        return _kiyas(os.path.realpath(yol))
+    except (OSError, ValueError):
+        return _kiyas(os.path.abspath(yol))
 
 
-def kok_kapsiyor_mu(proje: str, desen: str, onbellek: dict | None = None, ek_kokler=()) -> bool:
-    """Desen bir git deposunun kökünü ya da tamamını kapsıyor mu (depo kökünün ATASINI kapsayan desen dahil).
+def kok_kapsiyor_mu(proje: str, desen: str, onbellek: dict | None = None) -> str | None:
+    """Desen paylaşılan ağaçta izinli değilse nedeni (dolu metin), izinliyse None. İZİN LİSTESİ: kabul edilen tek
+    biçim, sabit öneki (ilk joker bileşenden önceki mutlak yol) bir git deposunun KESİN alt yolu olan desendir.
 
-    Kapsama: (1) önek bir depo kökü ve kalan boş/'*'/'**…'; (2) literal desen bir aday kökün atası ya da kendisi;
-    (3) desen aday kökün tüm alt klasörlerini kapsıyor ('Üst/**', 'Depo*/**', 'Üst/*', '*/**' gibi)."""
+    - Önek hiçbir deponun içinde değilse joker taşıyan ya da var olan bir klasörü gösteren desen reddedilir: altında
+      hangi depoların olduğu (bugün ya da sonra) bilinemez. Depo dışındaki tek dosya literal yolu kabul edilir.
+      Proje git deposu değilse proje klasörü kök sayılır (git dışı projede 'docs/**' geçer, '**' geçmez).
+    - Önek deponun kökünün kendisiyse (ya da depo içine çözülmüyorsa) desen reddedilir. Kalanın biçimine
+      bakılmaz: fnmatch'te '*' '/' dahil her karaktere uyar; kökteki '*.md' bile bütün alt klasörlere uzanır.
+    Göreli desen projeye göre mutlaklaştırılır ('*/**' → proje kökü → ret). Depo içindeki iç içe depolar (önekin
+    altında) bu kuralın değil, `yazma_cakismalari`ndaki fiziksel kesişim denetiminin konusudur."""
     onek, kalan = desen_parcala(proje, desen)
     kok = git_koku(onek, onbellek)
-    if kok and _kiyas(kok) == _kiyas(onek) and (kalan in ("", "*") or kalan.startswith("**")):
-        return True
-    tam = _kiyas(desen_mutlak(proje, desen))
-    for r in _depo_kokleri(proje, onek, onbellek, ek_kokler):
-        if not kalan:
-            if yol_altinda(r, onek):
-                return True
-        elif fnmatch.fnmatchcase(_kiyas(r).rstrip("/") + _YOKLAMA, tam):
-            return True
-    return False
+    if kok is None and yol_altinda(onek, proje) and git_koku(proje, onbellek) is None:
+        kok = os.path.abspath(proje).replace("\\", "/")  # git dışı proje ('.git/**' gibi depo içi yollar buraya düşmez)
+    if kok is None:
+        if kalan or os.path.isdir(onek):
+            return "git deposunun içinde değil; depo dışında joker ya da klasör alanı bir deponun kökünü kapsayabilir"
+        return None
+    o, k = _gercek(onek), _gercek(kok)
+    if not o.startswith(k.rstrip("/") + "/"):
+        return f"{kok} deposunun kökünü kapsıyor; sabit önek deponun bir alt klasörü ya da dosyası olmalı"
+    return None
 
 
 def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
@@ -573,13 +553,11 @@ def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
     onbellek: dict = {}
     hatalar = []
     if not (kart.get("calisma_agaci") or {}).get("yol"):
-        ek_kokler = {git_koku(desen_parcala(proje, b)[0], onbellek) for k in kartlar(sd)
-                     if k.get("id") != kart.get("id") and kart_durumu_hesapla(k) in ACIK_DURUMLAR
-                     for b in k.get("yazma_alani") or [] if (b or "").strip()} - {None}
         for d in desenler:
-            if kok_kapsiyor_mu(proje, d, onbellek, ek_kokler):
-                hatalar.append(f"'{d}' bir git deposunun kökünü/'**'ini kapsıyor; paylaşılan ağaçta izinli değil — alanı "
-                               f"daralt ya da ayrı çalışma ağacı aç (`orkestra kart agac {kart.get('id')}`)")
+            neden = kok_kapsiyor_mu(proje, d, onbellek)
+            if neden:
+                hatalar.append(f"'{d}' paylaşılan ağaçta izinli değil: {neden} — alanı daralt ya da ayrı çalışma "
+                               f"ağacı aç (`orkestra kart agac {kart.get('id')}`)")
     for k in kartlar(sd):
         if k.get("id") == kart.get("id") or kart_durumu_hesapla(k) not in ACIK_DURUMLAR:
             continue
@@ -590,8 +568,8 @@ def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
                 if not (b or "").strip():
                     continue
                 agac_b = git_koku(desen_parcala(proje, b)[0], onbellek)
-                if agac_a and agac_b and _kiyas(agac_a) != _kiyas(agac_b):
-                    continue  # farklı fiziksel çalışma ağaçları çakışmaz
+                if agac_a and agac_b and not (yol_altinda(agac_a, agac_b) or yol_altinda(agac_b, agac_a)):
+                    continue  # ayrık fiziksel çalışma ağaçları çakışmaz; iç içe depo (biri ötekinin altında) ayrık değil
                 if desen_kesisir(proje, a, b):
                     bulundu = b
                     break

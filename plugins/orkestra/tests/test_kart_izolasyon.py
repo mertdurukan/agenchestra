@@ -135,17 +135,84 @@ class KartIzolasyonu(unittest.TestCase):
         os.makedirs(os.path.join(dis, "kardes_depo"))
         git(os.path.join(dis, "kardes_depo"), "init", "-q")
         dis_u = dis.replace("\\", "/")
+        # İzin listesinden sonra depo dışı joker de ret: 'ust/*.txt' fnmatch'te depo/a.txt'ye de uyar ('*' '/'ye uyar),
+        # 'ust/bas*/src/**' ise kökü 'src' olan bir depoyu bütünüyle kapsayabilir (80e438e ikisini de geçiriyordu).
         for desen in (ust + "/**", depo + "*/**", ust + "/*", "*/**", ust + "/bas*/**", dis_u + "/**", dis_u + "/kar*/**",
-                      dis_u + "/*"):
+                      dis_u + "/*", ust + "/bas*/src/**", ust + "/*.txt"):
             g, _ = self.kart(desen)
             r = self.isleniyor(g)
             self.assertEqual(r.returncode, 5, f"{desen}: {r.stdout}{r.stderr}")
             self.assertIn("kökünü", r.stderr, desen)
-        for desen in ("src/*/**", ust + "/bas*/src/**", ust + "/*.txt"):  # depoyu bütünüyle kapsamayanlar geçer
+        self.assertTrue(L.desen_eslesir(self.proje, os.path.join(self.proje, "a.txt"), [ust + "/*.txt"]))
+        for desen in ("src/*/**",):  # depo içinde, sabit öneki kökün altında olan geçer
             g, _ = self.kart(desen)
             r = self.isleniyor(g)
             self.assertEqual(r.returncode, 0, f"{desen}: {r.stderr}")
             self.cli("kart", "durum", g, "iptal")
+
+    # izin listesi: sabit önek (ilk joker bileşenden önceki yol) bir git deposunun KESİN alt yolu olmalı
+    def kapi(self, desen):
+        g, _ = self.kart(desen)
+        return g, self.isleniyor(g)
+
+    def test_izin_listesi_depo_disi_joker_ve_klasor_reddedilir(self):
+        ust = self.taban.replace("\\", "/")
+        depo = self.proje.replace("\\", "/")
+        torun = os.path.join(self.taban, "uu", "ara", "torun_depo")  # 'uu' torun deponun üst-üstü
+        os.makedirs(torun)
+        git(torun, "init", "-q")
+        os.makedirs(os.path.join(self.taban, "dis_klasor"))
+        # 80e438e: uzantılı desen yoklama yolunu ('.qq') kaçırıyor, torun depo aday sayılmıyordu
+        for desen in (ust + "/**/*.py", ust + "/*/**/*.py", depo + "*/**/*.py", ust + "/uu/**", ust + "/dis_klasor"):
+            g, r = self.kapi(desen)
+            self.assertEqual(r.returncode, 5, f"{desen}: {r.stdout}{r.stderr}")
+            self.assertIn("git deposunun içinde değil", r.stderr, desen)
+
+    def test_izin_listesi_depo_koku_her_kalanla_reddedilir(self):
+        depo = self.proje.replace("\\", "/")
+        # fnmatch'te '*' '/'ye de uyar: kökteki '*.md' alt klasördeki dosyayı da kapsar, yani '**/*.md' ile aynıdır
+        self.assertTrue(L.desen_eslesir(self.proje, os.path.join(self.proje, "docs", "d.md"), ["*.md"]))
+        for desen in ("*.md", depo + "/*/x.py", depo + "/**/*.py"):  # sonuncuyu 80e438e de reddediyordu
+            g, r = self.kapi(desen)
+            self.assertEqual(r.returncode, 5, f"{desen}: {r.stdout}{r.stderr}")
+            self.assertIn("deposunun kökünü kapsıyor", r.stderr, desen)
+
+    def test_izin_listesi_git_disi_proje_ve_git_klasoru(self):
+        t = self.taban  # git dışı klasör proje olursa kök proje klasörüdür
+        self.assertFalse(L.kok_kapsiyor_mu(t, "docs/**"))
+        self.assertFalse(L.kok_kapsiyor_mu(t, "notlar/*.md"))
+        for desen in ("**", "*.md", "depo/**", "../**"):  # proje kökü, içteki deponun kökü, proje dışı
+            self.assertTrue(L.kok_kapsiyor_mu(t, desen), desen)
+        self.assertTrue(L.kok_kapsiyor_mu(self.proje, ".git/**"))  # git projesinde .git içi depo içi sayılmaz
+
+    def test_izin_listesi_dar_desenler_kabul(self):
+        ust = self.taban.replace("\\", "/")
+        depo = self.proje.replace("\\", "/")
+        yaz(os.path.join(self.taban, "notlar.md"), "n\n")
+        # depo içi alt yol (var olmayan klasör dahil), depo dışında tek dosya literal yolu (var olan ya da yeni)
+        for desen in (depo + "/src/**/*.py", depo + "/plugins/**", "docs/d.md", ust + "/notlar.md",
+                      ust + "/yeni/rapor.md"):
+            g, r = self.kapi(desen)
+            self.assertEqual(r.returncode, 0, f"{desen}: {r.stderr}")
+            self.cli("kart", "durum", g, "iptal")
+
+    def test_ic_ice_depo_fiziksel_kesisimle_yakalanir(self):
+        ic = os.path.join(self.proje, "vendor", "ara", "ic_depo")
+        os.makedirs(ic)
+        git(ic, "init", "-q")
+        ic_u = ic.replace("\\", "/")
+        # dış depoda iç depoyu kapsayan alan tek başına geçer (McD'de 'RNV/**' altında kod depoları var)
+        g0, r = self.kapi("vendor/**")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        # iç depodaki kart, onu kapsayan dış kartla çakışır (80e438e 'farklı ağaç' diye atlıyordu)
+        g1, r = self.kapi(ic_u + "/src/**")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"çakışma: {g0}", r.stderr)
+        self.cli("kart", "durum", g0, "iptal")
+        self.assertEqual(self.isleniyor(g1).returncode, 0)
+        g2, r = self.kapi("vendor/**")  # ters sıra
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"çakışma: {g1}", r.stderr)
 
     def test_farkli_calisma_agacindaki_kartlar_cakismaz(self):
         g1, _ = self.kart("src/**")
