@@ -24,7 +24,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|test-kos|test-kilit-ac)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -46,10 +46,10 @@ def _rel(proje: str, tam: str) -> str | None:
     return None if r == ".." or r.startswith("../") else r
 
 
-def kilitli_testler(sd: str) -> dict[str, str]:
+def kilitli_testler(sd: str, ks: list[dict] | None = None) -> dict[str, str]:
     """Teslim/iptal olmayan kartların kilitli test dosyaları → {göreli yol: kart kimliği}."""
     out = {}
-    for k in L.kartlar(sd):
+    for k in L.kartlar(sd) if ks is None else ks:
         if k.get("durum") in ("teslim", "iptal"):
             continue
         d = (k.get("test_kilidi") or {}).get("dosyalar")
@@ -57,6 +57,58 @@ def kilitli_testler(sd: str) -> dict[str, str]:
             for y in d:
                 out.setdefault(y.replace("\\", "/"), k.get("id", "?"))
     return out
+
+
+def _anahtar(rel: str) -> str:
+    """Paylaşılan proje-göreli yolun kıyas biçimi: '/' ayraçlı; Windows'ta büyük/küçük harf duyarsız."""
+    return os.path.normcase(rel.replace("\\", "/")).replace("\\", "/")
+
+
+def _bicimler(yol: str) -> set[str]:
+    """Yolun mutlak ve gerçek (bağlantı/kısa ad çözülmüş) biçimleri."""
+    a = os.path.abspath(yol)
+    try:
+        return {a, os.path.realpath(a)}
+    except (OSError, ValueError):
+        return {a}
+
+
+def paylasilan_goreli(proje: str, tam: str, ks: list[dict]) -> set[str]:
+    """Yazım hedefi → paylaşılan proje-göreli yol uzayındaki karşılıkları (kıyas biçiminde; proje dışıysa boş küme).
+
+    Kilitler bu uzaydadır. Hedef HERHANGİ bir kartın çalışma ağacındaysa o ağaçtan paylaşılan depoya çevrilir
+    (`L.agac_esdegeri`); proje içindeyse doğrudan göreli yolu da eklenir. Ağaç sahibi kartın kim olduğu ve durumu
+    önemsizdir: kilit sahibi başka bir kart olabilir, iptal kartı da `kart durum … isleniyor` ile yeniden açılabilir.
+    Teslim edilen kartın ağacı birleşmede kaldırılır (`calisma_agaci` düşer), eşlemeye girmez."""
+    out = set()
+    agacli = [k for k in ks if (k.get("calisma_agaci") or {}).get("yol")]
+    for t in _bicimler(tam):
+        for p in _bicimler(proje):
+            r = _rel(p, t)
+            if r is not None:
+                out.add(_anahtar(r))
+            for k in agacli:
+                es = L.agac_esdegeri(k, t)
+                r = _rel(p, es) if es is not None else None
+                if r is not None:
+                    out.add(_anahtar(r))
+    return out
+
+
+def kilitli_test_bul(sd: str, proje: str, tam: str) -> tuple[str, str] | None:
+    """Yazım hedefi açık bir kartın kilitli test dosyasıysa (göreli yol, kilit sahibi kart), değilse None.
+
+    Hedef önce paylaşılan proje-göreli uzaya normalize edilir, sonra TÜM açık kartların kilit kümesiyle tek sorguda
+    karşılaştırılır; ağaç sayısından ve ağaç/kilit sahibi eşleşmesinden bağımsızdır. Örnek: G1 tests/test_x.py'yi
+    kilitlediyse G2'nin ağacındaki tests/test_x.py de kapalıdır (G2 teslimde birleşince G1'in kilitli testi değişirdi)."""
+    ks = L.kartlar(sd)
+    kilit = {_anahtar(y): (y, gid) for y, gid in kilitli_testler(sd, ks).items()}
+    if not kilit:
+        return None
+    for a in sorted(paylasilan_goreli(proje, tam, ks)):
+        if a in kilit:
+            return kilit[a]
+    return None
 
 
 def test_alaninda_mi(rel: str, desenler: list[str]) -> bool:
@@ -196,17 +248,26 @@ def pre_tool_use(inp: dict):
         proje = L.proje_dizini(inp.get("cwd"))
         oid = inp.get("session_id")
         trel = _rel(proje, tam)
-        if trel is not None:  # kilitli test: ana ajan dahil herkese kapalı
-            for y, kid in kilitli_testler(sd).items():
-                if os.path.normcase(y) == os.path.normcase(trel):
-                    reddet(f"kilitli test: {y} ({kid} kartının test kilidi). Kırmızı sonrası test dosyaları değişmez; "
-                           "değişiklik gerekiyorsa ana ajan `orkestra kart test-kilit-ac` ile kilidi açar.")
+        kb = kilitli_test_bul(sd, proje, tam)  # kilitli test: ana ajan dahil herkese kapalı (kart ağaçları dahil)
+        if kb:
+            reddet(f"kilitli test: {kb[0]} ({kb[1]} kartının test kilidi). Kırmızı sonrası test dosyaları değişmez; "
+                   "değişiklik gerekiyorsa ana ajan `orkestra kart test-kilit-ac` ile kilidi açar.")
         if aid:
             gorev, surec = ajan_gorevi(sd, inp)
             if gorev != "-":
                 k = L.kart_oku(sd, gorev)
-                if k and k.get("sinif") == "kod" and k.get("test_alani") and trel is not None:
-                    icinde = test_alaninda_mi(trel, k["test_alani"])
+                ca = (k or {}).get("calisma_agaci") or {}
+                agacta = bool(k and ca.get("yol") and L.yol_altinda(tam, ca["yol"]))
+                if k and ca.get("yol") and not agacta and ca.get("depo") and L.yol_altinda(tam, ca["depo"]):
+                    reddet(f"{gorev} kartının çalışma ağacı var; paylaşılan ağaca ({ca['depo']}) değil, "
+                           f"{L.CALISMA_AGACI_ONEKI.lower()}{ca['yol']} altına yaz.")
+                # test_alani proje köküne göredir; kart ağacındaki yazım paylaşılan depodaki karşılığı üzerinden okunur.
+                ttrel = trel
+                if agacta:
+                    es = L.agac_esdegeri(k, tam)
+                    ttrel = _rel(proje, es) if es is not None else None
+                if k and k.get("sinif") == "kod" and k.get("test_alani") and ttrel is not None:
+                    icinde = test_alaninda_mi(ttrel, k["test_alani"])
                     if surec == "test-yaz":
                         if not icinde:
                             reddet(f"{gorev}: #SUREC:test-yaz yalnız test_alani içine yazar ({', '.join(k['test_alani'])}).")
@@ -214,6 +275,11 @@ def pre_tool_use(inp: dict):
                     elif icinde:
                         reddet(f"{gorev}: test_alani ({', '.join(k['test_alani'])}) yalnız #SUREC:test-yaz ile yazılır; "
                                "testleri kod işçisi değiştiremez.")
+                if agacta:
+                    # Kartın kendi çalışma ağacı var: işçi orada, (köke çevrilmiş) yazma alanı içinde yazar.
+                    if k.get("yazma_alani") and not L.desen_eslesir(proje, tam, k["yazma_alani"]):
+                        reddet(f"{gorev} kartının yazma alanı dışında ({', '.join(k['yazma_alani'])}); çalışma ağacı: {ca['yol']}.")
+                    gec()
                 if k and k.get("yazma_alani") and not L.yazma_alaninda_mi(proje, tam, k["yazma_alani"]):
                     reddet(f"{gorev} kartının yazma alanı dışında ({', '.join(k['yazma_alani'])}). Paralel işler çakışmasın diye "
                            "yalnız kendi alanına yaz; gerekiyorsa ana ajana bildir.")
@@ -221,7 +287,7 @@ def pre_tool_use(inp: dict):
         # ana ajan: o anda işçide olan kartların alanına yazmaz (paralel güvenlik + rol ayrımı)
         for k in L.kartlar(sd):
             if k.get("oturum") == oid and k.get("durum") == "isleniyor" and k.get("yazma_alani") \
-                    and L.yazma_alaninda_mi(proje, tam, k["yazma_alani"]):
+                    and L.desen_eslesir(proje, tam, k["yazma_alani"]):  # mutlak/çalışma ağacı desenleri dahil
                 reddet(f"bu dosya şu an {k['id']} işçisinin yazma alanında. Ana ajan planlar, dağıtır, toplar; "
                        "işçi işini yapmaz. Değişiklik gerekiyorsa işi bir işçiye ver ya da kartı `beklemede`ye al.")
         gec()

@@ -16,6 +16,8 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
         kod kartında onay için son is-bitti'den sonraki en son test koşusu geçen yeşil olmalı ve dosyalar kilitle aynı)
   orkestra kart yukselt G-001 --basamak T3 --neden M
   orkestra kart teslim G-001 [--ozet M]                                        (yalnız ana ajan, onaylı kart)
+  orkestra kart agac G-001 [--taban HEAD]         kart başına git çalışma ağacı (<depo>-kart-<id>, dal kart/<id>)
+  orkestra kart birlestir G-001                  kart dalını --no-ff birleştirir; çatışmada geri alır, kart beklemede
   orkestra defter ekle G-001 --surec is [--yaptim M] [--sonuc M] [--not M]
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
   orkestra defter oku [--gorev G] [--son N] | ozet
@@ -160,7 +162,16 @@ def cmd_kart_yeni(a):
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     L.kart_yaz(sd, k)
     _kart_is_bagla(sd, k)
+    _cakisma_uyarisi(sd, [k])
     print(k["id"])
+
+
+def _cakisma_uyarisi(sd, ks):
+    """Oluşturma sırasında yalnız uyarı: asıl kapı `kart durum … isleniyor` geçişindedir."""
+    proje = L.proje_dizini()
+    for k in ks:
+        for m in L.yazma_cakismalari(sd, proje, k):
+            print(f"orkestra: uyarı {k['id']}: {m}", file=sys.stderr)
 
 
 def cmd_kart_toplu(a):
@@ -199,6 +210,7 @@ def cmd_kart_toplu(a):
     for k in olusan:
         if dongu(k["id"], set()):
             hata(f"bağımlılık döngüsü: {k['id']}")
+    _cakisma_uyarisi(sd, olusan)
     print(json.dumps([{"id": k["id"], "baslik": k["baslik"], "basamak": k["basamak"], "bagimliliklar": k["bagimliliklar"]}
                       for k in olusan], ensure_ascii=False))
 
@@ -207,6 +219,9 @@ def cmd_kart_goster(a):
     sd = sd_gerekli()
     k = _kart_al(sd, a.gid)
     k["durum"] = L.kart_durumu_hesapla(k)
+    ca = k.get("calisma_agaci") or {}
+    if ca.get("yol"):
+        k["calisma_agaci_satiri"] = L.CALISMA_AGACI_ONEKI + ca["yol"]
     print(json.dumps(k, ensure_ascii=False, indent=2))
 
 
@@ -252,6 +267,11 @@ def cmd_kart_durum(a):
         else:
             if a.durum in ("iptal", "beklemede", "planlandi") and ajan_tipi not in ("ana", "bilinmiyor"):
                 hata("kartı iptal/beklemeye yalnız ana ajan alır.")
+            if a.durum == "isleniyor":
+                # Çakışma kapısı: aynı fiziksel ağaçta açık kartlarla yazma alanı kesişmesi ya da depo kökü/'**' reddedilir.
+                cakismalar = L.yazma_cakismalari(sd, L.proje_dizini(), k)
+                if cakismalar:
+                    hata(f"{a.gid} isleniyor'a geçemez — " + " | ".join(cakismalar), 5)
             k["durum"] = a.durum
             if a.durum == "beklemede":
                 k["beklemede_sira"] = L.sonraki_sira(k)  # sonraki denetimlerle sıralanabilsin
@@ -318,6 +338,10 @@ def cmd_kart_denetim(a):
 def _yesil_kapi_engeli(k: dict) -> str | None:
     """Kod kartı onayı için engel metni; engel yoksa None. Koşul: son is-bitti'den SONRAKİ en son test koşusu
     geçen bir yeşil VE şu an yeniden hesaplanan test dosyası özetleri kilitle birebir aynı."""
+    try:  # ağaç proje kökünü kapsamıyorsa paylaşılan ağaca sessizce düşülmez (önceki yeşil de ağacı sınamadı)
+        kok = L.kart_proje_koku(L.proje_dizini(), k)
+    except ValueError as e:
+        return str(e)
     kosular = k.get("test_kosulari") or []
     son_is_sira = k.get("son_is_sira")
     if son_is_sira is not None:
@@ -333,7 +357,7 @@ def _yesil_kapi_engeli(k: dict) -> str | None:
         return "en son yeşil koşu geçmedi"
     if not k.get("test_kilidi"):
         return "test kilidi yok"
-    mevcut = L.test_dosyasi_ozetleri(L.proje_dizini(), k.get("test_alani") or [])
+    mevcut = L.test_dosyasi_ozetleri(kok, k.get("test_alani") or [])
     if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
         fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
         return "yeşilden sonra test dosyaları kilitten saptı (" + ", ".join(
@@ -356,7 +380,10 @@ def cmd_kart_test_kos(a):
         hata("test dosyalarında kilit yok: önce kırmızı aşama koşulmalı (`kart test-kos … --asama kirmizi`).")
     if a.zaman_asimi <= 0:
         hata("--zaman-asimi pozitif olmalı.")
-    proje = L.proje_dizini()
+    try:  # kart ağacı varsa testler ve özetler ağaçtaki karşılıkta; ağaç proje kökünü kapsamıyorsa açık hata
+        proje = L.kart_proje_koku(L.proje_dizini(), k)
+    except ValueError as e:
+        hata(str(e))
     once = L.test_dosyasi_ozetleri(proje, k["test_alani"])
     if not once:
         hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) hiçbir proje dosyasına uymuyor.")
@@ -443,6 +470,12 @@ def cmd_kart_teslim(a):
         durum = L.kart_durumu_hesapla(k)
         if durum != "onaylandi":
             hata(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
+        if (k.get("calisma_agaci") or {}).get("yol"):
+            ok, mesaj = _birlestir(sd, k)
+            L.kart_yaz(sd, k)
+            if not ok:
+                hata(f"teslim reddedildi: kart çalışma ağacı birleşmedi — {mesaj}", 4)
+            print(mesaj)
         k["durum"] = "teslim"
         k["teslim_ozeti"] = L.maskele(a.ozet or "")[:2000]
         k["gecmis"].append({"zaman": L.simdi(), "olay": "teslim"})
@@ -450,6 +483,83 @@ def cmd_kart_teslim(a):
     L.defter_ekle(sd, {"gorev": a.gid, "surec": "sentez", "ajan": "ana-ajan", "model": "-",
                        "yaptim": "Onaylı çıktıyı topladım ve teslim ettim.", "sonuc": "TESLİM", "not": a.ozet or ""})
     print(f"{a.gid} → teslim")
+
+
+def _girdi_agacsiz(girdi: str) -> str:
+    satirlar = (girdi or "").split("\n")
+    if satirlar and satirlar[0].startswith(L.CALISMA_AGACI_ONEKI):
+        satirlar = satirlar[1:]
+    return "\n".join(satirlar)
+
+
+def cmd_kart_agac(a):
+    sd = sd_gerekli()
+    _, ajan_tipi = _kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("kart çalışma ağacını yalnız ana ajan açar.", 3)
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        if L.kart_durumu_hesapla(k) in ("teslim", "iptal"):
+            hata(f"kapalı karta çalışma ağacı açılmaz ({k['durum']}).")
+        try:
+            ca, yeni = L.kart_agaci_ac(L.proje_dizini(), k, a.taban)
+        except ValueError as e:
+            hata(str(e))
+        k["yazma_alani_ilk"] = list(k.get("yazma_alani") or [])
+        k["yazma_alani"] = yeni
+        k["calisma_agaci"] = ca
+        k["girdi"] = L.CALISMA_AGACI_ONEKI + ca["yol"] + "\n" + _girdi_agacsiz(k.get("girdi"))
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "calisma-agaci", "yol": ca["yol"], "dal": ca["dal"], "taban": ca["taban"]})
+        L.kart_yaz(sd, k)
+    print(ca["yol"])
+
+
+def _birlestir(sd, k) -> tuple[bool, str]:
+    """Kartın çalışma ağacını birleştirir ve kartı günceller (yazmaz). Çatışmada ya da kilit kapısı ihlalinde kart
+    beklemede, dosyalar not edilir; worktree korunur. Kilit kapısı bütün kartların test kilitlerine bakar."""
+    s = L.kart_agaci_birlestir(k, proje=L.proje_dizini(), ks=L.kartlar(sd))
+    if s["sonuc"] == "tamam":
+        ca = k.pop("calisma_agaci")
+        ca.update(birlesme=L.simdi(), commit=s.get("commit"))
+        k["calisma_agaci_birlesik"] = ca
+        if "yazma_alani_ilk" in k:
+            k["yazma_alani"] = k.pop("yazma_alani_ilk")
+        k["girdi"] = _girdi_agacsiz(k.get("girdi"))
+        k.pop("birlestirme_catismasi", None)
+        k.pop("birlestirme_kilidi", None)
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "birlestirildi", "commit": s.get("commit"), "not": s["mesaj"][:500]})
+        return True, s["mesaj"]
+    if s["sonuc"] in ("catisma", "kilit"):
+        k["durum"] = "beklemede"
+        k["beklemede_sira"] = L.sonraki_sira(k)
+        if s["sonuc"] == "catisma":
+            k["birlestirme_catismasi"] = s["dosyalar"]
+            not_ = "birleştirme çatışması (otomatik çözülmedi): " + ", ".join(s["dosyalar"])
+            ek = " — kart beklemede; çatışmayı elle çöz, sonra yeniden birleştir"
+        else:
+            k["birlestirme_kilidi"] = s["dosyalar"]
+            not_ = "birleştirme kilit kapısı: " + s["mesaj"]
+            ek = " — kart beklemede"
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemede", "ajan": "orkestra", "not": not_[:500]})
+        return False, s["mesaj"] + ek
+    k["gecmis"].append({"zaman": L.simdi(), "olay": "birlestirme-ret", "not": s["mesaj"][:500]})
+    return False, s["mesaj"]
+
+
+def cmd_kart_birlestir(a):
+    sd = sd_gerekli()
+    _, ajan_tipi = _kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("kart dalını yalnız ana ajan birleştirir.", 3)
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        if not (k.get("calisma_agaci") or {}).get("yol"):
+            hata(f"{a.gid} kartının çalışma ağacı yok (`orkestra kart agac {a.gid}`).")
+        ok, mesaj = _birlestir(sd, k)
+        L.kart_yaz(sd, k)
+    if not ok:
+        hata(mesaj, 4)
+    print(mesaj)
 
 
 # ---------------------------------------------------------------- defter
@@ -1082,6 +1192,13 @@ def main():
     te.add_argument("gid")
     te.add_argument("--ozet")
     te.set_defaults(f=cmd_kart_teslim)
+    ag = kart.add_parser("agac", help="kart başına git çalışma ağacı aç")
+    ag.add_argument("gid")
+    ag.add_argument("--taban", default="HEAD", help="worktree'nin açılacağı commit (varsayılan: deponun HEAD'i)")
+    ag.set_defaults(f=cmd_kart_agac)
+    bi = kart.add_parser("birlestir", help="kart dalını --no-ff birleştir ve worktree'yi temizle")
+    bi.add_argument("gid")
+    bi.set_defaults(f=cmd_kart_birlestir)
 
     defter = alt.add_parser("defter").add_subparsers(dest="alt", required=True)
     e = defter.add_parser("ekle")

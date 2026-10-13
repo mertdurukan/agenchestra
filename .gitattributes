@@ -3,9 +3,11 @@
 # Workflow aracında "script contains control characters" reddine yol açıyordu.
 * text=auto eol=lf
 
-# Windows batch dosyaları EOL dönüşümünün tamamen dışında (olduğu gibi kalsın)
+# Windows betikleri CRLF kalır: EOL dönüşümünün dışında, depoda CRLF ile tutulur
+# (-text: index'teki CRLF olduğu gibi kalır, renormalize gerekmez).
 *.cmd -text
 *.bat -text
+*.ps1 -text
 
 # İkili dosyalar dönüşümden muaf
 *.png binary
@@ -16,3 +18,4 @@
 *.webp binary
 *.pdf binary
 *.zip binary
+*.xlsx binary
