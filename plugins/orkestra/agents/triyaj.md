@@ -21,7 +21,7 @@ Basamak rehberi:
 - **T1** Haiku: sınıflama, biçimleme, özet, günlük satırı, betik çalıştırıp raporlama.
 - **T2** Sonnet: muhakemeli mekanik iş; tarama, senkron, döküm, betik iskeleti.
 - **T3** Opus medium: sentez, iddia doğrulama kararı, içerik yazımı.
-- **T4** Opus xhigh ya da Fable: yalnız açıkça çok zor iş.
+- **T4** Opus 5.5 xhigh: yalnız açıkça çok zor iş.
 
 Şüphede DAHA DÜŞÜK basamağı öner; yükseltmeyi denetçinin reddi tetikler.
 Her alt işin kabul kriterleri ölçülebilir olsun (bir denetçi kanıtla doğrulayabilmeli).

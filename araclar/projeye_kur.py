@@ -40,7 +40,7 @@ GITIGNORE = [".claude/orkestra/*", "!.claude/orkestra/README.md", ".claude/agent
 CLAUDE_MD_BOLUMU = """
 ## Orkestra (Claude orkestrasyon sistemi)
 - Ana ajan (Opus 5.5 medium) planlar, dağıtır, toplar; işçi işini kendisi yapmaz ve onay yazmaz. Çok adımlı iş: `/orkestra:is <istek>`.
-- Basamaklar: T0 betik · T1 Haiku · T2 Sonnet · T3 Opus medium · T4 Opus xhigh/Fable. İzin veren en düşük basamakla başla.
+- Basamaklar: T0 betik · T1 Haiku · T2 Sonnet · T3 Opus medium · T4 Opus xhigh. İzin veren en düşük basamakla başla.
 - Her işçi çıktısını ayrı `orkestra:denetci` denetler; kimse kendi işini onaylamaz. Bağımsız işler paralel; yazma alanları kesişmez.
 - Ortak defter `.claude/orkestra/ortak_defter.md` (otomatik; `orkestra defter baglam <id>` ile ihtiyacın olanı oku). Token defteri: `/orkestra:maliyet`. Panel: `/orkestra`.
 - Ayarlar bu çalışma alanına özgüdür (`.claude/settings.json`); genel ayar kullanılmaz.

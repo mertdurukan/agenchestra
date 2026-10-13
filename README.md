@@ -2,7 +2,7 @@
 
 Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claude Code içinde çalışır: plugin, subagent, skill, hook, workflow, mod ve otomatik hafıza.
 
-- **Maliyet merdiveni:** Her iş, izin verilen en ucuz basamakta başlar. Basamaklar: betik → Haiku 5.5 → Sonnet 5.5 → Opus 5.5 medium → Opus xhigh / Fable 5.1.
+- **Maliyet merdiveni:** Her iş, izin verilen en ucuz basamakta başlar. Basamaklar: betik → Haiku 5.5 → Sonnet 5.5 → Opus 5.5 medium → Opus 5.5 xhigh. Fable kullanılmaz: denetçi hiçbir basamakta işçinin altında kalmasın diye en üst basamak da Opus 5.5'tir.
 - **Ana ajan planlar, dağıtır, toplar:** Planlama Opus 5.5 medium'da yapılır. Ana ajan işçi işi yapmaz ve onay yazmaz.
 - **Ayrı denetçi:** Her işçi çıktısını ayrı bir `denetci` ajanı kabul kriterlerine göre denetler. Kimse kendi işini onaylayamaz. Kural üç katmanda zorlanır: ajan araç kısıtı, hook kimlik enjeksiyonu ve CLI kontrolü.
 - **Paralellik:** Görev kartları bağımlılık grafiği olarak yürür. Yazma alanı kesişmeyen işler aynı anda koşar. Bir hook alan dışına yazmayı reddeder.
@@ -90,7 +90,7 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | T0 betik / T1 | Haiku 5.5 | Sonnet 5.5 medium |
 | T2 | Sonnet 5.5 | Opus 5.5 medium |
 | T3 | Opus 5.5 medium | Opus 5.5 high, iki mercek |
-| T4 | Opus 5.5 xhigh / Fable 5.1 | Opus 5.5 xhigh, iki mercek |
+| T4 | Opus 5.5 xhigh | Opus 5.5 xhigh (ayrı örnek), iki mercek |
 
 Bir iş aynı basamakta iki kez reddedilirse bir üst basamakta yeniden denenir.
 
