@@ -53,7 +53,7 @@ class ArkaPlanZamanAsimiTesti(unittest.TestCase):
     def test_arka_plan_sonrasi_istek_mevcut_davranis(self):
         # istek taze (2 dk) ve kancalı: Claude çalışıyor
         self.assertEqual(self._durum([(90, "tur", {"arka_plan": True}), (2, "istek", {})]), "claude")
-        # eski kancalı istek: sonuncu 'istek' olduğu için hooklu → 'claude' (arka plan zaman aşımından etkilenmez)
+        # sonuncu olay normal 'tur' (arka plan değil): tur bitti, kullanıcı sırası → 'sen'
         self.assertEqual(self._durum([(120, "tur", {"arka_plan": True}), (90, "istek", {}), (80, "tur", {})]), "sen")
 
     def test_kapandi_zaman_asimindan_once(self):

@@ -1,0 +1,18 @@
+# Satır sonlarını tüm makinelerde LF'ye sabitle (Windows'ta core.autocrlf=true olsa bile).
+# Yayın klonu CRLF üretmesin: plugin önbelleğindeki calistir.js'in CR içermesi
+# Workflow aracında "script contains control characters" reddine yol açıyordu.
+* text=auto eol=lf
+
+# Windows batch dosyaları EOL dönüşümünün tamamen dışında (olduğu gibi kalsın)
+*.cmd -text
+*.bat -text
+
+# İkili dosyalar dönüşümden muaf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
