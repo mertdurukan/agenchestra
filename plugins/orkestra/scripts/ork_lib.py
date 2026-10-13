@@ -666,6 +666,92 @@ def kart_agaci_birlestir(kart: dict, mesaj: str | None = None) -> dict:
             "mesaj": f"{dal} → {depo} birleştirildi ({commit[:8]})" + ("; " + "; ".join(uyari) if uyari else "")}
 
 
+# ---------------------------------------------------------------- test kapısı (kod kartları)
+
+TEST_KUYRUK_MAX = 2000
+
+
+def test_dosyasi_ozetleri(proje: str, desenler: list[str]) -> dict[str, str]:
+    """test_alani desenlerine (proje köküne göre glob, `**` özyinelemeli) uyan proje içi dosyalar → {göreli yol ('/'): sha256}.
+
+    Klasörler, __pycache__ ve .pyc hariç (test koşusunun kendi ürettiği dosyalar kilidi bozmasın)."""
+    import hashlib
+    kok = os.path.abspath(proje)
+    out = {}
+    for d in desenler or []:
+        d = (d or "").replace("\\", "/").strip()
+        if not d:
+            continue
+        for tam in glob.glob(os.path.join(kok, d), recursive=True):
+            if not os.path.isfile(tam):
+                continue
+            try:
+                rel = os.path.relpath(os.path.abspath(tam), kok).replace("\\", "/")
+            except ValueError:
+                continue  # farklı sürücü: proje dışı
+            if rel == ".." or rel.startswith("../") or "__pycache__" in rel.split("/") or rel.endswith(".pyc") or rel in out:
+                continue
+            h = hashlib.sha256()
+            try:
+                with open(tam, "rb") as f:
+                    for parca in iter(lambda: f.read(1 << 16), b""):
+                        h.update(parca)
+            except OSError:
+                continue
+            out[rel] = h.hexdigest()
+    return out
+
+
+def kilit_farki(kilit_dosyalar: dict | None, mevcut: dict) -> dict:
+    """Kilitteki özetlerle mevcut özetlerin farkı → {"eklenen": [...], "silinen": [...], "degisen": [...]}."""
+    kilit_dosyalar = kilit_dosyalar or {}
+    return {"eklenen": sorted(set(mevcut) - set(kilit_dosyalar)),
+            "silinen": sorted(set(kilit_dosyalar) - set(mevcut)),
+            "degisen": sorted(y for y in set(kilit_dosyalar) & set(mevcut) if kilit_dosyalar[y] != mevcut[y])}
+
+
+def kilitle_tutarli(test_kilidi: dict | None, mevcut: dict) -> bool:
+    """Dosya kümesi ve özetleri kilittekiyle birebir aynı mı (ekleme, silme, değişiklik tutarsızlıktır). Kilit yoksa False."""
+    if not test_kilidi or not isinstance(test_kilidi.get("dosyalar"), dict):
+        return False
+    return not any(kilit_farki(test_kilidi["dosyalar"], mevcut).values())
+
+
+def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float]:
+    """Komutu kabukla çalıştırır → (çıkış kodu, birleşik stdout+stderr, süre sn).
+
+    Zaman aşımında süreç ağacı öldürülür ve çıkış kodu -1 döner."""
+    import subprocess
+    bas = time.monotonic()
+    ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    p = subprocess.Popen(komut, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, **ek)
+    try:
+        cikti, _ = p.communicate(timeout=zaman_asimi)
+        kod = p.returncode
+    except subprocess.TimeoutExpired:
+        kod = -1
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, timeout=15)
+            else:
+                import signal
+                os.killpg(p.pid, signal.SIGKILL)
+        except Exception:
+            pass
+        try:
+            p.kill()
+        except Exception:
+            pass
+        try:
+            cikti, _ = p.communicate(timeout=15)
+        except Exception:
+            cikti = b""
+        cikti = (cikti or b"") + f"\n[orkestra: zaman aşımı ({zaman_asimi:g} sn)]".encode("utf-8")
+    metin = (cikti or b"").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    return kod, metin, round(time.monotonic() - bas, 2)
+
+
 # ---------------------------------------------------------------- ortak defter
 
 def defter_blogu(kayit: dict) -> str:

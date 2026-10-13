@@ -26,7 +26,8 @@ import ork_lib as L  # noqa: E402
 GENEL_DIZIN = os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel")
 NIYET_YOLU = os.path.join(GENEL_DIZIN, "niyet.jsonl")
 AZAMI_BAYT = 3 * 1024 * 1024
-ESKI_GUN = 3          # bu kadar gün dokunulmayan sohbet "beklemede" sayılır
+ARKA_PLAN_ZAMAN_ASIMI_DK = 60  # arka plan turundan sonra bu kadar dk etkinlik yoksa "beklemede"
+ESKI_GUN = 3         # bu kadar gün dokunulmayan sohbet "beklemede" sayılır
 GORUNUM_GUN = 7       # şeritte gösterilen en eski etkinlik
 
 
@@ -82,6 +83,51 @@ def masaustu_oturumlari() -> dict:
     return out
 
 
+def _transkript_basi(proje: str, oturum: str) -> dict | None:
+    """Transkriptin ilk satırlarından: ilk istek metni, zamanı ve masaüstünde mi başladığı."""
+    yol = os.path.join(L.proje_oturum_dizini(proje), oturum + ".jsonl")
+    try:
+        with open(yol, encoding="utf-8", errors="ignore") as f:
+            satirlar = [f.readline() for _ in range(12)]
+    except OSError:
+        return None
+    bas = {"metin": None, "zaman": None, "masaustu": False}
+    for s in satirlar:
+        try:
+            d = json.loads(s)
+        except Exception:
+            continue
+        if d.get("type") == "queue-operation" and d.get("operation") == "enqueue" and bas["metin"] is None:
+            bas["metin"], bas["zaman"] = d.get("content"), _zaman(d.get("timestamp"))
+        bas["masaustu"] = bas["masaustu"] or d.get("entrypoint") == "claude-desktop"
+    return bas
+
+
+def _yetimler(oturumlar: dict, masaustu: dict) -> dict:
+    """Masaüstünde başlamış ama uygulamada kaydı kalmamış oturumlar → uygulamadaki asıl oturum (yoksa None).
+
+    Uygulama bir sohbeti ilk saniyelerde yeniden başlatınca ilk CLI oturumu yetim kalır; asıl oturum aynı ilk
+    istekle birkaç dakika içinde başlar. Yetim kart CLI yoluna düşüp sohbeti ana ekranda açamıyordu.
+    """
+    out = {}
+    for oid, s in oturumlar.items():
+        if not oid or oid in masaustu or not s.get("proje_yol"):
+            continue
+        bas = _transkript_basi(s["proje_yol"], oid)
+        if not bas or not bas["masaustu"]:
+            continue  # terminalde başlamış sohbet: CLI yolu doğru
+        asil = None
+        if bas["metin"] and bas["zaman"]:
+            for cli in masaustu:
+                b2 = _transkript_basi(s["proje_yol"], cli)
+                if b2 and b2["metin"] and bas["metin"] in b2["metin"] and b2["zaman"] and \
+                        0 <= (b2["zaman"] - bas["zaman"]).total_seconds() <= 600:
+                    asil = cli
+                    break
+        out[oid] = asil
+    return out
+
+
 def ac(oturum: str) -> dict:
     """Sohbeti Claude masaüstü uygulamasında açar.
 
@@ -90,7 +136,12 @@ def ac(oturum: str) -> dict:
     """
     if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", oturum or ""):
         return {"tamam": False, "hata": "geçersiz oturum kimliği"}
-    m = masaustu_oturumlari().get(oturum)
+    masaustu = masaustu_oturumlari()
+    m = masaustu.get(oturum)
+    proje = None if m else _oturum_projesi(oturum)
+    if proje:  # masaüstünde başlayıp yetim kalan oturum: asıl sohbete yönlen
+        asil = _yetimler({oturum: {"proje_yol": proje}}, masaustu).get(oturum)
+        m = masaustu.get(asil) if asil else None
     if m:
         if os.name == "nt":
             os.startfile(m["link"])  # noqa: S606 — yalnız sabit claude:// şeması, kimlik doğrulandı
@@ -202,7 +253,8 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         oid = o.get("oturum")
         s = oturumlar.setdefault(oid, {"oturum": oid, "proje_yol": o.get("proje"), "ne": None, "neden": None, "sonuc": None,
                                        "niyet_zamani": None, "son_istek": None, "son_olay": None, "son_zaman": None,
-                                       "baslangic": o.get("zaman"), "istek_sayisi": 0, "kapandi": False, "hooklu": False})
+                                       "baslangic": o.get("zaman"), "istek_sayisi": 0, "kapandi": False, "hooklu": False,
+                                       "arka_plan": False})
         s["proje_yol"] = s["proje_yol"] or o.get("proje")
         t = o.get("tur")
         s["hooklu"] = s["hooklu"] or t in ("tur", "kapandi", "niyet", "sonuc")
@@ -222,6 +274,9 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
             s["son_istek"] = o.get("metin") or s["son_istek"]
             s["istek_sayisi"] += 1
             s["kapandi"] = False
+            s["arka_plan"] = False
+        elif t == "tur":
+            s["arka_plan"] = bool(o.get("arka_plan"))  # tur bitti ama arka planda iş sürüyor olabilir
         elif t == "kapandi":
             s["kapandi"] = True
         if t in ("istek", "tur", "kapandi", "niyet", "sonuc"):
@@ -246,8 +301,17 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         masaustu = masaustu_oturumlari()
     except Exception:
         masaustu = {}
+    try:
+        yetim = _yetimler(oturumlar, masaustu)
+    except Exception:
+        yetim = {}
     satirlar = []
     for s in oturumlar.values():
+        if s["oturum"] in yetim:
+            asil = yetim[s["oturum"]]
+            if not asil or asil in oturumlar:
+                continue  # uygulamada karşılığı yok ya da asıl sohbet zaten listede: çift kart açma
+            s["oturum"] = asil  # tıklama uygulamadaki asıl sohbete gitsin
         m = masaustu.get(s["oturum"]) or {}
         z = _zaman(s["son_zaman"])
         yas_gun = (simdi - z).total_seconds() / 86400 if z else 99
@@ -264,8 +328,14 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
             bekleyen = "bitti"
         elif yas_gun >= ESKI_GUN:
             bekleyen = "beklemede"
+        elif s["arka_plan"] and s["son_olay"] == "tur" and bosta_dk >= ARKA_PLAN_ZAMAN_ASIMI_DK:
+            bekleyen = "beklemede"  # arka plan işi ölmüş olabilir: uzun süredir etkinlik yok
+        elif s["arka_plan"] and s["son_olay"] == "tur":
+            bekleyen = "claude"  # son turda arka plan işi var: Claude çalışmayı sürdürüyor
         elif (s["son_olay"] == "istek" or acik_kart) and (s["hooklu"] or bosta_dk < 10):
             bekleyen = "claude"  # hook'suz (eski) sohbette transkript 10 dk durgunsa Claude çalışmıyordur
+        elif s["son_olay"] == "istek" and not s["hooklu"]:
+            bekleyen = "beklemede"  # kancasız sohbet, istekten sonra 10 dk+ durgun: sıra kullanıcıda değil
         else:
             bekleyen = "sen"
         # niyet yazılmadıysa yedek: açık kart ya da son istek

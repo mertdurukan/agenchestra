@@ -406,7 +406,13 @@
     // başlattığı uygulamayı öne getirir; sunucunun os.startfile'ı Claude'u arkada bırakıyordu.
     const r0 = oturumlar().find(x => x.oturum === oturum);
     const link = r0 && typeof r0.link === 'string' && /^claude:\/\/claude\.ai\/epitaxy\/[\w-]+$/.test(r0.link) ? r0.link : '';
-    if (link) {
+    // Bu görünümde hangi yolun çalıştığı ilk tıklamada öğrenilir; sonraki tıklamalar beklemeden doğru yola gider.
+    const yol = O.depo.al('orkestra.acYolu');
+    if (link && yol === 'link') {
+      location.href = link;
+      return O.bildirim(`Açılıyor: ${r0.sohbet || 'sohbet'}`);
+    }
+    if (link && yol !== 'sunucu') {
       // Bağlantıyı işletim sistemine iletmeyen gömülü görünümlerde sayfa odağı kaybetmez → sunucu yoluna düş.
       let gitti = false;
       const kayip = () => { gitti = true; };
@@ -417,6 +423,7 @@
       await new Promise(c => setTimeout(c, 1500));
       window.removeEventListener('blur', kayip);
       document.removeEventListener('visibilitychange', kayip);
+      O.depo.koy('orkestra.acYolu', gitti ? 'link' : 'sunucu');
       if (gitti) return;
     }
     O.bildirim('Sohbet açılıyor…');

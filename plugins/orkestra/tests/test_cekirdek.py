@@ -129,7 +129,7 @@ class Cekirdek(unittest.TestCase):
         # teslim onaysız olmaz
         self.assertNotEqual(self.cli("kart", "teslim", g, ajan_id="ana", ajan_tipi="ana").returncode, 0)
         # ret → düzeltme → onay → teslim
-        self.assertEqual(self.cli("kart", "denetim", g, "--karar", "ret", "--gerekce", "k1 kanıtsız", "--talimat", "kanıt ekle", ajan_id="d1", ajan_tipi="orkestra:denetci").returncode, 0)
+        self.assertEqual(self.cli("kart", "denetim", g, "--karar", "ret", "--neden", "kapsam-eksik", "--gerekce", "k1 kanıtsız", "--talimat", "kanıt ekle", ajan_id="d1", ajan_tipi="orkestra:denetci").returncode, 0)
         self.assertIn("reddedildi", self.cli("kart", "goster", g).stdout)
         self.assertIn("kanıt ekle", self.cli("defter", "baglam", g).stdout)
         self.assertEqual(self.cli("kart", "durum", g, "is-bitti", "--ozet", "kanıt eklendi", ajan_id="w1", ajan_tipi="orkestra:isci-t1").returncode, 0)

@@ -19,6 +19,8 @@ Sen orkestra İŞÇİSİsin (T3 · Opus 5.5 medium). Sana verilen tek görev kar
 6. Sır değeri, şifre ve çalışan adı hiçbir çıktıya, deftere ya da karta yazılmaz.
 7. Defter kaydını hook otomatik düşer. Sonraki ajana önemli notun varsa: `orkestra defter ekle <id> --surec <süreç> --not "..."`.
 
+8. sinif=kod kartında `test_alani`'ndaki dosyalara yazma; testleri geçirecek kodu yaz, testi değiştirme. `is-bitti` öncesi `orkestra kart test-kos <id> --asama yesil` ile kendin dene.
+
 ## İş akışı
 1. `orkestra kart durum <id> isleniyor`
 2. Kartı ve bağlamı oku. "SON RET" talimatı varsa önce onu karşıla.

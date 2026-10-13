@@ -103,6 +103,16 @@
       <div id="basamakIcerik"><p class="bos">Yükleniyor…</p></div>
     </section>
 
+    <section class="bolum" id="ret" aria-labelledby="retBaslik">
+      <h2 id="retBaslik">Ret nedenleri <span id="retBayat"></span></h2>
+      <div id="retIcerik"><p class="bos">Yükleniyor…</p></div>
+    </section>
+
+    <section class="bolum" id="onayli" aria-labelledby="onayliBaslik">
+      <h2 id="onayliBaslik">Onaylı iş başına maliyet <span id="onayliBayat"></span></h2>
+      <div id="onayliIcerik"><p class="bos">Yükleniyor…</p></div>
+    </section>
+
     <section class="bolum" id="birim" aria-labelledby="birimBaslik">
       <h2 id="birimBaslik">Birim maliyet <span id="birimBayat"></span></h2>
       <p class="aciklama">Teslim edilen kart ve sohbet başına maliyet; en pahalı koşular ve anormal sıçramalar.</p>
@@ -212,6 +222,52 @@
     html += `<details class="nasil"><summary>Nasıl hesaplanır?</summary>
       <p>İlk seferde geçti: ilk denetimde onay alan kartların, denetlenen kartlara oranı. Ret oranı: o basamaktaki bütün denetimlerin reddedilen payı. Yükseltilen: daha üst basamağa taşınan kart sayısı. Gerçekleşmeyen durumlar "–" gösterilir.</p></details>`;
     yerlestir($('#basamakIcerik'), html);
+  }
+
+  // ------------------------------------------------------------ 1b. Ret nedenleri ve onaylı iş başı maliyet ('ders' anahtarı)
+  const dersVeri = () => { const v = veri(); return v && v.ders && typeof v.ders === 'object' ? v.ders : null; };
+  const NEDEN_AD = { 'siniflanmamis': 'sınıflanmamış', 'kapsam-eksik': 'kapsam eksik', 'bicim': 'biçim', 'sayi-tutarsiz': 'sayı tutarsız', 'kanit-yok': 'kanıt yok', 'talimat-ihlali': 'talimat ihlali', 'kriter-belirsiz': 'kriter belirsiz', 'yetenek-yetersiz': 'yetenek yetersiz' };
+  const nedenAd = k => NEDEN_AD[k] || String(k);
+  const KOK_SIRA = ['kart', 'basamak', 'dikkat', 'siniflanmamis'];
+  function retCiz() {
+    const d = dersVeri(), kap = $('#retIcerik');
+    const satirlar = d && Array.isArray(d.nedenler) ? d.nedenler : null;
+    if (!satirlar || !satirlar.length) {
+      yerlestir(kap, `<p class="bos">${d ? 'Henüz reddedilen denetim yok.' : 'Ret nedeni verisi yok.'}</p>`);
+      return;
+    }
+    const kokSay = (s, k) => (s.kok && s.kok[k]) ? B.sayi(s.kok[k]) : '–';
+    const enSik = s => {
+      const g = Object.entries(s.nedenler || {}).sort((p, q) => q[1] - p[1] || String(p[0]).localeCompare(String(q[0])))[0];
+      return g ? `${esc(nedenAd(g[0]))} <span class="meta" style="display:inline">(${B.sayi(g[1])}/${B.sayi(s.ret)})</span>` : '–';
+    };
+    const toplam = d.toplam && d.toplam.ret != null ? d.toplam.ret : satirlar.reduce((t, s) => t + (s.ret || 0), 0);
+    const html = `<div class="tablo-kap"><table class="tablo"><tr><th>Sınıf</th><th>Basamak</th><th class="sayi">Ret</th><th>En sık neden</th>
+      <th class="sayi">Kart</th><th class="sayi">Basamak</th><th class="sayi">Dikkat</th><th class="sayi">Sınıflanmamış</th></tr>` +
+      satirlar.map(s => `<tr><td>${esc(s.sinif)}</td><td>${esc(s.basamak ?? '–')}</td><td class="sayi">${B.sayi(s.ret)}</td><td>${enSik(s)}</td>` +
+        KOK_SIRA.map(k => `<td class="sayi">${kokSay(s, k)}</td>`).join('') + '</tr>').join('') +
+      `<tr><td><b>Toplam</b></td><td></td><td class="sayi"><b>${B.sayi(toplam)}</b></td><td></td>` +
+        KOK_SIRA.map(k => `<td class="sayi"><b>${(d.toplam && d.toplam.kok && d.toplam.kok[k]) ? B.sayi(d.toplam.kok[k]) : '–'}</b></td>`).join('') + '</tr></table></div>' +
+      '<p class="aciklama">Reddedilen denetimler sınıf ve basamağa göre; kök kart (kriter belirsiz), basamak (yetenek yetersiz) ya da dikkat (işçi hatası) olarak sayılır, nedensiz retler sınıflanmamış görünür.</p>';
+    yerlestir(kap, html);
+  }
+  function onayliCiz() {
+    const d = dersVeri(), kap = $('#onayliIcerik');
+    const satirlar = d && Array.isArray(d.verim) ? d.verim : null;
+    if (!satirlar || !satirlar.length) {
+      yerlestir(kap, `<p class="bos">${d ? 'Henüz kart yok.' : 'Maliyet verimi verisi yok.'}</p>`);
+      return;
+    }
+    const usd = x => x == null ? '–' : B.usd(x);
+    const t = d.toplam || {};
+    const html = `<div class="tablo-kap"><table class="tablo"><tr><th>Sınıf</th><th>Başlangıç basamağı</th><th class="sayi">Kart</th><th class="sayi">Onaylanan</th>
+      <th class="sayi">Ortalama tur</th><th class="sayi">Toplam</th><th class="sayi">Onaylı iş başı</th></tr>` +
+      satirlar.map(s => `<tr><td>${esc(s.sinif)}</td><td>${esc(s.baslangic_basamak ?? '–')}</td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.sayi(s.onaylanan)}</td>
+        <td class="sayi">${s.ort_tur != null ? B.sayi(s.ort_tur, 2) : '–'}</td><td class="sayi">${usd(s.toplam_usd)}</td><td class="sayi">${usd(s.onayli_is_basi_usd)}</td></tr>`).join('') +
+      `<tr><td><b>Toplam</b></td><td></td><td class="sayi"><b>${B.sayi(t.kart)}</b></td><td class="sayi"><b>${B.sayi(t.onaylanan)}</b></td>
+        <td class="sayi"><b>${t.ort_tur != null ? B.sayi(t.ort_tur, 2) : '–'}</b></td><td class="sayi"><b>${usd(t.toplam_usd)}</b></td><td class="sayi"><b>${usd(t.onayli_is_basi_usd)}</b></td></tr></table></div>` +
+      '<p class="aciklama">Onaylı iş başı: kartlara bağlı toplam harcamanın onaylanan kart sayısına bölümü; onaylanan yoksa "–" gösterilir.</p>';
+    yerlestir(kap, html);
   }
 
   // ------------------------------------------------------------ 2. Birim maliyet
@@ -500,14 +556,14 @@
   // ------------------------------------------------------------ durum: bayatlık, hata, orkestrasız
   function bayatCiz() {
     const i = O.bayatIsaret(K);
-    ['basamak', 'birim', 'akis', 'gantt', 'skill', 'saglik'].forEach(ad => yerlestir($('#' + ad + 'Bayat'), i));
+    ['basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'].forEach(ad => yerlestir($('#' + ad + 'Bayat'), i));
   }
   function uyariCiz() {
     const sure = K && K.sonBasari ? `son başarılı yenileme ${B.saat(K.sonBasari)}` : 'henüz hiç veri alınamadı';
     yerlestir($('#uyari'), K && K.uzunHata && orkestrali() ? `<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
       <span class="metin"><b>Analitik verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(K.hata))}">${esc(sure)} · ${metin(kisalt(K.hata, 120))} · yeniden deneniyor</span></span></div>` : '');
   }
-  const KABUL = ['basamak', 'birim', 'akis', 'gantt', 'skill', 'saglik'];
+  const KABUL = ['basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'];
   function durumCiz() {
     const ork = orkestrali();
     $('#icerik').classList.toggle('gizli', !ork);
@@ -538,7 +594,7 @@
     bolumler.forEach(f => { try { f(); } catch (e) { console.error('Verim:', f.name, e); ilk = ilk || e; } });
     if (ilk) throw ilk;
   }
-  const hepsi = () => { if (durumCiz()) ciz(basamakCiz, birimCiz, akisCiz, ganttCiz, skillCiz, saglikCiz, bayatCiz, uyariCiz); else ciz(bayatCiz, uyariCiz); };
+  const hepsi = () => { if (durumCiz()) ciz(basamakCiz, retCiz, onayliCiz, birimCiz, akisCiz, ganttCiz, skillCiz, saglikCiz, bayatCiz, uyariCiz); else ciz(bayatCiz, uyariCiz); };
 
   // ------------------------------------------------------------ etkileşim
   const ana = $('main');
