@@ -1,4 +1,4 @@
-"""orkestra — görev kartları, ortak defter, token defteri ve rüya için komut satırı aracı.
+"""orkestra — görev kartları, ortak defter, token defteri ve perspektif için komut satırı aracı.
 
 Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra baslat                                   bu projede durum klasörünü açar
@@ -13,7 +13,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
   orkestra defter oku [--gorev G] [--son N] | ozet
   orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json]
-  orkestra ruya durum | basla | bitti
+  orkestra perspektif durum | basla | bitti
   orkestra gunluk ozet [--gun 7]
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
 `--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
@@ -68,7 +68,7 @@ Bu klasörü orkestra plugin'i yönetir; elle düzenleme yapma (hook'lar engelle
 | `ortak_defter.md` / `.jsonl` | Herkes ne yaptığını yazar; yalnız sona ekleme | SubagentStop/Stop hook'ları + `orkestra defter ekle` |
 | `maliyet.jsonl` | Her ajanın her süreç için token ve maliyet kaydı | SubagentStop/Stop hook'ları |
 | `gunluk.jsonl` | İstekler (maskeli), skill/ajan kullanımı — skill avcısı okur | UserPromptSubmit/PostToolUse hook'ları |
-| `ruya/` | Hafıza bakım raporları | rüya koşusu |
+| `perspektif/` | Hafıza bakım raporları | perspektif koşusu |
 | `onerilen_skill/` | Skill avcısının taslakları (onayın gerekir) | skill-avcisi |
 | `raporlar/` | `orkestra maliyet rapor` çıktıları | CLI |
 """
@@ -419,8 +419,8 @@ def cmd_maliyet_gecmis(a):
     sd = sd_gerekli()
     import glob as _glob
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import ruya
-    pdir = os.path.dirname(ruya.hafiza_dizini(L.proje_dizini()))
+    import perspektif
+    pdir = os.path.dirname(perspektif.hafiza_dizini(L.proje_dizini()))
     yol = os.path.join(sd, "maliyet.jsonl")
     mevcut = {(r.get("oturum"), r.get("agent_id"), r.get("model")) for r in L.jsonl_oku(yol)}
     yeni = 0
@@ -472,11 +472,11 @@ def cmd_maliyet_tur(a):
             gorev, surec = L.etiketler(o["ilk_kullanici"])
             ajan = L.alt_ajan_meta(tr).get("agentType") or "?"
             if surec == "bilinmiyor":
-                surec = "denetim" if "denetci" in ajan else ("is" if "isci" in ajan else ("ruya" if "ruya" in ajan else
+                surec = "denetim" if "denetci" in ajan else ("is" if "isci" in ajan else ("perspektif" if ("perspektif" in ajan or "ruya" in ajan) else
                         "arastirma" if ajan in ("Explore", "orkestra:arastirmaci") else "bilinmiyor"))
             L.atomik_yaz(onb, json.dumps({"gorev": gorev, "surec": surec, "ajan": ajan}))
-    elif os.environ.get("ORKESTRA_RUYA"):
-        surec, ajan = "ruya", "ruya-bakimcisi"
+    elif os.environ.get("ORKESTRA_PERSPEKTIF"):
+        surec, ajan = "perspektif", "perspektif-bakimcisi"
     u = {"input_tokens": a.giris, "output_tokens": a.cikis, "cache_read_input_tokens": a.onb_okuma,
          "cache_creation_input_tokens": a.onb_yazma}
     L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), {
@@ -496,29 +496,31 @@ def cmd_maliyet_ozet(a):
     print(json.dumps(o) if a.json else f"bugün ≈${o['bugun_usd']:.2f} · bu oturum ≈${o['oturum_usd']:.2f} · toplam ≈${o['toplam_usd']:.2f} ({o['kosu']} koşu)")
 
 
-# ---------------------------------------------------------------- rüya
+# ---------------------------------------------------------------- perspektif
 
-def cmd_ruya(a):
+def cmd_perspektif(a):
+    if getattr(a, "komut", None) == "ruya":  # eski ad: takma ad olarak çalışır
+        print("uyarı: `orkestra ruya` eski addır; `orkestra perspektif` kullan.", file=sys.stderr)
     sd = sd_gerekli()
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import ruya
+    import perspektif
     if a.islem == "durum":
-        print(json.dumps(ruya.durum(sd), ensure_ascii=False, indent=2))
+        print(json.dumps(perspektif.durum(sd), ensure_ascii=False, indent=2))
     elif a.islem == "basla":
-        print(ruya.baslat(sd, L.proje_dizini(), zorla=True))
+        print(perspektif.baslat(sd, L.proje_dizini(), zorla=True))
     elif a.islem == "bitti":
-        ruya.bitti_isaretle(sd)
-        print("rüya raporu okundu olarak işaretlendi")
+        perspektif.bitti_isaretle(sd)
+        print("perspektif raporu okundu olarak işaretlendi")
     elif a.islem == "basladi":
-        ruya.basladi_isaretle(sd)
-        print("rüya başladı")
+        perspektif.basladi_isaretle(sd)
+        print("perspektif başladı")
     elif a.islem == "kaydet":
         if not a.yol or not os.path.exists(a.yol):
-            hata("rapor yolu gerekli ve var olmalı: orkestra ruya kaydet <yol>")
-        ruya.kaydet(sd, a.yol)
-        print(f"rüya raporu kaydedildi: {a.yol}")
+            hata("rapor yolu gerekli ve var olmalı: orkestra perspektif kaydet <yol>")
+        perspektif.kaydet(sd, a.yol)
+        print(f"perspektif raporu kaydedildi: {a.yol}")
     elif a.islem == "hafiza":
-        print(ruya.hafiza_dizini(L.proje_dizini()))
+        print(perspektif.hafiza_dizini(L.proje_dizini()))
 
 
 # ---------------------------------------------------------------- günlük
@@ -714,10 +716,10 @@ def main():
     oz.add_argument("--json", action="store_true")
     oz.set_defaults(f=cmd_maliyet_ozet)
 
-    ru = alt.add_parser("ruya")
+    ru = alt.add_parser("perspektif", aliases=["ruya"])  # "ruya": eski ad, geriye uyumlu takma ad
     ru.add_argument("islem", choices=["durum", "basla", "basladi", "kaydet", "bitti", "hafiza"])
     ru.add_argument("yol", nargs="?")
-    ru.set_defaults(f=cmd_ruya)
+    ru.set_defaults(f=cmd_perspektif)
 
     ui = alt.add_parser("ui-ozet")
     ui.add_argument("--oturum")
@@ -754,7 +756,7 @@ def main():
     a.f(a)
     # Durumu değiştiren komutlardan sonra arayüz anlık görüntüsünü yenile.
     alt_komut = getattr(a, "alt", None)
-    degistiren = {"kart", "ruya", "baslat"}
+    degistiren = {"kart", "perspektif", "ruya", "baslat"}
     if a.komut in degistiren or (a.komut, alt_komut) in {("defter", "ekle"), ("maliyet", "tur"), ("maliyet", "gecmis")}:
         sd = L.durum_dizini()
         if sd and not (a.komut == "kart" and alt_komut in ("goster", "liste")):

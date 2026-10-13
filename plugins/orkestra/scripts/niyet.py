@@ -99,8 +99,8 @@ def ac(oturum: str) -> dict:
             subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", m["link"]])
         return {"tamam": True, "yol": "uygulama", "baslik": m.get("baslik")}
     import subprocess
-    import ruya
-    exe = ruya.claude_exe()
+    import perspektif
+    exe = perspektif.claude_exe()
     if not exe:
         return {"tamam": False, "hata": f"claude bulunamadı; terminalde: claude --desktop --resume {oturum}"}
     bayrak = 0x08000000 if os.name == "nt" else 0  # pencere açma

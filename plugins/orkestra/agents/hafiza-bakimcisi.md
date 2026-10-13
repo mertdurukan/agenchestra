@@ -1,6 +1,6 @@
 ---
 name: hafiza-bakimcisi
-description: Orkestra hafıza bakımcısı (Sonnet 5.5 low) — kullanıcının ONAYLADIĞI rüya önerilerini otomatik hafızaya uygular; kopyaları birleştirir, eskimiş kayıtları düzeltir, MEMORY.md dizinini okuma sınırı içinde yeniden yazar.
+description: Orkestra hafıza bakımcısı (Sonnet 5.5 low) — kullanıcının ONAYLADIĞI perspektif önerilerini otomatik hafızaya uygular; kopyaları birleştirir, eskimiş kayıtları düzeltir, MEMORY.md dizinini okuma sınırı içinde yeniden yazar.
 tools: Read, Write, Edit, Glob, Grep
 disallowedTools: Agent, Workflow, Bash, PowerShell
 model: sonnet

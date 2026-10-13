@@ -80,7 +80,7 @@ export function donustur(h: HamOzet, oturum: string): UiOzet {
     defter: (h.defter ?? []).filter(r => !olaymi(r)).slice(-3).map(r => ({
       saat: (r.zaman ?? '').slice(11, 16), gorev: r.gorev, metin: kes(temizMetin(r.metin), 160),
     })),
-    ruya: h.ruya,
+    perspektif: h.perspektif ?? h.ruya,  // ruya: eski ozet.json anahtarı
     uretim: h.uretim,
   }
 }
@@ -89,7 +89,7 @@ export function donustur(h: HamOzet, oturum: string): UiOzet {
 // Kart kimliklerinden kurulur: sayı aynı kalsa da reddedilen kart değişirse imza değişir ve gizlenmiş bant geri gelir.
 export function eylemImzasi(o: UiOzet): string {
   const kartlar = o.eylem ?? []
-  const rapor = o.ruya?.rapor === true
+  const rapor = o.perspektif?.rapor === true
   return kartlar.length === 0 && !rapor ? '' : `${kartlar.join(',')}|${rapor ? 'rapor' : ''}`
 }
 
@@ -192,7 +192,7 @@ export const register: Register = on => {
     )
   })
 
-  // Bant yalnız kullanıcıdan eylem beklenirken: ret > 0, teslim bekleyen (onaylandi) > 0 ya da rüya raporu hazır.
+  // Bant yalnız kullanıcıdan eylem beklenirken: ret > 0, teslim bekleyen (onaylandi) > 0 ya da perspektif raporu hazır.
   // Yalnız oturum maliyeti için çizilmez. "Gizle" o anki durum imzası için gizler.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const o = await read($, veri)
@@ -205,7 +205,7 @@ export const register: Register = on => {
     const parca: string[] = []
     if (ret > 0) parca.push(`${ret} ret`)
     if (onay > 0) parca.push(`${onay} teslime hazır`)
-    if (o.ruya?.rapor) parca.push('rüya raporu hazır')
+    if (o.perspektif?.rapor) parca.push('perspektif raporu hazır')
     return (
       <Box>
         <Text dimColor>{`Orkestra · ${parca.join(' · ')} `}</Text>
@@ -269,7 +269,7 @@ async function paneCiz($: EngineInterface, e: Parameters<EngineInterface['ui']['
         {defter.length > 0 && <Text> </Text>}
         {defter.length > 0 && <Text bold>Son olaylar</Text>}
         {defter.map(r => <Text dimColor wrap="truncate">{kes(`${r.saat} ${r.gorev !== '-' ? r.gorev + ' ' : ''}${r.metin}`, w)}</Text>)}
-        {o.ruya?.rapor && <Text color="suggestion">Rüya raporu hazır → /orkestra:ruya</Text>}
+        {o.perspektif?.rapor && <Text color="suggestion">Perspektif raporu hazır → /orkestra:perspektif</Text>}
         <Text> </Text>
         <Box>
           <Text dimColor>{uretimSaat === '' ? 'Ayrıntı: /orkestra-web' : 'Ayrıntı: /orkestra-web · '}</Text>

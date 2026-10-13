@@ -1,6 +1,6 @@
 ---
 name: maliyet
-description: Orkestra token ve maliyet raporu — her ajanın her süreç (triyaj, iş, denetim, düzeltme, sentez, rüya…) için harcadığı giriş/çıkış/önbellek tokenı ve tahmini maliyet; görev × süreç, ajan × model, süreç ve gün kırılımları.
+description: Orkestra token ve maliyet raporu — her ajanın her süreç (triyaj, iş, denetim, düzeltme, sentez, perspektif…) için harcadığı giriş/çıkış/önbellek tokenı ve tahmini maliyet; görev × süreç, ajan × model, süreç ve gün kırılımları.
 argument-hint: "[gün sayısı, ör. 7]"
 disable-model-invocation: true
 ---

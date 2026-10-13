@@ -1,5 +1,5 @@
 {
-  "description": "Orkestra: denetim ayrımı ve yazma alanı kapıları, ortak defter, ajan x süreç token defteri, bitiş kapısı, rüya tetiği. Yalnız .claude/orkestra/ açık projelerde iş yapar.",
+  "description": "Orkestra: denetim ayrımı ve yazma alanı kapıları, ortak defter, ajan x süreç token defteri, bitiş kapısı, perspektif tetiği. Yalnız .claude/orkestra/ açık projelerde iş yapar.",
   "hooks": {
     "SessionStart": [
       { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "SessionStart"], "timeout": 10 } ] }

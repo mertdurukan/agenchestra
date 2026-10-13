@@ -3,7 +3,7 @@
   "owner": { "name": "Mert Durukan" },
   "description": "Kişisel Claude orkestrasyon plugin'leri (yerel klasör marketplace'i; sürüm alanı yok, sürüm = commit SHA: commitlenen değişiklik autoUpdate ya da `orkestra guncelle` ile devreye girer).",
   "plugins": [
-    { "name": "orkestra", "source": "./plugins/orkestra", "description": "Maliyet basamaklı, ayrı denetçili, paralel ajan orkestrasyonu; ortak defter; token defteri; rüya; skill avı." },
+    { "name": "orkestra", "source": "./plugins/orkestra", "description": "Maliyet basamaklı, ayrı denetçili, paralel ajan orkestrasyonu; ortak defter; token defteri; perspektif; skill avı." },
     { "name": "orkestra-ui", "source": "./plugins/orkestra-ui", "description": "Orkestra için minimum arayüz: Orkestra paneli, prompt üstü durum bandı, /orkestra komutları." }
   ]
 }

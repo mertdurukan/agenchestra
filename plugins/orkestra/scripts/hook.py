@@ -24,7 +24,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim)|defter\s+ekle|baslat|ruya\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -189,12 +189,12 @@ def subagent_stop(inp: dict):
     gorev, surec = L.etiketler(ozet["ilk_kullanici"])
     if surec == "bilinmiyor":
         surec = "denetim" if "denetci" in atip else ("arastirma" if atip in ("Explore", "orkestra:arastirmaci") else
-                                                      "ruya" if "ruya" in atip else "is" if "isci" in atip else "bilinmiyor")
+                                                      "perspektif" if ("perspektif" in atip or "ruya" in atip) else "is" if "isci" in atip else "bilinmiyor")
     # Sayaç modülünün (maliyet tur) aynı ajanı görev/süreç/tip ile eşleyebilmesi için önbellek.
     L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip}))
     taban = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "ajan": atip,
              "agent_id": aid, "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
-             "arac_cagrisi": ozet["arac_cagrisi"], "ruya": bool(os.environ.get("ORKESTRA_RUYA")), "kaynak": "hook"}
+             "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": bool(os.environ.get("ORKESTRA_PERSPEKTIF")), "kaynak": "hook"}
     _maliyet_satirlari(sd, ozet, taban)
     ana_model = max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0] if ozet["modeller"] else "-"
     ilk = re.sub(r"#(GOREV|SUREC):\S+", "", ozet["ilk_kullanici"] or "").strip().replace("\n", " ")
@@ -225,7 +225,7 @@ def stop(inp: dict):
     if not sd:
         gec()
     oid = inp.get("session_id") or "-"
-    if not os.environ.get("ORKESTRA_RUYA"):
+    if not os.environ.get("ORKESTRA_PERSPEKTIF"):
         import niyet
         niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur")  # Claude turu bitirdi → kullanıcıyı bekliyor
     ofset_yolu = os.path.join(sd, "oturumlar", f"{oid}.json")
@@ -236,13 +236,13 @@ def stop(inp: dict):
         ofset = 0
     ozet = L.transkript_oku(inp.get("transcript_path"), ofset, yan_zincir=False)
     L.atomik_yaz(ofset_yolu, json.dumps({"ofset": ozet["ofset"], "guncelleme": L.simdi()}))
-    ruya = bool(os.environ.get("ORKESTRA_RUYA"))
-    ajan = "ruya-bakimcisi" if ruya else "ana-ajan"
-    surec = "ruya" if ruya else "orkestrasyon"
+    perspektif = bool(os.environ.get("ORKESTRA_PERSPEKTIF"))
+    ajan = "perspektif-bakimcisi" if perspektif else "ana-ajan"
+    surec = "perspektif" if perspektif else "orkestrasyon"
     if ozet["modeller"]:
         taban = {"zaman": L.simdi(), "oturum": oid, "gorev": "-", "surec": surec, "ajan": ajan, "agent_id": None,
                  "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
-                 "arac_cagrisi": ozet["arac_cagrisi"], "ruya": ruya, "kaynak": "hook"}
+                 "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": perspektif, "kaynak": "hook"}
         _maliyet_satirlari(sd, ozet, taban)
     kayda_deger = any(a in ozet["araclar"] for a in ("Agent", "Task", "Workflow")) or ozet["dokunulan"]
     if kayda_deger and ozet["modeller"]:
@@ -252,7 +252,7 @@ def stop(inp: dict):
                            "sonuc": (inp.get("last_assistant_message") or "")[:400], "dokunulan": ozet["dokunulan"],
                            "token": ozet["toplam"], "kaynak": "hook"})
     # Bitiş kapısı: bu oturumun açık kartları
-    if ruya or inp.get("background_tasks"):
+    if perspektif or inp.get("background_tasks"):
         gec()
     acik = []
     for k in L.kartlar(sd):
@@ -278,8 +278,8 @@ def session_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
         gec()
-    import ruya
-    ruya.oturum_say(sd, inp.get("source"))
+    import perspektif
+    perspektif.oturum_say(sd, inp.get("source"))
     ks = [k for k in L.kartlar(sd) if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",)]
     satirlar = ["Orkestra bu projede açık. Ana ajan: planla → `orkestra kart` ile kartla → işçi + AYRI denetçiyle dağıt "
                 "(`/orkestra:is`) → onaylıyı `orkestra kart teslim` ile topla. Ortak defter: `orkestra defter baglam <id>`."]
@@ -293,20 +293,20 @@ def session_start(inp: dict):
                             "Commitle → otomatik güncelleme; hemen için `orkestra guncelle`, sonra yeni oturum ya da /reload-plugins.")
     except Exception:
         pass
-    r = ruya.durum(sd)
+    r = perspektif.durum(sd)
     if r.get("okunmamis_rapor"):
-        satirlar.append(f"Rüya raporu hazır: {r['okunmamis_rapor']} — kullanıcıya kısaca özetle ve `/orkestra:ruya` ile uygulamayı öner.")
+        satirlar.append(f"Perspektif raporu hazır: {r['okunmamis_rapor']} — kullanıcıya kısaca özetle ve `/orkestra:perspektif` ile uygulamayı öner.")
     elif r.get("zamani_geldi") and not r.get("calisiyor"):
-        hafiza = ruya.hafiza_dizini(L.proje_dizini(inp.get("cwd")), inp.get("transcript_path"))
-        satirlar.append("RÜYA ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
-                        "`orkestra:ruya-ajani` ajanını run_in_background: true ile başlat; istem: "
-                        f"`#SUREC:ruya hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
+        hafiza = perspektif.hafiza_dizini(L.proje_dizini(inp.get("cwd")), inp.get("transcript_path"))
+        satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
+                        "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
+                        f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "\n".join(satirlar)[:1800]}})
 
 
 def user_prompt_submit(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
-    if sd and not os.environ.get("ORKESTRA_RUYA"):
+    if sd and not os.environ.get("ORKESTRA_PERSPEKTIF"):
         metin = L.maskele(inp.get("prompt") or "")
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "istek",
                                                          "metin": metin[:300], "uzunluk": len(metin)})
@@ -342,13 +342,13 @@ def post_tool_use(inp: dict):
 
 def session_end(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
-    if not sd or os.environ.get("ORKESTRA_RUYA"):
+    if not sd or os.environ.get("ORKESTRA_PERSPEKTIF"):
         gec()
     import niyet
     niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "kapandi")
-    import ruya
-    if ruya.durum(sd).get("zamani_geldi"):
-        ruya.baslat(sd, L.proje_dizini(inp.get("cwd")), transkript=inp.get("transcript_path"))
+    import perspektif
+    if perspektif.durum(sd).get("zamani_geldi"):
+        perspektif.baslat(sd, L.proje_dizini(inp.get("cwd")), transkript=inp.get("transcript_path"))
     gec()
 
 

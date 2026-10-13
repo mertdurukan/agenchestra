@@ -1,8 +1,8 @@
-"""Rüya: oturumlar arasında arka planda çalışan hafıza bakımı (+ skill avı).
+"""Perspektif: oturumlar arasında arka planda çalışan hafıza bakımı (+ skill avı).
 
-Ne zaman: son rüyadan bu yana ≥7 gün ya da ≥10 oturum geçtiyse, oturum kapanırken (SessionEnd) arka planda.
+Ne zaman: son perspektiften bu yana ≥7 gün ya da ≥10 oturum geçtiyse, oturum kapanırken (SessionEnd) arka planda.
 Nasıl: başsız `claude -p` (Sonnet), YALNIZ OKUMA araçlarıyla; hafızayı değiştirmez, öneri raporu yazar.
-Rapor: <durum>/ruya/ruya_<tarih>.md ; bir sonraki oturumda ana ajan özetler, kullanıcı onaylarsa `/orkestra:ruya` uygular.
+Rapor: <durum>/perspektif/perspektif_<tarih>.md ; bir sonraki oturumda ana ajan özetler, kullanıcı onaylarsa `/orkestra:perspektif` uygular.
 """
 from __future__ import annotations
 
@@ -23,15 +23,26 @@ CALISMA_ZAMAN_ASIMI_SN = 2 * 3600
 
 
 def _durum_yolu(sd):
-    return os.path.join(sd, "ruya", "durum.json")
+    L.perspektif_goc(sd)  # eski ruya/ klasörü varsa perspektif/'e taşı
+    return os.path.join(sd, "perspektif", "durum.json")
+
+
+def son_rapor_bul(sd) -> str | None:
+    """En yeni rapor: perspektif_*.md ya da eski adlı ruya_*.md (hata raporları hariç)."""
+    adaylar = [a for on in ("perspektif_2", L.ESKI_AD + "_2") for a in glob.glob(os.path.join(sd, "perspektif", on + "*.md"))
+               if "_hata_" not in os.path.basename(a)]
+    return max(adaylar, key=os.path.getmtime) if adaylar else None
 
 
 def _oku(sd) -> dict:
     try:
         with open(_durum_yolu(sd), encoding="utf-8") as f:
-            return json.load(f)
+            d = json.load(f)
     except Exception:
-        return {"son_ruya": None, "oturum_sayaci": 0, "son_rapor": None, "rapor_okundu": True, "calisiyor": None}
+        d = {"son_perspektif": None, "oturum_sayaci": 0, "son_rapor": None, "rapor_okundu": True, "calisiyor": None}
+    if "son_ruya" in d:  # eski anahtar → yeni anahtar
+        d["son_perspektif"] = d.pop("son_ruya")
+    return d
 
 
 def _yaz(sd, d):
@@ -58,15 +69,18 @@ def durum(sd) -> dict:
         except Exception:
             calisiyor = None
     gun = None
-    if d.get("son_ruya"):
+    if d.get("son_perspektif"):
         try:
-            gun = (simdi - datetime.datetime.fromisoformat(d["son_ruya"])).days
+            gun = (simdi - datetime.datetime.fromisoformat(d["son_perspektif"])).days
         except Exception:
             gun = None
     zamani = not calisiyor and (gun is None or gun >= GUN_ESIGI or d.get("oturum_sayaci", 0) >= OTURUM_ESIGI)
-    return {"son_ruya": d.get("son_ruya"), "gun_once": gun, "oturum_sayaci": d.get("oturum_sayaci", 0),
-            "zamani_geldi": bool(zamani), "calisiyor": calisiyor, "son_rapor": d.get("son_rapor"),
-            "okunmamis_rapor": d.get("son_rapor") if d.get("son_rapor") and not d.get("rapor_okundu") else None}
+    son_rapor = d.get("son_rapor")
+    if not son_rapor or not os.path.exists(son_rapor):
+        son_rapor = son_rapor_bul(sd) or son_rapor  # durum.json'da yol yoksa/eskimişse klasörden bul (ruya_*.md dahil)
+    return {"son_perspektif": d.get("son_perspektif"), "gun_once": gun, "oturum_sayaci": d.get("oturum_sayaci", 0),
+            "zamani_geldi": bool(zamani), "calisiyor": calisiyor, "son_rapor": son_rapor,
+            "okunmamis_rapor": son_rapor if son_rapor and d.get("son_rapor") and not d.get("rapor_okundu") else None}
 
 
 def bitti_isaretle(sd):
@@ -95,8 +109,8 @@ def claude_exe() -> str | None:
     return max(adaylar, key=os.path.getmtime) if adaylar else None
 
 
-ISTEM = """#SUREC:ruya
-Sen orkestra sisteminin RÜYA (hafıza bakımı) koşusunsun. Kullanıcı yok; YALNIZ OKU, hiçbir dosyayı değiştirme.
+ISTEM = """#SUREC:perspektif
+Sen orkestra sisteminin PERSPEKTİF (hafıza bakımı) koşusunsun. Kullanıcı yok; YALNIZ OKU, hiçbir dosyayı değiştirme.
 Görev: aşağıdaki kaynakları oku ve tek bir Markdown rapor üret (yanıtın yalnız rapor olsun).
 
 Kaynaklar:
@@ -153,10 +167,10 @@ def basladi_isaretle(sd: str) -> None:
 def kaydet(sd: str, rapor: str) -> None:
     with L.kilit(_durum_yolu(sd)):
         st = _oku(sd)
-        st.update(son_ruya=L.simdi(), oturum_sayaci=0, son_rapor=os.path.abspath(rapor), rapor_okundu=False, calisiyor=None)
+        st.update(son_perspektif=L.simdi(), oturum_sayaci=0, son_rapor=os.path.abspath(rapor), rapor_okundu=False, calisiyor=None)
         _yaz(sd, st)
-    L.defter_ekle(sd, {"gorev": "-", "surec": "ruya", "ajan": "orkestra:ruya-ajani", "model": "sonnet",
-                       "yaptim": "Hafıza bakımı ve skill avı (yalnız okuma).", "sonuc": f"Rapor: {rapor}", "kaynak": "ruya"})
+    L.defter_ekle(sd, {"gorev": "-", "surec": "perspektif", "ajan": "orkestra:perspektif-ajani", "model": "sonnet",
+                       "yaptim": "Hafıza bakımı ve skill avı (yalnız okuma).", "sonuc": f"Rapor: {rapor}", "kaynak": "perspektif"})
 
 
 def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = False) -> str:
@@ -167,8 +181,8 @@ def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = Fal
         return "zamanı gelmedi"
     exe = claude_exe()
     if not headless_mumkun(sd, exe):
-        return ("HEADLESS-YOK: komut satırı oturum açmamış. Rüyayı oturum içinde başlat: Agent aracı, "
-                "subagent_type `orkestra:ruya-ajani`, run_in_background true, istem `#SUREC:ruya hafıza klasörü: "
+        return ("HEADLESS-YOK: komut satırı oturum açmamış. Perspektifi oturum içinde başlat: Agent aracı, "
+                "subagent_type `orkestra:perspektif-ajani`, run_in_background true, istem `#SUREC:perspektif hafıza klasörü: "
                 + hafiza_dizini(proje, transkript) + "`. (Kalıcı çözüm: bir kez `claude auth login`.)")
     with L.kilit(_durum_yolu(sd)):
         st = _oku(sd)
@@ -181,14 +195,14 @@ def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = Fal
         bayrak = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
     subprocess.Popen(args, cwd=proje, creationflags=bayrak, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, close_fds=True)
-    return f"rüya arka planda başladı → {os.path.join(sd, 'ruya')}"
+    return f"perspektif arka planda başladı → {os.path.join(sd, 'perspektif')}"
 
 
 def _kos(sd: str, proje: str, hafiza: str, exe: str):
-    ortam = dict(os.environ, ORKESTRA_RUYA="1", PYTHONUTF8="1")
+    ortam = dict(os.environ, ORKESTRA_PERSPEKTIF="1", PYTHONUTF8="1")
     istem = ISTEM.format(hafiza=hafiza, proje=proje, sd=sd)
     damga = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-    rapor = os.path.join(sd, "ruya", f"ruya_{damga}.md")
+    rapor = os.path.join(sd, "perspektif", f"perspektif_{damga}.md")
     komut = [exe, "-p", istem, "--model", "sonnet", "--effort", "medium", "--max-turns", "60",
              "--allowedTools", "Read", "Glob", "Grep", "--add-dir", hafiza, "--output-format", "text"]
     basarili = False
@@ -199,17 +213,17 @@ def _kos(sd: str, proje: str, hafiza: str, exe: str):
         if not basarili:
             metin = f"(çıkış kodu {r.returncode})\n\n{metin[-2000:]}\n\n{r.stderr[-2000:]}"
     except Exception as e:
-        metin = f"(rüya koşusu başarısız: {type(e).__name__}: {e})"
+        metin = f"(perspektif koşusu başarısız: {type(e).__name__}: {e})"
     if not basarili:
-        hata_yolu = os.path.join(sd, "ruya", f"ruya_hata_{damga}.md")
-        L.atomik_yaz(hata_yolu, f"# Rüya koşusu başarısız — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")
+        hata_yolu = os.path.join(sd, "perspektif", f"perspektif_hata_{damga}.md")
+        L.atomik_yaz(hata_yolu, f"# Perspektif koşusu başarısız — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")
         with L.kilit(_durum_yolu(sd)):
             st = _oku(sd)
             st["calisiyor"] = None
             st["headless"] = {"zaman": L.simdi(), "mumkun": False}
             _yaz(sd, st)
         return
-    L.atomik_yaz(rapor, f"# Rüya raporu — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")
+    L.atomik_yaz(rapor, f"# Perspektif raporu — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")
     kaydet(sd, rapor)
 
 

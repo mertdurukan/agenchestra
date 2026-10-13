@@ -150,7 +150,7 @@
   };
   const SUREC = {
     orkestrasyon: 'Planlama ve koordinasyon', is: 'İşçi çalışması', denetim: 'Denetim', duzeltme: 'Düzeltme',
-    arastirma: 'Araştırma', sentez: 'Sentez', ruya: 'Rüya (bakım)',
+    arastirma: 'Araştırma', sentez: 'Sentez', perspektif: 'Perspektif (bakım)', ruya: 'Perspektif (bakım)',
     // gecmis-*: `orkestra maliyet gecmis` ile orkestra kaydı başlamadan önceki oturumlardan bir kez aktarılan kullanım
     'gecmis-ana': 'Orkestra öncesi · ana ajan', 'gecmis-alt': 'Orkestra öncesi · alt ajan',
     bilinmiyor: 'Etiketsiz', '-': 'Etiketsiz',
@@ -158,7 +158,7 @@
   const AJAN = {
     'ana-ajan': 'Ana ajan', ana: 'Ana ajan',
     'orkestra:denetci': 'Denetçi', 'orkestra:arastirmaci': 'Araştırmacı', 'orkestra:triyaj': 'Triyaj',
-    'orkestra:ruya-ajani': 'Rüya ajanı', 'orkestra:skill-avcisi': 'Skill avcısı',
+    'orkestra:perspektif-ajani': 'Perspektif ajanı', 'orkestra:ruya-ajani': 'Perspektif ajanı', 'orkestra:skill-avcisi': 'Skill avcısı',
     'orkestra:hafiza-bakimcisi': 'Hafıza bakımcısı', 'orkestra:arsivci': 'Arşivci',
     'general-purpose': 'Genel alt ajan', Explore: 'Keşif ajanı', Plan: 'Plan ajanı', 'claude-code-guide': 'Claude Code rehberi',
   };
