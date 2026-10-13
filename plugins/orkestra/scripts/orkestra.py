@@ -662,13 +662,27 @@ def _md_tablo(baslik, anahtarlar, p):
     return "\n".join(satirlar).replace(",", ".") + "\n"
 
 
+def _baglam_md(kayitlar):
+    import analitik as AN
+    k = AN.baglam_kirilim(kayitlar)
+    satirlar = ["### Bağlam (proje / süreç / görev)", "", "| bağlam | ≈$ | pay |", "|---|---|---|"]
+    for pr in k["projeler"]:
+        satirlar.append(f"| **{pr['proje']}** | {pr['usd']:.3f} | %{pr['pay'] * 100:.1f} |")
+        for b in pr["baglamlar"]:
+            if b["baglam"] != pr["proje"]:
+                satirlar.append(f"| &nbsp;&nbsp;{b['baglam']} | {b['usd']:.3f} | %{b['pay'] * 100:.1f} |")
+    satirlar.append(f"| **Toplam** | {k['toplam_usd']:.3f} | %100.0 |")
+    return "\n".join(satirlar) + "\n"
+
+
 def cmd_maliyet_rapor(a):
     sd = sd_gerekli()
-    kayitlar = _maliyet_kayitlari(sd, a.gun)
+    import analitik as AN
+    kayitlar = AN.baglam_filtre(AN.baglam_coz(sd, _maliyet_kayitlari(sd, a.gun)), getattr(a, "baglam", None))
     if a.csv:
         buf = io.StringIO()
         alanlar = ["zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "giris", "cikis", "onbellek_okuma",
-                   "onbellek_yazma", "maliyet_usd", "sure_ms", "tur", "arac_cagrisi"]
+                   "onbellek_yazma", "maliyet_usd", "sure_ms", "tur", "arac_cagrisi", "baglam"]
         w = csv.DictWriter(buf, fieldnames=alanlar, extrasaction="ignore")
         w.writeheader()
         for r in kayitlar:
@@ -682,6 +696,7 @@ def cmd_maliyet_rapor(a):
         metin += "\n" + _md_tablo("Ajan × model", ["ajan", "model"], _pivot(kayitlar, ["ajan", "model"]))
         metin += "\n" + _md_tablo("Süreç", ["surec"], _pivot(kayitlar, ["surec"]))
         metin += "\n" + _md_tablo("Gün", ["gun"], _pivot([dict(r, gun=r.get("zaman", "")[:10]) for r in kayitlar], ["gun"]))
+        metin += "\n" + _baglam_md(kayitlar)
         sohbet = {s["oturum"]: s for s in L.sohbetler(sd, L.proje_dizini(), limit=500)}
         satirlar = ["", "### Sohbet (çalışma alanındaki oturumlar)", "",
                     "| sohbet | son etkinlik | defter ≈$ | motor $ (sohbet kapanınca yazılır) |", "|---|---|---|---|"]
@@ -1318,6 +1333,7 @@ def main():
     r.add_argument("--md", action="store_true")
     r.add_argument("--csv", action="store_true")
     r.add_argument("--cikti")
+    r.add_argument("--baglam", help="yalnız bu önekle başlayan baglamlar (ör. RNV ya da RNV/05_sohbet_ajani)")
     r.set_defaults(f=cmd_maliyet_rapor)
     tu = mal.add_parser("tur")
     tu.add_argument("--oturum", required=True)
