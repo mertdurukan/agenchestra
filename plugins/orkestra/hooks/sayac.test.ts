@@ -35,11 +35,12 @@ test('ana döngü turunda agent id yok', async ($, on) => {
   expect(argv[0]).not.toContain('--agent-id')
 })
 
-test('orkestra kapalı projede hiçbir şey çalıştırmaz', async ($, on) => {
+test('göreli .claude/orkestra kontrolü yok; karar CLI\'da, her durumda maliyet tur çağrılır', async ($, on) => {
   const argv: string[][] = []
   sahte(on, argv, false)
   await $.turn.complete({ answer: 'x', durationMs: 10, isAborted: false, turnId: 't3', reason: 'answer', usage: USAGE })
-  expect(argv.length).toBe(0)
+  expect(argv.length).toBe(1)
+  expect(argv[0]?.slice(2, 4)).toEqual(['maliyet', 'tur'])
 })
 
 test('kullanım yoksa (kesinti) kayıt yok', async ($, on) => {

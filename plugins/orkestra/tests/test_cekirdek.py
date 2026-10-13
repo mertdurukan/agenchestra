@@ -233,6 +233,26 @@ class Cekirdek(unittest.TestCase):
         ana = [x for x in L.maliyet_kayitlari(self.sd) if x.get("agent_id") is None and x.get("kaynak") == "tur"]
         self.assertEqual((ana[0]["ajan"], ana[0]["surec"]), ("ana-ajan", "orkestrasyon"))
 
+    def test_sayac_alt_klasorden_de_proje_kaydina_yazar(self):
+        """Çalışma dizini proje içi alt klasörken (.claude/orkestra) tur kaydı projenin maliyet.jsonl dosyasına düşer."""
+        r = kos([CLI, "maliyet", "tur", "--oturum", OTURUM, "--model", "claude-opus-5-5",
+                 "--giris", "7", "--cikis", "11", "--onb-okuma", "0", "--onb-yazma", "0", "--sure-ms", "1"], self.sd)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        satirlar = [json.loads(s) for s in open(os.path.join(self.sd, "maliyet.jsonl"), encoding="utf-8") if s.strip()]
+        tur = [x for x in satirlar if x.get("kaynak") == "tur" and x.get("cikis") == 11]
+        self.assertEqual(len(tur), 1, satirlar)
+
+    def test_sayac_orkestra_kapali_klasorde_sessiz_cikar(self):
+        """.claude/orkestra olmayan klasörde maliyet tur 0 ile çıkar ve hiçbir dosya oluşturmaz."""
+        kapali = tempfile.mkdtemp(prefix="ork_kapali_")
+        try:
+            r = kos([CLI, "maliyet", "tur", "--oturum", OTURUM, "--model", "claude-opus-5-5",
+                     "--giris", "1", "--cikis", "2", "--onb-okuma", "0", "--onb-yazma", "0", "--sure-ms", "1"], kapali)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(os.listdir(kapali), [])
+        finally:
+            shutil.rmtree(kapali, ignore_errors=True)
+
     def test_kabuk_kapisi_ornekleri(self):
         """Komut konumu, tırnak içi veri, zincir ve korunan dosya hedefi ayrımı."""
         ornekler = [

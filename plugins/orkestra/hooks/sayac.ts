@@ -12,8 +12,8 @@ type Kullanim = {
 }
 
 async function kaydet($: EngineInterface, agentId: string | undefined, u: Kullanim, sureMs: number): Promise<void> {
-  // Orkestra kapalı projede hiçbir şey yapma.
-  if (!(await $.fs.exists('.claude/orkestra'))) return
+  // Proje kökü ve orkestranın açık olup olmadığı orkestra.py maliyet tur'da (üst klasörlere çıkarak) belirlenir.
+  // Buradaki göreli .claude/orkestra kontrolü, çalışma dizini alt klasöre kayınca kaydı sessizce atlıyordu.
   const oturum = await $.session.id()
   const argv = [
     'python', `${$.plugin.root}/scripts/orkestra.py`, 'maliyet', 'tur',
