@@ -617,6 +617,28 @@ def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, li
     return {"depo": depo, "yol": yol, "dal": dal, "taban": taban_sha}, yeni
 
 
+def agac_esdegeri(kart: dict, yol: str) -> str | None:
+    """Kartın çalışma ağacı altındaki yolun paylaşılan depodaki karşılığı (mutlak, '/'); ağaç dışıysa ya da ağaç yoksa None.
+
+    test_alani ve test kilidi proje köküne göre yazılır; ağaçtaki yazım bu karşılık üzerinden aynı kurallara bağlanır."""
+    ca = (kart or {}).get("calisma_agaci") or {}
+    if not (ca.get("yol") and ca.get("depo")) or not yol_altinda(yol, ca["yol"]):
+        return None
+    y = os.path.abspath(yol).replace("\\", "/")
+    kok = os.path.abspath(ca["yol"]).replace("\\", "/").rstrip("/")
+    return os.path.abspath(ca["depo"]).replace("\\", "/").rstrip("/") + y[len(kok):]
+
+
+def kart_proje_koku(proje: str, kart: dict) -> str:
+    """Kartın testlerinin koşacağı ve test özetlerinin alınacağı kök: kart ağacı varsa projenin ağaçtaki karşılığı
+    (ağaç yolu + relpath(proje, depo)), yoksa proje. Proje deponun içinde değilse (depo projenin altındaysa) proje."""
+    ca = (kart or {}).get("calisma_agaci") or {}
+    if ca.get("yol") and ca.get("depo") and yol_altinda(proje, ca["depo"]):
+        r = os.path.relpath(os.path.abspath(proje), os.path.abspath(ca["depo"]))
+        return os.path.abspath(ca["yol"] if r == "." else os.path.join(ca["yol"], r))
+    return proje
+
+
 def kart_agaci_birlestir(kart: dict, mesaj: str | None = None) -> dict:
     """Kart dalını deponun güncel dalına `--no-ff` ile birleştirir. Sessiz ezme ve otomatik çözüm yok.
 

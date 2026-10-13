@@ -59,6 +59,30 @@ def kilitli_testler(sd: str) -> dict[str, str]:
     return out
 
 
+def kilitli_test_bul(sd: str, proje: str, tam: str) -> tuple[str, str] | None:
+    """Yazım hedefi açık bir kartın kilitli test dosyasıysa (göreli yol, kart kimliği). Proje içi yol her kartın kilidiyle;
+    bir kartın çalışma ağacındaki yol, o kartın kilidiyle paylaşılan depodaki karşılığı üzerinden karşılaştırılır."""
+    trel = _rel(proje, tam)
+    for k in L.kartlar(sd):
+        if k.get("durum") in ("teslim", "iptal"):
+            continue
+        d = (k.get("test_kilidi") or {}).get("dosyalar")
+        if not isinstance(d, dict) or not d:
+            continue
+        adaylar = set()
+        es = L.agac_esdegeri(k, tam)
+        if es is not None:
+            r = _rel(proje, es)
+            if r is not None:
+                adaylar.add(os.path.normcase(r))
+        if trel is not None:
+            adaylar.add(os.path.normcase(trel))
+        for y in d:
+            if os.path.normcase(y.replace("\\", "/")) in adaylar:
+                return y.replace("\\", "/"), k.get("id", "?")
+    return None
+
+
 def test_alaninda_mi(rel: str, desenler: list[str]) -> bool:
     """rel, test_alani glob'larından birine uyar mı (`**` özyinelemeli; `a/**/b` `a/b`yi de kapsar)."""
     import fnmatch
@@ -196,11 +220,10 @@ def pre_tool_use(inp: dict):
         proje = L.proje_dizini(inp.get("cwd"))
         oid = inp.get("session_id")
         trel = _rel(proje, tam)
-        if trel is not None:  # kilitli test: ana ajan dahil herkese kapalı
-            for y, kid in kilitli_testler(sd).items():
-                if os.path.normcase(y) == os.path.normcase(trel):
-                    reddet(f"kilitli test: {y} ({kid} kartının test kilidi). Kırmızı sonrası test dosyaları değişmez; "
-                           "değişiklik gerekiyorsa ana ajan `orkestra kart test-kilit-ac` ile kilidi açar.")
+        kb = kilitli_test_bul(sd, proje, tam)  # kilitli test: ana ajan dahil herkese kapalı (kart ağaçları dahil)
+        if kb:
+            reddet(f"kilitli test: {kb[0]} ({kb[1]} kartının test kilidi). Kırmızı sonrası test dosyaları değişmez; "
+                   "değişiklik gerekiyorsa ana ajan `orkestra kart test-kilit-ac` ile kilidi açar.")
         if aid:
             gorev, surec = ajan_gorevi(sd, inp)
             if gorev != "-":
@@ -210,12 +233,11 @@ def pre_tool_use(inp: dict):
                 if k and ca.get("yol") and not agacta and ca.get("depo") and L.yol_altinda(tam, ca["depo"]):
                     reddet(f"{gorev} kartının çalışma ağacı var; paylaşılan ağaca ({ca['depo']}) değil, "
                            f"{L.CALISMA_AGACI_ONEKI.lower()}{ca['yol']} altına yaz.")
-                # test_alani proje köküne göredir; kart ağacındaki yazımda projenin ağaçtaki karşılığına göre okunur.
+                # test_alani proje köküne göredir; kart ağacındaki yazım paylaşılan depodaki karşılığı üzerinden okunur.
                 ttrel = trel
                 if agacta:
-                    ttrel = None
-                    if ca.get("depo") and L.yol_altinda(proje, ca["depo"]):
-                        ttrel = _rel(os.path.join(ca["yol"], os.path.relpath(proje, ca["depo"])), tam)
+                    es = L.agac_esdegeri(k, tam)
+                    ttrel = _rel(proje, es) if es is not None else None
                 if k and k.get("sinif") == "kod" and k.get("test_alani") and ttrel is not None:
                     icinde = test_alaninda_mi(ttrel, k["test_alani"])
                     if surec == "test-yaz":

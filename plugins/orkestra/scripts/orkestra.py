@@ -346,7 +346,7 @@ def _yesil_kapi_engeli(k: dict) -> str | None:
         return "en son yeşil koşu geçmedi"
     if not k.get("test_kilidi"):
         return "test kilidi yok"
-    mevcut = L.test_dosyasi_ozetleri(L.proje_dizini(), k.get("test_alani") or [])
+    mevcut = L.test_dosyasi_ozetleri(L.kart_proje_koku(L.proje_dizini(), k), k.get("test_alani") or [])
     if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
         fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
         return "yeşilden sonra test dosyaları kilitten saptı (" + ", ".join(
@@ -369,7 +369,7 @@ def cmd_kart_test_kos(a):
         hata("test dosyalarında kilit yok: önce kırmızı aşama koşulmalı (`kart test-kos … --asama kirmizi`).")
     if a.zaman_asimi <= 0:
         hata("--zaman-asimi pozitif olmalı.")
-    proje = L.proje_dizini()
+    proje = L.kart_proje_koku(L.proje_dizini(), k)  # kart ağacı varsa testler ve özetler ağaçtaki karşılıkta
     once = L.test_dosyasi_ozetleri(proje, k["test_alani"])
     if not once:
         hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) hiçbir proje dosyasına uymuyor.")
