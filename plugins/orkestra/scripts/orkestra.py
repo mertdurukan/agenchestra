@@ -41,7 +41,9 @@ import csv
 import datetime
 import io
 import json
+import hashlib
 import os
+import re
 import subprocess
 import sys
 
@@ -107,11 +109,60 @@ def _kart_al(sd, gid):
     return k
 
 
+RISKLER = ("dusuk", "orta", "yuksek")
+
+
+def _risk_dogrula(d: dict):
+    """N3: verilmediyse None (alan yazılmaz); geçersizse hata."""
+    r = d.get("risk")
+    if r is None:
+        return None
+    if not isinstance(r, str) or r not in RISKLER:
+        hata(f"risk dusuk|orta|yuksek olmalı: {r!r} ({d.get('baslik') or '(başlıksız)'})")
+    return r
+
+
+def _sayi_dogrula(ad: str, v, tam: bool):
+    if v is None:
+        return None
+    try:
+        if isinstance(v, bool):
+            raise ValueError
+        n = float(v)
+        if tam:
+            if n != int(n) or (isinstance(v, str) and not re.fullmatch(r"\s*\d+\s*", v)):
+                raise ValueError
+            n = int(n)
+        elif n == int(n) and isinstance(v, int):
+            n = int(v)
+    except (TypeError, ValueError, OverflowError):
+        hata(f"{ad} {'tam sayı' if tam else 'sayı'} olmalı: {v!r}")
+    if n < 0:
+        hata(f"{ad} negatif olamaz: {v!r}")
+    return n
+
+
+def _butce_dogrula(d: dict):
+    """N4: yalnız kayıt. {usd, token} (ikisi de isteğe bağlı) -> {usd, token, kaynak:'elle', esik_surumu:None}."""
+    b = d.get("butce")
+    if b is None:
+        return None
+    if not isinstance(b, dict):
+        hata(f"butce {{usd, token}} nesnesi olmalı: {b!r}")
+    usd = _sayi_dogrula("butce.usd", b.get("usd"), False)
+    token = _sayi_dogrula("butce.token", b.get("token"), True)
+    if usd is None and token is None:
+        return None
+    return {"usd": usd, "token": token, "kaynak": "elle", "esik_surumu": None}
+
+
 def _kart_kur(sd, d: dict) -> dict:
     basamak = (d.get("basamak") or "T2").upper()
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
     test_alanlari = _test_alanlari_dogrula(d)
+    risk = _risk_dogrula(d)
+    butce = _butce_dogrula(d)
     bag = _kart_is_kimligi(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
     gid = d.get("id") or L.yeni_kart_id(sd)
     if L.kart_oku(sd, gid):
@@ -135,6 +186,10 @@ def _kart_kur(sd, d: dict) -> dict:
         "ciktilar": [],
         "gecmis": [{"zaman": L.simdi(), "olay": "olusturuldu", "basamak": basamak}],
     }
+    if risk is not None:
+        k["risk"] = risk
+    if butce is not None:
+        k["butce"] = butce
     if test_alanlari:
         k.update(test_alanlari)
     if bag:
@@ -176,7 +231,9 @@ def cmd_kart_yeni(a):
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
-                       "is": a.is_id})
+                       "is": a.is_id, "risk": a.risk,
+                       "butce": ({"usd": a.butce_usd, "token": a.butce_token}
+                                 if a.butce_usd is not None or a.butce_token is not None else None)})
     if not k["kabul_kriterleri"]:
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     L.kart_yaz(sd, k)
@@ -208,6 +265,8 @@ def cmd_kart_toplu(a):
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
         _test_alanlari_dogrula(d)
+        _risk_dogrula(d)
+        _butce_dogrula(d)
         if d.get("is"):
             _kart_is_kimligi(sd, d["is"])
     for d in liste:
@@ -264,6 +323,46 @@ def _kim(a):
     return (a.ajan_id or "bilinmiyor"), (a.ajan_tipi or "bilinmiyor")
 
 
+def _sha_birlestir(parcalar) -> str:
+    h = hashlib.sha256()
+    for p in parcalar:
+        b = p if isinstance(p, bytes) else str(p).encode("utf-8")
+        h.update(str(len(b)).encode() + b":" + b)
+    return h.hexdigest()
+
+
+def _cikti_ozeti_sha(k: dict) -> str:
+    """Kartın ciktilar dosyalarının birleşik sha256'sı (var olmayan atlanır; liste sırası sabit)."""
+    parcalar = []
+    for c in k.get("ciktilar") or []:
+        yol = c if os.path.isabs(c) else os.path.join(L.proje_dizini(), c)
+        if os.path.isfile(yol):
+            with open(yol, "rb") as f:
+                parcalar.append(f.read())
+    return _sha_birlestir(parcalar)
+
+
+def _girdi_sha(k: dict) -> str:
+    return _sha_birlestir([_girdi_agacsiz(k.get("girdi")), json.dumps(k.get("kabul_kriterleri") or [], ensure_ascii=False),
+                           k.get("test_komutu") or ""])
+
+
+def _is_turu(k: dict, a, ajan_id: str, ajan_tipi: str, sira: int) -> dict:
+    """N2: o an koşan işçinin gerçek basamağı yalnız ajan tipinden ('orkestra:isci-tN' -> 'TN'); kart alanından kopyalanmaz."""
+    ad = ajan_tipi.split(":", 1)[-1].lower()
+    m = re.fullmatch(r"isci-t([0-4])", ad)
+    t = {"sira": sira, "basamak": ("T" + m.group(1)) if m else None, "agent_id": ajan_id}
+    if not m:
+        t["basamak_kaynak"] = "bilinmiyor"
+    surec = getattr(a, "surec", None)
+    if not surec and ad.startswith("isci"):
+        surec = "is"
+    t["surec"] = surec or None
+    t["cikti_ozeti_sha"] = _cikti_ozeti_sha(k)
+    t["girdi_sha"] = _girdi_sha(k)
+    return t
+
+
 def cmd_kart_durum(a):
     sd = sd_gerekli()
     ajan_id, ajan_tipi = _kim(a)
@@ -280,6 +379,7 @@ def cmd_kart_durum(a):
             for c in a.cikti or []:
                 if c not in k["ciktilar"]:
                     k["ciktilar"].append(c)
+            k.setdefault("is_turlari", []).append(_is_turu(k, a, ajan_id, ajan_tipi, k["son_is_sira"]))
             if a.ozet:
                 k["son_ozet"] = L.maskele(a.ozet)[:2000]
             k["durum"] = "denetimde"
@@ -1478,6 +1578,9 @@ def main():
                    help="kod kartında zorunlu (tekrarlanabilir): test dosyası glob'u, test köküne göre")
     y.add_argument("--test-koku", dest="test_koku",
                    help="kod kartında isteğe bağlı: test kökü (var olan mutlak dizin; yoksa proje kökü)")
+    y.add_argument("--risk", help="dusuk|orta|yuksek (isteğe bağlı; ölçüm kaydı)")
+    y.add_argument("--butce-usd", dest="butce_usd", help="isteğe bağlı bütçe (USD); yalnız kayıt")
+    y.add_argument("--butce-token", dest="butce_token", help="isteğe bağlı bütçe (token); yalnız kayıt")
     y.add_argument("--is", dest="is_id", help="kartı bu işe bağla (I-NNN); verilmezse oturumun bağlı işi")
     y.set_defaults(f=cmd_kart_yeni)
     ty = kart.add_parser("test-ayar", help="kod kartının test ayarları (yalnız ana ajan; kilitliyken yalnız test_koku)")
@@ -1510,6 +1613,7 @@ def main():
     du.add_argument("gid")
     du.add_argument("durum", choices=["isleniyor", "is-bitti", "beklemede", "iptal", "planlandi"])
     du.add_argument("--ozet")
+    du.add_argument("--surec", help="is-bitti: süreç adı (verilmezse ajan tipinden: isci -> is)")
     du.add_argument("--cikti", action="append", default=[])
     du.add_argument("--not", dest="not_")
     du.set_defaults(f=cmd_kart_durum)
