@@ -1165,7 +1165,27 @@ def cmd_maliyet_tur(a):
     L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), {
         "zaman": L.simdi(), "oturum": a.oturum, "gorev": gorev, "surec": surec, "ajan": ajan, "agent_id": a.agent_id,
         "model": a.model, "giris": a.giris, "cikis": a.cikis, "onbellek_okuma": a.onb_okuma, "onbellek_yazma": a.onb_yazma,
-        "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur"})
+        "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur",
+        "is": _tur_isi(sd, gorev, a.oturum)})
+
+
+def _tur_isi(sd, gorev, oturum):
+    """hook.py `_kart_isi(...) or _oturum_isi(...)` ile aynı mantık; hata durumunda None (kayıt düşmez)."""
+    try:
+        if gorev and gorev != "-":
+            k = L.kart_oku(sd, gorev)
+            v = k.get("is") if isinstance(k, dict) else None
+            if v:
+                return str(v)
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(sd, "oturumlar", f"{oturum}.json"), encoding="utf-8") as f:
+            d = json.load(f)
+        v = d.get("is") if isinstance(d, dict) else None
+        return str(v) if v else None
+    except Exception:
+        return None
 
 
 def cmd_maliyet_ozet(a):
