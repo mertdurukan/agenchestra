@@ -8,8 +8,6 @@
 <style>
   /* Şimdi sayfasına özgü küçük ekler; ortak bileşenler ortak.css'te. */
   .dikkat-alani { display: grid; gap: var(--a-8); }
-  .ikili { display: grid; gap: var(--a-16); grid-template-columns: minmax(0, 1fr); }
-  @media (min-width: 1000px) { .ikili { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } }
 
   /* sohbet kartları */
   .sohbet-liste { display: grid; gap: var(--a-12); grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); }
@@ -41,24 +39,6 @@
   .eskiler { margin-top: var(--a-12); }
   .alt-not { margin: var(--a-12) 0 0; }
 
-  /* görev kartları */
-  .kart-liste { list-style: none; margin: 0; padding: 0; }
-  .kart { padding: var(--a-8) 0 var(--a-8) var(--a-12); border-left: 3px solid var(--renk, var(--neutral)); margin-bottom: var(--a-8); }
-  .kart:last-child { margin-bottom: 0; }
-  .kart .baslik { font-weight: 600; overflow-wrap: anywhere; }
-  .kart .alt-satir { color: var(--text-muted); font-size: var(--t-12); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .kart .alt-satir .rozet { font-weight: 500; color: var(--text-secondary); }
-  .kart .bekliyor { color: var(--text-secondary); }
-  .isaret {
-    display: inline-block; font-size: var(--t-12); font-weight: 500; color: var(--text-secondary); border: 1px solid var(--line);
-    border-radius: 999px; padding: 0 var(--a-8); margin-left: 6px; vertical-align: 1px; white-space: nowrap;
-  }
-  details.teslimler { margin-top: var(--a-16); }
-  details.teslimler > summary { cursor: pointer; color: var(--text-muted); font-size: var(--t-12); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; width: max-content; }
-  details.teslimler > summary:hover { color: var(--text-primary); }
-  details.teslimler[open] > summary { margin-bottom: var(--a-8); }
-  .kart-grup:first-of-type h3 { margin-top: var(--a-8); }
-
   /* son olaylar */
   .akis { list-style: none; padding: 0; margin: 0; font-size: var(--t-13); }
   .akis li { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--a-12); padding: var(--a-8) 0; border-bottom: 1px solid var(--line); }
@@ -89,12 +69,6 @@
   </section>
 
   <div class="ikili">
-    <section class="bolum" id="kartlar" aria-labelledby="kartBaslik">
-      <h2 id="kartBaslik">Görev kartları <span class="meta" id="kartSayi"></span><span id="kartBayat"></span></h2>
-      <p class="aciklama" id="kartAciklama">Seçili çalışma alanının orkestra kartları: önce dikkat isteyenler.</p>
-      <div id="kartIcerik"><p class="bos">Yükleniyor…</p></div>
-    </section>
-
     <section class="bolum" id="olaylar" aria-labelledby="olayBaslik">
       <h2 id="olayBaslik">Son olaylar <span id="olayBayat"></span></h2>
       <p class="aciklama">Sohbet niyetleri ve bu alanın ortak defteri, en yeni önce.</p>
@@ -132,7 +106,7 @@
   // S.simdi / S.ozet: SON İYİ veri; hata anında silinmez (yalnız alan değişince ozet sıfırlanır).
   // Kaynak durumu (durum, sonBasari, hataBaslangic, ardisikHata, hata, bayat, uzunHata) O.veri kontrol nesnelerinde: KS, KO.
   let KS = null, KO = null;
-  const S = { simdi: null, ozet: null, filtre: O.depo.al('orkestra.simdi.filtre') || 'hepsi', eskilerAcik: false, teslimAcik: false };
+  const S = { simdi: null, ozet: null, filtre: O.depo.al('orkestra.simdi.filtre') || 'hepsi', eskilerAcik: false };
   const BEKLEYEN_SIRA = { sen: 0, claude: 1, bitti: 2, beklemede: 3, kapandi: 4 };
   const ETKIN = new Set(['sen', 'claude', 'bitti']);
 
@@ -162,6 +136,7 @@
 
   // ------------------------------------------------------------ 1. Dikkat şeridi
   function dikkatCiz() {
+    const islerYol = '/isler' + (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');   // sekme bağlantılarındaki alan sorgusuyla aynı
     const ks = kartlar();
     const red = ks.filter(k => k.durum === 'reddedildi');
     const onay = ks.filter(k => k.durum === 'onaylandi');
@@ -171,13 +146,13 @@
     const ogeler = [];
     if (red.length) ogeler.push(`<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
       <span class="metin"><b>${red.length} kart reddedildi</b><span class="meta">${esc(adlar(red, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
-      <span class="eylem"><a href="#kartlar">Kartlara git</a></span></div>`);
+      <span class="eylem"><a href="${islerYol}">İşlere git</a></span></div>`);
     if (sen.length) ogeler.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">?</span>
       <span class="metin"><b>${sen.length === 1 ? 'Bir sohbet seni bekliyor' : sen.length + ' sohbet seni bekliyor'}</b><span class="meta">${esc(adlar(sen, r => r.proje + ' › ' + r.sohbet))}</span></span>
       <span class="eylem">${sen.length === 1 ? `<button type="button" data-oturum="${esc(sen[0].oturum)}">Sohbeti aç</button>` : ''}<button type="button" data-filtre="sen">Göster</button></span></div>`);
     if (onay.length) ogeler.push(`<div class="dikkat" style="--renk:var(--good)"><span class="simge" aria-hidden="true">✓</span>
       <span class="metin"><b>${onay.length} kart onaylandı, teslim bekliyor</b><span class="meta">${esc(adlar(onay, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
-      <span class="eylem"><a href="#kartlar">Kartlara git</a></span></div>`);
+      <span class="eylem"><a href="${islerYol}">İşlere git</a></span></div>`);
     if (perspektif) ogeler.push(`<div class="dikkat" style="--renk:var(--s7)"><span class="simge" aria-hidden="true">☾</span>
       <span class="metin"><b>Perspektif raporu hazır</b><span class="meta">Claude içinde <code>/orkestra:perspektif</code> ile oku.</span></span></div>`);
     // Asılı ajanlar (ozet.json asili_ajanlar): başlamış ama uzun süredir bitmeyen ajan başına bir satır; boşsa hiçbir şey çizilmez.
@@ -213,7 +188,6 @@
   // Bölüm başlıklarındaki bayatlık işaretleri (gövdeye dokunmaz)
   function bayatCiz() {
     yerlestir($('#sohbetBayat'), O.bayatIsaret(KS));
-    yerlestir($('#kartBayat'), orkestrali() ? O.bayatIsaret(KO) : '');
     yerlestir($('#olayBayat'), O.bayatIsaret(KS, KO));
   }
 
@@ -286,76 +260,6 @@
     yerlestir($('#sohbetListe'), html);
   }
 
-  // ------------------------------------------------------------ 3. Görev kartları
-  function kartSatiri(k, isaretler) {
-    const d = E.durum(k.durum);
-    const durumlar = Object.fromEntries(kartlar().map(x => [x.id, x.durum]));
-    const bag = k.bagimli || [];
-    const acikBag = bag.filter(id => durumlar[id] && durumlar[id] !== 'teslim');
-    const bagMetni = !bag.length ? '' : acikBag.length
-      ? `<span class="bekliyor" title="Önce bitmesi gereken kartlar">bekliyor: ${esc(acikBag.join(', '))}</span>`
-      : `<span title="Bağımlı olduğu kartlar (bitti)">← ${esc(bag.join(', '))}</span>`;
-    const sohbet = sohbetAdi(k.oturum);
-    const parcalar = [esc(k.id), esc(k.basamak || ''), rozet(d)];
-    if (k.usd > 0) parcalar.push(B.usd(k.usd));
-    if (bagMetni) parcalar.push(bagMetni);
-    if (sohbet) parcalar.push(`<span title="Sohbet">${esc(kisalt(sohbet, 40))}</span>`);
-    const isaret = (isaretler[k.id] || []).slice(-2).map(o =>
-      `<span class="isaret" title="${esc(B.tarih(o.zaman) + ' · ' + O.temizMetin(o.metin))}">${esc(kisalt(O.temizMetin(o.metin), 28))} ${B.saat(o.zaman)}</span>`).join('');
-    return `<li class="kart" style="--renk:${d.renk}"><div class="baslik">${metin(k.baslik)}${isaret}</div>
-      <div class="alt-satir">${parcalar.filter(Boolean).join('<span aria-hidden="true">·</span>')}</div></li>`;
-  }
-
-  function kartCiz() {
-    const kap = $('#kartIcerik');
-    if (!S.ozet && KO && KO.durum === 'hata') {       // tam hata satırı yalnız son iyi veri yokken
-      $('#kartSayi').textContent = '';
-      yerlestir(kap, `<p class="bos">Görev verisi alınamadı: ${metin(kisalt(KO.hata, 200))}</p>`);
-      return;
-    }
-    const o = S.ozet;
-    if (!o) {                                          // ilk yükleme ya da alan değişimi: eski alanın kartları ve sayacı kalkar
-      $('#kartSayi').textContent = '';
-      $('#kartAciklama').classList.toggle('gizli', !orkestrali());
-      yerlestir(kap, '<p class="bos">Yükleniyor…</p>');
-      return;
-    }
-    if (o.acik === false || o.hata) {
-      $('#kartSayi').textContent = '';
-      yerlestir(kap, `<p class="bos">${o.hata ? 'Veri üretilemedi: ' + metin(O.hataMetni(o.hata)) : 'Bu çalışma alanında orkestra kapalı.'}</p>`);
-      return;
-    }
-    if (!orkestrali()) {
-      $('#kartSayi').textContent = '';
-      $('#kartAciklama').classList.add('gizli');
-      yerlestir(kap, `<p class="bos">Bu çalışma alanında orkestra kurulu değil; burada yalnız <a href="/maliyet${O.alan ? '?alan=' + encodeURIComponent(O.alan) : ''}">Maliyet</a> sayfası anlamlı.</p>
-        <details class="nasil"><summary>Nasıl kurulur?</summary>
-        <p>Claude-Orchestration klasöründe: <code>python araclar/projeye_kur.py "&lt;proje klasörü&gt;"</code></p>
-        <p>Sonra o projede Claude içinde <code>/orkestra:baslat</code>.</p></details>`);
-      return;
-    }
-    $('#kartAciklama').classList.remove('gizli');
-    const ks = kartlar();
-    // olay=true defter satırları kartın üstüne küçük işaret olarak katlanır
-    const isaretler = {};
-    defter().filter(r => r.olay === true && r.gorev && r.gorev !== '-').forEach(r => { (isaretler[r.gorev] = isaretler[r.gorev] || []).push(r); });
-    const SIRA = { reddedildi: 0, denetimde: 1, onaylandi: 2, isleniyor: 0, beklemede: 1, planlandi: 2 };
-    const sirala = l => l.sort((a, b) => (SIRA[a.durum] - SIRA[b.durum]) || a.id.localeCompare(b.id, 'tr', { numeric: true }));
-    const dikkat = sirala(ks.filter(k => ['reddedildi', 'denetimde', 'onaylandi'].includes(k.durum)));
-    const calisan = sirala(ks.filter(k => ['isleniyor', 'beklemede', 'planlandi'].includes(k.durum)));
-    const teslim = ks.filter(k => ['teslim', 'iptal'].includes(k.durum)).sort((a, b) => zamanMs(b.guncelleme) - zamanMs(a.guncelleme)).slice(0, 5);
-    const grup = (ad, l) => l.length ? `<div class="kart-grup"><h3>${ad} · ${l.length}</h3><ul class="kart-liste">${l.map(k => kartSatiri(k, isaretler)).join('')}</ul></div>` : '';
-    let html = grup('Dikkat', dikkat) + grup('Çalışıyor ve sırada', calisan);
-    if (!dikkat.length && !calisan.length) html = '<p class="bos">Açık kart yok. Claude içinde <code>/orkestra:is</code> ile iş başlat.</p>';
-    if (teslim.length) {
-      html += `<details class="teslimler" id="teslimler"${S.teslimAcik ? ' open' : ''}><summary data-anahtar="teslim">Son teslimler · ${teslim.length}</summary>
-        <ul class="kart-liste">${teslim.map(k => kartSatiri(k, isaretler)).join('')}</ul></details>`;
-    }
-    const acik = dikkat.length + calisan.length;
-    $('#kartSayi').textContent = ks.length ? `${acik} açık` : '';
-    yerlestir(kap, html);
-  }
-
   // ------------------------------------------------------------ 4. Son olaylar (niyet akışı + defter, tek zaman sırası)
   function olayCiz() {
     // bir kaynak henüz hiç veri getirmedi ve hata da vermedi (ilk yükleme ya da alan değişiminde ozet)
@@ -406,7 +310,7 @@
     bolumler.forEach(f => { try { f(); } catch (e) { console.error('Şimdi:', f.name, e); ilk = ilk || e; } });
     if (ilk) throw ilk;
   }
-  const hepsi = () => ciz(dikkatCiz, sohbetCiz, kartCiz, olayCiz, bayatCiz);
+  const hepsi = () => ciz(dikkatCiz, sohbetCiz, olayCiz, bayatCiz);
 
   // ------------------------------------------------------------ etkileşim
   async function sohbetAc(oturum) {
@@ -460,7 +364,6 @@
     const el = e.target.closest('[data-oturum][role="button"]');
     if (el && el === e.target && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sohbetAc(el.dataset.oturum); }
   });
-  ana.addEventListener('toggle', e => { if (e.target.id === 'teslimler') S.teslimAcik = e.target.open; }, true);
 
   // ------------------------------------------------------------ veri
   O.kabuk({ sayfa: 'simdi' });
@@ -476,15 +379,15 @@
   // sohbetler (ad yedeği) imzada kalır ki ad bayatlamasın; DOM'u yerlestir() yalnız HTML değişince kurar.
   KO = O.veri(() => '/ozet.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'Görev verisi', aralik: 3000, yoksay: ['uretim', 'maliyet'],
-    cizici: v => { S.ozet = v; ciz(dikkatCiz, kartCiz, olayCiz, bayatCiz); },
-    durum: () => ciz(dikkatCiz, bayatCiz, ...(S.ozet ? [] : [kartCiz, olayCiz])),
+    cizici: v => { S.ozet = v; ciz(dikkatCiz, olayCiz, bayatCiz); },
+    durum: () => ciz(dikkatCiz, bayatCiz, ...(S.ozet ? [] : [olayCiz])),
   });
   // Alan değişince eski alanın kartları "son iyi veri" değildir. KO'nun dinleyicisi (yukarıda kayıtlı, önce çalışır)
   // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları, sayacı, ret/onay/perspektif şeritleri ve
-  // defter satırları kaldırılır: kart bölümü ve Dikkat "Yükleniyor…", olaylarda yalnız sohbet akışı kalır.
+  // defter satırları kaldırılır: Dikkat "Yükleniyor…", olaylarda yalnız sohbet akışı kalır.
   window.addEventListener('orkestra:alan', () => {
-    S.ozet = null; S.teslimAcik = false;
-    try { ciz(dikkatCiz, kartCiz, olayCiz, bayatCiz); } catch (e) { /* ciz hatayı konsola yazdı; veri gelince yeniden çizilir */ }
+    S.ozet = null;
+    try { ciz(dikkatCiz, olayCiz, bayatCiz); } catch (e) { /* ciz hatayı konsola yazdı; veri gelince yeniden çizilir */ }
   });
 })();
 </script>
