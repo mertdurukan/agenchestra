@@ -22,6 +22,7 @@ import ork_lib as L  # noqa: E402
 def kos(args, cwd, stdin=None):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
+    env.pop("ORKESTRA_AGAC_KOKU", None)
     return subprocess.run([sys.executable] + args, cwd=cwd, env=env, input=stdin, capture_output=True, text=True,
                           encoding="utf-8")
 
@@ -238,7 +239,7 @@ class KartIzolasyonu(unittest.TestCase):
     def test_agac_worktree_ve_dal_acar_kart_jsonuna_yazar(self):
         g, _ = self.kart("src/**")
         yol = self.agac(g)
-        self.assertEqual(os.path.normcase(yol), os.path.normcase(self.proje.replace("\\", "/") + f"-kart-{g}"))
+        self.assertEqual(os.path.normcase(yol), os.path.normcase(self.proje.replace("\\", "/") + f"/.claude/worktrees/kart-{g}"))
         self.assertTrue(os.path.isfile(os.path.join(yol, "src", "x.py")))
         self.assertIn(f"kart/{g}", git(self.proje, "branch", "--list", f"kart/{g}"))
         k = self.goster(g)
