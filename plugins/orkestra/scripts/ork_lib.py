@@ -28,7 +28,7 @@ from contextlib import contextmanager
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SURECLER = (
     "triyaj", "plan", "is", "denetim", "duzeltme", "yukseltme", "sentez",
-    "arsiv", "perspektif", "skill-avi", "arastirma", "orkestrasyon", "test-yaz", "bilinmiyor",
+    "arsiv", "perspektif", "skill-avi", "arastirma", "orkestrasyon", "test-yaz", "on-kontrol", "test-kapisi", "bilinmiyor",
 )
 ACIK_DURUMLAR = ("isleniyor", "denetimde", "reddedildi", "onaylandi")
 KAPALI_DURUMLAR = ("teslim", "iptal", "beklemede", "planlandi")

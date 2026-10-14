@@ -241,6 +241,22 @@ def _kota() -> dict:
 
 # ---------------------------------------------------------------- 3. basamak verimliliği
 
+def son_basamak(kart: dict) -> str | None:
+    """Kartın son basamağı: gecmis'teki is-bitti olaylarının en yüksek 'isci-tN' ajanı (K09).
+    is-bitti yoksa 'basamak', o da yoksa 'baslangic_basamak'."""
+    en = 0
+    for g in kart.get("gecmis") or []:
+        if g.get("olay") != "is-bitti":
+            continue
+        # kayıtta ajan_tipi 'orkestra:isci-t3' biçiminde; eklenti öneki isteğe bağlı
+        m = re.fullmatch(r"(?:[\w-]+:)?isci-t(\d+)", str(g.get("ajan") or "").strip().lower())
+        if m:
+            en = max(en, int(m.group(1)))
+    if en:
+        return f"T{en}"
+    return kart.get("basamak") or kart.get("baslangic_basamak")
+
+
 def _basamak(kartlar: list[dict], kayitlar: list[dict]) -> dict:
     satir = {b: {"basamak": b, "kart": 0, "teslim": 0, "denetlenen": 0, "ilk_gecis": 0, "denetim": 0, "ret": 0,
                  "yukseltilen": 0, "usd": 0.0} for b in BASAMAK_SIRASI}
@@ -251,7 +267,7 @@ def _basamak(kartlar: list[dict], kayitlar: list[dict]) -> dict:
     teslim, kucuk = 0, 0
     for k in kartlar:
         bas = k.get("baslangic_basamak") or k.get("basamak")
-        son = k.get("basamak") or bas
+        son = son_basamak(k) or bas
         if bas not in satir:
             continue
         s = satir[bas]
