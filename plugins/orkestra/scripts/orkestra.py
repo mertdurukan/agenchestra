@@ -421,13 +421,14 @@ def cmd_kart_test_kos(a):
     zaman = L.simdi()
     kod, cikti, sure = L.kabuk_kos(k["test_komutu"], proje, a.zaman_asimi)
     sonra = L.test_dosyasi_ozetleri(proje, k["test_alani"])
+    karar = _test_karari(sd, a.gid, k, proje, kod, cikti, once)
     with L.kilit(path):
         k = _kart_al(sd, a.gid)  # koşu sürerken kart değişmiş olabilir
         k.setdefault("test_kosulari", [])
         if a.asama == "kirmizi":
             if k.get("test_kilidi"):
                 hata("test dosyaları koşu sırasında kilitlendi; kırmızı kaydedilmedi.")
-            gecti = kod not in (0, -1)
+            gecti = karar["kirmizi"]
             hash_tutarli = None  # kırmızıda kıyas yok: kilidi bu koşu kurar
             if gecti:
                 k["test_kilidi"] = {"zaman": L.simdi(), "dosyalar": once}
@@ -435,25 +436,116 @@ def cmd_kart_test_kos(a):
             if not k.get("test_kilidi"):
                 hata("test kilidi koşu sırasında açıldı; yeşil kaydedilmedi.")
             hash_tutarli = L.kilitle_tutarli(k["test_kilidi"], once) and L.kilitle_tutarli(k["test_kilidi"], sonra)
-            gecti = kod == 0 and hash_tutarli
+            gecti = karar["yesil"] and hash_tutarli
         kayit = {"zaman": zaman, "sira": L.sonraki_sira(k), "asama": a.asama, "cikis_kodu": kod,
                  "hash_tutarli": hash_tutarli, "gecti": gecti, "sure_s": sure,
                  "kok": os.path.abspath(proje).replace("\\", "/"),  # onay kapısı yalnız güncel kökteki koşuyu sayar
-                 "cikti_kuyrugu": L.maskele(cikti)[-L.TEST_KUYRUK_MAX:], "ajan": ajan_tipi, "agent_id": ajan_id}
+                 "dusenler": karar["dusenler"], "yabanci_dusenler": karar["yabanci_dusenler"]}
+        if not karar["ayristirildi"]:
+            kayit["ayristirilamadi"] = True
+        if karar["toplama_nedeni"]:
+            kayit["toplama_hatasi"] = karar["toplama_nedeni"]
+        kayit.update({"cikti_kuyrugu": L.maskele(cikti)[-L.TEST_KUYRUK_MAX:], "ajan": ajan_tipi, "agent_id": ajan_id})
         k["test_kosulari"].append(kayit)
         L.kart_yaz(sd, k)
     durum = "GEÇTİ" if gecti else "GEÇMEDİ"
     ek = ""
     if a.asama == "kirmizi" and not gecti:
-        ek = " (kırmızı aşamada test BAŞARISIZ olmalıydı; kilit yazılmadı)" if kod == 0 else " (zaman aşımı; kilit yazılmadı)"
+        if kod == -1:
+            ek = " (zaman aşımı; kilit yazılmadı)"
+        else:
+            ek = f" ({karar['kirmizi_neden'] or 'kırmızı aşamada test BAŞARISIZ olmalıydı'}; kilit yazılmadı)"
     elif a.asama == "kirmizi":
         ek = f" — {len(once)} test dosyası kilitlendi"
     elif not hash_tutarli:
         fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), sonra)
         ek = " — test dosyaları kilitten saptı: " + ", ".join(f"{ad} {', '.join(v)}" for ad, v in fark.items() if v)
+    elif not gecti and karar["yesil_neden"]:
+        ek = f" — {karar['yesil_neden']}"
     print(f"{a.gid} test {a.asama}: {durum} (çıkış {kod}, {sure} sn){ek}")
+    if karar["ozet"]:
+        print(karar["ozet"])
     if not gecti:
         sys.exit(4)
+
+
+def _test_sahibi(sd: str, gid: str, kimlik: str, kosu_koku: str) -> str | None:
+    """Düşen test kimliği hangi AÇIK kod kartının (durumu teslim/iptal değil, kendisi hariç) test_alani'nda
+    (o kartın kendi test köküne göre)? Sahip yoksa None."""
+    proje = L.proje_dizini()
+    for o in L.kartlar(sd):
+        if o.get("id") == gid or o.get("sinif") != "kod" or o.get("durum") in ("teslim", "iptal"):
+            continue
+        if not o.get("test_alani"):
+            continue
+        if L.test_alaninda_mi(kimlik, L.kart_test_koku(proje, o), o["test_alani"], kosu_koku):
+            return o["id"]
+    return None
+
+
+def _kisa(kimlikler: list[str], n: int = 3) -> str:
+    return ", ".join(kimlikler[:n]) + (f" (+{len(kimlikler) - n})" if len(kimlikler) > n else "")
+
+
+def _test_karari(sd: str, gid: str, k: dict, proje: str, kod: int, cikti: str, once: dict) -> dict:
+    """Test kapısı kararı düşen test kimliklerinden (çıkış kodu tek başına değil).
+
+    KIRMIZI geçer ⇔ çıkış 1, toplama/kullanım hatası yok VE kartın test_alani'ndan en az bir test düştü.
+    YEŞİL geçer ⇔ toplama/kullanım hatası yok VE test_alani'ndan düşen yok VE sahipsiz dış düşen yok VE
+    (çıkış 0 YA DA dışarıda düşen her test başka bir açık kod kartının test_alani'nda). Çıktı pytest/unittest
+    olarak ayrıştırılamazsa eski kural: kırmızı çıkış ∉ {0, -1}, yeşil çıkış 0."""
+    a = L.test_ciktisi_ayristir(cikti, kod)
+    karar = {"ayristirildi": a["ayristirildi"], "toplama_nedeni": a["toplama_nedeni"], "dusenler": [],
+             "yabanci_dusenler": [], "kirmizi_neden": None, "yesil_neden": None, "ozet": ""}
+    if not a["ayristirildi"]:
+        karar.update(kirmizi=kod not in (0, -1), yesil=kod == 0,
+                     ozet="uyarı: test çıktısı pytest/unittest olarak ayrıştırılamadı; karar çıkış koduna göre")
+        return karar
+    kendi_dosyalar = {L._kiyas(y) for y in once}
+    for kimlik in a["dusenler"]:
+        dosyalar = L.test_kimligi_dosyalari(kimlik)
+        if (any(L._kiyas(d) in kendi_dosyalar for d in dosyalar)
+                or L.test_alaninda_mi(kimlik, proje, k.get("test_alani") or [])):
+            karar["dusenler"].append(kimlik)
+        else:
+            karar["yabanci_dusenler"].append({"test": kimlik, "dosya": dosyalar[0] if dosyalar else None,
+                                              "kart": _test_sahibi(sd, gid, kimlik, proje)})
+    sahipsiz = [y["test"] for y in karar["yabanci_dusenler"] if not y["kart"]]
+    toplama = a["toplama_hatasi"]
+    karar["kirmizi"] = kod == 1 and not toplama and bool(karar["dusenler"])
+    # Gizli düşüş: pytest özetindeki failed + error sayısı ayrıştırılan düşüş SATIRI sayısından fazlaysa (-rN,
+    # kısaltılmış/eksik özet) düşenlerin hepsi görülmedi; yeşil buna güvenip geçmez. Kıyas tekil kimlik sayısıyla
+    # değil: bir test birden çok satırla düşebilir (N SUBFAILED, FAILED + teardown ERROR) ve özet her satırı sayar.
+    ozet = a.get("ozet_dusen")
+    satir = a.get("dusus_satiri", 0)
+    gizli = ozet is not None and ozet > satir
+    karar["yesil"] = (not toplama and not gizli and not karar["dusenler"] and not sahipsiz
+                      and (kod == 0 or (kod == 1 and bool(karar["yabanci_dusenler"]))))
+    yabanci = len(karar["yabanci_dusenler"])
+    if toplama:
+        karar["kirmizi_neden"] = karar["yesil_neden"] = a["toplama_nedeni"] + "; testler güvenilir biçimde koşmadı"
+    else:
+        if kod == 0:
+            karar["kirmizi_neden"] = "kırmızı aşamada test BAŞARISIZ olmalıydı"
+        elif not karar["dusenler"]:
+            karar["kirmizi_neden"] = f"test_alani'ndan düşen test yok (dış düşen: {yabanci})"
+        if karar["dusenler"]:
+            karar["yesil_neden"] = "test_alani'ndan düşen var: " + _kisa(karar["dusenler"])
+        elif sahipsiz:
+            karar["yesil_neden"] = "sahipsiz dış düşen (hiçbir açık kod kartının test_alani'nda değil): " + _kisa(sahipsiz)
+        elif gizli:
+            karar["yesil_neden"] = (f"gizli düşüş: pytest özeti {ozet} failed/error diyor, ayrıştırılan düşüş "
+                                    f"satırı {satir}")
+        elif kod != 0 and not yabanci:
+            karar["yesil_neden"] = f"çıkış {kod} ama düşen test kimliği bulunamadı"
+    parcalar = [f"düşen (test_alani): {len(karar['dusenler'])}"]
+    if karar["yabanci_dusenler"]:
+        sahipli = [f"{y['test']} → {y['kart']}" for y in karar["yabanci_dusenler"] if y["kart"]]
+        parcalar.append(f"dış düşen: {len(karar['yabanci_dusenler'])} (sahipli {len(sahipli)}, sahipsiz {len(sahipsiz)})")
+        if sahipli:
+            parcalar.append("sahipli: " + _kisa(sahipli))
+    karar["ozet"] = "; ".join(parcalar)
+    return karar
 
 
 def cmd_kart_test_kilit_ac(a):

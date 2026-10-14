@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 
 TEST_ZAMAN_ASIMI = 900.0
-FAILED_RE = re.compile(r"^(?:FAILED|ERROR)\s+(\S+)", re.M)
+FAILED_RE = L.PYTEST_DUSEN_RE  # ortak ayrıştırıcı (ork_lib); geriye uyum için ad korunur
 
 TUR_SATIR_SONU, TUR_BOM, TUR_KAPSAM, TUR_TEST, TUR_TOKEN = "satir-sonu", "bom", "kapsam", "yeni-test-hatasi", "eksik-token"
 
@@ -78,7 +78,7 @@ def yol_alanda_mi(proje: str, yol: str, desenler: list[str]) -> bool:
 
 def test_kos(komut: str, cwd: str) -> dict:
     kod, cikti, _ = L.kabuk_kos(komut, cwd, TEST_ZAMAN_ASIMI)
-    return {"cikis": kod, "basarisiz": sorted(set(FAILED_RE.findall(cikti)))}
+    return {"cikis": kod, "basarisiz": L.pytest_dusenler(cikti)}
 
 
 # ---------------------------------------------------------------- token karşılaştırması

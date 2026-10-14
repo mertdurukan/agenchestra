@@ -955,6 +955,168 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
     return kod, metin, round(time.monotonic() - bas, 2)
 
 
+# ---------------------------------------------------------------- test çıktısı ayrıştırma (test kapısı + ön kontrol)
+
+# `FAILED/ERROR <kimlik>` ve subTest düşüşü `SUBFAILED(i=1) <kimlik>` / `SUBFAIL <kimlik>` (parantezli parametre atlanır)
+PYTEST_DUSEN_RE = re.compile(r"^(?:SUBFAILED|SUBFAIL|FAILED|ERROR)(?:\(.*?\)(?=\s))?[ \t]+(\S+)", re.M)
+UNITTEST_DUSEN_RE = re.compile(r"^(?:FAIL|ERROR):\s+(\S+)\s+\(([\w.]+)\)", re.M)
+_PYTEST_OZET_RE = re.compile(r"\b\d+ (?:passed|failed|errors?|skipped|deselected|xfailed|xpassed)\b|\bno tests ran\b")
+_UNITTEST_OZET_RE = re.compile(r"^Ran \d+ tests? in ", re.M)
+# Yalnız satır başına bağlı pytest toplama kalıpları (assert/traceback içindeki aynı metin sayılmaz):
+# `!!! Interrupted: N error during collection !!!`, `___ ERROR collecting <yol> ___`, `ERROR <yol>[ - ...]` (:: yok).
+_TOPLAMA_RE = re.compile(r"^!+ Interrupted: .*during collection|^_+ ERROR collecting |^ERROR (?![^\n]*::)\S+(?: - [^\n]*)?$",
+                         re.M)
+# Son pytest özet satırı (`=== 2 failed, 1 error, 10 passed in 0.20s ===` ya da -q ile çerçevesiz)
+_PYTEST_SONUC_RE = re.compile(r"^=*\s*(\d+ [\w ]+?(?:, \d+ [\w ]+?)*) in [\d.]+s\b", re.M)
+
+
+def pytest_dusenler(cikti: str) -> list[str]:
+    """pytest kısa özetindeki `FAILED/ERROR <kimlik>` satırlarından kimlikler (sıralı, tekil)."""
+    return sorted(set(PYTEST_DUSEN_RE.findall(cikti or "")))
+
+
+def pytest_dusus_satirlari(cikti: str) -> list[str]:
+    """pytest kısa özetindeki test düşüş satırlarının kimlikleri, satır sırasıyla ve TEKİLLEŞTİRİLMEDEN.
+
+    Bir test birden çok satırla düşebilir (subTest döngüsü: aynı kimlikte N `SUBFAILED(...)`; `FAILED` + teardown
+    `ERROR`); pytest özetindeki failed + error sayısı bu satırlarla birebir tutar. Sayılmaz: toplama hatası satırı
+    (`ERROR <yol>`, kimlikte :: yok; toplama ayrıca reddedilir) ve unittest özeti `FAILED (failures=1)`."""
+    out = []
+    for m in PYTEST_DUSEN_RE.finditer(cikti or ""):
+        kimlik = m.group(1)
+        if kimlik.startswith("(") or (m.group(0).startswith("ERROR") and "::" not in kimlik):
+            continue
+        out.append(kimlik)
+    return out
+
+
+def _unittest_kimligi(ad: str, nokta: str) -> str:
+    """unittest başlığı `test_x (mod.Sinif.test_x)` (3.11+) ya da `test_x (mod.Sinif)` → `mod.Sinif.test_x`."""
+    return nokta if nokta.rsplit(".", 1)[-1] == ad else f"{nokta}.{ad}"
+
+
+def test_ciktisi_ayristir(cikti: str, cikis: int) -> dict:
+    """Test komutu çıktısı → {"ayristirildi", "bicim", "dusenler": [kimlik], "toplama_hatasi", "toplama_nedeni"}.
+
+    pytest: `FAILED/ERROR <yol::...>`, subTest `SUBFAILED(...) <yol::...>`; unittest: `FAIL:/ERROR: test
+    (mod.Sinif[.test])` → `mod.Sinif.test`. Toplama/kullanım hatası: satır başında `Interrupted: ... during
+    collection`, `ERROR collecting`, `ERROR <yol>` (:: yok) ya da ayrıştırılan çıktıda çıkış kodu 0/1 dışı (pytest ≥2,
+    unittest 5, zaman aşımı -1). `ozet_dusen`: son pytest özet satırındaki failed + error toplamı (yoksa None).
+    `dusus_satiri`: ayrıştırılan düşüş SATIRI sayısı, tekilleştirilmemiş (pytest_dusus_satirlari + unittest
+    `FAIL:/ERROR:` satırları); gizli düşüş kıyası `ozet_dusen` ile bununla yapılır, tekil kimlik sayısıyla değil.
+    Çıktı pytest/unittest değilse ayristirildi False."""
+    metin = cikti or ""
+    pyt = [x for x in pytest_dusenler(metin) if not x.startswith("(")]  # unittest özeti `FAILED (failures=1)` kimlik değil
+    ut_satir = [_unittest_kimligi(ad, nokta) for ad, nokta in UNITTEST_DUSEN_RE.findall(metin)]
+    ut = set(ut_satir)
+    toplama = bool(_TOPLAMA_RE.search(metin))
+    pytest_mi = bool(pyt or toplama or _PYTEST_OZET_RE.search(metin))
+    unittest_mi = bool(ut or _UNITTEST_OZET_RE.search(metin))
+    ayristirildi = pytest_mi or unittest_mi
+    neden = None
+    if toplama:
+        neden = "toplama hatası (testler toplanamadı)"
+    elif ayristirildi and cikis not in (0, 1):
+        neden = "zaman aşımı" if cikis == -1 else f"toplama/kullanım hatası (çıkış {cikis})"
+    ozet_dusen = None
+    sonuclar = _PYTEST_SONUC_RE.findall(metin)
+    if sonuclar:
+        sayilar = dict((ad.strip(), int(n)) for n, ad in re.findall(r"(\d+) ([\w ]+?)(?:,|$)", sonuclar[-1]))
+        ozet_dusen = sayilar.get("failed", 0) + sayilar.get("error", 0) + sayilar.get("errors", 0)
+    return {"ayristirildi": ayristirildi, "bicim": "pytest" if pytest_mi else ("unittest" if unittest_mi else None),
+            "dusenler": sorted(set(pyt) | ut), "toplama_hatasi": neden is not None, "toplama_nedeni": neden,
+            "ozet_dusen": ozet_dusen, "dusus_satiri": len(pytest_dusus_satirlari(metin)) + len(ut_satir)}
+
+
+def test_kimligi_dosyalari(kimlik: str) -> list[str]:
+    """Test kimliğinden olası dosya yolları ('/' ayraçlı), en olası önce.
+
+    pytest `yol/test_a.py::Sinif::test` → [yol/test_a.py]; unittest `paket.test_a.Sinif.test` →
+    [paket/test_a.py, paket/test_a/Sinif.py, paket.py] (sınıf+yöntem atılmış hâli önce)."""
+    k = (kimlik or "").strip()
+    if "::" in k or "/" in k or "\\" in k or k.endswith(".py"):
+        yol = k.split("::", 1)[0].replace("\\", "/")
+        while yol.startswith("./"):
+            yol = yol[2:]
+        return [yol] if yol else []
+    parca = [p for p in k.split(".") if p]
+    out = []
+    for atilan in (2, 1, 3):
+        if len(parca) > atilan:
+            aday = "/".join(parca[:len(parca) - atilan]) + ".py"
+            if aday not in out:
+                out.append(aday)
+    return out
+
+
+def _alan_eslesir(rel: str, desenler: list[str]) -> bool:
+    """Göreli yol ('/') test_alani desenlerinden birine uyuyor mu (glob; `**` ve klasör öneki dahil)."""
+    r = _kiyas(rel)
+    for d in desenler or []:
+        t = (d or "").replace("\\", "/").strip()
+        while t.startswith("./"):
+            t = t[2:]
+        t = _kiyas(t) if t else ""
+        if t and (r == t or fnmatch.fnmatchcase(r, t) or r.startswith(t + "/") or fnmatch.fnmatchcase(r, t + "/**")):
+            return True
+    return False
+
+
+def test_alaninda_mi(kimlik: str, kok: str, desenler: list[str], kosu_koku: str | None = None) -> bool:
+    """Test kimliğinin dosyası, `kok`'e göreli test_alani desenlerinden birine uyuyor mu.
+
+    Kimlikteki göreli yol koşunun çalıştığı köke (`kosu_koku`, verilmezse `kok`) göredir: o yol `kok` altındaysa
+    `kok`'e göre göreliye çevrilip, değilse (ör. başka kartın ağacında koşu) göreli hâliyle denenir."""
+    kosu = os.path.abspath(kosu_koku or kok)
+    for aday in test_kimligi_dosyalari(kimlik):
+        tam = aday if os.path.isabs(aday) else os.path.join(kosu, aday)
+        rel = aday
+        if yol_altinda(tam, kok):
+            try:
+                rel = os.path.relpath(os.path.abspath(tam), os.path.abspath(kok)).replace("\\", "/")
+            except ValueError:
+                pass
+        if _alan_eslesir(rel, desenler):
+            return True
+    if _unittest_kimligi_mi(kimlik):
+        # unittest modül adı test klasörüne göreli olabilir (`unittest discover -s tests` → `test_x.T.test`):
+        # test_alani'ndaki gerçek dosyalardan biri adayla bitiyorsa o dosyadır.
+        adaylar = ["/" + _kiyas(a) for a in test_kimligi_dosyalari(kimlik)]
+        for d in test_alani_dosyalari(kok, desenler):
+            dd = "/" + _kiyas(d)
+            if any(dd.endswith(a) for a in adaylar):
+                return True
+    return False
+
+
+def _unittest_kimligi_mi(kimlik: str) -> bool:
+    k = (kimlik or "").strip()
+    return bool(k) and not ("::" in k or "/" in k or "\\" in k or k.endswith(".py"))
+
+
+def test_alani_dosyalari(kok: str, desenler: list[str]) -> list[str]:
+    """test_alani desenlerine (köke göre glob, `**` özyinelemeli) uyan kök içi dosyalar → göreli yollar ('/').
+    Özet hesaplamaz (test_dosyasi_ozetleri'nin hafif eşi); __pycache__ ve .pyc hariç."""
+    kok = os.path.abspath(kok)
+    out = []
+    for d in desenler or []:
+        d = (d or "").replace("\\", "/").strip()
+        if not d:
+            continue
+        for tam in glob.glob(os.path.join(kok, d), recursive=True):
+            if not os.path.isfile(tam):
+                continue
+            try:
+                rel = os.path.relpath(os.path.abspath(tam), kok).replace("\\", "/")
+            except ValueError:
+                continue
+            if rel == ".." or rel.startswith("../") or "__pycache__" in rel.split("/") or rel.endswith(".pyc"):
+                continue
+            if rel not in out:
+                out.append(rel)
+    return out
+
+
 # ---------------------------------------------------------------- ortak defter
 
 def defter_blogu(kayit: dict) -> str:
