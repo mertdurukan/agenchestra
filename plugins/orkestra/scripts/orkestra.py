@@ -1314,6 +1314,14 @@ def cmd_gunluk_ozet(a):
 
 # ---------------------------------------------------------------- arayüz özeti
 
+def cmd_kpi(a):
+    """Hazır 8 KPI, salt okuma (kpi.py)."""
+    sd = sd_gerekli()
+    import kpi
+    s = kpi.olcum(sd, a.gun)
+    print(json.dumps(s, ensure_ascii=False, indent=2) if a.json else kpi.tablo(s))
+
+
 def cmd_ui_ozet(a):
     """Arayüz anlık görüntüsü (ozet.json ile aynı içerik); --yaz ile dosyayı da günceller."""
     sd = L.durum_dizini()
@@ -2125,6 +2133,11 @@ def main():
     ib_.add_argument("--geriye", action="store_true", help="mevcut kartları geriye dönük bağla")
     ib_.add_argument("--uygula", action="store_true", help="değişiklikleri yaz")
     ib_.set_defaults(f=cmd_is_bagla)
+
+    kp = alt.add_parser("kpi", help="8 KPI salt okuma ölçümü")
+    kp.add_argument("--json", action="store_true", help="makine çıktısı")
+    kp.add_argument("--gun", type=float, default=None, help="son N gün")
+    kp.set_defaults(f=cmd_kpi)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
     go = gu.add_parser("ozet")
