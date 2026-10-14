@@ -142,8 +142,21 @@ def sona_ekle(yol: str, metin: str) -> None:
             f.write(metin)
 
 
+# Kalıcı kayıtların (jsonl satırı, kart dosyası) biçim sürümü. Yeni kayıt "v" alanıyla yazılır; "v"si olmayan kayıt
+# sürüm 0 (eski biçim) sayılır ve olduğu gibi okunur. Biçim değişirse bu sayı artar, eski kayıtlar dönüştürülmez.
+KAYIT_SURUMU = 1
+
+
+def kayit_surumu(kayit) -> int:
+    """Kaydın biçim sürümü; alan yoksa ya da bozuksa 0 (eski biçim)."""
+    try:
+        return int(kayit.get("v", 0))
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
 def jsonl_ekle(yol: str, kayit: dict) -> None:
-    sona_ekle(yol, json.dumps(kayit, ensure_ascii=False) + "\n")
+    sona_ekle(yol, json.dumps({"v": KAYIT_SURUMU, **kayit}, ensure_ascii=False) + "\n")
 
 
 def jsonl_oku(yol: str) -> list[dict]:
@@ -370,6 +383,7 @@ def kart_oku(sd: str, gid: str) -> dict | None:
 
 def kart_yaz(sd: str, kart: dict) -> None:
     kart["guncelleme"] = simdi()
+    kart.setdefault("v", KAYIT_SURUMU)
     atomik_yaz(kart_yolu(sd, kart["id"]), json.dumps(kart, ensure_ascii=False, indent=2) + "\n")
 
 
@@ -1166,7 +1180,7 @@ def defter_ekle(sd: str, kayit: dict) -> None:
                         "İhtiyacın olanı `orkestra defter baglam <görev>` ile oku; tamamını okuma.\n\n")
             f.write(defter_blogu(kayit))
         with open(os.path.join(sd, "ortak_defter.jsonl"), "a", encoding="utf-8", newline="\n") as f:
-            f.write(json.dumps(kayit, ensure_ascii=False) + "\n")
+            f.write(json.dumps({"v": KAYIT_SURUMU, **kayit}, ensure_ascii=False) + "\n")
 
 
 def defter_kayitlari(sd: str) -> list[dict]:
