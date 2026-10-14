@@ -237,6 +237,30 @@ async function kapi(k, asama) {
   return r
 }
 
+// CLI/yapılandırma hatası (çıkış 2 ya da metin): yeniden deneme/yükseltme anlamsız, kart düzeltilmeli. Çıkış 4 = gerçek test başarısızlığı.
+const CLI_HATA_KALIPLARI = ['hiçbir proje dosyasına uymuyor', 'kilit yok', 'test_komutu/test_alani yok', 'kapsamıyor']
+function kapiCliHatasi(r) {
+  if (!r || r.gecti || r.cikis_kodu === 4) return false
+  if (r.cikis_kodu === 2) return true
+  // Kuyrukta yalnız CLI'ın kendi 'orkestra:' önekli satırları sayılır (pytest çıktısındaki kalıp kelimeleri değil).
+  const cliSatirlari = String(r.cikti_kuyrugu || '').split(/\r?\n/).filter(l => l.trim().startsWith('orkestra:'))
+  const metin = [r.ozet || '', ...cliSatirlari].join('\n')
+  return CLI_HATA_KALIPLARI.some(p => metin.includes(p))
+}
+function cliHatasiSonucu(k, basamak, gecmis, r, asama) {
+  gecmis.push({ basamak, surec: 'test-kapisi', asama, karar: 'cli-hatasi' })
+  log(`${k.id}: ${asama} kapı CLI/yapılandırma hatası → kart düzeltilmeli`)
+  const satir = [r.ozet || '-', r.cikti_kuyrugu ? `Çıktı kuyruğu:
+${r.cikti_kuyrugu}` : ''].filter(Boolean)
+  return {
+    id: k.id, durum: 'kart-duzeltilmeli', neden: 'kapi-cli-hatasi', basamak, gecmis,
+    son_ret: {
+      duzeltme_talimati: `Test kapısı CLI/yapılandırma hatası verdi (çıkış ${r.cikis_kodu}); kartın test_komutu/test_alani/kilit ayarı ana ajanca düzeltilmeli.`,
+      bulgular: satir,
+    },
+  }
+}
+
 // T0 ön kontrol: kapı ajanıyla on_kontrol.py çalıştırır. null → ajan sonuç döndürmedi (kapı atlanır, ret değil).
 async function onKontrol(k, alt, ciktilar) {
   const komut = `python "${PLUGIN_KOKU}/scripts/on_kontrol.py" ${alt} ${k.id}` +
@@ -263,6 +287,7 @@ async function testOnce(k, basamak, gecmis) {
     const r = await kapi(k, 'kirmizi')
     gecmis.push({ basamak, surec: 'test-kapisi', asama: 'kirmizi', karar: r.gecti ? 'gecti' : 'gecmedi' })
     if (r.gecti) return null
+    if (kapiCliHatasi(r)) return cliHatasiSonucu(k, basamak, gecmis, r, 'kirmizi')
     geriBildirim = r
     log(`${k.id}: kırmızı teyit geçmedi (${deneme + 1}. deneme)`)
   }
@@ -301,6 +326,7 @@ async function yurut(k) {
 
     // Kod kartı: yeşil kapı. Geçmezse denetçi ÇAĞRILMAZ; çıktı kuyruğuyla düzeltme turu (ret sayılır).
     const yesil = kod ? await kapi(k, 'yesil') : null
+    if (yesil && kapiCliHatasi(yesil)) return cliHatasiSonucu(k, basamak, gecmis, yesil, 'yesil')
     // T0 ön kontrol: işçiden sonra, LLM denetçiden önce. Başarısız kapı ajanı ret sayılmaz (kapı atlanır).
     const onk = yesil && !yesil.gecti ? null : await onKontrol(k, 'kontrol', is.ciktilar)
     if (yesil && !yesil.gecti) {
