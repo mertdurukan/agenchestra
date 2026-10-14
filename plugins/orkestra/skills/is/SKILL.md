@@ -15,8 +15,22 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 - Yeni iş mi, devam mı: `orkestra is aktif` ile bağlı işi gör; yoksa `orkestra is liste` ile açık işlere bak. İstek açık bir işin devamıysa `orkestra is devam <id>`, değilse görev klasörüyle `orkestra is ac <başlık> --klasor <görev klasörü>`. Belirsizse kullanıcıya tek soru sor.
 - İstek belirsizse, işi değiştirecek tek bir soru sor. Değiştirmeyecek ayrıntılar için makul varsayım yap ve planda yaz.
 
-## 1. Planla (sen, Opus 5.5 medium)
-- İsteği alt işlere böl. Büyük ya da dağınık isteklerde önce ucuz ön sınıflama al: Agent aracı ile `orkestra:triyaj` (Haiku). Kararı yine sen verirsin.
+## 1. Planla (sen yönlendirirsin; planı yola göre sen ya da plan kartı çıkarır)
+### Plan yolu seçimi
+- Eşikleri önce `.claude/orkestra/plan_yolu.json` (proje ezmesi), yoksa skill klasöründeki `plan_yolu.json` dosyasından oku.
+- **Yol 1 `dogrudan`:** tahmini kart ≤ `dogrudan_max_kart` VE okunacak dosya ≤ `dogrudan_max_okunacak_dosya`, istek net → kartları sen doğrudan yazarsın; triyaj çağrılmaz.
+- **Yol 2 `triyaj`:** ikisinin arası ya da istek belirsiz → Agent aracı ile `orkestra:triyaj` (istem `#SUREC:triyaj` ile başlar) JSON döner; kartları yine sen yazarsın. Triyaj `plan_yolu: devir` derse Yol 3'e geç.
+- **Yol 3 `devir`:** tahmini kart ≥ `devir_min_kart` YA DA okunacak dosya ≥ `devir_min_okunacak_dosya`:
+  1. Keşif `orkestra:arastirmaci` ile yapılır (istem `#SUREC:arastirma`); yalnız özet + dosya:satır döner, dosyaları kendin açmazsın.
+  2. Bir PLAN KARTI aç: basamak T3, girdi = istek + kullanıcı kararları + araştırmacı özeti, `yazma_alani` = scratchpad'deki tek plan JSON dosyası.
+  3. Plan kartı normal akışla yürür: işçi T3 (istem `#GOREV:<id> #SUREC:plan`) + AYRI denetçi (opus).
+  4. Onaylanınca yalnız plan JSON'unu oku, `orkestra kart toplu --json-dosya <plan.json>` ile kartları aç, sonra §2'ye geç.
+  - Plan kartı kabul kriterleri: JSON `orkestra kart toplu` biçiminde; her kartın ölçülebilir kriteri var; paralel kartların yazma alanları kesişmiyor; kod kartında `sinif`/`test_komutu`/`test_alani` dolu; basamaklar "kuşkuda düşük" kuralına uygun.
+- Seçilen yol ve gerekçe, kullanıcıya gösterilen 3-8 satırlık plan özetinin ilk satırına yazılır (ör. `Plan yolu: devir — ~8 kart, 14 dosya`).
+- Gerekçe: devir soğuk başlangıç maliyeti taşır, bu yüzden küçük işte sen planlarsın; plan ucuz modele indirilmez (plan hatası ret/yükseltmeyle katlanır).
+
+### Kartların çıkarılması
+- İsteği alt işlere böl. Büyük ya da dağınık isteklerde ön sınıflama için Yol 2'ye (`orkestra:triyaj`, Haiku) bak. Kararı yine sen verirsin.
 - Önce projedeki skill'lere bak. Bir alt iş için uygun skill varsa işçiye "şu skill'i kullan" diye yaz.
 - Her alt iş için şunları belirle:
   - `baslik`
