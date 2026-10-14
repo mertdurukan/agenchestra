@@ -90,6 +90,77 @@ def yoldan(esleme: dict | None, proje: str | None, yol: str | None) -> str:
         return ""
 
 
+_GLOB = re.compile(r"[*?\[]")
+GOREV_DESENI = r"^\d{3}-"
+
+
+def klasor_coz(esleme: dict | None, proje: str | None, yol: str | None):
+    """Yazma alanı girdisini iş klasörüne çözer → (kök, görev) mutlak yollar ya da None.
+
+    kök: proje[/süreç] klasörü; görev: kök altındaki görev klasörü (gorev_deseni) ya da None.
+    Glob parçası ve sonrası atılır (öncesi klasördür). Mutlak yolda önce dis_kokler eşlemesi
+    (eşlenen bağlam proje köküne göre kök olur), sonra proje kökü denenir. Çözülmezse None; asla hata vermez.
+    """
+    if not esleme or not yol or not proje:
+        return None
+    try:
+        proje_d = posixpath.normpath(_duz(os.path.abspath(proje)))
+        ham = _duz(str(yol)).strip()
+        temiz, glob_var = [], False
+        for x in ham.split("/"):
+            if _GLOB.search(x):
+                glob_var = True
+                break
+            temiz.append(x)
+        if not "".join(temiz):
+            return None
+        y = posixpath.normpath("/".join(temiz))
+        if _mutlak_mi(y):
+            eslesen = None
+            for kok, deger in (esleme.get("dis_kokler") or {}).items():
+                kd = posixpath.normpath(_duz(kok))
+                if _alt_yol(kd, y) is not None and (eslesen is None or len(kd) > len(eslesen[0])):
+                    eslesen = (kd, str(deger))
+            if eslesen:
+                parca = [p for p in _duz(eslesen[1]).split("/") if p and p not in (".", "..")]
+                if not parca:
+                    return None
+                return os.path.normpath(os.path.join(proje_d, *parca)), None
+            rel = _alt_yol(proje_d, y)
+            if rel is None:
+                return None
+        else:
+            rel = y
+        parcalar = [p for p in rel.split("/") if p and p != "."]
+        if not parcalar or parcalar[0] == "..":
+            return None
+        son_klasor = (glob_var or ham.endswith("/") or "." not in parcalar[-1]
+                      or os.path.isdir(os.path.join(proje_d, *parcalar)))
+        dizinler = parcalar if son_klasor else parcalar[:-1]
+        if not dizinler:
+            return None
+        projeler = {str(p).casefold(): str(p) for p in esleme.get("projeler") or []}
+        ad = projeler.get(dizinler[0].casefold())
+        if not ad:
+            return None
+        kok = [ad]
+        i = 1
+        if len(dizinler) > 1:
+            haric = {str(h).casefold() for h in esleme.get("haric") or []}
+            if dizinler[1].casefold() in haric:
+                return os.path.normpath(os.path.join(proje_d, ad)), None
+            if _desen_uyar(esleme.get("surec_deseni"), dizinler[1]):
+                kok.append(dizinler[1])
+                i = 2
+        kok_yol = os.path.normpath(os.path.join(proje_d, *kok))
+        gorev = None
+        if len(dizinler) > i and _desen_uyar(esleme.get("gorev_deseni") or GOREV_DESENI, dizinler[i]):
+            gorev = os.path.join(kok_yol, dizinler[i])
+        return kok_yol, gorev
+    except Exception:
+        return None
+
+
 def coz(esleme: dict | None, proje: str | None, yazilan: list, okunan: list) -> str:
     if not esleme:
         return ""

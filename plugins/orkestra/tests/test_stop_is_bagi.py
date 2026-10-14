@@ -302,6 +302,18 @@ class IsYanDosyasi(unittest.TestCase):
             self.assertEqual(json.load(f)["is"], "I-002")
         self.assertIn("I-002", self.cli("is", "aktif").stdout)  # eski yan dosya yeni bağı gölgelememeli
 
+    def test_kartla_otomatik_acilan_is_bagi_stop_hook_sonrasi_kalir(self):
+        g = self.kart()  # önceden iş yok: kart oluşturma işi kendisi açıp oturuma bağlar
+        with open(os.path.join(self.sd, "gorevler", f"{g}.json"), encoding="utf-8") as f:
+            i = json.load(f)["is"]
+        self.assertTrue(i)
+        self.assertIn(i, self.cli("is", "aktif").stdout)
+        self.stop_calistir()
+        with open(self.ana_yol(), encoding="utf-8") as f:
+            self.assertEqual(json.load(f).get("is"), i)
+        self.assertFalse(os.path.exists(self.yan_yol()))
+        self.assertIn(i, self.cli("is", "aktif").stdout)
+
     def test_hic_bag_yoksa_aktif_bos(self):
         self.assertIn("bağlı iş yok", self.cli("is", "aktif").stdout)
         self.assertFalse(os.path.exists(self.yan_yol()))
