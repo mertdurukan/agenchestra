@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="ortak.css">
 <style>
   /* Şimdi sayfasına özgü küçük ekler; ortak bileşenler ortak.css'te. */
-  .dikkat-alani { display: grid; gap: var(--a-8); }
 
   /* sohbet kartları */
   .sohbet-liste { display: grid; gap: var(--a-12); grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); }
@@ -56,11 +55,6 @@
 <body>
 <header id="kabuk"></header>
 <main>
-  <section class="dikkat-alani" id="dikkat" aria-labelledby="dikkatBaslik">
-    <h2 id="dikkatBaslik" class="gorunmez">Dikkat</h2>
-    <div id="dikkatIcerik"><p class="bos">Yükleniyor…</p></div>
-  </section>
-
   <section class="bolum" id="sohbetler" aria-labelledby="sohbetBaslik">
     <h2 id="sohbetBaslik">Sohbetler <span class="meta" id="sohbetSayi"></span><span id="sohbetBayat"></span></h2>
     <p class="aciklama">Bütün çalışma alanlarındaki sohbetler; seni bekleyenler önce. Bir karta tıklayınca o sohbet Claude uygulamasında açılır.</p>
@@ -113,7 +107,6 @@
   // simdi.json alanlarına korumalı erişim: biçim bozuksa boş liste
   const oturumlar = () => (S.simdi && Array.isArray(S.simdi.oturumlar)) ? S.simdi.oturumlar : [];
   const akis = () => (S.simdi && Array.isArray(S.simdi.akis)) ? S.simdi.akis : [];
-  const sayac = () => (S.simdi && S.simdi.sayac && typeof S.simdi.sayac === 'object') ? S.simdi.sayac : {};
 
   // oturum id → sohbet adı (simdi.json önce, sonra ozet.json sohbetleri)
   function sohbetAdi(oturum) {
@@ -131,60 +124,6 @@
   };
   // defter satırları: olay=true olanlar kart işaretidir (alan yoksa hepsi olaydır değil, düz satırdır)
   const defter = () => (S.ozet && Array.isArray(S.ozet.defter)) ? S.ozet.defter : [];
-  // asılı ajanlar: alan yoksa ya da biçimi bozuksa boş liste; yalnız nesne öğeler
-  const asiliAjanlar = () => (S.ozet && Array.isArray(S.ozet.asili_ajanlar)) ? S.ozet.asili_ajanlar.filter(a => a && typeof a === 'object') : [];
-
-  // ------------------------------------------------------------ 1. Dikkat şeridi
-  function dikkatCiz() {
-    const islerYol = '/isler' + (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');   // sekme bağlantılarındaki alan sorgusuyla aynı
-    const ks = kartlar();
-    const red = ks.filter(k => k.durum === 'reddedildi');
-    const onay = ks.filter(k => k.durum === 'onaylandi');
-    const sen = oturumlar().filter(r => r.bekleyen === 'sen');
-    const perspektif = !!(S.ozet && S.ozet.perspektif && S.ozet.perspektif.rapor);
-    const adlar = (liste, al) => liste.slice(0, 3).map(al).join(' · ') + (liste.length > 3 ? ` · +${liste.length - 3}` : '');
-    const ogeler = [];
-    if (red.length) ogeler.push(`<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
-      <span class="metin"><b>${red.length} kart reddedildi</b><span class="meta">${esc(adlar(red, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
-      <span class="eylem"><a href="${islerYol}">İşlere git</a></span></div>`);
-    if (sen.length) ogeler.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">?</span>
-      <span class="metin"><b>${sen.length === 1 ? 'Bir sohbet seni bekliyor' : sen.length + ' sohbet seni bekliyor'}</b><span class="meta">${esc(adlar(sen, r => r.proje + ' › ' + r.sohbet))}</span></span>
-      <span class="eylem">${sen.length === 1 ? `<button type="button" data-oturum="${esc(sen[0].oturum)}">Sohbeti aç</button>` : ''}<button type="button" data-filtre="sen">Göster</button></span></div>`);
-    if (onay.length) ogeler.push(`<div class="dikkat" style="--renk:var(--good)"><span class="simge" aria-hidden="true">✓</span>
-      <span class="metin"><b>${onay.length} kart onaylandı, teslim bekliyor</b><span class="meta">${esc(adlar(onay, k => k.id + ' ' + kisalt(k.baslik, 60)))}</span></span>
-      <span class="eylem"><a href="${islerYol}">İşlere git</a></span></div>`);
-    if (perspektif) ogeler.push(`<div class="dikkat" style="--renk:var(--s7)"><span class="simge" aria-hidden="true">☾</span>
-      <span class="metin"><b>Perspektif raporu hazır</b><span class="meta">Claude içinde <code>/orkestra:perspektif</code> ile oku.</span></span></div>`);
-    // Asılı ajanlar (ozet.json asili_ajanlar): başlamış ama uzun süredir bitmeyen ajan başına bir satır; boşsa hiçbir şey çizilmez.
-    asiliAjanlar().forEach(a => {
-      const dk = Math.round(Number(a.dakika));
-      const sure = Number.isFinite(dk) ? dk : '?';
-      const gorev = a.gorev && a.gorev !== '-' ? ` · ${a.gorev}` : '';
-      ogeler.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">⏱</span>
-      <span class="metin"><b>${esc(sure)} dk'dır bitmeyen ajan</b><span class="meta">${esc(String(a.ajan || 'ajan') + gorev)}</span></span></div>`);
-    });
-    // Kaynak hatası şeridi: yalnız hiç veri gelmemişken ya da hata uzun sürünce (≥ 3 yoklama / ≥ 10 sn).
-    // Kısa kopukluğu yalnız canlı göstergesi ve bölüm başlığındaki işaret anlatır. Şerit mevcutların ÜSTÜNE eklenir.
-    const uyarilar = [];
-    const sure = k => k.sonBasari ? `son başarılı yenileme ${B.saat(k.sonBasari)}` : 'henüz hiç veri alınamadı';
-    if (KO && KO.uzunHata) uyarilar.push(`<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
-      <span class="metin"><b>Görev verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(KO.hamHata || KO.hata))}">${esc(sure(KO))} · ${metin(kisalt(KO.hata, 120))} · yeniden deneniyor</span></span></div>`);
-    if (KS && KS.uzunHata) uyarilar.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">!</span>
-      <span class="metin"><b>Sohbet verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(KS.hamHata || KS.hata))}">${esc(sure(KS))} · ${metin(kisalt(KS.hata, 120))} · yeniden deneniyor</span></span></div>`);
-    // Bir kaynaktan henüz hiç veri yoksa ve hata şeridi de yoksa (ilk yükleme ya da alan değişimi) "Yükleniyor…" eklenir:
-    // eski alanın şeritleri DOM'da kalmaz, yanlış sakin satır da çıkmaz.
-    const yukleniyor = (!S.ozet && !(KO && KO.uzunHata)) || (!S.simdi && !(KS && KS.uzunHata));
-    if (!ogeler.length && !uyarilar.length && !yukleniyor) {
-      // sakin satır yalnız iki kaynaktan da (son) iyi veri varken
-      const son = ks.filter(k => k.durum === 'teslim').sort((a, b) => zamanMs(b.guncelleme) - zamanMs(a.guncelleme))[0];
-      const calisan = sayac().claude || 0;
-      const ek = [calisan ? `${calisan} sohbette Claude çalışıyor` : '', son ? `son teslim ${B.saat(son.guncelleme)} · ${son.id}` : ''].filter(Boolean).join(' · ');
-      ogeler.push(`<div class="dikkat sakin"><span class="simge" aria-hidden="true">✓</span>
-        <span class="metin">Senden beklenen bir şey yok${ek ? `<span class="meta">${esc(ek)}</span>` : ''}</span></div>`);
-    }
-    yerlestir($('#dikkatIcerik'), uyarilar.concat(ogeler).join('') + (yukleniyor ? '<p class="bos">Yükleniyor…</p>' : ''));
-  }
-
   // Bölüm başlıklarındaki bayatlık işaretleri (gövdeye dokunmaz)
   function bayatCiz() {
     yerlestir($('#sohbetBayat'), O.bayatIsaret(KS));
@@ -310,7 +249,7 @@
     bolumler.forEach(f => { try { f(); } catch (e) { console.error('Şimdi:', f.name, e); ilk = ilk || e; } });
     if (ilk) throw ilk;
   }
-  const hepsi = () => ciz(dikkatCiz, sohbetCiz, olayCiz, bayatCiz);
+  const hepsi = () => ciz(sohbetCiz, olayCiz, bayatCiz);
 
   // ------------------------------------------------------------ etkileşim
   async function sohbetAc(oturum) {
@@ -346,15 +285,14 @@
       O.bildirim(r.tamam ? (r.yol === 'cli' ? 'Sohbet Claude uygulamasında sürdürülüyor' : `Açıldı: ${r.baslik || 'sohbet'}`) : 'Açılamadı: ' + O.yolGizle(O.hataMetni(r.hata || 'bilinmeyen hata')));
     } catch (e) { O.bildirim('Sunucuya ulaşılamadı'); }
   }
-  function filtreSec(v, kaydir) {
+  function filtreSec(v) {
     S.filtre = v; O.depo.koy('orkestra.simdi.filtre', v === 'hepsi' ? '' : v);
     sohbetCiz();
-    if (kaydir) $('#sohbetler').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
   const ana = $('main');
   ana.addEventListener('click', e => {
     const f = e.target.closest('[data-filtre]');
-    if (f) return filtreSec(f.dataset.filtre, f.closest('#dikkat') != null);
+    if (f) return filtreSec(f.dataset.filtre);
     if (e.target.closest('#eskiDugme')) { S.eskilerAcik = !S.eskilerAcik; return sohbetCiz(); }
     const el = e.target.closest('[data-oturum]');
     if (el) sohbetAc(el.dataset.oturum);
@@ -367,27 +305,27 @@
 
   // ------------------------------------------------------------ veri
   O.kabuk({ sayfa: 'simdi' });
-  // Yeni veri → ilgili bölümler çizilir. Durum değişimi (hata/toparlanma) → yalnız şerit ve başlık işaretleri;
+  // Yeni veri → ilgili bölümler çizilir. Durum değişimi (hata/toparlanma) → yalnız başlık işaretleri;
   // son iyi veri yokken ilgili bölüm tam hata satırına geçer. Kısa kopuklukta gövde DOM'u değişmez.
   KS = O.veri('/simdi.json', {
     ad: 'Sohbet verisi', aralik: 5000, alanaBagli: false,
     gecerli: v => Array.isArray(v.oturumlar),
     cizici: v => { S.simdi = v; hepsi(); },
-    durum: () => ciz(dikkatCiz, bayatCiz, ...(S.simdi ? [] : [sohbetCiz, olayCiz])),
+    durum: () => ciz(bayatCiz, ...(S.simdi ? [] : [sohbetCiz, olayCiz])),
   });
   // maliyet tutarları bu sayfada kullanılmaz: imzaya girmez, her kuruş artışında yeniden çizilmez.
   // sohbetler (ad yedeği) imzada kalır ki ad bayatlamasın; DOM'u yerlestir() yalnız HTML değişince kurar.
   KO = O.veri(() => '/ozet.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'Görev verisi', aralik: 3000, yoksay: ['uretim', 'maliyet'],
-    cizici: v => { S.ozet = v; ciz(dikkatCiz, olayCiz, bayatCiz); },
-    durum: () => ciz(dikkatCiz, bayatCiz, ...(S.ozet ? [] : [olayCiz])),
+    cizici: v => { S.ozet = v; ciz(olayCiz, bayatCiz); },
+    durum: () => ciz(bayatCiz, ...(S.ozet ? [] : [olayCiz])),
   });
   // Alan değişince eski alanın kartları "son iyi veri" değildir. KO'nun dinleyicisi (yukarıda kayıtlı, önce çalışır)
-  // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları, sayacı, ret/onay/perspektif şeritleri ve
-  // defter satırları kaldırılır: Dikkat "Yükleniyor…", olaylarda yalnız sohbet akışı kalır.
+  // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları ve
+  // defter satırları kaldırılır: olaylarda yalnız sohbet akışı kalır.
   window.addEventListener('orkestra:alan', () => {
     S.ozet = null;
-    try { ciz(dikkatCiz, olayCiz, bayatCiz); } catch (e) { /* ciz hatayı konsola yazdı; veri gelince yeniden çizilir */ }
+    try { ciz(olayCiz, bayatCiz); } catch (e) { /* ciz hatayı konsola yazdı; veri gelince yeniden çizilir */ }
   });
 })();
 </script>

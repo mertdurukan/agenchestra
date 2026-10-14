@@ -1,10 +1,10 @@
-"""Şimdi sayfasında asılı ajan satırı (G-006).
+"""Şimdi sayfası: asılı ajan şeridi kaldırıldı (G-053; önceki G-006 şeridi düştü).
 
 Kabul kriterleri:
-  K1  simdi.html asili_ajanlar doluyken ajan başına satır gösterir, boşken hiçbir şey göstermez
-      (node ile sahte DOM üzerinde çalıştırılarak doğrulanır).
-  K2  simdi.html asili_ajanlar alanını okuyan kodu içerir; ozet.yaz çıktısında alan vardır.
-  K3  Tarayıcı yerine node: sayfanın satır içi betiği sahte O/DOM ile çalıştırılır, çizilen HTML denetlenir.
+  K1  simdi.html Dikkat şeridini ve asili_ajanlar okuyan kodu içermez; ozet.yaz çıktısında alan
+      başka tüketiciler için durur.
+  K2  Tarayıcı yerine node: sayfanın satır içi betiği sahte O/DOM ile çalıştırılır; asılı ajan
+      verisi gelse de hata olmaz ve "bitmeyen ajan" metni çizilmez.
 """
 import json
 import os
@@ -80,18 +80,11 @@ def temel_ozet(**ek):
 
 
 class SimdiHtmlStatik(unittest.TestCase):
-    def test_html_alani_okuyor(self):
+    def test_serit_ve_alan_okuma_yok(self):
         with open(SIMDI, encoding="utf-8") as f:
             h = f.read()
-        self.assertIn("asili_ajanlar", h)
-        # alan bir koşul/okuma içinde kullanılmalı (yalnız yorum değil)
-        kodsuz = re.sub(r"/\*[\s\S]*?\*/|<!--[\s\S]*?-->|^\s*//.*$", "", h, flags=re.M)
-        self.assertIn("asili_ajanlar", kodsuz)
-
-    def test_html_yorum_disinda_dk_metni(self):
-        with open(SIMDI, encoding="utf-8") as f:
-            h = f.read()
-        self.assertRegex(h, r"bitmeyen")
+        for parca in ("asili_ajanlar", "asiliAjanlar", "dikkatCiz", "dikkat-alani", 'id="dikkat', "bitmeyen"):
+            self.assertNotIn(parca, h)
 
 
 class OzetYazAlan(unittest.TestCase):
@@ -143,41 +136,21 @@ class SimdiNodeCizim(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr[-1500:])
         return json.loads(r.stdout)["cikti"]
 
-    def test_dolu_ajan_basina_satir(self):
+    def test_dolu_ajan_satir_cizilmez(self):
         c = self.calistir(temel_ozet(asili_ajanlar=[
             {"agent_id": "a1", "ajan": "orkestra:isci-zzq", "gorev": "G-777", "surec": "is", "oturum": "o", "dakika": 47},
-            {"agent_id": "a2", "ajan": "orkestra:denetci-yyw", "gorev": "G-888", "surec": "is", "oturum": "o", "dakika": 93},
         ]))
-        for parca in ("orkestra:isci-zzq", "G-777", "47", "orkestra:denetci-yyw", "G-888", "93"):
-            self.assertIn(parca, c)
-        self.assertIn("bitmeyen", c)
-        self.assertIn("dk", c)
-
-    def test_bos_liste_hicbir_sey_gostermez(self):
-        c = self.calistir(temel_ozet(asili_ajanlar=[]))
         self.assertNotIn("bitmeyen", c)
+        self.assertNotIn("orkestra:isci-zzq", c)
 
-    def test_alan_yoksa_gizli_ve_hatasiz(self):
-        c = self.calistir(temel_ozet())
-        self.assertNotIn("bitmeyen", c)
-
-    def test_bozuk_alan_hata_vermez(self):
-        for bozuk in (None, "x", {"a": 1}, 5):
+    def test_bos_alan_ve_bozuk_alan_hata_vermez(self):
+        for bozuk in ([], None, "x", {"a": 1}, 5):
             c = self.calistir(temel_ozet(asili_ajanlar=bozuk))
             self.assertNotIn("bitmeyen", c)
 
-    def test_html_kacislanir(self):
-        c = self.calistir(temel_ozet(asili_ajanlar=[
-            {"agent_id": "a1", "ajan": "<img src=x onerror=1>", "gorev": "<b>G</b>", "surec": "is", "oturum": "o", "dakika": 31}]))
-        self.assertNotIn("<img src=x", c)
-        self.assertNotIn("<b>G</b>", c)
-        self.assertIn("31", c)
-
-    def test_gorevsiz_ajan_cizilir(self):
-        c = self.calistir(temel_ozet(asili_ajanlar=[
-            {"agent_id": "a1", "ajan": "Explore", "gorev": "-", "surec": None, "oturum": None, "dakika": 35}]))
-        self.assertIn("Explore", c)
-        self.assertIn("35", c)
+    def test_alan_yoksa_hatasiz(self):
+        c = self.calistir(temel_ozet())
+        self.assertNotIn("bitmeyen", c)
 
 
 if __name__ == "__main__":
