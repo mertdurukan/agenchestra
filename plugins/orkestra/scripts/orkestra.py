@@ -773,13 +773,20 @@ def cmd_kart_yukselt(a):
     print(f"{a.gid} → {b}")
 
 
-def cmd_kart_teslim(a):
-    sd = sd_gerekli()
-    _, ajan_tipi = _kim(a)
-    if ajan_tipi not in ("ana", "bilinmiyor"):
-        hata("teslimi yalnız ana ajan yapar.", 3)
-    with L.kilit(L.kart_yolu(sd, a.gid)):
-        k = _kart_al(sd, a.gid)
+class _TeslimHatasi(Exception):
+    def __init__(self, mesaj, kod=2):
+        super().__init__(mesaj)
+        self.mesaj, self.kod = mesaj, kod
+
+
+def _teslim_et(sd, gid, ozet) -> list:
+    """Tek kartı teslim eder (`kart teslim` ve `kart teslim-toplu` ortak çekirdeği). Yazdırmaz; birleştirme
+    mesajlarını döndürür. Reddedilirse _TeslimHatasi(mesaj, çıkış_kodu) atar."""
+    notlar = []
+    with L.kilit(L.kart_yolu(sd, gid)):
+        k = L.kart_oku(sd, gid)
+        if not k:
+            raise _TeslimHatasi(f"kart yok: {gid}")
         durum = L.kart_durumu_hesapla(k)
         beklemeden = False
         if durum == "beklemede":
@@ -788,22 +795,69 @@ def cmd_kart_teslim(a):
                 beklemeden = True
                 durum = "onaylandi"
         if durum != "onaylandi":
-            hata(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
+            raise _TeslimHatasi(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
         if beklemeden:
             k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemeden-teslim"})
         if (k.get("calisma_agaci") or {}).get("yol"):
             ok, mesaj = _birlestir(sd, k)
             L.kart_yaz(sd, k)
             if not ok:
-                hata(f"teslim reddedildi: kart çalışma ağacı birleşmedi — {mesaj}", 4)
-            print(mesaj)
+                raise _TeslimHatasi(f"teslim reddedildi: kart çalışma ağacı birleşmedi — {mesaj}", 4)
+            notlar.append(mesaj)
         k["durum"] = "teslim"
-        k["teslim_ozeti"] = L.maskele(a.ozet or "")[:2000]
+        k["teslim_ozeti"] = L.maskele(ozet or "")[:2000]
         k["gecmis"].append({"zaman": L.simdi(), "olay": "teslim"})
         L.kart_yaz(sd, k)
-    L.defter_ekle(sd, {"gorev": a.gid, "surec": "sentez", "ajan": "ana-ajan", "model": "-",
-                       "yaptim": "Onaylı çıktıyı topladım ve teslim ettim.", "sonuc": "TESLİM", "not": a.ozet or ""})
+    L.defter_ekle(sd, {"gorev": gid, "surec": "sentez", "ajan": "ana-ajan", "model": "-",
+                       "yaptim": "Onaylı çıktıyı topladım ve teslim ettim.", "sonuc": "TESLİM", "not": ozet or ""})
+    return notlar
+
+
+def cmd_kart_teslim(a):
+    sd = sd_gerekli()
+    _, ajan_tipi = _kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("teslimi yalnız ana ajan yapar.", 3)
+    try:
+        notlar = _teslim_et(sd, a.gid, a.ozet)
+    except _TeslimHatasi as e:
+        hata(e.mesaj, e.kod)
+    for m in notlar:
+        print(m)
     print(f"{a.gid} → teslim")
+
+
+def cmd_kart_teslim_toplu(a):
+    sd = sd_gerekli()
+    _, ajan_tipi = _kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("teslimi yalnız ana ajan yapar.", 3)
+    try:
+        with open(a.json_dosya, encoding="utf-8") as f:
+            girdiler = json.load(f)
+    except (OSError, ValueError) as e:
+        hata(f"json dosyası okunamadı: {e}")
+    if not isinstance(girdiler, list):
+        hata('json dosyası bir dizi olmalı: [{"id": ..., "ozet": ...}, ...]')
+    sonuc, hatali = [], False
+    for g in girdiler:
+        gid = g.get("id") if isinstance(g, dict) else None
+        if not isinstance(gid, str) or not gid:
+            sonuc.append({"id": gid, "sonuc": "hata", "mesaj": "girdide `id` yok"})
+            hatali = True
+            continue
+        ozet = g.get("ozet")
+        try:
+            notlar = _teslim_et(sd, gid, ozet if isinstance(ozet, str) else None)
+            sonuc.append({"id": gid, "sonuc": "teslim", "mesaj": " ".join(notlar + [f"{gid} → teslim"])})
+        except _TeslimHatasi as e:
+            sonuc.append({"id": gid, "sonuc": "hata", "mesaj": e.mesaj})
+            hatali = True
+        except Exception as e:  # bir kartın beklenmeyen hatası diğerlerini durdurmaz
+            sonuc.append({"id": gid, "sonuc": "hata", "mesaj": f"{type(e).__name__}: {e}"})
+            hatali = True
+    print(json.dumps(sonuc, ensure_ascii=False))
+    sys.exit(4 if hatali else 0)
 
 
 def _girdi_agacsiz(girdi: str) -> str:
@@ -2007,6 +2061,9 @@ def main():
     te.add_argument("gid")
     te.add_argument("--ozet")
     te.set_defaults(f=cmd_kart_teslim)
+    tt = kart.add_parser("teslim-toplu", help="onaylı kartları tek çağrıda teslim et")
+    tt.add_argument("--json-dosya", required=True, help='[{"id":"G-1","ozet":"..."}, ...]')
+    tt.set_defaults(f=cmd_kart_teslim_toplu)
     ag = kart.add_parser("agac", help="kart başına git çalışma ağacı aç")
     ag.add_argument("gid")
     ag.add_argument("--taban", default="HEAD", help="worktree'nin açılacağı commit (varsayılan: deponun HEAD'i)")
