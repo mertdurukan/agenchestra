@@ -315,7 +315,7 @@
   O.alan = url.searchParams.get('alan') || O.depo.al('orkestra.alan') || '';
   O.alanlar = [];
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
-  const SEKMELER = [['simdi', 'Şimdi', '/'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
+  const SEKMELER = [['simdi', 'Şimdi', '/'], ['isler', 'İşler', '/isler'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
     ['onaylar', 'Onaylar', '/onaylar'], ['kurallar', 'Kurallar', '/kurallar']];
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {

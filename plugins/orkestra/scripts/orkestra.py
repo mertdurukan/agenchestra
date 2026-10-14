@@ -196,6 +196,9 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     if test_alanlari:
         k.update(test_alanlari)
     k["is"] = bag
+    adim = _ik().adim_coz(k["baslik"])
+    if adim:
+        k["adim"] = adim
     return k
 
 
@@ -1519,6 +1522,35 @@ def cmd_is_todo(a):
         print(f"  [ ] {m}")
 
 
+def cmd_is_serit(a):
+    sd = sd_gerekli()
+    _is_gerekli(sd, a.is_id)
+    s = _ik().is_serit(sd, a.is_id)
+    if a.json:
+        print(json.dumps(s, ensure_ascii=False, indent=2))
+        return
+    i, p = s["is"], s["ilerleme"]
+    print(f"{i['id']} — {i['baslik']}  [{p['biten']}/{p['toplam']}]")
+    for kova, baslik in (("yapildi", "✔ Yapıldı"), ("simdi", "◐ Şimdi"),
+                         ("sirada", "○ Sırada"), ("planda_kart_yok", "◌ Planda, kart yok")):
+        if not s[kova]:
+            continue
+        print(baslik)
+        for o in s[kova]:
+            if o["tur"] == "kart":
+                adim, son = o["adim"], f"  ({o['kart']})"
+                if o["bekledigi"]:
+                    son += " ← " + ", ".join(o["bekledigi"])
+            else:
+                adim, son = (o["adimlar"][0] if o["adimlar"] else None), ""
+            metin = o["metin"]
+            if kova != "yapildi" and adim and metin.startswith(adim) and (len(metin) == len(adim) or metin[len(adim)] in " :"):
+                metin = metin[len(adim):].lstrip(" :")
+            print("  " + (f"{adim}  " if adim else "") + metin + son)
+    if s["iptal"]:
+        print(f"⊘ İptal ({len(s['iptal'])})")
+
+
 def cmd_is_aktif(a):
     sd = sd_gerekli()
     i = _oturum_isi(sd)
@@ -1527,6 +1559,37 @@ def cmd_is_aktif(a):
         return
     kayit = _ik().is_al(sd, i)
     print(f"{i} — {kayit['baslik']} [{kayit['durum']}]" if kayit else i)
+
+
+def _alan_listesi(v):
+    if isinstance(v, str):
+        return [v]
+    return [x for x in (v or []) if isinstance(x, str)]
+
+
+def _gorev_klasoru(sd, yazma, test):
+    """Yazma + test alanı yollarından çözülen bağlam GÖREV düzeyindeyse görev klasörünün mutlak yolu; yoksa None."""
+    import baglam as B
+    esleme = B.esleme_oku(sd)
+    if not esleme:
+        return None
+    proje = L.proje_dizini()
+    b = B.coz(esleme, proje, _alan_listesi(yazma), _alan_listesi(test))
+    parcalar = [p for p in b.split("/") if p]
+    if len(parcalar) < 2 or not B._desen_uyar(esleme.get("gorev_deseni"), parcalar[-1]):
+        return None
+    return os.path.join(proje, *parcalar)
+
+
+def _gorev_isi(sd, klasor, olustur):
+    """Görev klasörünün açık işi; yoksa (olustur) yeni iş açar. Klasörde kapalı iş/yetim is.json varsa None (ezilmez)."""
+    ik = _ik()
+    i = ik.is_klasorle_bul(sd, klasor)
+    if i:
+        return i
+    if not olustur or ik.is_klasorle_bul(sd, klasor, True) or os.path.exists(os.path.join(klasor, "is.json")):
+        return None
+    return ik.is_ac(sd, os.path.basename(klasor), klasor)["id"]
 
 
 def _acik_is_dogrula(sd, acik_is):
@@ -1738,6 +1801,68 @@ def _sahipsiz_kartlar(sd, uygula):
         print(f"{baglanan} sahipsiz kart işe bağlandı")
     else:
         print(f"{len(sahipsiz)} sahipsiz kart; bağlamak için --uygula")
+
+
+def cmd_is_bagla(a):
+    sd = sd_gerekli()
+    if not a.geriye:
+        hata("şimdilik yalnız `orkestra is bagla --geriye [--uygula]` var.")
+    ik = _ik()
+    satirlar = []
+    acik_isler = None
+    for k in L.kartlar(sd):
+        gid = k["id"]
+        yeni_is, neden, yeni_klasor = None, None, None
+        if not k.get("is"):
+            klasor = _gorev_klasoru(sd, k.get("yazma_alani"), k.get("test_alani"))
+            if klasor:
+                i = ik.is_klasorle_bul(sd, klasor)
+                if i:
+                    yeni_is, neden = i, "baglam"
+                elif not ik.is_klasorle_bul(sd, klasor, True) and not os.path.exists(os.path.join(klasor, "is.json")):
+                    yeni_klasor = klasor
+                    neden = "baglam"
+            if not yeni_is and not yeni_klasor and k.get("oturum"):
+                if acik_isler is None:
+                    acik_isler = [(g["id"], ik.is_al(sd, g["id"]) or {}) for g in ik.is_liste(sd) if g.get("durum") != "kapandi"]
+                for iid, kayit in acik_isler:
+                    if any(o.get("oturum") == k["oturum"] for o in kayit.get("oturumlar", [])):
+                        yeni_is, neden = iid, "oturum"
+                        break
+        adim = ik.adim_coz(k.get("baslik"))
+        adim_eksik = bool(adim) and not k.get("adim")
+        if not (yeni_is or yeni_klasor or adim_eksik):
+            continue
+        if a.uygula:
+            if yeni_klasor:
+                yeni_is = _gorev_isi(sd, yeni_klasor, True)
+            with L.kilit(L.kart_yolu(sd, gid)):
+                guncel = L.kart_oku(sd, gid) or k
+                degisti = False
+                if yeni_is and not guncel.get("is"):
+                    guncel["is"] = yeni_is
+                    degisti = True
+                else:
+                    yeni_is = None
+                if adim_eksik and not guncel.get("adim"):
+                    guncel["adim"] = adim
+                    degisti = True
+                if degisti:
+                    L.kart_yaz(sd, guncel)
+            if yeni_is:
+                ik.is_kart_ekle(sd, yeni_is, gid)
+        if yeni_is or yeni_klasor:
+            hedef = yeni_is or f"(yeni iş: {os.path.basename(yeni_klasor)})"
+            satirlar.append(f"{gid} → {hedef} ({neden})")
+        if adim_eksik:
+            satirlar.append(f"{gid} adim={adim}")
+    if not satirlar:
+        print("fark yok")
+        return
+    for m in satirlar:
+        print(m)
+    if not a.uygula:
+        print(f"{len(satirlar)} fark; uygulamak için --uygula")
 
 
 def cmd_is_onar(a):
@@ -1985,6 +2110,10 @@ def main():
     it_.add_argument("--bitti", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize)")
     it_.add_argument("--not", dest="not_", metavar="METİN", help="--bitti ile satır sonuna tarihli not")
     it_.set_defaults(f=cmd_is_todo)
+    isr = is_.add_parser("serit", help="iş şeridi: yapıldı/şimdi/sırada/planda kart yok")
+    isr.add_argument("is_id")
+    isr.add_argument("--json", action="store_true")
+    isr.set_defaults(f=cmd_is_serit)
     is_.add_parser("aktif").set_defaults(f=cmd_is_aktif)
     io_ = is_.add_parser("onar", help="isler.json'u iş klasörlerindeki is.json'lardan yeniden kur (varsayılan kuru koşu)")
     io_.add_argument("--uygula", action="store_true", help="farkları isler.json'a yaz")
@@ -1992,6 +2121,10 @@ def main():
     io_.add_argument("--kartlar", action="store_true",
                      help="'is' alanı boş kartları listele ve önerilen işi yaz (--uygula ile bağla, gerekirse iş/klasör aç)")
     io_.set_defaults(f=cmd_is_onar)
+    ib_ = is_.add_parser("bagla", help="iş alanı boş kartları görev klasörü/oturum işine bağla (varsayılan kuru koşu)")
+    ib_.add_argument("--geriye", action="store_true", help="mevcut kartları geriye dönük bağla")
+    ib_.add_argument("--uygula", action="store_true", help="değişiklikleri yaz")
+    ib_.set_defaults(f=cmd_is_bagla)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
     go = gu.add_parser("ozet")
