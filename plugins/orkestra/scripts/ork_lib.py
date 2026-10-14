@@ -378,12 +378,17 @@ def kartlar(sd: str) -> list[dict]:
     out = []
     if os.path.isdir(d):
         for ad in sorted(os.listdir(d)):
-            if ad.endswith(".json") and not ad.endswith(".denetim.json") and not ad.startswith(".tmp_"):
+            if re.fullmatch(r"G-\d+\.json", ad):
                 try:
                     with open(os.path.join(d, ad), encoding="utf-8") as f:
-                        out.append(json.load(f))
+                        k = json.load(f)
                 except Exception:
-                    pass
+                    continue
+                if isinstance(k, dict) and k.get("id"):
+                    # eksik alanlı kart özet/panel tüketicilerini çökertmesin
+                    k.setdefault("baslik", "")
+                    k.setdefault("basamak", "-")
+                    out.append(k)
     return out
 
 
