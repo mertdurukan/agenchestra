@@ -131,6 +131,121 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None) -> dict:
     return kayit
 
 
+_TR = str.maketrans({"ç": "c", "Ç": "c", "ğ": "g", "Ğ": "g", "ı": "i", "I": "i", "İ": "i", "ö": "o", "Ö": "o",
+                     "ş": "s", "Ş": "s", "ü": "u", "Ü": "u"})
+_NNN = re.compile(r"^(\d{3})-")
+
+
+def slug(baslik: str, azami: int = 40) -> str:
+    """Başlıktan ascii, küçük harf, tireli kısa ad (boşsa 'is')."""
+    import unicodedata
+    s = unicodedata.normalize("NFKD", str(baslik or "").translate(_TR))
+    s = s.encode("ascii", "ignore").decode("ascii").lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    if len(s) > azami:
+        s = s[:azami].rstrip("-")
+    return s or "is"
+
+
+def sonraki_klasor_adi(kok: str, baslik: str, tarih: str | None = None) -> str:
+    """kök altında sıradaki 'NNN-YYYYMMDD-<slug>' adı: NNN = en büyük ^\\d{3}- numarası + 1 (3 hane)."""
+    import datetime
+    en_buyuk = 0
+    try:
+        for ad in os.listdir(kok):
+            m = _NNN.match(ad)
+            if m:
+                en_buyuk = max(en_buyuk, int(m.group(1)))
+    except OSError:
+        pass
+    tarih = tarih or datetime.date.today().strftime("%Y%m%d")
+    return f"{en_buyuk + 1:03d}-{tarih}-{slug(baslik)}"
+
+
+def _ayni_yol(a: str, b: str) -> bool:
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
+def klasor_kaydi(klasor: str) -> dict | None:
+    """Klasördeki geçerli is.json kaydı (merkeze bakmadan); yok/bozuk/kimliksizse None."""
+    try:
+        kayit = _oku(_is_json_yolu(klasor), None)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(kayit, dict) or not _ID.match(str(kayit.get("id", ""))):
+        return None
+    return kayit
+
+
+def is_klasorden(sd: str, klasor: str) -> dict | None:
+    """Klasördeki is.json'un işi merkezde bu klasörle kayıtlıysa güncel kaydı; is.json yok/bozuk/merkezde yoksa
+    (ya da aynı kimlik merkezde başka klasöre aitse) None."""
+    kayit = klasor_kaydi(klasor)
+    if kayit is None:
+        return None
+    try:
+        giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(kayit["id"])
+        if not giris or not _ayni_yol(giris.get("klasor") or "", klasor):
+            return None
+        return is_al(sd, kayit["id"])
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def yetim_kaydet(sd: str, klasor: str, uygula: bool = True) -> dict | None:
+    """Klasörde geçerli is.json var ama işi merkezde kayıtlı değilse merkeze kaydeder (onar; sayaç en büyük I-NNN'e
+    çekilir) ve is.json kaydını döndürür. Aynı kimlik merkezde başka klasöre aitse (çakışma) kaydetmez, None döner.
+    uygula=False: yalnız kaydı döndürür, dosya yazmaz."""
+    kayit = klasor_kaydi(klasor)
+    if kayit is None:
+        return None
+    try:
+        giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(kayit["id"])
+    except (OSError, ValueError, AttributeError):
+        return None
+    if giris and not _ayni_yol(giris.get("klasor") or "", klasor):
+        return None
+    if uygula:
+        onar(sd, [klasor], uygula=True)
+    return kayit
+
+
+def merkez_bozuk_mu(sd: str) -> bool:
+    """isler.json var ama JSON olarak okunamıyor ya da biçimi geçersizse True (yoksa False)."""
+    yol = _merkez(sd)
+    if not os.path.exists(yol):
+        return False
+    try:
+        veri = _oku(yol, _BOS)
+    except ValueError:  # JSONDecodeError, UnicodeDecodeError
+        return True
+    except OSError:
+        return False
+    return not isinstance(veri, dict) or not isinstance(veri.get("isler", {}), dict)
+
+
+def merkez_kurtar(sd: str, bilinen_klasorler=None) -> dict:
+    """isler.json bozuksa isler.json.bozuk-<zaman> adıyla yedeğe alır; merkez yoksa (ya da yedeklendiyse) bilinen
+    is.json klasörlerinden yeniden kurar (onar). Merkez sağlamsa hiçbir şey yapmaz.
+    Dönüş: {"yedek": yol|None, "kuruldu": bool, "farklar": [...]}."""
+    yol = _merkez(sd)
+    yedek = None
+    if merkez_bozuk_mu(sd):
+        with L.kilit(yol):
+            if merkez_bozuk_mu(sd):  # kilit altında yeniden bak: başka süreç onarmış olabilir
+                damga = time.strftime("%Y%m%dT%H%M%S")
+                yedek = f"{yol}.bozuk-{damga}"
+                n = 1
+                while os.path.exists(yedek):
+                    n += 1
+                    yedek = f"{yol}.bozuk-{damga}-{n}"
+                os.replace(yol, yedek)
+    if os.path.exists(yol):
+        return {"yedek": yedek, "kuruldu": False, "farklar": []}
+    r = onar(sd, bilinen_klasorler or [], uygula=True)
+    return {"yedek": yedek, "kuruldu": r["yazildi"], "farklar": r["farklar"]}
+
+
 def is_al(sd: str, is_id: str) -> dict | None:
     giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(is_id)
     if not giris:

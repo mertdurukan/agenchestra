@@ -137,25 +137,28 @@ class IsCli(unittest.TestCase):
         self.assertEqual(g, "G-001")
 
     def test_kapali_ise_kart_baglanmaz(self):
+        # Davranış değişikliği (kart-iş bağı zorunlu): kapalı iş hata/ret üretmez; kart açık bir işe bağlanır.
         i, klasor = self.ac()
         self.assertEqual(self.cli("is", "kapat", i).returncode, 0)
         r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(f"{i} kapalı", r.stderr)
-        self.assertEqual(len([s for s in r.stderr.splitlines() if "kapalı" in s]), 1)
-        self.assertNotIn("is", self.kart_json(r.stdout.strip()))
+        k = self.kart_json(r.stdout.strip())
+        self.assertTrue(k.get("is"))
+        self.assertNotEqual(k["is"], i)
         self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
         r2 = self.cli("kart", "yeni", "--baslik", "y", "--kabul", "k", "--is", i)
-        self.assertNotEqual(r2.returncode, 0)
+        self.assertEqual(r2.returncode, 0, r2.stderr)
+        self.assertNotEqual(self.kart_json(r2.stdout.strip())["is"], i)
         self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
 
-    def test_aktif_is_yokken_kart_eskisi_gibi(self):
+    def test_aktif_is_yokken_kart_da_baglanir(self):
+        # Davranış değişikliği: bağsız kart oluşmaz; iş otomatik açılır.
         g = self.kart()
         k = self.kart_json(g)
-        self.assertNotIn("is", k)
-        self.assertFalse(os.path.exists(os.path.join(self.sd, "isler.json")))
-        r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "I-001")
-        self.assertNotEqual(r.returncode, 0)
+        self.assertTrue(k.get("is"))
+        self.assertTrue(os.path.exists(os.path.join(self.sd, "isler.json")))
+        r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "I-777")
+        self.assertNotEqual(r.returncode, 0)  # var olmayan açık kimlik hâlâ hata
 
     # ------------------------------------------------------------ T-03b düzeltmeleri
 
@@ -165,23 +168,26 @@ class IsCli(unittest.TestCase):
             json.dump([{"baslik": f"k{x}", "kabul_kriterleri": ["k"]} for x in range(n)], f)
         return plan
 
-    def test_toplu_kapali_is_uyarisi_komut_basina_tek_satir(self):
+    def test_toplu_kapali_is_kartlar_acik_ise_baglanir(self):
         i, klasor = self.ac()
         self.assertEqual(self.cli("is", "kapat", i).returncode, 0)
         r = self.cli("kart", "toplu", self.plan_yaz(3))
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(len(json.loads(r.stdout)), 3)
-        uyarilar = [s for s in r.stderr.splitlines() if "kapalı" in s]
-        self.assertEqual(len(uyarilar), 1, r.stderr)
-        self.assertIn(i, uyarilar[0])
+        ids = [x["id"] for x in json.loads(r.stdout)]
+        self.assertEqual(len(ids), 3)
+        yeni = {self.kart_json(g).get("is") for g in ids}
+        self.assertEqual(len(yeni), 1)
+        self.assertNotIn(i, yeni)
+        self.assertTrue(yeni.pop())
         self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
 
-    def test_toplu_kapali_is_tek_kartta_da_uyari_bir_satir(self):
+    def test_toplu_kapali_is_tek_kartta_da_baglanir(self):
         i, _ = self.ac()
         self.cli("is", "kapat", i)
         r = self.cli("kart", "toplu", self.plan_yaz(1))
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(len([s for s in r.stderr.splitlines() if "kapalı" in s]), 1, r.stderr)
+        g = json.loads(r.stdout)[0]["id"]
+        self.assertTrue(self.kart_json(g).get("is"))
 
     def test_kart_yeni_gecersiz_is_sayaci_ilerletmez(self):
         r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "I-777")
@@ -193,19 +199,16 @@ class IsCli(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(self.kart(), "G-001")
 
-    def test_kart_yeni_kapali_is_sayaci_ilerletmez(self):
+    def test_kart_yeni_kapali_is_hata_vermez_sayac_ardisik(self):
         i, klasor = self.ac()
         self.cli("is", "kapat", i)
-        for _ in range(2):
-            r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", i)
-            self.assertNotEqual(r.returncode, 0)
-            self.assertIn("kapalı", r.stderr)
-        self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
-        gdir = os.path.join(self.sd, "gorevler")
-        self.assertEqual([x for x in os.listdir(gdir) if x.endswith(".json")] if os.path.isdir(gdir) else [], [])
-        r = self.cli("kart", "yeni", "--baslik", "y", "--kabul", "k")  # --is yok: uyarıyla bağsız kart
+        r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", i)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "G-001")
+        self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
+        r = self.cli("kart", "yeni", "--baslik", "y", "--kabul", "k")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "G-002")
 
     def test_kart_yeni_hata_sonrasi_numara_ardisik(self):
         g1 = self.kart()

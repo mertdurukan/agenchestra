@@ -107,15 +107,18 @@ def _kart_al(sd, gid):
     return k
 
 
-def _kart_kur(sd, d: dict) -> dict:
+def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     basamak = (d.get("basamak") or "T2").upper()
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
     test_alanlari = _test_alanlari_dogrula(d)
-    bag = _kart_is_kimligi(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
+    _merkez_saglamla(sd)  # K2: bozuk/eksik isler.json bağ çözümünü düşürmez
+    _acik_is_dogrula(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
     gid = d.get("id") or L.yeni_kart_id(sd)
     if L.kart_oku(sd, gid):
         hata(f"kart zaten var: {gid}")
+    yazma = list(d.get("yazma_alani") or [])
+    bag = _kart_is_bag_kur(sd, gid, d.get("baslik") or "", yazma, d.get("is"), onbellek)
     k = {
         "id": gid,
         "baslik": d.get("baslik") or "(başlıksız)",
@@ -124,7 +127,7 @@ def _kart_kur(sd, d: dict) -> dict:
         "baslangic_basamak": basamak,
         "girdi": d.get("girdi") or "",
         "kabul_kriterleri": list(d.get("kabul_kriterleri") or []),
-        "yazma_alani": list(d.get("yazma_alani") or []),
+        "yazma_alani": yazma,
         "bagimliliklar": list(d.get("bagimliliklar") or []),
         "durum": "planlandi",
         "oturum": oturum_id(),
@@ -137,8 +140,7 @@ def _kart_kur(sd, d: dict) -> dict:
     }
     if test_alanlari:
         k.update(test_alanlari)
-    if bag:
-        k["is"] = bag
+    k["is"] = bag
     return k
 
 
@@ -173,6 +175,8 @@ def _test_alanlari_dogrula(d: dict) -> dict | None:
 
 def cmd_kart_yeni(a):
     sd = sd_gerekli()
+    if not a.kabul:  # iş/klasör açılmadan önce
+        hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
@@ -204,16 +208,17 @@ def cmd_kart_toplu(a):
         liste = liste.get("gorevler") or []
     yerel = {}
     olusan = []
+    _merkez_saglamla(sd)
     for d in liste:  # hiçbir kart oluşmadan önce hepsini doğrula
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
         _test_alanlari_dogrula(d)
-        if d.get("is"):
-            _kart_is_kimligi(sd, d["is"])
+        _acik_is_dogrula(sd, d.get("is"))
+    onbellek = {}  # aynı klasöre çözülen kartlar tek işe bağlanır
     for d in liste:
         takma = d.pop("ref", None)
         d["bagimliliklar"] = [yerel.get(b, b) for b in d.get("bagimliliklar") or []]
-        k = _kart_kur(sd, d)
+        k = _kart_kur(sd, d, onbellek)
         L.kart_yaz(sd, k)
         _kart_is_bagla(sd, k)
         if takma:
@@ -1409,30 +1414,222 @@ def cmd_is_aktif(a):
     print(f"{i} — {kayit['baslik']} [{kayit['durum']}]" if kayit else i)
 
 
-_KAPALI_UYARILAN: set = set()
-
-
-def _kart_is_kimligi(sd, acik_is=None):
-    """Karta yazılacak iş kimliği: --is verilmişse o, yoksa oturumun bağlı işi (is.json varsa); yoksa None."""
+def _acik_is_dogrula(sd, acik_is):
+    """--is / plan 'is' verilmişse iş var olmalı (yoksa hata). Kapalı olması hata değildir: kart açık bir işe bağlanır."""
     if acik_is:
-        if _is_gerekli(sd, acik_is).get("durum") == "kapandi":
-            hata(f"{acik_is} kapalı; kapalı işe kart bağlanamaz (`orkestra is devam` ile başka işe bağlanın).")
-        return acik_is
-    i = _oturum_isi(sd)
+        _is_gerekli(sd, acik_is)
+
+
+def _goreli(yol):
+    """Proje köküne göre göreli gösterim (dışarıdaysa mutlak); yalnız ileti için."""
     try:
-        kayit = _ik().is_al(sd, i) if i else None
+        r = os.path.relpath(yol, L.proje_dizini())
+    except ValueError:
+        r = ".."
+    return (yol if r.startswith("..") else r).replace("\\", "/")
+
+
+def _is_kaydi_guvenli(sd, i):
+    try:
+        return _ik().is_al(sd, i) if i else None
     except Exception:
         return None
-    if kayit and kayit.get("durum") == "kapandi":
-        if i not in _KAPALI_UYARILAN:  # komut başına tek satır (kart toplu'da kart başına basılmaz)
-            _KAPALI_UYARILAN.add(i)
-            print(f"{i} kapalı; kart işe bağlanmadı, `orkestra is devam` ile başka işe bağlanın", file=sys.stderr)
-        return None
-    return i if kayit else None
+
+
+def _bilinen_is_klasorleri(sd, derinlik=3):
+    """is.json bulunan klasörler: baglam.json projeleri (Proje/Süreç/Görev, en çok `derinlik` düzey; gizli ve haric
+    dizinler atlanır) ve <durum dizini>/isler. Merkez yok/bozukken yeniden kurulum ve sayaç için kullanılır."""
+    import baglam
+    proje = L.proje_dizini()
+    esleme = baglam.esleme_oku(sd) or {}
+    haric = {str(h).casefold() for h in esleme.get("haric") or []}
+    kokler = [os.path.join(sd, "isler")]
+    if proje:
+        kokler += [os.path.normpath(os.path.join(proje, str(p))) for p in esleme.get("projeler") or [] if str(p).strip()]
+    bulunan, gorulen = [], set()
+    for kok in kokler:
+        if not os.path.isdir(kok):
+            continue
+        for yol, dizinler, dosyalar in os.walk(kok):
+            goreli = os.path.relpath(yol, kok)
+            if (0 if goreli == "." else goreli.count(os.sep) + 1) >= derinlik:
+                dizinler[:] = []
+            else:
+                dizinler[:] = [d for d in dizinler if not d.startswith(".") and d.casefold() not in haric]
+            anahtar = os.path.normcase(os.path.abspath(yol))
+            if "is.json" in dosyalar and anahtar not in gorulen:
+                gorulen.add(anahtar)
+                bulunan.append(os.path.abspath(yol))
+    return bulunan
+
+
+def _merkez_saglamla(sd):
+    """K2: isler.json bozuksa yedeğe alınır; yoksa/yedeklendiyse bilinen is.json'lardan yeniden kurulur. Hata vermez."""
+    ik = _ik()
+    try:
+        if os.path.exists(os.path.join(sd, "isler.json")) and not ik.merkez_bozuk_mu(sd):
+            return
+        r = ik.merkez_kurtar(sd, _bilinen_is_klasorleri(sd))
+    except Exception as e:  # kurtarma kart oluşturmayı asla durdurmaz
+        print(f"orkestra: uyarı: isler.json kurtarılamadı ({e})", file=sys.stderr)
+        return
+    if r.get("yedek"):
+        print(f"orkestra: uyarı: isler.json bozuktu; {_goreli(r['yedek'])} olarak yedeklendi, "
+              f"{len(r.get('farklar') or [])} kayıtla yeniden kuruldu", file=sys.stderr)
+
+
+def _yeni_is(sd, baslik, klasor, uygula):
+    """Klasörde iş açar (uygula değilse yalnız planlar). Klasör açılamazsa <durum dizini>/isler altında sıradaki NNN denenir."""
+    if not uygula:
+        return {"is": None, "klasor": klasor, "yeni": True}
+    ik = _ik()
+    try:
+        return {"is": ik.is_ac(sd, baslik, klasor)["id"], "klasor": klasor, "yeni": True}
+    except OSError as e:
+        kok = os.path.join(sd, "isler")
+        yedek = os.path.join(kok, ik.sonraki_klasor_adi(kok, baslik))
+        print(f"orkestra: uyarı: {_goreli(klasor)} açılamadı ({e}); {_goreli(yedek)} kullanılıyor", file=sys.stderr)
+        return {"is": ik.is_ac(sd, baslik, yedek)["id"], "klasor": yedek, "yeni": True}
+
+
+def _is_coz(sd, baslik, yazma, onbellek, uygula=True):
+    """K1 (c)/(d): yazma alanının ilk girdisi baglam.json ile Proje[/Süreç]/Görev klasörüne çözülür.
+
+    (c) görev klasöründe açık iş varsa o; is.json yoksa orada yeni iş.
+    (d) görev klasörü yoksa (ya da işi kapalıysa) çözülen kökte — çözülmezse eşlemedeki ilk projede,
+        eşleme de yoksa <durum dizini>/isler altında — sıradaki NNN-YYYYMMDD-<slug> klasöründe yeni iş.
+    onbellek aynı komutta aynı klasöre çözülen kartları tek işe toplar. Hata vermez.
+    Dönüş: {"is": id|None (kuru koşuda yeni iş), "klasor", "yeni", "kaynak", "notlar"}.
+    """
+    import baglam
+    ik = _ik()
+    proje = L.proje_dizini()
+    esleme = baglam.esleme_oku(sd)
+    notlar = []
+    c = baglam.klasor_coz(esleme, proje, yazma[0]) if yazma else None
+    if c:
+        kok, gorev = c
+        kaynak = "yazma_alani"
+    else:
+        projeler = [str(p) for p in ((esleme or {}).get("projeler") or []) if str(p).strip()]
+        # eşleme yoksa iş klasörü proje ağacını kirletmesin: durum dizininde (çoğunlukla git dışı) tutulur
+        kok = os.path.normpath(os.path.join(proje, projeler[0])) if projeler else os.path.join(sd, "isler")
+        gorev = None
+        kaynak = "ilk proje" if projeler else "eşleme yok"
+
+    def onbellekten(anahtar):
+        r = onbellek.get(anahtar)
+        if r is None:
+            return None
+        r = dict(r, kaynak=kaynak, notlar=notlar)
+        if uygula:
+            r["yeni"] = False
+        return r
+
+    if gorev:
+        anahtar = "g:" + os.path.normcase(os.path.abspath(gorev))
+        r = onbellekten(anahtar)
+        if r:
+            return r
+        kayit = ik.is_klasorden(sd, gorev)
+        if kayit is None:  # is.json geçerli ama merkezde kayıtlı değilse merkeze kaydedilir (kimlik çakışmıyorsa)
+            kayit = ik.yetim_kaydet(sd, gorev, uygula)
+            if kayit:
+                notlar.append(f"{_goreli(gorev)}/is.json merkeze " + ("kaydedildi" if uygula else "kaydedilecek"))
+        if kayit and kayit.get("durum") != "kapandi":
+            r = {"is": kayit["id"], "klasor": gorev, "yeni": False}
+        elif not os.path.exists(os.path.join(gorev, "is.json")):
+            r = _yeni_is(sd, os.path.basename(gorev), gorev, uygula)
+        else:
+            notlar.append(f"{_goreli(gorev)} işi kapalı" if kayit
+                          else f"{_goreli(gorev)}/is.json geçersiz ya da kimliği merkezde başka klasöre ait")
+        if r:
+            onbellek[anahtar] = r
+            return dict(r, kaynak=kaynak, notlar=notlar)
+    anahtar = "k:" + os.path.normcase(os.path.abspath(kok))
+    r = onbellekten(anahtar)
+    if r:
+        return r
+    r = _yeni_is(sd, baslik or "is", os.path.join(kok, ik.sonraki_klasor_adi(kok, baslik)), uygula)
+    onbellek[anahtar] = r
+    return dict(r, kaynak=kaynak, notlar=notlar)
+
+
+def _bag_aciklamasi(r):
+    m = f"{r['kaynak']}: {_goreli(r['klasor'])}" + (", yeni iş" if r.get("yeni") else "")
+    return m + "".join(f"; {n}" for n in r.get("notlar") or [])
+
+
+def _bag_satiri(gid, is_id, aciklama):
+    """K5: bağın hangi yoldan kurulduğu — kart başına tek satır, stderr (stdout biçimi değişmez)."""
+    print(f"orkestra: {gid} → {is_id} ({aciklama})", file=sys.stderr)
+
+
+def _kart_is_bag_kur(sd, gid, baslik, yazma, acik_is=None, onbellek=None):
+    """Kartın işi — asla boş dönmez, bağ yüzünden ret vermez (var olmayan açık kimlik dışında).
+
+    (a) --is / plan 'is' açıksa o; (b) oturumun açık işi; (c)/(d) `_is_coz`. Otomatik bulunan ya da açılan iş
+    oturuma bağlanır (bu noktada oturumun açık işi yoktur)."""
+    onbellek = {} if onbellek is None else onbellek
+    notlar = []
+    if acik_is:
+        if _is_gerekli(sd, acik_is).get("durum") != "kapandi":
+            _bag_satiri(gid, acik_is, "--is")
+            return acik_is
+        notlar.append(f"{acik_is} kapalı")
+    i = _oturum_isi(sd)
+    kayit = _is_kaydi_guvenli(sd, i)
+    if kayit and kayit.get("durum") != "kapandi":
+        _bag_satiri(gid, i, "oturum işi" + "".join(f"; {n}" for n in notlar))
+        return i
+    if kayit:
+        notlar.append(f"oturum işi {i} kapalı")
+    r = _is_coz(sd, baslik, yazma, onbellek, True)
+    r["notlar"] = notlar + r["notlar"]
+    _oturumu_bagla(sd, r["is"])
+    _bag_satiri(gid, r["is"], _bag_aciklamasi(r))
+    return r["is"]
+
+
+def _kart_no(gid):
+    try:
+        return int(str(gid).split("-", 1)[1])
+    except (IndexError, ValueError):
+        return 0
+
+
+def _sahipsiz_kartlar(sd, uygula):
+    """K7: 'is' alanı boş kartlar; kuru koşu yalnız önerir (dosya yazmaz, oturum bağlamaz), --uygula bağlar."""
+    sahipsiz = sorted((k for k in L.kartlar(sd) if not k.get("is")), key=lambda k: _kart_no(k["id"]))
+    if not sahipsiz:
+        print("sahipsiz kart yok")
+        return
+    if uygula:
+        _merkez_saglamla(sd)
+    onbellek = {}
+    baglanan = 0
+    for k in sahipsiz:
+        r = _is_coz(sd, k.get("baslik") or "", list(k.get("yazma_alani") or []), onbellek, uygula)
+        if uygula:
+            with L.kilit(L.kart_yolu(sd, k["id"])):
+                guncel = L.kart_oku(sd, k["id"])
+                if guncel and not guncel.get("is"):
+                    guncel["is"] = r["is"]
+                    L.kart_yaz(sd, guncel)
+                    _ik().is_kart_ekle(sd, r["is"], k["id"])
+                    baglanan += 1
+        print(f"{k['id']} → {r['is'] or 'yeni iş'} ({_bag_aciklamasi(r)})")
+    if uygula:
+        print(f"{baglanan} sahipsiz kart işe bağlandı")
+    else:
+        print(f"{len(sahipsiz)} sahipsiz kart; bağlamak için --uygula")
 
 
 def cmd_is_onar(a):
     sd = sd_gerekli()
+    if a.kartlar:
+        _sahipsiz_kartlar(sd, a.uygula)
+        return
     r = _ik().onar(sd, a.klasor, a.uygula)
     for m in r["farklar"]:
         print(m)
@@ -1670,6 +1867,8 @@ def main():
     io_ = is_.add_parser("onar", help="isler.json'u iş klasörlerindeki is.json'lardan yeniden kur (varsayılan kuru koşu)")
     io_.add_argument("--uygula", action="store_true", help="farkları isler.json'a yaz")
     io_.add_argument("--klasor", action="append", default=[], help="ek iş klasörü (tekrarlanabilir)")
+    io_.add_argument("--kartlar", action="store_true",
+                     help="'is' alanı boş kartları listele ve önerilen işi yaz (--uygula ile bağla, gerekirse iş/klasör aç)")
     io_.set_defaults(f=cmd_is_onar)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
