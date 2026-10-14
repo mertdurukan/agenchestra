@@ -151,6 +151,32 @@ def taban(a) -> int:
     return 0
 
 
+def cikti_ozeti_sha(proje: str, yollar: list[str]) -> str:
+    """Çıktı dosyalarının birleşik sha256'sı: sıralı (yol, dosya_ozeti.sha256) çiftleri."""
+    h = hashlib.sha256()
+    for y in sorted({_norm(y if os.path.isabs(y) else os.path.join(proje, y)) for y in yollar}):
+        h.update((y + "\0" + (dosya_ozeti(y).get("sha256") or "yok") + "\n").encode("utf-8"))
+    return h.hexdigest()
+
+
+def _kosu_kaydet(proje, sd, gid, ajan_id, gecti, turler, ciktilar) -> None:
+    """Koşuyu karta kalıcı yazar (kart kilidi altında oku-birleştir-yaz). Hata kontrolü etkilemez."""
+    try:
+        yol = L.kart_yolu(sd, gid)
+        with L.kilit(yol):
+            kart = L.kart_oku(sd, gid)
+            if not kart:
+                return
+            sira = L.sonraki_sira(kart)
+            kart.setdefault("onkontrol_kosulari", []).append({
+                "zaman": L.simdi(), "sira": sira, "agent_id": ajan_id or None, "gecti": bool(gecti),
+                "ihlal_turleri": list(dict.fromkeys(turler)),
+                "cikti_ozeti_sha": cikti_ozeti_sha(proje, ciktilar)})
+            L.atomik_yaz(yol, json.dumps(kart, ensure_ascii=False, indent=2) + "\n")
+    except Exception:
+        pass
+
+
 def kontrol(a) -> int:
     bas = time.monotonic()
     proje, sd, kart = _kart(a)
@@ -211,6 +237,9 @@ def kontrol(a) -> int:
         if eksik:
             ihlaller.append({"tur": TUR_TOKEN, "ayrinti": eksik})
 
+    _kosu_kaydet(proje, sd, kart["id"], getattr(a, "ajan_id", None), not ihlaller,
+                 [i["tur"] for i in ihlaller], kart.get("ciktilar") or ciktilar)
+
     print(json.dumps({"gecti": not ihlaller, "ihlaller": ihlaller, "onceden_dusen": onceden,
                       "sure_sn": round(time.monotonic() - bas, 2), "uyarilar": uyarilar}, ensure_ascii=False))
     return 4 if ihlaller else 0
@@ -234,6 +263,7 @@ def main(argv=None) -> int:
     k.add_argument("--ciktilar")
     k.add_argument("--kaynak")
     k.add_argument("--proje")
+    k.add_argument("--ajan-id", dest="ajan_id")
     k.set_defaults(f=kontrol)
     a = p.parse_args(argv)
     try:
