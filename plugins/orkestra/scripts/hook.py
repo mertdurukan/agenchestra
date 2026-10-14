@@ -376,6 +376,35 @@ def _oturum_baglami(sd: str, oid: str | None) -> str:
         return ""
 
 
+def _oturum_isi(sd: str, oid: str | None):
+    try:
+        with open(os.path.join(sd, "oturumlar", f"{oid}.json"), encoding="utf-8") as f:
+            d = json.load(f)
+        v = d.get("is") if isinstance(d, dict) else None
+        return str(v) if v else None
+    except Exception:
+        return None
+
+
+def _kart_isi(sd: str, gorev: str):
+    try:
+        if gorev and gorev != "-":
+            k = L.kart_oku(sd, gorev)
+            v = k.get("is") if isinstance(k, dict) else None
+            return str(v) if v else None
+    except Exception:
+        pass
+    return None
+
+
+def _zaman_ekle(sd: str, kayit: dict) -> None:
+    """zaman.jsonl'e tek satır (T-06); hata kancayı düşürmez."""
+    try:
+        L.jsonl_ekle(os.path.join(sd, "zaman.jsonl"), kayit)
+    except Exception:
+        pass
+
+
 def subagent_stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -405,27 +434,35 @@ def subagent_stop(inp: dict):
         L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip, "baglam": baglam}))
     taban = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "baglam": baglam, "ajan": atip,
              "agent_id": aid, "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
-             "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": bool(os.environ.get("ORKESTRA_PERSPEKTIF")), "kaynak": "hook"}
+             "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": bool(os.environ.get("ORKESTRA_PERSPEKTIF")), "kaynak": "hook",
+             "araclar": dict(ozet["araclar"]), "arac_hata": ozet["arac_sayilari"]["arac_hata"],
+             "tekrar_okuma": ozet["arac_sayilari"]["tekrar_okuma"],
+             "is": _kart_isi(sd, gorev) or _oturum_isi(sd, inp.get("session_id"))}
     _maliyet_satirlari(sd, ozet, taban)
+    _zaman_ekle(sd, {"zaman": L.simdi(), "oturum": inp.get("session_id"), "is": taban["is"], "tur": "alt", "agent_id": aid,
+                     "ajan": atip, "gorev": gorev, "sure_ms": taban["sure_ms"]})
     ana_model = max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0] if ozet["modeller"] else "-"
     ilk = re.sub(r"#(GOREV|SUREC):\S+", "", ozet["ilk_kullanici"] or "").strip().replace("\n", " ")
     L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "baglam": baglam, "ajan": atip, "agent_id": aid, "model": ana_model,
                        "yaptim": meta.get("description") or ilk[:200], "sonuc": (inp.get("last_assistant_message") or "")[:600],
                        "dokunulan": ozet["dokunulan"], "token": ozet["toplam"], "kaynak": "hook"})
-    if gorev != "-":
-        yol = L.kart_yolu(sd, gorev)
-        if os.path.exists(yol):
-            with L.kilit(yol):
-                k = L.kart_oku(sd, gorev)
-                rol = "isciler" if "isci" in atip else ("denetciler" if "denetci" in atip else None)
-                if rol and aid not in k[rol]:
-                    k[rol].append(aid)
-                k.setdefault("token", {"giris": 0, "cikis": 0, "maliyet_usd": 0.0})
-                k["token"]["giris"] += ozet["toplam"]["giris"] + ozet["toplam"]["onbellek_okuma"] + ozet["toplam"]["onbellek_yazma"]
-                k["token"]["cikis"] += ozet["toplam"]["cikis"]
-                k["token"]["maliyet_usd"] = round(k["token"]["maliyet_usd"] + ozet["toplam"]["maliyet_usd"], 6)
-                k["gecmis"].append({"zaman": L.simdi(), "olay": "ajan-bitti", "ajan": atip, "agent_id": aid, "surec": surec})
-                L.kart_yaz(sd, k)
+    try:
+        if gorev != "-":
+            yol = L.kart_yolu(sd, gorev)
+            if os.path.exists(yol):
+                with L.kilit(yol):
+                    k = L.kart_oku(sd, gorev)
+                    rol = "isciler" if "isci" in atip else ("denetciler" if "denetci" in atip else None)
+                    if rol and aid not in k[rol]:
+                        k[rol].append(aid)
+                    k.setdefault("token", {"giris": 0, "cikis": 0, "maliyet_usd": 0.0})
+                    k["token"]["giris"] += ozet["toplam"]["giris"] + ozet["toplam"]["onbellek_okuma"] + ozet["toplam"]["onbellek_yazma"]
+                    k["token"]["cikis"] += ozet["toplam"]["cikis"]
+                    k["token"]["maliyet_usd"] = round(k["token"]["maliyet_usd"] + ozet["toplam"]["maliyet_usd"], 6)
+                    k["gecmis"].append({"zaman": L.simdi(), "olay": "ajan-bitti", "ajan": atip, "agent_id": aid, "surec": surec})
+                    L.kart_yaz(sd, k)
+    except Exception:  # bozuk kart dosyası kancayı düşürmesin
+        pass
     gec()
 
 
@@ -521,12 +558,16 @@ def stop(inp: dict):
             yeni.pop("acik_gorevler", None)
         L.atomik_yaz(ofset_yolu, json.dumps(yeni))
     perspektif = bool(os.environ.get("ORKESTRA_PERSPEKTIF"))
+    if not perspektif and ozet.get("ilk_zaman"):
+        _zaman_ekle(sd, {"zaman": L.simdi(), "oturum": oid, "is": _oturum_isi(sd, oid), "tur": "ana",
+                         "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "istek_zamani": ozet["ilk_zaman"]})
     ajan = "perspektif-bakimcisi" if perspektif else "ana-ajan"
     surec = "perspektif" if perspektif else "orkestrasyon"
     if ozet["modeller"]:
         taban = {"zaman": L.simdi(), "oturum": oid, "gorev": "-", "surec": surec, "baglam": baglam, "ajan": ajan, "agent_id": None,
                  "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "tur": ozet["tur"],
-                 "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": perspektif, "kaynak": "hook"}
+                 "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": perspektif, "kaynak": "hook",
+                 "is": _oturum_isi(sd, oid)}
         _maliyet_satirlari(sd, ozet, taban)
     kayda_deger = any(a in ozet["araclar"] for a in ("Agent", "Task", "Workflow")) or ozet["dokunulan"]
     if kayda_deger and ozet["modeller"]:
@@ -657,12 +698,68 @@ def post_tool_use(inp: dict):
     gec()
 
 
+def _sayi(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _dk(ms_listesi: list) -> str:
+    gecerli = [x for x in (_sayi(v) for v in ms_listesi) if x is not None]
+    return str(int(round(sum(gecerli) / 60000))) if gecerli else "-"
+
+
+def _tek_satir(metin) -> str:
+    m = " ".join(str(metin or "").split())
+    return m or "-"
+
+
+def _oturum_satiri_yaz(sd: str, oid: str | None) -> None:
+    """T-07: oturum bir işe bağlıysa işin oturumlar.md SONUNA tek satır (dosya yoksa/iş yoksa yazmaz)."""
+    is_id = _oturum_isi(sd, oid)
+    if not is_id or not oid:
+        return
+    import is_kaydi
+    import niyet
+    kayit = is_kaydi.is_al(sd, is_id)
+    klasor = kayit.get("klasor") if isinstance(kayit, dict) else None
+    if not klasor:
+        return
+    yol = os.path.join(klasor, "oturumlar.md")
+    if not os.path.isfile(yol):
+        return
+    zaman = [r for r in L.jsonl_oku(os.path.join(sd, "zaman.jsonl")) if isinstance(r, dict) and r.get("oturum") == oid]
+    ana = _dk([r.get("sure_ms") for r in zaman if r.get("tur") == "ana"])
+    alt = _dk([r.get("sure_ms") for r in zaman if r.get("tur") == "alt"])
+    mal = [r for r in L.maliyet_kayitlari(sd) if isinstance(r, dict) and r.get("oturum") == oid]
+    if mal:
+        tok = int(sum(_sayi(r.get(a)) or 0 for r in mal for a in ("giris", "cikis", "onbellek_okuma", "onbellek_yazma")))
+        usd = sum(_sayi(r.get("maliyet_usd")) or 0 for r in mal)
+        tok_s, usd_s = str(tok), f"{usd:.2f}"
+    else:
+        tok_s = usd_s = "-"
+    ne = sonuc = None
+    for k in L.jsonl_oku(niyet.NIYET_YOLU):
+        if isinstance(k, dict) and k.get("oturum") == oid:
+            if k.get("tur") == "niyet":
+                ne = k.get("ne") or ne
+            elif k.get("tur") == "sonuc":
+                sonuc = k.get("sonuc") or sonuc
+    sonuc = sonuc or ne
+    an = L.simdi()[:16].replace("T", " ")
+    satir = (f"- {an} · oturum {oid[:8]} · Claude süresi {ana} · alt ajan süresi {alt} · {tok_s} token · ${usd_s}"
+             f" · ne: {_tek_satir(ne)} · sonuç/nerede kalındı: {_tek_satir(sonuc)}\n")
+    L.sona_ekle(yol, satir)
+
+
 def session_end(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd or os.environ.get("ORKESTRA_PERSPEKTIF"):
         gec()
     import niyet
     niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "kapandi")
+    try:
+        _oturum_satiri_yaz(sd, inp.get("session_id"))
+    except Exception:  # ölçüm satırı hatası kapanışı bozmasın
+        pass
     import perspektif
     if perspektif.durum(sd).get("zamani_geldi"):
         perspektif.baslat(sd, L.proje_dizini(inp.get("cwd")), transkript=inp.get("transcript_path"))

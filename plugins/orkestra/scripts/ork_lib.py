@@ -255,9 +255,12 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
         "modeller": {}, "toplam": {"giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0},
         "ilk_kullanici": None, "tur": 0, "arac_cagrisi": 0, "araclar": {}, "dokunulan": [], "okunan": [],
         "ilk_zaman": None, "son_zaman": None, "ofset": ofset,
+        "arac_sayilari": {"arac_hata": 0, "tekrar_okuma": 0},
     }
     if not yol or not os.path.exists(yol):
         return sonuc
+    hata_idleri: set[str] = set()
+    okuma_sayac: dict[str, int] = {}
     son_kullanim: dict[str, tuple[str, dict]] = {}
     arac_idleri: set[str] = set()
     with open(yol, "rb") as f:
@@ -284,6 +287,10 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
             t = _metin(mesaj.get("content"))
             if t.strip():
                 sonuc["ilk_kullanici"] = t
+        if tip == "user" and isinstance(mesaj, dict) and isinstance(mesaj.get("content"), list):
+            for b in mesaj["content"]:
+                if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error") is True:
+                    hata_idleri.add(str(b.get("tool_use_id") or id(b)))
         if tip != "assistant":
             continue
         mid = mesaj.get("id") or o.get("uuid")
@@ -301,6 +308,8 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
                 rp = giris.get("file_path")
                 if ad == "Read" and rp and rp not in sonuc["okunan"]:
                     sonuc["okunan"].append(rp)
+                if ad == "Read" and rp:
+                    okuma_sayac[rp] = okuma_sayac.get(rp, 0) + 1
     tablo = fiyat_tablosu()
     for model, u in son_kullanim.values():
         if model == "<synthetic>":
@@ -317,6 +326,7 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
         sonuc["toplam"]["maliyet_usd"] = round(sonuc["toplam"]["maliyet_usd"] + m["maliyet_usd"], 6)
     sonuc["tur"] = len(son_kullanim)
     sonuc["arac_cagrisi"] = len(arac_idleri)
+    sonuc["arac_sayilari"] = {"arac_hata": len(hata_idleri), "tekrar_okuma": sum(n - 1 for n in okuma_sayac.values() if n > 1)}
     return sonuc
 
 
