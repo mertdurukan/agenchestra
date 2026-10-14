@@ -436,6 +436,150 @@ class AgacYeriCli(Temel):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(os.path.exists(yol))
 
+# ======================================================================= G-060 ret: kartlar proje A'da, ağaçlar depo B'de
+class AgacTemizleCaprazDepo(Temel):
+    """Proje A (durum klasörü + kartlar) ile ağaçların açıldığı depo B (self.proje) ayrıdır."""
+    A_GIT = False
+
+    def setUp(self):
+        super().setUp()
+        self.A = os.path.join(self.taban, "projeA")
+        os.makedirs(self.A)
+        if self.A_GIT:
+            git(self.A, "init", "-q", "-b", "main")
+            git(self.A, "config", "user.name", "Test")
+            git(self.A, "config", "user.email", "test@example.invalid")
+            yaz(os.path.join(self.A, ".gitignore"), ".claude/orkestra/\n")
+            yaz(os.path.join(self.A, "r.txt"), "r\n")
+            git(self.A, "add", ".")
+            git(self.A, "commit", "-q", "-m", "ilk")
+        r = kos([CLI, "baslat"], self.A)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.sd = os.path.join(self.A, ".claude", "orkestra")
+        self.B = self.proje.replace("\\", "/")
+
+    def cli(self, *args):
+        return kos([CLI] + list(args) + ["--ajan-id", "ana", "--ajan-tipi", "ana"], self.A)
+
+    def kart(self):
+        r = self.cli("kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--yazma", "src/**")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.strip()
+
+    def kd(self, gid):
+        return os.path.join(self.sd, "gorevler", gid + ".json")
+
+    def kart_guncelle(self, gid, **alanlar):
+        k = json.loads(oku(self.kd(gid)))
+        k.update(alanlar)
+        yaz(self.kd(gid), json.dumps(k, ensure_ascii=False, indent=2) + "\n")
+
+    def agac_ac(self, gid, eski=False):
+        yol = self.B + (f"-kart-{gid}" if eski else f"/.claude/worktrees/kart-{gid}")
+        taban = git(self.proje, "rev-parse", "HEAD").strip()
+        git(self.proje, "worktree", "add", "-q", "-b", f"kart/{gid}", yol, taban)
+        return yol, {"depo": self.B, "yol": yol, "dal": f"kart/{gid}", "taban": taban}
+
+    def cikti(self, r):
+        return (r.stdout + r.stderr).replace("\\", "/")
+
+    def kurulum(self):
+        """Yeni düzen: acik, teslim (yalnız calisma_agaci_birlesik), iptal (calisma_agaci); eski düzen: eski_teslim.
+        Kalıp dışı: depo-dogrula. Kartların hiçbirinde A'nın içinde ağaç yoktur."""
+        y = {}
+        for ad, eski in (("acik", False), ("teslim", False), ("iptal", False), ("eski_teslim", True)):
+            g = self.kart()
+            yol, ca = self.agac_ac(g, eski)
+            y[ad] = (g, yol, ca)
+        self.kart_guncelle(y["acik"][0], calisma_agaci=y["acik"][2])
+        self.kart_guncelle(y["teslim"][0], durum="teslim", calisma_agaci_birlesik=y["teslim"][2])
+        self.kart_guncelle(y["iptal"][0], durum="iptal", calisma_agaci=y["iptal"][2])
+        self.kart_guncelle(y["eski_teslim"][0], durum="teslim", calisma_agaci_birlesik=y["eski_teslim"][2])
+        dogrula = os.path.join(self.taban, "depo-dogrula")
+        git(self.proje, "worktree", "add", "-q", "--detach", dogrula, "HEAD")
+        y["kalip"] = ("-", dogrula, None)
+        return y
+
+    def test_kuru_kosu_B_adaylarini_listeler_hicbir_sey_silmez(self):
+        y = self.kurulum()
+        once = agaclar(self.proje)
+        dallar = git(self.proje, "branch", "--list")
+        r = self.cli("kart", "agac-temizle")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        c = self.cikti(r)
+        for ad in ("teslim", "iptal", "eski_teslim"):
+            self.assertIn(y[ad][1].replace("\\", "/"), c, ad)
+        self.assertEqual(agaclar(self.proje), once)
+        self.assertEqual(git(self.proje, "branch", "--list"), dallar)
+        for ad in y:
+            self.assertTrue(os.path.isdir(y[ad][1]), ad)
+        self.assertNotIn("temizlenecek kart çalışma ağacı yok", c)
+        self.assertNotIn("git deposu değil", c)
+
+    def test_uygula_B_biteni_kaldirir_aciga_ve_kalip_disina_dokunmaz(self):
+        y = self.kurulum()
+        r = self.cli("kart", "agac-temizle", "--uygula")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        c = self.cikti(r)
+        kalan = agaclar(self.proje)
+        for ad in ("teslim", "iptal", "eski_teslim"):
+            self.assertFalse(os.path.exists(y[ad][1]), f"{ad} kaldırılmalıydı")
+            self.assertNotIn(n(y[ad][1]), kalan, ad)
+        self.assertTrue(os.path.isdir(y["acik"][1]))
+        self.assertIn(n(y["acik"][1]), kalan)
+        self.assertNotIn(f"kart-{y['acik'][0]}", c)  # açık kart çıktıda geçmez
+        self.assertTrue(os.path.isdir(y["kalip"][1]))
+        self.assertIn(n(y["kalip"][1]), kalan)
+        self.assertIn("kalıp dışı", c.lower())
+        self.assertIn("depo-dogrula", c)
+        self.assertTrue(git(self.proje, "branch", "--list", f"kart/{y['acik'][0]}").strip())
+
+    def test_depo_yalniz_teslim_kartin_birlesik_alanindan_bilinse_de_taranir(self):
+        g = self.kart()
+        yol, ca = self.agac_ac(g)
+        self.kart_guncelle(g, durum="teslim", calisma_agaci_birlesik=ca)
+        k = json.loads(oku(self.kd(g)))
+        self.assertNotIn("calisma_agaci", k)
+        kuru = self.cli("kart", "agac-temizle")
+        self.assertEqual(kuru.returncode, 0, kuru.stdout + kuru.stderr)
+        self.assertIn(yol, self.cikti(kuru))
+        self.assertTrue(os.path.isdir(yol))
+        r = self.cli("kart", "agac-temizle", "--uygula")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(yol))
+        self.assertNotIn(n(yol), agaclar(self.proje))
+
+    def test_depo_yalniz_kaldirildi_alanindan_bilinse_de_taranir(self):
+        g = self.kart()
+        yol, ca = self.agac_ac(g)
+        self.kart_guncelle(g, durum="iptal", calisma_agaci_kaldirildi=ca)
+        r = self.cli("kart", "agac-temizle", "--uygula")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(yol))
+
+    def test_hicbir_kartta_depo_bilgisi_yoksa_hata_vermez_ve_B_dokunulmaz(self):
+        g = self.kart()
+        yol, _ = self.agac_ac(g)
+        self.kart_guncelle(g, durum="teslim")
+        r = self.cli("kart", "agac-temizle", "--uygula")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(os.path.isdir(yol))  # B hiçbir kartta anılmıyor: taranamaz, silinmez
+
+    def test_kirli_biten_agac_B_de_atlanir(self):
+        g = self.kart()
+        yol, ca = self.agac_ac(g)
+        self.kart_guncelle(g, durum="teslim", calisma_agaci_birlesik=ca)
+        yaz(os.path.join(yol, "kirli.txt"), "k\n")
+        r = self.cli("kart", "agac-temizle", "--uygula")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(yol, "kirli.txt")))
+        self.assertIn("kirli", self.cikti(r))
+
+
+class AgacTemizleCaprazDepoAGit(AgacTemizleCaprazDepo):
+    """Aynı sınamalar; proje A da bir git deposu."""
+    A_GIT = True
+
 
 if __name__ == "__main__":
     unittest.main()
