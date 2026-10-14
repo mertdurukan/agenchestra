@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · İşler</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+  /* İşler sayfasına özgü stil; ortak bileşenler ortak.css'te. */
+  .serit { border: 1px solid var(--line); border-radius: var(--k-10); background: var(--surface-1); padding: var(--a-16); margin: 0 0 var(--a-16); }
+  .serit > h2 { margin: 0; font-size: var(--t-16); font-weight: 600; overflow-wrap: anywhere; }
+  .serit-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--a-8) var(--a-12); margin-top: var(--a-4); font-size: var(--t-12); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .ilerleme { display: inline-flex; align-items: center; gap: var(--a-8); color: var(--text-secondary); }
+  .ilerleme .cubuk { width: 120px; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; display: inline-block; }
+  .ilerleme .cubuk i { display: block; height: 100%; background: var(--good); }
+  .is-kimlik { opacity: .7; }
+  .is-hata { margin: var(--a-8) 0 0; font-size: var(--t-13); color: var(--text-secondary); }
+  .bloklar { display: grid; grid-template-columns: 1fr 1fr; gap: var(--a-12) var(--a-24); margin-top: var(--a-12); }
+  .blok { min-width: 0; }
+  .blok > h3 { margin: 0 0 var(--a-4); font-size: var(--t-13); font-weight: 600; color: var(--text-secondary); text-transform: none; letter-spacing: 0; }
+  .blok .yok { margin: 0; font-size: var(--t-12); color: var(--text-muted); }
+  ul.satirlar { list-style: none; margin: 0; padding: 0; }
+  .satir { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--a-8); padding: 3px 0; font-size: var(--t-13); min-width: 0; }
+  .satir .metin { flex: 1 1 14ch; min-width: 0; overflow-wrap: anywhere; }
+  .satir .sag { color: var(--text-muted); font-size: var(--t-12); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .adim { display: inline-block; font-size: var(--t-12); font-weight: 600; color: var(--text-secondary); border: 1px solid var(--line); border-radius: 999px; padding: 0 var(--a-8); white-space: nowrap; }
+  .bekle { color: var(--text-secondary); }
+  details.madde > summary { cursor: pointer; list-style: revert; }
+  details.madde > summary .satir { display: inline-flex; width: calc(100% - 20px); vertical-align: top; }
+  details.madde ul.alt { margin: 0 0 var(--a-4); padding-left: var(--a-24); font-size: var(--t-12); color: var(--text-secondary); }
+  details.madde ul.alt li { padding: 1px 0; overflow-wrap: anywhere; }
+  details.katli { margin-top: var(--a-8); }
+  details.katli > summary { cursor: pointer; color: var(--text-muted); font-size: var(--t-12); font-weight: 600; width: max-content; max-width: 100%; }
+  details.katli > summary:hover { color: var(--text-primary); }
+  details.katli[open] > summary { margin-bottom: var(--a-4); }
+  .sayfa-alt { margin-top: var(--a-24); }
+  .sayfa-alt > summary { text-transform: none; letter-spacing: 0; font-size: var(--t-13); }
+  @media (max-width: 760px) { .bloklar { grid-template-columns: 1fr; } .ilerleme .cubuk { width: 80px; } }
+</style>
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">İşler</h1>
+  <section class="bolum" aria-labelledby="iBaslik">
+    <h2 id="iBaslik">Açık işler <span class="meta" id="iSayi"></span><span id="iBayat"></span></h2>
+    <p class="aciklama">Her iş için ne yapıldı, şimdi ne yapılıyor, sırada ne var ve planda olup kartı açılmamış ne var.</p>
+    <div id="liste"><p class="bos">Yükleniyor…</p></div>
+  </section>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script>
+'use strict';
+(() => {
+  const $ = s => document.querySelector(s);
+  const { esc, B, E } = O;
+  const YAPILDI_GORUNUR = 5;
+
+  const S = { veri: null, acik: new Set() };   // acik: açık <details> kimlikleri (yeniden çizimde korunur)
+  let K = null;
+
+  const rozet = d => `<span class="rozet" style="--renk:${esc(d.renk)}"><i></i>${esc(d.ad)}</span>`;
+  const MADDE_DURUM = { suruyor: { ad: 'Sürüyor', renk: 'var(--s1)' }, acik: { ad: 'Açık', renk: 'var(--neutral)' }, bitti: { ad: 'Bitti', renk: 'var(--good)' } };
+  const dizi = v => Array.isArray(v) ? v : [];
+  const reEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Metin adım belirteciyle başlıyorsa baştaki tekrar atılır ("G0 Langfuse" + adım G0 → "Langfuse").
+  function metinKirp(metin, adim) {
+    const m = String(metin ?? '');
+    if (!adim) return m;
+    const kes = m.replace(new RegExp('^\\s*' + reEsc(adim) + '(?![\\w-])[\\s:.)\\-–—·]*', 'i'), '');
+    return kes || m;
+  }
+  const adimOf = o => o.tur === 'kart' ? (o.adim || '') : (dizi(o.adimlar)[0] || '');
+  const cipHtml = a => a ? `<span class="adim">${esc(a)}</span>` : '';
+
+  function satirHtml(o, kova, anahtar) {
+    const adim = adimOf(o);
+    const metin = `<span class="metin">${esc(metinKirp(o.metin, adim))}</span>`;
+    const sag = [];
+    if (o.tur === 'kart') {
+      sag.push(`<span title="Kart">${esc(o.kart)}</span>`);
+      if (o.basamak) sag.push(esc(o.basamak));
+    }
+    let on = '';
+    if (kova === 'simdi') {
+      const d = o.tur === 'kart' ? E.durum(o.durum) : (MADDE_DURUM[o.durum] || MADDE_DURUM.suruyor);
+      on = rozet(d);
+    } else if (kova === 'sirada' && dizi(o.bekledigi).length) {
+      sag.unshift(`<span class="bekle">← ${esc(o.bekledigi.join(', '))} bekleniyor</span>`);
+    }
+    const govde = `<span class="satir">${cipHtml(adim)}${metin}${on}${sag.length ? `<span class="sag">${sag.join(' · ')}</span>` : ''}</span>`;
+    const alt = o.tur === 'madde' ? dizi(o.alt) : [];
+    if (alt.length) {
+      const id = 'd:' + anahtar;
+      return `<li><details class="madde" data-d="${esc(id)}"${S.acik.has(id) ? ' open' : ''}><summary data-anahtar="${esc(id)}">${govde}</summary>` +
+        `<ul class="alt">${alt.map(a => `<li>${esc(a)}</li>`).join('')}</ul></details></li>`;
+    }
+    return `<li>${govde}</li>`;
+  }
+
+  function listeHtml(oge, kova, isId) {
+    return `<ul class="satirlar">${oge.map((o, i) => satirHtml(o, kova, `${isId}:${kova}:${o.kart || i}:${i}`)).join('')}</ul>`;
+  }
+
+  function blokHtml(isId, kova, simge, ad, oge) {
+    const baslik = `<h3>${simge} ${esc(ad)} · ${oge.length}</h3>`;
+    if (!oge.length) return `<div class="blok">${baslik}<p class="yok">yok</p></div>`;
+    let ic;
+    if (kova === 'yapildi' && oge.length > YAPILDI_GORUNUR) {
+      const eski = oge.slice(0, oge.length - YAPILDI_GORUNUR), yeni = oge.slice(-YAPILDI_GORUNUR);
+      const id = `d:${isId}:daha`;
+      ic = listeHtml(yeni, kova, isId).replace('<ul class="satirlar">', '<ul class="satirlar">') +
+        `<details class="katli" data-d="${esc(id)}"${S.acik.has(id) ? ' open' : ''}><summary data-anahtar="${esc(id)}">+${eski.length} daha</summary>${listeHtml(eski, kova, isId + 'e')}</details>`;
+    } else ic = listeHtml(oge, kova, isId);
+    return `<div class="blok">${baslik}${ic}</div>`;
+  }
+
+  function seritHtml(is) {
+    const k = is.kovalar || {};
+    const il = is.ilerleme || {};
+    const toplam = Number(il.toplam) || 0, biten = Number(il.biten) || 0;
+    const yuzde = toplam ? Math.max(0, Math.min(100, Math.round(biten / toplam * 100))) : 0;
+    const ilerleme = `<span class="ilerleme"><span class="cubuk" role="progressbar" aria-label="İlerleme" aria-valuemin="0" aria-valuemax="${toplam}" aria-valuenow="${biten}"><i style="width:${yuzde}%"></i></span>${biten}/${toplam}</span>`;
+    const son = is.son ? `<span title="Son etkinlik">son ${esc(B.tarih(is.son))}</span>` : '';
+    const meta = [ilerleme, `<span title="Toplam maliyet">${esc(B.usd(is.usd))}</span>`, son, `<span class="is-kimlik">${esc(is.id)}</span>`].filter(Boolean).join('<span aria-hidden="true">·</span>');
+    const ipt = dizi(k.iptal);
+    const iptal = ipt.length
+      ? (() => { const id = `d:${is.id}:iptal`; return `<details class="katli" data-d="${esc(id)}"${S.acik.has(id) ? ' open' : ''}><summary data-anahtar="${esc(id)}">⊘ İptal (${ipt.length})</summary>${listeHtml(ipt, 'iptal', is.id)}</details>`; })()
+      : '';
+    return `<article class="serit" aria-labelledby="h-${esc(is.id)}">
+      <h2 id="h-${esc(is.id)}">${esc(is.ad || is.baslik || is.id)}</h2>
+      <div class="serit-meta">${meta}</div>
+      ${is.hata ? `<p class="is-hata">Bu iş okunamadı: ${esc(O.yolGizle(O.hataMetni(is.hata)))}</p>` : ''}
+      <div class="bloklar">
+        ${blokHtml(is.id, 'yapildi', '✔', 'Yapıldı', dizi(k.yapildi))}
+        ${blokHtml(is.id, 'simdi', '◐', 'Şimdi', dizi(k.simdi))}
+        ${blokHtml(is.id, 'sirada', '○', 'Sırada', dizi(k.sirada))}
+        ${blokHtml(is.id, 'planda_kart_yok', '◌', 'Planda, kart yok', dizi(k.planda_kart_yok))}
+      </div>${iptal}</article>`;
+  }
+
+  function katliBlok(id, baslik, icerik) {
+    return `<details class="katli sayfa-alt" data-d="${esc(id)}"${S.acik.has(id) ? ' open' : ''}><summary data-anahtar="${esc(id)}">${baslik}</summary>${icerik}</details>`;
+  }
+
+  function kartsizHtml(ks) {
+    const a = dizi(ks && ks.acik);
+    if (!a.length) return '';
+    const sat = a.map(k => {
+      const d = E.durum(k.durum);
+      return `<li><span class="satir"><span class="adim">${esc(k.kart)}</span><span class="metin">${esc(k.baslik)}</span>${rozet(d)}` +
+        `<span class="sag">${[esc(k.basamak || ''), k.usd > 0 ? esc(B.usd(k.usd)) : ''].filter(Boolean).join(' · ')}</span></span></li>`;
+    }).join('');
+    return `<section class="sayfa-alt" aria-labelledby="kartsizB"><h2 id="kartsizB" class="gorunmez">İşe bağlı olmayan açık kartlar</h2>` +
+      katliBlok('d:kartsiz', `İşe bağlı olmayan açık kartlar (${a.length})`, `<ul class="satirlar">${sat}</ul>`) + '</section>';
+  }
+
+  // Bir kabın içini yalnız HTML değiştiyse yeniden kurar; odaktaki öğe (data-anahtar) korunur.
+  function yerlestir(kap, html) {
+    if (!kap || kap.__html === html) return;
+    const a = document.activeElement;
+    const anahtar = a && kap.contains(a) ? a.dataset.anahtar : null;
+    kap.innerHTML = html; kap.__html = html;
+    if (anahtar) {
+      const y = [...kap.querySelectorAll('[data-anahtar]')].find(el => el.dataset.anahtar === anahtar);
+      if (y) y.focus({ preventScroll: true });
+    }
+  }
+
+  function ciz() {
+    const kap = $('#liste');
+    const sayi = $('#iSayi');
+    if (!S.veri) {
+      sayi.textContent = '';
+      let metin = '<p class="bos">Yükleniyor…</p>';
+      if (K && K.durum === 'hata') metin = `<p class="bos">İşler alınamadı: ${esc(O.yolGizle(K.hata))}</p>`;
+      yerlestir(kap, metin);
+      return;
+    }
+    const v = S.veri;
+    if (v.acik === false || v.hata) {
+      sayi.textContent = '';
+      yerlestir(kap, `<p class="bos">${v.hata ? 'Veri üretilemedi: ' + esc(O.hataMetni(v.hata)) : 'Bu çalışma alanında orkestra kapalı.'}</p>`);
+      return;
+    }
+    const tum = dizi(v.isler);
+    const acik = tum.filter(i => i.durum !== 'kapandi'), kapali = tum.filter(i => i.durum === 'kapandi');
+    sayi.textContent = acik.length ? acik.length + ' iş' : '';
+    let html = acik.length ? acik.map(seritHtml).join('') : '<p class="bos">Açık iş yok.</p>';
+    if (kapali.length) html += katliBlok('d:kapali', `Kapanan işler (${kapali.length})`, kapali.map(seritHtml).join(''));
+    html += kartsizHtml(v.kartsiz);
+    yerlestir(kap, html);
+  }
+
+  // Açık/kapalı durumu kimlikle saklanır (toggle olayı kabarmaz; yakalama aşamasında dinlenir).
+  $('main').addEventListener('toggle', e => {
+    const id = e.target && e.target.dataset && e.target.dataset.d;
+    if (!id) return;
+    if (e.target.open) S.acik.add(id); else S.acik.delete(id);
+    const kap = $('#liste'); if (kap) kap.__html = null;   // DOM kullanıcı eliyle değişti; sonraki çizim durumu kimlikten kursun
+  }, true);
+
+  O.kabuk({ sayfa: 'isler' });
+  K = O.veri(() => '/isler.json?alan=' + encodeURIComponent(O.alan), {
+    ad: 'İşler', aralik: 5000,
+    gecerli: v => v.acik === false || (Array.isArray(v.isler) && (!v.alan || !v.alan.id || v.alan.id === O.alan)),
+    cizici: v => { S.veri = v; ciz(); },
+    durum: () => { yerlestir($('#iBayat'), O.bayatIsaret(K)); if (!S.veri) ciz(); },
+  });
+  window.addEventListener('orkestra:alan', () => { S.veri = null; S.acik.clear(); ciz(); });
+})();
+</script>
+</body>
+</html>

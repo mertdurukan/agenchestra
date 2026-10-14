@@ -15,6 +15,8 @@ GET /onaylar, /onaylar.html    → Onay merkezi sayfası (assets/onaylar.html; y
 GET /kurallar, /kurallar.html  → Kurallar sayfası (assets/kurallar.html; yoksa "hazırlanıyor")
 GET /onaylar.json?alan=<id>    → onay kuyruğu: sayaç, kayıtlar, perspektif (rapor, durum)
 GET /kurallar.json?alan=<id>   → etkin kurallar, öneriler, geçmiş, kural kaynakları
+GET /isler, /isler.html        → İşler sayfası (assets/isler.html; yoksa "hazırlanıyor")
+GET /isler.json?alan=<id>      → işler: kovalar (yapıldı/şimdi/sırada/planda kart yok/iptal), maliyet, kartsız açık kartlar
 GET /onay-sayac.json           → {alan_id: onay sayacı} (sekme rozeti)
 POST /onay?alan=<id>           → karar / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
@@ -51,7 +53,8 @@ SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simd
             "/maliyet": "maliyet.html", "/maliyet.html": "maliyet.html",
             "/verim": "verim.html", "/verim.html": "verim.html",
             "/onaylar": "onaylar.html", "/onaylar.html": "onaylar.html",
-            "/kurallar": "kurallar.html", "/kurallar.html": "kurallar.html"}
+            "/kurallar": "kurallar.html", "/kurallar.html": "kurallar.html",
+            "/isler": "isler.html", "/isler.html": "isler.html"}
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8")}
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
@@ -116,6 +119,52 @@ def _kurallar_json(alan_id) -> dict:
         return sd
     onay.esitle(sd)
     return {"acik": True, "alan": _alan_kisa(a), **onay.kural_gorunum(sd, a["yol"]), "uretim": L.simdi()}
+
+
+def _isler_json(alan_id) -> dict:
+    import collections  # noqa: PLC0415
+    import is_kaydi as IK  # noqa: PLC0415
+    a, sd = _alan_sd(alan_id)
+    if a is None:
+        return sd
+    usd = collections.Counter()
+    for r in L.maliyet_kayitlari(sd):
+        if r.get("gorev") not in (None, "-"):
+            usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
+    kartlar = L.kartlar(sd)
+    adlar = ("yapildi", "simdi", "sirada", "planda_kart_yok", "iptal")
+    kart_by = {k.get("id"): k for k in kartlar}
+    isler = []
+    for g in IK.is_liste(sd):
+        ks = [k for k in kartlar if k.get("is") == g["id"]]
+        son = max([k.get("guncelleme") or "" for k in ks] + [""]) or g.get("olusturma") or ""
+        o = {"id": g["id"], "baslik": g.get("baslik", ""), "ad": IK.is_adi(g.get("baslik", "")),
+             "durum": "kapandi" if g.get("durum") == "kapandi" else "acik", "klasor": g.get("klasor", ""),
+             "ilerleme": {"biten": 0, "toplam": 0},
+             "usd": round(sum(usd.get(k["id"], 0.0) for k in ks), 4), "son": son,
+             "kovalar": {x: [] for x in adlar}}
+        try:
+            s = IK.is_serit(sd, g["id"], alt=True)
+            kov = {x: [] for x in adlar}
+            for x in adlar:
+                for e in s[x]:
+                    if e["tur"] == "kart":
+                        k = kart_by.get(e["kart"]) or {}
+                        e = {**e, "basamak": k.get("basamak"), "usd": round(usd.get(e["kart"], 0.0), 4)}
+                    kov[x].append(e)
+            o["ilerleme"] = s["ilerleme"]
+            o["kovalar"] = kov
+        except Exception as e:  # noqa: BLE001
+            o["hata"] = f"{type(e).__name__}: {e}"
+        isler.append(o)
+    isler.sort(key=lambda i: i["son"], reverse=True)
+    isler.sort(key=lambda i: i["durum"] != "acik")
+    siz = [k for k in kartlar if not k.get("is")]
+    acik = [{"kart": k["id"], "baslik": k.get("baslik", ""), "durum": k.get("durum"),
+             "basamak": k.get("basamak"), "usd": round(usd.get(k["id"], 0.0), 4)}
+            for k in sorted(siz, key=IK._kart_no) if k.get("durum") not in ("teslim", "iptal")]
+    return {"acik": True, "alan": _alan_kisa(a), "uretim": L.simdi(), "isler": isler,
+            "kartsiz": {"sayi": len(siz), "acik": acik}}
 
 
 def _sayac_tum() -> dict:
@@ -328,6 +377,10 @@ def _isleyici():
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli(("kural", alan), 2.0, lambda: _kurallar_json(alan)))
+            if u.path == "/isler.json":
+                alan = (q.get("alan") or [None])[0]
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli(("isler", alan), 2.0, lambda: _isler_json(alan)))
             if u.path == "/onay-sayac.json":
                 return self._gonder(200, "application/json; charset=utf-8", onbellekli("sayac", 5.0, _sayac_tum))
             if u.path == "/saglik":

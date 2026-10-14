@@ -191,6 +191,32 @@ def is_kart_ekle(sd: str, is_id: str, kart_id: str) -> dict:
     return _degistir(sd, is_id, islem)
 
 
+_JIRA_ONEK = re.compile(r"^[A-Z]{2,}[A-Z0-9]*-\d+:?\s+")
+_ADIM = re.compile(r"^(G\d+[a-z]?(?:-[A-Za-z]\d+|/[A-Za-z]?\d+)*)(?=[:\s]|$)")
+
+
+def adim_coz(baslik) -> str | None:
+    """Başlıktaki plan adımı öneki ('PE-636 G7-A1: x' -> 'G7-A1'); yoksa None."""
+    b = _JIRA_ONEK.sub("", (baslik or "").strip(), count=1)
+    m = _ADIM.match(b)
+    return m.group(1) if m else None
+
+
+def _klasor_anahtari(klasor: str) -> str:
+    return os.path.normcase(os.path.normpath(os.path.abspath(klasor))).casefold()
+
+
+def is_klasorle_bul(sd: str, klasor: str, kapali_dahil: bool = False) -> str | None:
+    """isler.json'da klasörü eşleşen ilk AÇIK (kapanmamış) iş kimliği; kapali_dahil=True ise durumdan bağımsız."""
+    hedef = _klasor_anahtari(klasor)
+    for g in is_liste(sd):
+        if not g.get("klasor") or _klasor_anahtari(g["klasor"]) != hedef:
+            continue
+        if kapali_dahil or g.get("durum") != "kapandi":
+            return g["id"]
+    return None
+
+
 def is_oturum_bagla(sd: str, is_id: str, oturum: str) -> dict:
     def islem(k):
         if not any(o.get("oturum") == oturum for o in k.setdefault("oturumlar", [])):
@@ -214,6 +240,146 @@ def todo_ozet(klasor: str) -> dict:
                     if m and m.group(1).strip():
                         acik.append(m.group(1).strip())
     return {"toplam": biten + len(acik), "biten": biten, "acik_maddeler": acik}
+
+
+_TODO_KUTU = re.compile(r"^[-*]\s*\[( |x|X|~)\]\s*(.*)$")
+_TODO_ALT = re.compile(r"^\s+[-*]\s+(?:\[[ xX~]\]\s*)?(.*)$")
+_TODO_ADIM = re.compile(r"(?<![\w-])G\d+[a-z]?(?:-[A-Za-z]\d+|/[A-Za-z]?\d+|-G\d+)*(?![\w])")
+_TODO_TARIH = re.compile(r"\s*\(\d{1,2}\.\d{1,2}[^)]*\)\s*$")
+
+
+def _todo_dosyasi(klasor: str) -> str | None:
+    if not os.path.isdir(klasor):
+        return None
+    for ad in sorted(os.listdir(klasor)):
+        if ad.lower() == "todo.md":
+            return os.path.join(klasor, ad)
+    return None
+
+
+def _todo_metin(ham: str) -> str:
+    t = ham.replace("**", "").replace("`", "")
+    t = t.split(" → ", 1)[0].strip()
+    while True:
+        y = _TODO_TARIH.sub("", t)
+        if y == t:
+            break
+        t = y
+    t = t.strip()
+    return t if len(t) <= 100 else t[:99] + "…"
+
+
+def todo_maddeleri(klasor: str) -> list[dict]:
+    """TODO.md'nin üst düzey onay kutulu maddeleri (dosya sırası)."""
+    yol = _todo_dosyasi(klasor)
+    if not yol:
+        return []
+    out, bolum, son = [], "", None
+    with open(yol, encoding="utf-8-sig", errors="replace") as f:
+        for satir in f:
+            satir = satir.rstrip("\r\n")
+            if satir.startswith("##"):
+                bolum = satir.lstrip("#").strip()
+                son = None
+                continue
+            m = _TODO_KUTU.match(satir)
+            if not m:
+                a = _TODO_ALT.match(satir)
+                if a and son is not None and len(son["alt"]) < 8:
+                    t = _todo_metin(a.group(1))
+                    if t:
+                        son["alt"].append(t)
+                elif satir.strip() and not satir[0].isspace():
+                    son = None
+                continue
+            ham = m.group(2).replace("**", "").replace("`", "")
+            if not ham.strip():
+                son = None
+                continue  # boş şablon maddesi
+            adimlar = []
+            for a in _TODO_ADIM.findall(ham):
+                if a not in adimlar:
+                    adimlar.append(a)
+            out.append({"durum": {" ": "acik", "~": "suruyor"}.get(m.group(1), "bitti"),
+                        "metin": _todo_metin(m.group(2)), "adimlar": adimlar, "bolum": bolum,
+                        "alt": []})
+            son = out[-1]
+    return out
+
+
+_KOVA = {"teslim": "yapildi", "isleniyor": "simdi", "denetimde": "simdi", "onaylandi": "simdi",
+         "planlandi": "sirada", "beklemede": "sirada", "reddedildi": "sirada", "iptal": "iptal"}
+
+
+def _eslesir(madde_adim: str, kart_adim: str) -> bool:
+    return (madde_adim == kart_adim or kart_adim.startswith(madde_adim + "-")
+            or madde_adim.startswith(kart_adim + "-"))
+
+
+def _kart_no(k: dict):
+    m = re.search(r"\d+", str(k.get("id", "")))
+    return (int(m.group()) if m else 0, str(k.get("id", "")))
+
+
+def is_serit(sd: str, is_id: str, alt: bool = False) -> dict:
+    """Bir iş için yapıldı/şimdi/sırada/planda-kart-yok/iptal kovaları (deterministik)."""
+    kayit = is_al(sd, is_id)
+    giris = next((g for g in is_liste(sd) if g["id"] == is_id), None)
+    if not kayit or not giris:
+        raise KeyError(f"iş yok: {is_id}")
+    klasor = giris["klasor"]
+    maddeler = todo_maddeleri(klasor)
+    kartlar = sorted((k for k in L.kartlar(sd) if k.get("is") == is_id), key=_kart_no)
+    durumlar = {k.get("id"): k.get("durum") for k in L.kartlar(sd)}
+    kovalar = {"yapildi": [], "simdi": [], "sirada": [], "planda_kart_yok": [], "iptal": []}
+    kart_adimlari = [(k["adim"], k.get("durum")) for k in kartlar if k.get("adim")]
+    for md in maddeler:
+        esl = [d for a in md["adimlar"] for ka, d in kart_adimlari if _eslesir(a, ka)]
+        if md["durum"] == "bitti":
+            if any(d != "iptal" for d in esl):
+                continue
+        else:
+            # bitmemiş kart yalnız metni o adımla BAŞLAYAN açık/süren maddeyi gizler
+            esl_bas = [d for a in md["adimlar"] if md["metin"].startswith(a)
+                       for ka, d in kart_adimlari if _eslesir(a, ka)]
+            if any(d not in ("teslim", "iptal") for d in esl_bas):
+                continue
+        kova = {"bitti": "yapildi", "suruyor": "simdi"}.get(md["durum"], "planda_kart_yok")
+        oge = {"tur": "madde", "metin": md["metin"], "adimlar": md["adimlar"],
+               "bolum": md["bolum"], "durum": md["durum"]}
+        if alt:  # yalnız panel /isler.json; CLI çıktısı değişmez
+            oge["alt"] = list(md.get("alt") or [])
+        kovalar[kova].append(oge)
+    for k in kartlar:
+        kova = _KOVA.get(k.get("durum"))
+        if not kova:
+            continue
+        bek = [b for b in (k.get("bagimliliklar") or [])
+               if durumlar.get(b) not in ("teslim", "onaylandi")]
+        kovalar[kova].append({"tur": "kart", "kart": k["id"], "adim": k.get("adim"),
+                              "metin": (k.get("teslim_ozeti") if k.get("durum") == "teslim" else None)
+                              or k.get("baslik", ""),
+                              "durum": k.get("durum"), "bekledigi": bek})
+    biten = sum(1 for m in maddeler if m["durum"] == "bitti")
+    return {"is": {"id": is_id, "baslik": giris.get("baslik", ""), "durum": giris.get("durum"),
+                   "klasor": klasor},
+            "ilerleme": {"biten": biten, "toplam": len(maddeler)}, **kovalar}
+
+
+_IS_ONEK = re.compile(r"^(?:\d{1,4}-)?\d{8}-")
+
+
+def is_adi(baslik) -> str:
+    """Okunur iş adı: 'NNN-YYYYMMDD-' öneki atılır, kalan '-' boşluk olur (Jira kodu tireli kalır).
+    Öneksiz başlık aynen döner."""
+    b = baslik or ""
+    if not _IS_ONEK.match(b):
+        return b
+    kalan = _IS_ONEK.sub("", b, count=1)
+    m = re.match(r"^([A-Z][A-Z0-9]+-\d+)(?:-(.*))?$", kalan)
+    if m:
+        return m.group(1) + (" " + m.group(2).replace("-", " ") if m.group(2) else "")
+    return kalan.replace("-", " ")
 
 
 def onar(sd: str, ek_klasorler=None, uygula: bool = False) -> dict:
