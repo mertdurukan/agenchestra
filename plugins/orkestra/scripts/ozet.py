@@ -51,7 +51,7 @@ def _olay_mi(metin: str, gorev=None) -> bool:
 
 
 _DEFTER_METIN_ALANLARI = ("sonuc", "yaptim", "not", "sonraki", "ozet", "aciklama", "mesaj", "metin")
-_DEFTER_METIN_DISI = {"zaman", "gorev", "surec", "ajan", "agent_id", "oturum", "model", "kaynak", "dokunulan", "token"}
+_DEFTER_METIN_DISI = {"v", "zaman", "gorev", "surec", "ajan", "agent_id", "oturum", "model", "kaynak", "dokunulan", "token"}
 
 
 GERI_DOLDUR_SN = 2
