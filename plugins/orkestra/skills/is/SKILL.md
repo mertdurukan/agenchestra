@@ -19,9 +19,9 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 ### Plan yolu seçimi
 - Eşikleri önce `.claude/orkestra/plan_yolu.json` (proje ezmesi), yoksa skill klasöründeki `plan_yolu.json` dosyasından oku.
 - **Yol 1 `dogrudan`:** tahmini kart ≤ `dogrudan_max_kart` VE okunacak dosya ≤ `dogrudan_max_okunacak_dosya`, istek net → kartları sen doğrudan yazarsın; triyaj çağrılmaz.
-- **Yol 2 `triyaj`:** ikisinin arası ya da istek belirsiz → Agent aracı ile `orkestra:triyaj` (istem `#SUREC:triyaj` ile başlar) JSON döner; kartları yine sen yazarsın. Triyaj `plan_yolu: devir` derse Yol 3'e geç.
+- **Yol 2 `triyaj`:** ikisinin arası ya da istek belirsiz → Agent aracı ile `orkestra:triyaj` (istem `#SUREC:triyaj` ile başlar) JSON döner; kartları yine sen yazarsın. Triyaj `plan_yolu: devir` derse Yol 3'e geç. Triyaj ilk keşfe bağlı değilse ikisi AYNI mesajda paralel başlatılabilir.
 - **Yol 3 `devir`:** tahmini kart ≥ `devir_min_kart` YA DA okunacak dosya ≥ `devir_min_okunacak_dosya`:
-  1. Keşif `orkestra:arastirmaci` ile yapılır (istem `#SUREC:arastirma`); yalnız özet + dosya:satır döner, dosyaları kendin açmazsın.
+  1. Keşif `orkestra:arastirmaci` ile yapılır (istem `#SUREC:arastirma`); yalnız özet + dosya:satır döner, dosyaları kendin açmazsın. İsteği kesişmeyen 2-4 alana böl; her alan için ayrı `orkestra:arastirmaci`yı AYNI mesajda paralel çağır, özetleri birleştir. Tek alanlık işte tek araştırmacı yeter.
   2. Bir PLAN KARTI aç: basamak T3, girdi = istek + kullanıcı kararları + araştırmacı özeti, `yazma_alani` = scratchpad'deki tek plan JSON dosyası.
   3. Plan kartı normal akışla yürür: işçi T3 (istem `#GOREV:<id> #SUREC:plan`) + AYRI denetçi (opus).
   4. Onaylanınca yalnız plan JSON'unu oku, `orkestra kart toplu --json-dosya <plan.json>` ile kartları aç, sonra §2'ye geç.
@@ -68,6 +68,7 @@ Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
   4. **Yeşil kapı:** aynı kapı ajanı `--asama yesil` çalıştırır. Geçmezse denetçi ÇAĞRILMAZ; işçiye test çıktı kuyruğuyla düzeltme turu açılır. Bu tur ret sayılır ve basamak yükseltmeye dahildir.
   5. **Denetim:** mercekler + `test kalitesi` merceği. Denetçi yeşil kayıt yoksa onay yazamaz (CLI zorlar).
   - Denetçi `TEST:` önekli bulgu ile ret verirse kart `reddedildi` (neden `test-kalitesi`) döner; işçiye düzeltme açılmaz.
+  - Kapı notları: yeşil kapı ile ön kontrol tek kapı çağrısında koşar; kırmızı kapı ile taban da. Kapılar aynı anda en çok 2 test koşusuyla sınırlıdır. Bağımlı kod kartında test yazımı bağımlılığı beklemez (testler erken yazılır).
 
 Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Bağımsız kartlar için Agent aracını AYNI mesajda birden çok kez çağır, `run_in_background: true` ile.
@@ -90,7 +91,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 
 ## 3. Topla ve getir
 - Workflow sonucunu ya da işçi ve denetçi yanıtlarını oku. `orkestra kart liste` ile durumları doğrula.
-- Onaylı her kart için çıktıları kendin gözden geçir (dosyaları aç). Sonra `orkestra kart teslim <id> --ozet "<tek cümle>"`.
+- Onaylı her kart için çıktıları kendin gözden geçir (dosyaları aç). Sonra onaylı kartları tek tek değil toplu kapat: `[{"id": "G-001", "ozet": "<tek cümle>"}, ...]` biçiminde bir JSON dosyası yaz, `orkestra kart teslim-toplu --json-dosya <f>` çalıştır. Tek kart için `orkestra kart teslim <id> --ozet "<tek cümle>"` kalır.
 - Reddedilen ya da atlanan kart için kullanıcıya nedenini söyle. Ya planı düzelt ya da `orkestra kart durum <id> beklemede --not "neden"` (ya da `iptal`) yap.
 - Ortak dosyalar (README, dizinler, notlar günlüğü) gerekiyorsa şimdi sen güncelle.
 - Teslimattan önce işin todo.md'sini güncelle: biten maddeleri `orkestra is todo <id> --bitti <n|parça> [--not "..."]` ile kapat; açık kalan ve yeni çıkan sıradaki adımları `orkestra is todo <id> --ekle "..."` ile yaz (sohbet kapanınca kaybolmasın).
