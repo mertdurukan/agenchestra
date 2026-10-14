@@ -2,33 +2,33 @@
   "description": "Orkestra: denetim ayrımı ve yazma alanı kapıları, ortak defter, ajan x süreç token defteri, bitiş kapısı, perspektif tetiği. Yalnız .claude/orkestra/ açık projelerde iş yapar.",
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "SessionStart"], "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SessionStart", "timeout": 10 } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "UserPromptSubmit"], "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python UserPromptSubmit", "timeout": 10 } ] }
     ],
     "PreToolUse": [
       { "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
-        "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "PreToolUse"], "timeout": 10, "statusMessage": "orkestra kapısı" } ] }
+        "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python PreToolUse", "timeout": 10, "statusMessage": "orkestra kapısı" } ] }
     ],
     "PostToolUse": [
       { "matcher": "Skill|Agent|Task|Workflow",
-        "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "PostToolUse"], "timeout": 10 } ] }
+        "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python PostToolUse", "timeout": 10 } ] }
     ],
     "SubagentStart": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "SubagentStart"], "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SubagentStart", "timeout": 10 } ] }
     ],
     "SubagentStop": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "SubagentStop"], "timeout": 30 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SubagentStop", "timeout": 30 } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "Stop"], "timeout": 30 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python Stop", "timeout": 30 } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "SessionEnd"], "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SessionEnd", "timeout": 10 } ] }
     ],
     "ConfigChange": [
-      { "hooks": [ { "type": "command", "command": "python", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.py", "ConfigChange"], "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python ConfigChange", "timeout": 10 } ] }
     ]
   }
 }

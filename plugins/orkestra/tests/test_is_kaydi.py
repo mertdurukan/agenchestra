@@ -125,5 +125,27 @@ class IsKaydiTest(unittest.TestCase):
         self.assertEqual(len(set(sonuc)), 60)
 
 
+    def _agac(self):
+        out = []
+        for kok, dizinler, dosyalar in os.walk(self._t.name):
+            out += [os.path.join(kok, x) for x in dizinler + dosyalar]
+        return sorted(out)
+
+    def test_onar_kuru_kosu_bos_sd_hicbir_sey_olusturmaz(self):
+        once = self._agac()
+        r = K.onar(self.sd, [], uygula=False)
+        self.assertFalse(r["yazildi"])
+        self.assertEqual(self._agac(), once)
+        self.assertEqual(os.listdir(self.sd), [])
+
+    def test_onar_kuru_kosu_dolu_sd_dosya_dizin_degistirmez(self):
+        K.is_ac(self.sd, "a", os.path.join(self.kok, "a"))
+        K.is_ac(self.sd, "b", os.path.join(self.kok, "b"))
+        os.remove(os.path.join(self.sd, "isler.json"))
+        once = self._agac()
+        K.onar(self.sd, [os.path.join(self.kok, "a")], uygula=False)
+        self.assertEqual(self._agac(), once)
+
+
 if __name__ == "__main__":
     unittest.main()

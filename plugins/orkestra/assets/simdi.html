@@ -157,6 +157,8 @@
   };
   // defter satırları: olay=true olanlar kart işaretidir (alan yoksa hepsi olaydır değil, düz satırdır)
   const defter = () => (S.ozet && Array.isArray(S.ozet.defter)) ? S.ozet.defter : [];
+  // asılı ajanlar: alan yoksa ya da biçimi bozuksa boş liste; yalnız nesne öğeler
+  const asiliAjanlar = () => (S.ozet && Array.isArray(S.ozet.asili_ajanlar)) ? S.ozet.asili_ajanlar.filter(a => a && typeof a === 'object') : [];
 
   // ------------------------------------------------------------ 1. Dikkat şeridi
   function dikkatCiz() {
@@ -178,6 +180,14 @@
       <span class="eylem"><a href="#kartlar">Kartlara git</a></span></div>`);
     if (perspektif) ogeler.push(`<div class="dikkat" style="--renk:var(--s7)"><span class="simge" aria-hidden="true">☾</span>
       <span class="metin"><b>Perspektif raporu hazır</b><span class="meta">Claude içinde <code>/orkestra:perspektif</code> ile oku.</span></span></div>`);
+    // Asılı ajanlar (ozet.json asili_ajanlar): başlamış ama uzun süredir bitmeyen ajan başına bir satır; boşsa hiçbir şey çizilmez.
+    asiliAjanlar().forEach(a => {
+      const dk = Math.round(Number(a.dakika));
+      const sure = Number.isFinite(dk) ? dk : '?';
+      const gorev = a.gorev && a.gorev !== '-' ? ` · ${a.gorev}` : '';
+      ogeler.push(`<div class="dikkat" style="--renk:var(--warning)"><span class="simge" aria-hidden="true">⏱</span>
+      <span class="metin"><b>${esc(sure)} dk'dır bitmeyen ajan</b><span class="meta">${esc(String(a.ajan || 'ajan') + gorev)}</span></span></div>`);
+    });
     // Kaynak hatası şeridi: yalnız hiç veri gelmemişken ya da hata uzun sürünce (≥ 3 yoklama / ≥ 10 sn).
     // Kısa kopukluğu yalnız canlı göstergesi ve bölüm başlığındaki işaret anlatır. Şerit mevcutların ÜSTÜNE eklenir.
     const uyarilar = [];

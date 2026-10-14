@@ -5,6 +5,7 @@ Kilit ve atomik yazım ork_lib'den gelir.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -213,3 +214,60 @@ def todo_ozet(klasor: str) -> dict:
                     if m and m.group(1).strip():
                         acik.append(m.group(1).strip())
     return {"toplam": biten + len(acik), "biten": biten, "acik_maddeler": acik}
+
+
+def onar(sd: str, ek_klasorler=None, uygula: bool = False) -> dict:
+    """Merkez isler.json'u iş klasörlerindeki is.json kayıtlarından yeniden kurar.
+
+    Bilinen klasörler: merkezdeki girişler + ek_klasorler. is.json okunamayan klasör atlanır
+    (merkezdeki girişi silinmez). Sayaç düşmez: max(mevcut sayaç, en büyük I-NNN).
+    Varsayılan kuru koşu: dosya yazmaz. Dönüş: {"farklar": [metin], "uyarilar": [metin], "yazildi": bool}.
+    """
+    yol = _merkez(sd)
+    with (L.kilit(yol) if uygula else contextlib.nullcontext()):  # kuru koşu kilit/dosya oluşturmaz
+        var_mi = os.path.exists(yol)
+        mevcut = _oku(yol, _BOS)
+        isler = {i: dict(g) for i, g in (mevcut.get("isler") or {}).items()}
+        klasorler = []
+        for g in isler.values():
+            if g.get("klasor"):
+                klasorler.append(os.path.abspath(g["klasor"]))
+        klasorler += [os.path.abspath(k) for k in (ek_klasorler or [])]
+        farklar, uyarilar = [], []
+        gorulen = set()
+        for k in klasorler:
+            if k in gorulen:
+                continue
+            gorulen.add(k)
+            try:
+                kayit = _oku(_is_json_yolu(k), None)
+            except (OSError, ValueError):
+                kayit = None
+            if not isinstance(kayit, dict) or not _ID.match(str(kayit.get("id", ""))):
+                uyarilar.append(f"atlandı (geçerli is.json yok): {k}")
+                continue
+            i = kayit["id"]
+            yeni = {"klasor": k, "baslik": kayit.get("baslik", ""), "durum": kayit.get("durum", "acik"),
+                    "olusturma": kayit.get("olusturma", "")}
+            eski = isler.get(i)
+            if eski is None:
+                farklar.append(f"{i}: merkezde eksik, eklenecek ({k})")
+                isler[i] = yeni
+                continue
+            for alan, deger in yeni.items():
+                onceki = eski.get(alan)
+                if alan == "klasor" and onceki:
+                    onceki = os.path.abspath(onceki)
+                if onceki != deger:
+                    farklar.append(f"{i}: {alan} {onceki!r} -> {deger!r}")
+                    eski[alan] = deger
+        en_buyuk = max([is_no(i) for i in isler] or [0])
+        sayac = int(mevcut.get("sayac", 0))
+        if sayac < en_buyuk:
+            farklar.append(f"sayac: {sayac} -> {en_buyuk}")
+            sayac = en_buyuk
+        yazildi = False
+        if uygula and (farklar or not var_mi) and (farklar or isler):
+            _yaz(yol, {**mevcut, "sayac": sayac, "isler": isler})
+            yazildi = True
+    return {"farklar": farklar, "uyarilar": uyarilar, "yazildi": yazildi}

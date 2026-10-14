@@ -1,0 +1,20 @@
+#!/bin/sh
+# Kanca sarmalayıcısı: python3 -> python -> py -3 sırasıyla yorumlayıcı bulur, hook.py çalıştırır.
+# stdin ve çıkış kodu aynen geçer. Kullanım: hook_python <OlayAdı>
+DIR="$(cd "$(dirname "$0")" && pwd)"
+HOOK="$DIR/../scripts/hook.py"
+# Windows Store kısayolları (WindowsApps altındaki çalışmayan stub) atlanır.
+bul() {
+  _y="$(command -v "$1" 2>/dev/null)" || return 1
+  case "$_y" in *WindowsApps*) return 1 ;; esac
+  return 0
+}
+if bul python3; then
+  exec python3 "$HOOK" "$@"
+elif bul python; then
+  exec python "$HOOK" "$@"
+elif bul py; then
+  exec py -3 "$HOOK" "$@"
+fi
+echo "orkestra hook_python: python3/python/py bulunamadı" >&2
+exit 127

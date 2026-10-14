@@ -93,12 +93,14 @@ const KAPI_SEMA = {
 // ---------------------------------------------------------------- yardımcılar
 const kodKarti = k => k.sinif === 'kod'
 const testAlani = k => (k.test_alani || []).join(', ') || '-'
+const testKoku = k => k.test_koku || 'proje kökü'
 
 function testBilgisi(k) {
   if (!kodKarti(k)) return ''
   return [
     `Sınıf: kod. Test komutu: ${k.test_komutu || '-'}`,
     `Test alanı (kilitli testler; bu dosyalara YAZMA): ${testAlani(k)}`,
+    `Test kökü (test komutu burada koşar, test alanı buna göredir): ${testKoku(k)}`,
   ].join('\n')
 }
 
@@ -183,6 +185,7 @@ function testYazariIstemi(k, geriBildirim) {
     ...k.kabul_kriterleri.map((c, i) => `  ${i + 1}. ${c}`),
     `Test komutu: ${k.test_komutu || '-'}`,
     `Test alanı (yalnız buraya yaz): ${testAlani(k)}`,
+    `Test kökü (test komutu burada koşar, test alanı buna göredir): ${testKoku(k)}`,
     `Uygulamanın yazma alanı (sen YAZMA): ${(k.yazma_alani || []).join(', ') || '-'}`,
     geriBildirim
       ? `ÖNCEKİ KIRMIZI TEYİDİ GEÇMEDİ (kod yokken testler başarısız olmalı). Kapı özeti: ${geriBildirim.ozet || '-'}` +

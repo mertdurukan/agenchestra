@@ -25,7 +25,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac|test-ayar)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|bitti))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -103,12 +103,24 @@ def kilitli_test_bul(sd: str, proje: str, tam: str) -> tuple[str, str] | None:
     karşılaştırılır; ağaç sayısından ve ağaç/kilit sahibi eşleşmesinden bağımsızdır. Örnek: G1 tests/test_x.py'yi
     kilitlediyse G2'nin ağacındaki tests/test_x.py de kapalıdır (G2 teslimde birleşince G1'in kilitli testi değişirdi)."""
     ks = L.kartlar(sd)
-    kilit = {_anahtar(y): (y, gid) for y, gid in kilitli_testler(sd, ks).items()}
-    if not kilit:
-        return None
-    for a in sorted(paylasilan_goreli(proje, tam, ks)):
-        if a in kilit:
-            return kilit[a]
+    kilit = {_anahtar(y): (y, gid) for y, gid in kilitli_testler(sd, [k for k in ks if not k.get("test_koku")]).items()}
+    if kilit:
+        for a in sorted(paylasilan_goreli(proje, tam, ks)):
+            if a in kilit:
+                return kilit[a]
+    # test_koku'lu kartların kilitleri kendi test köklerine göredir (proje dışı olabilir): kök başına aynı sorgu.
+    gruplar: dict[str, list[dict]] = {}
+    for k in ks:
+        if k.get("test_koku"):
+            gruplar.setdefault(L.kart_test_koku(proje, k), []).append(k)
+    for taban in sorted(gruplar):
+        kilit = {_anahtar(y): (taban.replace("\\", "/").rstrip("/") + "/" + y, gid)
+                 for y, gid in kilitli_testler(sd, gruplar[taban]).items()}
+        if not kilit:
+            continue
+        for a in sorted(paylasilan_goreli(taban, tam, ks)):
+            if a in kilit:
+                return kilit[a]
     return None
 
 
@@ -262,11 +274,13 @@ def pre_tool_use(inp: dict):
                 if k and ca.get("yol") and not agacta and ca.get("depo") and L.yol_altinda(tam, ca["depo"]):
                     reddet(f"{gorev} kartının çalışma ağacı var; paylaşılan ağaca ({ca['depo']}) değil, "
                            f"{L.CALISMA_AGACI_ONEKI.lower()}{ca['yol']} altına yaz.")
-                # test_alani proje köküne göredir; kart ağacındaki yazım paylaşılan depodaki karşılığı üzerinden okunur.
-                ttrel = trel
+                # test_alani test köküne (test_koku, yoksa proje) göredir; kart ağacındaki yazım paylaşılan depodaki
+                # karşılığı üzerinden okunur.
+                tkok = L.kart_test_koku(proje, k) if k and k.get("test_koku") else proje
+                ttrel = trel if tkok == proje else _rel(tkok, tam)
                 if agacta:
                     es = L.agac_esdegeri(k, tam)
-                    ttrel = _rel(proje, es) if es is not None else None
+                    ttrel = _rel(tkok, es) if es is not None else None
                 if k and k.get("sinif") == "kod" and k.get("test_alani") and ttrel is not None:
                     icinde = test_alaninda_mi(ttrel, k["test_alani"])
                     if surec == "test-yaz":
@@ -417,23 +431,71 @@ def subagent_stop(inp: dict):
 
 # ---------------------------------------------------------------- Stop (ana ajan)
 
+_BILDIRIM_ID = re.compile(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>")
+_BILDIRIM_BITTI = re.compile(r"<status>\s*(?:completed|failed|killed|stopped)\s*</status>")
+ACIK_GOREV_AZAMI = 50
+
+
+def _acik_arka_plan(yol, ofset, bitis, onceki) -> list:
+    """Transkriptin [ofset, bitis) aralığındaki arka plan görevlerini önceki açık listeye işler; bildirimi gelmemiş araç kimlikleri döner."""
+    acik = [str(x) for x in onceki] if isinstance(onceki, list) else []
+    try:
+        if not yol or not os.path.exists(yol) or bitis <= ofset:
+            return acik
+        with open(yol, "rb") as f:
+            f.seek(ofset)
+            veri = f.read(bitis - ofset)
+        for ham in veri.splitlines():
+            try:
+                o = json.loads(ham.decode("utf-8", errors="replace"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(o, dict) or o.get("isSidechain"):
+                continue
+            icerik = (o.get("message") or {}).get("content")
+            if o.get("type") == "assistant" and isinstance(icerik, list):
+                for b in icerik:
+                    if (isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in ("Agent", "Bash")
+                            and isinstance(b.get("input"), dict) and b["input"].get("run_in_background") is True
+                            and b.get("id") and b["id"] not in acik):
+                        acik.append(b["id"])
+            elif o.get("type") == "user":
+                metin = icerik if isinstance(icerik, str) else json.dumps(icerik, ensure_ascii=False)
+                if "<task-notification>" in metin and _BILDIRIM_BITTI.search(metin):
+                    for kimlik in _BILDIRIM_ID.findall(metin):
+                        if kimlik in acik:
+                            acik.remove(kimlik)
+    except Exception:
+        pass
+    return acik[-ACIK_GOREV_AZAMI:]
+
+
 def stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
         gec()
     oid = inp.get("session_id") or "-"
-    if not os.environ.get("ORKESTRA_PERSPEKTIF"):
-        import niyet
-        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur")  # Claude turu bitirdi → kullanıcıyı bekliyor
     ofset_yolu = os.path.join(sd, "oturumlar", f"{oid}.json")
     try:
         with open(ofset_yolu, encoding="utf-8") as f:
             onceki = json.load(f)
-        ofset = onceki.get("ofset", 0)
-        onceki_baglam = str(onceki.get("baglam") or "")
+        if not isinstance(onceki, dict):
+            onceki = {}
     except Exception:
-        ofset, onceki_baglam = 0, ""
-    ozet = L.transkript_oku(inp.get("transcript_path"), ofset, yan_zincir=False)
+        onceki = {}
+    ofset = onceki.get("ofset", 0) if isinstance(onceki.get("ofset"), int) else 0
+    onceki_baglam = str(onceki.get("baglam") or "")
+    try:
+        ozet = L.transkript_oku(inp.get("transcript_path"), ofset, yan_zincir=False)
+    except Exception:  # okunamayan transkript kancayı düşürmesin; ofset ilerlemez
+        ozet = {"modeller": {}, "toplam": {"giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0},
+                "ilk_kullanici": None, "tur": 0, "arac_cagrisi": 0, "araclar": {}, "dokunulan": [], "okunan": [],
+                "ilk_zaman": None, "son_zaman": None, "ofset": ofset}
+    acik_gorevler = _acik_arka_plan(inp.get("transcript_path"), ofset, ozet["ofset"], onceki.get("acik_gorevler"))
+    if not os.environ.get("ORKESTRA_PERSPEKTIF"):
+        import niyet
+        # Claude turu bitirdi → kullanıcıyı bekliyor (arka plan görevi açıksa bunu da işaretle)
+        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None)
     baglam = ""
     try:
         esleme = B.esleme_oku(sd)
@@ -444,7 +506,20 @@ def stop(inp: dict):
                 baglam = niyet.son_baglam(oid)
     except Exception:
         baglam = ""
-    L.atomik_yaz(ofset_yolu, json.dumps({"ofset": ozet["ofset"], "baglam": baglam, "guncelleme": L.simdi()}))
+    with L.kilit(ofset_yolu):  # oku-birleştir-yaz kilitli (iş bağıyla kayıp güncelleme yarışı olmasın)
+        try:
+            with open(ofset_yolu, encoding="utf-8") as f:
+                yeni = json.load(f)
+            if not isinstance(yeni, dict):
+                yeni = {}
+        except Exception:
+            yeni = {}
+        yeni.update({"ofset": ozet["ofset"], "baglam": baglam, "guncelleme": L.simdi()})
+        if acik_gorevler:
+            yeni["acik_gorevler"] = acik_gorevler
+        else:
+            yeni.pop("acik_gorevler", None)
+        L.atomik_yaz(ofset_yolu, json.dumps(yeni))
     perspektif = bool(os.environ.get("ORKESTRA_PERSPEKTIF"))
     ajan = "perspektif-bakimcisi" if perspektif else "ana-ajan"
     surec = "perspektif" if perspektif else "orkestrasyon"
@@ -508,6 +583,9 @@ def session_start(inp: dict):
                 "(`/orkestra:is`) → onaylıyı `orkestra kart teslim` ile topla. Ortak defter: `orkestra defter baglam <id>`."]
     if ks:
         satirlar.append("Açık/bekleyen kartlar: " + "; ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}] {k['baslik'][:40]}" for k in ks[:8]))
+    uyari = asili_uyari(sd)  # asılı ajan uyarısı düşük öncelikli satırlardan önce: 1800 kesiminde sona kalmasın
+    if uyari:
+        satirlar.append(uyari)
     try:  # önbellek bayatlığı: hızlı, hatada sessiz
         b = L.bayatlik()
         if b:
@@ -525,9 +603,6 @@ def session_start(inp: dict):
         satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
                         "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
                         f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
-    uyari = asili_uyari(sd)
-    if uyari:
-        satirlar.append(uyari)
     om = ""
     try:  # panel onay kararları: hata hook'u düşürmez
         import onay

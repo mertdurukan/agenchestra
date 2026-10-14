@@ -79,11 +79,17 @@ class IsCli(unittest.TestCase):
         self.assertEqual(len(self.oku(os.path.join(klasor, "is.json"))["oturumlar"]), 1)
         self.assertIn("1/2", self.cli("is", "todo", i).stdout)
 
-    def test_hook_oturum_dosyasini_ezerse_aktif_yine_bulunur(self):
+    def test_hook_anahtarlari_koruyarak_gunceller_aktif_yine_bulunur(self):
         i, _ = self.ac()
+        yan = os.path.join(self.sd, "oturumlar", "is_" + TC.OTURUM + ".json")
+        self.assertFalse(os.path.exists(yan), "geçici yan dosya yazılmamalı")
+        self.assertEqual(self.oku(self.oturum_yolu())["is"], i)  # bağ ana oturum dosyasında
+        o = self.oku(self.oturum_yolu())
+        o["ofset"] = 1  # Stop hook'unun yaptığı gibi: mevcut anahtarlar korunarak güncelleme
         with open(self.oturum_yolu(), "w", encoding="utf-8") as f:
-            json.dump({"ofset": 1}, f)  # Stop hook'unun yaptığı gibi
+            json.dump(o, f)
         self.assertIn(i, self.cli("is", "aktif").stdout)
+        self.assertFalse(os.path.exists(yan))
 
     def test_gecersiz_is_hata(self):
         self.assertNotEqual(self.cli("is", "devam", "I-999").returncode, 0)
@@ -150,6 +156,173 @@ class IsCli(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.sd, "isler.json")))
         r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "I-001")
         self.assertNotEqual(r.returncode, 0)
+
+    # ------------------------------------------------------------ T-03b düzeltmeleri
+
+    def plan_yaz(self, n):
+        plan = os.path.join(self.proje, "plan.json")
+        with open(plan, "w", encoding="utf-8") as f:
+            json.dump([{"baslik": f"k{x}", "kabul_kriterleri": ["k"]} for x in range(n)], f)
+        return plan
+
+    def test_toplu_kapali_is_uyarisi_komut_basina_tek_satir(self):
+        i, klasor = self.ac()
+        self.assertEqual(self.cli("is", "kapat", i).returncode, 0)
+        r = self.cli("kart", "toplu", self.plan_yaz(3))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(len(json.loads(r.stdout)), 3)
+        uyarilar = [s for s in r.stderr.splitlines() if "kapalı" in s]
+        self.assertEqual(len(uyarilar), 1, r.stderr)
+        self.assertIn(i, uyarilar[0])
+        self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
+
+    def test_toplu_kapali_is_tek_kartta_da_uyari_bir_satir(self):
+        i, _ = self.ac()
+        self.cli("is", "kapat", i)
+        r = self.cli("kart", "toplu", self.plan_yaz(1))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(len([s for s in r.stderr.splitlines() if "kapalı" in s]), 1, r.stderr)
+
+    def test_kart_yeni_gecersiz_is_sayaci_ilerletmez(self):
+        r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "I-777")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(self.kart(), "G-001")
+
+    def test_kart_yeni_bicimsiz_is_sayaci_ilerletmez(self):
+        r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "uydurma")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(self.kart(), "G-001")
+
+    def test_kart_yeni_kapali_is_sayaci_ilerletmez(self):
+        i, klasor = self.ac()
+        self.cli("is", "kapat", i)
+        for _ in range(2):
+            r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", i)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("kapalı", r.stderr)
+        self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
+        gdir = os.path.join(self.sd, "gorevler")
+        self.assertEqual([x for x in os.listdir(gdir) if x.endswith(".json")] if os.path.isdir(gdir) else [], [])
+        r = self.cli("kart", "yeni", "--baslik", "y", "--kabul", "k")  # --is yok: uyarıyla bağsız kart
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "G-001")
+
+    def test_kart_yeni_hata_sonrasi_numara_ardisik(self):
+        g1 = self.kart()
+        r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--is", "I-050")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(g1, "G-001")
+        self.assertEqual(self.kart(), "G-002")
+
+    # ------------------------------------------------------------ is onar
+
+    def merkez(self):
+        return os.path.join(self.sd, "isler.json")
+
+    def ham(self, yol):
+        with open(yol, "rb") as f:
+            return f.read()
+
+    def yaz_merkez(self, veri):
+        with open(self.merkez(), "w", encoding="utf-8") as f:
+            json.dump(veri, f)
+
+    def uc_is(self):
+        klasorler = {}
+        for n in (1, 2, 3):
+            i, k = self.ac(f"iş {n}", f"k{n}")
+            klasorler[i] = k
+        return klasorler
+
+    def test_onar_kuru_kosu_dosya_yazmaz(self):
+        kl = self.uc_is()
+        veri = self.oku(self.merkez())
+        del veri["isler"]["I-002"]
+        veri["isler"]["I-001"]["baslik"] = "bozuk"
+        veri["sayac"] = 1
+        self.yaz_merkez(veri)
+        once = self.ham(self.merkez())
+        isjson_once = {k: self.ham(os.path.join(k, "is.json")) for k in kl.values()}
+        r = self.cli("is", "onar", "--klasor", kl["I-002"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.ham(self.merkez()), once)
+        for k, b in isjson_once.items():
+            self.assertEqual(self.ham(os.path.join(k, "is.json")), b)
+        self.assertIn("I-002", r.stdout)  # fark listesi eksik girişi anar
+        self.assertIn("I-001", r.stdout)  # fark listesi bozuk başlığı anar
+
+    def test_onar_kuru_kosu_merkez_yoksa_olusturmaz(self):
+        kl = self.uc_is()
+        os.remove(self.merkez())
+        r = self.cli("is", "onar", "--klasor", kl["I-001"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse(os.path.exists(self.merkez()))
+
+    def test_onar_uygula_merkezi_is_jsonlarla_tutarli_kurar(self):
+        kl = self.uc_is()
+        self.assertEqual(self.cli("is", "kapat", "I-003").returncode, 0)
+        os.remove(self.merkez())
+        args = ["is", "onar", "--uygula"]
+        for k in kl.values():
+            args += ["--klasor", k]
+        r = self.cli(*args)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        veri = self.oku(self.merkez())
+        self.assertEqual(sorted(veri["isler"]), ["I-001", "I-002", "I-003"])
+        for i, k in kl.items():
+            ij = self.oku(os.path.join(k, "is.json"))
+            g = veri["isler"][i]
+            self.assertEqual(os.path.abspath(g["klasor"]), os.path.abspath(k))
+            self.assertEqual((g["baslik"], g["durum"]), (ij["baslik"], ij["durum"]))
+        self.assertEqual(veri["isler"]["I-003"]["durum"], "kapandi")
+        self.assertGreaterEqual(veri["sayac"], 3)
+        yeni, _ = self.ac("dördüncü", "k4")
+        self.assertEqual(yeni, "I-004")
+
+    def test_onar_uygula_bilinen_klasorleri_merkezden_alir_ve_bayatlari_duzeltir(self):
+        kl = self.uc_is()
+        veri = self.oku(self.merkez())
+        veri["isler"]["I-001"]["durum"] = "kapandi"  # is.json'da acik
+        veri["isler"]["I-001"]["baslik"] = "bayat"
+        del veri["isler"]["I-003"]  # klasörü yalnız --klasor ile bilinir
+        veri["sayac"] = 0
+        self.yaz_merkez(veri)
+        r = self.cli("is", "onar", "--uygula", "--klasor", kl["I-003"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        yeni = self.oku(self.merkez())
+        self.assertEqual(sorted(yeni["isler"]), ["I-001", "I-002", "I-003"])
+        self.assertEqual(yeni["isler"]["I-001"]["durum"], "acik")
+        self.assertEqual(yeni["isler"]["I-001"]["baslik"], "iş 1")
+        self.assertGreaterEqual(yeni["sayac"], 3)
+
+    def test_onar_sayac_buyuk_sayaci_dusurmez(self):
+        self.uc_is()
+        veri = self.oku(self.merkez())
+        veri["sayac"] = 9
+        self.yaz_merkez(veri)
+        self.assertEqual(self.cli("is", "onar", "--uygula").returncode, 0)
+        self.assertEqual(self.oku(self.merkez())["sayac"], 9)
+        self.assertEqual(self.ac("x", "k9")[0], "I-010")
+
+    def test_onar_uygula_ikinci_kosu_fark_yok(self):
+        kl = self.uc_is()
+        os.remove(self.merkez())
+        args = ["is", "onar", "--uygula"] + [a for k in kl.values() for a in ("--klasor", k)]
+        self.assertEqual(self.cli(*args).returncode, 0)
+        once = self.oku(self.merkez())
+        self.assertEqual(self.cli(*args).returncode, 0)
+        self.assertEqual(self.oku(self.merkez()), once)
+        kuru = self.cli("is", "onar")
+        self.assertEqual(kuru.returncode, 0, kuru.stderr)
+        self.assertEqual(self.oku(self.merkez()), once)
+
+    def test_onar_is_json_olmayan_klasoru_cokmeden_atlar(self):
+        self.uc_is()
+        bos = os.path.join(self.proje, "bos_klasor")
+        os.makedirs(bos)
+        r = self.cli("is", "onar", "--uygula", "--klasor", bos)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(sorted(self.oku(self.merkez())["isler"]), ["I-001", "I-002", "I-003"])
 
 
 if __name__ == "__main__":

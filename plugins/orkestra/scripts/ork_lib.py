@@ -28,7 +28,7 @@ from contextlib import contextmanager
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SURECLER = (
     "triyaj", "plan", "is", "denetim", "duzeltme", "yukseltme", "sentez",
-    "arsiv", "perspektif", "skill-avi", "arastirma", "orkestrasyon", "bilinmiyor",
+    "arsiv", "perspektif", "skill-avi", "arastirma", "orkestrasyon", "test-yaz", "bilinmiyor",
 )
 ACIK_DURUMLAR = ("isleniyor", "denetimde", "reddedildi", "onaylandi")
 KAPALI_DURUMLAR = ("teslim", "iptal", "beklemede", "planlandi")
@@ -632,6 +632,23 @@ CALISMA_AGACI_ONEKI = "Çalışma ağacı: "
 AGAC_KOK_KAPSAMIYOR = "kart ağacı proje kökünü kapsamıyor; test-kos ağaçta koşamaz"
 
 
+def test_koku_dogrula(yol) -> str:
+    """Kartın isteğe bağlı test_koku alanı: var olan MUTLAK dizin → '/' ayraçlı mutlak yol. Aksi hâlde ValueError."""
+    if not isinstance(yol, str) or not yol.strip():
+        raise ValueError("test_koku boş olmayan bir mutlak dizin yolu olmalı")
+    y = yol.strip()
+    if not os.path.isabs(y):
+        raise ValueError(f"test_koku mutlak yol olmalı (göreli verildi): {y}")
+    if not os.path.isdir(y):
+        raise ValueError(f"test_koku dizini yok: {y}")
+    return os.path.abspath(y).replace("\\", "/")
+
+
+def kart_test_koku(proje: str, kart: dict) -> str:
+    """test_alani ve test kilidinin göreli olduğu PAYLAŞILAN kök: kartın test_koku'su, yoksa proje (ağaç karşılığı değil)."""
+    return os.path.abspath((kart or {}).get("test_koku") or proje)
+
+
 def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, list[str]]:
     """Kartın yazma alanının bulunduğu git deposunda `<depo>-kart-<id>` klasörüne `kart/<id>` dalıyla worktree açar.
 
@@ -645,10 +662,11 @@ def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, li
         raise ValueError("yazma alanı tek bir git deposunun içinde olmalı (bulunan: "
                          + ", ".join(sorted(str(k) for k in kokler)) + ")")
     depo = kokler.pop()
-    if kart.get("sinif") == "kod" and kart.get("test_alani") and not yol_altinda(proje, depo):
-        raise ValueError(f"{gid}: {AGAC_KOK_KAPSAMIYOR} (depo {depo}, proje {os.path.abspath(proje)}); kod kartının "
-                         "test_komutu ve test_alani proje köküne göredir, ağaçtaki kodu sınayamaz. Kartı paylaşılan "
-                         "ağaçta yürüt ya da depoyu kapsayan bir projeden çalış.")
+    if kart.get("sinif") == "kod" and kart.get("test_alani") and not yol_altinda(kart_test_koku(proje, kart), depo):
+        raise ValueError(f"{gid}: {AGAC_KOK_KAPSAMIYOR} (depo {depo}, test kökü {kart_test_koku(proje, kart)}); kod "
+                         "kartının test_komutu ve test_alani test köküne (test_koku, yoksa proje) göredir, ağaçtaki "
+                         "kodu sınayamaz. Kartı paylaşılan ağaçta yürüt, test_koku'yu depo içine al ya da depoyu "
+                         "kapsayan bir projeden çalış.")
     yol = f"{depo}-kart-{gid}"
     dal = f"kart/{gid}"
     if os.path.exists(yol):
@@ -688,8 +706,22 @@ def kart_proje_koku(proje: str, kart: dict) -> str:
     Ağaç proje kökünü kapsamıyorsa (depo projenin alt klasörü ya da projeden ayrık) ValueError: test_komutu ve
     test_alani proje köküne göredir, ağaçta karşılıkları yoktur. Paylaşılan köke düşmek ağaçtaki kodu sınamaz ve
     yeşil kapıyı yanıltır; çağıran (test-kos, onay kapısı) açık hata verir. `kart_agaci_ac` bu düzende kod kartına
-    ağaç açmaz; bu dal o denetimden önce açılmış ağaçlar içindir."""
+    ağaç açmaz; bu dal o denetimden önce açılmış ağaçlar içindir.
+
+    Kartta test_koku (proje dışı olabilen mutlak dizin) varsa proje yerine o kullanılır: ağaç yoksa test_koku'nun
+    kendisi, ağaç varsa test_koku'nun ağaçtaki karşılığı; test_koku ağaç deposunun içinde değilse ValueError."""
     ca = (kart or {}).get("calisma_agaci") or {}
+    tk = (kart or {}).get("test_koku")
+    if tk:
+        if not ca.get("yol"):
+            return os.path.abspath(tk)
+        if not (ca.get("depo") and yol_altinda(tk, ca["depo"])):
+            raise ValueError(f"test_koku kart ağacının deposunda değil (test_koku {tk}, depo {ca.get('depo') or '-'}, "
+                             f"ağaç {ca['yol']}); ağaçta karşılığı yok, test-kos ağaçtaki kodu sınayamaz. Ağacı "
+                             f"`orkestra kart birlestir {(kart or {}).get('id', '<id>')}` ile paylaşılan ağaca al ya da "
+                             "test_koku'yu `orkestra kart test-ayar` ile düzelt.")
+        r = os.path.relpath(os.path.abspath(tk), os.path.abspath(ca["depo"]))
+        return os.path.abspath(ca["yol"] if r == "." else os.path.join(ca["yol"], r))
     if not ca.get("yol"):
         return proje
     if not (ca.get("depo") and yol_altinda(proje, ca["depo"])):
@@ -720,7 +752,7 @@ def birlestirme_kilit_ihlalleri(proje: str, kart: dict, ks: list[dict]) -> tuple
     doğrudan dosya sistemi + commit) son savunması.
 
     Kart dalında değişen dosyalar (`git diff --name-only --no-renames -z` ile `<taban>...<dal>` ve `HEAD...<dal>`
-    birleşimi) paylaşılan proje-göreli yola çevrilir. Teslim/iptal dışındaki herhangi bir kartın (kartın kendisi dahil)
+    birleşimi) paylaşılan mutlak yola çevrilir (kilitler kendi kartlarının test köküne göredir). Teslim/iptal dışındaki herhangi bir kartın (kartın kendisi dahil)
     kilitli test dosyasıyla kesişen her dosyanın DAL UCUNDAKİ içeriği kilitteki özetle karşılaştırılır; değişmiş ya da
     silinmişse ihlaldir (birleşme kilitli testi paylaşılan ağaçta değiştirirdi; kartın kendi kilidiyse kilit bozulmuş
     demektir). Dalda yeni yazılıp kilitlenmiş testin kilitteki hâliyle gelmesi ihlal değildir (olağan akış). Satır sonu
@@ -736,8 +768,10 @@ def birlestirme_kilit_ihlalleri(proje: str, kart: dict, ks: list[dict]) -> tuple
             continue
         d = (k.get("test_kilidi") or {}).get("dosyalar")
         if isinstance(d, dict):
+            tkok = kart_test_koku(proje, k)  # kilit yolları kartın test köküne (test_koku, yoksa proje) göredir
             for y, h in d.items():
-                kilitler.setdefault(_goreli_anahtar(y), []).append((y.replace("\\", "/"), k.get("id", "?"), h))
+                kilitler.setdefault(_goreli_anahtar(os.path.abspath(os.path.join(tkok, y))), []).append(
+                    (y.replace("\\", "/"), k.get("id", "?"), h))
     if not kilitler:
         return [], None
     adlar = set()
@@ -750,9 +784,7 @@ def birlestirme_kilit_ihlalleri(proje: str, kart: dict, ks: list[dict]) -> tuple
     ihlaller = []
     for p in sorted(adlar):
         tam = depo.rstrip("/\\") + "/" + p
-        if not yol_altinda(tam, proje):
-            continue
-        sahipler = kilitler.get(_goreli_anahtar(os.path.relpath(os.path.abspath(tam), os.path.abspath(proje))))
+        sahipler = kilitler.get(_goreli_anahtar(os.path.abspath(tam)))
         if not sahipler:
             continue
         ozet = set()

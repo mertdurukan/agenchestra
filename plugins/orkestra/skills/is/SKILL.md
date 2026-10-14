@@ -27,6 +27,8 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
   - `sinif`: `"kod"`;
   - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`);
   - `test_alani`: test dosyalarının glob listesi (proje köküne göre). Testleri `orkestra:test-yazari` yalnız buraya yazar.
+  - `test_koku` (isteğe bağlı): testler proje dışındaki bir depodaysa o deponun mutlak dizini (`kart yeni --test-koku` ya da JSON alanı). `test_komutu` orada koşar, `test_alani` ve test kilidi ona göredir.
+  - Sonradan düzeltmek için `orkestra kart test-ayar <id> [--test-koku YOL] [--test-komutu M] [--test-alani GLOB]...` (tek başına çalıştır). Kilit varken yalnız `test_koku` değişir ve yeni kökteki test dosyaları kilitle birebir aynı olmalıdır. Kök değişince eski kökteki yeşil sayılmaz: onaydan önce yeni kökte yeniden yeşil koşulur.
   - İşçinin `yazma_alani` `test_alani`'nı İÇERMEZ (kesişmez). İşçi testi değiştiremez, yalnız testleri geçirecek kodu yazar.
   - CLI, `sinif: kod` kartında `test_komutu` ve `test_alani` olmadan kartı kabul etmez.
 - Planı bir JSON dosyasına yaz (scratchpad'e; `ref` alanı ile birbirine bağla) ve kartları oluştur:
@@ -35,7 +37,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 
 ## 2. Dağıt
 Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
-- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani`.
+- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
 - Betik her kart için şunu yapar:
   - basamağa uygun işçi ajanı çalıştırır;

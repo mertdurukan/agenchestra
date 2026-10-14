@@ -4,6 +4,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra baslat                                   bu projede durum klasörünü açar
   orkestra kart yeni --baslik T --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
                      [--test-komutu M] [--test-alani GLOB]...     (--sinif kod ise ikisi ZORUNLU; glob proje köküne göre)
+                     [--test-koku MUTLAK_DIZIN]                    (kod kartı, isteğe bağlı: test kökü proje yerine bu dizin)
   orkestra kart toplu plan.json | --json-dosya plan.json   (liste: [{baslik, basamak, kabul_kriterleri, yazma_alani, bagimliliklar,
                                                     test_komutu, test_alani, ...}])
   orkestra kart goster G-001 | liste [--hepsi] [--json]
@@ -12,6 +13,8 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
         kirmizi: kod yokken test BAŞARISIZ olmalı; olursa test dosyaları sha256 ile kilitlenir (kilitliyken hata)
         yesil:   test GEÇMELİ ve test dosyaları kilitle birebir aynı olmalı
   orkestra kart test-kilit-ac G-001 --neden M                                (yalnız ana ajan)
+  orkestra kart test-ayar G-001 [--test-koku YOL] [--test-komutu M] [--test-alani GLOB]...   (yalnız ana ajan;
+        kilitliyken yalnız test_koku değişir ve yeni kökteki test dosyaları kilitle birebir aynı olmalı)
   orkestra kart denetim G-001 --karar onay|ret --gerekce M [--talimat M]      (yalnız denetçi ajan;
         kod kartında onay için son is-bitti'den sonraki en son test koşusu geçen yeşil olmalı ve dosyalar kilitle aynı)
   orkestra kart yukselt G-001 --basamak T3 --neden M
@@ -109,6 +112,7 @@ def _kart_kur(sd, d: dict) -> dict:
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
     test_alanlari = _test_alanlari_dogrula(d)
+    bag = _kart_is_kimligi(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
     gid = d.get("id") or L.yeni_kart_id(sd)
     if L.kart_oku(sd, gid):
         hata(f"kart zaten var: {gid}")
@@ -133,17 +137,25 @@ def _kart_kur(sd, d: dict) -> dict:
     }
     if test_alanlari:
         k.update(test_alanlari)
-    bag = _kart_is_kimligi(sd, d.get("is"))
     if bag:
         k["is"] = bag
     return k
 
 
 def _test_alanlari_dogrula(d: dict) -> dict | None:
-    """sinif 'kod' ise test_komutu (boş olmayan metin) ve test_alani (boş olmayan glob listesi) zorunlu; değilse None."""
-    if (d.get("sinif") or "").strip().lower() != "kod":
-        return None
+    """sinif 'kod' ise test_komutu (boş olmayan metin) ve test_alani (boş olmayan glob listesi) zorunlu; değilse None.
+    İsteğe bağlı test_koku (var olan mutlak dizin) yalnız kod kartında kabul edilir; test_alani ve test_komutu ona göredir."""
     ad = d.get("baslik") or "(başlıksız)"
+    tk = d.get("test_koku")
+    if (d.get("sinif") or "").strip().lower() != "kod":
+        if tk:
+            hata(f"test_koku yalnız kod kartında (sinif kod) anlamlı: {ad}")
+        return None
+    if tk is not None and tk != "":
+        try:
+            tk = L.test_koku_dogrula(tk)
+        except ValueError as e:
+            hata(f"{e}: {ad}")
     komut = d.get("test_komutu")
     if not isinstance(komut, str) or not komut.strip():
         hata(f"kod kartında test_komutu zorunlu (boş olmayan metin; --test-komutu): {ad}")
@@ -152,15 +164,19 @@ def _test_alanlari_dogrula(d: dict) -> dict | None:
         alan = [alan]
     if not isinstance(alan, list) or not [g for g in alan if isinstance(g, str) and g.strip()]:
         hata(f"kod kartında test_alani zorunlu (boş olmayan glob listesi; --test-alani): {ad}")
-    return {"test_komutu": komut.strip(), "test_alani": [g.strip() for g in alan if isinstance(g, str) and g.strip()],
-            "test_kilidi": None, "test_kosulari": []}
+    sonuc = {"test_komutu": komut.strip(), "test_alani": [g.strip() for g in alan if isinstance(g, str) and g.strip()],
+             "test_kilidi": None, "test_kosulari": []}
+    if tk:
+        sonuc["test_koku"] = tk
+    return sonuc
 
 
 def cmd_kart_yeni(a):
     sd = sd_gerekli()
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
-                       "test_komutu": a.test_komutu, "test_alani": a.test_alani, "is": a.is_id})
+                       "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
+                       "is": a.is_id})
     if not k["kabul_kriterleri"]:
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     L.kart_yaz(sd, k)
@@ -358,6 +374,15 @@ def _yesil_kapi_engeli(k: dict) -> str | None:
         return "en son test koşusu yeşil değil"
     if not son.get("gecti"):
         return "en son yeşil koşu geçmedi"
+    # Koşunun kökü güncel test kökü olmalı (test-ayar ile kök değişince eski kökteki yeşil kanıt değildir).
+    # Kök alanı olmayan eski kayıtlar yalnız test_koku'suz kartta geçerli kalır (geriye uyum).
+    kosu_koku = son.get("kok")
+    if kosu_koku is None:
+        if k.get("test_koku"):
+            return "en son yeşil koşunun test kökü kayıtlı değil; güncel test kökünde yeniden yeşil koşulmalı"
+    elif L._kiyas(os.path.abspath(kosu_koku)) != L._kiyas(os.path.abspath(kok)):
+        return (f"en son yeşil koşu başka bir test kökünde ({kosu_koku}); güncel test kökünde ({kok}) yeniden "
+                "yeşil koşulmalı")
     if not k.get("test_kilidi"):
         return "test kilidi yok"
     mevcut = L.test_dosyasi_ozetleri(kok, k.get("test_alani") or [])
@@ -389,6 +414,9 @@ def cmd_kart_test_kos(a):
         hata(str(e))
     once = L.test_dosyasi_ozetleri(proje, k["test_alani"])
     if not once:
+        if k.get("test_koku"):
+            hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) test kökünde ({proje}) hiçbir dosyaya "
+                 "uymuyor.")
         hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) hiçbir proje dosyasına uymuyor.")
     zaman = L.simdi()
     kod, cikti, sure = L.kabuk_kos(k["test_komutu"], proje, a.zaman_asimi)
@@ -410,6 +438,7 @@ def cmd_kart_test_kos(a):
             gecti = kod == 0 and hash_tutarli
         kayit = {"zaman": zaman, "sira": L.sonraki_sira(k), "asama": a.asama, "cikis_kodu": kod,
                  "hash_tutarli": hash_tutarli, "gecti": gecti, "sure_s": sure,
+                 "kok": os.path.abspath(proje).replace("\\", "/"),  # onay kapısı yalnız güncel kökteki koşuyu sayar
                  "cikti_kuyrugu": L.maskele(cikti)[-L.TEST_KUYRUK_MAX:], "ajan": ajan_tipi, "agent_id": ajan_id}
         k["test_kosulari"].append(kayit)
         L.kart_yaz(sd, k)
@@ -443,6 +472,71 @@ def cmd_kart_test_kilit_ac(a):
                             "not": L.maskele(a.neden)[:500]})
         L.kart_yaz(sd, k)
     print(f"{a.gid} test kilidi açıldı")
+
+
+def cmd_kart_test_ayar(a):
+    """Kod kartının test ayarları (yalnız ana ajan). Kilit yokken test_koku/test_komutu/test_alani serbestçe değişir;
+    kilit varken yalnız test_koku değişir ve yalnız yeni kökte hesaplanan test özetleri kilitle birebir aynıysa."""
+    sd = sd_gerekli()
+    ajan_id, ajan_tipi = _kim(a)
+    if ajan_tipi != "ana":
+        hata(f"test ayarlarını yalnız ana ajan değiştirir (sen: {ajan_tipi}).", 3)
+    if a.test_koku is None and a.test_komutu is None and not a.test_alani:
+        hata("değiştirilecek alan yok: --test-koku, --test-komutu ya da --test-alani verin.")
+    yeni = {}
+    if a.test_koku is not None:
+        if a.test_koku.strip():
+            try:
+                yeni["test_koku"] = L.test_koku_dogrula(a.test_koku)
+            except ValueError as e:
+                hata(str(e))
+        else:
+            yeni["test_koku"] = None  # boş değer: test_koku kaldırılır, kök yeniden proje olur
+    if a.test_komutu is not None:
+        if not a.test_komutu.strip():
+            hata("--test-komutu boş olamaz.")
+        yeni["test_komutu"] = a.test_komutu.strip()
+    if a.test_alani:
+        alan = [g.strip() for g in a.test_alani if g and g.strip()]
+        if not alan:
+            hata("--test-alani boş olamaz.")
+        yeni["test_alani"] = alan
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        if k.get("sinif") != "kod":
+            hata(f"test-ayar yalnız kod kartında çalışır (sinif: {k.get('sinif')}).")
+        if L.kart_durumu_hesapla(k) in ("teslim", "iptal"):
+            hata(f"kapalı kartın test ayarı değişmez ({k.get('durum')}).")
+        degisen = {ad: {"eski": k.get(ad), "yeni": v} for ad, v in yeni.items() if k.get(ad) != v}
+        if not degisen:
+            print(f"{a.gid} test ayarı: değişiklik yok")
+            return
+        if k.get("test_kilidi"):
+            yasak = [ad for ad in degisen if ad != "test_koku"]
+            if yasak:
+                hata(f"test dosyaları kilitli: yalnız test_koku değişebilir ({', '.join(yasak)} değişmez; önce ana ajan "
+                     f"`orkestra kart test-kilit-ac {a.gid}` ile kilidi açar).")
+            aday = dict(k)
+            aday["test_koku"] = yeni["test_koku"]
+            try:
+                kok = L.kart_proje_koku(L.proje_dizini(), aday)
+            except ValueError as e:
+                hata(str(e))
+            mevcut = L.test_dosyasi_ozetleri(kok, k.get("test_alani") or [])
+            if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
+                fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
+                hata(f"yeni test kökünde ({kok}) test dosyaları kilitle aynı değil (" + "; ".join(
+                    f"{ad}: {', '.join(v)}" for ad, v in fark.items() if v) + "); test_koku değişmedi.")
+        for ad, d in degisen.items():
+            if d["yeni"] is None:
+                k.pop(ad, None)
+            else:
+                k[ad] = d["yeni"]
+        k["gecmis"].append({"zaman": L.simdi(), "olay": "test-ayar", "ajan": ajan_tipi, "agent_id": ajan_id,
+                            "degisen": degisen})
+        L.kart_yaz(sd, k)
+    print(f"{a.gid} test ayarı: " + ", ".join(f"{ad} → {d['yeni'] if d['yeni'] is not None else '(proje)'}"
+                                              for ad, d in degisen.items()))
 
 
 def cmd_kart_yukselt(a):
@@ -1112,14 +1206,13 @@ def _oturum_isi(sd):
 def _oturumu_bagla(sd, is_id):
     """Oturum dosyasındaki mevcut anahtarlar korunur (oku-birleştir-yaz, kilitli); is.json oturumlar[]'a eklenir."""
     an = L.simdi()
-    for kenar in (False, True):
-        yol = _oturum_dosyasi(sd, kenar)
-        with L.kilit(yol):
-            v = _json_oku(yol)
-            v["is"] = is_id
-            v["is_baglanma"] = an
-            v.setdefault("is_gecmis", []).append({"is": is_id, "zaman": an})
-            L.atomik_yaz(yol, json.dumps(v, ensure_ascii=False, indent=2) + "\n")
+    yol = _oturum_dosyasi(sd)  # eski is_<oturum>.json yan dosyası yalnız okunur, yeniden yazılmaz
+    with L.kilit(yol):
+        v = _json_oku(yol)
+        v["is"] = is_id
+        v["is_baglanma"] = an
+        v.setdefault("is_gecmis", []).append({"is": is_id, "zaman": an})
+        L.atomik_yaz(yol, json.dumps(v, ensure_ascii=False, indent=2) + "\n")
     _ik().is_oturum_bagla(sd, is_id, oturum_id())
 
 
@@ -1208,6 +1301,9 @@ def cmd_is_aktif(a):
     print(f"{i} — {kayit['baslik']} [{kayit['durum']}]" if kayit else i)
 
 
+_KAPALI_UYARILAN: set = set()
+
+
 def _kart_is_kimligi(sd, acik_is=None):
     """Karta yazılacak iş kimliği: --is verilmişse o, yoksa oturumun bağlı işi (is.json varsa); yoksa None."""
     if acik_is:
@@ -1220,9 +1316,26 @@ def _kart_is_kimligi(sd, acik_is=None):
     except Exception:
         return None
     if kayit and kayit.get("durum") == "kapandi":
-        print(f"{i} kapalı; kart işe bağlanmadı, `orkestra is devam` ile başka işe bağlanın", file=sys.stderr)
+        if i not in _KAPALI_UYARILAN:  # komut başına tek satır (kart toplu'da kart başına basılmaz)
+            _KAPALI_UYARILAN.add(i)
+            print(f"{i} kapalı; kart işe bağlanmadı, `orkestra is devam` ile başka işe bağlanın", file=sys.stderr)
         return None
     return i if kayit else None
+
+
+def cmd_is_onar(a):
+    sd = sd_gerekli()
+    r = _ik().onar(sd, a.klasor, a.uygula)
+    for m in r["farklar"]:
+        print(m)
+    for m in r["uyarilar"]:
+        print(f"uyarı: {m}", file=sys.stderr)
+    if not r["farklar"]:
+        print("fark yok")
+    elif a.uygula:
+        print(f"isler.json onarıldı ({len(r['farklar'])} fark)")
+    else:
+        print(f"{len(r['farklar'])} fark; uygulamak için --uygula")
 
 
 def _kart_is_bagla(sd, k):
@@ -1254,9 +1367,17 @@ def main():
     y.add_argument("--bagimli", action="append", default=[])
     y.add_argument("--test-komutu", dest="test_komutu", help="kod kartında zorunlu: proje kökünde kabukla koşulan test komutu")
     y.add_argument("--test-alani", dest="test_alani", action="append", default=[],
-                   help="kod kartında zorunlu (tekrarlanabilir): test dosyası glob'u, proje köküne göre")
+                   help="kod kartında zorunlu (tekrarlanabilir): test dosyası glob'u, test köküne göre")
+    y.add_argument("--test-koku", dest="test_koku",
+                   help="kod kartında isteğe bağlı: test kökü (var olan mutlak dizin; yoksa proje kökü)")
     y.add_argument("--is", dest="is_id", help="kartı bu işe bağla (I-NNN); verilmezse oturumun bağlı işi")
     y.set_defaults(f=cmd_kart_yeni)
+    ty = kart.add_parser("test-ayar", help="kod kartının test ayarları (yalnız ana ajan; kilitliyken yalnız test_koku)")
+    ty.add_argument("gid")
+    ty.add_argument("--test-koku", dest="test_koku", help="mutlak dizin; boş değer kaldırır (kök yeniden proje)")
+    ty.add_argument("--test-komutu", dest="test_komutu")
+    ty.add_argument("--test-alani", dest="test_alani", action="append", default=[])
+    ty.set_defaults(f=cmd_kart_test_ayar)
     t = kart.add_parser("toplu")
     t.add_argument("json_yol", nargs="?")
     t.add_argument("--json-dosya")
@@ -1438,6 +1559,10 @@ def main():
     it_.add_argument("is_id")
     it_.set_defaults(f=cmd_is_todo)
     is_.add_parser("aktif").set_defaults(f=cmd_is_aktif)
+    io_ = is_.add_parser("onar", help="isler.json'u iş klasörlerindeki is.json'lardan yeniden kur (varsayılan kuru koşu)")
+    io_.add_argument("--uygula", action="store_true", help="farkları isler.json'a yaz")
+    io_.add_argument("--klasor", action="append", default=[], help="ek iş klasörü (tekrarlanabilir)")
+    io_.set_defaults(f=cmd_is_onar)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)
     go = gu.add_parser("ozet")
