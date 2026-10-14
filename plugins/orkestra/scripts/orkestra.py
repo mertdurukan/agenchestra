@@ -1493,6 +1493,21 @@ def cmd_is_kapat(a):
 def cmd_is_todo(a):
     sd = sd_gerekli()
     kayit = _is_gerekli(sd, a.is_id)
+    ekle, bitti, not_ = getattr(a, "ekle", None), getattr(a, "bitti", None), getattr(a, "not_", None)
+    if ekle is not None and bitti is not None:
+        hata("--ekle ve --bitti birlikte verilemez.")
+    if not_ is not None and bitti is None:
+        hata("--not yalnız --bitti ile kullanılır.")
+    if ekle is not None or bitti is not None:
+        if ekle is not None and kayit.get("durum") == "kapandi":
+            hata(f"{a.is_id} kapalı; --ekle yapılamaz.")
+        try:
+            if ekle is not None:
+                _ik().todo_ekle(kayit["klasor"], ekle)
+            else:
+                _ik().todo_bitir(kayit["klasor"], bitti, not_)
+        except (ValueError, OSError, TimeoutError) as e:
+            hata(str(e))
     t, satir = _todo_satiri(kayit["klasor"])
     print(f"{a.is_id} {satir}")
     for m in t["acik_maddeler"]:
@@ -1769,6 +1784,9 @@ def main():
     ik_.set_defaults(f=cmd_is_kapat)
     it_ = is_.add_parser("todo")
     it_.add_argument("is_id")
+    it_.add_argument("--ekle", metavar="METİN", help="todo.md sonuna açık madde ekler")
+    it_.add_argument("--bitti", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize)")
+    it_.add_argument("--not", dest="not_", metavar="METİN", help="--bitti ile satır sonuna tarihli not")
     it_.set_defaults(f=cmd_is_todo)
     is_.add_parser("aktif").set_defaults(f=cmd_is_aktif)
     io_ = is_.add_parser("onar", help="isler.json'u iş klasörlerindeki is.json'lardan yeniden kur (varsayılan kuru koşu)")

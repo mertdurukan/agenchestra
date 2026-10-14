@@ -12,6 +12,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 
 ## 0. Hazırlık
 - `orkestra kart liste` ile açık kartlara bak. Bu projede orkestra kapalıysa (`orkestra: bu projede orkestra açık değil`) önce `/orkestra:baslat` öner ve dur.
+- Yeni iş mi, devam mı: `orkestra is aktif` ile bağlı işi gör; yoksa `orkestra is liste` ile açık işlere bak. İstek açık bir işin devamıysa `orkestra is devam <id>`, değilse görev klasörüyle `orkestra is ac <başlık> --klasor <görev klasörü>`. Belirsizse kullanıcıya tek soru sor.
 - İstek belirsizse, işi değiştirecek tek bir soru sor. Değiştirmeyecek ayrıntılar için makul varsayım yap ve planda yaz.
 
 ## 1. Planla (sen, Opus 5.5 medium)
@@ -78,6 +79,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Onaylı her kart için çıktıları kendin gözden geçir (dosyaları aç). Sonra `orkestra kart teslim <id> --ozet "<tek cümle>"`.
 - Reddedilen ya da atlanan kart için kullanıcıya nedenini söyle. Ya planı düzelt ya da `orkestra kart durum <id> beklemede --not "neden"` (ya da `iptal`) yap.
 - Ortak dosyalar (README, dizinler, notlar günlüğü) gerekiyorsa şimdi sen güncelle.
+- Teslimattan önce işin todo.md'sini güncelle: biten maddeleri `orkestra is todo <id> --bitti <n|parça> [--not "..."]` ile kapat; açık kalan ve yeni çıkan sıradaki adımları `orkestra is todo <id> --ekle "..."` ile yaz (sohbet kapanınca kaybolmasın).
 - Kullanıcıya tek teslimat mesajı ver:
   - ne üretildi (dosya bağlantılarıyla);
   - denetim sonucu;

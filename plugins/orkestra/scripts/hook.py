@@ -507,6 +507,88 @@ def _acik_arka_plan(yol, ofset, bitis, onceki) -> list:
     return acik[-ACIK_GOREV_AZAMI:]
 
 
+def _is_surekliligi(sd: str, oid: str, ofset_yolu: str, ozet: dict, kayda_deger: bool, inp: dict) -> str:
+    """(D1) bağlı işin oturumlar.md'sine tur satırı; (D2) oturum başına en çok bir bloklamayan hatırlatma.
+
+    Dönüş: hatırlatma metni ya da boş. Bu fonksiyon istisna fırlatabilir; çağıran yakalar."""
+    import datetime
+    import is_kaydi
+    if not kayda_deger:
+        return ""
+    try:
+        with open(ofset_yolu, encoding="utf-8") as f:
+            o = json.load(f)
+        if not isinstance(o, dict):
+            o = {}
+    except Exception:
+        o = {}
+    is_id = o.get("is")
+    if not is_id:  # eski yan dosya yalnız okunur
+        try:
+            with open(os.path.join(sd, "oturumlar", f"is_{oid}.json"), encoding="utf-8") as f:
+                y = json.load(f)
+            is_id = y.get("is") if isinstance(y, dict) else None
+        except Exception:
+            is_id = None
+    klasor = None
+    if is_id:
+        try:
+            klasor = next((g.get("klasor") for g in is_kaydi.is_liste(sd) if g.get("id") == is_id), None)
+        except Exception:
+            klasor = None
+    # (D1) oturum satırı
+    if klasor and ozet["modeller"] and os.path.isdir(klasor):
+        try:
+            yol = os.path.join(klasor, "oturumlar.md")
+            nerede = " ".join(str(inp.get("last_assistant_message") or "").split())[:150]
+            satir = (f"- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} · {oid[:8]} · {ozet['arac_cagrisi']} araç · "
+                     f"${ozet['toplam']['maliyet_usd']:.2f} · nerede kalındı: {nerede}\n")
+            with L.kilit(yol):
+                bas = ""
+                if os.path.exists(yol) and os.path.getsize(yol) > 0:
+                    with open(yol, "rb") as f:
+                        f.seek(-1, 2)
+                        if f.read(1) != b"\n":
+                            bas = "\n"
+                with open(yol, "a", encoding="utf-8", newline="\n") as f:
+                    f.write(bas + satir)
+        except Exception:
+            pass
+    # (D2) hatırlatma: oturum başına en çok bir kez
+    if o.get("is_hatirlatma"):
+        return ""
+    msg = ""
+    if not is_id:
+        msg = ("Orkestra: bu sohbet bir işe bağlı değil; sıradaki işler kaybolmasın diye `orkestra is devam <id>` ya da "
+               "`orkestra is ac` ile bağla ve adımları `orkestra is todo <id> --ekle` ile yaz.")
+    elif klasor:
+        try:
+            baglanma = datetime.datetime.fromisoformat(str(o.get("is_baglanma"))).timestamp()
+        except Exception:
+            baglanma = None
+        if baglanma is not None:
+            try:
+                mt = os.path.getmtime(os.path.join(klasor, "todo.md"))
+            except OSError:
+                mt = 0.0
+            if mt < baglanma:
+                msg = (f"Orkestra: {is_id} todo.md bu oturumda güncellenmedi; sıradaki adımları "
+                       "`orkestra is todo <id> --ekle` ile yaz, bitenleri `--bitti` ile kapat.")
+    if inp.get("background_tasks"):
+        return ""  # kapı geçilecek; hak harcanmasın
+    with L.kilit(ofset_yolu):
+        try:
+            with open(ofset_yolu, encoding="utf-8") as f:
+                yeni = json.load(f)
+            if not isinstance(yeni, dict):
+                yeni = {}
+        except Exception:
+            yeni = {}
+        yeni["is_hatirlatma"] = True
+        L.atomik_yaz(ofset_yolu, json.dumps(yeni))
+    return msg
+
+
 def stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -576,6 +658,12 @@ def stop(inp: dict):
                            "yaptim": f"Tur: {ozet['arac_cagrisi']} araç çağrısı ({araclar})",
                            "sonuc": (inp.get("last_assistant_message") or "")[:400], "dokunulan": ozet["dokunulan"],
                            "token": ozet["toplam"], "kaynak": "hook"})
+    hatirlatma = ""
+    if not perspektif:
+        try:
+            hatirlatma = _is_surekliligi(sd, oid, ofset_yolu, ozet, bool(kayda_deger), inp)
+        except Exception:
+            hatirlatma = ""
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif or inp.get("background_tasks"):
         gec()
@@ -587,14 +675,17 @@ def stop(inp: dict):
         if d in ("isleniyor", "denetimde", "reddedildi", "onaylandi"):
             acik.append((k["id"], d, k["baslik"]))
     if not acik:
+        if hatirlatma:
+            L.hook_cikti({"systemMessage": hatirlatma})
         gec()
     liste = "; ".join(f"{g} [{d}] {b[:50]}" for g, d, b in acik)
+    ek = f" {hatirlatma}" if hatirlatma else ""
     if inp.get("stop_hook_active"):
-        L.hook_cikti({"systemMessage": f"Orkestra: açık kartlar kaldı → {liste}"})
+        L.hook_cikti({"systemMessage": f"Orkestra: açık kartlar kaldı → {liste}{ek}"})
     L.hook_cikti({"decision": "block", "reason":
                   f"Orkestra bitiş kapısı: bu oturumun açık kartları var → {liste}. "
                   "onaylandi → sonucu topla ve `orkestra kart teslim <id>`; denetimde → ayrı denetçiyi çalıştır; "
-                  "reddedildi → düzeltme/yükseltme yap; bilerek bırakıyorsan `orkestra kart durum <id> beklemede --not \"neden\"`."})
+                  "reddedildi → düzeltme/yükseltme yap; bilerek bırakıyorsan `orkestra kart durum <id> beklemede --not \"neden\"`." + ek})
 
 
 # ---------------------------------------------------------------- diğer olaylar
@@ -613,6 +704,34 @@ def asili_uyari(sd: str) -> str:
             "takıldıysa TaskStop ile durdur ya da kartı beklemede yap.")
 
 
+def _acik_isler_satirlari(sd: str) -> list[str]:
+    import is_kaydi
+    parcalar = []
+    for g in is_kaydi.is_liste(sd, "acik")[:5]:
+        try:
+            p = f"{g['id']} {str(g.get('baslik') or '')[:40]}"
+            klasor = g.get("klasor") or ""
+            try:
+                t = is_kaydi.todo_ozet(klasor)
+                p += f" todo {t['biten']}/{t['toplam']}"
+            except Exception:
+                pass
+            try:
+                with open(os.path.join(klasor, "oturumlar.md"), encoding="utf-8", errors="replace") as f:
+                    dolu = [x.rstrip() for x in f if x.strip() and not x.lstrip().startswith("#")]  # başlık satırı sayılmaz
+                if dolu:
+                    p += f" · son: {dolu[-1][:80]}"
+            except Exception:
+                pass
+            parcalar.append(p)
+        except Exception:
+            continue
+    if not parcalar:
+        return []
+    return ["Açık işler: " + " ; ".join(parcalar),
+            "Devam için `orkestra is devam <id>`; sıradaki adımları `orkestra is todo <id> --ekle` ile işin todo.md'sine yaz."]
+
+
 def session_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -624,6 +743,10 @@ def session_start(inp: dict):
                 "(`/orkestra:is`) → onaylıyı `orkestra kart teslim` ile topla. Ortak defter: `orkestra defter baglam <id>`."]
     if ks:
         satirlar.append("Açık/bekleyen kartlar: " + "; ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}] {k['baslik'][:40]}" for k in ks[:8]))
+    try:  # açık işler: hata hook'u düşürmez
+        satirlar.extend(_acik_isler_satirlari(sd))
+    except Exception:
+        pass
     uyari = asili_uyari(sd)  # asılı ajan uyarısı düşük öncelikli satırlardan önce: 1800 kesiminde sona kalmasın
     if uyari:
         satirlar.append(uyari)

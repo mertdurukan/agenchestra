@@ -6,6 +6,7 @@ Kilit ve atomik yazım ork_lib'den gelir.
 from __future__ import annotations
 
 import contextlib
+import datetime
 import json
 import os
 import re
@@ -19,7 +20,8 @@ import ork_lib as L  # noqa: E402
 DURUMLAR = ("acik", "beklemede", "kapandi")
 _ID = re.compile(r"^I-(\d+)$")
 _TODO_ACIK = re.compile(r"^\s*[-*]\s*\[ \]\s*(.*)$")
-_TODO_BITEN = re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(.*)$")
+_TODO_BOS = re.compile(r"^\s*[-*]\s*\[ \]\s*$")
+_TODO_BITEN =re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(.*)$")
 _BOS = {"sayac": 0, "isler": {}}
 
 
@@ -214,6 +216,68 @@ def todo_ozet(klasor: str) -> dict:
                     if m and m.group(1).strip():
                         acik.append(m.group(1).strip())
     return {"toplam": biten + len(acik), "biten": biten, "acik_maddeler": acik}
+
+
+def _todo_yol(klasor: str) -> str:
+    return os.path.join(klasor, "todo.md")
+
+
+def _todo_oku(yol: str) -> str:
+    with open(yol, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def todo_ekle(klasor: str, metin: str) -> str:
+    """todo.md sonuna '- [ ] <metin>' ekler (kilit altında, atomik). Dönüş: eklenen madde metni."""
+    metin = " ".join(str(metin).split())
+    if not metin:
+        raise ValueError("madde metni boş")
+    yol = _todo_yol(klasor)
+    with L.kilit(yol):
+        icerik = _todo_oku(yol) if os.path.exists(yol) else "# Yapılacaklar\n\n"
+        # şablonun boş yer tutucu maddesi ('- [ ] ') gerçek madde sayılmaz: eklemeden önce atılır
+        icerik = "".join(x for x in icerik.splitlines(keepends=True) if not _TODO_BOS.match(x.rstrip("\r\n")))
+        if icerik and not icerik.endswith("\n"):
+            icerik += "\n"
+        L.atomik_yaz(yol, icerik + f"- [ ] {metin}\n")
+    return metin
+
+
+def todo_bitir(klasor: str, secici: str, not_: str | None = None) -> str:
+    """Açık maddeyi [x] yapar. secici: 1-tabanlı açık madde sırası ya da tek eşleşen alt dize."""
+    yol = _todo_yol(klasor)
+    if not os.path.exists(yol):
+        raise ValueError("todo.md yok")
+    with L.kilit(yol):
+        satirlar = _todo_oku(yol).splitlines(keepends=True)
+        acik = []  # (satır indeksi, madde metni)
+        for i, s in enumerate(satirlar):
+            m = _TODO_ACIK.match(s.rstrip("\r\n"))
+            if m and m.group(1).strip():
+                acik.append((i, m.group(1).strip()))
+        secici = str(secici).strip()
+        if re.fullmatch(r"\d+", secici):
+            n = int(secici)
+            if not 1 <= n <= len(acik):
+                raise ValueError(f"açık madde sırası aralık dışı: {n} (açık madde: {len(acik)})")
+            idx, metin = acik[n - 1]
+        else:
+            if not secici:
+                raise ValueError("seçici boş")
+            adaylar = [(i, t) for i, t in acik if secici.lower() in t.lower()]
+            if len(adaylar) != 1:
+                durum = "eşleşme yok" if not adaylar else f"{len(adaylar)} eşleşme"
+                liste = adaylar or acik
+                raise ValueError(f"'{secici}': {durum}; adaylar: " + " | ".join(t for _, t in liste))
+            idx, metin = adaylar[0]
+        satir = satirlar[idx]
+        govde = satir.rstrip("\r\n")
+        eol = satir[len(govde):]
+        govde = re.sub(r"\[ \]", "[x]", govde, count=1)
+        ek = f" — {datetime.date.today().isoformat()}: {not_}" if not_ else ""
+        satirlar[idx] = govde + ek + eol
+        L.atomik_yaz(yol, "".join(satirlar))
+    return metin + ek
 
 
 def onar(sd: str, ek_klasorler=None, uygula: bool = False) -> dict:
