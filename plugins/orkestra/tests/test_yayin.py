@@ -26,6 +26,27 @@ def yaz(yol, metin):
         f.write(metin)
 
 
+def _sh_yolu():
+    """sh yolu: PATH'te yoksa Git kurulumundaki sh.exe (bin/ ya da usr/bin/); yoksa None."""
+    yol = shutil.which("sh")
+    if yol:
+        return yol
+    try:
+        ep = subprocess.run(["git", "--exec-path"], capture_output=True, text=True,
+                            encoding="utf-8", check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    d = os.path.abspath(ep)
+    while True:
+        for aday in (os.path.join(d, "bin", "sh.exe"), os.path.join(d, "usr", "bin", "sh.exe")):
+            if os.path.isfile(aday):
+                return aday
+        ust = os.path.dirname(d)
+        if ust == d:
+            return None
+        d = ust
+
+
 class Yayin(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="ork_yayin_")
@@ -68,6 +89,9 @@ class Yayin(unittest.TestCase):
         self.assertIn("commitlenmemiş", err.getvalue())
 
     def test_hook_yalniz_klonun_dalinda_esitler_ve_hep_0_cikar(self):
+        sh = _sh_yolu()
+        if sh is None:
+            self.skipTest("sh bulunamadı (Git Bash yok)")
         sablon = os.path.join(DEPO, "araclar", "git_hooklar", "yayin-esitle.sh")
         dev, klon = os.path.join(self.t, "dev"), os.path.join(self.t, "klon")
         os.makedirs(dev)
@@ -80,7 +104,7 @@ class Yayin(unittest.TestCase):
             betik = os.path.join(self.t, "he.sh")
             with open(betik, "w", encoding="utf-8", newline="\n") as g:
                 g.write(f.read().replace("@YAYIN@", klon.replace("\\", "/")))
-        kos = lambda: subprocess.run(["sh", betik], cwd=dev, capture_output=True, text=True, encoding="utf-8")
+        kos = lambda: subprocess.run([sh, betik], cwd=dev, capture_output=True, text=True, encoding="utf-8")
         # main'de commit: klon ilerler
         yaz(os.path.join(dev, "a.txt"), "2")
         git(dev, "commit", "-q", "-am", "iki")
