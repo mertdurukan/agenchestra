@@ -237,7 +237,14 @@ def kontrol(a) -> int:
         if eksik:
             ihlaller.append({"tur": TUR_TOKEN, "ayrinti": eksik})
 
-    _kosu_kaydet(proje, sd, kart["id"], getattr(a, "ajan_id", None), not ihlaller,
+    ajan = getattr(a, "ajan_id", None)
+    if not ajan:
+        for o in reversed(kart.get("gecmis") or []):
+            if o.get("olay") == "is-bitti":
+                aid = o.get("agent_id")
+                ajan = aid if aid and aid != "ana" else None
+                break
+    _kosu_kaydet(proje, sd, kart["id"], ajan, not ihlaller,
                  [i["tur"] for i in ihlaller], kart.get("ciktilar") or ciktilar)
 
     print(json.dumps({"gecti": not ihlaller, "ihlaller": ihlaller, "onceden_dusen": onceden,

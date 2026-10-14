@@ -28,6 +28,9 @@ const AYNI_BASAMAKTA_EN_COK_RET = 2
 const KIRMIZI_EN_COK_YENIDEN_DENEME = 2
 const TEST_YAZARI = 'orkestra:test-yazari'
 const KAPI_AJANI = 'orkestra:isci-t1'
+// Test kapısı komutunun varsayılan zaman aşımı (sn). CLI varsayılanı 600 sn paralel yükte tam paket için yetmiyor;
+// kartta sayısal pozitif `test_zaman_asimi` varsa o kullanılır.
+const VARSAYILAN_KAPI_ZAMAN_ASIMI = 1800
 // T0 ön kontrol kapısı (scripts/on_kontrol.py): model çağırmadan satır sonu/BOM/kapsam/yeni test hatası denetler.
 const PLUGIN_KOKU = (typeof process !== 'undefined' && process.env && process.env.CLAUDE_PLUGIN_ROOT) || '${CLAUDE_PLUGIN_ROOT}'
 const ON_KONTROL_NEDEN = {
@@ -195,8 +198,13 @@ function testYazariIstemi(k, geriBildirim) {
   ].filter(Boolean).join('\n')
 }
 
+function kapiZamanAsimi(k) {
+  const z = k.test_zaman_asimi
+  return typeof z === 'number' && Number.isFinite(z) && z > 0 ? z : VARSAYILAN_KAPI_ZAMAN_ASIMI
+}
+
 function kapiIstemi(k, asama) {
-  const komut = `orkestra kart test-kos ${k.id} --asama ${asama}`
+  const komut = `orkestra kart test-kos ${k.id} --asama ${asama} --zaman-asimi ${kapiZamanAsimi(k)}`
   return [
     `#GOREV:${k.id} #SUREC:test-kapisi`,
     `Görev: ${k.baslik} — ${asama} test kapısı. Yalnız komut çalıştır ve sonucu bildir; HİÇBİR dosya yazma, kart durumunu DEĞİŞTİRME (kart durum isleniyor/is-bitti çalıştırma).`,
@@ -233,7 +241,7 @@ async function kapi(k, asama) {
   const r = await agent(kapiIstemi(k, asama), {
     agentType: KAPI_AJANI, schema: KAPI_SEMA, label: `${k.id} kapı ${asama}`, phase: 'Kapı',
   })
-  if (!r) return { gecti: false, cikis_kodu: -1, ozet: 'kapı ajanı sonuç döndürmedi' }
+  if (!r) return { gecti: false, cikis_kodu: -1, ajan_yok: true, ozet: 'kapı ajanı sonuç döndürmedi' }
   return r
 }
 
@@ -246,6 +254,26 @@ function kapiCliHatasi(r) {
   const cliSatirlari = String(r.cikti_kuyrugu || '').split(/\r?\n/).filter(l => l.trim().startsWith('orkestra:'))
   const metin = [r.ozet || '', ...cliSatirlari].join('\n')
   return CLI_HATA_KALIPLARI.some(p => metin.includes(p))
+}
+// Kapı komutu zaman aşımına uğradı: yeniden deneme/düzeltme/yükseltme anlamsız. Kapı ajanının hiç sonuç döndürmemesi (ajan_yok) bu sınıfa girmez.
+function kapiZamanAsimiMi(r) {
+  if (!r || r.gecti || r.ajan_yok) return false
+  if (r.cikis_kodu === -1) return true
+  const cliSatirlari = String(r.cikti_kuyrugu || '').split(/\r?\n/).filter(l => l.trim().startsWith('orkestra:'))
+  return [r.ozet || '', ...cliSatirlari].join('\n').includes('zaman aşımı')
+}
+function zamanAsimiSonucu(k, basamak, gecmis, r, asama) {
+  gecmis.push({ basamak, surec: 'test-kapisi', asama, karar: 'zaman-asimi' })
+  log(`${k.id}: ${asama} kapı zaman aşımına uğradı → kart düzeltilmeli`)
+  const satir = [r.ozet || '-', r.cikti_kuyrugu ? `Çıktı kuyruğu:
+${r.cikti_kuyrugu}` : ''].filter(Boolean)
+  return {
+    id: k.id, durum: 'kart-duzeltilmeli', neden: 'kapi-zaman-asimi', basamak, gecmis,
+    son_ret: {
+      duzeltme_talimati: `Test kapısı zaman aşımına uğradı (${kapiZamanAsimi(k)} sn); kartın test_komutu'nu daraltın ya da test_zaman_asimi değerini artırın.`,
+      bulgular: satir,
+    },
+  }
 }
 function cliHatasiSonucu(k, basamak, gecmis, r, asama) {
   gecmis.push({ basamak, surec: 'test-kapisi', asama, karar: 'cli-hatasi' })
@@ -287,6 +315,7 @@ async function testOnce(k, basamak, gecmis) {
     const r = await kapi(k, 'kirmizi')
     gecmis.push({ basamak, surec: 'test-kapisi', asama: 'kirmizi', karar: r.gecti ? 'gecti' : 'gecmedi' })
     if (r.gecti) return null
+    if (kapiZamanAsimiMi(r)) return zamanAsimiSonucu(k, basamak, gecmis, r, 'kirmizi')
     if (kapiCliHatasi(r)) return cliHatasiSonucu(k, basamak, gecmis, r, 'kirmizi')
     geriBildirim = r
     log(`${k.id}: kırmızı teyit geçmedi (${deneme + 1}. deneme)`)
@@ -326,6 +355,7 @@ async function yurut(k) {
 
     // Kod kartı: yeşil kapı. Geçmezse denetçi ÇAĞRILMAZ; çıktı kuyruğuyla düzeltme turu (ret sayılır).
     const yesil = kod ? await kapi(k, 'yesil') : null
+    if (yesil && kapiZamanAsimiMi(yesil)) return zamanAsimiSonucu(k, basamak, gecmis, yesil, 'yesil')
     if (yesil && kapiCliHatasi(yesil)) return cliHatasiSonucu(k, basamak, gecmis, yesil, 'yesil')
     // T0 ön kontrol: işçiden sonra, LLM denetçiden önce. Başarısız kapı ajanı ret sayılmaz (kapı atlanır).
     const onk = yesil && !yesil.gecti ? null : await onKontrol(k, 'kontrol', is.ciktilar)
