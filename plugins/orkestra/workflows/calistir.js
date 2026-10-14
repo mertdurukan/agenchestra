@@ -31,6 +31,8 @@ const KAPI_AJANI = 'orkestra:isci-t1'
 // Test kapısı komutunun varsayılan zaman aşımı (sn). CLI varsayılanı 600 sn paralel yükte tam paket için yetmiyor;
 // kartta sayısal pozitif `test_zaman_asimi` varsa o kullanılır.
 const VARSAYILAN_KAPI_ZAMAN_ASIMI = 1800
+// Aynı anda koşan test-kos içeren kapı ajanı çağrısı sayısı sınırı (diğer ajanlar sınırsız).
+const KAPI_ES_ZAMANLI = 2
 // T0 ön kontrol kapısı (scripts/on_kontrol.py): model çağırmadan satır sonu/BOM/kapsam/yeni test hatası denetler.
 const PLUGIN_KOKU = (typeof process !== 'undefined' && process.env && process.env.CLAUDE_PLUGIN_ROOT) || '${CLAUDE_PLUGIN_ROOT}'
 const ON_KONTROL_NEDEN = {
@@ -203,17 +205,28 @@ function kapiZamanAsimi(k) {
   return typeof z === 'number' && Number.isFinite(z) && z > 0 ? z : VARSAYILAN_KAPI_ZAMAN_ASIMI
 }
 
-function kapiIstemi(k, asama) {
+// on_kontrol.py komutu (alt: 'taban' | 'kontrol').
+function onKontrolKomutu(k, alt, ciktilar) {
+  return `python "${PLUGIN_KOKU}/scripts/on_kontrol.py" ${alt} ${k.id}` +
+    (alt === 'kontrol' ? ` --ciktilar ${(ciktilar || []).join(',')}` : '') +
+    (alt === 'kontrol' && k.kaynak_dosya ? ` --kaynak ${k.kaynak_dosya}` : '')
+}
+
+// Birleşik kapı istemi: önce test-kos; geçerse ardından T0 ön kontrol (kirmizi → taban, yesil → kontrol), tek ajan çağrısında.
+function kapiIstemi(k, asama, ciktilar) {
   const komut = `orkestra kart test-kos ${k.id} --asama ${asama} --zaman-asimi ${kapiZamanAsimi(k)}`
+  const alt = asama === 'kirmizi' ? 'taban' : 'kontrol'
+  const onk = onKontrolKomutu(k, alt, ciktilar)
   return [
     `#GOREV:${k.id} #SUREC:test-kapisi`,
-    `Görev: ${k.baslik} — ${asama} test kapısı. Yalnız komut çalıştır ve sonucu bildir; HİÇBİR dosya yazma, kart durumunu DEĞİŞTİRME (kart durum isleniyor/is-bitti çalıştırma).`,
+    `Görev: ${k.baslik} — ${asama} test kapısı + T0 ön kontrol (${alt}). Yalnız komut çalıştır ve sonucu bildir; HİÇBİR dosya yazma, kart durumunu DEĞİŞTİRME (kart durum isleniyor/is-bitti çalıştırma).`,
     `1. \`${komut}\` komutunu tek başına çalıştır. Çıkış 0 → geçti; 4 → geçmedi; başka kod → geçmedi (CLI hatası; mesajı özete yaz).`,
     asama === 'kirmizi'
       ? `   İstisna: hata "zaten kilitli" ise test yazarı kırmızıyı kendisi koşup kilitlemiştir. O durumda \`orkestra kart goster ${k.id}\` ile test_kosulari'ndaki SON kırmızı kaydın gecti=true olduğunu ve test_kilidi'nin dolu olduğunu doğrula; ikisi de doğruysa gecti=true, cikis_kodu=o kaydın cikis_kodu.`
       : '',
     `2. \`orkestra kart goster ${k.id}\` ile test_kosulari'ndaki son kaydın cikti_kuyrugu alanının son 40 satırını al.`,
-    'Son yanıtın yalnız şu JSON olsun: {"gecti": true|false, "cikis_kodu": <tamsayı>, "ozet": "<CLI çıktı satırı + tek cümle>", "cikti_kuyrugu": "<son satırlar>"}',
+    `3. YALNIZ 1. adım geçtiyse (gecti=true) ardından \`${onk}\` komutunu tek başına çalıştır (çıkış 0 geçti, 4 ihlal, 2 kullanım hatası) ve stdout JSON'unu on_kontrol alanına koy. 1. adım geçmediyse bu komutu ÇALIŞTIRMA, on_kontrol=null yaz.`,
+    `Son yanıtın yalnız şu JSON olsun: {"${asama}": {"gecti": true|false, "cikis_kodu": <tamsayı>, "ozet": "<CLI çıktı satırı + tek cümle>", "cikti_kuyrugu": "<son satırlar>"}, "on_kontrol": {"gecti": true|false, "ihlaller": [{"tur": "...", "ayrinti": "..."}], "uyarilar": []} | null}`,
   ].filter(Boolean).join('\n')
 }
 
@@ -237,12 +250,38 @@ function denetimIstemi(k, is, mercek, oncekiRet) {
 }
 
 // ---------------------------------------------------------------- test kapısı
+// Kapı semaforu: aynı anda en çok KAPI_ES_ZAMANLI kapı ajanı çağrısı (basit promise kuyruğu; hata yolunda da bırakılır).
+let kapiAktif = 0
+const sonCiktilar = {} // kart id → işçinin son bildirdiği çıktılar (yeşil kapının --ciktilar bilgisi)
+const kapiKuyruk = []
+async function kapiSemaforlu(fn) {
+  if (kapiAktif >= KAPI_ES_ZAMANLI) await new Promise(coz => kapiKuyruk.push(coz)) // yuva devredilir, sayaç düşmez
+  else kapiAktif++
+  try {
+    return await fn()
+  } finally {
+    const sonraki = kapiKuyruk.shift()
+    if (sonraki) sonraki()
+    else kapiAktif--
+  }
+}
+
+const KAPI_BIRLESIK_SEMA = asama => ({
+  type: 'object',
+  properties: { [asama]: KAPI_SEMA, on_kontrol: { anyOf: [ON_KONTROL_SEMA, { type: 'null' }] } },
+  required: [asama],
+})
+
+// Birleşik kapı: test-kos (+ geçerse ön kontrol) tek ajan çağrısı. Dönüş: {gecti, cikis_kodu, ozet, cikti_kuyrugu, on_kontrol|null}.
 async function kapi(k, asama) {
-  const r = await agent(kapiIstemi(k, asama), {
-    agentType: KAPI_AJANI, schema: KAPI_SEMA, label: `${k.id} kapı ${asama}`, phase: 'Kapı',
-  })
-  if (!r) return { gecti: false, cikis_kodu: -1, ajan_yok: true, ozet: 'kapı ajanı sonuç döndürmedi' }
-  return r
+  const r = await kapiSemaforlu(() => agent(kapiIstemi(k, asama, sonCiktilar[k.id]), {
+    agentType: KAPI_AJANI, schema: KAPI_BIRLESIK_SEMA(asama), label: `${k.id} kapı ${asama}`, phase: 'Kapı',
+  }))
+  if (!r) return { gecti: false, cikis_kodu: -1, ajan_yok: true, ozet: 'kapı ajanı sonuç döndürmedi', on_kontrol: null }
+  const ic = r[asama] && typeof r[asama] === 'object' ? r[asama] : r
+  const sonuc = { gecti: ic.gecti, cikis_kodu: ic.cikis_kodu, ozet: ic.ozet, cikti_kuyrugu: ic.cikti_kuyrugu }
+  sonuc.on_kontrol = ic.gecti === true && r.on_kontrol && typeof r.on_kontrol === 'object' ? r.on_kontrol : null
+  return sonuc
 }
 
 // CLI/yapılandırma hatası (çıkış 2 ya da metin): yeniden deneme/yükseltme anlamsız, kart düzeltilmeli. Çıkış 4 = gerçek test başarısızlığı.
@@ -291,9 +330,7 @@ ${r.cikti_kuyrugu}` : ''].filter(Boolean)
 
 // T0 ön kontrol: kapı ajanıyla on_kontrol.py çalıştırır. null → ajan sonuç döndürmedi (kapı atlanır, ret değil).
 async function onKontrol(k, alt, ciktilar) {
-  const komut = `python "${PLUGIN_KOKU}/scripts/on_kontrol.py" ${alt} ${k.id}` +
-    (alt === 'kontrol' ? ` --ciktilar ${(ciktilar || []).join(',')}` : '') +
-    (alt === 'kontrol' && k.kaynak_dosya ? ` --kaynak ${k.kaynak_dosya}` : '')
+  const komut = onKontrolKomutu(k, alt, ciktilar)
   const r = await agent([
     `#GOREV:${k.id} #SUREC:on-kontrol`,
     `Görev: ${k.baslik} — T0 ön kontrol (${alt}). Yalnız komut çalıştır ve JSON'u aktar; HİÇBİR dosya yazma, kart durumunu DEĞİŞTİRME.`,
@@ -312,9 +349,12 @@ async function testOnce(k, basamak, gecmis) {
       agentType: TEST_YAZARI, schema: ISCI_SEMA, label: `${k.id} test yazarı`, phase: 'Test',
     })
     if (!t) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'test yazarı sonuç döndürmedi' }
-    const r = await kapi(k, 'kirmizi')
+    const r = await kapi(k, 'kirmizi') // aynı çağrıda taban ön kontrolü (sonuç dosyaya yazılır, ret üretmez)
     gecmis.push({ basamak, surec: 'test-kapisi', asama: 'kirmizi', karar: r.gecti ? 'gecti' : 'gecmedi' })
-    if (r.gecti) return null
+    if (r.gecti) {
+      if (!r.on_kontrol) log(`${k.id}: ön kontrol taban sonucu alınamadı → kapı atlandı`)
+      return null
+    }
     if (kapiZamanAsimiMi(r)) return zamanAsimiSonucu(k, basamak, gecmis, r, 'kirmizi')
     if (kapiCliHatasi(r)) return cliHatasiSonucu(k, basamak, gecmis, r, 'kirmizi')
     geriBildirim = r
@@ -330,7 +370,7 @@ async function testOnce(k, basamak, gecmis) {
 }
 
 // ---------------------------------------------------------------- tek görev
-async function yurut(k) {
+async function yurut(k, bagBekle) {
   let basamak = k.basamak === 'T0' ? 'T1' : k.basamak
   let retSayisi = 0
   let sonRet = null
@@ -341,10 +381,18 @@ async function yurut(k) {
   const kod = kodKarti(k)
 
   if (kod) {
-    const engel = await testOnce(k, basamak, gecmis)
+    const engel = await testOnce(k, basamak, gecmis) // kırmızı kapı aynı çağrıda taban ön kontrolünü de koşar
     if (engel) return engel
+  } else {
+    await onKontrol(k, 'taban') // T0: ilk işçi turundan önce taban; sonuç dosyaya yazılır, ret üretmez
   }
-  await onKontrol(k, 'taban') // T0: ilk işçi turundan önce taban; sonuç dosyaya yazılır, ret üretmez
+  if (bagBekle) { // erken test: testler bağımlılıkları beklemeden yazıldı; işçi turu onaydan sonra
+    const eksik = (await bagBekle).filter(x => x.durum !== 'onaylandi').map(x => x.id)
+    if (eksik.length) {
+      log(`${k.id}: testler yazıldı, kilitli; bağımlılık onaylanmadı (${eksik.join(', ')}) → işçi turu açılmadı`)
+      return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, gecmis }
+    }
+  }
 
   for (let tur = 0; tur < 10; tur++) {
     const surec = tur === 0 ? 'is' : retSayisi === 0 ? 'yukseltme' : 'duzeltme'
@@ -354,11 +402,13 @@ async function yurut(k) {
     if (!is) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'işçi ajan sonuç döndürmedi' }
 
     // Kod kartı: yeşil kapı. Geçmezse denetçi ÇAĞRILMAZ; çıktı kuyruğuyla düzeltme turu (ret sayılır).
+    sonCiktilar[k.id] = is.ciktilar
     const yesil = kod ? await kapi(k, 'yesil') : null
     if (yesil && kapiZamanAsimiMi(yesil)) return zamanAsimiSonucu(k, basamak, gecmis, yesil, 'yesil')
     if (yesil && kapiCliHatasi(yesil)) return cliHatasiSonucu(k, basamak, gecmis, yesil, 'yesil')
     // T0 ön kontrol: işçiden sonra, LLM denetçiden önce. Başarısız kapı ajanı ret sayılmaz (kapı atlanır).
-    const onk = yesil && !yesil.gecti ? null : await onKontrol(k, 'kontrol', is.ciktilar)
+    const onk = kod ? (yesil.gecti ? yesil.on_kontrol : null) : await onKontrol(k, 'kontrol', is.ciktilar)
+    if (kod && yesil.gecti && !onk) log(`${k.id}: ön kontrol kontrol sonucu alınamadı → kapı atlandı`)
     if (yesil && !yesil.gecti) {
       gecmis.push({ basamak, surec, karar: 'yesil-gecmedi' })
       sonRet = {
@@ -438,16 +488,33 @@ const kimlik = {}
 for (const k of kartlar) kimlik[k.id] = k
 
 const soz = {}
+// hedef, bağımlılık zinciri üzerinden kendine dönüyor mu (döngü)?
+function donguda(hedef, id, gorulen) {
+  for (const d of (kimlik[id].bagimliliklar || []).filter(x => kimlik[x])) {
+    if (d === hedef) return true
+    if (gorulen.has(d)) continue
+    gorulen.add(d)
+    if (donguda(hedef, d, gorulen)) return true
+  }
+  return false
+}
 function calistir(id, yol) {
   if (yol.includes(id)) return Promise.resolve({ id, durum: 'hata', neden: `bağımlılık döngüsü: ${[...yol, id].join(' → ')}` })
   if (!soz[id]) {
     const k = kimlik[id]
     const bag = (k.bagimliliklar || []).filter(d => kimlik[d])
-    soz[id] = Promise.all(bag.map(d => calistir(d, [...yol, id]))).then(sonuclar => {
-      const eksik = sonuclar.filter(s => s.durum !== 'onaylandi').map(s => s.id)
-      if (eksik.length) return { id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}` }
-      return yurut(k)
-    })
+    const bagP = Promise.all(bag.map(d => calistir(d, [...yol, id])))
+    // Erken test: bağımlılığı olan kod kartında test yazarı + kırmızı kapı bağımlılıkları beklemeden başlar; işçi turu onaydan sonra.
+    // Döngüdeki kartta erken başlama yok (eski yol: önce bağımlılıklar çözülür).
+    if (kodKarti(k) && bag.length > 0 && !donguda(id, id, new Set())) {
+      soz[id] = yurut(k, bagP)
+    } else {
+      soz[id] = bagP.then(sonuclar => {
+        const eksik = sonuclar.filter(s => s.durum !== 'onaylandi').map(s => s.id)
+        if (eksik.length) return { id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}` }
+        return yurut(k)
+      })
+    }
   }
   return soz[id]
 }
