@@ -140,11 +140,58 @@ def _kayit_yolu(sd: str, gid: str) -> str:
     return os.path.join(sd, "gorevler", gid + ".onkontrol.json")
 
 
+def _zaman_ts(z):
+    import datetime
+    try:
+        t = datetime.datetime.fromisoformat(str(z))
+        return t.timestamp() if t.tzinfo else t.astimezone().timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def gecerli_yesil_kaydi(proje: str, kart: dict, ciktilar: list[str]) -> bool:
+    """Kod kartında en son yeşil test-kos kaydı geçtiyse ve çıktılardan sonra alındıysa True (test yeniden koşulmaz)."""
+    if kart.get("sinif") != "kod":
+        return False
+    yesiller = [k for k in (kart.get("test_kosulari") or []) if k.get("asama") == "yesil"]
+    if not yesiller or not yesiller[-1].get("gecti"):
+        return False
+    son = yesiller[-1]
+    kok = son.get("kok")
+    if kok and _norm(kok) != _norm(proje):
+        return False
+    t = _zaman_ts(son.get("zaman"))
+    yollar = ciktilar or list(kart.get("ciktilar") or [])
+    if t is None or not yollar:
+        return False
+    var = 0
+    for y in yollar:
+        yol = y if os.path.isabs(y) else os.path.join(proje, y)
+        try:
+            if os.path.getmtime(yol) > t:
+                return False
+            var += 1
+        except OSError:
+            continue  # var olmayan çıktı bayatlık kanıtı değil (kapsam denetimi ayrı)
+    return var > 0
+
+
+def kirmizi_kaydi_testi(kart: dict):
+    """Kod kartında son kırmızı kayıt geçtiyse ve düşen kimlikler duruyorsa tabanın test sonucu; yoksa None."""
+    if kart.get("sinif") != "kod":
+        return None
+    kirmiziler = [k for k in (kart.get("test_kosulari") or []) if k.get("asama") == "kirmizi"]
+    if not kirmiziler or not kirmiziler[-1].get("gecti") or not kirmiziler[-1].get("dusenler"):
+        return None
+    k = kirmiziler[-1]
+    return {"cikis": k.get("cikis_kodu", 1), "basarisiz": list(k["dusenler"])}
+
+
 def taban(a) -> int:
     proje, sd, kart = _kart(a)
     kayit = {"zaman": L.simdi(), "dosyalar": {y: dosya_ozeti(y) for y in alan_dosyalari(proje, kart.get("yazma_alani"))}}
     if kart.get("test_komutu"):
-        kayit["test"] = test_kos(kart["test_komutu"], proje)
+        kayit["test"] = kirmizi_kaydi_testi(kart) or test_kos(kart["test_komutu"], proje)
     L.atomik_yaz(_kayit_yolu(sd, kart["id"]), json.dumps(kayit, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({"taban": "kaydedildi", "dosya_sayisi": len(kayit["dosyalar"]),
                       "basarisiz_test": len(kayit.get("test", {}).get("basarisiz", []))}, ensure_ascii=False))
@@ -210,7 +257,11 @@ def kontrol(a) -> int:
             ihlaller.append({"tur": TUR_KAPSAM, "ayrinti": f"{c}: yazma_alani dışında"})
 
     # (c) test farkı
-    if kart.get("test_komutu"):
+    test_kaynagi = None
+    if kart.get("test_komutu") and gecerli_yesil_kaydi(proje, kart, ciktilar):
+        test_kaynagi = "yesil-kaydi"
+    elif kart.get("test_komutu"):
+        test_kaynagi = "kosu"
         if taban_kaydi is None or "test" not in taban_kaydi:
             if "taban-yok" not in uyarilar:
                 uyarilar.append("taban-yok")
@@ -248,7 +299,8 @@ def kontrol(a) -> int:
                  [i["tur"] for i in ihlaller], kart.get("ciktilar") or ciktilar)
 
     print(json.dumps({"gecti": not ihlaller, "ihlaller": ihlaller, "onceden_dusen": onceden,
-                      "sure_sn": round(time.monotonic() - bas, 2), "uyarilar": uyarilar}, ensure_ascii=False))
+                      "sure_sn": round(time.monotonic() - bas, 2), "uyarilar": uyarilar,
+                      "test_kaynagi": test_kaynagi}, ensure_ascii=False))
     return 4 if ihlaller else 0
 
 
