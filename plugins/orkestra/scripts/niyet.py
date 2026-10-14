@@ -402,7 +402,8 @@ def cmd(a) -> None:
             print(f"[{r['bekleyen']}] {r['proje']} · {r['sohbet']}: {r['ne'] or r['yedek'] or '-'}"
                   + (f" → {r['neden']}" if r["neden"] else "") + (f" ✓ {r['sonuc']}" if r["sonuc"] else ""))
         return
-    if getattr(a, "ajan_id", None):
+    ana = getattr(a, "ajan_id", None) == "ana" or getattr(a, "ajan_tipi", None) == "ana"
+    if getattr(a, "ajan_id", None) and not ana:
         sys.exit("niyet: yalnız ana ajan yazar (alt ajanlar kart özetini kullanır).")
     if not oturum:
         sys.exit("niyet: oturum kimliği bulunamadı (CLAUDE_CODE_SESSION_ID yok); --oturum ver.")

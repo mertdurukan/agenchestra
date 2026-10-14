@@ -508,7 +508,22 @@ def cmd_kart_test_ayar(a):
         if L.kart_durumu_hesapla(k) in ("teslim", "iptal"):
             hata(f"kapalı kartın test ayarı değişmez ({k.get('durum')}).")
         degisen = {ad: {"eski": k.get(ad), "yeni": v} for ad, v in yeni.items() if k.get(ad) != v}
-        if not degisen:
+        eklenen = []
+        if yeni.get("test_alani"):
+            kok = yeni["test_koku"] if "test_koku" in yeni else k.get("test_koku")
+            kok = str(kok).replace("\\", "/").rstrip("/") if kok else ""
+            ya = list(k.get("yazma_alani") or [])
+            var = {os.path.normcase(x).replace("\\", "/") for x in ya}
+            for desen in yeni["test_alani"]:
+                girdi = kok + "/" + desen if kok else desen
+                n = os.path.normcase(girdi).replace("\\", "/")
+                if n not in var:
+                    var.add(n)
+                    ya.append(girdi)
+                    eklenen.append(girdi)
+            if eklenen:
+                k["yazma_alani"] = ya
+        if not degisen and not eklenen:
             print(f"{a.gid} test ayarı: değişiklik yok")
             return
         if k.get("test_kilidi"):
@@ -516,17 +531,18 @@ def cmd_kart_test_ayar(a):
             if yasak:
                 hata(f"test dosyaları kilitli: yalnız test_koku değişebilir ({', '.join(yasak)} değişmez; önce ana ajan "
                      f"`orkestra kart test-kilit-ac {a.gid}` ile kilidi açar).")
-            aday = dict(k)
-            aday["test_koku"] = yeni["test_koku"]
-            try:
-                kok = L.kart_proje_koku(L.proje_dizini(), aday)
-            except ValueError as e:
-                hata(str(e))
-            mevcut = L.test_dosyasi_ozetleri(kok, k.get("test_alani") or [])
-            if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
-                fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
-                hata(f"yeni test kökünde ({kok}) test dosyaları kilitle aynı değil (" + "; ".join(
-                    f"{ad}: {', '.join(v)}" for ad, v in fark.items() if v) + "); test_koku değişmedi.")
+            if "test_koku" in degisen:  # yalnız yazma_alani genişlemesinde kök doğrulaması gerekmez
+                aday = dict(k)
+                aday["test_koku"] = yeni["test_koku"]
+                try:
+                    kok = L.kart_proje_koku(L.proje_dizini(), aday)
+                except ValueError as e:
+                    hata(str(e))
+                mevcut = L.test_dosyasi_ozetleri(kok, k.get("test_alani") or [])
+                if not L.kilitle_tutarli(k["test_kilidi"], mevcut):
+                    fark = L.kilit_farki(k["test_kilidi"].get("dosyalar"), mevcut)
+                    hata(f"yeni test kökünde ({kok}) test dosyaları kilitle aynı değil (" + "; ".join(
+                        f"{ad}: {', '.join(v)}" for ad, v in fark.items() if v) + "); test_koku değişmedi.")
         for ad, d in degisen.items():
             if d["yeni"] is None:
                 k.pop(ad, None)
