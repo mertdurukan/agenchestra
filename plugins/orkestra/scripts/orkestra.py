@@ -868,35 +868,62 @@ def cmd_kart_agac_temizle(a):
         _, ajan_tipi = _kim(a)
         if ajan_tipi not in ("ana", "bilinmiyor"):
             hata("çalışma ağaçlarını yalnız ana ajan temizler.", 3)
-    depo = L.git_koku(L.proje_dizini())
-    if not depo:
-        print("proje bir git deposu değil; temizlenecek çalışma ağacı yok.")
+    ks = L.kartlar(sd)
+    depolar = _agac_temizle_depolari(ks)
+    if not depolar:
+        print("taranacak git deposu yok (proje git deposu değil, kartlarda depo bilgisi de yok); temizlenecek çalışma ağacı yok.")
         return
-    if a.uygula:
-        L.git(["worktree", "prune"], depo)  # klasörü elle silinmiş kayıtlar
-    s = L.agac_temizle_siniflandir(depo, L.kartlar(sd))
-    if not s["aday"] and not s["kalip_disi"]:
+    bulundu = False
+    for depo in depolar:
+        if a.uygula:
+            L.git(["worktree", "prune"], depo)  # klasörü elle silinmiş kayıtlar
+        s = L.agac_temizle_siniflandir(depo, ks)
+        if not s["aday"] and not s["kalip_disi"]:
+            continue
+        bulundu = True
+        if len(depolar) > 1:
+            print(f"Depo: {depo}")
+        baslik = "kaldırılanlar" if a.uygula else "adaylar (kuru koşu; kaldırmak için --uygula)"
+        print(f"Biten ya da kartsız ağaçlar — {baslik}:" if s["aday"] else "Biten ya da kartsız ağaç yok.")
+        for w in s["aday"]:
+            if not a.uygula:
+                print(f"  {w['yol']}  [{w['neden']}]")
+                continue
+            r = L.git(["status", "--porcelain", "--untracked-files=all"], w["yol"]) if os.path.isdir(w["yol"]) else None
+            if r is not None and (r.returncode != 0 or r.stdout.strip()):
+                print(f"  atlandı (kirli): {w['yol']}  [{w['neden']}]")
+                continue
+            u = L.agac_kaldir(depo, w["yol"], w["dal"])
+            if os.path.isdir(w["yol"]):
+                print(f"  atlandı: {w['yol']} — {'; '.join(u)}")
+                continue
+            print(f"  kaldırıldı: {w['yol']}  [{w['neden']}]")
+            for x in u:
+                print(f"    uyarı: {x}")
+        for w in s["kalip_disi"]:
+            print(f"  kalıp dışı (dokunulmadı): {w['yol']}")
+    if not bulundu:
         print("temizlenecek kart çalışma ağacı yok.")
-        return
-    baslik = "kaldırılanlar" if a.uygula else "adaylar (kuru koşu; kaldırmak için --uygula)"
-    print(f"Biten ya da kartsız ağaçlar — {baslik}:" if s["aday"] else "Biten ya da kartsız ağaç yok.")
-    for w in s["aday"]:
-        if not a.uygula:
-            print(f"  {w['yol']}  [{w['neden']}]")
+
+
+def _agac_temizle_depolari(ks: list[dict]) -> list[str]:
+    """Taranacak git kökleri: proje deposu (git ise) + kartlardaki calisma_agaci / _birlesik / _kaldirildi depo değerleri. Benzersiz."""
+    adaylar = [L.proje_dizini()]
+    for k in ks:
+        for alan in ("calisma_agaci", "calisma_agaci_birlesik", "calisma_agaci_kaldirildi"):
+            d = (k.get(alan) or {}).get("depo")
+            if d and os.path.isdir(d):
+                adaylar.append(d)
+    out, gorulen = [], set()
+    for d in adaylar:
+        kok = L.git_koku(d)
+        if not kok:
             continue
-        r = L.git(["status", "--porcelain", "--untracked-files=all"], w["yol"]) if os.path.isdir(w["yol"]) else None
-        if r is not None and (r.returncode != 0 or r.stdout.strip()):
-            print(f"  atlandı (kirli): {w['yol']}  [{w['neden']}]")
-            continue
-        u = L.agac_kaldir(depo, w["yol"], w["dal"])
-        if os.path.isdir(w["yol"]):
-            print(f"  atlandı: {w['yol']} — {'; '.join(u)}")
-            continue
-        print(f"  kaldırıldı: {w['yol']}  [{w['neden']}]")
-        for x in u:
-            print(f"    uyarı: {x}")
-    for w in s["kalip_disi"]:
-        print(f"  kalıp dışı (dokunulmadı): {w['yol']}")
+        anahtar = os.path.normcase(os.path.abspath(kok)).replace("\\", "/").rstrip("/")
+        if anahtar not in gorulen:
+            gorulen.add(anahtar)
+            out.append(kok)
+    return out
 
 
 def _birlestir(sd, k) -> tuple[bool, str]:
