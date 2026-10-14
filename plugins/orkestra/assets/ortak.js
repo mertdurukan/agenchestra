@@ -316,7 +316,7 @@
   O.alanlar = [];
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
   const SEKMELER = [['simdi', 'Şimdi', '/'], ['isler', 'İşler', '/isler'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
-    ['onaylar', 'Onaylar', '/onaylar'], ['kurallar', 'Kurallar', '/kurallar']];
+    ['onaylar', 'Onaylar', '/onaylar'], ['etki', 'Etki', '/etki'], ['kurallar', 'Kurallar', '/kurallar']];
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {
     document.querySelectorAll('#kabuk [data-sekme]').forEach(a => { a.href = a.dataset.yol + sorgu(); });

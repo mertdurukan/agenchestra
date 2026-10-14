@@ -17,6 +17,8 @@ GET /onaylar.json?alan=<id>    → onay kuyruğu: sayaç, kayıtlar, perspektif 
 GET /kurallar.json?alan=<id>   → etkin kurallar, öneriler, geçmiş, kural kaynakları
 GET /isler, /isler.html        → İşler sayfası (assets/isler.html; yoksa "hazırlanıyor")
 GET /isler.json?alan=<id>      → işler: kovalar (yapıldı/şimdi/sırada/planda kart yok/iptal), maliyet, kartsız açık kartlar
+GET /etki, /etki.html          → Etki sayfası (uygulanan kararların etkisi; assets/etki.html)
+GET /api/etki?alan=<id>        → etki listesi + gün gün seri + doğru karar oranı (yalnız kapatılmış izlemeler); salt okuma
 GET /onay-sayac.json           → {alan_id: onay sayacı} (sekme rozeti)
 POST /onay?alan=<id>           → karar / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
@@ -54,7 +56,8 @@ SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simd
             "/verim": "verim.html", "/verim.html": "verim.html",
             "/onaylar": "onaylar.html", "/onaylar.html": "onaylar.html",
             "/kurallar": "kurallar.html", "/kurallar.html": "kurallar.html",
-            "/isler": "isler.html", "/isler.html": "isler.html"}
+            "/isler": "isler.html", "/isler.html": "isler.html",
+            "/etki": "etki.html", "/etki.html": "etki.html"}
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8")}
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
@@ -111,6 +114,63 @@ def _onaylar_json(alan_id) -> dict:
     return {"acik": True, "alan": _alan_kisa(a), "sayac": onay.sayac(sd),
             "kayitlar": bekleyen + diger[:max(0, 200 - len(bekleyen))],
             "perspektif": _perspektif(sd), "uretim": L.simdi()}
+
+
+def _etki_kayit(k: dict, hepsi: list) -> dict:
+    """Etki sekmesi için tek kayıt: liste satırı + gün gün seri + aynı dönemde uygulanan diğer kayıtlar."""
+    import etki  # noqa: PLC0415
+    e = k["etki"]
+    vaat = k.get("vaat") if isinstance(k.get("vaat"), dict) else {}
+    olculebilir = bool(vaat.get("olculebilir"))
+    seri = [dict(s) for s in (e.get("gunluk") or []) if isinstance(s, dict)] if olculebilir else []
+    iz = e.get("izleme") if isinstance(e.get("izleme"), dict) else {}
+    taban = e.get("taban") if isinstance(e.get("taban"), dict) else None
+    son = seri[-1] if seri else None
+    if not olculebilir:
+        gidisat = "olculemez"
+    else:
+        gidisat = (son or {}).get("gidisat") or iz.get("son_gidisat") or "yetersiz-veri"
+    ayni = int(iz.get("ayni_gidisat_gun") or 0)
+    durum = iz.get("durum") or ("olculemez" if not olculebilir else "suruyor")
+    soru = bool(olculebilir and durum == "suruyor" and gidisat == "kotu" and ayni >= etki.SORU_GUN)
+    bas = e.get("uygulama_tarihi")
+    bitis = None if durum in ("suruyor", "olculemez") else (str(iz.get("kapanis") or "")[:10] or None)
+    diger = []
+    for o in hepsi:
+        oe = o.get("etki")
+        if o.get("id") == k.get("id") or not isinstance(oe, dict) or not oe.get("uygulama_tarihi"):
+            continue
+        oiz = oe.get("izleme") if isinstance(oe.get("izleme"), dict) else {}
+        o_bitis = None if (oiz.get("durum") or "suruyor") in ("suruyor", "olculemez") else (str(oiz.get("kapanis") or "")[:10] or None)
+        # dönemler kesişiyorsa (bitişi olmayan izleme hâlâ sürüyor sayılır) diğer kayıt işaretlenir
+        if (bitis is None or oe["uygulama_tarihi"] <= bitis) and (o_bitis is None or o_bitis >= bas):
+            diger.append({"id": o["id"], "tarih": oe["uygulama_tarihi"]})
+    diger.sort(key=lambda d: (d["tarih"], d["id"]))
+    return {"id": k.get("id"), "baslik": k.get("baslik"), "olculebilir": olculebilir, "metin": vaat.get("metin") or "",
+            "metrik": vaat.get("metrik"), "yon": vaat.get("yon"), "esik": vaat.get("esik"),
+            "uygulama_tarihi": bas, "gun": int((son or {}).get("gun") or 0),
+            "taban": {"deger": taban.get("deger"), "ornek": taban.get("ornek")} if taban else None,
+            "birikim": {"deger": son.get("birikim_deger"), "ornek": son.get("birikim_ornek")} if son else None,
+            "gidisat": gidisat, "ayni_gidisat_gun": ayni, "soru_bekliyor": soru, "izleme_durum": durum,
+            "karar": e.get("karar"), "seri": seri, "diger_uygulamalar": diger}
+
+
+def _etki_json(alan_id) -> dict:
+    import etki  # noqa: PLC0415
+    a, sd = _alan_sd(alan_id)
+    if a is None:
+        return sd
+    hepsi = [k for k in etki.liste(sd) if isinstance(k.get("etki"), dict) and k["etki"].get("uygulama_tarihi")]
+    kayitlar = [_etki_kayit(k, hepsi) for k in hepsi]
+    # sıra: soru bekleyenler önce, sonra yeni uygulanan üstte (kararlı sıralama iki geçişle)
+    kayitlar.sort(key=lambda r: str(r["id"]))
+    kayitlar.sort(key=lambda r: str(r["uygulama_tarihi"]), reverse=True)
+    kayitlar.sort(key=lambda r: not r["soru_bekliyor"])
+    o = etki.dogru_karar_orani(sd)
+    return {"acik": True, "alan": _alan_kisa(a),
+            "ozet": {"dogru_karar_orani": o["oran"], "dogru": o["dogru"], "yanlis": o["yanlis"],
+                     "belirsiz": o["belirsiz"], "kapali": o["kapatilan"]},
+            "kayitlar": kayitlar, "uretim": L.simdi()}
 
 
 def _kurallar_json(alan_id) -> dict:
@@ -255,7 +315,8 @@ def _isleyici():
 
         def _hazirlaniyor(self, ad: str) -> bytes:
             baslik = {"maliyet.html": "Maliyet", "verim.html": "Verim ve sağlık",
-                     "onaylar.html": "Onaylar", "kurallar.html": "Kurallar"}.get(ad, "Sayfa")
+                     "onaylar.html": "Onaylar", "kurallar.html": "Kurallar",
+                     "etki.html": "Etki"}.get(ad, "Sayfa")
             return (f'<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
                     f'<title>Orkestra · {baslik}</title><link rel="stylesheet" href="ortak.css"></head>'
                     f'<body><main class="hazirlaniyor"><h1>{baslik}</h1><p>Bu sayfa hazırlanıyor.</p>'
@@ -381,6 +442,10 @@ def _isleyici():
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli(("isler", alan), 2.0, lambda: _isler_json(alan)))
+            if u.path == "/api/etki":
+                alan = (q.get("alan") or [None])[0]
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli(("etki", alan), 2.0, lambda: _etki_json(alan)))
             if u.path == "/onay-sayac.json":
                 return self._gonder(200, "application/json; charset=utf-8", onbellekli("sayac", 5.0, _sayac_tum))
             if u.path == "/saglik":

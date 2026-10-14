@@ -773,8 +773,50 @@ def session_start(inp: dict):
         om = onay.baglam_metni(sd, inp.get("session_id"), "SessionStart") or ""
     except Exception:
         pass
+    ei = _etki_ipucu(sd)
+    if ei:
+        om = (om + "\n" + ei) if om else ei
     ek = "\n".join(satirlar)[:1800 - len(om) - 1] + "\n" + om if om else "\n".join(satirlar)[:1800]  # onay yönlendirmesi kesilmesin
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
+
+
+def _etki_bekleyenler(sd: str) -> tuple[int, list[str]]:
+    """(izlenen kayıt sayısı, gidişatı 'kotu' ya da soru bekleyen kimlikler); salt okuma."""
+    import etki
+    izlenen, kotu = 0, []
+    for k in etki.liste(sd):
+        e = k.get("etki")
+        iz = e.get("izleme") if isinstance(e, dict) else None
+        if not isinstance(iz, dict) or iz.get("durum") in ("kapandi", "geri-alindi"):
+            continue
+        izlenen += 1
+        if e.get("soru_bekliyor") or iz.get("durum") == "soru_bekliyor" or iz.get("son_gidisat") == "kotu":
+            kotu.append(str(k.get("id")))
+    return izlenen, kotu
+
+
+def _etki_ipucu(sd: str) -> str:
+    """Etki izleme ipucu: oturum açılışında izle() çağrılır; yalnız kötü/soru bekleyen kayıt varsa metin döner.
+    İzleme gidişatı üzerine yazabildiği için bekleyenler izlemeden ÖNCE ve SONRA toplanıp birleştirilir. Hata sessiz geçilir."""
+    try:
+        import etki
+        try:
+            _, once = _etki_bekleyenler(sd)
+        except Exception:
+            once = []
+        try:
+            etki.izle(sd)
+        except Exception:
+            pass
+        izlenen, sonra = _etki_bekleyenler(sd)
+        kotu = sorted(set(once) | set(sonra))
+        if not kotu:
+            return ""
+        return (f"ETKİ İZLEME: {izlenen} onaylı değişiklik izleniyor; gidişatı kötü/soru bekleyen: {', '.join(kotu[:5])}. "
+                "Kullanıcıya tek soru sor: değişikliği geri al mı, sürdür mü? "
+                "(geri al: `orkestra onay etki-geri-al <id> --neden …`; sürdür/kapat: `orkestra onay etki-kapat <id> --sonuc …`)")[:420]
+    except Exception:
+        return ""
 
 
 def user_prompt_submit(inp: dict):

@@ -36,7 +36,7 @@ Türkçe, kısa cümleler:
 5. **Boyut:**
    - MEMORY.md'nin satır ve bayt sayısı. Oturum başında yalnız ilk 200 satır ya da 25 KB okunur.
    - Çok uzun konu dosyaları ve önerilen bölünme.
-6. **Önerilen değişiklikler:** Her biri için dosya, değişiklik ve gerekçe; uygulanabilir kısa diff blokları ekle.
+6. **Önerilen değişiklikler:** Her biri için dosya, değişiklik ve gerekçe; uygulanabilir kısa diff blokları ekle. Her önerinin altına ZORUNLU bir `Vaat:` satırı ekle (aşağıdaki "Vaat satırı" bölümü).
 7. **Skill adayları:** Skill'siz ve en az 3 kez tekrarlanan iş türleri. Her aday için:
    - ad;
    - tetik cümleleri;
@@ -48,6 +48,19 @@ Türkçe, kısa cümleler:
    - Reddedilen ve yükseltilen kartlar.
    - Denetimin maliyet payı (hedef %15-30).
    - Dikkat çeken maliyet.
+
+## Vaat satırı (bölüm 6'daki her öneri için zorunlu)
+Önerinin değişiklik/gerekçe satırlarından sonra, girintili tek satır:
+
+`   Vaat: ölçü=<kpi:<ad>|betik:<ad>|sayac:<ad>|ölçülemez>; yön=<azalmalı|artmalı|değişmemeli>; kapsam=<genel|sınıf|ajan>`
+
+- **ölçü:** Mevcut veriden okunabilen bir ölçü seç. `kpi:<ad>` `orkestra kpi` çıktısındaki KPI'lardır (ör. `kpi:ret_orani`, `kpi:basari_basina_maliyet`). `sayac:<ad>` maliyet ve kartlardan sayılan değerdir. `betik:<ad>` tek sayı üreten küçük deterministik betiktir (ör. MEMORY.md bayt sayısı, ölü yol sayısı).
+- **yön:** Değişiklik sonrası ölçünün nereye gitmesini vaat ediyorsun.
+- **kapsam:** Ölçünün hangi sınıf ya da ajan için bakılacağı; belirsizse `genel`.
+- **Ölçülemez öneri:** Uygun, mevcut veriden okunabilen bir ölçü yoksa `Vaat: ölçü=ölçülemez; yön=-; kapsam=-` yaz ve tek cümleyle nedenini ekle. Çoğu hafıza önerisi (kopya birleştirme, ölü yol silme) bu türdendir; bunların "uygulandı mı" kanıtı (yol var mı, kopya kaldı mı, bayt) onay aşamasında doğrulanır, kullanıcıya dönük etki iddia edilmez.
+- **Sahte metrik YASAK:** Ölçü uydurma, var olmayan KPI adı yazma, ölçülemeyen öneriye kendiliğinden iyileşme sayısı atfetme. Emin değilsen `ölçülemez` yaz.
+- Satır boş ya da eksik bırakılmaz; yoksa öneri ölçülemez sayılır.
+- Satır girintili yazılır ve numaralı madde olarak başlamaz (rapor ayrıştırıcısı yalnız `N.` ile başlayan satırları yeni madde sayar).
 
 ## Kurallar
 - Sır değeri, şifre ya da çalışan adı yazma.

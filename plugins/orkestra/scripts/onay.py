@@ -12,6 +12,7 @@ bu yüzden herkese açık işlevler kilidi alıp `_` önekli iç işlevleri ça�
 from __future__ import annotations
 
 import datetime
+import copy
 import glob
 import json
 import os
@@ -122,6 +123,16 @@ def _yeni_kayit(sd: str, tur: str, baslik: str, metin: str, kaynak, anahtar, sec
          "olusturma": simdi, "guncelleme": simdi, "gecmis": [{"zaman": simdi, "olay": "olusturuldu"}]}
     _kayit_yaz(sd, k)
     return k
+
+
+def _etki_kancasi(k: dict, islem) -> None:
+    """Etki ölçümü kancası (G-069): başarısızsa kayıt olduğu gibi kalır, onay akışı bozulmaz."""
+    yedek = copy.deepcopy(k)
+    try:
+        islem()
+    except Exception:
+        k.clear()
+        k.update(yedek)
 
 
 def _anahtarli(sd: str, anahtar: str) -> dict | None:
@@ -449,6 +460,8 @@ def al(sd: str, id: str, oturum: str) -> dict:
         k["durum"] = "uygulaniyor"
         k["uygulama"] = {"oturum": oturum, "alma_zamani": L.simdi(), "zaman": None, "ozet": None}
         _olay(k, "alindi", oturum)
+        import etki  # geç içe aktarım: etki.py onay.py'yi içe aktarır
+        _etki_kancasi(k, lambda: etki.kanca_al(sd, k))
         _kayit_yaz(sd, k)
         return k
 
@@ -467,6 +480,8 @@ def uygulandi(sd: str, id: str, ozet: str, oturum=None) -> dict:
         k["uygulama"] = u
         k["durum"] = "uygulandi"
         _olay(k, "uygulandi", ozet)
+        import etki  # geç içe aktarım: etki.py onay.py'yi içe aktarır
+        _etki_kancasi(k, lambda: etki.kanca_uygulandi(k))
         _kayit_yaz(sd, k)
         return k
 
