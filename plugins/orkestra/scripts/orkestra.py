@@ -781,8 +781,16 @@ def cmd_kart_teslim(a):
     with L.kilit(L.kart_yolu(sd, a.gid)):
         k = _kart_al(sd, a.gid)
         durum = L.kart_durumu_hesapla(k)
+        beklemeden = False
+        if durum == "beklemede":
+            # Beklemede'ye alınmadan önce onay almış kart teslim edilebilir (sığ kopyada durum çekilir).
+            if L.kart_durumu_hesapla({**k, "durum": None}) == "onaylandi":
+                beklemeden = True
+                durum = "onaylandi"
         if durum != "onaylandi":
             hata(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
+        if beklemeden:
+            k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemeden-teslim"})
         if (k.get("calisma_agaci") or {}).get("yol"):
             ok, mesaj = _birlestir(sd, k)
             L.kart_yaz(sd, k)
