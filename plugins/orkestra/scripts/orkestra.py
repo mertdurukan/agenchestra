@@ -159,6 +159,16 @@ def _butce_dogrula(d: dict):
     return {"usd": usd, "token": token, "kaynak": "elle", "esik_surumu": None}
 
 
+def _oto_teslim_dogrula(d: dict) -> bool:
+    """G-124: oto_teslim (bool). Belirtilmezse varsayılan: sinif 'kod' ise true, değilse false."""
+    v = d.get("oto_teslim")
+    if v is None:
+        return (d.get("sinif") or "").strip().lower() == "kod"
+    if not isinstance(v, bool):
+        hata(f"oto_teslim true/false olmalı: {v!r} ({d.get('baslik') or '(başlıksız)'})")
+    return v
+
+
 def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     basamak = (d.get("basamak") or "T2").upper()
     if basamak not in BASAMAKLAR:
@@ -167,6 +177,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     test_alanlari = _test_alanlari_dogrula(d)
     risk = _risk_dogrula(d)
     butce = _butce_dogrula(d)
+    oto_teslim = _oto_teslim_dogrula(d)
     _merkez_saglamla(sd)  # K2: bozuk/eksik isler.json bağ çözümünü düşürmez
     _acik_is_dogrula(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
     gid = d.get("id") or L.yeni_kart_id(sd)
@@ -184,6 +195,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "kabul_kriterleri": list(d.get("kabul_kriterleri") or []),
         "yazma_alani": yazma,
         "bagimliliklar": list(d.get("bagimliliklar") or []),
+        "oto_teslim": oto_teslim,
         "durum": "planlandi",
         "oturum": oturum_id(),
         "olusturma": L.simdi(),
@@ -263,7 +275,7 @@ def cmd_kart_yeni(a):
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
-                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk, "madde": a.madde,
+                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk, "madde": a.madde, "oto_teslim": a.oto_teslim,
                        "butce": ({"usd": a.butce_usd, "token": a.butce_token}
                                  if a.butce_usd is not None or a.butce_token is not None else None)})
     if not k["kabul_kriterleri"]:
@@ -301,6 +313,7 @@ def cmd_kart_toplu(a):
         _test_alanlari_dogrula(d)
         _risk_dogrula(d)
         _butce_dogrula(d)
+        _oto_teslim_dogrula(d)
         if d.get("madde") is not None and (not isinstance(d["madde"], str) or not d["madde"].strip()):
             hata(f"madde boş olmayan metin olmalı: {d.get('baslik')}")
         _acik_is_dogrula(sd, d.get("is"))
@@ -333,6 +346,7 @@ def cmd_kart_goster(a):
     sd = sd_gerekli()
     k = _kart_al(sd, a.gid)
     k["durum"] = L.kart_durumu_hesapla(k)
+    k.setdefault("oto_teslim", False)  # G-124: alansız eski kart elle teslimdir
     ca = k.get("calisma_agaci") or {}
     if ca.get("yol"):
         k["calisma_agaci_satiri"] = L.CALISMA_AGACI_ONEKI + ca["yol"]
@@ -652,6 +666,33 @@ def cmd_kart_denetim(a):
         L.atomik_yaz(os.path.join(sd, "gorevler", f"{a.gid}.denetim.json"),
                      json.dumps(k["denetimler"], ensure_ascii=False, indent=2) + "\n")
     print(f"{a.gid} denetim: {a.karar} → {k['durum']}")
+    if a.karar == "onay" and k["durum"] == "onaylandi" and k.get("oto_teslim") is True and k.get("sinif") == "kod":
+        _oto_teslim_dene(sd, a.gid, a.gerekce)
+
+
+def _oto_teslim_dene(sd, gid, gerekce) -> None:
+    """G-124: onaylı oto_teslim kod kartını teslim eder (kilit dışında çağrılır). Hata/birleşmeme kartı 'onaylandi'
+    bırakır, stderr'e uyarı yazar; denetim komutunun çıkış kodunu değiştirmez."""
+    ozet = "oto: " + (L.maskele(gerekce or "").strip()[:200])
+    try:
+        notlar = _teslim_et(sd, gid, ozet, oto=True)
+    except Exception as e:  # birleşme/teslim hatası denetim kararını bozmaz
+        mesaj = getattr(e, "mesaj", None) or f"{type(e).__name__}: {e}"
+        try:
+            with L.kilit(L.kart_yolu(sd, gid)):
+                k = L.kart_oku(sd, gid)
+                if k and k.get("durum") != "teslim":
+                    if k.get("durum") == "beklemede" and L.kart_durumu_hesapla({**k, "durum": None}) == "onaylandi":
+                        k["durum"] = "onaylandi"  # birleşme çatışması kartı beklemede bırakmış; onay korunur
+                    k["gecmis"].append({"zaman": L.simdi(), "olay": "oto-teslim-hata", "not": str(mesaj)[:500]})
+                    L.kart_yaz(sd, k)
+        except Exception:
+            pass
+        print(f"orkestra: uyarı {gid}: oto-teslim yapılamadı, kart 'onaylandi' kaldı — {mesaj}", file=sys.stderr)
+        return
+    for m in notlar:
+        print(m)
+    print(f"{gid} → teslim (oto)")
 
 
 def _yesil_kapi_engeli(k: dict) -> str | None:
@@ -982,7 +1023,7 @@ class _TeslimHatasi(Exception):
         self.mesaj, self.kod = mesaj, kod
 
 
-def _teslim_et(sd, gid, ozet) -> list:
+def _teslim_et(sd, gid, ozet, oto=False) -> list:
     """Tek kartı teslim eder (`kart teslim` ve `kart teslim-toplu` ortak çekirdeği). Yazdırmaz; birleştirme
     mesajlarını döndürür. Reddedilirse _TeslimHatasi(mesaj, çıkış_kodu) atar."""
     notlar = []
@@ -993,6 +1034,8 @@ def _teslim_et(sd, gid, ozet) -> list:
             raise _TeslimHatasi(f"kart yok: {gid}")
         madde, is_id = k.get("madde"), k.get("is")
         durum = L.kart_durumu_hesapla(k)
+        if durum == "teslim" and not oto and any(x.get("olay") == "oto-teslim" for x in k.get("gecmis") or []):
+            return [f"{gid} denetçi onayında kendiliğinden teslim olmuştu (oto-teslim); yeniden teslim gerekmez"]
         beklemeden = False
         if durum == "beklemede":
             # Beklemede'ye alınmadan önce onay almış kart teslim edilebilir (sığ kopyada durum çekilir).
@@ -1012,6 +1055,8 @@ def _teslim_et(sd, gid, ozet) -> list:
             k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemeden-teslim"})
         k["durum"] = "teslim"
         k["teslim_ozeti"] = L.maskele(ozet or "")[:2000]
+        if oto:
+            k["gecmis"].append({"zaman": L.simdi(), "olay": "oto-teslim"})
         k["gecmis"].append({"zaman": L.simdi(), "olay": "teslim"})
         L.kart_yaz(sd, k)
     L.defter_ekle(sd, {"gorev": gid, "surec": "sentez", "ajan": "ana-ajan", "model": "-",
@@ -2467,6 +2512,11 @@ def main():
                    help="kod kartında isteğe bağlı: test kökü (var olan mutlak dizin; yoksa proje kökü)")
     y.add_argument("--tdd", action="store_true",
                    help="kod kartında test-önce akışı (test yazarı + kırmızı kapı); yalnız riskli kartta")
+    ot = y.add_mutually_exclusive_group()
+    ot.add_argument("--oto-teslim", dest="oto_teslim", action="store_const", const=True, default=None,
+                    help="denetçi onayında kart kendiliğinden teslim olur (varsayılan: kod kartında açık)")
+    ot.add_argument("--elle-teslim", dest="oto_teslim", action="store_const", const=False,
+                    help="onaydan sonra teslimi ana ajan yapar (varsayılan: kod dışı kartta)")
     y.add_argument("--risk", help="dusuk|orta|yuksek (isteğe bağlı; ölçüm kaydı)")
     y.add_argument("--madde", help="işin todo.md'sinde bu kartın bitireceği açık maddenin metin parçası; teslimde otomatik [x]")
     y.add_argument("--butce-usd", dest="butce_usd", help="isteğe bağlı bütçe (USD); yalnız kayıt")

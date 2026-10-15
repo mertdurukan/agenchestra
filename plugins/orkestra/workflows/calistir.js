@@ -39,6 +39,7 @@ const RET_NEDEN_ACIKLAMA = {
   'talimat-ihlali': 'kart ya da protokol talimatı çiğnenmiş (yazma alanı, sır vb.)',
   'kriter-belirsiz': 'kabul kriteri belirsiz ya da çelişkili (kart düzeltilmeli)',
   'yetenek-yetersiz': 'iş bu basamağın yeteneğini aşıyor (üst basamak gerekir)',
+  'ortam': 'başarısızlık kodun değil ortamın: yük altında zamanlama, başka kartın değişikliği, eksik araç/izin; kodu ya da modeli değiştirmek çözmez',
 }
 
 const ISCI_SEMA = {
@@ -55,8 +56,9 @@ const ISCI_SEMA = {
   },
   required: ['ozet', 'ciktilar', 'kanit', 'kapi'],
 }
-// Ret nedeni kodları (scripts/ret_nedeni.py ile aynı): dikkat grubu → işçi düzeltir; kriter-belirsiz → kart; yetenek-yetersiz → basamak.
-const RET_NEDENLERI = ['kapsam-eksik', 'bicim', 'sayi-tutarsiz', 'kanit-yok', 'talimat-ihlali', 'kriter-belirsiz', 'yetenek-yetersiz']
+// Ret nedeni kodları (scripts/ret_nedeni.py ile aynı): dikkat grubu → işçi düzeltir; kriter-belirsiz → kart; yetenek-yetersiz → basamak;
+// ortam → ana ajan (yeniden deneme/yükseltme yok).
+const RET_NEDENLERI = ['kapsam-eksik', 'bicim', 'sayi-tutarsiz', 'kanit-yok', 'talimat-ihlali', 'kriter-belirsiz', 'yetenek-yetersiz', 'ortam']
 const DENETIM_SEMA = {
   type: 'object',
   properties: {
@@ -89,16 +91,17 @@ function testKalitesiReddi(d) {
   return satirlar.some(s => String(s).trim().toUpperCase().startsWith('TEST:'))
 }
 
-// Birden çok mercekten gelen retlerden nedene göre öncelikli olanı seçer: kriter-belirsiz > yetenek-yetersiz > ilk ret.
+// Birden çok mercekten gelen retlerden nedene göre öncelikli olanı seçer: kriter-belirsiz > yetenek-yetersiz > ortam > ilk ret.
 function retSec(kararlar) {
   const retler = kararlar.filter(d => d.karar !== 'onay')
-  return retler.find(d => d.neden === 'kriter-belirsiz') || retler.find(d => d.neden === 'yetenek-yetersiz') || retler[0]
+  return retler.find(d => d.neden === 'kriter-belirsiz') || retler.find(d => d.neden === 'yetenek-yetersiz') || retler.find(d => d.neden === 'ortam') || retler[0]
 }
 
-// Ret sonrası bir sonraki adım (saf karar): 'kart' | 'yukselt' | 'son' | 'devam'.
+// Ret sonrası bir sonraki adım (saf karar): 'kart' | 'ortam' | 'yukselt' | 'son' | 'devam'.
 // Neden yoksa ya da dikkat grubundaysa mevcut iki-ret kuralı geçerlidir.
 function retSonrasi(neden, retSayisi, sonBasamak) {
   if (neden === 'kriter-belirsiz') return 'kart'
+  if (neden === 'ortam') return 'ortam'
   if (neden === 'yetenek-yetersiz') return sonBasamak ? 'son' : 'yukselt'
   if (retSayisi >= AYNI_BASAMAKTA_EN_COK_RET) return sonBasamak ? 'son' : 'yukselt'
   return 'devam'
@@ -118,6 +121,17 @@ function retImzasi(ret) {
 function ayniRet(a, b) {
   const x = retImzasi(a)
   return x !== null && x === retImzasi(b)
+}
+
+// Kapı özeti normalize (saf): rakamlar, süreler, mutlak yollar ve hex kimlikler atılır; yalnız bunlarla ayrışan
+// iki özet aynı kapı hatasıdır (ör. yük altında değişen süre/sıra/geçici dizin).
+function kapiOzetiNormalize(m) {
+  return String(m || '').toLowerCase()
+    .replace(/[a-z]:[\\/][^\s'"]*/g, ' ')
+    .replace(/(^|[\s'"(=])\/[^\s'"]+/g, '$1 ')
+    .replace(/\b[0-9a-f]{7,}\b/g, ' ')
+    .replace(/\d+/g, ' ')
+    .replace(/\s+/g, ' ').trim()
 }
 
 // Denetçi modeli (saf): basamak modeli; toplam ret eşiğinden sonra opus (T4'te xhigh).
@@ -191,7 +205,7 @@ function denetimIstemi(k, is, mercekler, oncekiRet) {
       : '',
     testBilgisi(k),
     'Test ve ön kontrol kapıları işçinin is-bitti\'sinde CLI tarafından koşuldu ve geçti (kayıt: `orkestra kart goster <id>` → test_kosulari, onkontrol_kosulari). Testi YENİDEN KOŞMA; kayda güven, değişen dosyaların diff\'ine ve kriterlere bak.',
-    `Ret verirsen nedeni şu kodlardan tek biri seç (öncelik: kriter belirsizse kriter-belirsiz; işin zorluğu basamağı aşıyorsa yetenek-yetersiz; aksi halde dikkat grubundan en belirgini): ${RET_NEDENLERI.join(', ')}. CLI'ya \`--neden <kod>\` ile yaz, şemadaki 'neden' alanına da koy.`,
+    `Ret verirsen nedeni şu kodlardan tek biri seç (öncelik: kriter belirsizse kriter-belirsiz; işin zorluğu basamağı aşıyorsa yetenek-yetersiz; başarısızlık kodun değil test/araç ortamının (yük altında zamanlama, başka kartın değişikliği, eksik araç/izin) ise ortam; aksi halde dikkat grubundan en belirgini): ${RET_NEDENLERI.join(', ')}. CLI'ya \`--neden <kod>\` ile yaz, şemadaki 'neden' alanına da koy.`,
     'Çıktıları kendin aç, her kriteri kanıtla değerlendir, kararı `orkestra kart denetim <id> --karar onay|ret [--neden <kod>] --gerekce ... --talimat ...` ile yaz, son yanıtın şemaya uygun olsun.',
   ].filter(Boolean).join('\n')
 }
@@ -313,6 +327,8 @@ async function yurut(k, bagBekle) {
   let sonRet = null
   let toplamRet = 0 // kartın tüm basamaklardaki ret sayısı (denetçi modeli için)
   let denetimRet = null // son LLM denetçi reti: yeniden denetim yalnız bunların karşılanmasına bakar; yükseltmede sıfırlanır
+  let oncekiKapiHam = null
+  let oncekiKapiOzeti = null // son turdaki geçmeyen kapının normalize özeti (kapı geçince sıfırlanır)
   let oncekiBasamakRet = null // yükseltmeyi tetikleyen, önceki basamağın son reti
   const gecmis = []
   const kod = kodKarti(k)
@@ -344,7 +360,24 @@ async function yurut(k, bagBekle) {
     const kapi = kapiSonucu(is)
     if (!kapi.gecti && kapiZamanAsimiMi(kapi)) return zamanAsimiSonucu(k, basamak, gecmis, kapi, 'yesil')
     if (!kapi.gecti && kapiCliHatasi(kapi)) return cliHatasiSonucu(k, basamak, gecmis, kapi, 'yesil')
+    if (kapi.gecti) oncekiKapiOzeti = null
     if (!kapi.gecti) {
+      // Aynı kartta arka arkaya iki kapı hatası normalize edilince aynıysa sorun kod/model değil ortamdır.
+      const norm = kapiOzetiNormalize(kapi.ozet)
+      // Kod kartında birebir aynı özet deterministik gerçek test hatasıdır (kod düzeltir, eski akış); yalnız rakam/süre/yol
+      // farkıyla ayrışan özet kararsız ortamı gösterir. Kod dışı kartta birebir tekrar da ortam sayılır.
+      const ham = String(kapi.ozet || '')
+      const ozdes = kod && ham === oncekiKapiHam
+      if (oncekiKapiOzeti !== null && norm === oncekiKapiOzeti && !ozdes) {
+        gecmis.push({ basamak, surec, karar: 'ayni-kapi-hatasi' })
+        log(`${k.id}: is-bitti kapısı arka arkaya aynı hatayla geçmedi → ortam sorunu; ana ajan kartı beklemede yapmalı (yükseltme yok)`)
+        return {
+          id: k.id, durum: 'ortam', neden: 'ayni-kapi-hatasi', basamak, gecmis,
+          son_ret: { duzeltme_talimati: 'is-bitti kapısı iki turda aynı hatayla geçmedi (normalize özet aynı); ortam kaynaklı olabilir, ana ajan ortamı/testi incelemeli.', bulgular: [kapi.ozet || '-'] },
+        }
+      }
+      oncekiKapiOzeti = norm
+      oncekiKapiHam = ham
       gecmis.push({ basamak, surec, karar: kod ? 'yesil-gecmedi' : 'on-kontrol-ret' })
       sonRet = {
         yesil: true, neden: kod ? undefined : 'talimat-ihlali',
@@ -387,7 +420,7 @@ async function yurut(k, bagBekle) {
     const i = SIRA.indexOf(basamak)
     // Yükseltmeden sonra yeni basamağın İLK reti önceki basamağın son retiyle aynıysa daha güçlü model de aynı duvara
     // çarpmıştır: sorun yetenek değil kart/kriterdir. (Aynı basamaktaki tekrar mevcut iki-ret yükseltmesine gider.)
-    if (retSayisi === 1 && sonRet.neden !== 'kriter-belirsiz' && ayniRet(oncekiBasamakRet, sonRet)) {
+    if (retSayisi === 1 && sonRet.neden !== 'kriter-belirsiz' && sonRet.neden !== 'ortam' && ayniRet(oncekiBasamakRet, sonRet)) {
       log(`${k.id}: yükseltme sonrası ilk ret öncekiyle aynı (tekrarlayan-ret) → ${basamak} basamağında kapatıldı`)
       return { id: k.id, durum: 'reddedildi', neden: 'tekrarlayan-ret', basamak, son_ret: sonRet, gecmis }
     }
@@ -396,6 +429,10 @@ async function yurut(k, bagBekle) {
     if (adim === 'kart') {
       log(`${k.id}: ret nedeni kriter-belirsiz → yeniden deneme yok, kart ana ajana döner`)
       return { id: k.id, durum: 'kart-duzeltilmeli', neden: 'kriter-belirsiz', basamak, son_ret: sonRet, gecmis }
+    }
+    if (adim === 'ortam') {
+      log(`${k.id}: ret nedeni ortam → yeniden deneme/yükseltme yok; ana ajan kartı beklemede yapmalı`)
+      return { id: k.id, durum: 'ortam', neden: 'ortam', basamak, son_ret: sonRet, gecmis }
     }
     if (adim === 'son') {
       return { id: k.id, durum: 'reddedildi', basamak, son_ret: sonRet, gecmis }
@@ -456,7 +493,7 @@ function calistir(id, yol) {
 log(`${kartlar.length} kart; bağımsız olanlar paralel koşuyor.`)
 const sonuclar = await Promise.all(kartlar.map(k => calistir(k.id, [])))
 const say = d => sonuclar.filter(s => s.durum === d).length
-log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('alan-cakismasi')} alan çakışması, ${say('hata')} hata.`)
+log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('alan-cakismasi')} alan çakışması, ${say('ortam')} ortam, ${say('hata')} hata.`)
 const ajanToplam = Object.values(ajanSayaci).reduce((a, b) => a + b, 0)
 log(`Ajan: ${ajanToplam} (kart başına tavan ${KART_AJAN_TAVANI}).`)
 return { sonuclar }

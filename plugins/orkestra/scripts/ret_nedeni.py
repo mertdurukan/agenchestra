@@ -11,11 +11,13 @@ NEDENLER = {
     "talimat-ihlali": "Kart ya da protokol talimatı (yazma alanı, test dosyası vb.) çiğnenmiş.",
     "kriter-belirsiz": "Kabul kriteri belirsiz ya da çelişkili; kart yeniden yazılmalı.",
     "yetenek-yetersiz": "İşçi basamağının yeteneği işe yetmedi; basamak yükseltilmeli.",
+    "ortam": "Başarısızlık kodun değil ortamın: yük altında zamanlama, başka kartın değişikliği, eksik araç/izin; kodu ya da modeli değiştirmek çözmez.",
 }
 
 KOK = {
     "kriter-belirsiz": "kart",
     "yetenek-yetersiz": "basamak",
+    "ortam": "ortam",
     "kapsam-eksik": "dikkat",
     "bicim": "dikkat",
     "sayi-tutarsiz": "dikkat",
