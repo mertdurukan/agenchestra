@@ -80,6 +80,20 @@ class NiyetDurumTesti(unittest.TestCase):
         self.assertEqual([r["oturum"] for r in g["oturumlar"]], ["acik"])
         self.assertEqual({a["oturum"] for a in g["akis"]}, {"acik"})
 
+    def test_kayit_klasoru_gorunmezse_onbellek_ezilmez(self):
+        with tempfile.TemporaryDirectory() as d:
+            onb = os.path.join(d, "masaustu_onbellek.json")
+            icerik = {"x.json": {"imza": "1:1", "id": "local_a", "cli": "cli-a", "baslik": "A", "arsiv": True}}
+            with open(onb, "w", encoding="utf-8") as f:
+                json.dump(icerik, f)
+            with mock.patch.object(niyet, "GENEL_DIZIN", d), \
+                    mock.patch.dict(os.environ, {"APPDATA": os.path.join(d, "yok")}):
+                out = niyet.masaustu_oturumlari()
+            with open(onb, encoding="utf-8") as f:
+                kalan = json.load(f)
+        self.assertEqual(out["cli-a"]["arsiv"], True)
+        self.assertEqual(kalan, icerik)
+
 
 if __name__ == "__main__":
     unittest.main()
