@@ -241,9 +241,7 @@
         aria-label="${esc(r.proje + ' › ' + r.sohbet + ' · ' + d.ad + ' · sohbeti aç')}" data-ipucu="${esc(ip)}">
       <div class="ust">${sRozet(d, r.bekleyen === 'claude' ? ' nabiz' : '')}<span data-once="${esc(r.son_zaman || '')}">${B.once(r.son_zaman)}</span></div>
       ${govde}
-      ${kapEtiket ? `<div class="kapanis">${kapEtiket}</div>` : ''}
-      <div class="ad"><b>${esc(r.proje)}</b> › ${esc(r.sohbet)}</div>
-      ${!sen && (isChip || kartMetni) ? `<div class="alt">${isChip}${kartMetni ? `<span class="kartlar">${esc(kartMetni)}</span>` : ''}</div>` : ''}</div>`;
+      ${sen ? '' : `<div class="alt"><span class="kartlar">${esc(kartMetni)}</span></div>`}</div>`;
   }
 
   function sohbetCiz() {
