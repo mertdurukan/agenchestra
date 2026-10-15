@@ -31,6 +31,7 @@ class NiyetDurumTesti(unittest.TestCase):
                     f.write(json.dumps({"zaman": _z(dk), "oturum": "oturum-1", "proje": PROJE, "tur": tur, **ek}) + "\n")
             with mock.patch.object(niyet, "NIYET_YOLU", yol), \
                     mock.patch.object(niyet, "masaustu_oturumlari", return_value={}), \
+                    mock.patch.object(niyet, "_hayalet", return_value=False), \
                     mock.patch.object(niyet, "_basliklar", return_value={}), \
                     mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]), \
                     mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
@@ -73,6 +74,7 @@ class NiyetDurumTesti(unittest.TestCase):
                   "acik": {"id": "l2", "baslik": "B", "arsiv": False, "link": "y"}}
             with mock.patch.object(niyet, "NIYET_YOLU", yol), \
                     mock.patch.object(niyet, "masaustu_oturumlari", return_value=md), \
+                    mock.patch.object(niyet, "_hayalet", return_value=False), \
                     mock.patch.object(niyet, "_basliklar", return_value={}), \
                     mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]), \
                     mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
