@@ -35,6 +35,9 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 - Her alt iş için şunları belirle:
   - `baslik`
   - `basamak`: T0 betik (T1 işçi çalıştırır), T1 Haiku, T2 Sonnet, T3 Opus medium, T4 Opus xhigh. Kuşkudaysan DAHA DÜŞÜK basamağı seç; yükseltmeyi denetçi reddi tetikler.
+    - Kartları yazmadan önce her alt iş için `py -3.13 <plugin>/scripts/oner.py basamak --sinif <sinif> --metin "<başlık + kriterler>"` çalıştır.
+    - Öneri bağlayıcı değildir (K-3: otomatik uygulama yok); `yetersiz-veri` dönerse "kuşkuda düşük" kuralı geçerlidir.
+    - Benzer kart uyarılarındaki kriter ipuçlarını kabul kriterlerine kat.
   - `kabul_kriterleri`: ölçülebilir, kanıtla doğrulanabilir.
   - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
@@ -100,6 +103,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
   - denetim sonucu;
   - kart başına basamak ve maliyet (`orkestra maliyet rapor --gun 1` çıktısından kısa tablo);
   - açık kalanlar.
+- Haftada bir `py -3.13 <plugin>/scripts/kural_aday.py rapor` ile kural adaylarını gözden geçir; uygun olanı `orkestra kural oner` ile panele öner.
 
 ## Panelden karar ve kural
 - Belirsiz ve kullanıcının vermesi gereken bir karar varsa ve kullanıcı paneli izliyorsa: `orkestra onay iste --baslik "..." --metin "..." --secenek "A" --secenek "B"`. Cevap sonraki mesajda hook bağlamıyla gelir.
