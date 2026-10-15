@@ -438,6 +438,7 @@
     setInterval(alanTazele, 15000);
     O.rozetTazele();
     setInterval(() => { if (!document.hidden) O.rozetTazele(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) O.rozetTazele(); });  // sekmeye dönünce bayat rozet beklemesin
     return O.hazir;
   };
 
