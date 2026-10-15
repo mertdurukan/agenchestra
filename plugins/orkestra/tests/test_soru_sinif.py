@@ -270,5 +270,23 @@ class TestK5Hook(unittest.TestCase):
         self.assertIn("IPUCU-X", satirlar)
 
 
+class TurSiniflama(unittest.TestCase):
+    """tur(): model çağrısız üç sınıf; kararsızlıkta yönlendirme tetiklenmez (soru/devam), yalnız 'is' tetikler."""
+
+    def test_uc_sinif(self):
+        self.assertEqual(soru_sinif.tur("bu ne demek?"), "soru")
+        self.assertEqual(soru_sinif.tur("önerinle devam et"), "devam")
+        self.assertEqual(soru_sinif.tur("fatura raporunu düzelt"), "is")
+
+    def test_bos_metin_is_degil(self):
+        self.assertNotEqual(soru_sinif.tur(""), "soru")
+
+
+class YanitIhlali(unittest.TestCase):
+    def test_kalip_yakalanir_temiz_yanit_gecer(self):
+        self.assertTrue(soru_sinif.yanit_ihlali("Bitti. Başka kartı da yapmamı ister misin?"))
+        self.assertFalse(soru_sinif.yanit_ihlali("Bitti. 3 dosya değişti."))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -377,5 +377,27 @@ class HataDayanikli(_Ortak):
         self.assertIn("Orkestra bu projede açık", m)
 
 
+class AlanUyarisi(_Ortak):
+    """Bağlı oturum iş klasörü dışına yazınca klasör başına bir kez, engellemeyen tek satır."""
+
+    def _yaz(self, hedef):
+        tam = os.path.join(self.proje, hedef)
+        return self.calistir(lambda g: hook._alan_uyarisi(self.sd, OTURUM, self.proje, tam), {})
+
+    def test_klasor_disi_bir_kez_uyarir_icinde_susar(self):
+        k = self.is_ac("fatura ekranı", "isler/001-fatura")
+        self.baglan(k)
+        cikti, _ = self._yaz("baska/dosya.py")
+        self.assertIn("Alan dışı yazma", cikti)
+        cikti2, _ = self._yaz("baska/dosya2.py")
+        self.assertEqual(cikti2, "")
+        cikti3, _ = self._yaz("isler/001-fatura/todo.md")
+        self.assertEqual(cikti3, "")
+
+    def test_bagsiz_oturum_susar(self):
+        cikti, _ = self._yaz("baska/dosya.py")
+        self.assertEqual(cikti, "")
+
+
 if __name__ == "__main__":
     unittest.main()

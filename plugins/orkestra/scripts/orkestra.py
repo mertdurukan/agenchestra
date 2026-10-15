@@ -2081,6 +2081,18 @@ def cmd_is_devam(a):
     print(f"oturumlar.md son satır: {son or '(henüz yok)'}")
 
 
+def cmd_is_devir(a):
+    """Şablonlu devir özeti: işin klasörüne devir.md yazar, yolunu basar (model yok)."""
+    import devir
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    metin = devir.devir_metni(kayit, _ik().todo_ozet(kayit["klasor"]))
+    yol = os.path.join(kayit["klasor"], "devir.md")
+    with open(yol, "w", encoding="utf-8", newline=chr(10)) as f:
+        f.write(metin)
+    print(yol)
+
+
 def cmd_is_liste(a):
     sd = sd_gerekli()
     ik = _ik()
@@ -2796,6 +2808,9 @@ def main():
     idv = is_.add_parser("devam")
     idv.add_argument("is_id")
     idv.set_defaults(f=cmd_is_devam)
+    idr = is_.add_parser("devir")
+    idr.add_argument("is_id")
+    idr.set_defaults(f=cmd_is_devir)
     il = is_.add_parser("liste")
     il.add_argument("--durum", choices=["acik", "beklemede", "kapandi", "hepsi"], default="acik")
     il.set_defaults(f=cmd_is_liste)

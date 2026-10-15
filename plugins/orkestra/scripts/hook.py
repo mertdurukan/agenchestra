@@ -244,6 +244,39 @@ def ajan_gorevi(sd: str, inp: dict) -> tuple[str, str]:
 
 # ---------------------------------------------------------------- PreToolUse
 
+def _alan_uyarisi(sd: str, oid, proje: str, tam: str) -> None:
+    """Oturum bir işe bağlıyken iş klasörü (+ is.json `alan` listesi) dışına yazmada oturumda klasör başına BİR kez
+    engellemeyen tek satırlık uyarı (yol karşılaştırması; model yok). Hatada sessiz geçer."""
+    try:
+        isid = _oturum_isi(sd, oid)
+        if not isid:
+            return
+        import is_kaydi
+        is_ = (is_kaydi.is_al(sd, isid) or {})
+        izinli = [is_.get("klasor") or ""] + [os.path.join(proje, a) for a in (is_.get("alan") or [])]
+        if any(i and L.yol_altinda(tam, i) for i in izinli):
+            return
+        rel = _rel(proje, tam)
+        if rel.startswith("..") or rel.startswith(".claude/"):
+            return
+        parts = rel.split("/")
+        klasor = "/".join(parts[:max(1, min(2, len(parts) - 1))])
+        yol = os.path.join(sd, "oturumlar", f"alan_{oid}.json")
+        try:
+            with open(yol, encoding="utf-8") as f:
+                gorulen = json.load(f).get("gorulen", [])
+        except Exception:
+            gorulen = []
+        if klasor in gorulen:
+            return
+        L.atomik_yaz(yol, json.dumps({"gorulen": (gorulen + [klasor])[-30:]}))
+        L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext":
+            f"Alan dışı yazma: {isid} işinin klasörü dışına ({klasor}) yazılıyor; işin parçasıysa devam, değilse ayrı sohbet/iş."}})
+    except Exception:
+        return
+
+
+
 def pre_tool_use(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -314,6 +347,7 @@ def pre_tool_use(inp: dict):
                     and L.desen_eslesir(proje, tam, k["yazma_alani"]):  # mutlak/çalışma ağacı desenleri dahil
                 reddet(f"bu dosya şu an {k['id']} işçisinin yazma alanında. Ana ajan planlar, dağıtır, toplar; "
                        "işçi işini yapmaz. Değişiklik gerekiyorsa işi bir işçiye ver ya da kartı `beklemede`ye al.")
+        _alan_uyarisi(sd, oid, proje, tam)
         gec()
 
     if arac in KABUK_ARACLARI:
@@ -700,6 +734,14 @@ def stop(inp: dict):
                 hatirlatma = (hatirlatma + " " + u).strip()
         except Exception:
             pass
+    if not perspektif:
+        try:  # konu dışı öneri kalıbı: yalnız ölçüm kaydı (ek token yok, kullanıcıya gürültü yok)
+            import soru_sinif
+            if soru_sinif.yanit_ihlali(inp.get("last_assistant_message"), sd):
+                L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                                 "kural": "konu_disi_oneri", "is": _oturum_isi(sd, oid)})
+        except Exception:
+            pass
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif or inp.get("background_tasks"):
         gec()
@@ -803,6 +845,9 @@ def _kapanis_notlari(sd: str, liste: list) -> dict:
 def _yonlendirme_ipucu(sd: str, oid, istek: str) -> str:
     """Bağlı işi olmayan/konu dışı istekte tek satırlık yönlendirme; oturumda aynı (tur,iş) bir kez. Hatada boş."""
     try:
+        import soru_sinif
+        if soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yeni iş önerisi tetiklemez
+            return ""
         import is_kaydi
         import is_yonlendirme
         isler = []
