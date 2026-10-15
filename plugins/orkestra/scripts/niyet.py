@@ -136,6 +136,20 @@ def _yetimler(oturumlar: dict, masaustu: dict) -> dict:
     return out
 
 
+def _hayalet(oturum: str | None, proje: str | None, masaustu: dict) -> bool:
+    """Gerçek sohbet olmayan kayıt: uygulamada kaydı yok ve projenin transkript klasöründe <oturum>.jsonl de yok.
+
+    Hook'lara elle ya da testle verilen sahte oturum kimlikleri (ör. "x", "test-olcum") niyet günlüğüne gerçek projenin
+    yoluyla düşüp panelde olmayan sohbetler olarak görünüyordu. Gerçek sohbetin (uygulama ya da terminal) transkripti vardır.
+    """
+    if not oturum or oturum in masaustu or not proje:
+        return False
+    try:
+        return not os.path.exists(os.path.join(L.proje_oturum_dizini(proje), oturum + ".jsonl"))
+    except Exception:
+        return False
+
+
 def ac(oturum: str) -> dict:
     """Sohbeti Claude masaüstü uygulamasında açar.
 
