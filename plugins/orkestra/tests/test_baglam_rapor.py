@@ -11,6 +11,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import analitik  # noqa: E402
 import orkestra  # noqa: E402
+from komutlar import maliyet as komut_maliyet  # noqa: E402
 
 
 def satir(usd, oturum="o1", agent_id=None, baglam=None):
@@ -65,7 +66,7 @@ class BaglamRapor(unittest.TestCase):
 
     def rapor(self, baglam=None):
         a = argparse.Namespace(gun=0, md=False, csv=False, cikti=None, baglam=baglam)
-        orkestra.sd_gerekli = lambda: self.sd
+        komut_maliyet.sd_gerekli = lambda: self.sd  # komut artık komutlar.maliyet içinde çözülür
         orkestra.L.sohbetler = lambda *x, **k: []
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
