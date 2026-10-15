@@ -37,7 +37,8 @@ class DersTest(unittest.TestCase):
         self.assertEqual(n["kok"], {"siniflanmamis": 2})
 
     def test_kok_esleme(self):
-        self.assertEqual(len(RN.NEDENLER), 7)
+        self.assertEqual(len(RN.NEDENLER), 8)
+        self.assertEqual(RN.kok("ortam"), "ortam")
         self.assertEqual(RN.kok("kriter-belirsiz"), "kart")
         self.assertEqual(RN.kok("yetenek-yetersiz"), "basamak")
         for kod in ("kapsam-eksik", "bicim", "sayi-tutarsiz", "kanit-yok", "talimat-ihlali"):
