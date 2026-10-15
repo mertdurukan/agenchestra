@@ -45,6 +45,9 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
   - Yazma alanı kesişen (aynı dosyayı değiştiren) işlere zincir kurma; tek kartta birleştir, kriterler ayrı satır olsun.
   - Birleşik kart 8 kriterden fazlaysa en çok 2 kartlık zincire böl.
   - Mantıksal bağımlılık (çıktısını okuma) ile dosya çakışmasını ayrı değerlendir; yalnız çıktısını bekleyen iş bağımlılık olur.
+  - Yazma alanı kesişen (aynı dosyayı değiştiren) işlere zincir kurma; tek kartta birleştir, kriterler ayrı satır olsun.
+  - Birleşik kart 8 kriterden fazlaysa en çok 2 kartlık zincire böl.
+  - Mantıksal bağımlılık (çıktısını okuma) ile dosya çakışmasını ayrı değerlendir; yalnız çıktısını bekleyen iş bağımlılık olur.
 - Kart dağıtımını varsayılan olarak `Workflow` aracıyla `orkestra:calistir` üzerinden yap.
 - Workflow kullanılamazsa kartları elle dağıt.
 - Workflow izni yalnız orkestra kartı dağıtımı içindir; başka iş türlerine genişlemez.
