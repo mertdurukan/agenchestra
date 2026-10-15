@@ -711,3 +711,99 @@ def _kural_kaynaklari(proje: str) -> list[dict]:
         with open(yol, encoding="utf-8", errors="replace") as f:
             out.append({"yol": yol, "baslik": ad, "metin": f.read().strip()[:KAYNAK_MAX]})
     return out
+
+
+# ---------------------------------------------------------------- şimdi uygula (panel düğmesi)
+
+KOSU_ZAMAN_ASIMI_SN = 3600
+
+KOSU_ISTEMI = """#SUREC:perspektif-uygula
+Kullanıcı panelde "Şimdi uygula"ya bastı; kullanıcı yok, soru sorma. {skill} dosyasındaki adımları YALNIZ
+tür=perspektif, durum=onaylandi kayıtlar için, şu sırayla ve her seferinde tek kayıt olarak uygula: {idler}.
+Başka türe (skill, karar, kural) dokunma; yalnız hafıza klasöründe dosya değiştir. Hafıza klasörü: {hafiza}
+Bir kayıt hata verirse nedenini yaz, onu atla ve sıradakine geç.
+Hepsi bitince perspektif kayıtları kapandıysa `orkestra perspektif bitti` çalıştır. Yanıtın en çok 5 satırlık özet olsun."""
+
+
+def _kosu_yolu(sd: str) -> str:
+    return os.path.join(_onay_dizini(sd), "uygulama_kosu.json")
+
+
+def uygulama_durumu(sd: str) -> dict | None:
+    """Sürmekte olan 'şimdi uygula' koşusu ({baslangic, idler, tur}); yoksa ya da zaman aşımına uğradıysa None."""
+    d = _oku_json(_kosu_yolu(sd), None)
+    if not isinstance(d, dict) or d.get("bitis"):
+        return None
+    try:
+        gecen = (datetime.datetime.now().astimezone() - datetime.datetime.fromisoformat(d["baslangic"])).total_seconds()
+    except Exception:
+        return None
+    return d if gecen < KOSU_ZAMAN_ASIMI_SN else None
+
+
+def _uygulanacaklar(sd: str, tur: str) -> list[str]:
+    return sorted(k["id"] for k in _hepsi(sd) if k.get("durum") == "onaylandi" and k.get("tur") == tur)
+
+
+def simdi_uygula(sd: str, tur: str = "perspektif") -> dict:
+    """Onaylı `tur` kayıtlarını başsız bir Claude koşusunda sırayla uygulatır (arka planda). Hata: ValueError(Türkçe)."""
+    import subprocess
+    import perspektif as P
+    if tur != "perspektif":
+        raise ValueError("şimdilik yalnız perspektif kararları uygulanır.")
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    idler = _uygulanacaklar(sd, tur)
+    if not idler:
+        raise ValueError("Uygulanacak onaylı perspektif kararı yok.")
+    if uygulama_durumu(sd):
+        raise ValueError("Uygulama zaten sürüyor.")
+    exe = P.claude_exe()
+    if not P.headless_mumkun(sd, exe):
+        raise ValueError("Komut satırı Claude oturum açmamış; arka planda uygulanamaz. Bir kez `claude auth login` çalıştır "
+                         "ya da sohbette /orkestra:onay ile uygula.")
+    proje = _proje(sd)
+    with L.kilit(_kilit_yolu(sd)):
+        if uygulama_durumu(sd):
+            raise ValueError("Uygulama zaten sürüyor.")
+        _yaz_json(_kosu_yolu(sd), {"baslangic": L.simdi(), "idler": idler, "tur": tur, "bitis": None, "sonuc": None})
+    args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, exe, P.hafiza_dizini(proje)]
+    bayrak = 0x00000008 | 0x00000200 | 0x08000000 if os.name == "nt" else 0  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+    try:
+        subprocess.Popen(args, cwd=proje, creationflags=bayrak, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True)
+    except OSError as e:
+        _kosu_bitir(sd, f"başlatılamadı: {type(e).__name__}")
+        raise ValueError(f"Koşu başlatılamadı: {type(e).__name__}")
+    return {"idler": idler}
+
+
+def _kosu_bitir(sd: str, sonuc: str) -> None:
+    with L.kilit(_kilit_yolu(sd)):
+        d = _oku_json(_kosu_yolu(sd), None)
+        if isinstance(d, dict):
+            d.update(bitis=L.simdi(), sonuc=sonuc)
+            _yaz_json(_kosu_yolu(sd), d)
+
+
+def _kos(sd: str, proje: str, exe: str, hafiza: str) -> None:
+    import subprocess
+    d = _oku_json(_kosu_yolu(sd), None) or {}
+    idler = d.get("idler") or _uygulanacaklar(sd, "perspektif")
+    skill = os.path.join(L.PLUGIN_ROOT, "skills", "onay", "SKILL.md")
+    istem = KOSU_ISTEMI.format(skill=skill, idler=", ".join(idler), hafiza=hafiza)
+    ortam = dict(os.environ, ORKESTRA_PERSPEKTIF="1", PYTHONUTF8="1")
+    komut = [exe, "-p", istem, "--model", "sonnet", "--effort", "medium", "--max-turns", "80",
+             "--allowedTools", "Read", "Glob", "Grep", "Write", "Edit", "Agent", "Bash(orkestra *)",
+             "--add-dir", hafiza, "--add-dir", sd, "--output-format", "text"]
+    sonuc = "tamam"
+    try:
+        r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=KOSU_ZAMAN_ASIMI_SN)
+        if r.returncode != 0 or "Not logged in" in (r.stdout or ""):
+            sonuc = f"hata: çıkış kodu {r.returncode}"
+    except Exception as e:  # noqa: BLE001
+        sonuc = f"hata: {type(e).__name__}"
+    _kosu_bitir(sd, sonuc)
+
+
+if __name__ == "__main__" and len(sys.argv) >= 6 and sys.argv[1] == "_kos":
+    _kos(*sys.argv[2:6])

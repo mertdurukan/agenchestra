@@ -24,7 +24,7 @@ GET /yapilacaklar              → Yapılacaklar sayfası (assets/yapilacaklar.h
 GET /api/todo?alan=<id>[&is=<id>] → işin açık/biten maddeleri + açık iş listesi (salt okunur; POST 405)
 GET /api/kullanici-todo?alan=<id> → kullanıcının kendi yapılacakları
 POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra: 1, yerel Host, ≤64 KB)
-POST /onay?alan=<id>           → karar / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
+POST /onay?alan=<id>           → karar / simdi-uygula / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
 Test sunucusu: `panel.py _kos <port> --test` panel.json'u YAZMAZ (gerçek panelin durum dosyasını ezmez; G-096).
@@ -77,7 +77,7 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "10"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "11"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -128,7 +128,7 @@ def _onaylar_json(alan_id) -> dict:
     diger = [k for k in kayitlar if k.get("durum") != "bekliyor"]
     return {"acik": True, "alan": _alan_kisa(a), "sayac": onay.sayac(sd),
             "kayitlar": bekleyen + diger[:max(0, 200 - len(bekleyen))],
-            "perspektif": _perspektif(sd), "uretim": L.simdi()}
+            "perspektif": _perspektif(sd), "uygulama": onay.uygulama_durumu(sd), "uretim": L.simdi()}
 
 
 def _etki_kayit(k: dict, hepsi: list) -> dict:
@@ -316,6 +316,8 @@ def _onay_islemi(sd: str, g: dict):
         return onay.kural_duzenle(sd, g.get("id"), g.get("metin") or "", g.get("neden"))
     if islem == "kural-kaldir":
         return onay.kural_kaldir(sd, g.get("id"), g.get("not") or "")
+    if islem == "simdi-uygula":
+        return onay.simdi_uygula(sd)
     raise ValueError("bilinmeyen işlem.")
 
 

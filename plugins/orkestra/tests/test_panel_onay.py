@@ -117,12 +117,12 @@ class PanelOnay(unittest.TestCase):
         self.assertTrue(p["rapor"])
 
     def test_sayfalar_ve_surum(self):
-        self.assertEqual(panel.SURUM, "10")
+        self.assertEqual(panel.SURUM, "11")
         for yol in ("/onaylar", "/onaylar.html", "/kurallar", "/kurallar.html"):
             k, _ = self.istek("GET", yol)
             self.assertEqual(k, 200)
         k, b = self.istek("GET", "/saglik")
-        self.assertEqual(b, b"ok 10")
+        self.assertEqual(b, b"ok 11")
 
     # ------------------------------------------------------------ POST güvenliği
     def test_post_basliksiz_403(self):
@@ -220,6 +220,40 @@ class PanelOnay(unittest.TestCase):
         k, b = self.post("alan-x", {"islem": "karar", "id": bekleyen["id"], "sonuc": "ret"})
         self.assertEqual(k, 400)
         self.assertIn("bekliyor durumunda değil", json.loads(b)["hata"])
+
+    def _onayli_perspektif(self):
+        o = self.getj("/onaylar.json?alan=alan-x")
+        ids = [k["id"] for k in o["kayitlar"] if k["durum"] == "bekliyor" and k["tur"] == "perspektif"][:2]
+        for i in ids:
+            self.assertEqual(self.post("alan-x", {"islem": "karar", "id": i, "sonuc": "onay"})[0], 200)
+        return ids
+
+    def test_simdi_uygula_onaylisiz_400(self):
+        k, b = self.post("alan-x", {"islem": "simdi-uygula"})
+        self.assertEqual(k, 400)
+        self.assertIn("Uygulanacak onaylı", json.loads(b)["hata"])
+
+    def test_simdi_uygula_oturumsuz_400_ve_kosu_yok(self):
+        self._onayli_perspektif()
+        with mock.patch("perspektif.claude_exe", lambda: "x.exe"), mock.patch("perspektif.headless_mumkun", lambda sd, e: False):
+            k, b = self.post("alan-x", {"islem": "simdi-uygula"})
+        self.assertEqual(k, 400)
+        self.assertIn("claude auth login", json.loads(b)["hata"])
+        self.assertIsNone(self.getj("/onaylar.json?alan=alan-x")["uygulama"])
+
+    def test_simdi_uygula_baslar_ve_ikinci_istek_reddedilir(self):
+        ids = self._onayli_perspektif()
+        with mock.patch("perspektif.claude_exe", lambda: "x.exe"), mock.patch("perspektif.headless_mumkun", lambda sd, e: True),                 mock.patch("subprocess.Popen") as popen:
+            k, b = self.post("alan-x", {"islem": "simdi-uygula"})
+            self.assertEqual(k, 200)
+            self.assertEqual(json.loads(b)["kayit"]["idler"], sorted(ids))
+            self.assertEqual(popen.call_count, 1)
+            k2, b2 = self.post("alan-x", {"islem": "simdi-uygula"})
+        self.assertEqual(k2, 400)
+        self.assertIn("zaten sürüyor", json.loads(b2)["hata"])
+        self.assertEqual(self.getj("/onaylar.json?alan=alan-x")["uygulama"]["idler"], sorted(ids))
+        onay._kosu_bitir(self.sd, "tamam")
+        self.assertIsNone(onay.uygulama_durumu(self.sd))
 
     def test_kural_ekle_duzenle_kaldir(self):
         k, b = self.post("alan-x", {"islem": "kural-ekle", "metin": "Testsiz commit yok", "neden": "kalite"})
