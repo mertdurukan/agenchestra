@@ -179,13 +179,13 @@ def atomik_yaz(yol: str, metin: str) -> None:
     fd, gecici = tempfile.mkstemp(dir=os.path.dirname(yol), prefix=".tmp_")
     with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
         f.write(metin)
-    for deneme in range(5):
+    for deneme in range(12):  # toplam bekleme ~1,3 sn: yük altında (AV/okuyucu) 0,2 sn yetmiyordu
         try:
             os.replace(gecici, yol)
             return
         except PermissionError:
             # Windows: hedef başka bir okuyucuda açıkken kısa süre reddedilebilir.
-            if deneme == 4:
+            if deneme == 11:
                 try:
                     os.remove(gecici)  # başarısız yazım .tmp_* dosyası bırakmasın
                 except OSError:
