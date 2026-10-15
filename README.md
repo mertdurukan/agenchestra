@@ -80,7 +80,7 @@ Depo GitHub'da özel (private) tutulur. İki yol vardır; ikisi de marketplace k
 
 ### Yol A: depoyu klonla ve Claude Code'da aç
 
-1. Depoyu klonla: `git clone https://github.com/SAHIP/Claude-Orchestration.git` (SAHIP yer tutucusu için aşağıya bak).
+1. Depoyu klonla: `git clone https://github.com/mertdurukan/agenchestra.git`.
 2. Klasörde Claude Code'u aç ve klasöre güven (workspace trust).
 3. Kök `.claude/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`: `orkestra@claude-orchestration`, `orkestra-ui@claude-orchestration`) devreye girer; plugin'ler marketplace'ten yüklenir.
 4. Yeni oturumda `/plugin` ile plugin'lerin listelendiğini doğrula. Sistem yalnız açılmış projelerde iz tutar: bu klasörde izleme istiyorsan `/orkestra:baslat` çalıştır.
@@ -96,9 +96,9 @@ python <depo>/araclar/projeye_kur.py <proje klasörü> --kaynak github
 - Önce `--kuru` ile ne yapılacağını görebilirsin. Seçenekler için `python <depo>/araclar/projeye_kur.py --help`.
 - Sonra o projede yeni bir Claude oturumu aç. Özel depo için yukarıdaki git kimlik bilgisi bu makinede hazır olmalıdır.
 
-### SAHIP yer tutucusu
+### GitHub deposu
 
-Kök `.claude/settings.json` içinde `"repo": "SAHIP/Claude-Orchestration"` yazar. `SAHIP` yer tutucudur: depoyu GitHub'a yüklediğin hesap ya da kuruluş adıyla değiştir ve commitle; aksi halde Yol A marketplace'i bulamaz. Yol B'de bu dosyaya gerek yoktur, `--repo` verilir ya da `origin`'den türetilir.
+Depo `mertdurukan/agenchestra` (özel), bu klasörün `origin`'i. Kök `.claude/settings.json` bu depoyu marketplace kaynağı olarak gösterir. Yol B'de `--repo` verilmezse `origin`'den türetilir. Geliştirme akışı: commitle → `git push`. Yayın klonu ve autoUpdate ile işleyen yerel akış değişmez.
 
 ### Depoya girmeyenler
 
