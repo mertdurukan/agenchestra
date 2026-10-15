@@ -29,21 +29,11 @@
   <h1 class="gorunmez">Yapılacaklar</h1>
   <section class="bolum" aria-labelledby="kBaslik">
     <h2 id="kBaslik">Benim yapılacaklarım <span class="meta" id="kSayi"></span></h2>
-    <p class="aciklama">Yalnız bu bölümü sen düzenlersin: yaz, Enter ile ekle (Shift+Enter yeni satır), işin bitince sil. İşlerin todo listeleri aşağıda salt okunurdur.</p>
+    <p class="aciklama">Yalnız bu bölümü sen düzenlersin: yaz, Enter ile ekle (Shift+Enter yeni satır), işin bitince sil.</p>
     <div class="yap-ust">
       <textarea id="kYeni" rows="2" placeholder="Yeni madde… (Enter ile ekle, Shift+Enter yeni satır)" aria-label="Yeni madde" maxlength="2000"></textarea>
     </div>
     <ul id="kListe" class="yap-liste"><li class="bos">Yükleniyor…</li></ul>
-  </section>
-  <section class="bolum" aria-labelledby="yBaslik">
-    <h2 id="yBaslik">İşlerin yapılacakları <span class="meta" id="ySayi"></span></h2>
-    <p class="aciklama">Salt okunur: bu listeleri orkestra ve işçiler günceller (CLI: orkestra is todo).</p>
-    <div class="yap-ust">
-      <select id="isSec" aria-label="İş"></select>
-    </div>
-    <ul id="acik" class="yap-liste"><li class="bos">Yükleniyor…</li></ul>
-    <h3 class="meta" id="bitenBaslik" hidden>Biten</h3>
-    <ul id="biten" class="yap-liste yap-biten"></ul>
   </section>
 </main>
 <div id="ipucu"></div>

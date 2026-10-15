@@ -123,7 +123,7 @@ class Akis(unittest.TestCase):
         with open(os.path.join(SCRIPTS, "panel.py"), encoding="utf-8") as f:
             kaynak = f.read()
         adresler = set(re.findall(r"'(/api/[a-z-]+)\?", html))
-        self.assertEqual(adresler, {"/api/todo", "/api/kullanici-todo"})
+        self.assertEqual(adresler, {"/api/kullanici-todo"})   # iş todo bölümü arayüzden kalktı; /api/todo API olarak durur
         for a in adresler:
             self.assertIn(f'u.path == "{a}"', kaynak, a)
         # sayfa rotası ve fetch/gönder çağrıları yalnız bu iki adresi kullanır
