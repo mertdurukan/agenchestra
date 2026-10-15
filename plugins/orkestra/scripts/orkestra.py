@@ -607,6 +607,14 @@ def cmd_kart_denetim(a):
         if neden:
             kayit["neden"] = neden
             kayit["kok"] = RN.kok(neden)
+            ids = L.ret_kriterleri(a.gerekce)
+            onceki: set = set()
+            for d in reversed(k["denetimler"]):
+                if d.get("karar") == "ret":
+                    onceki = set(d.get("kriter_ids") or [])
+                    break
+            kayit["kriter_ids"] = ids
+            kayit["tekrar_kriter"] = sorted((i for i in ids if i in onceki), key=lambda x: int(x[1:]))
         k["denetimler"].append(kayit)
         if ajan_id not in k["denetciler"]:
             k["denetciler"].append(ajan_id)

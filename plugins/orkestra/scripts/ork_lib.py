@@ -1472,3 +1472,36 @@ def bayatlik(calisan: str | None = None, kaynak_depo: str | None = None) -> dict
     except Exception:
         pass
     return {"farkli": fark, "kaynakta_commitsiz": commitsiz, "kaynak": kaynak_depo}
+
+
+_RET_TR = str.maketrans({"ı": "i", "İ": "i", "I": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
+                         "ü": "u", "Ü": "u", "ö": "o", "Ö": "o", "ç": "c", "Ç": "c"})
+_RET_ONEK = r"(?:k|kriter\s*)"
+_RET_GRUP = re.compile(
+    rf"(?<![a-z0-9_]){_RET_ONEK}\s*\d+(?:\s*-\s*(?:k\s*)?\d+)?(?:\s*[,/]\s*(?:k\s*)?\d+(?:\s*-\s*(?:k\s*)?\d+)?)*"
+    r"[\s:;\-—–]*\(?(karsilanmadi|karsilandi|kanitsiz|kismen)\b")
+_RET_KIMLIK = re.compile(r"(\d+)(?:\s*-\s*(?:k\s*)?(\d+))?")
+
+
+def ret_kriterleri(gerekce) -> list[str]:
+    """Gerekçeden KARŞILANMADI/KANITSIZ/KISMEN işaretli kriter kimliklerini ('K2', ...) sıralı, tekil döndürür.
+    KARŞILANDI olanlar girmez. Ayrıştırılamazsa [] (istisna fırlatmaz). Saf fonksiyon."""
+    try:
+        if not isinstance(gerekce, str) or not gerekce:
+            return []
+        metin = gerekce.translate(_RET_TR).lower()
+        sayilar: set[int] = set()
+        for m in _RET_GRUP.finditer(metin):
+            if m.group(1) == "karsilandi":
+                continue
+            govde = m.group(0)[:m.start(1) - m.start(0)]
+            govde = re.sub(r"^(?:kriter|k)\s*", "", govde)
+            for e in _RET_KIMLIK.finditer(govde):
+                bas = int(e.group(1))
+                son = int(e.group(2)) if e.group(2) else bas
+                if son < bas or son - bas > 50:
+                    son = bas
+                sayilar.update(range(bas, son + 1))
+        return [f"K{n}" for n in sorted(sayilar)]
+    except Exception:
+        return []
