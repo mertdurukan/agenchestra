@@ -60,7 +60,7 @@ class Cekirdek(unittest.TestCase):
 
     def kart(self, *ek):
         r = self.cli("kart", "yeni", "--baslik", "README satırı", "--basamak", "T1", "--kabul", "satır eklendi",
-                     "--yazma", "docs/**", *ek)
+                     "--yazma", "docs/**", *([] if "--sinif" in ek else ["--sinif", "belge"]), *ek)  # G-109: sinif zorunlu
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 
@@ -276,8 +276,8 @@ class Cekirdek(unittest.TestCase):
 
     def test_toplu_kart_ve_dongu(self):
         plan = os.path.join(self.proje, "plan.json")
-        json.dump([{"ref": "a", "baslik": "A", "basamak": "T1", "kabul_kriterleri": ["x"]},
-                   {"ref": "b", "baslik": "B", "basamak": "T2", "kabul_kriterleri": ["y"], "bagimliliklar": ["a"]}],
+        json.dump([{"ref": "a", "baslik": "A", "sinif": "belge", "basamak": "T1", "kabul_kriterleri": ["x"]},
+                   {"ref": "b", "baslik": "B", "sinif": "belge", "basamak": "T2", "kabul_kriterleri": ["y"], "bagimliliklar": ["a"]}],
                   open(plan, "w", encoding="utf-8"))
         r = self.cli("kart", "toplu", "--json-dosya", plan)
         self.assertEqual(r.returncode, 0, r.stderr)

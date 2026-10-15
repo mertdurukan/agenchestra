@@ -132,7 +132,7 @@ class TestKilidiHook(unittest.TestCase):
         self.assertNotEqual(self.karar(self.yaz("src/m.py", agent_id="kn", agent_type="orkestra:isci-t2")), "deny")
 
     def test_kod_olmayan_kartta_test_yaz_kurali_yok(self):
-        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "d", "--basamak", "T1", "--kabul", "k", "--yazma", "docs/**"], self.proje)
+        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "d", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**"], self.proje)
         gid = r.stdout.strip()
         self.ajan("dd", gid, "test-yaz")
         self.assertNotEqual(self.karar(self.yaz("docs/a.md", agent_id="dd", agent_type="orkestra:isci-t1")), "deny")

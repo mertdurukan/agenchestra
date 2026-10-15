@@ -59,7 +59,8 @@ class Ortak(unittest.TestCase):
         return TK.kos(a, self.proje)
 
     def kart(self, *ek):
-        r = self.cli("kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "çalışır", "--yazma", "src/**", *ek)
+        sinif = [] if "--sinif" in ek else ["--sinif", "belge"]  # G-109: sinif zorunlu
+        r = self.cli("kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "çalışır", "--yazma", "src/**", *sinif, *ek)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 

@@ -166,13 +166,7 @@ class AgacTestKapisi(unittest.TestCase):
     # ---------------------------------------------------------- (e) kilit sahibi ≠ ağaç sahibi
     def test_e_baska_kartin_agacinda_kilitli_test_yazilamaz(self):
         self.kirmizi()  # G1 (self.g) tests/test_x.py'yi kilitler
-        r = self.cli("kart", "yeni", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok",
-                     "--yazma", "tests/**", "--yazma", "src/**")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        g2 = r.stdout.strip()
-        r = self.cli("kart", "agac", g2)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        yol2 = r.stdout.strip()
+        g2, yol2 = self.ikinci_kart_agaci()
         hedef = os.path.join(yol2, "tests", "test_x.py")
         yazimlar = [hedef]
         if os.name == "nt":
@@ -197,16 +191,44 @@ class AgacTestKapisi(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
 
+    def ikinci_kart_agaci(self):
+        """İkinci kartı açıp ağacını kurar; her CLI çağrısının dönüş kodu ve yolun geçici dizin altında olduğu denetlenir."""
+        r = self.cli("kart", "yeni", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok", "--sinif", "belge",
+                     "--yazma", "tests/**", "--yazma", "src/**")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        g2 = r.stdout.strip()
+        self.assertTrue(g2, "kart kimliği boş")
+        r = self.cli("kart", "agac", g2)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        yol2 = r.stdout.strip()
+        self.assertTrue(yol2, "ağaç yolu boş")
+        self.gecici_altinda(yol2)
+        return g2, yol2
+
+    def gecici_altinda(self, yol):
+        """Gerçek depoya yazmayı önler: yol boş olamaz ve bu testin geçici dizini altında olmalı."""
+        self.assertTrue(yol, "yol boş: gerçek depoya yazılabilirdi")
+        gercek = os.path.realpath(yol)
+        taban = os.path.realpath(self.taban)
+        self.assertTrue(gercek == taban or gercek.startswith(taban + os.sep),
+                        f"yol geçici dizin dışında: {yol}")
+
     def commit(self, yol, mesaj="c"):
+        self.gecici_altinda(yol)
         git(yol, "add", "-A")
         git(yol, "commit", "-q", "-m", mesaj)
 
+    def test_commit_yardimcisi_gecici_dizin_disinda_ve_bos_yolda_hata_verir(self):
+        ana = os.path.realpath(KOK)
+        bas = git(ana, "rev-parse", "HEAD").strip()
+        for yol in ("", ana, os.path.dirname(self.taban)):
+            with self.assertRaises(AssertionError):
+                self.commit(yol, "olmamalı")
+        self.assertEqual(git(ana, "rev-parse", "HEAD").strip(), bas)  # gerçek depoda commit oluşmadı
+
     def test_g_baska_kartin_kilitli_testini_degistiren_dal_birlesmez(self):
         self.kirmizi()  # G1 tests/test_x.py'yi kilitler
-        r = self.cli("kart", "yeni", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok",
-                     "--yazma", "tests/**", "--yazma", "src/**")
-        g2 = r.stdout.strip()
-        yol2 = self.cli("kart", "agac", g2).stdout.strip()
+        g2, yol2 = self.ikinci_kart_agaci()
         # hook dışı yol: doğrudan dosya sistemi + commit (git checkout benzeri dolaylı yazım)
         yaz(os.path.join(yol2, "tests", "test_x.py"), "import unittest\n")
         self.commit(yol2, "kilitli testi değiştir")
@@ -327,7 +349,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         self.assertEqual(git(self.depo, "branch", "--list", f"kart/{self.g}").strip(), "")
         self.assertNotIn("calisma_agaci", self.kart())
         # kod kartı olmayan kart aynı düzende ağaç açabilir (testi yok, kapı yok)
-        r = self.cli("kart", "yeni", "--baslik", "belge", "--basamak", "T2", "--kabul", "ok", "--yazma", "depo/src/**")
+        r = self.cli("kart", "yeni", "--baslik", "belge", "--basamak", "T2", "--kabul", "ok", "--sinif", "belge", "--yazma", "depo/src/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         g2 = r.stdout.strip()
         r = self.cli("kart", "agac", g2)

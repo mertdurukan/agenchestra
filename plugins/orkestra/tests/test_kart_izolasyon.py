@@ -76,7 +76,7 @@ class KartIzolasyonu(unittest.TestCase):
         return kos([CLI] + list(args) + ["--ajan-id", ajan_id, "--ajan-tipi", ajan_tipi], self.proje)
 
     def kart(self, *yazma):
-        a = ["kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı"]
+        a = ["kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge"]
         for y in yazma:
             a += ["--yazma", y]
         r = self.cli(*a)

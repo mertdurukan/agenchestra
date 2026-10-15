@@ -97,7 +97,7 @@ class KartTopluYanDosya(unittest.TestCase):
         _json_yaz(os.path.join(g, "G-900.onkontrol.json"), {"gecti": True})
         _json_yaz(os.path.join(g, "G-901.json"), "{bozuk")
         plan = os.path.join(self.proje, "plan.json")
-        _json_yaz(plan, [{"baslik": "a", "basamak": "T2", "kabul_kriterleri": ["k"]}])
+        _json_yaz(plan, [{"baslik": "a", "sinif": "belge", "basamak": "T2", "kabul_kriterleri": ["k"]}])
         r = C.kos([C.CLI, "kart", "toplu", plan], self.proje)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn("KeyError", r.stderr)

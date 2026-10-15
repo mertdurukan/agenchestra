@@ -39,7 +39,7 @@ class OlcumAlanlari(unittest.TestCase):
 
     def yeni(self, *ek, girdi="iş tanımı", kabul="kriter bir", basamak="T2"):
         r = self.cli("kart", "yeni", "--baslik", "ölçüm kartı", "--basamak", basamak, "--girdi", girdi,
-                     "--kabul", kabul, "--yazma", "docs/**", *ek)
+                     "--kabul", kabul, "--yazma", "docs/**", "--sinif", "belge", *ek)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip().splitlines()[-1]
 
@@ -225,7 +225,7 @@ class OlcumAlanlari(unittest.TestCase):
     def test_gecersiz_risk_hata_ve_kart_yazilmaz(self):
         onceki = self.kart_idleri()
         for deger in ("kritik", "", "DUSUK", "yüksek"):
-            r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--yazma", "docs/**", "--risk", deger)
+            r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--sinif", "belge", "--yazma", "docs/**", "--risk", deger)
             self.assertNotEqual(r.returncode, 0, deger)
         self.assertEqual(self.kart_idleri(), onceki)
 
@@ -236,7 +236,7 @@ class OlcumAlanlari(unittest.TestCase):
         return self.cli("kart", "toplu", yol)
 
     def toplu_kart(self, **ek):
-        d = {"baslik": "toplu", "basamak": "T2", "girdi": "g", "kabul_kriterleri": ["k"], "yazma_alani": ["docs/**"]}
+        d = {"baslik": "toplu", "sinif": "belge", "basamak": "T2", "girdi": "g", "kabul_kriterleri": ["k"], "yazma_alani": ["docs/**"]}
         d.update(ek)
         return d
 
@@ -275,7 +275,7 @@ class OlcumAlanlari(unittest.TestCase):
     def test_gecersiz_butce_hata_ve_kart_yazilmaz(self):
         onceki = self.kart_idleri()
         for ek in (["--butce-usd", "abc"], ["--butce-token", "x1"], ["--butce-usd", "-1"], ["--butce-token", "-5"]):
-            r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--yazma", "docs/**", *ek)
+            r = self.cli("kart", "yeni", "--baslik", "x", "--kabul", "k", "--sinif", "belge", "--yazma", "docs/**", *ek)
             self.assertNotEqual(r.returncode, 0, ek)
         self.assertEqual(self.kart_idleri(), onceki)
 

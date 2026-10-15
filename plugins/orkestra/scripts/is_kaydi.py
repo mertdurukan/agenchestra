@@ -421,6 +421,104 @@ def todo_bitir(klasor: str, secici: str, not_: str | None = None) -> str:
     return metin + ek
 
 
+_TODO_AD = re.compile(r"(^|[-_.])todo([-_.].*)?\.md$", re.IGNORECASE)
+_TODO_ATLA = {".git", "node_modules", "__pycache__", ".venv", "venv", ".pytest_cache", "_arsiv"}
+_TODO_DERINLIK = 6
+_TODO_SURE_S = 1.5
+
+
+def _norm(yol: str) -> str:
+    return os.path.normcase(os.path.abspath(yol))
+
+
+def _worktree_mi(yol: str, kok: str) -> bool:
+    """Yol bir git worktree ya da kart çalışma ağacı içinde mi (`worktrees` yol parçası ya da üst dizinde `.git` DOSYASI)."""
+    d = os.path.dirname(os.path.abspath(yol))
+    kok = _norm(kok)
+    parcalar = [p.lower() for p in d.replace("\\", "/").split("/")]
+    if "worktrees" in parcalar:
+        return True
+    while d and _norm(d) != kok:
+        if os.path.isfile(os.path.join(d, ".git")):
+            return True
+        ust = os.path.dirname(d)
+        if ust == d:
+            break
+        d = ust
+    return False
+
+
+def todo_denetle(sd: str, kok: str | None = None) -> list[dict]:
+    """isler.json'a bağlı olmayan todo dosyaları: [{'yol', 'tur': 'bagsiz'|'worktree'}].
+
+    Bağlı sayılan: bir işin klasöründeki `todo.md`. Diğer `todo.md` / `todo*.md` kopyaları (iş klasörü dışında ya da
+    farklı adla) ve worktree içindekiler listelenir. `kok` varsayılanı projedir; derinlik ve süre sınırlıdır (hatada sessiz)."""
+    kok = os.path.abspath(kok or L.proje_dizini())
+    bagli = {_norm(os.path.join(g.get("klasor") or "", "todo.md")) for g in is_liste(sd) if g.get("klasor")}
+    atla_sd = _norm(sd)
+    son = time.monotonic() + _TODO_SURE_S
+    out = []
+
+    def gez(d, derinlik):
+        if derinlik > _TODO_DERINLIK or time.monotonic() > son:
+            return
+        try:
+            girdiler = sorted(os.scandir(d), key=lambda e: e.name)
+        except OSError:
+            return
+        for e in girdiler:
+            try:
+                if e.is_dir(follow_symlinks=False):
+                    if e.name in _TODO_ATLA or _norm(e.path) == atla_sd:
+                        continue
+                    gez(e.path, derinlik + 1)
+                elif _TODO_AD.search(e.name) and _norm(e.path) not in bagli:
+                    out.append({"yol": e.path, "tur": "worktree" if _worktree_mi(e.path, kok) else "bagsiz"})
+            except OSError:
+                continue
+
+    gez(kok, 0)
+    return out
+
+
+def todo_denetle_satiri(sd: str, kok: str | None = None) -> str:
+    """Sorun varsa TEK satırlık uyarı, yoksa boş metin."""
+    r = todo_denetle(sd, kok)
+    if not r:
+        return ""
+    w = sum(1 for x in r if x["tur"] == "worktree")
+    return (f"Orkestra: {len(r)} todo dosyası işe bağlı değil ({w} worktree kopyası) — bayatlar; "
+            "`orkestra is todo-denetle` ile gör, işin todo.md'sine taşı.")
+
+
+def todo_madde_bitir(sd: str, is_id: str, madde: str, gid: str) -> tuple[bool, str]:
+    """Kartın `madde` alanını işin todo.md'sinde [x] yapar. (başarılı, ileti); eşleşme yok/çok ise (False, uyarı). Asla atmaz."""
+    try:
+        kayit = is_al(sd, is_id) if is_id else None
+        if not kayit:
+            return False, f"madde işaretlenemedi: iş bulunamadı ({is_id or 'bağsız'})"
+        m = todo_bitir(kayit["klasor"], madde, f"{gid} teslim")
+        return True, f"todo [x]: {m}"
+    except (ValueError, OSError, TimeoutError, KeyError) as e:
+        return False, f"madde işaretlenemedi: {e}"
+
+
+def todo_bitmis_kartli(sd: str, is_id: str) -> list[tuple[int, str, str]]:
+    """İşin açık todo maddelerinde anılan ve kartı teslim/iptal olan G-NNN'ler: [(açık madde sırası, kart id, durum)]."""
+    kayit = is_al(sd, is_id) if is_id else None
+    if not kayit:
+        return []
+    out = []
+    for n, m in enumerate(todo_ozet(kayit["klasor"])["acik_maddeler"], 1):
+        for gid in dict.fromkeys(re.findall(r"(?<![\w-])G-\d+(?!\w)", m)):
+            k = L.kart_oku(sd, gid)
+            if k:
+                d = L.kart_durumu_hesapla(k)
+                if d in ("teslim", "iptal"):
+                    out.append((n, gid, d))
+    return out
+
+
 VARSAYILAN_TODO_ISI = "Orkestra açık maddeler"
 
 

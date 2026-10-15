@@ -176,7 +176,7 @@ class TestKapisi(unittest.TestCase):
     def test_kod_olmayan_kartta_alan_gerekmez_eski_davranis(self):
         r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
         self.assertEqual(r.returncode, 0, r.stderr)
-        r2 = self.cli("kart", "yeni", "--baslik", "y", "--basamak", "T1", "--kabul", "k", "--yazma", "docs/**")
+        r2 = self.cli("kart", "yeni", "--baslik", "y", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
         self.assertEqual(r2.returncode, 0, r2.stderr)
 
     # ---------------------------------------------------------- 2) test-kos

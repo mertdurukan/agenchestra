@@ -163,6 +163,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     basamak = (d.get("basamak") or "T2").upper()
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
+    _sinif_zorunlu(d)
     test_alanlari = _test_alanlari_dogrula(d)
     risk = _risk_dogrula(d)
     butce = _butce_dogrula(d)
@@ -202,10 +203,26 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
             # TDD'siz kartta testleri işçi yazar: test alanı yazma alanına katılır.
             k["yazma_alani"] = list(dict.fromkeys(list(k.get("yazma_alani") or []) + test_alanlari["test_alani"]))
     k["is"] = bag
+    madde = d.get("madde")
+    if madde is not None:
+        if not isinstance(madde, str) or not madde.strip():
+            hata(f"madde boş olmayan metin olmalı (todo.md madde parçası): {k['baslik']}")
+        k["madde"] = madde.strip()
     adim = _ik().adim_coz(k["baslik"])
     if adim:
         k["adim"] = adim
     return k
+
+
+# Yaygın sınıf adları (yalnız hata mesajında yol gösterir; başka kısa ad da kabul edilir).
+SINIFLAR = ("kod", "belge", "arastirma", "analitik", "test", "altyapi", "arayuz", "birlestirme", "kod-duzenleme")
+
+
+def _sinif_zorunlu(d: dict) -> None:
+    """Yeni kart açılışında sinif zorunlu (eski sınıfsız kartlar okunmaya devam eder: bu yalnız oluşturmada çalışır)."""
+    sn = d.get("sinif")
+    if not isinstance(sn, str) or not sn.strip() or sn.strip() == "-":
+        hata(f"sinif zorunlu (--sinif); geçerli sınıflar: {', '.join(SINIFLAR)}. Kart: {d.get('baslik') or '(başlıksız)'}")
 
 
 def _test_alanlari_dogrula(d: dict) -> dict | None:
@@ -246,7 +263,7 @@ def cmd_kart_yeni(a):
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
-                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk,
+                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk, "madde": a.madde,
                        "butce": ({"usd": a.butce_usd, "token": a.butce_token}
                                  if a.butce_usd is not None or a.butce_token is not None else None)})
     if not k["kabul_kriterleri"]:
@@ -280,9 +297,12 @@ def cmd_kart_toplu(a):
     for d in liste:  # hiçbir kart oluşmadan önce hepsini doğrula
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
+        _sinif_zorunlu(d)
         _test_alanlari_dogrula(d)
         _risk_dogrula(d)
         _butce_dogrula(d)
+        if d.get("madde") is not None and (not isinstance(d["madde"], str) or not d["madde"].strip()):
+            hata(f"madde boş olmayan metin olmalı: {d.get('baslik')}")
         _acik_is_dogrula(sd, d.get("is"))
     onbellek = {}  # aynı klasöre çözülen kartlar tek işe bağlanır
     for d in liste:
@@ -966,10 +986,12 @@ def _teslim_et(sd, gid, ozet) -> list:
     """Tek kartı teslim eder (`kart teslim` ve `kart teslim-toplu` ortak çekirdeği). Yazdırmaz; birleştirme
     mesajlarını döndürür. Reddedilirse _TeslimHatasi(mesaj, çıkış_kodu) atar."""
     notlar = []
+    madde = is_id = None
     with L.kilit(L.kart_yolu(sd, gid)):
         k = L.kart_oku(sd, gid)
         if not k:
             raise _TeslimHatasi(f"kart yok: {gid}")
+        madde, is_id = k.get("madde"), k.get("is")
         durum = L.kart_durumu_hesapla(k)
         beklemeden = False
         if durum == "beklemede":
@@ -979,20 +1001,27 @@ def _teslim_et(sd, gid, ozet) -> list:
                 durum = "onaylandi"
         if durum != "onaylandi":
             raise _TeslimHatasi(f"teslim için denetçi onayı gerekli (durum: {durum}).", 3)
-        if beklemeden:
-            k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemeden-teslim"})
         if (k.get("calisma_agaci") or {}).get("yol"):
             ok, mesaj = _birlestir(sd, k)
             L.kart_yaz(sd, k)
             if not ok:
                 raise _TeslimHatasi(f"teslim reddedildi: kart çalışma ağacı birleşmedi — {mesaj}", 4)
             notlar.append(mesaj)
+        if beklemeden:
+            # Olay yalnız teslim gerçekleşecekse yazılır (birleştirme başarısızsa yazılmaz; yeniden denemede yinelenmez).
+            k["gecmis"].append({"zaman": L.simdi(), "olay": "beklemeden-teslim"})
         k["durum"] = "teslim"
         k["teslim_ozeti"] = L.maskele(ozet or "")[:2000]
         k["gecmis"].append({"zaman": L.simdi(), "olay": "teslim"})
         L.kart_yaz(sd, k)
     L.defter_ekle(sd, {"gorev": gid, "surec": "sentez", "ajan": "ana-ajan", "model": "-",
                        "yaptim": "Onaylı çıktıyı topladım ve teslim ettim.", "sonuc": "TESLİM", "not": ozet or ""})
+    if madde:  # todo bayatlamasını önler; eşleşme yok/çok ise teslim engellenmez, yalnız uyarı
+        ok, iletisi = _ik().todo_madde_bitir(sd, is_id, madde, gid)
+        if ok:
+            notlar.append(iletisi)
+        else:
+            print(f"orkestra: uyarı {gid}: {iletisi}", file=sys.stderr)
     return notlar
 
 
@@ -2028,6 +2057,21 @@ def cmd_is_todo(a):
         print(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
 
 
+def cmd_is_todo_denetle(a):
+    sd = sd_gerekli()
+    r = _ik().todo_denetle(sd, getattr(a, "kok", None))
+    if a.json:
+        print(json.dumps(r, ensure_ascii=False, indent=2))
+        return None
+    if not r:
+        print("todo denetimi: işe bağlı olmayan todo dosyası yok")
+        return None
+    print(f"todo denetimi: {len(r)} dosya işe bağlı değil")
+    for x in r:
+        print(f"  [{x['tur']}] {_goreli(x['yol'])}")
+    return None
+
+
 def cmd_is_serit(a):
     sd = sd_gerekli()
     _is_gerekli(sd, a.is_id)
@@ -2424,6 +2468,7 @@ def main():
     y.add_argument("--tdd", action="store_true",
                    help="kod kartında test-önce akışı (test yazarı + kırmızı kapı); yalnız riskli kartta")
     y.add_argument("--risk", help="dusuk|orta|yuksek (isteğe bağlı; ölçüm kaydı)")
+    y.add_argument("--madde", help="işin todo.md'sinde bu kartın bitireceği açık maddenin metin parçası; teslimde otomatik [x]")
     y.add_argument("--butce-usd", dest="butce_usd", help="isteğe bağlı bütçe (USD); yalnız kayıt")
     y.add_argument("--butce-token", dest="butce_token", help="isteğe bağlı bütçe (token); yalnız kayıt")
     y.add_argument("--is", dest="is_id", help="kartı bu işe bağla (I-NNN); verilmezse oturumun bağlı işi")
@@ -2660,6 +2705,10 @@ def main():
     it_.add_argument("--bitti", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize)")
     it_.add_argument("--not", dest="not_", metavar="METİN", help="--bitti ile satır sonuna tarihli not")
     it_.set_defaults(f=cmd_is_todo)
+    itd = is_.add_parser("todo-denetle", help="isler.json'a bağlı olmayan todo.md kopyalarını ve worktree kopyalarını listeler (salt okuma)")
+    itd.add_argument("--kok", help="taranacak dizin (varsayılan: proje)")
+    itd.add_argument("--json", action="store_true")
+    itd.set_defaults(f=cmd_is_todo_denetle)
     isr = is_.add_parser("serit", help="iş şeridi: yapıldı/şimdi/sırada/planda kart yok")
     isr.add_argument("is_id")
     isr.add_argument("--json", action="store_true")

@@ -1,9 +1,12 @@
 """G-049: denetçi onayı almış kart beklemede'den `kart teslim` ile teslim edilebilir; onaysız/retli/yeni işli kart edilemez."""
 import json
 import os
+import sys
 import unittest
 
 import test_cekirdek as TC
+
+sys.path.insert(0, os.path.join(TC.KOK, "scripts"))
 
 ANA = {"ajan_id": "ana", "ajan_tipi": "ana"}
 ISCI = {"ajan_id": "w1", "ajan_tipi": "orkestra:isci-t1"}
@@ -130,6 +133,54 @@ class TeslimBeklemede(unittest.TestCase):
         self.assertIn("teslim için denetçi onayı gerekli", r.stderr)
         self.assertEqual(self.ham(g), once)
         self.assertNotIn("beklemeden-teslim", self.olaylar(g))
+
+    # G-102: birleştirme başarısızsa 'beklemeden-teslim' olayı yazılmaz; başarılı birleşmede tam bir kez yazılır
+    def agacli_onayli_beklemede(self):
+        g = self.kart()
+        self.isci_bitti(g)
+        self.denetle(g, "onay")
+        self.beklemede(g)
+        k = self.oku(g)
+        k["calisma_agaci"] = {"depo": self.proje, "yol": os.path.join(self.proje, "agac"), "dal": f"kart/{g}", "taban": "HEAD"}
+        with open(self.yol(g), "w", encoding="utf-8") as f:
+            json.dump(k, f, ensure_ascii=False, indent=2)
+        return g
+
+    def teslim_et(self, g, sonuc):
+        from unittest import mock
+        import orkestra as O
+        with mock.patch.object(O.L, "kart_agaci_birlestir", return_value=sonuc), \
+                mock.patch.object(O.L, "proje_dizini", return_value=self.proje):
+            return O._teslim_et(self.sd, g, "ozet")
+
+    CATISMA = {"sonuc": "catisma", "dosyalar": ["a.py"], "mesaj": "çatışma"}
+    TAMAM = {"sonuc": "tamam", "mesaj": "birleşti", "commit": "abc123"}
+
+    def test_g102_k1_birlesmeyen_beklemede_kartta_olay_yazilmaz(self):
+        import orkestra as O
+        g = self.agacli_onayli_beklemede()
+        with self.assertRaises(O._TeslimHatasi) as c:
+            self.teslim_et(g, self.CATISMA)
+        self.assertEqual(c.exception.kod, 4)
+        k = self.oku(g)
+        self.assertNotEqual(k["durum"], "teslim")
+        self.assertNotIn("beklemeden-teslim", self.olaylar(g))
+        with self.assertRaises(O._TeslimHatasi):  # yeniden deneme de yazmaz
+            self.teslim_et(g, self.CATISMA)
+        self.assertEqual(self.olaylar(g).count("beklemeden-teslim"), 0)
+
+    def test_g102_k2_basarisiz_sonra_basarili_olay_tam_bir_kez(self):
+        import orkestra as O
+        g = self.agacli_onayli_beklemede()
+        for _ in range(2):
+            with self.assertRaises(O._TeslimHatasi):
+                self.teslim_et(g, self.CATISMA)
+        self.teslim_et(g, self.TAMAM)
+        k = self.oku(g)
+        self.assertEqual(k["durum"], "teslim")
+        olaylar = self.olaylar(g)
+        self.assertEqual(olaylar.count("beklemeden-teslim"), 1)
+        self.assertLess(olaylar.index("beklemeden-teslim"), olaylar.index("teslim"))
 
     # K4 (davranış değişmez)
     def test_k4_beklemede_kart_goster_ve_liste_hala_beklemede(self):

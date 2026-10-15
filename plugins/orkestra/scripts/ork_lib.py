@@ -1058,6 +1058,25 @@ def kilitle_tutarli(test_kilidi: dict | None, mevcut: dict) -> bool:
     return not any(kilit_farki(test_kilidi["dosyalar"], mevcut).values())
 
 
+def python_yorumlayici() -> str:
+    """Kapının kendi Python çağrıları için yorumlayıcı yolu (tek seçim noktası).
+
+    Sıra: ORKESTRA_PYTHON ortam değişkeni (doluysa aynen) -> `py -3.13` bulunursa onun yolu -> sys.executable."""
+    ayar = (os.environ.get("ORKESTRA_PYTHON") or "").strip()
+    if ayar:
+        return ayar
+    if shutil.which("py"):
+        try:
+            r = subprocess.run(["py", "-3.13", "-c", "import sys;print(sys.executable)"], capture_output=True,
+                               text=True, timeout=20)
+            yol = (r.stdout or "").strip().splitlines()
+            if r.returncode == 0 and yol and os.path.isfile(yol[-1]):
+                return yol[-1]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return sys.executable
+
+
 def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float]:
     """Komutu kabukla çalıştırır → (çıkış kodu, birleşik stdout+stderr, süre sn).
 
@@ -1065,8 +1084,10 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
     import subprocess
     bas = time.monotonic()
     ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    env = dict(os.environ)
+    env.setdefault("ORKESTRA_PYTHON", python_yorumlayici())  # test komutunun alt süreçleri aynı yorumlayıcıyı görsün
     p = subprocess.Popen(komut, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         stdin=subprocess.DEVNULL, **ek)
+                         stdin=subprocess.DEVNULL, env=env, **ek)
     try:
         cikti, _ = p.communicate(timeout=zaman_asimi)
         kod = p.returncode
