@@ -471,12 +471,34 @@ function donguda(hedef, id, gorulen) {
   }
   return false
 }
+// Yazma alanı çakışması (korumacı önek karşılaştırması): çakışan kartlar aynı anda açılmaz; alanı olmayan kart sıraya girmez.
+const alanOnegi = d => {
+  const t = String(d || '').split(String.fromCharCode(92)).join('/').toLowerCase()
+  const i = t.search(/[*?[]/)
+  return (i < 0 ? t : t.slice(0, i)).replace(/\/+$/, '')
+}
+function alanKesisir(a, b) {
+  const x = (a.yazma_alani || []).map(alanOnegi)
+  const y = (b.yazma_alani || []).map(alanOnegi)
+  if (!x.length || !y.length) return false // alanı olmayan kart (okuma/belge) sıraya girmez
+  return x.some(p => y.some(q => p === '' || q === '' || p.startsWith(q) || q.startsWith(p)))
+}
+// Listede kartın ÖNÜNDEKİ çakışan kartlar: yalnız önceki kart beklenir, böylece sıra döngüsü oluşmaz.
+function oncekiCakisanlar(k) {
+  const i = kartlar.indexOf(k)
+  return kartlar.slice(0, i).filter(o => o.id !== k.id && alanKesisir(o, k) && !donguda(k.id, o.id, new Set()))
+    .map(o => o.id)
+}
 function calistir(id, yol) {
   if (yol.includes(id)) return Promise.resolve({ id, durum: 'hata', neden: `bağımlılık döngüsü: ${[...yol, id].join(' → ')}` })
   if (!soz[id]) {
     const k = kimlik[id]
     const bag = (k.bagimliliklar || []).filter(d => kimlik[d])
-    const bagP = Promise.all(bag.map(d => calistir(d, [...yol, id])))
+    const cak = oncekiCakisanlar(k).filter(d => !bag.includes(d))
+    if (cak.length) log(`${k.id}: yazma alanı ${cak.join(', ')} ile çakışıyor → sırayla koşar (boş ajan açılmaz)`)
+    const bagP0 = Promise.all(bag.map(d => calistir(d, [...yol, id])))
+    const sirP = Promise.all(cak.map(d => calistir(d, [...yol, id])))
+    const bagP = cak.length ? Promise.all([bagP0, sirP]).then(([b]) => b) : bagP0
     // Erken test: bağımlılığı olan kod kartında test yazarı + kırmızı kapı bağımlılıkları beklemeden başlar; işçi turu onaydan sonra.
     // Döngüdeki kartta erken başlama yok (eski yol: önce bağımlılıklar çözülür).
     if (tddKarti(k) && bag.length > 0 && !donguda(id, id, new Set())) {

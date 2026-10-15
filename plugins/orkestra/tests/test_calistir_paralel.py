@@ -70,7 +70,7 @@ new AsyncFunction('agent', 'parallel', 'log', 'args', kaynak)(agent, parallel, l
 
 def kod_karti(id_="G-900", **ek):
     k = {"id": id_, "baslik": "örnek " + id_, "basamak": "T2", "girdi": "", "sinif": "kod",
-         "kabul_kriterleri": ["a çalışır", "b hata verir"], "yazma_alani": ["src/a.py"],
+         "kabul_kriterleri": ["a çalışır", "b hata verir"], "yazma_alani": ["src/" + id_ + ".py"],
          "bagimliliklar": [], "test_komutu": "python -m pytest tests", "test_alani": ["tests/test_a.py"]}
     k.update(ek)
     return k
@@ -205,6 +205,28 @@ class AkisTestleri(unittest.TestCase):
         s, c, _ = self.kos(kartlar, gecikme={"yazar": 150})
         self.assertEqual([x["durum"] for x in s], ["onaylandi"] * 3)
         self.assertEqual(self.cikti["yazarEnCok"], 3)
+
+    # ---- yazma alanı çakışması: ajan açılmadan sıraya girer (ARK S3)
+    def test_yazma_alani_cakisan_kartlar_ayni_anda_acilmaz_sirayla_koşar(self):
+        kartlar = [kod_karti("G-920", yazma_alani=["src/ortak.py"]), kod_karti("G-921", yazma_alani=["src/ortak.py"])]
+        s, c, _ = self.kos(kartlar, gecikme={"yazar": 150})
+        self.assertEqual([x["durum"] for x in s], ["onaylandi"] * 2)
+        self.assertEqual(self.cikti["yazarEnCok"], 1)
+        self.assertTrue(any("G-921" in l and "çakışıyor" in l for l in self.cikti["loglar"]))
+
+    def test_glob_oneki_ust_dizin_cakisir_kardes_dizin_cakismaz(self):
+        kartlar = [kod_karti("G-930", yazma_alani=["src/**"]), kod_karti("G-931", yazma_alani=["src/a/x.py"]),
+                   kod_karti("G-932", yazma_alani=["docs/y.md"])]
+        s, c, _ = self.kos(kartlar, gecikme={"yazar": 150})
+        self.assertEqual([x["durum"] for x in s], ["onaylandi"] * 3)
+        loglar = [l for l in self.cikti["loglar"] if "çakışıyor" in l]
+        self.assertTrue(any("G-931" in l for l in loglar))
+        self.assertFalse(any("G-932" in l for l in loglar))
+
+    def test_alani_olmayan_kart_sirayi_beklemez(self):
+        kartlar = [duz_kart("G-940", yazma_alani=[]), duz_kart("G-941", yazma_alani=[])]
+        self.kos(kartlar)
+        self.assertFalse(any("çakışıyor" in l for l in self.cikti["loglar"]))
 
     def test_kirmizi_hata_yolunda_diger_kartlar_etkilenmez(self):
         kartlar = [kod_karti("G-910"), kod_karti("G-911"), kod_karti("G-912")]
