@@ -116,7 +116,31 @@
     return `<button type="button" class="cip" data-${grup}="${kimlik}" aria-pressed="${secili}">${esc(ad)} · ${n}</button>`;
   }
 
+  // "Şimdi uygula": onaylı perspektif kararları başsız bir Claude koşusunda sırayla uygulanır (sunucu tarafı).
+  function uygulaDugmeCiz() {
+    const d = $('#uygulaDugme'); if (!d) return;
+    const n = S.veri ? kayitlar().filter(k => k.tur === 'perspektif' && ['onaylandi', 'uygulaniyor'].includes(k.durum)).length : 0;
+    const kosu = !!(S.veri && S.veri.uygulama);
+    d.hidden = !(n || kosu);
+    d.disabled = kosu || S.uygulaYolda;
+    d.textContent = kosu ? 'Uygulanıyor…' : 'Şimdi uygula · ' + n;
+  }
+  async function simdiUygula() {
+    if (S.uygulaYolda) return;
+    S.uygulaYolda = true; uygulaDugmeCiz();
+    try {
+      await O.gonder('/onay?alan=' + encodeURIComponent(O.alan), { islem: 'simdi-uygula' });
+      O.bildirim('Perspektif kararları sırayla uygulanıyor.');
+      if (K) await K.zorla();
+    } catch (e) {
+      O.bildirim('Uygulama başlamadı: ' + O.yolGizle(e && e.message ? e.message : String(e)));
+    } finally {
+      S.uygulaYolda = false; uygulaDugmeCiz();
+    }
+  }
+
   function sayfaCiz() {
+    uygulaDugmeCiz();
     const kap = $('#liste');
     if (!S.veri) {
       yerlestir($('#gorunumCipler'), ''); yerlestir($('#durumCipler'), ''); yerlestir($('#turCipler'), ''); $('#oSayi').textContent = '';
@@ -196,6 +220,7 @@
   ana.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.id === 'uygulaDugme') return simdiUygula();
     if (b.dataset.karar) return karar(b.dataset.id, b.dataset.karar);
     if (b.dataset.katla) { S.acik.has(b.dataset.katla) ? S.acik.delete(b.dataset.katla) : S.acik.add(b.dataset.katla); return sayfaCiz(); }
     if (b.dataset.tur) { S.tur = b.dataset.tur; return sayfaCiz(); }

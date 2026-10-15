@@ -13,6 +13,8 @@
   .grup-baslik + .meta { margin: 0; }
   .durum-satir { margin: var(--a-12) 0 0; font-size: var(--t-13); color: var(--text-secondary); overflow-wrap: anywhere; }
   .katla { margin-top: var(--a-4); }
+  #uygulaDugme { font-size: var(--t-12); padding: 2px 10px; vertical-align: middle; }
+  #uygulaDugme[disabled] { opacity: .6; cursor: default; }
 
   /* Kurallar bölümüne özgü ekler. */
   .kural-ust { display: flex; gap: var(--a-8); flex-wrap: wrap; align-items: baseline; }
@@ -35,7 +37,7 @@
 <main>
   <h1 class="gorunmez">Onaylar, etki ve kurallar</h1>
   <section class="bolum" aria-labelledby="oBaslik">
-    <h2 id="oBaslik">Onaylar <span class="meta" id="oSayi"></span><span id="oBayat"></span></h2>
+    <h2 id="oBaslik">Onaylar <span class="meta" id="oSayi"></span><span id="oBayat"></span> <button type="button" class="cip" id="uygulaDugme" hidden></button></h2>
     <p class="aciklama">Burada verdiğin kararları Claude bir sonraki mesajda ya da /orkestra:onay ile uygular; kural onayları hemen etkinleşir. Uygulananların etkisi aşağıdadır.</p>
     <div class="cipler" role="group" aria-label="Görünüm" id="gorunumCipler"></div>
     <div class="cipler" role="group" aria-label="Geçmiş durumu" id="durumCipler"></div>
