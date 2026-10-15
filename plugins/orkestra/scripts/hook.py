@@ -843,44 +843,15 @@ def _kapanis_notlari(sd: str, liste: list) -> dict:
 
 
 def _yonlendirme_ipucu(sd: str, oid, istek: str) -> str:
-    """Bağlı işi olmayan/konu dışı istekte tek satırlık yönlendirme; oturumda aynı (tur,iş) bir kez. Hatada boş."""
+    """Yeni görev mesajında (soru/devam değil) açık işler + karar kuralı tek satır; sınıflamayı ana ajan yapar. Hatada boş."""
     try:
         import soru_sinif
-        if soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yeni iş önerisi tetiklemez
+        if soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yönlendirme tetiklemez
             return ""
         import is_kaydi
         import is_yonlendirme
-        isler = []
-        for g in is_kaydi.is_liste(sd, "acik"):
-            try:
-                klasor = g.get("klasor") or ""
-                try:
-                    todolar = is_kaydi.todo_ozet(klasor)["acik_maddeler"]
-                except Exception:
-                    todolar = []
-                isler.append({"id": g["id"], "baslik": g.get("baslik") or "",
-                              "klasor_adi": os.path.basename(klasor.rstrip("/\\")), "acik_todolar": todolar})
-            except Exception:
-                continue
-        k = is_yonlendirme.yonlendir(istek, isler, _oturum_isi(sd, oid))
-        if not k:
-            return ""
-        anahtar = f"{k['tur']}:{k.get('is')}"
-        yol = os.path.join(sd, "oturumlar", f"yonlendirme_{oid}.json")
-        gorulen = []
-        try:
-            with open(yol, encoding="utf-8") as f:
-                d = json.load(f)
-            gorulen = [str(x) for x in d.get("gorulen", [])] if isinstance(d, dict) else []
-        except Exception:
-            pass
-        if anahtar in gorulen:
-            return ""
-        gorulen.append(anahtar)
-        os.makedirs(os.path.dirname(yol), exist_ok=True)
-        with open(yol, "w", encoding="utf-8") as f:
-            json.dump({"gorulen": gorulen[-20:]}, f)
-        return k["satir"]
+        isler = [{"id": g["id"], "baslik": g.get("baslik") or ""} for g in is_kaydi.is_liste(sd, "acik")]
+        return is_yonlendirme.yonlendir(isler, _oturum_isi(sd, oid))
     except Exception:
         return ""
 
