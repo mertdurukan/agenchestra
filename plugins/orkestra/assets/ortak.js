@@ -399,7 +399,7 @@
     if (!h) { h = document.createElement('header'); h.id = 'kabuk'; document.body.prepend(h); }
     h.classList.add('kabuk');
     h.innerHTML = `<div class="kabuk-ic">
-      <a class="marka" href="/">Orkestra</a>
+      <a class="marka" href="/" aria-label="Orkestra"><img src="/logo.png" alt="Orkestra"></a>
       <nav class="sekmeler" aria-label="Sayfalar">${SEKMELER.map(([k, ad, yol]) =>
         `<a data-sekme="${k}" data-yol="${yol}" href="${yol}"${k === sayfa ? ' aria-current="page"' : ''}>${ad}</a>`).join('')}</nav>
       <span class="bosluk"></span>

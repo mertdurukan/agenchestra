@@ -59,7 +59,8 @@ SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simd
             "/isler": "isler.html", "/isler.html": "isler.html",
             "/etki": "etki.html", "/etki.html": "etki.html"}
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
-          "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8")}
+          "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
+          "/logo.png": ("logo.png", "image/png")}
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
 SURUM = "8"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır

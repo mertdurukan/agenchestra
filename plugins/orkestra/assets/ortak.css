@@ -109,7 +109,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .kabuk .bosluk { flex: 1; }
 .kabuk .alan-sec { display: inline-flex; align-items: center; gap: var(--a-8); color: var(--text-muted); font-size: var(--t-12); }
 .kabuk .alan-sec select { max-width: 260px; }
-.kabuk .marka { flex: none; }
+.kabuk .marka { flex: none; display: inline-flex; align-items: center; }
+.kabuk .marka img { height: 36px; width: auto; display: block; }
 .canli { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: var(--t-12);
   white-space: nowrap; font-variant-numeric: tabular-nums; }
 .canli i { width: 8px; height: 8px; border-radius: 50%; background: var(--neutral); display: inline-block; }
