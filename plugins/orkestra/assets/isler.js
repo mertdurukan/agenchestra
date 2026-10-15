@@ -212,37 +212,29 @@
     const d = bekleyenD(r.bekleyen);
     const k = r.kartlar || { acik: 0, toplam: 0, teslim: 0, aktif: [] };
     const kartIp = k.aktif && k.aktif.length ? k.aktif.map(x => `<div class="meta">${esc(x.id)} · ${metin(x.baslik)}</div>`).join('') : '';
-    const kartMetni = k.acik ? `${k.acik} açık kart` : '';
+    const kartMetni = `${k.acik || 0} açık kart`;
     const sen = r.bekleyen === 'sen';   // sade kart: kapanış rozetleri ve iş/kart satırı çizilmez
     let govde;
     if (sen) {
       // Seni bekliyor: yalnız ne beklendiği (Stop kancasının son mesajdan çıkardığı); niyet/neden satırları gösterilmez
       govde = `<div class="bekleme">${metin(r.bekleme || 'Yanıtını bekliyor')}</div>`;
     } else if (r.niyet_var) {
-      govde = `<div class="ne">${metin(r.ne)}</div>${r.neden ? `<div class="neden">${metin(r.neden)}</div>` : ''}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
+      // Açıklama (neden) varsa yalnız o; yoksa başlık (ne) açıklama olarak gösterilir
+      govde = `${r.neden ? `<div class="neden">${metin(r.neden)}</div>` : `<div class="neden">${metin(r.ne)}</div>`}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
     } else if (r.son_istek) {
       govde = `<div class="son-istek"><q>${metin(r.son_istek)}</q></div>`;
     } else {
       govde = `<div class="son-istek"><q>${metin(r.yedek || 'Henüz bilgi yok')}</q></div>`;
     }
-    const kp = sen ? null : (r.kapanis || null);
-    const kapEtiket = kp ? (kp.kapatilabilir ? '<span class="kap ok">Kapatılabilir</span>'
-      : dizi(kp.eksik).map(m => `<span class="kap eksik">${esc(m)}</span>`).join('')) : '';
     const acIpucu = r.link ? 'Tıkla: sohbeti Claude uygulamasında aç' : 'Tıkla: terminalde başlamış sohbeti uygulamada sürdür';
     const ip = `<b>${esc(r.proje)} › ${esc(r.sohbet)}</b>` + sat('Durum', esc(d.ad)) + sat('Son etkinlik', B.tarih(r.son_zaman)) +
       sat('Başlangıç', B.tarih(r.baslangic)) + sat('İstek', B.sayi(r.istek_sayisi)) + kartIp +
       (r.son_istek ? `<div class="meta">Son istek: ${metin(kisalt(r.son_istek, 220))}</div>` : '') + `<div class="meta">${acIpucu}</div>`;
-    const isler = dizi(r.isler), tikla = buAlanda(r);
-    const isChip = isler.map(x => tikla
-      ? `<button type="button" class="bag" data-git-is="${esc(x.id)}" data-anahtar="g:${esc(r.oturum)}:${esc(x.id)}" title="İşi aç: ${esc(x.ad)}">İş: ${esc(kisalt(x.ad, 38))} →</button>`
-      : `<span class="bag pasif">İş: ${esc(kisalt(x.ad, 38))}</span>`).join('');
     return `<div class="sohbet" style="--renk:${d.renk}" data-oturum="${esc(r.oturum)}" data-anahtar="s:${esc(r.oturum)}" tabindex="0" role="button"
         aria-label="${esc(r.proje + ' › ' + r.sohbet + ' · ' + d.ad + ' · sohbeti aç')}" data-ipucu="${esc(ip)}">
       <div class="ust">${sRozet(d, r.bekleyen === 'claude' ? ' nabiz' : '')}<span data-once="${esc(r.son_zaman || '')}">${B.once(r.son_zaman)}</span></div>
       ${govde}
-      ${kapEtiket ? `<div class="kapanis">${kapEtiket}</div>` : ''}
-      <div class="ad"><b>${esc(r.proje)}</b> › ${esc(r.sohbet)}</div>
-      ${!sen && (isChip || kartMetni) ? `<div class="alt">${isChip}${kartMetni ? `<span class="kartlar">${esc(kartMetni)}</span>` : ''}</div>` : ''}</div>`;
+      ${sen ? '' : `<div class="alt"><span class="kartlar">${esc(kartMetni)}</span></div>`}</div>`;
   }
 
   function sohbetCiz() {
@@ -453,9 +445,9 @@
 
   O.kabuk({ sayfa: 'isler' });
   // Sohbetler: kendi kaynağı (/simdi.json, tüm çalışma alanları); alan değişiminden etkilenmez.
-  KS = O.veri('/simdi.json', {
-    ad: 'Sohbet verisi', aralik: 5000, alanaBagli: false,
-    gecerli: v => Array.isArray(v.oturumlar),
+  KS = O.veri(() => '/simdi.json?alan=' + encodeURIComponent(O.alan), {
+    ad: 'Sohbet verisi', aralik: 5000,
+    gecerli: v => Array.isArray(v.oturumlar) && (!v.alan || !v.alan.id || v.alan.id === O.alan),
     cizici: v => { SS.simdi = v; sohbetCiz(); sohbetBayatCiz(); if (S.veri) sayfaCiz(); },
     durum: () => { sohbetBayatCiz(); if (!SS.simdi) sohbetCiz(); },
   });
@@ -465,5 +457,5 @@
     cizici: v => { S.veri = v; sayfaCiz(); },
     durum: () => { yerlestir($('#iBayat'), O.bayatIsaret(K)); if (!S.veri) sayfaCiz(); },
   });
-  window.addEventListener('orkestra:alan', () => { S.veri = null; S.secili = ''; S.ara = ''; $('#ara').value = ''; S.acik.clear(); sayfaCiz(); });
+  window.addEventListener('orkestra:alan', () => { SS.simdi = null; SS.eskilerAcik = false; sohbetCiz(); S.veri = null; S.secili = ''; S.ara = ''; $('#ara').value = ''; S.acik.clear(); sayfaCiz(); });
 })();

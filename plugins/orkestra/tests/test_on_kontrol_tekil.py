@@ -35,7 +35,7 @@ class Tekil(unittest.TestCase):
         self.fake = {"cikis": 0, "basarisiz": []}
         self._orijinal = OK.test_kos
 
-        def sahte(komut, cwd):
+        def sahte(komut, cwd, kart=None):
             self.sayac += 1
             return dict(self.fake)
 

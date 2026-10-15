@@ -373,15 +373,44 @@ def _kapanis(s: dict, bekleyen: str, n_acik: int, isler: list, simdi_z) -> dict:
     return {"kapatilabilir": not eksik, "eksik": eksik}
 
 
-def gorunum(gun: int = GORUNUM_GUN) -> dict:
+def _yol_anahtar(yol):
+    return os.path.normcase(os.path.normpath(yol)).replace("\\", "/").rstrip("/") if yol else ""
+
+
+def alan_sohbeti_mi(proje_yol: str | None, alan_yol: str | None, tum_yollar=()) -> bool:
+    """Sohbetin projesi bu çalışma alanına mı ait? Alan klasörü ya da altındaki klasör sayılır; iç içe daha özgül
+    bir çalışma alanı varsa (ör. McD altındaki worktree) sohbet ona aittir."""
+    p, a = _yol_anahtar(proje_yol), _yol_anahtar(alan_yol)
+    if not p or not a:
+        return False
+
+    def altinda(x: str, k: str) -> bool:
+        return x == k or x.startswith(k + "/")
+
+    if not altinda(p, a):
+        return False
+    return not any(len(b) > len(a) and altinda(p, b) for b in map(_yol_anahtar, tum_yollar) if b)
+
+
+def gorunum(gun: int = GORUNUM_GUN, alan_yol: str | None = None) -> dict:
+    """alan_yol verilirse olaylar ve projeler yalnız o çalışma alanına ait sohbetlerle sınırlanır."""
     simdi = datetime.datetime.now().astimezone()
+    tum_yollar = []
+    if alan_yol and hasattr(L, "calisma_alanlari"):
+        try:
+            tum_yollar = [a["yol"] for a in L.calisma_alanlari()]
+        except Exception:
+            pass
+
+    def bu_alanda(p):
+        return alan_yol is None or alan_sohbeti_mi(p, alan_yol, tum_yollar)
     sinir = simdi - datetime.timedelta(days=gun)
-    olaylar = [o for o in L.jsonl_oku(NIYET_YOLU) if (_zaman(o.get("zaman")) or sinir) >= sinir and not _gecici(o.get("proje"))]
+    olaylar = [o for o in L.jsonl_oku(NIYET_YOLU) if (_zaman(o.get("zaman")) or sinir) >= sinir and not _gecici(o.get("proje")) and bu_alanda(o.get("proje"))]
     projeler = {o.get("proje") for o in olaylar if o.get("proje")}
     # orkestralı projelerin günlüğünden, niyet kaydı öncesi sohbetleri de getir
     if hasattr(L, "calisma_alanlari"):
         try:
-            projeler |= {a["yol"] for a in L.calisma_alanlari() if a.get("orkestra")}
+            projeler |= {a["yol"] for a in L.calisma_alanlari() if a.get("orkestra") and bu_alanda(a["yol"])}
         except Exception:
             pass
     kayitli_oturum = {o.get("oturum") for o in olaylar}

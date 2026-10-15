@@ -128,7 +128,9 @@
     if (ay && ork) {
       const adaylar = [ay.tahmin_7g, ay.tahmin_ort].filter(sayiMi);
       const bitti = ay.ay_gun && ay.gecen_gun >= ay.ay_gun;
-      if (adaylar.length && !bitti) {
+      if (!adaylar.length && !bitti && ay.tahmin_yeterli === false) {
+        karolar += karo('–', 'Ay sonu tahmini', esc(`en az 7 günlük veri gerekir (şimdi ${B.sayi(ay.veri_gun || 0)} gün)`));
+      } else if (adaylar.length && !bitti) {
         const lo = Math.min(...adaylar), hi = Math.max(...adaylar);
         const buAyIleAyni = r2(lo) === r2(ay.simdiye) && r2(hi) === r2(ay.simdiye);
         if (hi > 0 && !buAyIleAyni) {

@@ -72,12 +72,12 @@ STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
 # sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
 SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar")
-SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki")
+SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki", "yapilacaklar")
 STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8") for ad in SAYFA_JS})
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "11"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "13"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -99,6 +99,18 @@ def _alan_sd(alan_id, kesin: bool = False):
 
 def _alan_kisa(a: dict) -> dict:
     return {"id": a["id"], "ad": a["ad"], "yol": a["yol"]}
+
+
+def _simdi_json(alan_id: str | None) -> dict:
+    """Sohbet görünümü; alan verilirse yalnız o çalışma alanının sohbetleri (bilinmeyen alan → boş liste)."""
+    if not alan_id:
+        return niyet.gorunum()
+    a = next((x for x in L.calisma_alanlari() if x["id"] == alan_id), None)
+    if a is None:
+        return {"uretim": L.simdi(), "oturumlar": [], "akis": [], "sayac": {}, "alan": {"id": alan_id}}
+    g = niyet.gorunum(alan_yol=a["yol"])
+    g["alan"] = _alan_kisa(a)
+    return g
 
 
 def _perspektif(sd: str) -> dict:
@@ -524,7 +536,9 @@ def _isleyici():
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli("analitik-tum", 20.0, analitik.tum_alanlar))
             if u.path == "/simdi.json":
-                return self._gonder(200, "application/json; charset=utf-8", onbellekli("simdi", 3.0, niyet.gorunum))
+                alan = (q.get("alan") or [None])[0]
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli(("simdi", alan), 3.0, lambda: _simdi_json(alan)))
             if u.path == "/onaylar.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
