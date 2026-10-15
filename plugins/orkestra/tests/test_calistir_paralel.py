@@ -252,11 +252,22 @@ class AkisTestleri(unittest.TestCase):
         self.assertIn("Kırmızı teyidi is-bitti koşar", b_yazar["istem"])  # kırmızı kapı test yazarının is-bitti'sinde
         self.assertLess(b_yazar["son"], a_den_son)
 
-    def test_tdd_false_bagimli_kart_erken_test_yok_bagimliligi_bekler(self):
+    def test_tdd_false_bagimli_kart_erken_test_yok_denetimi_bagimliligi_bekler(self):
+        # H2c: tdd=false ve alanı kesişmeyen bağımlı kartın işçisi bağımlılığın kapısıyla (spekülatif) başlar;
+        # test yazarı yoktur, denetimi bağımlılık onaylandıktan sonradır.
         a, b = kod_karti("G-920"), kod_karti("G-921", bagimliliklar=["G-920"], tdd=False)
         s, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}})
         self.assertEqual([x["durum"] for x in s], ["onaylandi", "onaylandi"])
         self.assertEqual([x for x in c if x["id"] == "G-921" and x["agentType"] == "orkestra:test-yazari"], [])
+        a_den_son = max(x["son"] for x in c if x["id"] == "G-920" and x["agentType"] == "orkestra:denetci")
+        b_den_ilk = min(x["bas"] for x in c if x["id"] == "G-921" and x["agentType"] == "orkestra:denetci")
+        self.assertGreater(b_den_ilk, a_den_son)
+
+    def test_tdd_false_alani_kesisen_bagimli_kart_bagimliligi_bekler(self):
+        a = kod_karti("G-920", yazma_alani=["src/ortak.py"])
+        b = kod_karti("G-921", bagimliliklar=["G-920"], tdd=False, yazma_alani=["src/ortak.py"])
+        s, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}})
+        self.assertEqual([x["durum"] for x in s], ["onaylandi", "onaylandi"])
         a_den_son = max(x["son"] for x in c if x["id"] == "G-920" and x["agentType"] == "orkestra:denetci")
         b_ilk = min(x["bas"] for x in c if x["id"] == "G-921")
         self.assertGreater(b_ilk, a_den_son)
