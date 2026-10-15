@@ -7,7 +7,7 @@ export const meta = {
     { title: 'Kapı', detail: 'kod kartında: kırmızı (kod yokken başarısız) ve yeşil (koddan sonra geçer) test kapısı' },
     { title: 'Ön kontrol', detail: 'T0: işçiden sonra, denetçiden önce model çağırmayan kapı (satır sonu, BOM, kapsam, yeni test hatası)' },
     { title: 'İş', detail: 'basamağa uygun işçi ajanı' },
-    { title: 'Denetim', detail: 'işçiden ayrı denetçi; T3+ için iki mercek; kod kartında ek test kalitesi merceği' },
+    { title: 'Denetim', detail: 'işçiden ayrı denetçi; T3+ için iki mercek, kod kartında ek test kalitesi merceği; mercekler T4 dışında tek çağrıda' },
   ],
 }
 
@@ -23,6 +23,8 @@ const DENETCI = {
   T4: { model: 'opus', effort: 'xhigh' },
 }
 const DENETCI_OPUS_RET_ESIGI = 2
+// Mercekler yalnız bu basamaklarda ayrı denetçi çağrılarına bölünür; diğerlerinde tek çağrıda birleşir.
+const MERCEK_AYRI_BASAMAKLAR = ['T4']
 const AYNI_BASAMAKTA_EN_COK_RET = 2
 // Kod kartı: kırmızı kapı geçmezse test yazarına geri bildirimle en çok bu kadar YENİDEN deneme (toplam 1 + 2).
 const KIRMIZI_EN_COK_YENIDEN_DENEME = 2
@@ -231,7 +233,8 @@ function kapiIstemi(k, asama, ciktilar) {
 }
 
 // oncekiRet: önceki denetimin reti (varsa yalnız karşılanmayan kriterler + gerileme denetlenir); yükseltme sonrası ilk denetimde null.
-function denetimIstemi(k, is, mercek, oncekiRet) {
+function denetimIstemi(k, is, mercekler, oncekiRet) {
+  const liste = [].concat(mercekler)
   return [
     `#GOREV:${k.id} #SUREC:denetim`,
     `Denetlenecek görev: ${k.baslik}`,
@@ -239,7 +242,8 @@ function denetimIstemi(k, is, mercek, oncekiRet) {
     ...k.kabul_kriterleri.map((c, i) => `  ${i + 1}. ${c}`),
     `İşçinin bildirdiği çıktılar: ${(is.ciktilar || []).join(', ') || '-'}`,
     `İşçinin özeti (güvenme, kendin doğrula): ${is.ozet}`,
-    `Mercek: ${mercek}`,
+    ...liste.map(m => `Mercek: ${m}`),
+    liste.length > 1 ? 'Mercekleri SIRAYLA tek denetimde uygula; birinde bile karşılanmayan varsa karar ret.' : '',
     oncekiRet
       ? `Önceki denetimde karşılanmayan kriterler: ${(oncekiRet.bulgular || []).join(' | ') || '-'}. Yalnız bunları ve düzeltmenin yeni bir gerileme getirip getirmediğini (değişen dosyaların diff'i) denetle; önceki denetimde KARŞILANDI denen kriterleri yeniden kanıtlama.`
       : '',
@@ -426,7 +430,9 @@ async function yurut(k, bagBekle) {
         ? ['doğruluk: iddialar ve sayılar kaynağıyla tutuyor mu', 'kanıt ve kapsam: her kriter kanıtlı ve eksiksiz mi']
         : ['doğruluk ve kapsam: her kriter kanıtla karşılanıyor mu']
       if (kod) mercekler.push(TEST_MERCEGI)
-      const kararlar = (await parallel(mercekler.map(m => () =>
+      // Maliyet: T1-T3'te tüm mercekler TEK denetçi çağrısında (aynı dosyaları bir kez okur); yalnız T4'te ayrı, bağımsız denetçiler.
+      const gruplar = MERCEK_AYRI_BASAMAKLAR.includes(basamak) ? mercekler.map(m => [m]) : [mercekler]
+      const kararlar = (await parallel(gruplar.map(m => () =>
         agent(denetimIstemi(k, is, m, denetimRet), {
           agentType: 'orkestra:denetci', model: dm.model, ...(dm.effort ? { effort: dm.effort } : {}),
           schema: DENETIM_SEMA, label: `${k.id} denetim ${basamak}`, phase: 'Denetim',

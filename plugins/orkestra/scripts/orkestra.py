@@ -1665,6 +1665,9 @@ def cmd_is_kapat(a):
     print(f"{a.is_id} → kapandi")
 
 
+TODO_KISA = 100  # --ekle/--bitti sonrası açık madde satırı en çok bu kadar karakter (numaralı; --bitti <n> ile aynı sıra)
+
+
 def cmd_is_todo(a):
     sd = sd_gerekli()
     kayit = _is_gerekli(sd, a.is_id)
@@ -1685,8 +1688,11 @@ def cmd_is_todo(a):
             hata(str(e))
     t, satir = _todo_satiri(kayit["klasor"])
     print(f"{a.is_id} {satir}")
-    for m in t["acik_maddeler"]:
-        print(f"  [ ] {m}")
+    yazildi = ekle is not None or bitti is not None
+    for n, m in enumerate(t["acik_maddeler"], 1):
+        if yazildi and len(m) > TODO_KISA:  # yazma sonrası kısa liste: ana ajan bağlamına her seferinde tüm todo girmesin
+            m = m[:TODO_KISA - 1] + "…"
+        print(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
 
 
 def cmd_is_serit(a):

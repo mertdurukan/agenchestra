@@ -202,11 +202,16 @@ class AkisTestleri(unittest.TestCase):
         self.assertNotIn("Sınıf: kod", c[0]["istem"])
 
     def test_kod_olmayan_kart_t3_iki_mercek_ve_yukseltme(self):
+        # T3: iki mercek TEK denetçi çağrısında; T4: mercekler ayrı, bağımsız denetçilerde.
         s, c, _ = self.kos([kart(basamak="T3")], denetim=[
-            {"karar": "ret", "bulgular": ["x"]}, {"karar": "onay", "bulgular": []},
-            {"karar": "ret", "bulgular": ["TEST: kod kartı değil, özel sayılmaz"]}, {"karar": "onay", "bulgular": []},
+            {"karar": "ret", "bulgular": ["x"]},
+            {"karar": "ret", "bulgular": ["TEST: kod kartı değil, özel sayılmaz"]},
+            {"karar": "onay", "bulgular": []}, {"karar": "onay", "bulgular": []},
         ])
-        self.assertEqual(self.adimlar(c), ["is", "denetim", "denetim", "is", "denetim", "denetim", "is", "denetim", "denetim"])
+        self.assertEqual(self.adimlar(c), ["is", "denetim", "is", "denetim", "is", "denetim", "denetim"])
+        ilk = [x["istem"] for x in c if x["agentType"] == "orkestra:denetci"][0]
+        self.assertEqual(ilk.count("Mercek: "), 2)
+        self.assertIn("tek denetimde uygula", ilk)
         isciler = [x["agentType"] for x in c if x["phase"] == "İş"]
         self.assertEqual(isciler, ["orkestra:isci-t3", "orkestra:isci-t3", "orkestra:isci-t4"])
         self.assertEqual(s["durum"], "onaylandi")
@@ -235,7 +240,7 @@ class AkisTestleri(unittest.TestCase):
     def test_yesil_gecmez_denetci_cagrilmaz_duzeltme_turu(self):
         s, c, _ = self.kos([kod_karti()], yesil=[False, True])
         self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim", "denetim"])
+                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim"])
         isler = [x for x in c if x["phase"] == "İş"]
         self.assertTrue(isler[1]["ilk"].endswith("#SUREC:duzeltme"))
         self.assertIn("KUYRUK-yesil", isler[1]["istem"])
@@ -253,7 +258,7 @@ class AkisTestleri(unittest.TestCase):
     # --- mutlu yol
     def test_mutlu_yol(self):
         s, c, _ = self.kos([kod_karti()])
-        self.assertEqual(self.adimlar(c), ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim", "denetim"])
+        self.assertEqual(self.adimlar(c), ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim"])
         mercekler = [x["istem"] for x in c if x["agentType"] == "orkestra:denetci"]
         self.assertTrue(any("Mercek: test kalitesi" in m for m in mercekler))
         self.assertIn("Test alanı", c[2]["istem"])
@@ -261,13 +266,19 @@ class AkisTestleri(unittest.TestCase):
         self.assertEqual(s["durum"], "onaylandi")
 
     def test_mutlu_yol_t3_uc_mercek(self):
+        # Üç mercek (doğruluk, kanıt/kapsam, test kalitesi) T3'te tek denetçi çağrısında.
         _, c, _ = self.kos([kod_karti(basamak="T3")])
+        self.assertEqual(self.adimlar(c).count("denetim"), 1)
+        istem = [x["istem"] for x in c if x["agentType"] == "orkestra:denetci"][0]
+        self.assertEqual(istem.count("Mercek: "), 3)
+
+    def test_mutlu_yol_t4_mercekler_ayri(self):
+        _, c, _ = self.kos([kod_karti(basamak="T4")])
         self.assertEqual(self.adimlar(c).count("denetim"), 3)
 
     # --- TEST: reddi
     def test_test_onekli_ret_kart_reddedilir(self):
         s, c, loglar = self.kos([kod_karti()], denetim=[
-            {"karar": "onay", "bulgular": []},
             {"karar": "ret", "bulgular": ["TEST: kriter 2 için negatif durum yok"], "duzeltme_talimati": "x"},
         ])
         self.assertEqual(s["durum"], "reddedildi")
@@ -288,8 +299,8 @@ class AkisTestleri(unittest.TestCase):
         ])
         self.assertEqual(s["durum"], "onaylandi")
         self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim", "denetim",
-                          "is", "kapi-yesil", "denetim", "denetim"])
+                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim",
+                          "is", "kapi-yesil", "denetim"])
 
 
 if __name__ == "__main__":

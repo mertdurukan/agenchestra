@@ -129,7 +129,7 @@ class DenetimMaliyetTestleri(unittest.TestCase):
     def test_yukseltme_sonrasi_ilk_denetim_tamdir(self):
         s, c = self.kos(kart(), denetim=[ret("a1"), ret("b2"), ONAY, ONAY])
         d = self.denetimler(c)
-        self.assertEqual(len(d), 4)  # T2'de 2 denetim, T3'te iki mercek
+        self.assertEqual(len(d), 3)  # T2'de 2 denetim, T3'te iki mercek tek çağrıda
         self.assertIn("Önceki denetimde karşılanmayan kriterler: a1", d[1]["istem"])
         for x in d[2:]:  # T3'e yükseltme sonrası ilk denetim: tam
             self.assertNotIn("Önceki denetimde karşılanmayan", x["istem"])

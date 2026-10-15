@@ -40,7 +40,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
 - Kod üreten (program, betik, modül değiştiren) her alt iş test-önce yürür. Kartına ayrıca şunları yaz:
   - `sinif`: `"kod"`;
-  - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`);
+  - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`). Kartın dokunduğu modülün test dosyalarıyla DARALT; tam paket gerekiyorsa paralel koşucuyu kullan: `py -3.13 plugins/orkestra/scripts/test_paralel.py -n 8 plugins/orkestra/tests` (orkestra eklentisinde seri ~12 dk → ~4 dk);
   - `test_alani`: test dosyalarının glob listesi (proje köküne göre). Testleri `orkestra:test-yazari` yalnız buraya yazar.
   - `test_koku` (isteğe bağlı): testler proje dışındaki bir depodaysa o deponun mutlak dizini (`kart yeni --test-koku` ya da JSON alanı). `test_komutu` orada koşar, `test_alani` ve test kilidi ona göredir.
   - Sonradan düzeltmek için `orkestra kart test-ayar <id> [--test-koku YOL] [--test-komutu M] [--test-alani GLOB]...` (tek başına çalıştır). Kilit varken yalnız `test_koku` değişir ve yeni kökteki test dosyaları kilitle birebir aynı olmalıdır. Kök değişince eski kökteki yeşil sayılmaz: onaydan önce yeni kökte yeniden yeşil koşulur.
@@ -58,7 +58,7 @@ Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
   - basamağa uygun işçi ajanı çalıştırır;
   - işten önce T0 ön kontrol `taban`, her işçiden sonra denetçiden önce `kontrol` çalıştırır (`scripts/on_kontrol.py`; ihlalde denetçi çağrılmaz, ret sayılır);
   - ardından AYRI bir `orkestra:denetci` çalıştırır (işçiyle aynı basamak modelinde; kartta toplam 2 retten sonra opus; yeniden denetim yalnız önceki karşılanmayan kriterler + gerileme);
-  - T3 ve üstünde iki mercekle denetler;
+  - T3 ve üstünde iki mercekle denetler (T1-T3'te mercekler TEK denetçi çağrısında birleşir; yalnız T4'te ayrı, bağımsız denetçiler);
   - aynı basamakta iki ret gelirse basamağı yükseltir;
   - bağımlılık onaylanmadıysa o işi atlar.
 - Kod kartında (`sinif: kod`) sıra şöyledir:
@@ -105,7 +105,13 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Belirsiz ve kullanıcının vermesi gereken bir karar varsa ve kullanıcı paneli izliyorsa: `orkestra onay iste --baslik "..." --metin "..." --secenek "A" --secenek "B"`. Cevap sonraki mesajda hook bağlamıyla gelir.
 - Kalıcı bir kural kararı alınırsa: `orkestra kural oner --metin "..." --neden "..."`; kullanıcı panelde etkinleştirir.
 
+## Maliyet disiplini (ölçüm 15.10: ana ajan toplam maliyetin ~%65'i)
+- Ana ajanın her araç çağrısı tüm bağlamı yeniden okur. Bağımsız salt okuma komutlarını (`kart liste`, `kart goster`, `is todo` okuması) tek Bash çağrısında `&&` ile birleştir; kart/defter YAZAN `orkestra` komutları tek başına kalır.
+- Dosyaları kendin açma; işçi/araştırmacı özetine ve denetçi kararına güven. Teslimden önce yalnız değişen dosyanın ilgili kısmına bak.
+- Bir sohbet = bir iş. İş bitince ya da bağlam büyüdüğünde yeni sohbet aç ve `orkestra is devam <id>` de; sıradaki adımlar todo.md'dedir. Uzun aradan sonra büyük bağlama dönmek bağlamın tamamını yeniden yazdırır (önbellek kapısı bunu bir kez durdurur).
+- Aynı kartı ikinci kez yeniden çalıştırmadan önce son reddin nedenine bak: ortam/yük kaynaklı (zaman aşımı, zamanlama testi) retler model yükseltmesiyle çözülmez; kartı `beklemede`ye al ve nedeni düzelt.
+
 ## Kurallar
-- `orkestra …` komutlarını tek başına çalıştır (zincir, boru ya da yönlendirme yok).
+- Yazan `orkestra …` komutlarını (kart/defter/`is todo --ekle|--bitti`) tek başına çalıştır (zincir, boru ya da yönlendirme yok); salt okuma komutları `&&` ile zincirlenebilir.
 - Ortak defteri baştan sona okuma. Gerektiğinde `orkestra defter baglam <id>` ya da `orkestra defter ozet` kullan.
 - Bitiş kapısı açık kartı olan oturumu durdurur. Bilerek bırakacağın kartı `beklemede` yap.

@@ -151,8 +151,8 @@ class AkisTestleri(unittest.TestCase):
         self.assertEqual(s[0]["durum"], "onaylandi")
         self.assertEqual([x for x in c if x["phase"] == "Ön kontrol"], [])
         self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim", "denetim"])
-        self.assertEqual(len(c), 6)  # bugün 8 (taban + kontrol ayrı ajan): 2 eksik
+                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim"])
+        self.assertEqual(len(c), 5)  # eskiden 8 (taban + kontrol ayrı ajan, iki mercek ayrı denetçi): 3 eksik
 
     def test_kapi_istemleri_test_kos_sonra_on_kontrol_icerir(self):
         _, c, _ = self.kos([kod_karti()])
@@ -181,7 +181,7 @@ class AkisTestleri(unittest.TestCase):
     def test_yesil_gecmeyince_denetci_yok_ayri_on_kontrol_yok_duzeltme_turu(self):
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"yesil": [False, True]}})
         self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim", "denetim"])
+                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim"])
         isler = [x for x in c if x["phase"] == "İş"]
         self.assertTrue(isler[1]["ilk"].endswith("#SUREC:duzeltme"))
         self.assertIn("Yeşil test kapısı geçmedi", isler[1]["istem"])
@@ -198,7 +198,7 @@ class AkisTestleri(unittest.TestCase):
         ihlal = {"gecti": False, "ihlaller": [{"tur": "kapsam", "ayrinti": "src/b.py"}]}
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"onkontrol": [ihlal]}})
         self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim", "denetim"])
+                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim"])
         isler = [x for x in c if x["phase"] == "İş"]
         self.assertIn("ön kontrol kapsam", isler[1]["istem"])
         self.assertEqual(s[0]["durum"], "onaylandi")
