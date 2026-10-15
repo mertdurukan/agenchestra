@@ -399,7 +399,7 @@
   }
   function uyariCiz() {
     const sure = K && K.sonBasari ? `son başarılı yenileme ${B.saat(K.sonBasari)}` : 'henüz hiç veri alınamadı';
-    yerlestir($('#uyari'), K && K.uzunHata && orkestrali() ? `<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
+    yerlestir($('#verimUyari'), K && K.uzunHata && orkestrali() ? `<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
       <span class="metin"><b>Analitik verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(K.hata))}">${esc(sure)} · ${metin(kisalt(K.hata, 120))} · yeniden deneniyor</span></span></div>` : '');
   }
   const KABUL = ['basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'];
@@ -448,7 +448,7 @@
   $('#ganttGun').addEventListener('change', e => { S.gun = e.target.value; S.gSecili = null; ganttCiz(); });
 
   // ------------------------------------------------------------ veri
-  O.kabuk({ sayfa: 'verim' });
+  if (!O.sayfa) O.kabuk({ sayfa: 'verim' });   // Maliyet sayfasında kabuğu maliyet.js kurar
   K = O.veri(() => '/analitik.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'Analitik verisi', aralik: 15000,
     gecerli: v => v && v.basamak && v.birim && v.akis && v.saglik,

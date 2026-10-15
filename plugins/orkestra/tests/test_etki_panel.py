@@ -232,29 +232,31 @@ class EtkiPanel(unittest.TestCase):
         for yol in ("/etki", "/etki.html"):
             k, b = self.al(yol)
             self.assertEqual(k, 200)
-            self.assertIn("Orkestra · Etki", b.decode("utf-8"))
+            self.assertIn("Orkestra · Onaylar, etki ve kurallar", b.decode("utf-8"))
 
     def test_sayfalar_tablosu(self):
-        self.assertEqual(panel.SAYFALAR["/etki"], "etki.html")
-        self.assertEqual(panel.SAYFALAR["/etki.html"], "etki.html")
+        self.assertEqual(panel.SAYFALAR["/etki"], "onaylar.html")
+        self.assertEqual(panel.SAYFALAR["/etki.html"], "onaylar.html")
 
     def test_gezinti_sekmesi(self):
         js = oku("ortak.js")
         m = re.search(r"const SEKMELER = \[(.*?)\];", js, re.S)
         self.assertIsNotNone(m)
-        self.assertIn("['etki', 'Etki', '/etki']", m.group(1))
-        # mevcut sekmeler korunur
-        for s in ("['onaylar', 'Onaylar', '/onaylar']", "['kurallar', 'Kurallar', '/kurallar']"):
+        self.assertNotIn("'/etki'", m.group(1))  # Etki ayrı düğme değil; Onaylar sayfasında
+        self.assertNotIn("'/kurallar'", m.group(1))
+        self.assertNotIn("'/verim'", m.group(1))
+        for s in ("['onaylar', 'Onaylar, etki ve kurallar', '/onaylar']", "['maliyet', 'Maliyet ve verim', '/maliyet']"):
             self.assertIn(s, m.group(1))
 
-    def test_onaylar_baglantisi(self):
-        self.assertRegex(oku("onaylar.html"), r'href="/etki[^"]*"')
+    def test_onaylar_sayfasi_etkiyi_icerir(self):
+        h = oku("onaylar.html")
+        self.assertIn('id="eListe"', h)
+        self.assertIn("/api/etki", h)
 
     # ---------------------------------------------------------- kriter 3: grafik içeriği
     def test_etki_sayfasi_yapisi(self):
-        h = oku("etki.html")
-        self.assertIn("<title>Orkestra · Etki</title>", h)
-        self.assertIn("O.kabuk({ sayfa: 'etki' })", h)
+        h = oku("onaylar.html")
+        self.assertIn("<title>Orkestra · Onaylar, etki ve kurallar</title>", h)
         self.assertIn("/api/etki", h)
         self.assertIn('href="ortak.css"', h)
         # dış kütüphane / ağ kaynağı yok
@@ -262,7 +264,7 @@ class EtkiPanel(unittest.TestCase):
         self.assertNotRegex(h, r"@import|cdn\.")
 
     def test_grafik_serileri(self):
-        h = oku("etki.html")
+        h = oku("onaylar.html")
         self.assertIn("svg", h.lower())
         # taban çizgisi, günlük ve birikim serileri veri alanlarından çizilir
         for alan in ("taban", "gunluk_deger", "birikim_deger", "uygulama_tarihi", "diger_uygulamalar",
@@ -276,7 +278,7 @@ class EtkiPanel(unittest.TestCase):
         self.assertIn("stroke-dasharray", h)  # dondurulmuş taban kesikli ayırt edilir
 
     def test_liste_alanlari(self):
-        h = oku("etki.html")
+        h = oku("onaylar.html")
         for alan in ("uygulama_tarihi", "gun", "gidisat", "ayni_gidisat_gun", "soru_bekliyor", "dogru_karar_orani"):
             self.assertIn(alan, h)
         for rozet in ("iyi", "kotu", "etkisiz", "yetersiz-veri", "olculemez"):

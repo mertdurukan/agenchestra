@@ -2,7 +2,7 @@
 
 GET /                          → Son olaylar sayfası (assets/simdi.html); /index.html aynı
 GET /maliyet                   → Maliyet sayfası (assets/maliyet.html; yoksa "hazırlanıyor")
-GET /verim                     → Verim ve sağlık sayfası (assets/verim.html; yoksa "hazırlanıyor")
+GET /verim                     → Maliyet ve verim sayfası (maliyet.html ile birleşik)
 GET /ortak.css, /ortak.js      → üç sayfanın ortak tasarım sistemi
 GET /alanlar.json              → çalışma alanları (ad, yol, orkestra kurulu mu, son etkinlik)
 GET /ozet.json?alan=<id>       → seçili alanın anlık görüntüsü (orkestra varsa tam, yoksa sohbet maliyetleri)
@@ -12,7 +12,7 @@ GET /analitik-tum.json         → bütün alanların toplamı ve karşılaştı
 GET /simdi.json                → her sohbet: ne yapılıyor, neye yarayacak, kimi bekliyor (niyet.gorunum)
 POST /ac?oturum=<id>           → sohbeti Claude uygulamasında aç (X-Orkestra: 1 başlığı zorunlu)
 GET /onaylar, /onaylar.html    → Onay merkezi sayfası (assets/onaylar.html; yoksa "hazırlanıyor")
-GET /kurallar, /kurallar.html  → Kurallar sayfası (assets/kurallar.html; yoksa "hazırlanıyor")
+GET /kurallar, /kurallar.html  → Onaylar, etki ve kurallar sayfası (onaylar.html ile birleşik)
 GET /onaylar.json?alan=<id>    → onay kuyruğu: sayaç, kayıtlar, perspektif (rapor, durum)
 GET /kurallar.json?alan=<id>   → etkin kurallar, öneriler, geçmiş, kural kaynakları
 GET /isler, /isler.html        → Dashboard sayfası (sohbetler + işler; assets/isler.html; yoksa "hazırlanıyor")
@@ -61,11 +61,11 @@ ASSETS = os.path.join(L.PLUGIN_ROOT, "assets")
 # yol → (dosya, içerik türü); sayfa dosyası henüz yoksa "hazırlanıyor" sayfası döner
 SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simdi.html",
             "/maliyet": "maliyet.html", "/maliyet.html": "maliyet.html",
-            "/verim": "verim.html", "/verim.html": "verim.html",
+            "/verim": "maliyet.html", "/verim.html": "maliyet.html",
             "/onaylar": "onaylar.html", "/onaylar.html": "onaylar.html",
-            "/kurallar": "kurallar.html", "/kurallar.html": "kurallar.html",
+            "/kurallar": "onaylar.html", "/kurallar.html": "onaylar.html",
             "/isler": "isler.html", "/isler.html": "isler.html",
-            "/etki": "etki.html", "/etki.html": "etki.html",
+            "/etki": "onaylar.html", "/etki.html": "onaylar.html",
             "/yapilacaklar": "yapilacaklar.html", "/yapilacaklar.html": "yapilacaklar.html"}
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
@@ -371,9 +371,9 @@ def _isleyici():
                 pass
 
         def _hazirlaniyor(self, ad: str) -> bytes:
-            baslik = {"maliyet.html": "Maliyet", "verim.html": "Verim ve sağlık",
-                     "onaylar.html": "Onaylar", "kurallar.html": "Kurallar",
-                     "isler.html": "Dashboard", "etki.html": "Etki",
+            baslik = {"maliyet.html": "Maliyet ve verim",
+                     "onaylar.html": "Onaylar, etki ve kurallar",
+                     "isler.html": "Dashboard",
                      "yapilacaklar.html": "Yapılacaklar"}.get(ad, "Sayfa")
             return (f'<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
                     f'<title>Orkestra · {baslik}</title><link rel="stylesheet" href="ortak.css"></head>'

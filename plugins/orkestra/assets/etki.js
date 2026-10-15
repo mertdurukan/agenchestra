@@ -206,7 +206,7 @@
 
 
   // ------------------------------------------------------------ veri
-  O.kabuk({ sayfa: 'etki' });
+  if (!O.sayfa) O.kabuk({ sayfa: 'etki' });   // Onaylar sayfasında kabuğu onaylar.js kurar
   K = O.veri(() => '/api/etki?alan=' + encodeURIComponent(O.alan), {
     ad: 'Etki ölçümü', aralik: 5000,
     gecerli: v => Array.isArray(v.kayitlar) && v.ozet && (!v.alan || !v.alan.id || v.alan.id === O.alan),

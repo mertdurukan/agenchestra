@@ -787,7 +787,13 @@ def _kapanis_notlari(sd: str, liste: list) -> dict:
             except Exception:
                 continue
         a = is_yonlendirme.kapanis_adaylari(ozetler, _dt.datetime.now().astimezone())
-        notlar = {i: f" · kapatılabilir: orkestra is kapat {i}" for i in a.get("kapat", [])}
+        notlar = {}
+        for i in a.get("kapat", []):
+            try:
+                is_kaydi.is_durum(sd, i, "kapandi")
+                notlar[i] = " · otomatik kapandı"
+            except Exception:
+                notlar[i] = f" · kapatılabilir: orkestra is kapat {i}"
         notlar.update({i: " · bayat" for i in a.get("bayat", [])})
         return notlar
     except Exception:

@@ -315,8 +315,8 @@
   O.alan = url.searchParams.get('alan') || O.depo.al('orkestra.alan') || '';
   O.alanlar = [];
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
-  const SEKMELER = [['isler', 'Dashboard', '/isler'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
-    ['onaylar', 'Onaylar', '/onaylar'], ['etki', 'Etki', '/etki'], ['kurallar', 'Kurallar', '/kurallar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar'], ['simdi', 'Son olaylar', '/']];
+  const SEKMELER = [['isler', 'Dashboard', '/isler'], ['maliyet', 'Maliyet ve verim', '/maliyet'],
+    ['onaylar', 'Onaylar, etki ve kurallar', '/onaylar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar']];
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {
     document.querySelectorAll('#kabuk [data-sekme]').forEach(a => { a.href = a.dataset.yol + sorgu(); });
@@ -364,7 +364,7 @@
     const sen = Number(rozetSimdi && rozetSimdi.sen) || 0;
     return {
       isler: [sen, ' sohbet seni bekliyor'],
-      onaylar: [Number(s.bekliyor) || 0, ' onay bekliyor'], kurallar: [Number(s.tur && s.tur.kural) || 0, ' kural önerisi bekliyor'],
+      onaylar: [Number(s.bekliyor) || 0, ' onay bekliyor (kural önerileri dahil)'],
     };
   };
   function rozetYaz() {

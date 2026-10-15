@@ -223,8 +223,12 @@ class AcilisNotlari(_Ortak):
         a = self.is_ac("Bitmiş iş başlığı", "001-bitmis")
         self.todo_yaz(a, "# T\n\n- [x] bir\n- [x] iki\n")
         p = self.parca(self.acilis(), a["id"])
-        self.assertIn("orkestra is kapat " + a["id"], p)
-        self.assertIn("kapatılabilir", p)
+        self.assertIn("otomatik kapandı", p)
+        self.assertNotIn(a["id"], self._acik_idler())
+
+    def _acik_idler(self):
+        import is_kaydi
+        return [g["id"] for g in is_kaydi.is_liste(self.sd, "acik")]
 
     def test_todo_tamam_ama_acik_kart_varsa_not_yok(self):
         a = self.is_ac("Bitmiş ama kartlı iş", "001-kartli")
@@ -236,7 +240,8 @@ class AcilisNotlari(_Ortak):
         a = self.is_ac("Kartı teslim edilmiş iş", "001-teslim")
         self.todo_yaz(a, "# T\n\n- [x] bir\n")
         self.kart_yaz("G-001", a["id"], "teslim")
-        self.assertIn("orkestra is kapat " + a["id"], self.parca(self.acilis(), a["id"]))
+        self.acilis()
+        self.assertNotIn(a["id"], self._acik_idler())
 
     def test_todo_tamam_degilse_not_yok(self):
         a = self.is_ac("Yarım iş", "001-yarim")
