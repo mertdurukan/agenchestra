@@ -634,9 +634,13 @@ def yazma_cakismalari(sd: str, proje: str, kart: dict) -> list[str]:
             if neden:
                 hatalar.append(f"'{d}' paylaşılan ağaçta izinli değil: {neden} — alanı daralt ya da ayrı çalışma "
                                f"ağacı aç (`orkestra kart agac {kart.get('id')}`)")
+    baglar = {str(b) for b in kart.get("bagimliliklar") or []}
     for k in kartlar(sd):
-        if k.get("id") == kart.get("id") or kart_durumu_hesapla(k) not in ACIK_DURUMLAR:
+        durum = kart_durumu_hesapla(k)
+        if k.get("id") == kart.get("id") or durum not in ACIK_DURUMLAR:
             continue
+        if durum == "onaylandi" and k.get("id") in baglar:
+            continue  # onaylı ama teslim edilmemiş BAĞIMLILIK: iş bitti, alanı engel değil (bağımlı olmayan onaylı kart engel kalır)
         bulundu = None
         for a in desenler:
             agac_a = git_koku(desen_parcala(proje, a)[0], onbellek)
