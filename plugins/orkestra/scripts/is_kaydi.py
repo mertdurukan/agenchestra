@@ -266,6 +266,32 @@ def is_liste(sd: str, durum: str | None = None) -> list[dict]:
     return out
 
 
+def sifirla(sd: str) -> dict:
+    """Merkezi iş kayıtlarını yedeğe alıp boşaltır → {"silinen": n, "yedek": yol | None}.
+
+    Sayaç, iş klasörleri (is.json, todo.md, ...) ve kartlar yerinde kalır; eski kimlikler yeniden verilmez.
+    Yedek: <durum dizini>/yedek/isler_<damga>.json. Kayıt yok ya da zaten boşsa dosya yazılmaz (yedek None)."""
+    yol = _merkez(sd)
+    with L.kilit(yol):
+        veri = _oku(yol, _BOS)
+        isler = veri.get("isler") or {}
+        if not isler:
+            return {"silinen": 0, "yedek": None}
+        yedek_dizin = os.path.join(sd, "yedek")
+        os.makedirs(yedek_dizin, exist_ok=True)
+        yedek = os.path.join(yedek_dizin, f"isler_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json")
+        _yaz(yedek, veri)
+        veri["isler"] = {}
+        veri["sifirlama"] = L.simdi()
+        _yaz(yol, veri)
+    return {"silinen": len(isler), "yedek": yedek}
+
+
+def sifirlama_zamani(sd: str) -> str | None:
+    """Son sıfırlamanın zamanı; hiç sıfırlanmadıysa None."""
+    return _oku(_merkez(sd), _BOS).get("sifirlama")
+
+
 def _degistir(sd: str, is_id: str, islem) -> dict:
     giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(is_id)
     if not giris:
