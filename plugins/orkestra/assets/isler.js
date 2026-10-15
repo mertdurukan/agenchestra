@@ -212,7 +212,7 @@
     const d = bekleyenD(r.bekleyen);
     const k = r.kartlar || { acik: 0, toplam: 0, teslim: 0, aktif: [] };
     const kartIp = k.aktif && k.aktif.length ? k.aktif.map(x => `<div class="meta">${esc(x.id)} · ${metin(x.baslik)}</div>`).join('') : '';
-    const kartMetni = k.acik ? `${k.acik} açık kart` : '';
+    const kartMetni = `${k.acik || 0} açık kart`;
     const sen = r.bekleyen === 'sen';   // sade kart: kapanış rozetleri ve iş/kart satırı çizilmez
     let govde;
     if (sen) {
