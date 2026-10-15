@@ -33,5 +33,19 @@
     "\\bincele(?:yin|yelim|r\\s+mis(?:in|iniz)|yebilir\\w*|sene|yip)?\\b",
     "\\bkontrol\\s+e(?:t|din|delim|der\\s+mis(?:in|iniz)|debilir\\w*)\\b",
     "\\bbak(?:ın|alım|ar\\s+m[ıi]s[ıi]n\\w*|abilir\\w*|sana)?\\b"
+  ],
+  "devam_max_karakter": 0,
+  "devam_kaliplari": [
+    "\\bdevam\\b",
+    "\\bönerinle\\b",
+    "^\\s*(tamam|evet|olur|peki)\\b",
+    "\\b(bunu|şunu|buna|şuna)\\b",
+    "\\bbunlar\\w*"
+  ],
+  "yanit_yasak_kaliplari": [
+    "ister misin\\s*\\??",
+    "istersen\\b[^.\\n]{0,80}\\b(yapabilirim|başlatabilirim|ekleyebilirim)",
+    "şunu da yapal[ıi]m",
+    "bir sonraki adım(?:ı|lar)? olarak"
   ]
 }

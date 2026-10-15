@@ -65,3 +65,19 @@ def bilgi_sorusu_mu(metin, ayar: dict) -> bool:
 def not_metni(metin, sd=None) -> str:
     ayar = ayar_oku(sd)
     return ayar.get("not", "") if bilgi_sorusu_mu(metin, ayar) else ""
+
+
+def tur(metin, sd=None) -> str:
+    """Hız için model yok: 'soru' (bilgi sorusu), 'devam' (kısa/atıflı mesaj) ya da 'is'. Kararsızsa 'devam'."""
+    ayar = ayar_oku(sd)
+    if bilgi_sorusu_mu(metin, ayar):
+        return "soru"
+    m = _normallestir((metin or "").strip())
+    if len(m) <= ayar.get("devam_max_karakter", 0) or _eslesir(ayar.get("devam_kaliplari"), m):
+        return "devam"
+    return "is"
+
+
+def yanit_ihlali(yanit, sd=None) -> bool:
+    """Yanıtta konu dışı öneri/"ister misin" kalıbı var mı (regex; model yok, ek token yok)."""
+    return _eslesir(ayar_oku(sd).get("yanit_yasak_kaliplari"), _normallestir(yanit or ""))

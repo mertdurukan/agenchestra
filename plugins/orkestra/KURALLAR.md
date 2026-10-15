@@ -36,6 +36,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - Opus denetçi yalnız T3-T4 işlerinde ve kartta ikinci retten sonra kullan.
 - Test ve T0 ön kontrol (`on_kontrol.py`: yeni test hatası, CRLF/BOM, kapsam dışı yazma, eksik token) ajan değildir: işçinin `kart durum is-bitti` çağrısında CLI koşar. Geçmezse is-bitti kaydedilmez ve işçi aynı oturumda düzeltir; denetçi çağrılmaz.
 - Denetçi testi yeniden koşmaz; CLI kaydına ve diff'e bakar.
+- Kart başına testler `test_alani` dosyalarıyla sınırlıdır (geniş komut otomatik daralır); tam paket iş sonunda bir kez koşar, kart başına değil.
 - Test-önce (test yazarı + kırmızı kapı) yalnız riskli kod kartında (`tdd: true`): davranış değişikliği olan çok dosyalı ya da kanonik mantık. Diğer kod kartında işçi kodu ve testi birlikte yazar.
 - Yeniden denetim yalnız önceki retteki karşılanmayan kriterlere ve gerilemeye baksın.
 

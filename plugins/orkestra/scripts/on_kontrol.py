@@ -76,7 +76,12 @@ def yol_alanda_mi(proje: str, yol: str, desenler: list[str]) -> bool:
     return False
 
 
-def test_kos(komut: str, cwd: str) -> dict:
+def test_kos(komut: str, cwd: str, kart: dict | None = None) -> dict:
+    """Kart verilirse geniş komut test_alani'ndaki test dosyalarına daralır (test_koku'lu kartta daralmaz: cwd farklı)."""
+    if kart and not kart.get("test_koku"):
+        komut, _ = L.test_komutu_daralt(komut, cwd, kart.get("test_alani") or [])
+        if komut is None:
+            return {"cikis": 0, "basarisiz": []}
     kod, cikti, _ = L.kabuk_kos(komut, cwd, TEST_ZAMAN_ASIMI)
     return {"cikis": kod, "basarisiz": L.pytest_dusenler(cikti)}
 
@@ -191,7 +196,7 @@ def taban(a) -> int:
     proje, sd, kart = _kart(a)
     kayit = {"zaman": L.simdi(), "dosyalar": {y: dosya_ozeti(y) for y in alan_dosyalari(proje, kart.get("yazma_alani"))}}
     if kart.get("test_komutu"):
-        kayit["test"] = kirmizi_kaydi_testi(kart) or test_kos(kart["test_komutu"], proje)
+        kayit["test"] = kirmizi_kaydi_testi(kart) or test_kos(kart["test_komutu"], proje, kart)
     L.atomik_yaz(_kayit_yolu(sd, kart["id"]), json.dumps(kayit, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({"taban": "kaydedildi", "dosya_sayisi": len(kayit["dosyalar"]),
                       "basarisiz_test": len(kayit.get("test", {}).get("basarisiz", []))}, ensure_ascii=False))
@@ -268,7 +273,7 @@ def kontrol(a) -> int:
             if "taban-yok" not in uyarilar:
                 uyarilar.append("taban-yok")
         else:
-            once, simdi = taban_kaydi["test"], test_kos(kart["test_komutu"], proje)
+            once, simdi = taban_kaydi["test"], test_kos(kart["test_komutu"], proje, kart)
             if once["basarisiz"] or simdi["basarisiz"]:
                 yeni = sorted(set(simdi["basarisiz"]) - set(once["basarisiz"]))
                 onceden = sorted(set(simdi["basarisiz"]) & set(once["basarisiz"]))

@@ -1,74 +1,15 @@
-"""Orkestra iş yönlendirme: konu skoru, yönlendirme kararı, kapanış/bayat tespiti.
+"""Orkestra iş yönlendirme: yeni görev satırı, kapanış/bayat tespiti.
 
-Saf Python, yalnız standart kütüphane. Dosya, ağ ve alt süreç kullanmaz; yan etkisi yoktur.
+Sınıflandırmayı (görev hangi işe ait, yoksa yeni iş) ana ajan yapar; modül ona yalnız açık işleri
+ve karar kuralını tek satırda gösterir. Saf Python, yalnız standart kütüphane; dosya, ağ ve alt süreç
+kullanmaz; yan etkisi yoktur.
 """
-import re
 from datetime import datetime, timedelta
 
 BAYAT_GUN = 14
-ESIK = 3
-SATIR_SINIR = 200
-KOK_UZUNLUK = 5
-
-_KATLA = str.maketrans({
-    "İ": "i", "I": "i", "ı": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
-    "ü": "u", "Ü": "u", "ö": "o", "Ö": "o", "ç": "c", "Ç": "c",
-})
-
-
-def _katla(metin):
-    return str(metin).translate(_KATLA).lower()
-
-
-_DURAK_HAM = """
-bir bu su şu ve ile için icin ama fakat gibi daha çok cok en de da mi mı mu mü
-ben sen biz siz onlar var yok olarak olan olsun şimdi simdi bunu şunu onu
-bana sana ona yap yapıl yapil etmek et lütfen lutfen şey sey her hem ya
-ki ise ne nasıl nasil neden the and for with
-"""
-_DURAK = {_katla(s) for s in _DURAK_HAM.split()}
-
-
-def tokenler(metin):
-    """Metni kaba köklere (ilk 5 karakter) ayrılmış kümeye çevirir."""
-    if not isinstance(metin, str):
-        return set()
-    out = set()
-    for s in re.findall(r"[^\W_]+", _katla(metin)):
-        if len(s) < 3 or s in _DURAK:
-            continue
-        out.add(s[:KOK_UZUNLUK])
-    return out
-
-
-def _metin(v):
-    return v if isinstance(v, str) else ""
-
-
-def _skor_bir(istek_t, is_):
-    baslik_klasor = tokenler(_metin(is_.get("baslik")) + " " + _metin(is_.get("klasor_adi")))
-    puan = 2 * len(istek_t & baslik_klasor)
-    todo_t = set()
-    todolar = is_.get("acik_todolar")
-    if isinstance(todolar, (list, tuple)):
-        for t in todolar:
-            todo_t |= tokenler(_metin(t))
-    puan += len((istek_t & todo_t) - baslik_klasor)
-    return puan
-
-
-def skorla(istek, isler):
-    """[(is_id, skor)] skora göre azalan (eşitlikte giriş sırası korunur)."""
-    istek_t = tokenler(istek)
-    sonuc = []
-    if not isinstance(isler, (list, tuple)):
-        return sonuc
-    for is_ in isler:
-        if not isinstance(is_, dict) or is_.get("id") is None:
-            continue
-        sonuc.append((is_["id"], _skor_bir(istek_t, is_)))
-    sonuc.sort(key=lambda x: -x[1])
-    return sonuc
+SATIR_SINIR = 500
+MAX_IS = 6
+BASLIK_SINIR = 28
 
 
 def _tek_satir(metin, sinir):
@@ -76,46 +17,24 @@ def _tek_satir(metin, sinir):
     return s if len(s) <= sinir else s[: sinir - 1].rstrip() + "…"
 
 
-def _satir_yeni(istek):
-    kisa = _tek_satir(istek, 60)
-    return _tek_satir(
-        "Bu istek açık işlerle eşleşmiyor; yeni iş için: orkestra is ac \"%s\" --klasor <klasör>" % kisa,
-        SATIR_SINIR)
-
-
-def _satir_degistir(is_id, baslik):
-    kisa = _tek_satir(baslik, 60)
-    return _tek_satir(
-        "Bu istek \"%s\" işine daha yakın: orkestra is devam %s" % (kisa, _tek_satir(is_id, 40)),
-        SATIR_SINIR)
-
-
-def yonlendir(istek, isler, bagli_id):
-    """None ya da {tur: 'yeni'|'degistir', is: id|None, satir: str}."""
-    skorlar = skorla(istek, isler)
-    en_iyi_id, en_iyi = skorlar[0] if skorlar else (None, 0)
-
-    if en_iyi < ESIK:
-        if bagli_id is None:
-            return {"tur": "yeni", "is": None, "satir": _satir_yeni(istek)}
-        return None
-
-    baslik = ""
-    for is_ in isler:
-        if isinstance(is_, dict) and is_.get("id") == en_iyi_id:
-            baslik = _metin(is_.get("baslik"))
-            break
-    oneri = {"tur": "degistir", "is": en_iyi_id,
-             "satir": _satir_degistir(en_iyi_id, baslik)}
-
-    if bagli_id is None:
-        return oneri
-    if bagli_id == en_iyi_id:
-        return None
-    bagli = dict(skorlar).get(bagli_id, 0)
-    if bagli * 2 >= en_iyi or en_iyi - bagli < ESIK:
-        return None
-    return oneri
+def yonlendir(isler, bagli_id):
+    """Yeni görev için tek satır: bağlı iş, açık işler ve karar kuralı."""
+    liste = []
+    bagli_baslik = ""
+    for is_ in isler if isinstance(isler, (list, tuple)) else []:
+        if not isinstance(is_, dict) or is_.get("id") is None:
+            continue
+        baslik = _tek_satir(is_.get("baslik") or "", BASLIK_SINIR)
+        if bagli_id is not None and str(is_["id"]) == str(bagli_id):
+            bagli_baslik = baslik
+        if len(liste) < MAX_IS:
+            liste.append("%s %s" % (_tek_satir(is_["id"], 20), baslik))
+    bagli = ("bağlı iş %s %s" % (bagli_id, bagli_baslik)).strip() if bagli_id is not None else "bağlı iş yok"
+    kural = ("Yeni görev (%s): bağlı işin parçasıysa devam; başka açık işe aitse `orkestra is devam <id>`; "
+             "hiçbirine uymuyorsa `orkestra is ac \"<başlık>\" --klasor <klasör>`." % bagli)
+    if liste:
+        kural += " Açık işler: " + "; ".join(liste)
+    return _tek_satir(kural, SATIR_SINIR)
 
 
 def _tarih(deger, simdi):
