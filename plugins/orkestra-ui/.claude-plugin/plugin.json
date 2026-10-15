@@ -1,0 +1,8 @@
+{
+  "name": "orkestra-ui",
+  "displayName": "Orkestra UI",
+  "description": "Orkestra için minimum arayüz: görev kartları, denetim durumu, ajan x süreç maliyeti ve ortak defterin son kayıtları bir panelde; prompt üstünde tek satırlık durum bandı; /orkestra komutu.",
+  "author": { "name": "Mert Durukan" },
+  "license": "UNLICENSED",
+  "types": "./types/index.d.ts"
+}

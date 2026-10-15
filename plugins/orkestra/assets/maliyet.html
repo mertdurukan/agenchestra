@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Maliyet</title>
+<link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="maliyet.css">
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Maliyet</h1>
+  <div id="kapsamSerit" class="kapsam-serit gizli"></div>
+  <div id="uyari"></div>
+
+  <section class="bolum" id="kpi" aria-labelledby="kpiBaslik">
+    <h2 id="kpiBaslik">Harcama <span id="kpiBayat"></span></h2>
+    <p class="aciklama">API liste fiyatıyla tahmin; abonelikte fatura değil, kota karşılığıdır.</p>
+    <div id="kpiIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <section class="bolum" id="sohbetler" aria-labelledby="sohbetBaslik">
+    <h2 id="sohbetBaslik">Sohbetler <span class="meta" id="sohbetSayi"></span><span id="sohbetBayat"></span></h2>
+    <p class="aciklama">Sohbet başına kayıtlı toplam. Birine tıkla: aşağıdaki kırılımlar yalnız o sohbete bakar.</p>
+    <details class="nasil"><summary>Tutarlar nasıl okunur?</summary>
+      <p>Sağdaki sözcük yoksa tutar Claude'un kendi hesabıdır (kapanmış sohbet). <b>tahmini</b>: açık sohbet, orkestra defterinden. <b>kaba</b>: transkript tahmini. Hepsi API liste fiyatıyladır.</p></details>
+    <div id="sohbetIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <section class="bolum gizli" id="orkYok" aria-labelledby="orkYokBaslik">
+    <h2 id="orkYokBaslik">İş türü ve ajanlar</h2>
+    <div id="orkYokIcerik"></div>
+  </section>
+
+  <p class="meta kpi-not" id="kirilimNot"></p>
+
+  <div class="ikili" id="ikili">
+    <section class="bolum" id="surecB" aria-labelledby="surecBaslik">
+      <h2 id="surecBaslik">İş türü <span class="meta" id="surecDonem"></span></h2>
+      <p class="aciklama">Harcamanın hangi tür işe gittiği.</p>
+      <div id="surecIcerik"><p class="bos">Yükleniyor…</p></div>
+    </section>
+    <section class="bolum" id="modelB" aria-labelledby="modelBaslik">
+      <h2 id="modelBaslik">Model payı <span class="meta" id="modelDonem"></span></h2>
+      <p class="aciklama">Harcamanın hangi modele gittiği.</p>
+      <div id="modelIcerik"><p class="bos">Yükleniyor…</p></div>
+    </section>
+  </div>
+
+  <section class="bolum" id="ajanB" aria-labelledby="ajanBaslik">
+    <h2 id="ajanBaslik">Ajan × iş türü <span class="meta" id="ajanDonem"></span></h2>
+    <p class="aciklama">Hangi ajan hangi işte kaç koşu, kaç token, ne kadar harcadı.</p>
+    <div id="ajanIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <section class="bolum" id="zaman" aria-labelledby="zamanBaslik">
+    <h2 id="zamanBaslik">Zaman içinde harcama <span id="zamanBayat"></span></h2>
+    <p class="aciklama">İlk kayıttan bugüne, token defterindeki bütün kayıtlar.</p>
+    <div id="zamanIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <section class="bolum" id="kota" aria-labelledby="kotaBaslik">
+    <h2 id="kotaBaslik">Kota <span id="kotaBayat"></span></h2>
+    <p class="aciklama" id="kotaAciklama">5 saatlik ve haftalık kullanım sınırı; hesap geneli.</p>
+    <div id="kotaIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <section class="bolum gizli" id="tum" aria-labelledby="tumBaslik">
+    <h2 id="tumBaslik">Tüm projeler <span id="tumBayat"></span></h2>
+    <p class="aciklama">Bütün çalışma alanlarının toplamı. Sohbet kapsamı bu bölüme uygulanmaz.</p>
+    <div id="tumIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script src="maliyet.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Yapılacaklar</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+  .yap-ust { display: flex; gap: var(--a-8); flex-wrap: wrap; margin: var(--a-12) 0; }
+  .yap-ust select { min-width: 12rem; }
+  .yap-ust input[type="text"] { flex: 1 1 18rem; min-width: 0; }
+  .yap-liste { list-style: none; margin: 0; padding: 0; }
+  .yap-liste li { display: flex; gap: var(--a-8); align-items: baseline; padding: var(--a-4) 0; overflow-wrap: anywhere; }
+  .yap-biten li { color: var(--text-muted); text-decoration: line-through; }
+  #kYeni {
+    flex: 1 1 18rem; min-width: 0; resize: vertical; min-height: 2.6em; max-height: 50vh; line-height: 1.45;
+    background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--k-6);
+    padding: var(--a-4) var(--a-8); font: inherit; font-size: var(--t-13); color: var(--text-primary);
+  }
+  #kListe li { align-items: flex-start; padding: var(--a-8) 0; border-bottom: 1px solid var(--line); }
+  #kListe li:last-child { border-bottom: 0; }
+  #kListe li > button { flex: none; white-space: nowrap; overflow-wrap: normal; }
+  #kListe li > span { flex: 1; min-width: 0; white-space: pre-wrap; line-height: 1.45; }
+</style>
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Yapılacaklar</h1>
+  <section class="bolum" aria-labelledby="kBaslik">
+    <h2 id="kBaslik">Benim yapılacaklarım <span class="meta" id="kSayi"></span></h2>
+    <p class="aciklama">Yalnız bu bölümü sen düzenlersin: yaz, Enter ile ekle (Shift+Enter yeni satır), işin bitince sil. İşlerin todo listeleri aşağıda salt okunurdur.</p>
+    <div class="yap-ust">
+      <textarea id="kYeni" rows="2" placeholder="Yeni madde… (Enter ile ekle, Shift+Enter yeni satır)" aria-label="Yeni madde" maxlength="2000"></textarea>
+    </div>
+    <ul id="kListe" class="yap-liste"><li class="bos">Yükleniyor…</li></ul>
+  </section>
+  <section class="bolum" aria-labelledby="yBaslik">
+    <h2 id="yBaslik">İşlerin yapılacakları <span class="meta" id="ySayi"></span></h2>
+    <p class="aciklama">Salt okunur: bu listeleri orkestra ve işçiler günceller (CLI: orkestra is todo).</p>
+    <div class="yap-ust">
+      <select id="isSec" aria-label="İş"></select>
+    </div>
+    <ul id="acik" class="yap-liste"><li class="bos">Yükleniyor…</li></ul>
+    <h3 class="meta" id="bitenBaslik" hidden>Biten</h3>
+    <ul id="biten" class="yap-liste yap-biten"></ul>
+  </section>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script src="yapilacaklar.js"></script>
+</body>
+</html>

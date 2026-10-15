@@ -1,0 +1,25 @@
+  /* Son olaylar sayfasına özgü küçük ekler; ortak bileşenler ortak.css'te. Sohbet kartları isler.html'de (Dashboard). */
+
+  /* son olaylar: her satır bir iş; durum simgesi solda, başlık + ayrıntı + sohbet/saat */
+  .ozet { display: flex; gap: var(--a-16); flex-wrap: wrap; margin: var(--a-4) 0 var(--a-8); font-size: var(--t-13); color: var(--text-secondary); }
+  .ozet:empty { display: none; }
+  .ozet span { display: inline-flex; align-items: center; gap: 6px; }
+  .ozet i { width: 8px; height: 8px; border-radius: 50%; background: var(--renk); display: inline-block; }
+  .ozet b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .akis { list-style: none; padding: 0; margin: 0; }
+  .akis .gun { font-size: var(--t-12); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; padding: var(--a-16) var(--a-8) var(--a-4); }
+  .akis .gun:first-child { padding-top: var(--a-4); }
+  .akis .is { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: var(--a-12); padding: var(--a-12) var(--a-8); border-radius: var(--k-6); }
+  .akis .is + .is { border-top: 1px solid var(--line); }
+  .akis .is[data-oturum] { cursor: pointer; }
+  .akis .is[data-oturum]:hover { background: var(--surface-2); border-top-color: transparent; }
+  .akis .is[data-oturum]:hover + .is { border-top-color: transparent; }
+  .akis .sim { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px;
+    border: 2px solid var(--renk); color: var(--renk); font-size: 12px; font-weight: 700; line-height: 1; }
+  .akis .sim.dolu { background: var(--renk); color: var(--surface-0); }
+  .akis .sim.nabiz { animation: orkNabiz 1.4s ease-in-out infinite; }
+  .akis .baslik { font-size: var(--t-14); font-weight: 600; overflow-wrap: anywhere; }
+  .akis .ayrinti { color: var(--text-secondary); font-size: var(--t-13); margin-top: 2px; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .akis .alt { color: var(--text-muted); font-size: var(--t-12); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .akis .alt .durum { color: var(--renk); font-weight: 600; }

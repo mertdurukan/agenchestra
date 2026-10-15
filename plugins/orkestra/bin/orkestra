@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# orkestra CLI sarmalayıcısı (Git Bash / POSIX). Ayrıntı: orkestra --help
+DIR="$(cd "$(dirname "$0")" && pwd)"
+exec python "$DIR/../scripts/orkestra.py" "$@"

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Son olaylar</title>
+<link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="simdi.css">
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Son olaylar</h1>
+  <section class="bolum" id="olaylar" aria-labelledby="olayBaslik">
+    <h2 id="olayBaslik">Son olaylar <span id="olayBayat"></span></h2>
+    <div class="ozet" id="olayOzet"></div>
+    <ul class="akis" id="olayListe"><li class="bos">Yükleniyor…</li></ul>
+  </section>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script src="simdi.js"></script>
+</body>
+</html>

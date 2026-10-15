@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Dashboard</title>
+<link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="isler.css">
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Dashboard</h1>
+  <section class="bolum" id="sohbetler" aria-labelledby="sohbetBaslik">
+    <h2 id="sohbetBaslik">Sohbetler <span class="meta" id="sohbetSayi"></span><span id="sohbetBayat"></span></h2>
+    <p class="aciklama">Bütün çalışma alanlarındaki sohbetler; seni bekleyenler önce. Bir karta tıklayınca o sohbet Claude uygulamasında açılır.</p>
+    <div class="cipler" id="sohbetCip" role="group" aria-label="Sohbet süzgeci"></div>
+    <div id="sohbetListe"><p class="bos">Yükleniyor…</p></div>
+  </section>
+
+  <div class="duzen">
+    <nav class="liste-kap" aria-labelledby="lBaslik">
+      <div class="liste-bas"><h2 id="lBaslik">İşler</h2><span class="meta" id="iSayi"></span><span id="iBayat"></span></div>
+      <div class="cipler filtre" id="filtre" role="group" aria-label="İş türüne göre süz"></div>
+      <div id="liste"><p class="bos">Yükleniyor…</p></div>
+    </nav>
+    <section class="detay" id="detay" aria-live="off">
+      <div id="dBas"><p class="bos">Yükleniyor…</p></div>
+      <div class="gecmis gizli" id="gecmis">
+        <div class="arac">
+          <div id="sekmeler" role="tablist" aria-label="İş içeriği"></div>
+          <input type="search" id="ara" placeholder="Bu işte ara…" aria-label="Bu işte ara" autocomplete="off">
+        </div>
+        <div id="dListe" role="tabpanel"></div>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script src="isler.js"></script>
+</body>
+</html>

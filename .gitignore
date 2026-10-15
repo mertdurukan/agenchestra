@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/orkestra/
+evals/results/
+plugins/*/evals/results/
+plugins/*/.claude-plugin/types/
+*.lock

@@ -1,0 +1,17 @@
+{
+  "_aciklama": "API liste fiyatları, $ / milyon token (kaynak: claude-api skill tablosu, 06.10.2026). Abonelikte gerçek fatura değil, kota karşılığı tahmindir. Önbellek yazma: 5 dk = giriş x1.25, 1 saat = giriş x2.",
+  "varsayilan": "claude-opus-5-5",
+  "modeller": {
+    "claude-fable-5-1":  {"giris": 10.0, "cikis": 50.0, "onbellek_okuma": 0.25, "onbellek_yazma_5dk": 12.5,  "onbellek_yazma_1sa": 20.0},
+    "claude-fable-5":    {"giris": 10.0, "cikis": 50.0, "onbellek_okuma": 1.0,  "onbellek_yazma_5dk": 12.5,  "onbellek_yazma_1sa": 20.0},
+    "claude-mythos-5":   {"giris": 10.0, "cikis": 50.0, "onbellek_okuma": 0.25, "onbellek_yazma_5dk": 12.5,  "onbellek_yazma_1sa": 20.0},
+    "claude-opus-5-5":   {"giris": 4.0,  "cikis": 20.0, "onbellek_okuma": 0.20, "onbellek_yazma_5dk": 5.0,   "onbellek_yazma_1sa": 8.0},
+    "claude-opus-5":     {"giris": 5.0,  "cikis": 25.0, "onbellek_okuma": 0.50, "onbellek_yazma_5dk": 6.25,  "onbellek_yazma_1sa": 10.0},
+    "claude-opus-4":     {"giris": 5.0,  "cikis": 25.0, "onbellek_okuma": 0.50, "onbellek_yazma_5dk": 6.25,  "onbellek_yazma_1sa": 10.0},
+    "claude-sonnet-5-5": {"giris": 2.0,  "cikis": 10.0, "onbellek_okuma": 0.20, "onbellek_yazma_5dk": 2.5,   "onbellek_yazma_1sa": 4.0},
+    "claude-sonnet-5":   {"giris": 2.0,  "cikis": 10.0, "onbellek_okuma": 0.20, "onbellek_yazma_5dk": 2.5,   "onbellek_yazma_1sa": 4.0},
+    "claude-sonnet-4":   {"giris": 3.0,  "cikis": 15.0, "onbellek_okuma": 0.30, "onbellek_yazma_5dk": 3.75,  "onbellek_yazma_1sa": 6.0},
+    "claude-haiku-5-5":  {"giris": 0.10, "cikis": 0.50, "onbellek_okuma": 0.01, "onbellek_yazma_5dk": 0.125, "onbellek_yazma_1sa": 0.20},
+    "claude-haiku-4-5":  {"giris": 1.0,  "cikis": 5.0,  "onbellek_okuma": 0.10, "onbellek_yazma_5dk": 1.25,  "onbellek_yazma_1sa": 2.0}
+  }
+}

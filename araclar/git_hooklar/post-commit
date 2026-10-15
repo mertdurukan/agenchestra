@@ -1,0 +1,3 @@
+#!/bin/sh
+# Orkestra: commit sonrası yayın klonunu ilerlet. Kurulum: python araclar/yayin_kur.py
+exec sh "$(dirname "$0")/orkestra-yayin-esitle.sh"

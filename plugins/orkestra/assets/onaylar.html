@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Onaylar</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+  /* Onaylar sayfasına özgü küçük ekler; ortak bileşenler ortak.css'te. */
+  .cipler { margin-bottom: var(--a-8); }
+  .grup-baslik { text-transform: none !important; letter-spacing: 0 !important; font-size: var(--t-13) !important; color: var(--text-secondary) !important; margin: var(--a-8) 0 0 !important; }
+  .grup-baslik + .meta { margin: 0; }
+  .durum-satir { margin: var(--a-12) 0 0; font-size: var(--t-13); color: var(--text-secondary); overflow-wrap: anywhere; }
+  .katla { margin-top: var(--a-4); }
+</style>
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Onaylar</h1>
+  <section class="bolum" aria-labelledby="oBaslik">
+    <h2 id="oBaslik">Onaylar <span class="meta" id="oSayi"></span><span id="oBayat"></span></h2>
+    <p class="aciklama">Burada verdiğin kararları Claude bir sonraki mesajda ya da /orkestra:onay ile uygular; kural onayları hemen etkinleşir. <a href="/etki" id="etkiBaglanti">Uygulananların etkisi</a></p>
+    <div class="cipler" role="group" aria-label="Görünüm" id="gorunumCipler"></div>
+    <div class="cipler" role="group" aria-label="Tür" id="turCipler"></div>
+    <div id="liste" class="onay-liste"><p class="bos">Yükleniyor…</p></div>
+  </section>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script src="onaylar.js"></script>
+</body>
+</html>
