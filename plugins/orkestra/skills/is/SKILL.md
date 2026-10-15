@@ -38,6 +38,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
     - Kartları yazmadan önce her alt iş için `py -3.13 <plugin>/scripts/oner.py basamak --sinif <sinif> --metin "<başlık + kriterler>"` çalıştır.
     - Öneri bağlayıcı değildir (K-3: otomatik uygulama yok); `yetersiz-veri` dönerse "kuşkuda düşük" kuralı geçerlidir.
     - Benzer kart uyarılarındaki kriter ipuçlarını kabul kriterlerine kat.
+    - Teslim türü (`oto_teslim`): kod kartında varsayılan kendiliğinden teslimdir; kod dışı kartta (belge, analiz, kanonik, dış teslim) varsayılan elle teslimdir (ana ajan). Riskli kod kartında plan JSON'una `"oto_teslim": false` yaz (`kart yeni --elle-teslim`).
   - `kabul_kriterleri`: ölçülebilir, kanıtla doğrulanabilir.
   - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
@@ -94,6 +95,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 
 ## 3. Topla ve getir
 - Workflow sonucunu ya da işçi ve denetçi yanıtlarını oku. `orkestra kart liste` ile durumları doğrula.
+- `oto_teslim` kartları denetçi onayında kendiliğinden teslim olur; sen yalnız `onaylandi` kalan kartları (elle teslim ya da oto-teslim uyarısı verenler) toplu teslim edersin.
 - Onaylı her kart için çıktıları kendin gözden geçir (dosyaları aç). Sonra onaylı kartları tek tek değil toplu kapat: `[{"id": "G-001", "ozet": "<tek cümle>"}, ...]` biçiminde bir JSON dosyası yaz, `orkestra kart teslim-toplu --json-dosya <f>` çalıştır. Tek kart için `orkestra kart teslim <id> --ozet "<tek cümle>"` kalır.
 - Reddedilen ya da atlanan kart için kullanıcıya nedenini söyle. Ya planı düzelt ya da `orkestra kart durum <id> beklemede --not "neden"` (ya da `iptal`) yap.
 - Ortak dosyalar (README, dizinler, notlar günlüğü) gerekiyorsa şimdi sen güncelle.
