@@ -186,6 +186,10 @@ def atomik_yaz(yol: str, metin: str) -> None:
         except PermissionError:
             # Windows: hedef başka bir okuyucuda açıkken kısa süre reddedilebilir.
             if deneme == 4:
+                try:
+                    os.remove(gecici)  # başarısız yazım .tmp_* dosyası bırakmasın
+                except OSError:
+                    pass
                 raise
             time.sleep(0.02 * (deneme + 1))
 
@@ -1365,7 +1369,25 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
     sürdürülünce her SubagentStop tüm transkripti yeniden okur): yalnız en son satır (zaman, eşitse maliyet_usd en
     büyük) kalır. agent_id boş (ana ajan) satırlarına dokunulmaz.
     """
-    rows = jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    yol = os.path.join(sd, "maliyet.jsonl")
+    try:
+        st = os.stat(yol)
+        imza = (yol, st.st_mtime_ns, st.st_size)
+    except OSError:
+        imza = None
+    if imza and _MALIYET_ONBELLEK.get("imza") == imza:
+        return [dict(r) for r in _MALIYET_ONBELLEK["out"]]  # aynı süreçte dosya değişmediyse yeniden okuma (hook'ta 3-4 kez çağrılır)
+    out = _maliyet_kayitlari_oku(yol)
+    if imza:
+        _MALIYET_ONBELLEK.update({"imza": imza, "out": out})
+    return [dict(r) for r in out]
+
+
+_MALIYET_ONBELLEK: dict = {}
+
+
+def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
+    rows = jsonl_oku(yol)
     tur_var = {(r.get("oturum"), r.get("agent_id")) for r in rows if r.get("kaynak") == "tur"}
     son: dict = {}
     for r in rows:
