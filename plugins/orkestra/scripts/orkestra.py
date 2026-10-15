@@ -1640,7 +1640,7 @@ def cmd_maliyet_tur(a):
     elif os.environ.get("ORKESTRA_PERSPEKTIF"):
         surec, ajan = "perspektif", "perspektif-bakimcisi"
     u = {"input_tokens": a.giris, "output_tokens": a.cikis, "cache_read_input_tokens": a.onb_okuma,
-         "cache_creation_input_tokens": a.onb_yazma}
+         "cache_creation": {"ephemeral_1h_input_tokens": a.onb_yazma}}  # hook satırlarıyla aynı 1 sa tarifesi
     L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), {
         "zaman": L.simdi(), "oturum": a.oturum, "gorev": gorev, "surec": surec, "ajan": ajan, "agent_id": a.agent_id,
         "model": a.model, "giris": a.giris, "cikis": a.cikis, "onbellek_okuma": a.onb_okuma, "onbellek_yazma": a.onb_yazma,

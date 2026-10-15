@@ -440,6 +440,9 @@ def karar_ver(sd: str, id: str, sonuc: str, secim=None, not_=None, kim: str = "p
                     k["uygulama"] = {"oturum": None, "alma_zamani": None, "zaman": L.simdi(),
                                      "ozet": "panelde etkinleştirildi"}
                     _olay(k, "uygulandi", "panelde etkinleştirildi")
+                    import etki  # geç içe aktarım: etki.py onay.py'yi içe aktarır
+                    _etki_kancasi(k, lambda: etki.kanca_al(sd, k))  # E1: panelden onaylanan kural da taban + uygulama tarihi alır
+                    _etki_kancasi(k, lambda: etki.kanca_uygulandi(k))
                 else:
                     _kural_durum(r, "reddedildi", "reddedildi", not_)
                 _kurallar_yaz(sd, liste_)

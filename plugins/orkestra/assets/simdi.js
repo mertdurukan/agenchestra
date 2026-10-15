@@ -154,9 +154,9 @@
   O.kabuk({ sayfa: 'simdi' });
   // Yeni veri → ilgili bölümler çizilir. Durum değişimi (hata/toparlanma) → yalnız başlık işaretleri;
   // son iyi veri yokken ilgili bölüm tam hata satırına geçer. Kısa kopuklukta gövde DOM'u değişmez.
-  KS = O.veri('/simdi.json', {
-    ad: 'Sohbet verisi', aralik: 5000, alanaBagli: false,
-    gecerli: v => Array.isArray(v.oturumlar),
+  KS = O.veri(() => '/simdi.json?alan=' + encodeURIComponent(O.alan), {
+    ad: 'Sohbet verisi', aralik: 5000,
+    gecerli: v => Array.isArray(v.oturumlar) && (!v.alan || !v.alan.id || v.alan.id === O.alan),
     cizici: v => { S.simdi = v; hepsi(); },
     durum: () => ciz(bayatBolumu, ...(S.simdi ? [] : [olayCiz])),
   });
@@ -171,7 +171,7 @@
   // sifirla() + yeni istek yapmıştır; burada AYNI olay turunda eski alanın kartları ve
   // defter satırları kaldırılır: olaylarda yalnız sohbet akışı kalır.
   window.addEventListener('orkestra:alan', () => {
-    S.ozet = null;
+    S.simdi = null; S.ozet = null;
     try { ciz(olayCiz, bayatBolumu); } catch (e) { /* ciz hatayı konsola yazdı; veri gelince yeniden çizilir */ }
   });
 })();

@@ -117,12 +117,12 @@ class PanelOnay(unittest.TestCase):
         self.assertTrue(p["rapor"])
 
     def test_sayfalar_ve_surum(self):
-        self.assertEqual(panel.SURUM, "10")
+        self.assertEqual(panel.SURUM, "12")
         for yol in ("/onaylar", "/onaylar.html", "/kurallar", "/kurallar.html"):
             k, _ = self.istek("GET", yol)
             self.assertEqual(k, 200)
         k, b = self.istek("GET", "/saglik")
-        self.assertEqual(b, b"ok 10")
+        self.assertEqual(b, b"ok 12")
 
     # ------------------------------------------------------------ POST güvenliği
     def test_post_basliksiz_403(self):

@@ -73,11 +73,11 @@ def _kisa_model(m: str | None) -> str:
 
 
 def _formul_usd(r: dict, model: str) -> float:
-    """Satırın token sayılarından verilen modelin liste fiyatıyla maliyet (önbellek yazma 5 dk tarifesiyle)."""
+    """Satırın token sayılarından verilen modelin liste fiyatıyla maliyet (önbellek yazma 1 sa tarifesiyle; defterdeki hook ve tur satırlarıyla aynı)."""
     f = L.model_fiyati(model)
     return ((r.get("giris") or 0) * f["giris"] + (r.get("cikis") or 0) * f["cikis"]
             + (r.get("onbellek_okuma") or 0) * f["onbellek_okuma"]
-            + (r.get("onbellek_yazma") or 0) * f["onbellek_yazma_5dk"]) / 1_000_000
+            + (r.get("onbellek_yazma") or 0) * f["onbellek_yazma_1sa"]) / 1_000_000
 
 
 AJAN_ADLARI = {
@@ -180,6 +180,7 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
     son7 = sum(g["usd"] for d, g in gun.items() if bugun - datetime.timedelta(days=6) <= d <= bugun)
     son7_gun = min(7, (bugun - ilk).days + 1) if gun else 7
     kalan = ay_gun - gecen
+    yeterli = aktif_gun >= 7  # 7 günden az veriyle ay sonu tahmini yanıltıcı
     tahmin_ort = simdiye + (simdiye / aktif_gun) * kalan if aktif_gun else 0.0
     tahmin_7g = simdiye + (son7 / son7_gun) * kalan if son7_gun else 0.0
     onceki_ay = (ay_bas - datetime.timedelta(days=1)).strftime("%Y-%m")
@@ -187,8 +188,9 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
         "gunluk": gunluk, "haftalik": haftalik, "aylik": aylik,
         "ay_sonu": {"ay": bugun.strftime("%Y-%m"), "simdiye": _r(simdiye, 2), "gecen_gun": gecen, "ay_gun": ay_gun,
                     "veri_gun": aktif_gun, "gunluk_ort": _r(simdiye / aktif_gun if aktif_gun else 0, 2),
-                    "son7_gunluk": _r(son7 / son7_gun if son7_gun else 0, 2),
-                    "tahmin_ort": _r(tahmin_ort, 2), "tahmin_7g": _r(tahmin_7g, 2),
+                    "son7_gunluk": _r(son7 / son7_gun if son7_gun else 0, 2) if son7_gun >= 7 else None,
+                    "tahmin_ort": _r(tahmin_ort, 2) if yeterli else None, "tahmin_7g": _r(tahmin_7g, 2) if yeterli and son7_gun >= 7 else None,
+                    "tahmin_yeterli": yeterli,
                     "onceki_ay": next((a["usd"] for a in aylik if a["donem"] == onceki_ay), None)},
         "ilk_kayit": ilk.isoformat() if gun else None,
     }
@@ -789,7 +791,10 @@ def tum_alanlar() -> dict:
 
 def alan_analitigi(alan_id: str | None) -> dict:
     alanlar = [a for a in _alan_listesi() if a.get("orkestra")]
-    alan = next((a for a in alanlar if a["id"] == alan_id), None) or (alanlar[0] if alanlar else None)
+    alan = next((a for a in alanlar if a["id"] == alan_id), None)
+    if alan is None and alan_id:  # istenen alanda orkestra yok: başka alanın verisine düşme
+        return {"acik": False, "mesaj": "Bu çalışma alanında orkestra açık değil.", "alan": {"id": alan_id, "ad": alan_id}}
+    alan = alan or (alanlar[0] if alanlar else None)
     if alan is None:
         sd = L.durum_dizini()
         if not sd:

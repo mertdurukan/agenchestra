@@ -1386,8 +1386,22 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
 _MALIYET_ONBELLEK: dict = {}
 
 
+_TOKEN_ALANLARI = ("giris", "cikis", "onbellek_okuma", "onbellek_yazma")
+
+
+def _satir_usd(r: dict) -> float:
+    """Defter satırının token sayılarından maliyet; önbellek yazma 1 sa tarifesiyle (hook satırlarıyla aynı)."""
+    return kullanim_maliyeti(r.get("model") or "", {
+        "input_tokens": r.get("giris") or 0, "output_tokens": r.get("cikis") or 0,
+        "cache_read_input_tokens": r.get("onbellek_okuma") or 0,
+        "cache_creation": {"ephemeral_1h_input_tokens": r.get("onbellek_yazma") or 0}})
+
+
 def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
     rows = jsonl_oku(yol)
+    for r in rows:  # eski 'tur' satırları 5 dk tarifesiyle yazılmıştı: 1 sa tarifesiyle yeniden fiyatla
+        if r.get("kaynak") == "tur" and r.get("model") and any(r.get(a) for a in _TOKEN_ALANLARI):
+            r["maliyet_usd"] = _satir_usd(r)
     tur_var = {(r.get("oturum"), r.get("agent_id")) for r in rows if r.get("kaynak") == "tur"}
     son: dict = {}
     for r in rows:
@@ -1406,7 +1420,32 @@ def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
             continue
         elif not r.get("agent_id") or son[k][1] is r:
             out.append(r)
+    out.extend(_hook_artigi(rows, tur_var))
     return out
+
+
+def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
+    """'tur' kaydı olan gruplarda hook'un gördüğü ama tur satırlarının kapsamadığı token (tur kaydı başlamadan önceki
+    turlar). Ana ajan hook satırları artımlıdır (toplanır); alt ajanda birikimlidir (en son satır). Artık = hook - tur,
+    bileşen başına en az 0; sıfırdan büyükse 'hook-artik' satırı olarak eklenir."""
+    sonuc = []
+    for k in tur_var:
+        hook = [r for r in rows if (r.get("oturum"), r.get("agent_id")) == k and r.get("kaynak") != "tur"]
+        if not hook:
+            continue
+        tur = [r for r in rows if (r.get("oturum"), r.get("agent_id")) == k and r.get("kaynak") == "tur"]
+        if k[1]:
+            hook = [max(hook, key=lambda r: (r.get("zaman") or "", r.get("maliyet_usd") or 0))]
+        art = {a: max(0, sum(r.get(a) or 0 for r in hook) - sum(r.get(a) or 0 for r in tur)) for a in _TOKEN_ALANLARI}
+        if not any(art.values()):
+            continue
+        son = max(hook, key=lambda r: r.get("zaman") or "")
+        satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model")}
+        satir.update(art)
+        satir["kaynak"] = "hook-artik"
+        satir["maliyet_usd"] = _satir_usd(satir)
+        sonuc.append(satir)
+    return sonuc
 
 
 # ---------------------------------------------------------------- sohbetler (çalışma alanındaki oturumlar)
