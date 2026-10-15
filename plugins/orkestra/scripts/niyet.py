@@ -445,8 +445,11 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         yetim = _yetimler(oturumlar, masaustu)
     except Exception:
         yetim = {}
+    hayalet = {oid for oid, s in oturumlar.items() if _hayalet(oid, s.get("proje_yol"), masaustu)}
     satirlar = []
     for s in oturumlar.values():
+        if s["oturum"] in hayalet:
+            continue  # uygulamada da transkriptte de karşılığı yok (test/elle yazılmış kayıt): gerçek sohbet değil
         if s["oturum"] in yetim:
             asil = yetim[s["oturum"]]
             if not asil or asil in oturumlar:
