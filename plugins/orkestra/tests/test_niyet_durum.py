@@ -80,6 +80,21 @@ class NiyetDurumTesti(unittest.TestCase):
         self.assertEqual([r["oturum"] for r in g["oturumlar"]], ["acik"])
         self.assertEqual({a["oturum"] for a in g["akis"]}, {"acik"})
 
+    def test_hayalet_oturum_listelenmez(self):
+        """Uygulamada kaydı da transkripti de olmayan sahte oturum ("x", "test-olcum") panelde sohbet olarak görünmez."""
+        with tempfile.TemporaryDirectory() as d:
+            yol = os.path.join(d, "niyet.jsonl")
+            with open(yol, "w", encoding="utf-8") as f:
+                for oid in ("sahte-x", "gercek-1"):
+                    f.write(json.dumps({"zaman": _z(1), "oturum": oid, "proje": PROJE, "tur": "istek", "metin": "m"}) + "\n")
+            tr = os.path.join(d, "transkriptler")
+            os.makedirs(tr)
+            open(os.path.join(tr, "gercek-1.jsonl"), "w").close()
+            with mock.patch.object(niyet, "NIYET_YOLU", yol),                     mock.patch.object(niyet, "masaustu_oturumlari", return_value={}),                     mock.patch.object(niyet, "_basliklar", return_value={}),                     mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]),                     mock.patch.object(niyet.L, "proje_oturum_dizini", return_value=tr),                     mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
+                g = niyet.gorunum()
+        self.assertEqual([r["oturum"] for r in g["oturumlar"]], ["gercek-1"])
+        self.assertEqual({a["oturum"] for a in g["akis"]}, set())
+
     def test_kayit_klasoru_gorunmezse_onbellek_ezilmez(self):
         with tempfile.TemporaryDirectory() as d:
             onb = os.path.join(d, "masaustu_onbellek.json")
