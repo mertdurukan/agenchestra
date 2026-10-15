@@ -125,7 +125,7 @@ class StatikTestler(unittest.TestCase):
 
     def test_isci_semasinda_kapi_alani(self):
         self.assertRegex(self.js, r"required:\s*\[[^\]]*'kapi'")
-        self.assertRegex(self.js, r"kapi:\s*\{\s*type:\s*'string',\s*enum:\s*\['gecti',\s*'gecmedi',\s*'kilitli',\s*'butce'\]")
+        self.assertRegex(self.js, r"kapi:\s*\{\s*type:\s*'string',\s*enum:\s*\['gecti',\s*'gecmedi',\s*'kilitli',\s*'butce',\s*'alan-cakismasi'\]")
         self.assertIn("kapi_cikis", self.js)
         self.assertIn("kapi_ozeti", self.js)
 
@@ -355,6 +355,28 @@ class AkisTestleri(unittest.TestCase):
     def test_test_yazari_butce_aninda_durur(self):
         s, c, _ = self.kos([kod_karti()], kirmizi=[{"kapi": "butce"}])
         self.assertEqual(s["durum"], "butce")
+        self.assertEqual(self.adimlar(c), ["test"])
+
+    # --- alan çakışması (isleniyor çıkış 5): ret/yükseltme sayılmaz
+    def test_isci_alan_cakismasi_ret_ve_yukseltme_yok(self):
+        s, c, loglar = self.kos([kart()], onkontrol=[{"kapi": "alan-cakismasi", "kapi_ozeti": "G-900 isleniyor'a geçemez — çakışma: G-1"}])
+        self.assertEqual(s["durum"], "alan-cakismasi")
+        self.assertEqual(self.adimlar(c), ["is"])  # tek işçi çağrısı: yeniden deneme/yükseltme yok
+        self.assertEqual([x for x in c if x["agentType"] == "orkestra:denetci"], [])
+        self.assertEqual(s["basamak"], "T2")  # basamak yükselmedi
+        self.assertFalse(any(g.get("surec") == "yukseltme" for g in s["gecmis"]))
+        self.assertFalse(any("ret" in str(g.get("karar", "")) for g in s["gecmis"]))
+        self.assertIn("çakışma", s["neden"])
+        self.assertTrue(any("çıkış 5" in m for m in loglar))
+
+    def test_kod_karti_isci_alan_cakismasi(self):
+        s, c, _ = self.kos([kod_karti()], yesil=[{"kapi": "alan-cakismasi"}])
+        self.assertEqual(s["durum"], "alan-cakismasi")
+        self.assertEqual(self.adimlar(c), ["test", "is"])
+
+    def test_test_yazari_alan_cakismasi_aninda_durur(self):
+        s, c, _ = self.kos([kod_karti()], kirmizi=[{"kapi": "alan-cakismasi"}])
+        self.assertEqual(s["durum"], "alan-cakismasi")
         self.assertEqual(self.adimlar(c), ["test"])
 
     def test_test_yazari_kilitli_aninda_kilitli(self):

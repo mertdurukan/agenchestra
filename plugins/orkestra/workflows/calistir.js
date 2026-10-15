@@ -49,7 +49,7 @@ const ISCI_SEMA = {
     kanit: { type: 'array', items: { type: 'string' } },
     acik_sorular: { type: 'array', items: { type: 'string' } },
     // is-bitti kapısının sonucu (CLI koşar): gecti | gecmedi (denemeler bitti) | kilitli (isleniyor çıkış 6) | butce (çıkış 7)
-    kapi: { type: 'string', enum: ['gecti', 'gecmedi', 'kilitli', 'butce'] },
+    kapi: { type: 'string', enum: ['gecti', 'gecmedi', 'kilitli', 'butce', 'alan-cakismasi'] },
     kapi_cikis: { type: 'integer' },
     kapi_ozeti: { type: 'string' },
   },
@@ -131,6 +131,7 @@ function denetciModeli(basamak, toplamRet) {
 const KAPI_PROTOKOLU = [
   'Protokol: `orkestra kart durum <id> isleniyor` → iş → `orkestra kart durum <id> is-bitti --ozet ... --cikti ...`.',
   '- isleniyor çıkış 6 verirse kart kilitli: HİÇBİR şey yapma, hemen kapi="kilitli" döndür.',
+  '- isleniyor çıkış 5 verirse yazma alanı başka açık kartla çakışıyor: HİÇBİR şey yapma, hemen kapi="alan-cakismasi", kapi_ozeti=CLI mesajı döndür.',
   '- isleniyor çıkış 7 verirse kart bütçesi doldu: HİÇBİR şey yapma, hemen kapi="butce", kapi_ozeti=CLI mesajı döndür.',
   '- is-bitti test ve ön kontrol kapılarını kendisi koşar (Bash timeout 600000 ver; testi ayrıca koşma). Çıkış 4 → kayıt yapılmadı: çıktıdaki düşen test/ihlale göre düzelt ve is-bitti\'yi yeniden çalıştır; en çok 3 deneme.',
   '- Sonuç: kapı geçtiyse kapi="gecti"; denemeler bittiyse kapi="gecmedi", kapi_cikis=son çıkış kodu, kapi_ozeti=son çıktının son 30 satırı.',
@@ -256,6 +257,12 @@ function kilitliSonucu(k, basamak, gecmis) {
   return { id: k.id, durum: 'kilitli', neden: 'kart kapalı ya da başka koşuda işleniyor', basamak, gecmis }
 }
 
+// isleniyor çıkış 5: yazma alanı başka açık kartla çakışıyor. İşçi başarısızlığı değil: ret sayılmaz, basamak yükseltilmez.
+function alanCakismasiSonucu(k, basamak, gecmis, r) {
+  log(`${k.id}: yazma alanı çakışması (isleniyor çıkış 5) → bu koşuda atlandı; ret sayılmadı, yükseltme yok`)
+  return { id: k.id, durum: 'alan-cakismasi', neden: (r && r.kapi_ozeti) || 'yazma alanı başka açık kartla çakışıyor', basamak, gecmis }
+}
+
 // ---------------------------------------------------------------- kart ajan tavanı
 const ajanSayaci = {}
 const KART_AJAN_TAVANI = (args && Number.isInteger(args.kart_ajan_tavani) && args.kart_ajan_tavani > 0)
@@ -281,6 +288,7 @@ async function testOnce(k, basamak, gecmis) {
     if (!t) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'test yazarı sonuç döndürmedi' }
     if (t.kapi === 'kilitli') return kilitliSonucu(k, basamak, gecmis)
     if (t.kapi === 'butce') return butceSonucu(k, basamak, gecmis, t)
+    if (t.kapi === 'alan-cakismasi') return alanCakismasiSonucu(k, basamak, gecmis, t)
     const r = kapiSonucu(t)
     gecmis.push({ basamak, surec: 'test-kapisi', asama: 'kirmizi', karar: r.gecti ? 'gecti' : 'gecmedi' })
     if (r.gecti) return null
@@ -330,6 +338,7 @@ async function yurut(k, bagBekle) {
     if (!is) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'işçi ajan sonuç döndürmedi' }
     if (is.kapi === 'kilitli') return kilitliSonucu(k, basamak, gecmis)
     if (is.kapi === 'butce') return butceSonucu(k, basamak, gecmis, is)
+    if (is.kapi === 'alan-cakismasi') return alanCakismasiSonucu(k, basamak, gecmis, is)
 
     // Kapı (CLI is-bitti: test + ön kontrol) geçmediyse denetçi ÇAĞRILMAZ; çıktıyla düzeltme turu (ret sayılır).
     const kapi = kapiSonucu(is)
@@ -447,7 +456,7 @@ function calistir(id, yol) {
 log(`${kartlar.length} kart; bağımsız olanlar paralel koşuyor.`)
 const sonuclar = await Promise.all(kartlar.map(k => calistir(k.id, [])))
 const say = d => sonuclar.filter(s => s.durum === d).length
-log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('hata')} hata.`)
+log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('alan-cakismasi')} alan çakışması, ${say('hata')} hata.`)
 const ajanToplam = Object.values(ajanSayaci).reduce((a, b) => a + b, 0)
 log(`Ajan: ${ajanToplam} (kart başına tavan ${KART_AJAN_TAVANI}).`)
 return { sonuclar }
