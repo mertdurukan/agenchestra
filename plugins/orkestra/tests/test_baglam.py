@@ -15,7 +15,7 @@ import hook  # noqa: E402
 import niyet  # noqa: E402
 import ork_lib as L  # noqa: E402
 
-DIS = "C:/Users/PC/Desktop/Claude-Orchestration"
+DIS = "C:/dis/ornek-depo"
 ESLEME = {"surum": 1, "projeler": ["RNV", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_", "gorev_deseni": r"^\d{3}-",
           "haric": ["98_calisma"], "dis_kokler": {DIS: "Claude_Orkestrasyon"}}
 
@@ -34,13 +34,13 @@ class Yoldan(unittest.TestCase):
             self.assertEqual(B.yoldan(ESLEME, None, yol), bek, yol)
 
     def test_mutlak_proje_ve_dis_kok(self):
-        p = "C:/Mert/McD"
-        self.assertEqual(B.yoldan(ESLEME, p, "C:\\Mert\\McD\\RNV\\05_sohbet_ajani\\002-x\\a.md"), "RNV/05_sohbet_ajani/002-x")
-        self.assertEqual(B.yoldan(ESLEME, p, "c:/mert/mcd/rnv/01_a/b.md"), "RNV/01_a")
-        self.assertEqual(B.yoldan(ESLEME, p, "C:/Mert/McD/CLAUDE.md"), "")
-        self.assertEqual(B.yoldan(ESLEME, p, "C:/Mert/McD/.claude/orkestra/x"), "")
+        p = "C:/proje/ornek"
+        self.assertEqual(B.yoldan(ESLEME, p, "C:\\proje\\ornek\\RNV\\05_sohbet_ajani\\002-x\\a.md"), "RNV/05_sohbet_ajani/002-x")
+        self.assertEqual(B.yoldan(ESLEME, p, "c:/proje/ornek/rnv/01_a/b.md"), "RNV/01_a")
+        self.assertEqual(B.yoldan(ESLEME, p, "C:/proje/ornek/CLAUDE.md"), "")
+        self.assertEqual(B.yoldan(ESLEME, p, "C:/proje/ornek/.claude/orkestra/x"), "")
         self.assertEqual(B.yoldan(ESLEME, p, DIS + "/plugins/orkestra/scripts/hook.py"), "Claude_Orkestrasyon")
-        self.assertEqual(B.yoldan(ESLEME, p, "c:\\users\\pc\\desktop\\claude-orchestration\\x.py"), "Claude_Orkestrasyon")
+        self.assertEqual(B.yoldan(ESLEME, p, "c:\\dis\\ornek-depo\\x.py"), "Claude_Orkestrasyon")
         self.assertEqual(B.yoldan(ESLEME, p, "D:/baska/a.md"), "")
 
     def test_esleme_yok(self):

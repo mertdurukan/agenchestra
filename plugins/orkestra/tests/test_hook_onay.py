@@ -12,6 +12,8 @@ CLI = os.path.join(KOK, "scripts", "orkestra.py")
 HOOK = os.path.join(KOK, "scripts", "hook.py")
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 import onay  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 OTURUM = "hook-onay-oturum"
 
@@ -31,8 +33,7 @@ class HookOnay(unittest.TestCase):
     def kos(self, args, stdin=None):
         env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1", HOME=self.ev, USERPROFILE=self.ev)
         env.pop("CLAUDE_PROJECT_DIR", None)
-        return subprocess.run([sys.executable] + args, cwd=self.proje, env=env, input=stdin,
-                              capture_output=True, text=True, encoding="utf-8")
+        return ic_kos.kos(args, cwd=self.proje, env=env, input=stdin)
 
     def hook(self, olay, girdi=None):
         g = {"session_id": OTURUM, "cwd": self.proje, "hook_event_name": olay}
@@ -60,13 +61,16 @@ class HookOnay(unittest.TestCase):
         m = self.baglam(self.hook("UserPromptSubmit", {"prompt": "devam et"}))
         self.assertIn(f"{k['id']} kararın: B", m)
         # ikinci istekte tekrarlanmaz
-        self.assertNotIn(k["id"], self.baglam(self.hook("UserPromptSubmit", {"prompt": "tamam"})))
+        self.assertNotIn("kararın", self.baglam(self.hook("UserPromptSubmit", {"prompt": "tamam"})))
 
     def test_session_start_sonrasi_gecmis_user_prompt_submit_te_dokulmez(self):
         a = onay.iste(self.sd, "Eski", "m", tur="perspektif")
         onay.karar_ver(self.sd, a["id"], "onay")
         self.assertIn(a["id"], self.baglam(self.hook("SessionStart")))
-        self.assertNotIn(a["id"], self.baglam(self.hook("UserPromptSubmit", {"prompt": "merhaba"})))
+        # karar bildirimi dökülmez; bekleyen kalmadığı için yalnız çalıştırma yönergesi gelir
+        m = self.baglam(self.hook("UserPromptSubmit", {"prompt": "merhaba"}))
+        self.assertNotIn("Panel kararları", m)
+        self.assertIn("orkestra:onay", m)
 
     def test_onay_hatasi_hooku_dusurmez(self):
         # Bozuk şekilli kayıt: onay.baglam_metni KeyError atar

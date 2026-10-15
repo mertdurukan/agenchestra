@@ -1,4 +1,4 @@
-/* Orkestra paneli: ortak tasarım sistemi (Şimdi · Maliyet · Verim ve sağlık).
+/* Orkestra paneli: ortak tasarım sistemi (Son olaylar · Dashboard · Maliyet · Verim ve sağlık).
    Sözleşme: tasarim_sozlesmesi.md §2. Sınıf adları sabittir; sayfalar yalnız bunları ve kendi küçük eklerini kullanır.
    Yalnız koyu tema. Harici kaynak yok.
 
@@ -109,7 +109,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .kabuk .bosluk { flex: 1; }
 .kabuk .alan-sec { display: inline-flex; align-items: center; gap: var(--a-8); color: var(--text-muted); font-size: var(--t-12); }
 .kabuk .alan-sec select { max-width: 260px; }
-.kabuk .marka { flex: none; }
+.kabuk .marka { flex: none; display: inline-flex; align-items: center; }
+.kabuk .marka img { height: clamp(40px, 7vw, 72px); width: auto; max-width: 100%; display: block; }
 .canli { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: var(--t-12);
   white-space: nowrap; font-variant-numeric: tabular-nums; }
 .canli i { width: 8px; height: 8px; border-radius: 50%; background: var(--neutral); display: inline-block; }
@@ -255,8 +256,15 @@ main.hazirlaniyor h1 { font-size: var(--t-20); color: var(--text-primary); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+@media (max-width: 900px) {
+  /* Tablet: sekmeler taşarsa yatay kaydırılır, başlık sayfayı genişletmez */
+  .sekmeler { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .sekmeler::-webkit-scrollbar { display: none; }
+  .kabuk .alan-sec select { max-width: 180px; }
+}
 @media (max-width: 600px) {
   :root { --yan: 16px; }
+  .kabuk .marka img { height: 40px; }
   /* Kabuk en çok 2 satır: [marka · çalışma alanı (kısaltılmış) · canlı] + [sekmeler, yatay kaydırmalı tek satır] */
   .kabuk .kabuk-ic { gap: var(--a-4) var(--a-12); padding-top: var(--a-8); padding-bottom: var(--a-8); min-height: 0; flex-wrap: wrap; }
   .kabuk .marka { order: 1; }

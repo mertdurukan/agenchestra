@@ -13,6 +13,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(KOK, "scripts", "orkestra.py")
@@ -32,13 +34,15 @@ UYKU_BETIK = "import time\ntime.sleep(30)\n"
 
 DENETCI = dict(ajan_id="d1", ajan_tipi="orkestra:denetci")
 ISCI = dict(ajan_id="w1", ajan_tipi="orkestra:isci-t2")
+# Onay kapısını tek başına sınamak için kapısız is-bitti (işçi is-bitti'si testi kendisi koşar; bkz. test_is_bitti_kapisi).
+ISCI_KAPISIZ = dict(ajan_id="w1", ajan_tipi="orkestra:arsivci")
 ANA = dict(ajan_id="ana", ajan_tipi="ana")
 
 
 def kos(args, cwd):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
-    return subprocess.run([sys.executable] + args, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8")
+    return ic_kos.kos(args, cwd=cwd, env=env)
 
 
 class TestKapisi(unittest.TestCase):
@@ -79,7 +83,7 @@ class TestKapisi(unittest.TestCase):
         return kos(a, self.proje)
 
     def kod_karti(self, komut=None, alanlar=("testler/*.py",), sinif="kod"):
-        a = ["kart", "yeni", "--baslik", "kod işi", "--basamak", "T2", "--sinif", sinif,
+        a = ["kart", "yeni", "--baslik", "kod işi", "--basamak", "T2", "--sinif", sinif, *(["--tdd"] if sinif == "kod" else []),
              "--kabul", "çalışır", "--yazma", "src/**"]
         if komut is not False:
             a += ["--test-komutu", komut or self.komut]
@@ -98,7 +102,7 @@ class TestKapisi(unittest.TestCase):
         return self.cli("kart", "test-kos", g, "--asama", asama, *ek)
 
     def is_bitti(self, g):
-        r = self.cli("kart", "durum", g, "is-bitti", "--ozet", "bitti", "--cikti", "src/a.py", **ISCI)
+        r = self.cli("kart", "durum", g, "is-bitti", "--ozet", "bitti", "--cikti", "src/a.py", **ISCI_KAPISIZ)
         self.assertEqual(r.returncode, 0, r.stderr)
 
     def onay(self, g):
@@ -126,25 +130,25 @@ class TestKapisi(unittest.TestCase):
         self.assertEqual(k["test_kosulari"], [])
 
     def test_kod_kartinda_test_komutu_eksik_reddedilir(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--kabul", "k",
+        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
                      "--yazma", "src/**", "--test-alani", "testler/*.py")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("test_komutu", r.stderr)
 
     def test_kod_kartinda_test_komutu_bos_metin_reddedilir(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--kabul", "k",
+        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
                      "--yazma", "src/**", "--test-komutu", "   ", "--test-alani", "testler/*.py")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("test_komutu", r.stderr)
 
     def test_kod_kartinda_test_alani_eksik_reddedilir(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--kabul", "k",
+        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
                      "--yazma", "src/**", "--test-komutu", self.komut)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("test_alani", r.stderr)
 
     def test_toplu_kod_karti_alanlar_eksik_reddedilir(self):
-        taban = {"baslik": "x", "basamak": "T2", "sinif": "kod", "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"]}
+        taban = {"baslik": "x", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"]}
         for ek, beklenen in (({"test_alani": ["testler/*.py"]}, "test_komutu"),
                              ({"test_komutu": self.komut}, "test_alani"),
                              ({"test_komutu": self.komut, "test_alani": []}, "test_alani")):
@@ -158,7 +162,7 @@ class TestKapisi(unittest.TestCase):
     def test_toplu_kod_karti_alanlarla_olusur(self):
         yol = os.path.join(self.proje, "toplu.json")
         with open(yol, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "x", "basamak": "T2", "sinif": "kod", "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"],
+            json.dump([{"baslik": "x", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"],
                         "test_komutu": self.komut, "test_alani": ["testler/*.py"]}], f)
         r = self.cli("kart", "toplu", yol)
         self.assertEqual(r.returncode, 0, r.stderr)

@@ -143,7 +143,9 @@ class AkisTestleri(unittest.TestCase):
         self.assertEqual(s["basamak"], "T3")
 
     def test_yedek_ret_tekrar_sayilmaz(self):
-        s, c, loglar = self.kos([kart()], denetim=[None, None, None, None, {"karar": "onay", "bulgular": []}])
+        s, c, loglar = self.kos([kart()], denetim=[None, None, None, None, {"karar": "onay", "bulgular": []}],
+                              kart_ajan_tavani=20)  # 5 işçi + 5 denetçi: varsayılan tavan (8) altında kalmaz
+        self.assertEqual(s["durum"], "onaylandi")
         self.assertNotEqual(s.get("neden"), "tekrarlayan-ret")
         self.assertFalse(any("tekrarlayan-ret" in m for m in loglar))
 

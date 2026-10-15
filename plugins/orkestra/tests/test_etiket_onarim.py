@@ -9,6 +9,8 @@ import unittest
 SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
 sys.path.insert(0, SCRIPTS)
 import hook  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 ORK = os.path.join(SCRIPTS, "orkestra.py")
 SARMAL = "[Workflow harness — user request] sarmalayıcı metin"
@@ -135,8 +137,8 @@ class YenidenEtiketle(Temel):
     def kos(self, *ek):
         env = dict(os.environ, PYTHONUTF8="1")
         env.pop("CLAUDE_PROJECT_DIR", None)
-        return subprocess.run([sys.executable, ORK, "maliyet", "yeniden-etiketle", "--transkript-dizini", self.pdir, *ek],
-                              capture_output=True, text=True, encoding="utf-8", cwd=self.proje, env=env, timeout=60)
+        return ic_kos.kos([ORK, "maliyet", "yeniden-etiketle", "--transkript-dizini", self.pdir, *ek],
+                          cwd=self.proje, env=env)
 
     def oku(self):
         with open(self.mal, encoding="utf-8") as f:

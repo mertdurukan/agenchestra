@@ -24,6 +24,9 @@
     "Stop": [
       { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python Stop", "timeout": 30 } ] }
     ],
+    "Notification": [
+      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python Notification", "timeout": 10 } ] }
+    ],
     "SessionEnd": [
       { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SessionEnd", "timeout": 10 } ] }
     ],

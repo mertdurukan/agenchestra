@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(KOK, "scripts", "orkestra.py")
@@ -27,8 +29,7 @@ KIRMIZI_TEST = ("import os, sys, unittest\n"
 def kos(args, cwd, stdin=None):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
-    return subprocess.run([sys.executable] + args, cwd=cwd, env=env, input=stdin, capture_output=True, text=True,
-                          encoding="utf-8")
+    return ic_kos.kos(args, cwd=cwd, env=env, input=stdin)
 
 
 def git(cwd, *args):
@@ -61,7 +62,7 @@ class AgacTestKapisi(unittest.TestCase):
         git(self.proje, "commit", "-q", "-m", "ilk")
         r = kos([CLI, "baslat"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod",
+        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
                      "--test-komutu", f'"{sys.executable}" -m unittest discover -s tests', "--test-alani", "tests/**",
                      "--yazma", "src/**", "--yazma", "tests/**")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -298,7 +299,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         git(self.depo, "commit", "-q", "-m", "ilk")
         r = kos([CLI, "baslat"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod",
+        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
                      "--test-komutu", f'"{sys.executable}" -m unittest discover -s depo/tests',
                      "--test-alani", "depo/tests/**", "--yazma", "depo/src/**", "--yazma", "depo/tests/**")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -336,7 +337,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         isci = dict(ajan_id="tw", ajan_tipi="orkestra:isci-t2")
         r = self.cli("kart", "test-kos", self.g, "--asama", "kirmizi", **isci)  # paylaşılan ağaçta, ağaç yokken
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        r = self.cli("kart", "durum", self.g, "is-bitti", "--ozet", "bitti", **isci)
+        r = self.cli("kart", "durum", self.g, "is-bitti", "--ozet", "bitti", ajan_id="tw", ajan_tipi="orkestra:arsivci")  # kapısız: yeşil aşağıda elle
         self.assertEqual(r.returncode, 0, r.stderr)
         yaz(os.path.join(self.depo, "src", "x.py"), "def f():\n    return 2\n")
         r = self.cli("kart", "test-kos", self.g, "--asama", "yesil", **isci)

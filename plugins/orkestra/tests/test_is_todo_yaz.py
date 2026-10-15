@@ -169,6 +169,17 @@ class TodoCli(unittest.TestCase):
         self.assertIn("todo 1/3", sonra)
         self.assertIn("  [ ] X maddesi", sonra)
 
+    def test_yazma_sonrasi_liste_numarali_ve_kisa(self):
+        i, todo = self.ac()
+        uzun = "u" * 300
+        yaz(todo, "- [ ] " + uzun + "\n- [ ] kisa\n")
+        r = self.cli("is", "todo", i, "--ekle", "yeni")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("  1. [ ] " + "u" * 99 + "…", r.stdout)
+        self.assertNotIn("u" * 101, r.stdout)
+        self.assertIn("  3. [ ] yeni", r.stdout)
+        self.assertIn(uzun, self.cli("is", "todo", i).stdout)  # salt okuma tam metni basar
+
     def test_bitti_sayi_ve_parca(self):
         i, todo = self.ac()
         yaz(todo, "- [ ] alfa\n- [ ] beta\n- [ ] gama\n")

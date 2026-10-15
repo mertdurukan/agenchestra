@@ -421,6 +421,36 @@ def todo_bitir(klasor: str, secici: str, not_: str | None = None) -> str:
     return metin + ek
 
 
+VARSAYILAN_TODO_ISI = "Orkestra açık maddeler"
+
+
+def todo_varsayilan_is(sd: str) -> str | None:
+    """Panel Yapılacaklar için varsayılan iş: açık işlerde 'Orkestra açık maddeler' başlıklısı, yoksa ilk açık iş."""
+    acik = is_liste(sd, "acik")
+    for g in acik:
+        if (g.get("baslik") or "").strip().lower() == VARSAYILAN_TODO_ISI.lower():
+            return g["id"]
+    return acik[0]["id"] if acik else None
+
+
+def todo_liste(klasor: str) -> dict:
+    """todo.md'nin açık ve biten maddeleri (metin listeleri); dosya yoksa boş."""
+    yol = _todo_yol(klasor)
+    acik, biten = [], []
+    if os.path.exists(yol):
+        for satir in _todo_oku(yol).splitlines():
+            m = _TODO_BITEN.match(satir)
+            if m:
+                if m.group(1).strip():
+                    biten.append(m.group(1).strip())
+                continue
+            m = _TODO_ACIK.match(satir)
+            if m and m.group(1).strip():
+                acik.append(m.group(1).strip())
+    return {"acik_maddeler": acik, "biten_maddeler": biten}
+
+
+
 _TODO_KUTU = re.compile(r"^[-*]\s*\[( |x|X|~)\]\s*(.*)$")
 _TODO_ALT = re.compile(r"^\s+[-*]\s+(?:\[[ xX~]\]\s*)?(.*)$")
 _TODO_ADIM = re.compile(r"(?<![\w-])G\d+[a-z]?(?:-[A-Za-z]\d+|/[A-Za-z]?\d+|-G\d+)*(?![\w])")

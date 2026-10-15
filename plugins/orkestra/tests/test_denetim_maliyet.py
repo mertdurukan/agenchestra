@@ -1,4 +1,4 @@
-"""calistir.js: denetçi modeli işçiyle aynı basamakta, T0 ön kontrol kapısı, yeniden denetim kapsamı.
+"""calistir.js: denetçi modeli işçiyle aynı basamakta, işçi kapısı (ön kontrol), yeniden denetim kapsamı.
 
 `python -m unittest discover -s plugins/orkestra/tests -p test_denetim_maliyet.py -v`
 Akış testleri node gerektirir (test_calistir_akisi.py ile aynı sahte çalışma zamanı); node yoksa skip.
@@ -31,7 +31,7 @@ class DenetimMaliyetTestleri(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def kos(self, gorev, **senaryo):
-        """(sonuç, tüm çağrılar). Çağrılar ön kontrol ajanını da içerir."""
+        """(sonuç, tüm çağrılar). Kapı / ön kontrol ajanı yoktur."""
         yol = os.path.join(self.tmp, "senaryo.json")
         with open(yol, "w", encoding="utf-8") as f:
             json.dump(dict(senaryo, gorevler=[gorev]), f, ensure_ascii=False)
@@ -39,6 +39,7 @@ class DenetimMaliyetTestleri(unittest.TestCase):
         p = subprocess.run([NODE, self.kosum, BETIK, yol], capture_output=True, env=env, timeout=60)
         self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
         cikti = json.loads(p.stdout.decode("utf-8"))
+        self.assertEqual([x for x in cikti["cagrilar"] if x["phase"] in ("Kapı", "Ön kontrol")], [])
         return cikti["sonuc"]["sonuclar"][0], cikti["cagrilar"]
 
     @staticmethod
@@ -48,8 +49,6 @@ class DenetimMaliyetTestleri(unittest.TestCase):
     @staticmethod
     def adimlar(c):
         def ad(x):
-            if x["phase"] == "Ön kontrol":
-                return "on-" + x["label"].split()[-1]
             if x["agentType"] == "orkestra:denetci":
                 return "denetim"
             return "is"
@@ -75,33 +74,24 @@ class DenetimMaliyetTestleri(unittest.TestCase):
         self.assertEqual(modeller[:2], ["haiku", "haiku"])
         self.assertEqual(modeller[2], "opus")
 
-    # --- T0 ön kontrol
-    def test_taban_ilk_isciden_once_kontrol_denetciden_once(self):
+    # --- ön kontrol (işçinin is-bitti kapısı; ayrı ajan yok)
+    def test_on_kontrol_ajani_yok_isci_sonra_denetci(self):
         s, c = self.kos(kart(kaynak_dosya="kaynak.md"))
         self.assertEqual(s["durum"], "onaylandi")
-        self.assertEqual(self.adimlar(c), ["on-taban", "is", "on-kontrol", "denetim"])
-        self.assertEqual(c[0]["agentType"], "orkestra:isci-t1")
-        self.assertIn("on_kontrol.py", c[0]["istem"])
-        self.assertIn("taban G-900", c[0]["istem"])
-        self.assertIn("kontrol G-900 --ciktilar x", c[2]["istem"])
-        self.assertIn("--kaynak kaynak.md", c[2]["istem"])
+        self.assertEqual(self.adimlar(c), ["is", "denetim"])
+        self.assertEqual(c[0]["agentType"], "orkestra:isci-t2")
+        self.assertNotIn("on_kontrol.py", c[0]["istem"])
 
-    def test_on_kontrol_gecmezse_denetci_cagrilmaz_ret_uretilir(self):
+    def test_kapi_gecmezse_denetci_cagrilmaz_ret_uretilir(self):
         ihlal = {"gecti": False, "ihlaller": [{"tur": "satir-sonu", "ayrinti": "a.md CRLF->LF"}]}
         s, c = self.kos(kart(), onkontrol=[ihlal])
-        self.assertEqual(self.adimlar(c), ["on-taban", "is", "on-kontrol", "is", "on-kontrol", "denetim"])
+        self.assertEqual(self.adimlar(c), ["is", "is", "denetim"])
         duzeltme = [x for x in c if x["phase"] == "İş"][1]["istem"]
         self.assertIn("Ret nedeni: talimat-ihlali", duzeltme)
         self.assertIn("ön kontrol satir-sonu: a.md CRLF->LF", duzeltme)
         self.assertEqual(s["durum"], "onaylandi")
 
-    def test_yeni_test_hatasi_kapsam_eksik_nedeni(self):
-        ihlal = {"gecti": False, "ihlaller": [{"tur": "yeni-test-hatasi", "ayrinti": "tests/x.py::t"}]}
-        _, c = self.kos(kart(), onkontrol=[ihlal])
-        duzeltme = [x for x in c if x["phase"] == "İş"][1]["istem"]
-        self.assertIn("Ret nedeni: kapsam-eksik", duzeltme)
-
-    def test_on_kontrol_reti_normal_ret_sayilir_iki_retle_yukseltir(self):
+    def test_kapi_reti_normal_ret_sayilir_iki_retle_yukseltir(self):
         ihlal = {"gecti": False, "ihlaller": [{"tur": "kapsam", "ayrinti": "dışarı yazıldı"}]}
         ihlal2 = {"gecti": False, "ihlaller": [{"tur": "bom", "ayrinti": "BOM eklendi"}]}
         s, c = self.kos(kart(), onkontrol=[ihlal, ihlal2])
@@ -110,11 +100,11 @@ class DenetimMaliyetTestleri(unittest.TestCase):
         self.assertEqual(self.denetimler(c)[0]["model"], "opus")  # 2 ret sonrası ilk denetim
         self.assertEqual(s["durum"], "onaylandi")
 
-    def test_on_kontrol_ajani_sonuc_vermezse_kapi_atlanir(self):
-        s, c = self.kos(kart(), onkontrol=[None])  # kontrol ajanı null döner → ret değil, denetçi çağrılır
-        self.assertEqual(s["durum"], "onaylandi")
-        self.assertEqual(len(self.denetimler(c)), 1)
-        self.assertEqual([x for x in c if x["phase"] == "İş"].__len__(), 1)
+    def test_isci_sonuc_vermezse_hata(self):
+        s, c = self.kos(kart(), onkontrol=[None])  # işçi ajanı null döner → kart 'hata', denetçi çağrılmaz
+        self.assertEqual(s["durum"], "hata")
+        self.assertEqual(len(self.denetimler(c)), 0)
+        self.assertEqual(len([x for x in c if x["phase"] == "İş"]), 1)
 
     # --- yeniden denetim kapsamı
     def test_ikinci_denetim_isteminde_onceki_bulgular_ve_kapsam_talimati(self):
@@ -129,7 +119,7 @@ class DenetimMaliyetTestleri(unittest.TestCase):
     def test_yukseltme_sonrasi_ilk_denetim_tamdir(self):
         s, c = self.kos(kart(), denetim=[ret("a1"), ret("b2"), ONAY, ONAY])
         d = self.denetimler(c)
-        self.assertEqual(len(d), 4)  # T2'de 2 denetim, T3'te iki mercek
+        self.assertEqual(len(d), 3)  # T2'de 2 denetim, T3'te iki mercek tek çağrıda
         self.assertIn("Önceki denetimde karşılanmayan kriterler: a1", d[1]["istem"])
         for x in d[2:]:  # T3'e yükseltme sonrası ilk denetim: tam
             self.assertNotIn("Önceki denetimde karşılanmayan", x["istem"])

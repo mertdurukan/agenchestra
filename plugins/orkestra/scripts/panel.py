@@ -1,6 +1,6 @@
 """Orkestra HTML canlı paneli: bu bilgisayardaki TÜM Claude çalışma alanları için tek yerel sunucu (yalnız 127.0.0.1).
 
-GET /                          → Şimdi sayfası (assets/simdi.html); /index.html aynı
+GET /                          → Son olaylar sayfası (assets/simdi.html); /index.html aynı
 GET /maliyet                   → Maliyet sayfası (assets/maliyet.html; yoksa "hazırlanıyor")
 GET /verim                     → Verim ve sağlık sayfası (assets/verim.html; yoksa "hazırlanıyor")
 GET /ortak.css, /ortak.js      → üç sayfanın ortak tasarım sistemi
@@ -15,9 +15,15 @@ GET /onaylar, /onaylar.html    → Onay merkezi sayfası (assets/onaylar.html; y
 GET /kurallar, /kurallar.html  → Kurallar sayfası (assets/kurallar.html; yoksa "hazırlanıyor")
 GET /onaylar.json?alan=<id>    → onay kuyruğu: sayaç, kayıtlar, perspektif (rapor, durum)
 GET /kurallar.json?alan=<id>   → etkin kurallar, öneriler, geçmiş, kural kaynakları
-GET /isler, /isler.html        → İşler sayfası (assets/isler.html; yoksa "hazırlanıyor")
+GET /isler, /isler.html        → Dashboard sayfası (sohbetler + işler; assets/isler.html; yoksa "hazırlanıyor")
 GET /isler.json?alan=<id>      → işler: kovalar (yapıldı/şimdi/sırada/planda kart yok/iptal), maliyet, kartsız açık kartlar
+GET /etki, /etki.html          → Etki sayfası (uygulanan kararların etkisi; assets/etki.html)
+GET /api/etki?alan=<id>        → etki listesi + gün gün seri + doğru karar oranı (yalnız kapatılmış izlemeler); salt okuma
 GET /onay-sayac.json           → {alan_id: onay sayacı} (sekme rozeti)
+GET /yapilacaklar              → Yapılacaklar sayfası (assets/yapilacaklar.html)
+GET /api/todo?alan=<id>[&is=<id>] → işin açık/biten maddeleri + açık iş listesi (salt okunur; POST 405)
+GET /api/kullanici-todo?alan=<id> → kullanıcının kendi yapılacakları
+POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra: 1, yerel Host, ≤64 KB)
 POST /onay?alan=<id>           → karar / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
@@ -43,9 +49,12 @@ import ozet  # noqa: E402
 import analitik  # noqa: E402
 import niyet  # noqa: E402
 import onay  # noqa: E402
+import kural_dosya  # noqa: E402
+import kullanici_todo as KT  # noqa: E402
 
 POST_MAX = 64 * 1024
-POST_ATIM_MAX = 1024 * 1024  # bunun altındaki aşırı gövde okunup atılır
+DOSYA_POST_MAX = 2 * kural_dosya.DOSYA_MAX  # JSON kaçışları için pay
+POST_ATIM_MAX = 4 * 1024 * 1024  # bunun altındaki aşırı gövde okunup atılır
 
 ASSETS = os.path.join(L.PLUGIN_ROOT, "assets")
 # yol → (dosya, içerik türü); sayfa dosyası henüz yoksa "hazırlanıyor" sayfası döner
@@ -54,12 +63,15 @@ SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simd
             "/verim": "verim.html", "/verim.html": "verim.html",
             "/onaylar": "onaylar.html", "/onaylar.html": "onaylar.html",
             "/kurallar": "kurallar.html", "/kurallar.html": "kurallar.html",
-            "/isler": "isler.html", "/isler.html": "isler.html"}
+            "/isler": "isler.html", "/isler.html": "isler.html",
+            "/etki": "etki.html", "/etki.html": "etki.html",
+            "/yapilacaklar": "yapilacaklar.html", "/yapilacaklar.html": "yapilacaklar.html"}
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
-          "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8")}
+          "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
+          "/logo.png": ("logo.png", "image/png")}
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "8"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "9"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -113,6 +125,63 @@ def _onaylar_json(alan_id) -> dict:
             "perspektif": _perspektif(sd), "uretim": L.simdi()}
 
 
+def _etki_kayit(k: dict, hepsi: list) -> dict:
+    """Etki sekmesi için tek kayıt: liste satırı + gün gün seri + aynı dönemde uygulanan diğer kayıtlar."""
+    import etki  # noqa: PLC0415
+    e = k["etki"]
+    vaat = k.get("vaat") if isinstance(k.get("vaat"), dict) else {}
+    olculebilir = bool(vaat.get("olculebilir"))
+    seri = [dict(s) for s in (e.get("gunluk") or []) if isinstance(s, dict)] if olculebilir else []
+    iz = e.get("izleme") if isinstance(e.get("izleme"), dict) else {}
+    taban = e.get("taban") if isinstance(e.get("taban"), dict) else None
+    son = seri[-1] if seri else None
+    if not olculebilir:
+        gidisat = "olculemez"
+    else:
+        gidisat = (son or {}).get("gidisat") or iz.get("son_gidisat") or "yetersiz-veri"
+    ayni = int(iz.get("ayni_gidisat_gun") or 0)
+    durum = iz.get("durum") or ("olculemez" if not olculebilir else "suruyor")
+    soru = bool(olculebilir and durum == "suruyor" and gidisat == "kotu" and ayni >= etki.SORU_GUN)
+    bas = e.get("uygulama_tarihi")
+    bitis = None if durum in ("suruyor", "olculemez") else (str(iz.get("kapanis") or "")[:10] or None)
+    diger = []
+    for o in hepsi:
+        oe = o.get("etki")
+        if o.get("id") == k.get("id") or not isinstance(oe, dict) or not oe.get("uygulama_tarihi"):
+            continue
+        oiz = oe.get("izleme") if isinstance(oe.get("izleme"), dict) else {}
+        o_bitis = None if (oiz.get("durum") or "suruyor") in ("suruyor", "olculemez") else (str(oiz.get("kapanis") or "")[:10] or None)
+        # dönemler kesişiyorsa (bitişi olmayan izleme hâlâ sürüyor sayılır) diğer kayıt işaretlenir
+        if (bitis is None or oe["uygulama_tarihi"] <= bitis) and (o_bitis is None or o_bitis >= bas):
+            diger.append({"id": o["id"], "tarih": oe["uygulama_tarihi"]})
+    diger.sort(key=lambda d: (d["tarih"], d["id"]))
+    return {"id": k.get("id"), "baslik": k.get("baslik"), "olculebilir": olculebilir, "metin": vaat.get("metin") or "",
+            "metrik": vaat.get("metrik"), "yon": vaat.get("yon"), "esik": vaat.get("esik"),
+            "uygulama_tarihi": bas, "gun": int((son or {}).get("gun") or 0),
+            "taban": {"deger": taban.get("deger"), "ornek": taban.get("ornek")} if taban else None,
+            "birikim": {"deger": son.get("birikim_deger"), "ornek": son.get("birikim_ornek")} if son else None,
+            "gidisat": gidisat, "ayni_gidisat_gun": ayni, "soru_bekliyor": soru, "izleme_durum": durum,
+            "karar": e.get("karar"), "seri": seri, "diger_uygulamalar": diger}
+
+
+def _etki_json(alan_id) -> dict:
+    import etki  # noqa: PLC0415
+    a, sd = _alan_sd(alan_id)
+    if a is None:
+        return sd
+    hepsi = [k for k in etki.liste(sd) if isinstance(k.get("etki"), dict) and k["etki"].get("uygulama_tarihi")]
+    kayitlar = [_etki_kayit(k, hepsi) for k in hepsi]
+    # sıra: soru bekleyenler önce, sonra yeni uygulanan üstte (kararlı sıralama iki geçişle)
+    kayitlar.sort(key=lambda r: str(r["id"]))
+    kayitlar.sort(key=lambda r: str(r["uygulama_tarihi"]), reverse=True)
+    kayitlar.sort(key=lambda r: not r["soru_bekliyor"])
+    o = etki.dogru_karar_orani(sd)
+    return {"acik": True, "alan": _alan_kisa(a),
+            "ozet": {"dogru_karar_orani": o["oran"], "dogru": o["dogru"], "yanlis": o["yanlis"],
+                     "belirsiz": o["belirsiz"], "kapali": o["kapatilan"]},
+            "kayitlar": kayitlar, "uretim": L.simdi()}
+
+
 def _kurallar_json(alan_id) -> dict:
     a, sd = _alan_sd(alan_id)
     if a is None:
@@ -146,12 +215,12 @@ def _isler_json(alan_id) -> dict:
         try:
             s = IK.is_serit(sd, g["id"], alt=True)
             kov = {x: [] for x in adlar}
-            for x in adlar:
-                for e in s[x]:
+            for ad in adlar:
+                for e in s[ad]:
                     if e["tur"] == "kart":
                         k = kart_by.get(e["kart"]) or {}
                         e = {**e, "basamak": k.get("basamak"), "usd": round(usd.get(e["kart"], 0.0), 4)}
-                    kov[x].append(e)
+                    kov[ad].append(e)
             o["ilerleme"] = s["ilerleme"]
             o["kovalar"] = kov
         except Exception as e:  # noqa: BLE001
@@ -187,6 +256,48 @@ def _govde_denetle(g: dict) -> str | None:
     if g.get("secim") is not None and not isinstance(g["secim"], str):
         return "secim metin olmalı."
     return None
+
+
+def _todo_json(alan_id, is_id) -> dict:
+    import is_kaydi as IK  # noqa: PLC0415
+    a, sd = _alan_sd(alan_id)
+    if a is None:
+        return sd
+    isler = [{"id": g["id"], "baslik": g.get("baslik", ""), "ad": IK.is_adi(g.get("baslik", ""))}
+             for g in IK.is_liste(sd, "acik")]
+    secili = is_id or IK.todo_varsayilan_is(sd)
+    kayit = IK.is_al(sd, secili) if secili else None
+    liste = IK.todo_liste(kayit["klasor"]) if kayit else {"acik_maddeler": [], "biten_maddeler": []}
+    return {"acik": True, "alan": _alan_kisa(a), "is": secili, "isler": isler, **liste}
+
+
+def _kullanici_todo_json(alan_id) -> dict:
+    a, sd = _alan_sd(alan_id)
+    if a is None:
+        return sd
+    return {"acik": True, "alan": _alan_kisa(a), "maddeler": KT.liste(sd)}
+
+
+def _todo_govde_denetle(g: dict) -> str | None:
+    """Kullanıcı yapılacakları: yalnız ekle (metin) ve sil (id)."""
+    if g.get("eylem") not in ("ekle", "sil"):
+        return "eylem ekle ya da sil olmalı."
+    for ad in ("metin", "id"):
+        if g.get(ad) is not None and not isinstance(g[ad], str):
+            return f"{ad} metin olmalı."
+    return None
+
+
+def _todo_islemi(sd: str, g: dict):
+    """Yazım yalnız kullanıcı listesine yapılır; iş todo dosyalarına dokunulmaz. Dönüş: (kod, sonuç ya da hata)."""
+    if g["eylem"] == "ekle":
+        return 200, KT.ekle(sd, g.get("metin") or "")
+    if not (g.get("id") or "").strip():
+        return 400, "Madde kimliği boş."
+    try:
+        return 200, KT.sil(sd, g["id"].strip())
+    except LookupError as e:
+        return 404, str(e)
 
 
 def _onay_islemi(sd: str, g: dict):
@@ -255,11 +366,13 @@ def _isleyici():
 
         def _hazirlaniyor(self, ad: str) -> bytes:
             baslik = {"maliyet.html": "Maliyet", "verim.html": "Verim ve sağlık",
-                     "onaylar.html": "Onaylar", "kurallar.html": "Kurallar"}.get(ad, "Sayfa")
+                     "onaylar.html": "Onaylar", "kurallar.html": "Kurallar",
+                     "isler.html": "Dashboard", "etki.html": "Etki",
+                     "yapilacaklar.html": "Yapılacaklar"}.get(ad, "Sayfa")
             return (f'<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
                     f'<title>Orkestra · {baslik}</title><link rel="stylesheet" href="ortak.css"></head>'
                     f'<body><main class="hazirlaniyor"><h1>{baslik}</h1><p>Bu sayfa hazırlanıyor.</p>'
-                    f'<p><a href="/">Şimdi sayfasına dön</a></p></main></body></html>').encode("utf-8")
+                    f'<p><a href="/">Son olaylar sayfasına dön</a></p></main></body></html>').encode("utf-8")
 
         def _json(self, kod, veri, kapat=False):
             return self._gonder(kod, "application/json; charset=utf-8",
@@ -270,6 +383,9 @@ def _isleyici():
             return (self.headers.get("Host") or "").strip().lower() in (f"127.0.0.1:{port}", f"localhost:{port}")
 
         def _post_onay(self, q):
+            return self._post_yaz(q)
+
+        def _post_yaz(self, q, todo=False, dosya=False):
             if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
                 return self._gonder(403, "text/plain", b"yasak")
             if "application/json" not in (self.headers.get("Content-Type") or "").lower():
@@ -280,7 +396,9 @@ def _isleyici():
                 uzun = -1
             if uzun < 0:
                 return self._json(400, {"tamam": False, "hata": "Geçersiz Content-Length."})
-            if uzun > POST_MAX:
+            maks = DOSYA_POST_MAX if dosya else POST_MAX
+            ad_maks = f"{maks // 1024} KB"
+            if uzun > maks:
                 # Gövde işlenmez. Makul boyuttaysa istemcinin gönderimi bitsin diye atılır (Windows'ta
                 # sunucu okumadan kapatırsa istemci bağlantı sıfırlaması görür); dev ise bağlantı kapatılır.
                 if uzun <= POST_ATIM_MAX:
@@ -290,8 +408,8 @@ def _isleyici():
                         if not parca:
                             break
                         kalan -= len(parca)
-                    return self._json(413, {"tamam": False, "hata": "Gövde çok büyük (en çok 64 KB)."})
-                return self._json(413, {"tamam": False, "hata": "Gövde çok büyük (en çok 64 KB)."}, kapat=True)
+                    return self._json(413, {"tamam": False, "hata": f"Gövde çok büyük (en çok {ad_maks})."})
+                return self._json(413, {"tamam": False, "hata": f"Gövde çok büyük (en çok {ad_maks})."}, kapat=True)
             try:
                 g = json.loads(self.rfile.read(uzun).decode("utf-8") or "null")
                 if not isinstance(g, dict):
@@ -301,11 +419,18 @@ def _isleyici():
             a, sd = _alan_sd((q.get("alan") or [None])[0], kesin=True)
             if a is None:
                 return self._json(400, {"tamam": False, "hata": sd["hata"]})
-            hata = _govde_denetle(g)
+            if dosya:
+                return self._dosya_yaz(a, sd, g)
+            hata = _todo_govde_denetle(g) if todo else _govde_denetle(g)
             if hata:
                 return self._json(400, {"tamam": False, "hata": hata})
             try:
-                kayit = _onay_islemi(sd, g)
+                if todo:
+                    kod, kayit = _todo_islemi(sd, g)
+                    if kod != 200:
+                        return self._json(kod, {"tamam": False, "hata": kayit})
+                else:
+                    kayit = _onay_islemi(sd, g)
             except (ValueError, TypeError) as e:
                 return self._json(400, {"tamam": False, "hata": str(e)})
             except Exception as e:  # noqa: BLE001
@@ -315,11 +440,34 @@ def _isleyici():
                     onbellek.pop(k, None)
             return self._json(200, {"tamam": True, "kayit": kayit})
 
+        def _dosya_yaz(self, a, sd, g):
+            for ad in ("id", "metin", "taban"):
+                if not isinstance(g.get(ad), str):
+                    return self._json(400, {"tamam": False, "hata": f"{ad} metin olmalı."})
+            try:
+                kayit = kural_dosya.yaz(a["yol"], sd, g["id"], g["metin"], g["taban"])
+            except LookupError as e:
+                return self._json(404, {"tamam": False, "hata": str(e)})
+            except ValueError as e:
+                return self._json(409 if str(e).startswith("cakisma:") else 400, {"tamam": False, "hata": str(e)})
+            except OSError as e:
+                return self._json(500, {"tamam": False, "hata": f"Yazılamadı: {type(e).__name__}"})
+            with kilit:
+                for k in [k for k in onbellek if isinstance(k, tuple) and k[0] == "kural"]:
+                    onbellek.pop(k, None)
+            return self._json(200, {"tamam": True, "kayit": kayit})
+
         def do_POST(self):
             # Sohbeti aç. Özel başlık zorunlu: başka bir sitenin sayfası bu isteği CORS ön denetimi olmadan gönderemez.
             u = urllib.parse.urlparse(self.path)
             if u.path == "/onay":
                 return self._post_onay(urllib.parse.parse_qs(u.query))
+            if u.path == "/api/todo":  # iş todo listeleri salt okunur
+                return self._json(405, {"tamam": False, "hata": "İş todo listeleri salt okunur."})
+            if u.path == "/api/kullanici-todo":
+                return self._post_yaz(urllib.parse.parse_qs(u.query), todo=True)
+            if u.path == "/api/kural-dosya":
+                return self._post_yaz(urllib.parse.parse_qs(u.query), dosya=True)
             if u.path != "/ac" or self.headers.get("X-Orkestra") != "1":
                 return self._gonder(403, "text/plain", b"yasak")
             oturum = (urllib.parse.parse_qs(u.query).get("oturum") or [""])[0]
@@ -381,6 +529,35 @@ def _isleyici():
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli(("isler", alan), 2.0, lambda: _isler_json(alan)))
+            if u.path == "/api/etki":
+                alan = (q.get("alan") or [None])[0]
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli(("etki", alan), 2.0, lambda: _etki_json(alan)))
+            if u.path == "/api/kullanici-todo":
+                alan = (q.get("alan") or [None])[0]
+                try:
+                    return self._json(200, _kullanici_todo_json(alan))
+                except Exception as e:  # noqa: BLE001
+                    return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"})
+            if u.path == "/api/todo":
+                alan = (q.get("alan") or [None])[0]
+                is_id = (q.get("is") or [None])[0]
+                try:
+                    return self._json(200, _todo_json(alan, is_id))
+                except Exception as e:  # noqa: BLE001
+                    return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"})
+            if u.path in ("/api/kural-dosyalar", "/api/kural-dosya"):
+                a, sd = _alan_sd((q.get("alan") or [None])[0])
+                if a is None:
+                    return self._json(200, sd)
+                try:
+                    if u.path == "/api/kural-dosyalar":
+                        return self._json(200, {"acik": True, "alan": _alan_kisa(a), "dosyalar": kural_dosya.liste(a["yol"])})
+                    return self._json(200, {"acik": True, **kural_dosya.oku(a["yol"], (q.get("id") or [""])[0])})
+                except LookupError as e:
+                    return self._json(404, {"tamam": False, "hata": str(e)})
+                except ValueError as e:
+                    return self._json(400, {"tamam": False, "hata": str(e)})
             if u.path == "/onay-sayac.json":
                 return self._gonder(200, "application/json; charset=utf-8", onbellekli("sayac", 5.0, _sayac_tum))
             if u.path == "/saglik":

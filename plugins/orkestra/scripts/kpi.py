@@ -41,8 +41,10 @@ TANIMLAR = {
 }
 
 
-def _bol(pay, payda):
-    if not payda or not pay:
+def _bol(pay, payda, sifir_olcum=False):
+    """Payda 0 -> None. Pay 0 -> None (eski davranış); sifir_olcum=True (aralık ölçümü) ise 0.0:
+    etki izlemede 'ölçüldü, sıfır' ile 'veri yok' ayrışmalı."""
+    if not payda or (not pay and not sifir_olcum):
         return None
     return pay / payda
 
@@ -89,7 +91,7 @@ def _sure_sn(kart: dict):
     return (bit - bas).total_seconds()
 
 
-def _hesapla(kartlar: list[dict], mal_kart: dict, tum_mal: list[dict]) -> dict:
+def _hesapla(kartlar: list[dict], mal_kart: dict, tum_mal: list[dict], sifir_olcum: bool = False) -> dict:
     """kartlar: iptal hariç. mal_kart: gid -> satırlar. tum_mal: onbellek paydası için satırlar."""
     onayli = [k for k in kartlar if k.get("durum") in ONAYLI]
     onayli_mal = [r for k in onayli for r in mal_kart.get(k["id"], [])]
@@ -104,27 +106,50 @@ def _hesapla(kartlar: list[dict], mal_kart: dict, tum_mal: list[dict]) -> dict:
     cagri = sum(len(k.get("isciler") or []) for k in kartlar)
     sureler = [s for s in (k["_sure"] for k in kartlar) if s is not None]
     return {
-        "dogrulanmis_basari": _bol(len(onayli), len(kartlar)),
-        "basari_basina_maliyet": _bol(usd, len(onayli)),
-        "basari_basina_token": _bol(tok, len(onayli)),
-        "onbellek_isabet": _bol(okuma, payda_o),
-        "ret_orani": _bol(ret, karar),
-        "onkontrol_ret_orani": _bol(okret, oktop),
-        "yeniden_deneme_carpani": _bol(cagri, len(kartlar)),
+        "dogrulanmis_basari": _bol(len(onayli), len(kartlar), sifir_olcum),
+        "basari_basina_maliyet": _bol(usd, len(onayli), sifir_olcum),
+        "basari_basina_token": _bol(tok, len(onayli), sifir_olcum),
+        "onbellek_isabet": _bol(okuma, payda_o, sifir_olcum),
+        "ret_orani": _bol(ret, karar, sifir_olcum),
+        "onkontrol_ret_orani": _bol(okret, oktop, sifir_olcum),
+        "yeniden_deneme_carpani": _bol(cagri, len(kartlar), sifir_olcum),
         "p95_sure_sn": _p95(sureler),
     }
 
 
-def olcum(sd: str, gun: float | None = None) -> dict:
+def _ornekler(kartlar: list[dict], tum_mal: list[dict]) -> dict:
+    """Her KPI'nın paydasındaki örnek sayısı (etki ölçümü 'yeterli örnek mi' diye bakar)."""
+    onayli = [k for k in kartlar if k.get("durum") in ONAYLI]
+    return {
+        "dogrulanmis_basari": len(kartlar),
+        "basari_basina_maliyet": len(onayli),
+        "basari_basina_token": len(onayli),
+        "onbellek_isabet": len(tum_mal),
+        "ret_orani": sum(k["_karar"] for k in kartlar),
+        "onkontrol_ret_orani": sum(k["_ok_top"] for k in kartlar),
+        "yeniden_deneme_carpani": len(kartlar),
+        "p95_sure_sn": sum(1 for k in kartlar if k["_sure"] is not None),
+    }
+
+
+def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dict:
+    """aralik=(bas, bit): tz'li datetime çifti, yarı açık [bas, bit); verilmezse davranış değişmez.
+    Çıktıda 'ornek' (KPI başına payda sayısı) da döner."""
     esik = None
     if gun is not None:
         esik = datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)
 
     def icinde(zaman) -> bool:
-        if esik is None:
+        if esik is None and aralik is None:
             return True
         z = A._zaman(zaman)
-        return bool(z and z >= esik)
+        if not z:
+            return False
+        if esik is not None and z < esik:
+            return False
+        if aralik is not None and not (aralik[0] <= z < aralik[1]):
+            return False
+        return True
 
     tum = [k for k in L.kartlar(sd) if icinde(k.get("olusturma"))]
     kartlar = []
@@ -162,7 +187,8 @@ def olcum(sd: str, gun: float | None = None) -> dict:
 
     out = {
         "tanimlar": TANIMLAR,
-        "genel": _hesapla(kartlar, mal_kart, tum_mal),
+        "genel": _hesapla(kartlar, mal_kart, tum_mal, aralik is not None),
+        "ornek": _ornekler(kartlar, tum_mal),
         "ana_ajan_payi": {"maliyet_usd": sum(float(r.get("maliyet_usd") or 0) for r in ana),
                           "token": sum(_tok(r) for r in ana)},
         "sinif": {},
@@ -174,7 +200,7 @@ def olcum(sd: str, gun: float | None = None) -> dict:
             gruplar.setdefault(k.get(alan) or "-", []).append(k)
         for ad, ks in sorted(gruplar.items()):
             mk = {k["id"]: mal_kart.get(k["id"], []) for k in ks}
-            out[anahtar][ad] = _hesapla(ks, mk, [r for rs in mk.values() for r in rs])
+            out[anahtar][ad] = _hesapla(ks, mk, [r for rs in mk.values() for r in rs], aralik is not None)
 
     bekleme = []
     for yol in sorted(glob.glob(os.path.join(sd, "onaylar", "O-*.json"))):

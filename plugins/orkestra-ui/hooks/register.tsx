@@ -11,22 +11,7 @@ const veri = atom({ plugin: 'orkestra-ui', key: 'veri' } as const, null)
 // Gizle, gizlendiği andaki durum imzasını saklar; imza değişince (yeni ret/teslim/rapor) bant geri gelir.
 const bantGizli = atom({ plugin: 'orkestra-ui', key: 'bantGizli' } as const, '')
 
-const DURUM_RENGI: Record<string, string> = {
-  isleniyor: 'suggestion',
-  denetimde: 'warning',
-  reddedildi: 'error',
-  onaylandi: 'success',
-  teslim: 'inactive',
-  beklemede: 'inactive',
-  planlandi: 'subtle',
-  iptal: 'inactive',
-}
-const DURUM_AD: Record<string, string> = {
-  planlandi: 'Sırada', isleniyor: 'Çalışıyor', denetimde: 'Denetimde', reddedildi: 'Reddedildi',
-  onaylandi: 'Onaylandı · teslim bekliyor', teslim: 'Teslim edildi', beklemede: 'Beklemede', iptal: 'İptal',
-}
 const ACIK = ['isleniyor', 'denetimde', 'reddedildi', 'onaylandi', 'beklemede', 'planlandi']
-const KART_SIRA = ['reddedildi', 'denetimde', 'onaylandi']  // dikkat gerektirenler, bu sırayla
 const ESKI_DK = 10
 
 // tr-TR para biçimi: |v| < 1000 iki ondalık ($5,73); ≥ 1000 sıfır ondalık ($1.668); negatifte −$.
@@ -82,6 +67,7 @@ export function donustur(h: HamOzet, oturum: string): UiOzet {
     })),
     perspektif: h.perspektif ?? h.ruya,  // ruya: eski ozet.json anahtarı
     uretim: h.uretim,
+    isler: h.isler ?? [],
   }
 }
 
@@ -233,43 +219,42 @@ async function paneCiz($: EngineInterface, e: Parameters<EngineInterface['ui']['
         </Box>
       )
     }
-    if (o.kartlar === undefined) {
+    if (o.kartlar === undefined && o.isler === undefined) {
       return (
         <Box flexDirection="column">
           <Text color="error">{o.hata ?? 'Veri yok.'}</Text>
         </Box>
       )
     }
-    const kartlar: KartOzeti[] = o.kartlar
-    const m = o.maliyet
-    const dikkat = KART_SIRA.flatMap(d => kartlar.filter(k => k.durum === d)).slice(0, 6)
-    const calisan = kartlar.filter(k => !KART_SIRA.includes(k.durum)).slice(0, 6)
-    const teslim = o.teslim
-    const defter = o.defter ?? []
+    const isler = (o.isler ?? []).filter(x => x.toplam > 0)
+    const biten = isler.reduce((a, x) => a + x.biten, 0)
+    const toplam = isler.reduce((a, x) => a + x.toplam, 0)
+    const yuzde = toplam === 0 ? 0 : Math.round((biten / toplam) * 100)
+    const dolu = Math.round((yuzde / 100) * Math.min(30, w - 20))
+    const cubuk = '█'.repeat(dolu) + '░'.repeat(Math.min(30, w - 20) - dolu)
+    const yapilanlar = isler.filter(x => x.biten > 0)
+    const yapilacaklar = isler.filter(x => x.acik.length > 0)
     const uretimSaat = (o.uretim ?? '').slice(11, 16)
     const yas = o.uretim !== undefined ? Date.now() - Date.parse(o.uretim) : 0
     const eski = Number.isFinite(yas) && yas > ESKI_DK * 60000
-    const sonTeslim = teslim?.sonId !== undefined ? ` · son teslim ${teslim.sonSaat ?? '–'} ${teslim.sonId}` : ''
-    const kart = (k: KartOzeti) => (
-      <Box flexDirection="column">
-        <Text color={DURUM_RENGI[k.durum] ?? 'text'} wrap="truncate">{kes(k.baslik, w - 2)}</Text>
-        <Text dimColor wrap="truncate">{`${k.id} · ${k.basamak} · ${DURUM_AD[k.durum] ?? k.durum} · ${usd(k.usd)}`}</Text>
-      </Box>
-    )
     return (
       <Box flexDirection="column">
         {o.hata !== undefined && <Text color="error" wrap="truncate">{o.hata}</Text>}
-        {dikkat.length === 0 && calisan.length === 0 && <Text color="success" wrap="truncate">{`Açık iş yok${sonTeslim}`}</Text>}
-        {dikkat.map(kart)}
-        {calisan.length > 0 && <Text> </Text>}
-        {calisan.map(kart)}
-        {(teslim?.sayi ?? 0) > 0 && <Text dimColor>{`${teslim?.sayi} kart teslim edildi`}</Text>}
+        <Text bold>{`Yapılan ${biten} / toplam ${toplam} iş · %${yuzde}`}</Text>
+        <Text color="success">{cubuk}</Text>
         <Text> </Text>
-        <Text>{`Bu sohbet ${usd(m?.oturum)} · bugün ${usd(m?.bugun)}`}</Text>
-        {defter.length > 0 && <Text> </Text>}
-        {defter.length > 0 && <Text bold>Son olaylar</Text>}
-        {defter.map(r => <Text dimColor wrap="truncate">{kes(`${r.saat} ${r.gorev !== '-' ? r.gorev + ' ' : ''}${r.metin}`, w)}</Text>)}
-        {o.perspektif?.rapor && <Text color="suggestion">Perspektif raporu hazır → /orkestra:perspektif</Text>}
+        <Text bold color="success">{`Yapılanlar (${biten})`}</Text>
+        {yapilanlar.length === 0 && <Text dimColor>Henüz biten madde yok</Text>}
+        {yapilanlar.map(x => <Text wrap="truncate">{kes(`${x.biten}/${x.toplam}  ${x.ad}`, w)}</Text>)}
+        <Text> </Text>
+        <Text bold color="warning">{`Yapılacaklar (${toplam - biten})`}</Text>
+        {yapilacaklar.length === 0 && <Text dimColor>Açık madde yok</Text>}
+        {yapilacaklar.map(x => (
+          <Box flexDirection="column">
+            <Text bold wrap="truncate">{kes(`${x.ad} · ${x.toplam - x.biten} açık`, w)}</Text>
+            {x.acik.slice(0, 3).map(m => <Text dimColor wrap="truncate">{kes(`  ○ ${m}`, w)}</Text>)}
+          </Box>
+        ))}
         <Text> </Text>
         <Box>
           <Text dimColor>{uretimSaat === '' ? 'Ayrıntı: /orkestra-web' : 'Ayrıntı: /orkestra-web · '}</Text>

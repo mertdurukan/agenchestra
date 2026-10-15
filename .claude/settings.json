@@ -1,0 +1,17 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-orchestration": {
+      "source": {
+        "source": "github",
+        "repo": "mertdurukan/agenchestra"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "orkestra@claude-orchestration": true,
+    "orkestra-ui@claude-orchestration": true
+  },
+  "env": {
+    "PYTHONUTF8": "1"
+  }
+}

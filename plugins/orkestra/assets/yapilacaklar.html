@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Yapılacaklar</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+  .yap-ust { display: flex; gap: var(--a-8); flex-wrap: wrap; margin: var(--a-12) 0; }
+  .yap-ust select { min-width: 12rem; }
+  .yap-ust input[type="text"] { flex: 1 1 18rem; min-width: 0; }
+  .yap-liste { list-style: none; margin: 0; padding: 0; }
+  .yap-liste li { display: flex; gap: var(--a-8); align-items: baseline; padding: var(--a-4) 0; overflow-wrap: anywhere; }
+  .yap-biten li { color: var(--text-muted); text-decoration: line-through; }
+  #kYeni {
+    flex: 1 1 18rem; min-width: 0; resize: vertical; min-height: 2.6em; max-height: 50vh; line-height: 1.45;
+    background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--k-6);
+    padding: var(--a-4) var(--a-8); font: inherit; font-size: var(--t-13); color: var(--text-primary);
+  }
+  #kListe li { align-items: flex-start; padding: var(--a-8) 0; border-bottom: 1px solid var(--line); }
+  #kListe li:last-child { border-bottom: 0; }
+  #kListe li > button { flex: none; white-space: nowrap; overflow-wrap: normal; }
+  #kListe li > span { flex: 1; min-width: 0; white-space: pre-wrap; line-height: 1.45; }
+</style>
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Yapılacaklar</h1>
+  <section class="bolum" aria-labelledby="kBaslik">
+    <h2 id="kBaslik">Benim yapılacaklarım <span class="meta" id="kSayi"></span></h2>
+    <p class="aciklama">Yalnız bu bölümü sen düzenlersin: yaz, Enter ile ekle (Shift+Enter yeni satır), işin bitince sil. İşlerin todo listeleri aşağıda salt okunurdur.</p>
+    <div class="yap-ust">
+      <textarea id="kYeni" rows="2" placeholder="Yeni madde… (Enter ile ekle, Shift+Enter yeni satır)" aria-label="Yeni madde" maxlength="2000"></textarea>
+    </div>
+    <ul id="kListe" class="yap-liste"><li class="bos">Yükleniyor…</li></ul>
+  </section>
+  <section class="bolum" aria-labelledby="yBaslik">
+    <h2 id="yBaslik">İşlerin yapılacakları <span class="meta" id="ySayi"></span></h2>
+    <p class="aciklama">Salt okunur: bu listeleri orkestra ve işçiler günceller (CLI: orkestra is todo).</p>
+    <div class="yap-ust">
+      <select id="isSec" aria-label="İş"></select>
+    </div>
+    <ul id="acik" class="yap-liste"><li class="bos">Yükleniyor…</li></ul>
+    <h3 class="meta" id="bitenBaslik" hidden>Biten</h3>
+    <ul id="biten" class="yap-liste yap-biten"></ul>
+  </section>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script>
+'use strict';
+(() => {
+  const $ = s => document.querySelector(s);
+  const { esc } = O;
+  let secili = '';   // kullanıcının seçtiği iş; boşsa sunucu varsayılanı seçer
+  let son = null;
+
+  const yol = () => '/api/todo?alan=' + encodeURIComponent(O.alan) + (secili ? '&is=' + encodeURIComponent(secili) : '');
+
+  function ciz(v) {
+    son = v;
+    if (!v.acik) {
+      $('#acik').innerHTML = '<li class="bos">' + esc(v.hata || 'Bu çalışma alanında orkestra açık değil.') + '</li>';
+      $('#isSec').innerHTML = ''; $('#biten').innerHTML = ''; $('#bitenBaslik').hidden = true; $('#ySayi').textContent = '';
+      return;
+    }
+    if (document.activeElement !== $('#isSec')) {
+      $('#isSec').innerHTML = (v.isler || []).map(i =>
+        `<option value="${esc(i.id)}"${i.id === v.is ? ' selected' : ''}>${esc(i.id + ' · ' + (i.ad || i.baslik))}</option>`).join('');
+    }
+    const a = v.acik_maddeler || [], b = v.biten_maddeler || [];
+    $('#ySayi').textContent = a.length + ' açık · ' + b.length + ' biten';
+    $('#acik').innerHTML = a.length ? a.map((m, n) =>
+      `<li><input type="checkbox" disabled aria-label="Açık: ${esc(m)}"><span>${esc(m)}</span></li>`).join('')
+      : '<li class="bos">Açık madde yok.</li>';
+    $('#biten').innerHTML = b.map(m => `<li><input type="checkbox" checked disabled aria-label="Bitti"><span>${esc(m)}</span></li>`).join('');
+    $('#bitenBaslik').hidden = !b.length;
+  }
+
+  let K, KK;
+
+  const kYol = () => '/api/kullanici-todo?alan=' + encodeURIComponent(O.alan);
+
+  function kCiz(v) {
+    if (!v.acik) {
+      $('#kListe').innerHTML = '<li class="bos">' + esc(v.hata || 'Bu çalışma alanında orkestra açık değil.') + '</li>';
+      $('#kSayi').textContent = '';
+      $('#kYeni').disabled = true;
+      return;
+    }
+    $('#kYeni').disabled = false;
+    const m = v.maddeler || [];
+    $('#kSayi').textContent = m.length + ' madde';
+    $('#kListe').innerHTML = m.length ? m.map(x =>
+      `<li><button type="button" data-id="${esc(x.id)}" aria-label="Sil: ${esc(x.metin)}">Sil</button><span>${esc(x.metin)}</span></li>`).join('')
+      : '<li class="bos">Madde yok.</li>';
+  }
+
+  async function kYaz(govde) {
+    try {
+      await O.gonder(kYol(), govde);
+      kCiz(await fetch(kYol()).then(r => r.json()));
+      return true;
+    } catch (e) { O.bildirim(O.hataMetni(e)); return false; }
+  }
+
+  $('#kYeni').addEventListener('keydown', async e => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    e.preventDefault();
+    const metin = e.target.value.trim();
+    if (!metin) return;
+    e.target.disabled = true;
+    const ok = await kYaz({ eylem: 'ekle', metin });
+    e.target.disabled = false;
+    if (ok) { e.target.value = ''; boyutla(); }
+    e.target.focus();
+  });
+  // Kutu yazılan metne göre uzar (en çok 50vh; CSS sınırı)
+  function boyutla() { const t = $('#kYeni'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+  $('#kYeni').addEventListener('input', boyutla);
+  $('#kListe').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-id]');
+    if (!b) return;
+    b.disabled = true;
+    if (!await kYaz({ eylem: 'sil', id: b.dataset.id })) b.disabled = false;
+  });
+  $('#isSec').addEventListener('change', e => { secili = e.target.value; fetch(yol()).then(r => r.json()).then(ciz); });
+  window.addEventListener('orkestra:alan', () => { secili = ''; });
+
+  O.kabuk({ sayfa: 'yapilacaklar' });
+  K = O.veri(yol, { ad: 'todo', aralik: 5000, cizici: ciz });
+  KK = O.veri(kYol, { ad: 'kullanici-todo', aralik: 5000, cizici: kCiz });
+})();
+</script>
+</body>
+</html>

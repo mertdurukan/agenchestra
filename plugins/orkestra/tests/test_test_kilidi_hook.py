@@ -45,8 +45,9 @@ class TestKilidiHook(unittest.TestCase):
     def neden(self, c):
         return (c.get("hookSpecificOutput") or {}).get("permissionDecisionReason") or ""
 
-    def kod_karti(self, kilitli=None, durum=None):
-        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "k", "--sinif", "kod",
+    def kod_karti(self, kilitli=None, durum=None, tdd=True):
+        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "k", "--sinif", "kod"]
+                  + (["--tdd"] if tdd else []) + [
                    "--test-komutu", "python -m unittest", "--test-alani", "tests/**", "--yazma", "src/**"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
         gid = r.stdout.strip()
@@ -123,6 +124,12 @@ class TestKilidiHook(unittest.TestCase):
         self.assertEqual(self.karar(c), "deny")
         self.assertIn("test_alani", self.neden(c))
         self.assertNotEqual(self.karar(self.yaz("src/m.py", agent_id="kd", agent_type="orkestra:isci-t2")), "deny")
+
+    def test_tddsiz_kartta_isci_test_alanina_yazar(self):
+        gid = self.kod_karti(tdd=False)
+        self.ajan("kn", gid, "is")
+        self.assertNotEqual(self.karar(self.yaz("tests/test_yeni.py", agent_id="kn", agent_type="orkestra:isci-t2")), "deny")
+        self.assertNotEqual(self.karar(self.yaz("src/m.py", agent_id="kn", agent_type="orkestra:isci-t2")), "deny")
 
     def test_kod_olmayan_kartta_test_yaz_kurali_yok(self):
         r = C.kos([C.CLI, "kart", "yeni", "--baslik", "d", "--basamak", "T1", "--kabul", "k", "--yazma", "docs/**"], self.proje)

@@ -13,6 +13,8 @@ FIXTURE = os.path.join(AD, "fixtures", "ruya_20261013_1500.md")
 ORKESTRA = os.path.join(SCRIPTS, "orkestra.py")
 sys.path.insert(0, SCRIPTS)
 import onay  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 
 class Temel(unittest.TestCase):
@@ -338,21 +340,32 @@ class BaglamTest(Temel):
         onay.karar_ver(self.sd, k["id"], "onay", secim="B", not_="acele değil")
         m = onay.baglam_metni(self.sd, "s1", "UserPromptSubmit")
         self.assertIn(f"{k['id']} kararın: B (not: acele değil)", m)
-        self.assertEqual(onay.baglam_metni(self.sd, "s1", "UserPromptSubmit"), "")
+        self.assertNotIn("kararın", onay.baglam_metni(self.sd, "s1", "UserPromptSubmit"))
         self.assertTrue(os.path.exists(os.path.join(self.sd, "onaylar", "gorulen.json")))
 
+    def test_bekleyen_yoksa_onayliyi_calistir_yonergesi(self):
+        a = onay.iste(self.sd, "Birinci", "m", tur="perspektif")
+        b = onay.iste(self.sd, "İkinci", "m", tur="perspektif")
+        onay.karar_ver(self.sd, a["id"], "onay")
+        # b hâlâ bekliyor: çalıştırma yönergesi yok
+        self.assertNotIn("orkestra:onay'ı şimdi çalıştır", onay.baglam_metni(self.sd, "s1", "SessionStart"))
+        self.assertNotIn("orkestra:onay'ı şimdi çalıştır", onay.baglam_metni(self.sd, "s1", "UserPromptSubmit"))
+        onay.karar_ver(self.sd, b["id"], "ret")
+        # bekleyen kalmadı, a onaylı: hem açılışta hem her istemde yönerge
+        self.assertIn(f"({a['id']})", onay.baglam_metni(self.sd, "s1", "SessionStart"))
+        self.assertIn("orkestra:onay'ı şimdi çalıştır", onay.baglam_metni(self.sd, "s1", "UserPromptSubmit"))
     def test_session_start_gecmisi_isaretler(self):
         eski = onay.iste(self.sd, "Eski karar", "m", tur="perspektif")
         onay.karar_ver(self.sd, eski["id"], "onay")
         self.assertIn(eski["id"], onay.baglam_metni(self.sd, "yeni", "SessionStart"))
         # SessionStart'ta söylenen/geçmiş karar UserPromptSubmit'te tekrarlanmaz
-        self.assertEqual(onay.baglam_metni(self.sd, "yeni", "UserPromptSubmit"), "")
+        self.assertNotIn("Panel kararları", onay.baglam_metni(self.sd, "yeni", "UserPromptSubmit"))
         # sonradan verilen karar yine gelir
         yeni = onay.iste(self.sd, "Yeni karar", "m", tur="perspektif")
         onay.karar_ver(self.sd, yeni["id"], "ret")
         m = onay.baglam_metni(self.sd, "yeni", "UserPromptSubmit")
         self.assertIn(yeni["id"], m)
-        self.assertNotIn(eski["id"], m)
+        self.assertNotIn(f"{eski['id']} [perspektif]", m)
         # karar yokken ya da oturumsuzken sessizce geçer
         onay.gorulen_isaretle(self.sd, None)
         onay.gorulen_isaretle(os.path.join(self.proje, "yok", ".claude", "orkestra"), "x")
@@ -376,8 +389,7 @@ class CliTest(Temel):
         env.pop("CLAUDE_SESSION_ID", None)
         env.pop("CLAUDE_CODE_SESSION_ID", None)
         env.update(ortam or {})
-        return subprocess.run([sys.executable, ORKESTRA, *args], cwd=self.proje, capture_output=True,
-                              text=True, encoding="utf-8", env=env, timeout=60)
+        return ic_kos.kos([ORKESTRA, *args], cwd=self.proje, env=env)
 
     def test_onay_ve_kural_akisi(self):
         self.rapor()

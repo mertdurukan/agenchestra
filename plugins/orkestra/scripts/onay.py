@@ -12,6 +12,7 @@ bu yüzden herkese açık işlevler kilidi alıp `_` önekli iç işlevleri ça�
 from __future__ import annotations
 
 import datetime
+import copy
 import glob
 import json
 import os
@@ -122,6 +123,16 @@ def _yeni_kayit(sd: str, tur: str, baslik: str, metin: str, kaynak, anahtar, sec
          "olusturma": simdi, "guncelleme": simdi, "gecmis": [{"zaman": simdi, "olay": "olusturuldu"}]}
     _kayit_yaz(sd, k)
     return k
+
+
+def _etki_kancasi(k: dict, islem) -> None:
+    """Etki ölçümü kancası (G-069): başarısızsa kayıt olduğu gibi kalır, onay akışı bozulmaz."""
+    yedek = copy.deepcopy(k)
+    try:
+        islem()
+    except Exception:
+        k.clear()
+        k.update(yedek)
 
 
 def _anahtarli(sd: str, anahtar: str) -> dict | None:
@@ -449,6 +460,8 @@ def al(sd: str, id: str, oturum: str) -> dict:
         k["durum"] = "uygulaniyor"
         k["uygulama"] = {"oturum": oturum, "alma_zamani": L.simdi(), "zaman": None, "ozet": None}
         _olay(k, "alindi", oturum)
+        import etki  # geç içe aktarım: etki.py onay.py'yi içe aktarır
+        _etki_kancasi(k, lambda: etki.kanca_al(sd, k))
         _kayit_yaz(sd, k)
         return k
 
@@ -467,6 +480,8 @@ def uygulandi(sd: str, id: str, ozet: str, oturum=None) -> dict:
         k["uygulama"] = u
         k["durum"] = "uygulandi"
         _olay(k, "uygulandi", ozet)
+        import etki  # geç içe aktarım: etki.py onay.py'yi içe aktarır
+        _etki_kancasi(k, lambda: etki.kanca_uygulandi(k))
         _kayit_yaz(sd, k)
         return k
 
@@ -514,16 +529,35 @@ def gorulen_isaretle(sd: str, oturum: str) -> None:
             _yaz_json(yol, gorulen)
 
 
+def _bu_oturumun(k: dict, oturum: str) -> bool:
+    return k.get("tur") != "karar" or not k.get("oturum") or k.get("oturum") == oturum
+
+
+def _calistir_yonergesi(sd: str, oturum: str) -> str:
+    """Bekleyen karar kalmadıysa ve onaylı kayıt varsa ajana /orkestra:onay'ı çalıştırma talimatı; yoksa ''."""
+    kayitlar = [k for k in _hepsi(sd) if _bu_oturumun(k, oturum)]
+    if any(k.get("durum") == "bekliyor" for k in kayitlar):
+        return ""
+    onayli = [k for k in kayitlar if k.get("durum") == "onaylandi"]
+    if not onayli:
+        return ""
+    return (f"Panelde bekleyen karar kalmadı; onaylı {len(onayli)} karar uygulanmamış "
+            f"({', '.join(k['id'] for k in onayli)}). Kullanıcıya sormadan Skill aracıyla "
+            f"orkestra:onay'ı şimdi çalıştır.")
+
+
 def baglam_metni(sd: str, oturum: str, olay: str) -> str:
     """Hook'un ajana eklediği kısa metin (en çok 900 karakter); söyleyecek şey yoksa ''."""
     if not os.path.isdir(_onay_dizini(sd)):
         return ""
     if olay == "SessionStart":
         kayitlar = _hepsi(sd)
-        uygulanacak = [k for k in kayitlar if k.get("durum") == "onaylandi"
-                       and (k.get("tur") != "karar" or not k.get("oturum") or k.get("oturum") == oturum)]
+        uygulanacak = [k for k in kayitlar if k.get("durum") == "onaylandi" and _bu_oturumun(k, oturum)]
         bekleyen = sum(1 for k in kayitlar if k.get("durum") == "bekliyor")
         parcalar = []
+        yonerge = _calistir_yonergesi(sd, oturum)
+        if yonerge:
+            parcalar.append(yonerge)
         if uygulanacak:
             satirlar = "; ".join(f"{k['id']} [{k['tur']}] {_kisalt(k['baslik'], 60)}" for k in uygulanacak)
             parcalar.append(f"Panelde onaylanmış, uygulanmayı bekleyen {len(uygulanacak)} karar "
@@ -545,8 +579,9 @@ def baglam_metni(sd: str, oturum: str, olay: str) -> str:
                 if k.get("tur") == "karar" and k.get("oturum") and k.get("oturum") != oturum:
                     continue
                 yeni.append((kz, k))
+            yonerge = _calistir_yonergesi(sd, oturum)
             if not yeni:
-                return ""
+                return yonerge
             yeni.sort(key=lambda x: x[0])
             satirlar = []
             for kz, k in yeni:
@@ -563,7 +598,9 @@ def baglam_metni(sd: str, oturum: str, olay: str) -> str:
             gorulen[oturum] = yeni[-1][0]
             _yaz_json(yol, gorulen)
             metin = "Panel kararları: " + "; ".join(satirlar)
-            if any(k["durum"] == "onaylandi" and k["tur"] != "karar" for _, k in yeni):
+            if yonerge:
+                metin += " " + yonerge
+            elif any(k["durum"] == "onaylandi" and k["tur"] != "karar" for _, k in yeni):
                 metin += " → /orkestra:onay ile uygula."
             return _kisalt_metin(metin)
     return ""

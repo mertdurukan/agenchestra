@@ -177,6 +177,72 @@ def olay(oturum: str | None, proje: str | None, tur: str, **alan) -> None:
         pass
 
 
+BEKLEME_UZUNLUK = 140
+
+
+def _duz_metin(m: str) -> str:
+    """Markdown'dan düz metin: kod blokları, satır içi kod işaretleri, bağlantılar, başlık/vurgu işaretleri."""
+    m = re.sub(r"```.*?```", " ", m or "", flags=re.S)
+    m = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", m)
+    m = re.sub(r"[`*_#>|]+", "", m)
+    return m
+
+
+def _cumleler(m: str) -> list[str]:
+    out = []
+    for satir in _duz_metin(m).splitlines():
+        satir = re.sub(r"^\s*(?:[-•]|\d+[.)])\s+", "", satir).strip()
+        out += [c.strip() for c in re.split(r"(?<=[.!?])\s+", satir) if c.strip()]
+    return out
+
+
+def _transkript_sorulari(yol: str | None, ofset: int) -> dict:
+    """Bu turda (ofsetten sonra) Claude'un kullanıcıya bıraktığı açık soru: AskUserQuestion ve wrap_up (ask/recap)."""
+    bulunan: dict = {}
+    if not yol:
+        return bulunan
+    try:
+        with open(yol, "rb") as f:
+            f.seek(max(0, int(ofset or 0)))
+            veri = f.read()
+    except Exception:
+        return bulunan
+    for ham in veri.splitlines():
+        try:
+            o = json.loads(ham)
+        except Exception:
+            continue
+        if not isinstance(o, dict) or o.get("type") != "assistant" or o.get("isSidechain"):
+            continue
+        icerik = (o.get("message") or {}).get("content")
+        for b in icerik if isinstance(icerik, list) else []:
+            if not isinstance(b, dict) or b.get("type") != "tool_use":
+                continue
+            ad, gir = str(b.get("name") or ""), b.get("input") or {}
+            if ad == "AskUserQuestion":
+                sorular = gir.get("questions") or []
+                if sorular and isinstance(sorular[0], dict) and sorular[0].get("question"):
+                    bulunan["soru"] = str(sorular[0]["question"])
+            elif ad.endswith("wrap_up"):
+                bulunan["ask"] = str(gir.get("ask") or "") or None
+                bulunan["recap"] = str(gir.get("recap") or "") or None
+    return bulunan
+
+
+def bekleme_nedeni(transkript: str | None, ofset: int, son_mesaj: str | None) -> str:
+    """Claude turu bitirdiğinde kullanıcıdan ne beklendiği, tek kısa cümle (deterministik; LLM yok).
+
+    Sıra: bu turdaki AskUserQuestion sorusu → wrap_up'ın `ask`'ı → son mesajdaki son soru cümlesi →
+    wrap_up recap'inin ilk cümlesi → son mesajın son cümlesi. Hiçbiri yoksa ''.
+    """
+    t = _transkript_sorulari(transkript, ofset)
+    cumleler = _cumleler(son_mesaj or "")
+    soru = next((c for c in reversed(cumleler) if c.endswith("?")), None)
+    recap = (_cumleler(t["recap"]) or [None])[0] if t.get("recap") else None
+    secilen = t.get("soru") or t.get("ask") or soru or recap or (cumleler[-1] if cumleler else "")
+    return _kisalt(secilen, BEKLEME_UZUNLUK)
+
+
 def son_niyet(oturum: str) -> dict | None:
     """Bu oturumun en son niyet kaydı (hook bağlamına koymak için)."""
     son = None
@@ -238,6 +304,50 @@ def _proje_adi(yol: str | None) -> str:
     return os.path.basename((yol or "").rstrip("\\/")) or (yol or "?")
 
 
+def _kapanis(s: dict, bekleyen: str, n_acik: int, isler: list, simdi_z) -> dict:
+    """Sohbet 'Kapatılabilir' mi: açık kart yok, alt ajan yok, niyet sonucu var, bağlı işin todo'su son turdan sonra güncel."""
+    eksik = []
+    if bekleyen == "claude":
+        eksik.append("Claude çalışıyor")
+    if n_acik:
+        eksik.append(f"{n_acik} açık kart")
+    proje = s.get("proje_yol")
+    if proje:
+        sd = os.path.join(proje, ".claude", "orkestra")
+        var_denetci = var_diger = False
+        for yol in glob.glob(os.path.join(sd, "oturumlar", "acik_ajan_*.json")):
+            try:
+                with open(yol, encoding="utf-8") as f:
+                    k = json.load(f)
+            except Exception:
+                continue
+            if k.get("oturum") != s.get("oturum"):
+                continue
+            if "denetci" in str(k.get("ajan") or "").lower():
+                var_denetci = True
+            else:
+                var_diger = True
+        if var_denetci:
+            eksik.append("denetçi sürüyor")
+        if var_diger:
+            eksik.append("alt ajan sürüyor")
+    if not (s.get("sonuc") or "").strip():
+        eksik.append("niyet sonucu yok")
+    z = _zaman(s.get("son_zaman"))
+    if proje and z:
+        sd = os.path.join(proje, ".claude", "orkestra")
+        for i in isler:
+            try:
+                import is_kaydi as IK  # noqa: PLC0415
+                kayit = IK.is_al(sd, i["id"])
+                todo = IK._todo_dosyasi(kayit["klasor"]) if kayit else None
+                if todo and os.path.getmtime(todo) < z.timestamp():
+                    eksik.append(f"todo güncel değil ({i['id']})")
+            except Exception:
+                continue
+    return {"kapatilabilir": not eksik, "eksik": eksik}
+
+
 def gorunum(gun: int = GORUNUM_GUN) -> dict:
     simdi = datetime.datetime.now().astimezone()
     sinir = simdi - datetime.timedelta(days=gun)
@@ -261,7 +371,7 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         s = oturumlar.setdefault(oid, {"oturum": oid, "proje_yol": o.get("proje"), "ne": None, "neden": None, "sonuc": None,
                                        "niyet_zamani": None, "son_istek": None, "son_olay": None, "son_zaman": None,
                                        "baslangic": o.get("zaman"), "istek_sayisi": 0, "kapandi": False, "hooklu": False,
-                                       "arka_plan": False})
+                                       "arka_plan": False, "bekleme": None})
         s["proje_yol"] = s["proje_yol"] or o.get("proje")
         t = o.get("tur")
         s["hooklu"] = s["hooklu"] or t in ("tur", "kapandi", "niyet", "sonuc")
@@ -279,11 +389,14 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
                          "ne": s["ne"], "sonuc": o.get("sonuc")})
         elif t == "istek":
             s["son_istek"] = o.get("metin") or s["son_istek"]
+            s["istek_zamani"] = o["zaman"]
             s["istek_sayisi"] += 1
             s["kapandi"] = False
             s["arka_plan"] = False
+            s["bekleme"] = None  # kullanıcı yanıtladı: eski bekleme nedeni geçersiz
         elif t == "tur":
             s["arka_plan"] = bool(o.get("arka_plan"))  # tur bitti ama arka planda iş sürüyor olabilir
+            s["bekleme"] = o.get("bekleme") or None
         elif t == "kapandi":
             s["kapandi"] = True
         if t in ("istek", "tur", "kapandi", "niyet", "sonuc"):
@@ -295,13 +408,20 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
     for p in {s["proje_yol"] for s in oturumlar.values() if s["proje_yol"]}:
         basliklar.update(_basliklar(p))
     kartlar: dict = collections.defaultdict(list)
+    is_adlari: dict = {}  # (proje_yol, iş kimliği) → okunur iş adı; sohbet kartı bağlı işi bununla gösterir
     for p in {s["proje_yol"] for s in oturumlar.values() if s["proje_yol"]}:
         sd = os.path.join(p, ".claude", "orkestra")
         if os.path.isdir(sd):
+            try:
+                import is_kaydi as IK  # noqa: PLC0415
+                for g in IK.is_liste(sd):
+                    is_adlari[(p, g["id"])] = IK.is_adi(g.get("baslik", ""))
+            except Exception:
+                pass
             for k in L.kartlar(sd):
                 d = L.kart_durumu_hesapla(k)
                 if k.get("oturum") in oturumlar:
-                    kartlar[k["oturum"]].append({"id": k["id"], "baslik": _kisalt(k.get("baslik"), 70), "durum": d,
+                    kartlar[k["oturum"]].append({"id": k["id"], "baslik": _kisalt(k.get("baslik"), 70), "durum": d, "is": k.get("is"),
                                                  "teslim_ozeti": _kisalt(k.get("teslim_ozeti"), 120)})
 
     try:
@@ -331,7 +451,8 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         bosta_dk = (simdi - z).total_seconds() / 60 if z else 9999
         if s["kapandi"]:
             bekleyen = "kapandi"
-        elif s["sonuc"] and (s.get("sonuc_zamani") or "") >= (s["niyet_zamani"] or ""):
+        elif (s["sonuc"] and (s.get("sonuc_zamani") or "") >= (s["niyet_zamani"] or "")
+              and (s.get("sonuc_zamani") or "") >= (s.get("istek_zamani") or "")):  # sonuçtan sonra yeni istek geldiyse iş sürüyor
             bekleyen = "bitti"
         elif yas_gun >= ESKI_GUN:
             bekleyen = "beklemede"
@@ -360,13 +481,20 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
             "link": m.get("link"), "arsiv": bool(m.get("arsiv")),
             "devam": None if m.get("link") else f"claude --resume {s['oturum']}",
             "ne": s["ne"], "neden": s["neden"], "sonuc": s["sonuc"], "yedek": yedek, "niyet_var": bool(s["ne"]),
-            "bekleyen": bekleyen, "son_zaman": s["son_zaman"], "baslangic": s["baslangic"], "istek_sayisi": s["istek_sayisi"],
+            "bekleyen": bekleyen, "bekleme": s["bekleme"] if bekleyen == "sen" else None, "son_zaman": s["son_zaman"], "baslangic": s["baslangic"], "istek_sayisi": s["istek_sayisi"],
             "son_istek": _kisalt(s["son_istek"], 160),
             "kartlar": {"acik": len(acik_kart), "toplam": len(kartlar.get(s["oturum"], [])),
                         "teslim": sum(1 for k in kartlar.get(s["oturum"], []) if k["durum"] == "teslim"),
                         "aktif": acik_kart[:3]},
+            # sohbetin kartlarının bağlı olduğu işler (açık kartı olan iş önce); panel iş ↔ sohbet geçişinde kullanır
+            "isler": [{"id": i, "ad": is_adlari.get((s["proje_yol"], i)) or i}
+                      for i in dict.fromkeys([k["is"] for k in acik_kart if k.get("is")] +
+                                             [k["is"] for k in kartlar.get(s["oturum"], []) if k.get("is")])],
         })
     satirlar = [r for r in satirlar if not r["arsiv"]]
+    for r in satirlar:
+        if r["bekleyen"] != "kapandi":
+            r["kapanis"] = _kapanis(r, r["bekleyen"], r["kartlar"]["acik"], r["isler"], simdi)
     sira = {"sen": 0, "claude": 1, "bitti": 2, "beklemede": 3, "kapandi": 4}
     satirlar.sort(key=lambda r: (sira.get(r["bekleyen"], 9), -(_zaman(r["son_zaman"]) or sinir).timestamp()))
     for a in akis:

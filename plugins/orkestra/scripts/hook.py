@@ -25,7 +25,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac|test-ayar)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac|test-ayar|butce)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|basladi|bitti|kaydet|girdi))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -53,6 +53,8 @@ def kilitli_testler(sd: str, ks: list[dict] | None = None) -> dict[str, str]:
     for k in L.kartlar(sd) if ks is None else ks:
         if k.get("durum") in ("teslim", "iptal"):
             continue
+        if (k.get("test_kilidi") or {}).get("yesilde"):
+            continue  # TDD'siz kart: testler işçinin, kilit yalnız onay kanıtı
         d = (k.get("test_kilidi") or {}).get("dosyalar")
         if isinstance(d, dict):
             for y in d:
@@ -287,7 +289,7 @@ def pre_tool_use(inp: dict):
                         if not icinde:
                             reddet(f"{gorev}: #SUREC:test-yaz yalnız test_alani içine yazar ({', '.join(k['test_alani'])}).")
                         gec()
-                    elif icinde:
+                    elif icinde and k.get("tdd") is not False:  # TDD'siz kartta testleri işçi yazar
                         reddet(f"{gorev}: test_alani ({', '.join(k['test_alani'])}) yalnız #SUREC:test-yaz ile yazılır; "
                                "testleri kod işçisi değiştiremez.")
                 if agacta:
@@ -614,7 +616,11 @@ def stop(inp: dict):
     if not os.environ.get("ORKESTRA_PERSPEKTIF"):
         import niyet
         # Claude turu bitirdi → kullanıcıyı bekliyor (arka plan görevi açıksa bunu da işaretle)
-        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None)
+        try:  # kullanıcıdan ne beklendiği (panelde "Seni bekliyor" kartında gösterilir)
+            bekleme = niyet.bekleme_nedeni(inp.get("transcript_path"), ofset, inp.get("last_assistant_message"))
+        except Exception:
+            bekleme = None
+        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None, bekleme=bekleme)
     baglam = ""
     try:
         esleme = B.esleme_oku(sd)
@@ -675,6 +681,11 @@ def stop(inp: dict):
         if d in ("isleniyor", "denetimde", "reddedildi", "onaylandi"):
             acik.append((k["id"], d, k["baslik"]))
     if not acik:
+        try:  # insan aksiyonu: tur bitti → toast (sessiz hata)
+            import bildirim
+            bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
+        except Exception:
+            pass
         if hatirlatma:
             L.hook_cikti({"systemMessage": hatirlatma})
         gec()
@@ -704,10 +715,99 @@ def asili_uyari(sd: str) -> str:
             "takıldıysa TaskStop ile durdur ya da kartı beklemede yap.")
 
 
+def _son_dokunus(g: dict) -> str | None:
+    """is.json/oturumlar.md son değişim ile kayıttaki güncelleme alanından en yenisi (ISO)."""
+    import datetime as _dt
+    adaylar = []
+    klasor = g.get("klasor") or ""
+    for ad in ("is.json", "oturumlar.md"):
+        try:
+            adaylar.append(_dt.datetime.fromtimestamp(os.path.getmtime(os.path.join(klasor, ad))).astimezone())
+        except Exception:
+            pass
+    try:
+        gu = _dt.datetime.fromisoformat(str(g.get("guncelleme")).replace("Z", "+00:00"))
+        adaylar.append(gu if gu.tzinfo else gu.astimezone())
+    except Exception:
+        pass
+    return max(adaylar).isoformat() if adaylar else None
+
+
+def _kapanis_notlari(sd: str, liste: list) -> dict:
+    """{is_id: ' · kapatılabilir: ...' | ' · bayat'}; hatada boş (satırlar değişmez)."""
+    try:
+        import datetime as _dt
+        import is_kaydi
+        import is_yonlendirme
+        acik_kart = {}
+        for k in L.kartlar(sd):
+            try:
+                if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",) and k.get("is"):
+                    acik_kart[str(k["is"])] = acik_kart.get(str(k["is"]), 0) + 1
+            except Exception:
+                continue
+        ozetler = []
+        for g in liste:
+            try:
+                t = is_kaydi.todo_ozet(g.get("klasor") or "")
+                ozetler.append({"id": g["id"], "toplam": t["toplam"], "biten": t["biten"],
+                                "acik_kart": acik_kart.get(str(g["id"]), 0), "son_dokunus": _son_dokunus(g)})
+            except Exception:
+                continue
+        a = is_yonlendirme.kapanis_adaylari(ozetler, _dt.datetime.now().astimezone())
+        notlar = {i: f" · kapatılabilir: orkestra is kapat {i}" for i in a.get("kapat", [])}
+        notlar.update({i: " · bayat" for i in a.get("bayat", [])})
+        return notlar
+    except Exception:
+        return {}
+
+
+def _yonlendirme_ipucu(sd: str, oid, istek: str) -> str:
+    """Bağlı işi olmayan/konu dışı istekte tek satırlık yönlendirme; oturumda aynı (tur,iş) bir kez. Hatada boş."""
+    try:
+        import is_kaydi
+        import is_yonlendirme
+        isler = []
+        for g in is_kaydi.is_liste(sd, "acik"):
+            try:
+                klasor = g.get("klasor") or ""
+                try:
+                    todolar = is_kaydi.todo_ozet(klasor)["acik_maddeler"]
+                except Exception:
+                    todolar = []
+                isler.append({"id": g["id"], "baslik": g.get("baslik") or "",
+                              "klasor_adi": os.path.basename(klasor.rstrip("/\\")), "acik_todolar": todolar})
+            except Exception:
+                continue
+        k = is_yonlendirme.yonlendir(istek, isler, _oturum_isi(sd, oid))
+        if not k:
+            return ""
+        anahtar = f"{k['tur']}:{k.get('is')}"
+        yol = os.path.join(sd, "oturumlar", f"yonlendirme_{oid}.json")
+        gorulen = []
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            gorulen = [str(x) for x in d.get("gorulen", [])] if isinstance(d, dict) else []
+        except Exception:
+            pass
+        if anahtar in gorulen:
+            return ""
+        gorulen.append(anahtar)
+        os.makedirs(os.path.dirname(yol), exist_ok=True)
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump({"gorulen": gorulen[-20:]}, f)
+        return k["satir"]
+    except Exception:
+        return ""
+
+
 def _acik_isler_satirlari(sd: str) -> list[str]:
     import is_kaydi
     parcalar = []
-    for g in is_kaydi.is_liste(sd, "acik")[:5]:
+    liste = is_kaydi.is_liste(sd, "acik")[:5]
+    notlar = _kapanis_notlari(sd, liste)
+    for g in liste:
         try:
             p = f"{g['id']} {str(g.get('baslik') or '')[:40]}"
             klasor = g.get("klasor") or ""
@@ -723,6 +823,7 @@ def _acik_isler_satirlari(sd: str) -> list[str]:
                     p += f" · son: {dolu[-1][:80]}"
             except Exception:
                 pass
+            p += notlar.get(g["id"], "")
             parcalar.append(p)
         except Exception:
             continue
@@ -730,6 +831,79 @@ def _acik_isler_satirlari(sd: str) -> list[str]:
         return []
     return ["Açık işler: " + " ; ".join(parcalar),
             "Devam için `orkestra is devam <id>`; sıradaki adımları `orkestra is todo <id> --ekle` ile işin todo.md'sine yaz."]
+
+
+PANEL_GIRDI = "orkestra-panel"   # çalışma alanının .claude/launch.json'ındaki girdi adı
+PANEL_VARSAYILAN_PORT = 8765     # panel.py baslat() varsayılanı
+
+
+def _panel_girdisi(sd: str) -> dict | None:
+    """Çalışma alanının <proje>/.claude/launch.json'ında name='orkestra-panel' girdisi; yoksa/bozuksa None."""
+    try:
+        with open(os.path.join(os.path.dirname(sd), "launch.json"), encoding="utf-8-sig") as f:
+            d = json.load(f)
+    except Exception:
+        return None
+    girdiler = d.get("configurations") if isinstance(d, dict) else None
+    for g in girdiler if isinstance(girdiler, list) else []:
+        if isinstance(g, dict) and g.get("name") == PANEL_GIRDI:
+            return g
+    return None
+
+
+def _panel_durumu() -> tuple[int | None, bool]:
+    """(panel.json'daki port, sunucu dinliyor mu). panel.json yoksa/bozuksa (None, False): kapalı sayılır.
+    Dinleme 127.0.0.1:port'a en çok 0.3 sn'lik TCP denemesiyle anlaşılır (HTTP isteği yapılmaz)."""
+    try:
+        with open(os.path.join(L.GENEL_DIZIN, "panel.json"), encoding="utf-8-sig") as f:
+            port = int(json.load(f)["port"])
+    except Exception:
+        return None, False
+    if not 0 < port < 65536:
+        return None, False
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.3)
+            return port, s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return port, False
+
+
+def _panel_ac_satiri(sd: str, oid) -> str:
+    """launch.json'da 'orkestra-panel' girdisi varsa oturumda BİR KEZ: ana ajana paneli Claude masaüstü uygulamasının
+    tarayıcı panelinde açtıran satır. Bir kez durumu <sd>/oturumlar/panel_ac_<oid>.json. Hatada boş metin.
+    preview_start localhost url'sinde yol kabul etmez: launch.json url'si yalnız origin, /isler'e navigate ile gidilir."""
+    try:
+        g = _panel_girdisi(sd)
+        if not g:
+            return ""
+        yol = None
+        if oid:
+            guvenli = re.sub(r"[^A-Za-z0-9_.-]", "_", str(oid))[:120]
+            yol = os.path.join(sd, "oturumlar", f"panel_ac_{guvenli}.json")
+            if os.path.exists(yol):
+                return ""
+        port, acik = _panel_durumu()
+        if not port:
+            try:
+                import urllib.parse
+                port = urllib.parse.urlsplit(str(g.get("url") or "")).port
+            except ValueError:
+                port = None
+        adres = f"http://127.0.0.1:{port or PANEL_VARSAYILAN_PORT}/isler"
+        on = "" if acik else "sunucu kapalı, önce `orkestra panel` çalıştır (başka port verirse onu kullan); sonra "
+        satir = (f"PANEL: ilk turda Claude masaüstü uygulamasının tarayıcı panelinde orkestra panelini aç: {on}"
+                 f"preview_start (name: {PANEL_GIRDI}), ardından navigate ile {adres}. "
+                 "Oturumda bir kez; araç yoksa atla, kullanıcıya en çok tek satırla bildir.")
+        if yol:
+            try:
+                L.atomik_yaz(yol, json.dumps({"zaman": L.simdi(), "oturum": str(oid), "adres": adres, "sunucu_acik": acik}))
+            except Exception:
+                pass
+        return satir
+    except Exception:
+        return ""
 
 
 def session_start(inp: dict):
@@ -758,23 +932,77 @@ def session_start(inp: dict):
                             "Commitle → otomatik güncelleme; hemen için `orkestra guncelle`, sonra yeni oturum ya da /reload-plugins.")
     except Exception:
         pass
-    r = perspektif.durum(sd)
+    proje_ = L.proje_dizini(inp.get("cwd"))
+    r = perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path")))
     if r.get("okunmamis_rapor"):
         satirlar.append(f"Perspektif raporu hazır: {r['okunmamis_rapor']} — öneriler panelde Onaylar sayfasında; "
                         "kullanıcı orada onaylayabilir ya da /orkestra:perspektif ile sohbette ilerleyebilir.")
     elif r.get("zamani_geldi") and not r.get("calisiyor"):
-        hafiza = perspektif.hafiza_dizini(L.proje_dizini(inp.get("cwd")), inp.get("transcript_path"))
+        hafiza = perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))
         satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
                         "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
                         f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
+    try:  # olay güdümlü maliyet uyarısı: son 24 saatte israf örüntüsü (perspektifi beklemez); hata hook'u düşürmez
+        import maliyet_anomali as MA
+        olay = [x for x in MA.calistir(sd, 1) if x["kural"] in ("K3", "K4", "K5")]
+        if olay:
+            satirlar.append("MALİYET UYARISI (24 sa): " + "; ".join(f"{x['kural']} {x['ad']} {x['kart']}" for x in olay[:4])
+                            + " — `orkestra maliyet anomali --gun 1`; kök nedeni işin todo'suna yaz.")
+    except Exception:
+        pass
     om = ""
     try:  # panel onay kararları: hata hook'u düşürmez
         import onay
         om = onay.baglam_metni(sd, inp.get("session_id"), "SessionStart") or ""
     except Exception:
         pass
-    ek = "\n".join(satirlar)[:1800 - len(om) - 1] + "\n" + om if om else "\n".join(satirlar)[:1800]  # onay yönlendirmesi kesilmesin
+    ei = _etki_ipucu(sd)
+    if ei:
+        om = (om + "\n" + ei) if om else ei
+    pa = "" if os.environ.get("ORKESTRA_PERSPEKTIF") else _panel_ac_satiri(sd, inp.get("session_id"))
+    if pa:  # panel açma satırı da kesimden korunan kısma girer (oturumda bir kez)
+        om = (pa + "\n" + om) if om else pa
+    ek = "\n".join(satirlar)[:max(0, 1800 - len(om) - 1)] + "\n" + om if om else "\n".join(satirlar)[:1800]  # onay/panel yönlendirmesi kesilmesin
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
+
+
+def _etki_bekleyenler(sd: str) -> tuple[int, list[str]]:
+    """(izlenen kayıt sayısı, gidişatı 'kotu' ya da soru bekleyen kimlikler); salt okuma."""
+    import etki
+    izlenen, kotu = 0, []
+    for k in etki.liste(sd):
+        e = k.get("etki")
+        iz = e.get("izleme") if isinstance(e, dict) else None
+        if not isinstance(iz, dict) or iz.get("durum") in ("kapandi", "geri-alindi"):
+            continue
+        izlenen += 1
+        if e.get("soru_bekliyor") or iz.get("durum") == "soru_bekliyor" or iz.get("son_gidisat") == "kotu":
+            kotu.append(str(k.get("id")))
+    return izlenen, kotu
+
+
+def _etki_ipucu(sd: str) -> str:
+    """Etki izleme ipucu: oturum açılışında izle() çağrılır; yalnız kötü/soru bekleyen kayıt varsa metin döner.
+    İzleme gidişatı üzerine yazabildiği için bekleyenler izlemeden ÖNCE ve SONRA toplanıp birleştirilir. Hata sessiz geçilir."""
+    try:
+        import etki
+        try:
+            _, once = _etki_bekleyenler(sd)
+        except Exception:
+            once = []
+        try:
+            etki.izle(sd)
+        except Exception:
+            pass
+        izlenen, sonra = _etki_bekleyenler(sd)
+        kotu = sorted(set(once) | set(sonra))
+        if not kotu:
+            return ""
+        return (f"ETKİ İZLEME: {izlenen} onaylı değişiklik izleniyor; gidişatı kötü/soru bekleyen: {', '.join(kotu[:5])}. "
+                "Kullanıcıya tek soru sor: değişikliği geri al mı, sürdür mü? "
+                "(geri al: `orkestra onay etki-geri-al <id> --neden …`; sürdür/kapat: `orkestra onay etki-kapat <id> --sonuc …`)")[:420]
+    except Exception:
+        return ""
 
 
 def user_prompt_submit(inp: dict):
@@ -786,9 +1014,18 @@ def user_prompt_submit(inp: dict):
         # Niyet kaydı: kullanıcı yazdı → Claude çalışıyor. Sistem iletileri (<agent-message>, <task-notification>) istek metni sayılmaz.
         import niyet
         sistem = metin.lstrip().startswith("<")
+        if not sistem:
+            try:  # soğuk önbellek kapısı: büyük bağlam + uzun ara → bir kez durdur (hatada sessiz geç)
+                import soguk_onbellek
+                neden = soguk_onbellek.karar(sd, inp.get("session_id"), inp.get("transcript_path"))
+            except Exception:
+                neden = None
+            if neden:
+                L.hook_cikti({"decision": "block", "reason": f"{neden}\nMesajın: {metin[:500]}"})
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
-            parcalar = [niyet.baglam_metni(inp.get("session_id")), asili_uyari(sd)]
+            parcalar = [niyet.baglam_metni(inp.get("session_id")), asili_uyari(sd),
+                        _yonlendirme_ipucu(sd, inp.get("session_id"), metin)]
             try:  # panel onay kararları: hata hook'u düşürmez
                 import onay
                 om = onay.baglam_metni(sd, inp.get("session_id"), "UserPromptSubmit")
@@ -884,8 +1121,9 @@ def session_end(inp: dict):
     except Exception:  # ölçüm satırı hatası kapanışı bozmasın
         pass
     import perspektif
-    if perspektif.durum(sd).get("zamani_geldi"):
-        perspektif.baslat(sd, L.proje_dizini(inp.get("cwd")), transkript=inp.get("transcript_path"))
+    proje_ = L.proje_dizini(inp.get("cwd"))
+    if perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))).get("zamani_geldi"):
+        perspektif.baslat(sd, proje_, transkript=inp.get("transcript_path"))
     gec()
 
 
@@ -897,7 +1135,16 @@ def config_change(inp: dict):
     gec()
 
 
+def notification(inp: dict):
+    sd = L.durum_dizini(inp.get("cwd"))
+    if sd:
+        import bildirim
+        bildirim.bildirim_olayi(sd, inp.get("session_id") or "-", inp)
+    gec()
+
+
 OLAYLAR = {
+    "Notification": notification,
     "PreToolUse": pre_tool_use, "SubagentStart": subagent_start, "SubagentStop": subagent_stop, "Stop": stop,
     "SessionStart": session_start, "UserPromptSubmit": user_prompt_submit, "PostToolUse": post_tool_use,
     "SessionEnd": session_end, "ConfigChange": config_change,

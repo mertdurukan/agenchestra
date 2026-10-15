@@ -5,7 +5,7 @@ Kullanım:
 
 Yayın klonu: bu deponun temiz git klonu. Marketplace (claude-orchestration) buradan okunur,
 böylece plugin önbelleğine yalnız commitlenmiş kod girer. Klon elle düzenlenmez.
-Varsayılan yol: ortam değişkeni ORKESTRA_YAYIN ya da C:/Mert/McD/Claude_Orkestrasyon/plugin_yayin.
+Yol önceliği: --yayin > ORKESTRA_YAYIN > <depo>/../claude-orchestration-yayin.
 
 Yapılanlar:
   1. Klon yoksa `git clone` (origin = bu depo, dal = çalışma dalı); varsa yalnız bildirip geçer (eşitlemeyi hook yapar).
@@ -21,12 +21,14 @@ import subprocess
 import sys
 
 DEPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VARSAYILAN_YAYIN = "C:/Mert/McD/Claude_Orkestrasyon/plugin_yayin"
 HOOKLAR = os.path.join(DEPO, "araclar", "git_hooklar")
 
 
 def yayin_yolu(arguman: str | None = None) -> str:
-    return (arguman or os.environ.get("ORKESTRA_YAYIN") or VARSAYILAN_YAYIN).replace("\\", "/")
+    v = arguman or os.environ.get("ORKESTRA_YAYIN")
+    if not v:
+        v = os.path.abspath(os.path.join(os.path.dirname(DEPO), "claude-orchestration-yayin"))
+    return v.replace("\\", "/")
 
 
 def git(*arg, cwd=None):
@@ -68,7 +70,7 @@ def hook_yaz(yayin: str, kuru: bool) -> None:
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--yayin", help="yayın klonu yolu (varsayılan: ORKESTRA_YAYIN ya da " + VARSAYILAN_YAYIN + ")")
+    p.add_argument("--yayin", help="yayın klonu yolu (varsayılan: ORKESTRA_YAYIN ya da <depo>/../claude-orchestration-yayin)")
     p.add_argument("--kuru", action="store_true")
     a = p.parse_args()
     yayin = yayin_yolu(a.yayin)

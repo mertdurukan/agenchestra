@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
-.claude/
+.pytest_cache/
+.claude/orkestra/
 evals/results/
 plugins/*/evals/results/
 plugins/*/.claude-plugin/types/

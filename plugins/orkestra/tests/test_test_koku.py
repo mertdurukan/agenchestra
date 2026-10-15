@@ -70,7 +70,7 @@ class TabanTest(unittest.TestCase):
         a = ["kart", "yeni", "--baslik", "dış test", "--basamak", "T2", "--sinif", sinif, "--kabul", "çalışır",
              "--yazma", "src/**"]
         if sinif == "kod":
-            a += ["--test-komutu", komut or self.komut, "--test-alani", alan]
+            a += ["--test-komutu", komut or self.komut, "--test-alani", alan, "--tdd"]
         if test_koku is not None:
             a += ["--test-koku", test_koku]
         return self.cli(*a)
@@ -132,7 +132,7 @@ class AlanDogrulama(TabanTest):
         self.assertNotIn("test_koku", self.kart(r.stdout.strip()))
 
     def test_kart_toplu_json_alani(self):
-        plan = [{"baslik": "a", "basamak": "T2", "sinif": "kod", "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"],
+        plan = [{"baslik": "a", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"],
                  "test_komutu": self.komut, "test_alani": ["testler/*.py"], "test_koku": self.dis}]
         yol = os.path.join(self.proje, "plan.json")
         with open(yol, "w", encoding="utf-8") as f:
@@ -144,7 +144,7 @@ class AlanDogrulama(TabanTest):
 
     def test_kart_toplu_gecersiz_kok_hic_kart_olusturmaz(self):
         plan = [{"baslik": "iyi", "basamak": "T2", "kabul_kriterleri": ["k"]},
-                {"baslik": "kötü", "basamak": "T2", "sinif": "kod", "kabul_kriterleri": ["k"],
+                {"baslik": "kötü", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"],
                  "test_komutu": self.komut, "test_alani": ["testler/*.py"], "test_koku": "goreli/yol"}]
         yol = os.path.join(self.proje, "plan.json")
         with open(yol, "w", encoding="utf-8") as f:
@@ -395,7 +395,7 @@ class HookTestKoku(TabanTest):
         self.assertIn("yalnız test_alani içine", self.neden(c))
 
     def test_test_kokusuz_kart_geriye_uyumlu(self):
-        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "eski", "--basamak", "T2", "--kabul", "k", "--sinif", "kod",
+        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "eski", "--basamak", "T2", "--kabul", "k", "--sinif", "kod", "--tdd",
                    "--test-komutu", "python -m unittest", "--test-alani", "testler/**", "--yazma", "src/**"], self.proje)
         gid = r.stdout.strip()
         yol = os.path.join(self.sd, "gorevler", gid + ".json")
