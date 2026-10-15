@@ -14,14 +14,15 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
   - Kapanmış sohbetlerde motorun kendi hesabı (`cost-state`) gösterilir.
   - Açık sohbetlerde defter değeri gösterilir ve `≈` ile işaretlenir.
 - **Perspektif:** Oturumlar arasında arka planda hafıza bakımı ve skill avı yapılır. Yalnız öneri üretir; hafızayı onayınla değiştirir.
-- **Arayüz (üç sayfa, tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
-  - **Claude içinde** (`/orkestra`): sohbetin yanında bir özet açılır. En üstte dikkat isteyen kartlar (ret, denetimde, teslim bekleyen), altta çalışan kartlar (en çok altı). Sonra bu sohbetin ve bugünün maliyeti tek satırda, son üç olay, perspektif raporu hazırsa bir satır ve veri yaşı. Ayrıntı için `/orkestra-web`.
-  - **Prompt üstü bant:** Yalnız kullanıcıdan eylem beklenen durumda çıkar: ret, teslim bekleyen kart ya da hazır perspektif raporu. Yalnız maliyet varsa görünmez. **Gizle** o durumu gizler; yeni bir ret, teslim ya da rapor gelince bant geri gelir.
-  - **HTML canlı panel** (`/orkestra-web`, ya da Bash'te `orkestra panel`, ya da `araclarpaneli_ac.cmd`): `http://127.0.0.1:8765/` adresinde üç sayfa açar. Sayfalar üç saniyede bir yenilenir. Yalnız koyu temadadır ve yalnız bu bilgisayardan erişilebilir.
+- **Arayüz (tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
+  - **Claude içinde** (`/orkestra`, Pane `orkestra`, `plugins/orkestra-ui/hooks/register.tsx` `paneCiz`): işlerin yapılanlarını ve yapılacaklarını gösterir. Üstte yapılan / toplam iş sayısı, yüzde ve çubuk. **Yapılanlar:** en az bir maddesi biten işler (`biten/toplam ad`). **Yapılacaklar:** açık maddesi olan işler (`ad · N açık`), her birinin ilk üç açık maddesi `○` ile. Kaynak `ozet.json` içindeki `isler` alanı; üretimi `plugins/orkestra/scripts/ozet.py` `_is_todolari` (açık işlerin `todo.md` maddeleri, en çok beş). Panel veri yaşını değil üretim saatini (`HH:MM`) yazar; veri 10 dakikadan eskiyse `veri eski (HH:MM)` sarıyla gösterilir (`register.tsx` 238–239 ve 260–261). Kart listesi, maliyet ve son olaylar bu panelde yok; onlar `/orkestra-web` sayfalarındadır.
+  - **Prompt üstü bant** (`AbovePrompt`, `register.tsx`): Yalnız kullanıcıdan eylem beklenen durumda çıkar: ret (`reddedildi`), teslime hazır kart (`onaylandi`) ya da hazır perspektif raporu. Metin `Orkestra · N ret · N teslime hazır · perspektif raporu hazır`; `Panel` düğmesi Claude içi paneli açar. Yalnız maliyet bant çıkarmaz. **Gizle** o anki kart kimliklerini ve rapor durumunu imza olarak saklar; imza değişince (yeni ret, teslim ya da rapor) bant geri gelir.
+  - **HTML canlı panel** (`/orkestra-web`, ya da Bash'te `orkestra panel`, ya da `araclarpaneli_ac.cmd`): `http://127.0.0.1:8765/` adresinde sekiz sayfa açar: Şimdi, Maliyet, Verim, Onaylar, Kurallar, İşler, Etki, Yapılacaklar. Sayfalar üç saniyede bir yenilenir. Yalnız koyu temadadır ve yalnız bu bilgisayardan erişilebilir.
     - **Şimdi** (`/`): ne oluyor, senden ne bekleniyor. Sohbetler (kimi bekliyor), görev kartları, son olaylar.
       "Kimi bekliyor"u hook'lar yazar (UserPromptSubmit → Claude çalışıyor, Stop → seni bekliyor, SessionEnd → kapandı). "Ne/neden"i ana ajan yeni bir iş başlarken `orkestra niyet --ne "…" --neden "…"` ile yazar, bitince `--sonuc "…"` ekler. Kayıt bütün projeler için tek dosyada: `~/.claude/orkestra-panel/niyet.jsonl`.
     - **Maliyet** (`/maliyet`): ne kadar harcanıyor, nereye. Kapsam seçici, iş türü × model, ajan tablosu, zaman içinde harcama, kota, tüm projeler.
     - **Verim ve sağlık** (`/verim`): sistem iyi çalışıyor mu. Basamak verimliliği, birim maliyet, kart akışı ve paralel zaman çizelgesi, skill getirisi, sağlık (hafıza sınırı, son perspektif, etiketsiz ajan, hook hataları).
+    - **Yapılacaklar** (`/yapilacaklar`): açık işlerin maddeleri ve kullanıcının kendi yapılacakları (`/api/todo`, `/api/kullanici-todo`).
     - `/analitik` ve `/analitik.html` adresleri `/verim`'e yönlendirilir (301, sorgu dizesi korunur).
     - Çalışma alanı başlıktaki seçiciden seçilir. Orkestra kurulu alanda tam görünüm, kurulu olmayanda yalnız maliyet gösterilir.
     - Şimdi sayfasındaki **Sohbeti aç** düğmesi sohbeti Claude uygulamasında açmayı dener.
@@ -36,9 +37,9 @@ plugins/orkestra/                   çekirdek plugin
   skills/      is, baslat, maliyet, defter, perspektif, skill-avi        →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
-  scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: üç sayfa, /analitik → /verim),
+  scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: sekiz sayfa, /analitik → /verim; sunulan dosyalar STATIK),
                analitik.py (analitik hesapları), kota.py (durum satırı: kota kaydı), niyet.py (Şimdi sayfasındaki Sohbetler bölümü: ne/neden/kimi bekliyor)
-  assets/      simdi.html (/), maliyet.html (/maliyet), verim.html (/verim); ortak.css ve ortak.js üç sayfanın ortak kabuğu
+  assets/      sayfa başına <sayfa>.html ile <sayfa>.js (büyük sayfalarda ayrıca <sayfa>.css); ortak.css ve ortak.js (window.O) ortak kabuk; logo.png
   bin/         orkestra, orkestra.cmd (CLI'yı PATH'e koyar), fiyat.json
   tests/       test_cekirdek.py (python -m unittest)
   evals/       claude plugin eval vakaları
@@ -72,6 +73,8 @@ Depo GitHub'da özel (private) tutulur. İki yol vardır; ikisi de marketplace k
 
 - **Claude Code:** kurulu ve oturum açılmış (`claude` komutu ya da masaüstü uygulaması).
 - **Python 3:** hook'lar ve `orkestra` CLI'ı Python betikleridir. Alt sürüm için resmi bir bildirim yoktur; kod taramasında en yüksek gereksinim 3.8'dir (atama ifadesi `:=`, `plugins/orkestra/scripts/ozet.py:160`). Her sürümde koşturulmadı, bu yüzden 3.8 alt sınırı **doğrulanmadı**; güncel bir 3.x kullan. `python` komutu PATH'te olmalıdır.
+- **pytest:** test kapısı (`is-bitti`) pytest ister; kurulu değilse `python plugins/orkestra/scripts/kur.py` açık bir uyarı basar (kurulum yapmaz). Kur: `python -m pip install pytest`.
+- **ORKESTRA_PYTHON:** kapının kendi Python çağrıları için yorumlayıcı yolu (ortam değişkeni). Ayarlı değilse `py -3.13` bulunursa o, yoksa çalışan Python (`sys.executable`) kullanılır. `test_komutu` içindeki çağrılara dokunulmaz.
 - **git** ve özel depoya okuma erişimi: Claude Code marketplace'i makinedeki `git` ile, soru sormadan (etkileşimsiz) klonlar; Claude Code'un kendi git belirteci yoktur. Kimlik doğrulama (kaynak: [Grant access to a private marketplace](https://code.claude.com/docs/en/plugins/host-marketplace#grant-access-to-a-private-marketplace)):
   - SSH: anahtar parolasız çalışmalı (örn. `ssh-agent`) ve `github.com` `known_hosts` içinde olmalı. `owner/repo` biçiminde Claude Code önce `ssh -T git@github.com` dener, olmazsa HTTPS'e düşer.
   - HTTPS: git kimlik yardımcısında (credential helper) kayıtlı bir kimlik bilgisi gerekir; yardımcı soru soramaz. GitHub'da `gh auth login` ve ardından `gh auth setup-git` bunu kaydeder.
@@ -176,7 +179,7 @@ Paralel oturumlar ve işçiler aynı commitlenmemiş çalışma ağacını payla
   - Kesişme varsa geçiş reddedilir: `çakışma: G-0xx (<desen>) — bekle ya da ayrı çalışma ağacı aç`.
   - Bir git deposunun kökünü ya da `**`ini kapsayan alan paylaşılan ağaçta reddedilir. Bu kural bir izin listesidir. Desenin sabit öneki, ilk joker bileşenden önceki yoldur; göreli desende proje köküne göre hesaplanır. Önek bir git deposunun kesin alt yolu olmalıdır: `RNV/**`, `src/**/*.py`, `docs/a.md`.
   - Önek deponun kökünün kendisiyse desen reddedilir: `**`, `*/**`, `**/*.py`, `*.md`. fnmatch'te `*` `/` dahil her karaktere uyar; kökteki `*.md` de bütün alt klasörlere uzanır.
-  - Önek hiçbir deponun içinde değilse joker taşıyan ya da var olan bir klasörü gösteren desen reddedilir: `Üst/**`, `Depo*/**`, `C:/Users/**`. Depo dışında yalnız tek dosya literal yolu geçer.
+  - Önek hiçbir deponun içinde değilse joker taşıyan ya da var olan bir klasörü gösteren desen reddedilir: `Üst/**`, `Depo*/**`, `Z:/Ortak/**`. Depo dışında yalnız tek dosya literal yolu geçer.
   - İç içe depoyu fiziksel kesişim yakalar. Dış depodaki `RNV/**`, altındaki bir depoda ya da o deponun worktree'sinde açık olan kartla çakışır.
   - `kart yeni` ve `kart toplu` aynı denetimi yalnız uyarı olarak yazar. Yazma alanı boş kart denetlenmez.
 - **Kart çalışma ağacı:** `orkestra kart agac <id>` kartın deposunda `<depo>/.claude/worktrees/kart-<id>` klasörüne `kart/<id>` dalıyla bir git worktree açar (`ORKESTRA_AGAC_KOKU` doluysa `<kök>/<depo-adı>/kart-<id>`). Klasör `.git/info/exclude`a bir kez eklenir; `.gitignore` değişmez. Kayıtlı `calisma_agaci.yol` korunur, eski `<depo>-kart-<id>` düzeni çalışmaya devam eder.

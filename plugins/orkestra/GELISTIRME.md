@@ -40,7 +40,10 @@ Adımlar:
 - Gerçek alt süreçle uçtan uca doğrulama: `ORKESTRA_IC_KOS=0` ile koş (yayın öncesi ya da süreç içi farkından şüphelenince).
 - Yeni testte CLI'yi `subprocess.run` ile değil `ic_kos.kos([CLI, ...], cwd=..., env=...)` ile çağır; uçtan uca kalması gereken (hook betiği, git, node) çağrılar alt süreçte kalır.
 
-## Panel test sunucusu
-- Panel sayfaları: `/` Şimdi, `/maliyet`, `/verim` (`/analitik` yönlendirir). Ortak varlıklar `assets/ortak.css` ve `ortak.js`.
-- Test sunucusu `_kos <port>` ile açılınca `~/.claude/orkestra-panel/panel.json` dosyasının üzerine yazılır. Testten sonra önceki içeriği geri yaz.
+## Panel sayfa yapısı ve test sunucusu
+- Sayfalar: `/` Şimdi, `/maliyet`, `/verim`, `/onaylar`, `/kurallar`, `/isler`, `/etki`, `/yapilacaklar` (`/analitik` `/verim`'e yönlendirir). Yollar `scripts/panel.py` içindeki `SAYFALAR` sözlüğündedir.
+- Dosya yapısı (`assets/`): her sayfa kendi `<sayfa>.html` dosyasını ve betiğini `<sayfa>.js` olarak taşır; büyük sayfaların stili `<sayfa>.css` içindedir. Ortak kabuk `ortak.css` ve `ortak.js`'tir. `ortak.js` global `window.O` nesnesini kurar ve yerleştirme yardımcılarını tanımlar: `O.yerlestir`, `O.ciz`, `O.bayatCiz`. Sayfa betikleri (ör. `isler.js`, `etki.js`) `O.yerlestir` kullanır.
+- Sunulan dosyalar `scripts/panel.py` içindeki `STATIK` sözlüğüyle belirlenir (satır 70). `ortak.css`, `ortak.js` ve `logo.png` elle girilir; `SAYFA_JS` (satır 74: 8 sayfa betiği) ve `SAYFA_CSS` (satır 75: simdi, isler, maliyet, verim, etki) listelerinden `/<sayfa>.js` ve `/<sayfa>.css` girişleri üretilir (satır 76–77). Yeni bir sayfa dosyası için iki liste de güncellenir; `STATIK`te girişi olmayan dosya sunulmaz (satır 496).
+- Sayfa/sunucu sözleşmesi `SURUM = "10"` (satır 80). Değişince sağlık yanıtı (`ok <sürüm>`, satır 616) eşleşmez ve eski sunucu yeniden başlatılır.
+- Test sunucusu: `python plugins/orkestra/scripts/panel.py _kos <port> --test` panel.json dosyasını **yazmaz** (satır 641–644; G-096). Gerçek panelin durum dosyası `~/.claude/orkestra-panel/panel.json` yerinde kalır. Bayraksız `_kos <port>` bu dosyanın üzerine yazar; testte bayrağı kullan.
 - POST `/ac` gerçek ya da uydurma oturum kimliğiyle denenmez; masaüstü süreci başlatır.
