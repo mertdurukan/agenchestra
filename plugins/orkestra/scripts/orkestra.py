@@ -821,6 +821,8 @@ def cmd_kart_test_kos(a):
         hata(f"test dosyası yok: test_alani ({', '.join(k['test_alani'])}) hiçbir proje dosyasına uymuyor.")
     zaman = L.simdi()
     komut, daralma = L.test_komutu_daralt(k["test_komutu"], proje, k["test_alani"])
+    if komut is None:
+        hata(f"{daralma}: test_alani ({', '.join(k['test_alani'])}) test_*.py dosyasına uymuyor.")
     if daralma:
         print(f"orkestra: {daralma} (tam paket iş sonunda bir kez koşar)", file=sys.stderr)
     kod, cikti, sure = L.kabuk_kos(komut or k["test_komutu"], proje, a.zaman_asimi)
