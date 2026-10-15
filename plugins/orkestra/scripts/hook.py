@@ -982,6 +982,55 @@ def _niyet_metni(oturum: str | None) -> str:
             "devamıysa YAZMA; bitince `--sonuc \"<≤15 kelime>\"`. Kullanıcıya söz etme.")
 
 
+_MODEL_AILELERI = ("opus", "sonnet", "haiku", "fable")
+
+
+def _model_ailesi(m) -> str:
+    m = str(m or "").lower()
+    return next((a for a in _MODEL_AILELERI if a in m), "")
+
+
+def _oturum_modeli(inp: dict) -> str:
+    """Oturum modeli: SessionStart girdisinin `model` alanı (resmi belge: isteğe bağlı); yoksa transcript_path'teki son assistant satırının modeli."""
+    m = inp.get("model")
+    if isinstance(m, str) and m.strip():
+        return m.strip()
+    tp = inp.get("transcript_path")
+    if not tp or not os.path.isfile(tp):
+        return ""
+    son = ""
+    with open(tp, "rb") as f:
+        f.seek(0, 2)
+        boy = f.tell()
+        f.seek(max(0, boy - 400000))
+        for ham in f.read().splitlines():
+            try:
+                o = json.loads(ham)
+            except Exception:
+                continue
+            ms = o.get("message") if isinstance(o, dict) else None
+            if isinstance(ms, dict) and ms.get("role") == "assistant" and isinstance(ms.get("model"), str) and _model_ailesi(ms["model"]):
+                son = ms["model"]
+    return son
+
+
+def _model_sapma_satiri(inp: dict) -> str:
+    """Ana ajan modeli ailesi proje ayarındaki (`.claude/settings.json` model) aileden farklıysa TEK uyarı satırı; aksi halde boş. Hata sessiz."""
+    try:
+        yol = os.path.join(L.proje_dizini(inp.get("cwd")), ".claude", "settings.json")
+        with open(yol, encoding="utf-8") as f:
+            ayar = json.load(f).get("model")
+        a_aile = _model_ailesi(ayar)
+        o_model = _oturum_modeli(inp)
+        o_aile = _model_ailesi(o_model)
+        if not a_aile or not o_aile or a_aile == o_aile:
+            return ""
+        return (f"UYARI: ana ajan modeli ayar dışı: oturum {o_model[:60]}, proje ayarı {str(ayar)[:60]}. "
+                "Uygulamada model menüsünden ayar modelini seç.")[:250]
+    except Exception:
+        return ""
+
+
 def session_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -1000,6 +1049,9 @@ def session_start(inp: dict):
     uyari = asili_uyari(sd, inp.get("session_id"))  # asılı ajan uyarısı düşük öncelikli satırlardan önce: 1800 kesiminde sona kalmasın
     if uyari:
         satirlar.append(uyari)
+    ms = _model_sapma_satiri(inp)
+    if ms:
+        satirlar.append(ms)
     try:  # bağlı olmayan todo dosyaları: TEK satır, hatada sessiz
         import is_kaydi
         tu = is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd")))
