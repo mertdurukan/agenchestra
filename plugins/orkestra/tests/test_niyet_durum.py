@@ -90,7 +90,12 @@ class NiyetDurumTesti(unittest.TestCase):
             tr = os.path.join(d, "transkriptler")
             os.makedirs(tr)
             open(os.path.join(tr, "gercek-1.jsonl"), "w").close()
-            with mock.patch.object(niyet, "NIYET_YOLU", yol),                     mock.patch.object(niyet, "masaustu_oturumlari", return_value={}),                     mock.patch.object(niyet, "_basliklar", return_value={}),                     mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]),                     mock.patch.object(niyet.L, "proje_oturum_dizini", return_value=tr),                     mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
+            with mock.patch.object(niyet, "NIYET_YOLU", yol), \
+                    mock.patch.object(niyet, "masaustu_oturumlari", return_value={}), \
+                    mock.patch.object(niyet, "_basliklar", return_value={}), \
+                    mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]), \
+                    mock.patch.object(niyet.L, "proje_oturum_dizini", return_value=tr), \
+                    mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
                 g = niyet.gorunum()
         self.assertEqual([r["oturum"] for r in g["oturumlar"]], ["gercek-1"])
         self.assertEqual({a["oturum"] for a in g["akis"]}, set())
