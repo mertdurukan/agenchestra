@@ -1649,7 +1649,7 @@ def cmd_maliyet_tur(a):
     L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), {
         "zaman": L.simdi(), "oturum": a.oturum, "gorev": gorev, "surec": surec, "ajan": ajan, "agent_id": a.agent_id,
         "model": a.model, "giris": a.giris, "cikis": a.cikis, "onbellek_okuma": a.onb_okuma, "onbellek_yazma": a.onb_yazma,
-        "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur",
+        "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur", "tarife": "1sa",
         "is": _tur_isi(sd, gorev, a.oturum)})
 
 

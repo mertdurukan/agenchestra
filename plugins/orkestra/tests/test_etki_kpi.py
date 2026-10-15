@@ -44,7 +44,7 @@ class AralikTest(unittest.TestCase):
                 json.dump(v, f)
         self.mal.append({"zaman": zaman.isoformat(), "oturum": "o", "gorev": gid, "agent_id": "a" + gid,
                          "model": "m", "giris": 1, "cikis": 1, "onbellek_okuma": 0, "onbellek_yazma": 0,
-                         "maliyet_usd": 1.0, "kaynak": "tur"})
+                         "maliyet_usd": 1.0, "kaynak": "tur", "tarife": "1sa"})
 
     def bitir(self):
         with open(os.path.join(self.sd, "maliyet.jsonl"), "w", encoding="utf-8") as f:

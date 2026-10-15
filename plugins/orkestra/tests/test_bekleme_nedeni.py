@@ -93,8 +93,8 @@ class IslerHtmlBekleme(unittest.TestCase):
         self.assertRegex(govde, r"const sen = r\.bekleyen === 'sen'")
         self.assertLess(govde.index("const sen"), govde.index("if (sen)"))  # TDZ yok
         self.assertRegex(govde, r"metin\(r\.bekleme")
-        self.assertRegex(govde, r"kp = sen \? null")
-        self.assertRegex(govde, r"!sen && \(isChip")
+        self.assertRegex(govde, r"\$\{sen \? '' : `<div class=\"alt\">")   # sade kart: alt satır (açık kart) çizilmez
+        self.assertNotIn("isChip", govde)
 
 
 if __name__ == "__main__":

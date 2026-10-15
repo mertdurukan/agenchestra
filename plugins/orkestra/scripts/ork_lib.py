@@ -1443,8 +1443,9 @@ def _satir_usd(r: dict) -> float:
 
 def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
     rows = jsonl_oku(yol)
-    for r in rows:  # eski 'tur' satırları 5 dk tarifesiyle yazılmıştı: 1 sa tarifesiyle yeniden fiyatla
-        if r.get("kaynak") == "tur" and r.get("model") and any(r.get(a) for a in _TOKEN_ALANLARI):
+    for r in rows:  # eski 'tur' satırları (tarife damgası yok) 5 dk tarifesiyle yazılmıştı: 1 sa tarifesiyle yeniden fiyatla
+        if (r.get("kaynak") == "tur" and not r.get("tarife") and r.get("model")
+                and any(r.get(a) for a in _TOKEN_ALANLARI)):
             r["maliyet_usd"] = _satir_usd(r)
     tur_var = {(r.get("oturum"), r.get("agent_id")) for r in rows if r.get("kaynak") == "tur"}
     son: dict = {}

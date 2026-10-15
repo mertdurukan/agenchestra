@@ -54,7 +54,7 @@ def mal(gorev, agent_id, giris, cikis, okuma, yazma, usd, kaynak="tur", zaman="2
         oturum="o1"):
     return {"zaman": zaman, "oturum": oturum, "gorev": gorev, "agent_id": agent_id, "model": "claude-sonnet-5-5",
             "giris": giris, "cikis": cikis, "onbellek_okuma": okuma, "onbellek_yazma": yazma,
-            "maliyet_usd": usd, "kaynak": kaynak}
+            "maliyet_usd": usd, "kaynak": kaynak, "tarife": "1sa"}
 
 
 KARTLAR = [
@@ -70,7 +70,7 @@ MALIYET = [
     mal("G-001", "a1", 10, 20, 100, 50, 0.10, "hook", "2026-03-10T10:01:00+03:00"),
     mal("G-001", "a1", 20, 40, 200, 100, 0.20, "hook", "2026-03-10T10:05:00+03:00"),
     mal("G-001", "a2", 5, 10, 0, 0, 0.05, "tur"),
-    mal("G-001", "a2", 99, 99, 99, 99, 9.90, "hook", "2026-03-10T10:06:00+03:00"),
+    mal("G-001", "a2", 5, 10, 0, 0, 9.90, "hook", "2026-03-10T10:06:00+03:00"),
     mal("G-002", "a3", 10, 30, 300, 0, 0.40),
     mal("G-003", "a4", 20, 10, 50, 70, 0.15),
     mal("G-004", "a5", 100, 100, 0, 0, 1.00),

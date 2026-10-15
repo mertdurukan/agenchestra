@@ -46,7 +46,7 @@ AD_SOYAD = "Ayse Yilmaz"
 def mal(oturum, gun, gorev, is_, surec, ajan, model, g, c, o, y, usd, aid, kaynak="tur", **ek):
     r = {"zaman": f"2026-03-{gun}T10:00:00+03:00", "oturum": oturum, "gorev": gorev, "agent_id": aid,
          "model": model, "surec": surec, "ajan": ajan, "giris": g, "cikis": c, "onbellek_okuma": o,
-         "onbellek_yazma": y, "maliyet_usd": usd, "kaynak": kaynak}
+         "onbellek_yazma": y, "maliyet_usd": usd, "kaynak": kaynak, "tarife": "1sa"}
     if is_ is not None:
         r["is"] = is_
     r.update(ek)
@@ -59,7 +59,7 @@ MALIYET = [
     mal("s1", "11", "G-001", "I-001", "denetim", "orkestra:denetci", "sonnet", 10, 10, 0, 0, 0.25, "a2"),
     mal("s2", "11", "-", "I-001", "plan", "ana", "opus", 20, 30, 100, 0, 0.75, None, "hook"),
     # a1 için 'tur' var: bu hook kopyası tekilleştirmede atılmalı (9 USD sayılmamalı)
-    mal("s1", "10", "G-001", "I-001", "is", "orkestra:isci", "sonnet", 999, 999, 999, 999, 9.00, "a1", "hook"),
+    mal("s1", "10", "G-001", "I-001", "is", "orkestra:isci", "sonnet", 100, 50, 300, 50, 9.00, "a1", "hook"),
     mal("s3", "12", "G-003", "I-002", "is", "orkestra:isci", "sonnet", 10, 10, 0, 0, 1.00, "a4"),
     mal("s9", "12", "-", "-", "plan", "ana", "opus", 100, 0, 0, 0, 0.50, "a5"),
     mal("s9", "12", "-", "", "plan", "ana", "opus", 50, 50, 0, 0, 0.50, "a6"),
