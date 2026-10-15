@@ -21,6 +21,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 AD = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.join(AD, "..", "scripts")
@@ -117,8 +119,7 @@ def olcum(sd):
 
 def cli(proje, *args, cwd=None):
     env = dict(os.environ, CLAUDE_PROJECT_DIR=proje, PYTHONUTF8="1")
-    return subprocess.run([sys.executable, ORKESTRA, "kpi", *args], capture_output=True, text=True,
-                          encoding="utf-8", env=env, cwd=cwd or proje, timeout=120)
+    return ic_kos.kos([ORKESTRA, "kpi", *args], env=env, cwd=cwd or proje)
 
 
 def agac_goruntusu(kok):

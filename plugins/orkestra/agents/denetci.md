@@ -1,7 +1,7 @@
 ---
 name: denetci
 description: Orkestra DENETÇİSİ — bir işçinin çıktısını görev kartının kabul kriterlerine göre bağımsız ve şüpheci biçimde denetler, onay ya da ret kararı yazar. İşi yapan ajan asla kendi denetçisi olamaz. Çıktı dosyalarını değiştirmez. Model çağrıda işçiyle aynı basamağa ayarlanır (T1 haiku, T2 sonnet, T3/T4 opus; toplam 2 retten sonra opus).
-tools: Read, Glob, Grep, Bash, PowerShell
+tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit, MultiEdit, NotebookEdit, Agent, Workflow
 model: sonnet
 effort: medium

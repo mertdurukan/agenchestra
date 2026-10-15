@@ -1,7 +1,7 @@
 ---
 name: isci-t1
 description: Orkestra T1 işçisi (Haiku 5.5) — kalıplı, mekanik, kısa işler; biçimleme, sınıflama, özet, günlük satırı, hazır betiği çalıştırıp çıktısını raporlama. Ana ajan ya da orkestra workflow'u bir görev kartıyla (#GOREV etiketi) çağırır.
-tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Skill
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 disallowedTools: Agent, Workflow
 model: haiku
 effort: medium
@@ -22,7 +22,7 @@ Sen orkestra İŞÇİSİsin (T1 · Haiku). Sana verilen tek görev kartını kab
 8. sinif=kod kartında: `tdd` açıksa `test_alani`'na yazma (testler kilitli), testleri geçirecek kodu yaz; `tdd` kapalıysa kodu ve testleri birlikte yaz. Testi ayrıca koşma: `is-bitti` testi ve ön kontrolü kendisi koşar.
 
 ## İş akışı
-1. `orkestra kart durum <id> isleniyor` — çıkış 6 (kart kilitli) verirse hiçbir şey yapma, hemen bitir ve kilitli olduğunu bildir.
+1. `orkestra kart durum <id> isleniyor` — çıkış 6 (kart kilitli) ya da 7 (kart bütçesi doldu) verirse hiçbir şey yapma, hemen bitir ve durumu (kilitli/bütçe) bildir.
 2. Kartı ve bağlamı oku. "SON RET" talimatı varsa önce onu karşıla.
 3. İşi yap. Projede uygun bir skill ya da hazır betik varsa önce onu kullan; yeniden yazma.
 4. Her kabul kriteri için kanıtı hazırla.

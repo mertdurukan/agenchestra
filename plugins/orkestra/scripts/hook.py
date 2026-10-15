@@ -25,7 +25,7 @@ ORK_KOMUT = re.compile(
     r"""(?:(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*["']?(?:[^\s"';&|]*[\\/])?)?"""
     r"""(?:[^\s"';&|]*[\\/])?orkestra(?:\.py|\.cmd)?["']?(?=\s|$)""", re.M)
 COKLU_KOMUT = re.compile(r"(;|&&|\|\||\||`|\$\(|\n|>)")
-YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac|test-ayar)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|bitti))\b")
+YAZAN_ALT_KOMUT = re.compile(r"\b(kart\s+(yeni|toplu|durum|denetim|yukselt|teslim|agac|birlestir|test-kos|test-kilit-ac|test-ayar|butce)|defter\s+ekle|baslat|(?:perspektif|ruya)\s+(basla|basladi|bitti|kaydet|girdi))\b")
 KORUNAN_IZ = re.compile(r"(ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)", re.I)
 _KORUNAN = r"(?:ortak_defter|maliyet\.jsonl|gunluk\.jsonl|\.denetim\.json|orkestra[\\/]+gorevler)"
 # Yalnız yazma işlecinin HEDEFİ korunan dosyaysa: aynı komut parçasında (satır/;/&/| ile bölünmeden) işleç → korunan yol,
@@ -289,7 +289,7 @@ def pre_tool_use(inp: dict):
                         if not icinde:
                             reddet(f"{gorev}: #SUREC:test-yaz yalnız test_alani içine yazar ({', '.join(k['test_alani'])}).")
                         gec()
-                    elif icinde:
+                    elif icinde and k.get("tdd") is not False:  # TDD'siz kartta testleri işçi yazar
                         reddet(f"{gorev}: test_alani ({', '.join(k['test_alani'])}) yalnız #SUREC:test-yaz ile yazılır; "
                                "testleri kod işçisi değiştiremez.")
                 if agacta:
@@ -765,15 +765,24 @@ def session_start(inp: dict):
                             "Commitle → otomatik güncelleme; hemen için `orkestra guncelle`, sonra yeni oturum ya da /reload-plugins.")
     except Exception:
         pass
-    r = perspektif.durum(sd)
+    proje_ = L.proje_dizini(inp.get("cwd"))
+    r = perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path")))
     if r.get("okunmamis_rapor"):
         satirlar.append(f"Perspektif raporu hazır: {r['okunmamis_rapor']} — öneriler panelde Onaylar sayfasında; "
                         "kullanıcı orada onaylayabilir ya da /orkestra:perspektif ile sohbette ilerleyebilir.")
     elif r.get("zamani_geldi") and not r.get("calisiyor"):
-        hafiza = perspektif.hafiza_dizini(L.proje_dizini(inp.get("cwd")), inp.get("transcript_path"))
+        hafiza = perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))
         satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
                         "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
                         f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
+    try:  # olay güdümlü maliyet uyarısı: son 24 saatte israf örüntüsü (perspektifi beklemez); hata hook'u düşürmez
+        import maliyet_anomali as MA
+        olay = [x for x in MA.calistir(sd, 1) if x["kural"] in ("K3", "K4", "K5")]
+        if olay:
+            satirlar.append("MALİYET UYARISI (24 sa): " + "; ".join(f"{x['kural']} {x['ad']} {x['kart']}" for x in olay[:4])
+                            + " — `orkestra maliyet anomali --gun 1`; kök nedeni işin todo'suna yaz.")
+    except Exception:
+        pass
     om = ""
     try:  # panel onay kararları: hata hook'u düşürmez
         import onay
@@ -941,8 +950,9 @@ def session_end(inp: dict):
     except Exception:  # ölçüm satırı hatası kapanışı bozmasın
         pass
     import perspektif
-    if perspektif.durum(sd).get("zamani_geldi"):
-        perspektif.baslat(sd, L.proje_dizini(inp.get("cwd")), transkript=inp.get("transcript_path"))
+    proje_ = L.proje_dizini(inp.get("cwd"))
+    if perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))).get("zamani_geldi"):
+        perspektif.baslat(sd, proje_, transkript=inp.get("transcript_path"))
     gec()
 
 

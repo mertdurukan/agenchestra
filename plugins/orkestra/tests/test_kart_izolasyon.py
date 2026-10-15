@@ -17,13 +17,14 @@ HOOK = os.path.join(KOK, "scripts", "hook.py")
 OTURUM = "izolasyon-oturum"
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 import ork_lib as L  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 
 def kos(args, cwd, stdin=None):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
-    return subprocess.run([sys.executable] + args, cwd=cwd, env=env, input=stdin, capture_output=True, text=True,
-                          encoding="utf-8")
+    return ic_kos.kos(args, cwd=cwd, env=env, input=stdin)
 
 
 def git(cwd, *args):

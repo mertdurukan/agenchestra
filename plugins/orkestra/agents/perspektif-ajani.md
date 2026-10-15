@@ -12,18 +12,15 @@ Sen orkestra PERSPEKTİF ajanısın. Kullanıcı yok. Hafızayı, kuralları ve 
 
 ## Akış
 1. `orkestra perspektif basladi` komutunu çalıştır.
-2. Görevde verilen hafıza klasörünü bul (`~/.claude/projects/<proje>/memory/`). MEMORY.md'yi ve bütün konu dosyalarını oku.
-3. Şunları oku:
-   - Projenin `CLAUDE.md` dosyası ve `.claude/rules/` klasörü.
-   - `orkestra defter oku --son 40` çıktısı.
-   - `orkestra gunluk ozet --gun 14` çıktısı.
-   - `orkestra maliyet rapor --gun 14` çıktısı.
-   - `orkestra maliyet anomali --gun 14` çıktısı (kural tabanlı: pahalı kart, kart başına ajan, teslim sonrası ajan, eşzamanlı işçi, kapı ajanı, ana ajan payı, T4).
-   - Mevcut skill'ler: projenin `.claude/skills/` klasörü ve orkestra skill'leri.
-4. Adı geçen dosya ve klasör yollarının hâlâ var olup olmadığını Glob ile kontrol et.
-5. Raporu `.claude/orkestra/perspektif/perspektif_<YYYYMMDD_HHMM>.md` dosyasına yaz. Başka hiçbir dosyaya yazma.
-6. `orkestra perspektif kaydet <rapor yolu>` komutunu çalıştır.
-7. Son mesajında rapor yolunu ve 3 maddelik özeti ver.
+2. `orkestra perspektif girdi <hafıza klasörü>` komutunu çalıştır, sonra `.claude/orkestra/perspektif/girdi.json`'ı oku. Mekanik
+   ölçümlerin hepsi oradadır: hafıza dosya boyutları ve MEMORY.md satır/bayt, ölü yollar, maliyet anomalileri (14 gün),
+   KPI, günlük özeti (istekler, skill/ajan kullanımı), ortak defter özeti, skill listesi. Bunları yeniden hesaplama;
+   defter/günlük/maliyet komutlarını ayrıca çalıştırma, yolları Glob ile tek tek denetleme.
+3. LLM yargısı gereken içerik için yalnız şunları oku: MEMORY.md ve konu dosyaları (kopya, çelişki, eskimiş iş),
+   projenin `CLAUDE.md` dosyası ve `.claude/rules/` klasörü.
+4. Raporu `.claude/orkestra/perspektif/perspektif_<YYYYMMDD_HHMM>.md` dosyasına yaz. Başka hiçbir dosyaya yazma.
+5. `orkestra perspektif kaydet <rapor yolu>` komutunu çalıştır (girdi imzasını da kaydeder: girdi değişmedikçe sonraki koşu atlanır).
+6. Son mesajında rapor yolunu ve 3 maddelik özeti ver.
 
 ## Rapor bölümleri
 Türkçe, kısa cümleler:
@@ -31,7 +28,7 @@ Türkçe, kısa cümleler:
 2. **Birleştirilecek kopyalar:** Aynı bilgiyi taşıyan kayıtlar ve hangi dosyada kalacakları.
 3. **Çelişkiler:** Birbirini yalanlayan kayıtlar ve hangisinin güncel olduğu (tarih ve kanıtla).
 4. **Eskimiş ya da doğrulanamayan kayıtlar:**
-   - Var olmayan yollar.
+   - Var olmayan yollar (girdi.json `olu_yollar`; `belirsiz_yollar` göreli yollardır, yalnız bağlamdan açıkça eskiyse yaz).
    - "Devam ediyor" denip bitmiş işler.
    - Göreli tarihler.
 5. **Boyut:**
@@ -49,7 +46,7 @@ Türkçe, kısa cümleler:
    - Reddedilen ve yükseltilen kartlar.
    - Denetimin maliyet payı (hedef %15-30).
    - Dikkat çeken maliyet.
-   - Maliyet anomalileri: `maliyet anomali` çıktısındaki her kural için kök neden ve somut düzeltme önerisi (kural, betik ya da eşik). Bunlar da bölüm 6 biçiminde `Vaat:` satırı taşır. Gözlemi öneriye çevirmeden bırakma.
+   - Maliyet anomalileri: girdi.json `anomali` alanındaki her kural için kök neden ve somut düzeltme önerisi (kural, betik ya da eşik). Bunlar da bölüm 6 biçiminde `Vaat:` satırı taşır. Gözlemi öneriye çevirmeden bırakma.
 
 ## Vaat satırı (bölüm 6'daki her öneri için zorunlu)
 Önerinin değişiklik/gerekçe satırlarından sonra, girintili tek satır:

@@ -125,7 +125,7 @@ class StatikTestler(unittest.TestCase):
 
     def test_isci_semasinda_kapi_alani(self):
         self.assertRegex(self.js, r"required:\s*\[[^\]]*'kapi'")
-        self.assertRegex(self.js, r"kapi:\s*\{\s*type:\s*'string',\s*enum:\s*\['gecti',\s*'gecmedi',\s*'kilitli'\]")
+        self.assertRegex(self.js, r"kapi:\s*\{\s*type:\s*'string',\s*enum:\s*\['gecti',\s*'gecmedi',\s*'kilitli',\s*'butce'\]")
         self.assertIn("kapi_cikis", self.js)
         self.assertIn("kapi_ozeti", self.js)
 
@@ -300,7 +300,7 @@ class AkisTestleri(unittest.TestCase):
                 self.assertNotIn("Protokol:", x["istem"])
                 continue
             self.assertIn("Protokol: `orkestra kart durum <id> isleniyor`", x["istem"])
-            for deger in ("kilitli", "gecti", "gecmedi"):
+            for deger in ("kilitli", "butce", "gecti", "gecmedi"):
                 self.assertIn('kapi="%s"' % deger, x["istem"])
 
     def test_mutlu_yol_t3_uc_mercek(self):
@@ -343,6 +343,19 @@ class AkisTestleri(unittest.TestCase):
         s, c, _ = self.kos([kod_karti()], yesil=["kilitli"])
         self.assertEqual(s["durum"], "kilitli")
         self.assertEqual(self.adimlar(c), ["test", "is"])
+
+    # --- bütçe doldu (isleniyor çıkış 7)
+    def test_isci_butce_denetci_yok(self):
+        s, c, loglar = self.kos([kart()], onkontrol=[{"kapi": "butce", "kapi_ozeti": "orkestra: G bütçe — doldu"}])
+        self.assertEqual(s["durum"], "butce")
+        self.assertEqual(self.adimlar(c), ["is"])
+        self.assertIn("bütçe", s["neden"])
+        self.assertTrue(any("bütçe" in m for m in loglar))
+
+    def test_test_yazari_butce_aninda_durur(self):
+        s, c, _ = self.kos([kod_karti()], kirmizi=[{"kapi": "butce"}])
+        self.assertEqual(s["durum"], "butce")
+        self.assertEqual(self.adimlar(c), ["test"])
 
     def test_test_yazari_kilitli_aninda_kilitli(self):
         s, c, _ = self.kos([kod_karti()], kirmizi=["kilitli"])

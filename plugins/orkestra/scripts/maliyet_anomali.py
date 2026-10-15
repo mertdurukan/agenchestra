@@ -2,11 +2,14 @@
 
 Perspektif ajanı maliyeti toplu tablodan okuduğu için kart × koşu × zaman örüntülerini kaçırıyordu (15.10:
 teslim edilmiş kartta T4 + opus denetim, aynı kartta eşzamanlı iki koşu). Bu modül o örüntüleri kuralla bulur;
-LLM yorumu gerekmez. Girdi: maliyet.jsonl (ajan başına 'hook' satırları) ve görev kartları.
+LLM yorumu gerekmez. Girdi: tekilleştirilmiş maliyet defteri (L.maliyet_kayitlari; 'tur' parçaları ve birikimli
+'hook' satırları ajan kimliğine göre birleştirilir) ve görev kartları.
 
 Kurallar (kimlik → açıklama):
-  K1 kart-pahali       kart toplam maliyeti >= esik_kart_usd
-  K2 kart-ajan-cok     karttaki ajan sayısı > esik_kart_ajan
+  K1 kart-pahali       kart toplam maliyeti >= kartın bütçe tavanı (butce.kart_tavani: kart > geçmiş taban 2×p90 >
+                       basamak varsayılanı); tavan bilinmiyorsa esik_kart_usd
+  K2 kart-ajan-cok     karttaki ayrı ajan sayısı > esik_kart_ajan (workflow'un kart ajan tavanı; politika eşiği —
+                       geçmiş p90 israflı dönemi taban alacağı için kullanılmaz)
   K3 teslim-sonrasi    kart teslim/iptal olduktan sonra karta ajan koştu
   K4 es-zamanli-isci   aynı kartta zaman aralıkları kesişen iki işçi ajanı (iş/düzeltme/yükseltme)
   K5 kapi-ajani        test-kapisi / on-kontrol süreci ajanla koştu (kapılar CLI'de olmalı)
@@ -19,7 +22,6 @@ from __future__ import annotations
 
 import collections
 import datetime
-import json
 import os
 
 ESIKLER = {"esik_kart_usd": 2.0, "esik_kart_ajan": 8, "esik_ana_pay": 0.5}
@@ -35,33 +37,33 @@ def _zaman(z):
         return None
 
 
-def satirlari_oku(yol: str, gun: int | None, simdi=None) -> list[dict]:
-    simdi = simdi or datetime.datetime.now().astimezone()
-    sinir = simdi - datetime.timedelta(days=gun) if gun else None
-    out = []
-    try:
-        with open(yol, encoding="utf-8") as f:
-            for satir in f:
-                try:
-                    d = json.loads(satir)
-                except ValueError:
-                    continue
-                z = _zaman(d.get("zaman"))
-                if z is None or (sinir and z < sinir):
-                    continue
-                d["_z"] = z
-                out.append(d)
-    except OSError:
-        pass
-    return out
+def ajanlari_birlestir(satirlar: list[dict]) -> list[dict]:
+    """Aynı (oturum, agent_id) satırlarını tek ajana indirger: usd ve süre toplanır, bitiş en geç zaman."""
+    gruplar: dict = {}
+    for d in satirlar:
+        if not d.get("agent_id") or d.get("ajan") in (None, "ana-ajan"):
+            continue
+        g = gruplar.get((d.get("oturum"), d["agent_id"]))
+        if g is None:
+            gruplar[(d.get("oturum"), d["agent_id"])] = dict(d)
+            continue
+        g["maliyet_usd"] = (g.get("maliyet_usd") or 0) + (d.get("maliyet_usd") or 0)
+        g["sure_ms"] = (g.get("sure_ms") or 0) + (d.get("sure_ms") or 0)
+        if d["_z"] > g["_z"]:
+            g["_z"] = d["_z"]
+    return list(gruplar.values())
 
 
-def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None = None) -> list[dict]:
-    """Saf denetim: anomali listesi [{kural, kart, ayrinti, usd}] (pahalıdan ucuza)."""
+def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None = None,
+            tavanlar: dict[str, float] | None = None) -> list[dict]:
+    """Saf denetim: anomali listesi [{kural, kart, ayrinti, usd}] (pahalıdan ucuza). tavanlar: gid -> K1 USD eşiği."""
     e = {**ESIKLER, **(esikler or {})}
-    # Ajan satırları: 'hook' kaynaklı (ajan başına bir); ana ajan turları 'tur' kaynaklı orkestrasyon satırları.
-    ajan = [d for d in satirlar if d.get("kaynak") == "hook" and d.get("ajan") not in (None, "ana-ajan")]
-    ana = [d for d in satirlar if d.get("ajan") == "ana-ajan" and d.get("kaynak") == "tur"]
+    tavanlar = tavanlar or {}
+    ajan = ajanlari_birlestir(satirlar)
+    # Ana ajan: kimliksiz satırlar; 'tur' kaynağı varsa yalnız o (hook satırı aynı turu ikinci kez sayar).
+    ana = [d for d in satirlar if d.get("ajan") == "ana-ajan" and not d.get("agent_id")]
+    if any(d.get("kaynak") == "tur" for d in ana):
+        ana = [d for d in ana if d.get("kaynak") == "tur"]
     out = []
     kart_ajan = collections.defaultdict(list)
     for d in ajan:
@@ -69,9 +71,10 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
             kart_ajan[d["gorev"]].append(d)
     for gid, liste in kart_ajan.items():
         usd = sum(x.get("maliyet_usd") or 0 for x in liste)
-        if usd >= e["esik_kart_usd"]:
+        esik_usd = tavanlar.get(gid, e["esik_kart_usd"])
+        if usd >= esik_usd:
             out.append({"kural": "K1", "ad": "kart-pahali", "kart": gid, "usd": round(usd, 2),
-                        "ayrinti": f"{len(liste)} ajan, {usd:.2f}$"})
+                        "ayrinti": f"{len(liste)} ajan, {usd:.2f}$ ≥ tavan {esik_usd:.2f}$"})
         if len(liste) > e["esik_kart_ajan"]:
             out.append({"kural": "K2", "ad": "kart-ajan-cok", "kart": gid, "usd": round(usd, 2),
                         "ayrinti": f"{len(liste)} ajan > {e['esik_kart_ajan']}"})
@@ -109,11 +112,25 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
     return out
 
 
-def calistir(sd: str, gun: int | None = 1) -> list[dict]:
+def calistir(sd: str, gun: int | None = 1, simdi=None) -> list[dict]:
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import butce
     import ork_lib as L
-    satirlar = satirlari_oku(os.path.join(sd, "maliyet.jsonl"), gun)
-    kartlar = {k.get("id"): k for k in L.kartlar(sd)}
-    return denetle(satirlar, kartlar)
+    simdi = simdi or datetime.datetime.now().astimezone()
+    sinir = simdi - datetime.timedelta(days=gun) if gun else None
+    tum = L.maliyet_kayitlari(sd)
+    satirlar = []
+    for d in tum:
+        z = _zaman(d.get("zaman"))
+        if z is None or (sinir and z < sinir):
+            continue
+        satirlar.append({**d, "_z": z})
+    kart_listesi = L.kartlar(sd)
+    kartlar = {k.get("id"): k for k in kart_listesi}
+    taban = butce.taban(kart_listesi, tum)
+    tavanlar = {gid: butce.kart_tavani(k, taban)[0] for gid, k in kartlar.items() if gid}
+    return denetle(satirlar, kartlar, tavanlar=tavanlar)
 
 
 def metin(anomaliler: list[dict], en_cok: int = 12) -> str:

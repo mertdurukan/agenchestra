@@ -13,6 +13,8 @@ FIXTURE = os.path.join(AD, "fixtures", "ruya_20261013_1500.md")
 ORKESTRA = os.path.join(SCRIPTS, "orkestra.py")
 sys.path.insert(0, SCRIPTS)
 import onay  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 
 class Temel(unittest.TestCase):
@@ -376,8 +378,7 @@ class CliTest(Temel):
         env.pop("CLAUDE_SESSION_ID", None)
         env.pop("CLAUDE_CODE_SESSION_ID", None)
         env.update(ortam or {})
-        return subprocess.run([sys.executable, ORKESTRA, *args], cwd=self.proje, capture_output=True,
-                              text=True, encoding="utf-8", env=env, timeout=60)
+        return ic_kos.kos([ORKESTRA, *args], cwd=self.proje, env=env)
 
     def test_onay_ve_kural_akisi(self):
         self.rapor()

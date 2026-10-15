@@ -15,6 +15,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORK = os.path.join(KOK, "scripts", "orkestra.py")
@@ -54,7 +56,7 @@ class _Ortak(unittest.TestCase):
                "--giris", "100", "--cikis", "50", "--onb-okuma", "30", "--onb-yazma", "20", "--sure-ms", "1234"]
         if agent_id:
             kom += ["--agent-id", agent_id]
-        p = subprocess.run(kom, env=env, capture_output=True, text=True, encoding="utf-8", cwd=self.proje)
+        p = ic_kos.kos(kom[1:], env=env, cwd=self.proje)
         self.assertEqual(p.returncode, 0, p.stderr)
         yol = os.path.join(self.sd, "maliyet.jsonl")
         self.assertTrue(os.path.exists(yol), "maliyet satırı yazılmadı")

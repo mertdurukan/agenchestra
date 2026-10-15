@@ -391,6 +391,8 @@ def _kart_kilidi_engeli(k: dict, ajan_id: str) -> str | None:
     if k.get("durum") != "isleniyor":
         return None
     for o in reversed(k.get("gecmis") or []):
+        if o.get("olay") == "kapi-gecmedi":
+            return None  # son sahip kapıyı geçemeden bitti: düzeltme turu yeni ajanla açılabilir
         if o.get("olay") != "isleniyor":
             continue
         sahip = o.get("agent_id")
@@ -502,11 +504,20 @@ def cmd_kart_durum(a):
             engel = _kart_kilidi_engeli(k0, ajan_id)
             if engel:
                 hata(f"{a.gid} kilitli — {engel}", 6)
+            import butce
+            engel = butce.engel(sd, k0, ajan_tipi)
+            if engel:
+                hata(f"{a.gid} bütçe — {engel} İşi BIRAK, kapi=butce bildir.", 7)
             _taban_kapisi(sd, k0, ajan_id)
         else:
             ciktilar = list(dict.fromkeys(list(k0.get("ciktilar") or []) + list(a.cikti or [])))
             gecti, rapor, kapi_kaydi = _is_bitti_kapisi(sd, k0, ajan_id, ajan_tipi, ciktilar)
             if not gecti:
+                with L.kilit(path):  # sahipliği bırak: aynı ajan yeniden dener ya da workflow düzeltme ajanı açar
+                    kk = _kart_al(sd, a.gid)
+                    kk["gecmis"].append({"zaman": L.simdi(), "olay": "kapi-gecmedi", "ajan": ajan_tipi,
+                                         "agent_id": ajan_id, "not": str(kapi_kaydi)[:300]})
+                    L.kart_yaz(sd, kk)
                 print(rapor[-6000:])
                 if "(çıkış -1," in rapor:
                     hata(f"{a.gid} is-bitti KAYDEDİLMEDİ: test komutu zaman aşımı ({_test_zaman_asimi(k0)} sn). "
@@ -538,6 +549,10 @@ def cmd_kart_durum(a):
         else:
             if a.durum in ("iptal", "beklemede", "planlandi") and ajan_tipi not in ("ana", "bilinmiyor"):
                 hata("kartı iptal/beklemeye yalnız ana ajan alır.")
+            if a.durum == "isleniyor" and ajan_tipi not in ("ana", "bilinmiyor"):
+                engel = _kart_kilidi_engeli(k, ajan_id)  # yarış: kilit dışındaki denetimden sonra başka koşu girmiş olabilir
+                if engel:
+                    hata(f"{a.gid} kilitli — {engel}", 6)
             if a.durum == "isleniyor":
                 # Çakışma kapısı: aynı fiziksel ağaçta açık kartlarla yazma alanı kesişmesi ya da depo kökü/'**' reddedilir.
                 cakismalar = L.yazma_cakismalari(sd, L.proje_dizini(), k)
@@ -982,6 +997,25 @@ def cmd_kart_teslim(a):
     print(f"{a.gid} → teslim")
 
 
+def cmd_kart_butce(a):
+    """Kart bütçesini göster; --usd ile tavanı ayarla (yalnız ana ajan)."""
+    import butce
+    sd = sd_gerekli()
+    if a.usd is not None:
+        _, ajan_tipi = _kim(a)
+        if ajan_tipi not in ("ana", "bilinmiyor"):
+            hata("bütçeyi yalnız ana ajan değiştirir.", 3)
+        if a.usd <= 0:
+            hata("--usd pozitif olmalı.")
+        path = L.kart_yolu(sd, a.gid)
+        with L.kilit(path):
+            k = _kart_al(sd, a.gid)
+            k["butce"] = {**(k.get("butce") or {}), "usd": float(a.usd)}
+            k["gecmis"].append({"zaman": L.simdi(), "olay": "butce", "usd": float(a.usd)})
+            L.kart_yaz(sd, k)
+    print(json.dumps(butce.durum(sd, _kart_al(sd, a.gid)), ensure_ascii=False))
+
+
 def cmd_kart_teslim_toplu(a):
     sd = sd_gerekli()
     _, ajan_tipi = _kim(a)
@@ -1411,6 +1445,18 @@ def cmd_maliyet_anomali(a):
     print(json.dumps(liste, ensure_ascii=False, indent=1) if a.json else MA.metin(liste))
 
 
+def cmd_maliyet_etki(a):
+    import maliyet_etki as ME
+    try:
+        kesim = datetime.datetime.fromisoformat(a.kesim)
+    except ValueError:
+        hata(f"--kesim ISO zaman olmalı: {a.kesim!r}")
+    if kesim.tzinfo is None:
+        kesim = kesim.astimezone()
+    r = ME.karsilastir(sd_gerekli(), kesim, a.gun)
+    print(json.dumps(r, ensure_ascii=False, indent=1) if a.json else ME.metin(r))
+
+
 def cmd_maliyet_ozet(a):
     sd = sd_gerekli()
     kayitlar = L.maliyet_kayitlari(sd)
@@ -1447,6 +1493,11 @@ def cmd_perspektif(a):
         print(f"perspektif raporu kaydedildi: {a.yol}")
     elif a.islem == "hafiza":
         print(perspektif.hafiza_dizini(L.proje_dizini()))
+    elif a.islem == "girdi":
+        proje = L.proje_dizini()
+        g = perspektif.girdi_yaz(sd, proje, a.yol or perspektif.hafiza_dizini(proje))
+        print(f"{os.path.join(sd, 'perspektif', 'girdi.json')} · imza {g['imza']} · anomali {g['anomali']['sayim']} · "
+              f"ölü yol {g['hafiza']['olu_yol_sayisi']}")
 
 
 # ---------------------------------------------------------------- onay merkezi
@@ -2303,6 +2354,10 @@ def main():
     yu.add_argument("--basamak", required=True)
     yu.add_argument("--neden", required=True)
     yu.set_defaults(f=cmd_kart_yukselt)
+    bu = kart.add_parser("butce", help="kart bütçesi: göster; --usd ile tavanı ayarla (yalnız ana ajan)")
+    bu.add_argument("gid")
+    bu.add_argument("--usd", type=float)
+    bu.set_defaults(f=cmd_kart_butce)
     te = kart.add_parser("teslim")
     te.add_argument("gid")
     te.add_argument("--ozet")
@@ -2355,6 +2410,11 @@ def main():
     an.add_argument("--gun", type=int, default=1, help="son N gün (0 = tümü)")
     an.add_argument("--json", action="store_true")
     an.set_defaults(f=cmd_maliyet_anomali)
+    et = mal.add_parser("etki", help="değişiklik öncesi/sonrası maliyet ve kalite karşılaştırması (kalite bekçisi)")
+    et.add_argument("--kesim", required=True, help="değişikliğin devreye girdiği an (ISO)")
+    et.add_argument("--gun", type=float, default=7, help="her iki pencerenin gün sayısı")
+    et.add_argument("--json", action="store_true")
+    et.set_defaults(f=cmd_maliyet_etki)
     ge = mal.add_parser("gecmis")
     ge.add_argument("--bu-oturum-dahil", action="store_true")
     ge.set_defaults(f=cmd_maliyet_gecmis)
@@ -2367,7 +2427,7 @@ def main():
     oz.set_defaults(f=cmd_maliyet_ozet)
 
     ru = alt.add_parser("perspektif", aliases=["ruya"])  # "ruya": eski ad, geriye uyumlu takma ad
-    ru.add_argument("islem", choices=["durum", "basla", "basladi", "kaydet", "bitti", "hafiza"])
+    ru.add_argument("islem", choices=["durum", "basla", "basladi", "kaydet", "bitti", "hafiza", "girdi"])
     ru.add_argument("yol", nargs="?")
     ru.set_defaults(f=cmd_perspektif)
 

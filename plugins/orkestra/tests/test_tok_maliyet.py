@@ -179,6 +179,81 @@ class TddsizKodKarti(Ortak):
         self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
 
 
+class DenetimDuzeltmeleri(Ortak):
+    def test_kapi_gecmeyince_duzeltme_ajani_girebilir(self):
+        g = self.kod_karti()
+        self.assertEqual(self.cli("kart", "durum", g, "isleniyor", **ISCI).returncode, 0)
+        self.yaz("src/a.py", "x = 1\n")
+        self.bayrak(False)  # test kırmızı: kapı geçmez
+        r = self.cli("kart", "durum", g, "is-bitti", "--ozet", "b", "--cikti", "src/a.py", **ISCI)
+        self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
+        self.assertEqual(self.cli("kart", "durum", g, "isleniyor", **ISCI2).returncode, 0)
+
+    def test_taban_sifira_inmez_ve_yukseltilen_isci_ust_basamak_tavani(self):
+        import butce
+        kartlar = [{"id": f"G-{i}", "sinif": "kod", "basamak": "T2", "durum": "planlandi"} for i in range(12)]
+        kay = [{"gorev": "G-0", "maliyet_usd": 0.4}]
+        self.assertEqual(butce.taban(kartlar, kay), {})
+        k = {"id": "G-0", "sinif": "kod", "basamak": "T2"}
+        self.assertEqual(butce.kart_tavani(k, {})[0], 3.0)
+        self.assertEqual(butce.kart_tavani(k, {}, "orkestra:isci-t3")[0], 8.0)
+        self.assertEqual(butce.kart_tavani(k, {("kod", "T2"): {"tavan_usd": 0.5, "n": 9}})[0], 3.0)
+        self.assertEqual(butce.kart_tavani(k, {("kod", "T2"): {"tavan_usd": 5.0, "n": 9}})[0], 5.0)
+
+
+class KartButcesi(Ortak):
+    def harca(self, g, usd, aid="x1"):
+        yol = os.path.join(self.proje, ".claude", "orkestra", "maliyet.jsonl")
+        with open(yol, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"kaynak": "hook", "oturum": "s", "agent_id": aid, "gorev": g, "surec": "is",
+                                "ajan": "orkestra:isci-t2", "maliyet_usd": usd,
+                                "zaman": "2026-10-15T09:00:00+03:00"}) + "\n")
+
+    def test_butce_dolunca_isleniyor_cikis_7(self):
+        g = self.kart()  # T2 varsayılan tavan 3 $
+        self.harca(g, 3.5)
+        r = self.cli("kart", "durum", g, "isleniyor", **ISCI)
+        self.assertEqual(r.returncode, 7, r.stdout + r.stderr)
+        self.assertIn("bütçe", r.stdout + r.stderr)
+
+    def test_butce_altinda_ve_ana_ajan_tavani_acar(self):
+        g = self.kart()
+        self.harca(g, 1.0)
+        self.assertEqual(self.cli("kart", "durum", g, "isleniyor", **ISCI).returncode, 0)
+        self.harca(g, 2.5, aid="x2")
+        self.assertEqual(self.cli("kart", "durum", g, "isleniyor", **ISCI).returncode, 7)
+        self.assertEqual(self.cli("kart", "butce", g, "--usd", "5", **ISCI).returncode, 3)  # işçi açamaz
+        r = self.cli("kart", "butce", g, "--usd", "5")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        d = json.loads(r.stdout)
+        self.assertEqual((d["tavan_usd"], d["kaynak"]), (5.0, "kart"))
+        self.assertAlmostEqual(d["harcama_usd"], 3.5)
+        self.assertEqual(self.cli("kart", "durum", g, "isleniyor", **ISCI).returncode, 0)
+
+
+class EtkiKarari(unittest.TestCase):
+    def satir(self, tur, g):
+        return {"tur": tur, "gidisat": g}
+
+    def test_kalite_kotuyse_maliyet_iyi_olsa_da_kalite_riski(self):
+        import maliyet_etki as ME
+        self.assertEqual(ME.karar([self.satir("maliyet", "iyi"), self.satir("kalite", "kotu")]), "kalite-riski")
+
+    def test_iyilesme_kotulesme_yetersiz(self):
+        import maliyet_etki as ME
+        self.assertEqual(ME.karar([self.satir("maliyet", "iyi"), self.satir("maliyet", "etkisiz"),
+                                   self.satir("kalite", "etkisiz")]), "iyilesme")
+        self.assertEqual(ME.karar([self.satir("maliyet", "iyi"), self.satir("maliyet", "kotu")]), "kotulesme")
+        self.assertEqual(ME.karar([self.satir("maliyet", "yetersiz-veri")]), "yetersiz-veri")
+
+    def test_gidisat_esik_ve_ornek(self):
+        import maliyet_etki as ME
+        self.assertEqual(ME._gidisat(2.0, 1.0, 10, "azalmali"), "iyi")
+        self.assertEqual(ME._gidisat(2.0, 1.0, 2, "azalmali"), "yetersiz-veri")
+        self.assertEqual(ME._gidisat(0.9, 0.7, 10, "artmali"), "kotu")
+        self.assertEqual(ME._gidisat(0, 0.2, 10, "azalmali"), "kotu")
+
+
 class Anomali(unittest.TestCase):
     def satir(self, gorev, surec, ajan, usd, zaman, sure_ms=60000, aid=None, model="claude-sonnet-5-5"):
         return {"kaynak": "hook", "gorev": gorev, "surec": surec, "ajan": ajan, "maliyet_usd": usd, "model": model,
@@ -201,11 +276,55 @@ class Anomali(unittest.TestCase):
         k3 = next(x for x in a if x["kural"] == "K3")
         self.assertEqual(k3["kart"], "G-1")
 
+    def test_tur_parcalari_tek_ajan_ve_kart_tavani(self):
+        z = "2026-10-15T09:{:02d}:00+03:00"
+        s = [dict(self.satir("G-1", "is", "orkestra:isci-t2", 0.6, z.format(m), aid="a"), kaynak="tur", oturum="o")
+             for m in range(1, 11)]  # tek ajanın 10 tur parçası, toplam 6 $
+        a = MA.denetle(s, {}, tavanlar={"G-1": 8.0})
+        self.assertEqual([x for x in a if x["kural"] in ("K1", "K2")], [])
+        a = MA.denetle(s, {}, tavanlar={"G-1": 5.0})
+        self.assertEqual([x["kural"] for x in a], ["K1"])
+
     def test_temiz_defter(self):
         z = "2026-10-15T09:00:00+03:00"
         s = [self.satir("G-1", "is", "orkestra:isci-t2", 0.2, z), self.satir("G-1", "denetim", "orkestra:denetci", 0.1, z)]
         self.assertEqual(MA.denetle(s, {}), [])
         self.assertEqual(MA.metin([]), "Maliyet anomalisi yok.")
+
+
+class PerspektifKapisi(unittest.TestCase):
+    def test_girdi_degismedikce_kosu_atlanir(self):
+        import perspektif as P
+        sd = tempfile.mkdtemp(prefix="ork_persp_")
+        proje = tempfile.mkdtemp(prefix="ork_proje_")
+        hafiza = os.path.join(proje, "memory")
+        try:
+            os.makedirs(os.path.join(sd, "perspektif"))
+            os.makedirs(hafiza)
+            with open(os.path.join(hafiza, "MEMORY.md"), "w", encoding="utf-8") as f:
+                f.write("- [a](a.md) yol: `C:/yok/olmayan.md`\n")
+            g = P.girdi_yaz(sd, proje, hafiza)
+            self.assertEqual(g["hafiza"]["olu_yol_sayisi"], 1)
+            rapor = os.path.join(sd, "perspektif", "perspektif_20261001_0000.md")
+            with open(rapor, "w", encoding="utf-8") as f:
+                f.write("r")
+            P.kaydet(sd, rapor)  # imzayı kaydeder
+            P.bitti_isaretle(sd)
+            for _ in range(P.OTURUM_ESIGI):
+                P.oturum_say(sd, "startup")
+            self.assertTrue(P.durum(sd)["zamani_geldi"])  # kapısız çağrı: eşik doldu
+            d = P.durum(sd, proje, hafiza)
+            self.assertFalse(d["zamani_geldi"])
+            self.assertTrue(d["girdi_degismedi"])
+            self.assertEqual(P._oku(sd)["oturum_sayaci"], 0)
+            for _ in range(P.OTURUM_ESIGI):
+                P.oturum_say(sd, "startup")
+            with open(os.path.join(hafiza, "b.md"), "w", encoding="utf-8") as f:
+                f.write("yeni kayıt")
+            self.assertTrue(P.durum(sd, proje, hafiza)["zamani_geldi"])
+        finally:
+            shutil.rmtree(sd, ignore_errors=True)
+            shutil.rmtree(proje, ignore_errors=True)
 
 
 class BayatAjanKaydi(unittest.TestCase):

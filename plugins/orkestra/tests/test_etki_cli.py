@@ -17,6 +17,8 @@ CLI = os.path.join(KOK, "scripts", "orkestra.py")
 HOOK = os.path.join(KOK, "scripts", "hook.py")
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 import onay  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 OTURUM = "etki-cli-oturum"
 GECERSIZ_ISARET = "sürdür"  # hook ipucunun soru metninde geçer; temiz bağlamda bulunmamalı
@@ -37,8 +39,7 @@ class EtkiTemel(unittest.TestCase):
     def kos(self, args, stdin=None):
         env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1", HOME=self.ev, USERPROFILE=self.ev)
         env.pop("CLAUDE_PROJECT_DIR", None)
-        return subprocess.run([sys.executable] + args, cwd=self.proje, env=env, input=stdin,
-                              capture_output=True, text=True, encoding="utf-8")
+        return ic_kos.kos(args, cwd=self.proje, env=env, input=stdin)
 
     def cli(self, *args):
         return self.kos([CLI, "onay"] + list(args))

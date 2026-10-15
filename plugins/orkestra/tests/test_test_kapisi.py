@@ -13,6 +13,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ic_kos  # noqa: E402  (CLI'yi süreç içinde koşar)
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(KOK, "scripts", "orkestra.py")
@@ -40,7 +42,7 @@ ANA = dict(ajan_id="ana", ajan_tipi="ana")
 def kos(args, cwd):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
-    return subprocess.run([sys.executable] + args, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8")
+    return ic_kos.kos(args, cwd=cwd, env=env)
 
 
 class TestKapisi(unittest.TestCase):

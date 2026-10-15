@@ -48,8 +48,8 @@ const ISCI_SEMA = {
     ciktilar: { type: 'array', items: { type: 'string' } },
     kanit: { type: 'array', items: { type: 'string' } },
     acik_sorular: { type: 'array', items: { type: 'string' } },
-    // is-bitti kapısının sonucu (CLI koşar): gecti | gecmedi (denemeler bitti) | kilitli (kart durum isleniyor çıkış 6)
-    kapi: { type: 'string', enum: ['gecti', 'gecmedi', 'kilitli'] },
+    // is-bitti kapısının sonucu (CLI koşar): gecti | gecmedi (denemeler bitti) | kilitli (isleniyor çıkış 6) | butce (çıkış 7)
+    kapi: { type: 'string', enum: ['gecti', 'gecmedi', 'kilitli', 'butce'] },
     kapi_cikis: { type: 'integer' },
     kapi_ozeti: { type: 'string' },
   },
@@ -131,6 +131,7 @@ function denetciModeli(basamak, toplamRet) {
 const KAPI_PROTOKOLU = [
   'Protokol: `orkestra kart durum <id> isleniyor` → iş → `orkestra kart durum <id> is-bitti --ozet ... --cikti ...`.',
   '- isleniyor çıkış 6 verirse kart kilitli: HİÇBİR şey yapma, hemen kapi="kilitli" döndür.',
+  '- isleniyor çıkış 7 verirse kart bütçesi doldu: HİÇBİR şey yapma, hemen kapi="butce", kapi_ozeti=CLI mesajı döndür.',
   '- is-bitti test ve ön kontrol kapılarını kendisi koşar (Bash timeout 600000 ver; testi ayrıca koşma). Çıkış 4 → kayıt yapılmadı: çıktıdaki düşen test/ihlale göre düzelt ve is-bitti\'yi yeniden çalıştır; en çok 3 deneme.',
   '- Sonuç: kapı geçtiyse kapi="gecti"; denemeler bittiyse kapi="gecmedi", kapi_cikis=son çıkış kodu, kapi_ozeti=son çıktının son 30 satırı.',
   'Son yanıtın şemaya uygun olsun.',
@@ -246,6 +247,10 @@ function cliHatasiSonucu(k, basamak, gecmis, r, asama) {
     },
   }
 }
+function butceSonucu(k, basamak, gecmis, r) {
+  log(`${k.id}: kart bütçesi doldu → durduruldu; ana ajan inceler ya da \`orkestra kart butce ${k.id} --usd\` ile açar`)
+  return { id: k.id, durum: 'butce', neden: (r && r.kapi_ozeti) || 'kart bütçesi doldu', basamak, gecmis }
+}
 function kilitliSonucu(k, basamak, gecmis) {
   log(`${k.id}: kart kilitli (kapalı ya da başka koşuda işleniyor) → bu koşuda atlandı`)
   return { id: k.id, durum: 'kilitli', neden: 'kart kapalı ya da başka koşuda işleniyor', basamak, gecmis }
@@ -275,6 +280,7 @@ async function testOnce(k, basamak, gecmis) {
     })
     if (!t) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'test yazarı sonuç döndürmedi' }
     if (t.kapi === 'kilitli') return kilitliSonucu(k, basamak, gecmis)
+    if (t.kapi === 'butce') return butceSonucu(k, basamak, gecmis, t)
     const r = kapiSonucu(t)
     gecmis.push({ basamak, surec: 'test-kapisi', asama: 'kirmizi', karar: r.gecti ? 'gecti' : 'gecmedi' })
     if (r.gecti) return null
@@ -323,6 +329,7 @@ async function yurut(k, bagBekle) {
     })
     if (!is) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'işçi ajan sonuç döndürmedi' }
     if (is.kapi === 'kilitli') return kilitliSonucu(k, basamak, gecmis)
+    if (is.kapi === 'butce') return butceSonucu(k, basamak, gecmis, is)
 
     // Kapı (CLI is-bitti: test + ön kontrol) geçmediyse denetçi ÇAĞRILMAZ; çıktıyla düzeltme turu (ret sayılır).
     const kapi = kapiSonucu(is)
@@ -440,7 +447,7 @@ function calistir(id, yol) {
 log(`${kartlar.length} kart; bağımsız olanlar paralel koşuyor.`)
 const sonuclar = await Promise.all(kartlar.map(k => calistir(k.id, [])))
 const say = d => sonuclar.filter(s => s.durum === d).length
-log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('hata')} hata.`)
+log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('hata')} hata.`)
 const ajanToplam = Object.values(ajanSayaci).reduce((a, b) => a + b, 0)
 log(`Ajan: ${ajanToplam} (kart başına tavan ${KART_AJAN_TAVANI}).`)
 return { sonuclar }

@@ -59,6 +59,7 @@ Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
 - Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
 - İsteğe bağlı `args.kart_ajan_tavani` (varsayılan 8): kart başına en çok ajan. Dolan kart `tavan` döner; kartı `beklemede` yap.
+- Kart USD bütçesi: harcama tavana ulaşınca `kart durum isleniyor` çıkış 7 verir, kart `butce` döner. Tavan sırası: kartın `butce.usd` > geçmiş taban (sınıf×basamak 2×p90) > basamak varsayılanı (T1 1 $, T2 3 $, T3 8 $, T4 12 $). Gör: `orkestra kart butce <id>`; gerekçeyle aç: `--usd <yeni>` (yalnız ana ajan).
 - Betik her kart için şunu yapar:
   - basamağa uygun işçi ajanı çalıştırır;
   - kapılar AJAN DEĞİLDİR: `kart durum isleniyor` T0 ön kontrol tabanını alır ve kart kilidini uygular (kapalı/başkasında → çıkış 6, sonuç `kilitli`); `kart durum is-bitti` testi (kod kartında yeşil, test yazarında kırmızı) ve ön kontrolü koşar, geçmezse kaydetmez ve işçi aynı oturumda düzeltir. İşçi en çok 3 denemeden sonra `kapi: gecmedi` bildirirse denetçi çağrılmaz, ret sayılır;
