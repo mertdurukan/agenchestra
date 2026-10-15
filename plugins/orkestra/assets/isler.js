@@ -219,7 +219,8 @@
       // Seni bekliyor: yalnız ne beklendiği (Stop kancasının son mesajdan çıkardığı); niyet/neden satırları gösterilmez
       govde = `<div class="bekleme">${metin(r.bekleme || 'Yanıtını bekliyor')}</div>`;
     } else if (r.niyet_var) {
-      govde = `<div class="ne">${metin(r.ne)}</div>${r.neden ? `<div class="neden">${metin(r.neden)}</div>` : ''}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
+      // Açıklama (neden) varsa yalnız o; yoksa başlık (ne) açıklama olarak gösterilir
+      govde = `${r.neden ? `<div class="neden">${metin(r.neden)}</div>` : `<div class="neden">${metin(r.ne)}</div>`}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
     } else if (r.son_istek) {
       govde = `<div class="son-istek"><q>${metin(r.son_istek)}</q></div>`;
     } else {
@@ -453,9 +454,9 @@
 
   O.kabuk({ sayfa: 'isler' });
   // Sohbetler: kendi kaynağı (/simdi.json, tüm çalışma alanları); alan değişiminden etkilenmez.
-  KS = O.veri('/simdi.json', {
-    ad: 'Sohbet verisi', aralik: 5000, alanaBagli: false,
-    gecerli: v => Array.isArray(v.oturumlar),
+  KS = O.veri(() => '/simdi.json?alan=' + encodeURIComponent(O.alan), {
+    ad: 'Sohbet verisi', aralik: 5000,
+    gecerli: v => Array.isArray(v.oturumlar) && (!v.alan || !v.alan.id || v.alan.id === O.alan),
     cizici: v => { SS.simdi = v; sohbetCiz(); sohbetBayatCiz(); if (S.veri) sayfaCiz(); },
     durum: () => { sohbetBayatCiz(); if (!SS.simdi) sohbetCiz(); },
   });
@@ -465,5 +466,5 @@
     cizici: v => { S.veri = v; sayfaCiz(); },
     durum: () => { yerlestir($('#iBayat'), O.bayatIsaret(K)); if (!S.veri) sayfaCiz(); },
   });
-  window.addEventListener('orkestra:alan', () => { S.veri = null; S.secili = ''; S.ara = ''; $('#ara').value = ''; S.acik.clear(); sayfaCiz(); });
+  window.addEventListener('orkestra:alan', () => { SS.simdi = null; SS.eskilerAcik = false; sohbetCiz(); S.veri = null; S.secili = ''; S.ara = ''; $('#ara').value = ''; S.acik.clear(); sayfaCiz(); });
 })();
