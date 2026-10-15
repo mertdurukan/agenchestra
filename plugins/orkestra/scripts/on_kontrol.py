@@ -196,7 +196,7 @@ def taban(a) -> int:
     proje, sd, kart = _kart(a)
     kayit = {"zaman": L.simdi(), "dosyalar": {y: dosya_ozeti(y) for y in alan_dosyalari(proje, kart.get("yazma_alani"))}}
     if kart.get("test_komutu"):
-        kayit["test"] = kirmizi_kaydi_testi(kart) or test_kos(kart["test_komutu"], proje)
+        kayit["test"] = kirmizi_kaydi_testi(kart) or test_kos(kart["test_komutu"], proje, kart)
     L.atomik_yaz(_kayit_yolu(sd, kart["id"]), json.dumps(kayit, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({"taban": "kaydedildi", "dosya_sayisi": len(kayit["dosyalar"]),
                       "basarisiz_test": len(kayit.get("test", {}).get("basarisiz", []))}, ensure_ascii=False))
