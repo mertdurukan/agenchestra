@@ -16,7 +16,8 @@
   const DURUM_RENK = { bekliyor: 'var(--warning)', onaylandi: 'var(--focus)', uygulaniyor: 'var(--focus)', uygulandi: 'var(--good)' };
 
   // Durum: veri sunucudan gelir; taslak (seçim, not), katlama, hata ve yoldaki istekler yeniden çizimde korunur.
-  const S = { veri: null, tur: 'hepsi', gorunum: 'bekleyen', acik: new Set(), taslak: {}, hata: {}, yolda: new Set() };
+  const GECMIS_DURUMLAR = [['uygulandi', 'Uygulandı'], ['reddedildi', 'Reddedildi'], ['eskidi', 'Eskidi'], ['iptal', 'İptal']];
+  const S = { veri: null, tur: 'hepsi', gorunum: 'bekleyen', durum: 'hepsi', acik: new Set(), taslak: {}, hata: {}, yolda: new Set() };
   let K = null;
 
   const kayitlar = () => (S.veri && Array.isArray(S.veri.kayitlar)) ? S.veri.kayitlar : [];
@@ -118,7 +119,7 @@
   function sayfaCiz() {
     const kap = $('#liste');
     if (!S.veri) {
-      yerlestir($('#gorunumCipler'), ''); yerlestir($('#turCipler'), ''); $('#oSayi').textContent = '';
+      yerlestir($('#gorunumCipler'), ''); yerlestir($('#durumCipler'), ''); yerlestir($('#turCipler'), ''); $('#oSayi').textContent = '';
       let metin = '<p class="bos">Yükleniyor…</p>';
       if (K && K.durum === 'hata') metin = `<p class="bos">Onaylar alınamadı: ${esc(O.yolGizle(K.hata))}</p>`;
       yerlestir(kap, metin);
@@ -127,7 +128,13 @@
     const tum = kayitlar();
     yerlestir($('#gorunumCipler'), GORUNUMLER.map(([id, ad]) =>
       cipHtml('gorunum', id, ad, tum.filter(k => gorunumde(k, id)).length, S.gorunum === id)).join(''));
-    const gk = tum.filter(k => gorunumde(k, S.gorunum));
+    const gv = tum.filter(k => gorunumde(k, S.gorunum));
+    const gecmis = S.gorunum === 'gecmis';
+    yerlestir($('#durumCipler'), gecmis
+      ? [['hepsi', 'Tümü']].concat(GECMIS_DURUMLAR).map(([id, ad]) =>
+          cipHtml('durum', id, ad, id === 'hepsi' ? gv.length : gv.filter(k => k.durum === id).length, S.durum === id)).join('')
+      : '');
+    const gk = gecmis && S.durum !== 'hepsi' ? gv.filter(k => k.durum === S.durum) : gv;
     yerlestir($('#turCipler'), TURLER.map(([id, ad]) =>
       cipHtml('tur', id, ad, id === 'hepsi' ? gk.length : gk.filter(k => k.tur === id).length, S.tur === id)).join(''));
     const bek = (S.veri.sayac && S.veri.sayac.bekliyor) || 0;
@@ -192,7 +199,8 @@
     if (b.dataset.karar) return karar(b.dataset.id, b.dataset.karar);
     if (b.dataset.katla) { S.acik.has(b.dataset.katla) ? S.acik.delete(b.dataset.katla) : S.acik.add(b.dataset.katla); return sayfaCiz(); }
     if (b.dataset.tur) { S.tur = b.dataset.tur; return sayfaCiz(); }
-    if (b.dataset.gorunum) { S.gorunum = b.dataset.gorunum; return sayfaCiz(); }
+    if (b.dataset.durum) { S.durum = b.dataset.durum; return sayfaCiz(); }
+    if (b.dataset.gorunum) { S.gorunum = b.dataset.gorunum; S.durum = 'hepsi'; return sayfaCiz(); }
   });
   ana.addEventListener('input', e => {
     const n = e.target.dataset && e.target.dataset.not;
