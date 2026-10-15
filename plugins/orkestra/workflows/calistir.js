@@ -153,7 +153,7 @@ const KAPI_PROTOKOLU = [
 ].join('\n')
 
 // ---------------------------------------------------------------- istemler
-function isciIstemi(k, surec, ret) {
+function isciIstemi(k, surec, ret, not) {
   return [
     `#GOREV:${k.id} #SUREC:${surec}`,
     `Görev: ${k.baslik}`,
@@ -164,6 +164,7 @@ function isciIstemi(k, surec, ret) {
     `Yazma alanı: ${(k.yazma_alani || []).join(', ') || '(sınırsız)'}`,
     testBilgisi(k),
     kodKarti(k) ? (tddKarti(k) ? 'Testleri geçirecek kodu yaz; testi değiştirme.' : 'Kodu ve test_alani\'ndaki testleri birlikte yaz (her kriter için en az bir test).') : '',
+    not || '',
     ret ? `ÖNCEKİ DENETİM RET VERDİ.${ret.neden ? ` Ret nedeni: ${ret.neden} — ${RET_NEDEN_ACIKLAMA[ret.neden] || ''}.` : ''} Düzeltme talimatı: ${ret.duzeltme_talimati || '-'}\nBulgular: ${(ret.bulgular || []).join(' | ')}` : '',
     KAPI_PROTOKOLU,
   ].filter(Boolean).join('\n')
@@ -323,7 +324,9 @@ async function testOnce(k, basamak, gecmis) {
 }
 
 // ---------------------------------------------------------------- tek görev
-async function yurut(k, bagBekle) {
+// bagBekle: erken test yolu (tdd); spek: { hazirP, bagP } spekülatif başlatma (H2c): işçi bağımlılıkların kapısıyla başlar,
+// denetçi bağımlılıklar onaylanınca çağrılır; bağımlılık onaydan önce ret/düzeltme geçirdiyse işçi turu bir kez yeniden koşar.
+async function yurut(k, bagBekle, spek) {
   let basamak = k.basamak === 'T0' ? 'T1' : k.basamak
   let retSayisi = 0
   let sonRet = null
@@ -346,11 +349,25 @@ async function yurut(k, bagBekle) {
       return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, gecmis }
     }
   }
+  let spekBekliyor = !!spek // denetimden önce bağımlılıkların onayı beklenecek mi
+  let yenidenSurec = false // sonraki işçi turu spekülasyon geçersizliğiyle yeniden koşu mu
+  if (spek) {
+    const hazirlar = await spek.hazirP
+    if (!hazirlar.every(Boolean)) {
+      const eksik = (await spek.bagP).filter(x => x.durum !== 'onaylandi').map(x => x.id)
+      log(`${k.id}: bağımlılığın kapısı geçmedi → işçi turu açılmadı`)
+      return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, gecmis }
+    }
+  }
 
   for (let tur = 0; tur < 10; tur++) {
     if (tavanda(k)) return tavanSonucu(k, basamak, gecmis, sonRet)
-    const surec = tur === 0 ? 'is' : retSayisi === 0 ? 'yukseltme' : 'duzeltme'
-    const is = await kartAjani(k, isciIstemi(k, surec, sonRet), {
+    const surec = yenidenSurec ? 'yeniden' : tur === 0 ? 'is' : retSayisi === 0 ? 'yukseltme' : 'duzeltme'
+    const not = yenidenSurec
+      ? 'BAĞIMLILIK DEĞİŞTİ: işin bağımlılığın onaydan önceki haliyle başlamıştı; bağımlılık sonradan düzeltildi. Çıktını bağımlılıkların onaylı haline göre gözden geçirip yeniden üret.'
+      : ''
+    yenidenSurec = false
+    const is = await kartAjani(k, isciIstemi(k, surec, sonRet, not), {
       agentType: ISCI[basamak], schema: ISCI_SEMA, label: `${k.id} işçi ${basamak}`, phase: 'İş',
     })
     if (!is) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'işçi ajan sonuç döndürmedi' }
@@ -362,7 +379,10 @@ async function yurut(k, bagBekle) {
     const kapi = kapiSonucu(is)
     if (!kapi.gecti && kapiZamanAsimiMi(kapi)) return zamanAsimiSonucu(k, basamak, gecmis, kapi, 'yesil')
     if (!kapi.gecti && kapiCliHatasi(kapi)) return cliHatasiSonucu(k, basamak, gecmis, kapi, 'yesil')
-    if (kapi.gecti) oncekiKapiOzeti = null
+    if (kapi.gecti) {
+      oncekiKapiOzeti = null
+      hazirCoz(k.id, true, gecmis.length) // bağımlıların spekülatif işçisi bu kapıyla başlar (yalnız ilk çözüm sayılır)
+    }
     if (!kapi.gecti) {
       // Aynı kartta arka arkaya iki kapı hatası normalize edilince aynıysa sorun kod/model değil ortamdır.
       const norm = kapiOzetiNormalize(kapi.ozet)
@@ -387,6 +407,23 @@ async function yurut(k, bagBekle) {
         bulgular: [kapi.ozet || '-'],
       }
     } else {
+      if (spekBekliyor) {
+        // Denetçi bağımlılıkların hepsi onaylanmadan çağrılmaz.
+        spekBekliyor = false
+        const bs = await spek.bagP
+        const eksik = bs.filter(x => x.durum !== 'onaylandi').map(x => x.id)
+        if (eksik.length) {
+          log(`${k.id}: işçi kapısı geçti ama bağımlılık onaylanmadı (${eksik.join(', ')}) → denetim açılmadı`)
+          return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, basamak, gecmis }
+        }
+        const degisen = bs.filter(spekulasyonBozuldu).map(x => x.id)
+        if (degisen.length) {
+          gecmis.push({ basamak, surec: 'yeniden', karar: '-', neden: `bağımlılık düzeltildi: ${degisen.join(', ')}` })
+          log(`${k.id}: bağımlılık onaydan önce ret/düzeltme geçirdi (${degisen.join(', ')}) → spekülatif iş geçersiz, işçi turu bir kez yeniden`)
+          yenidenSurec = true
+          continue
+        }
+      }
       const dm = denetciModeli(basamak, toplamRet)
       const mercekler = basamak === 'T3' || basamak === 'T4'
         ? ['doğruluk: iddialar ve sayılar kaynağıyla tutuyor mu', 'kanıt ve kapsam: her kriter kanıtlı ve eksiksiz mi']
@@ -461,6 +498,39 @@ const kimlik = {}
 for (const k of kartlar) kimlik[k.id] = k
 
 const soz = {}
+// Spekülatif başlatma (H2c): hazir[id] kartın ilk işçi kapısı geçince true, kart kapı geçmeden biterse false çözülür.
+const hazir = {}
+const hazirAni = {} // kapı geçtiği andaki gecmis uzunluğu: sonrası bağımlıların spekülasyonunu bozabilir
+function hazirSoz(id) {
+  if (!hazir[id]) {
+    let coz
+    hazir[id] = { p: new Promise(r => { coz = r }), coz, cozuldu: false }
+  }
+  return hazir[id]
+}
+function hazirCoz(id, deger, an) {
+  const h = hazirSoz(id)
+  if (h.cozuldu) return
+  h.cozuldu = true
+  if (deger) hazirAni[id] = an || 0
+  h.coz(deger)
+}
+// Bağımlılığın kapısı geçtikten sonra ret, kapı hatası, yükseltme ya da kendi yeniden koşusu olduysa
+// bağımlıların o kapıyla başlayan işi geçersizdir.
+const BOZAN_KARARLAR = ['ret', 'yesil-gecmedi', 'on-kontrol-ret', 'denetim-yok']
+function spekulasyonBozuldu(sonuc) {
+  return (sonuc.gecmis || []).slice(hazirAni[sonuc.id] || 0)
+    .some(g => BOZAN_KARARLAR.includes(g.karar) || g.surec === 'yukseltme' || g.surec === 'yeniden')
+}
+// Kartın (geçişli) bağımlılıkları.
+function tumBagimliliklar(id, gorulen = new Set()) {
+  for (const d of (kimlik[id].bagimliliklar || []).filter(x => kimlik[x])) {
+    if (gorulen.has(d)) continue
+    gorulen.add(d)
+    tumBagimliliklar(d, gorulen)
+  }
+  return gorulen
+}
 // hedef, bağımlılık zinciri üzerinden kendine dönüyor mu (döngü)?
 function donguda(hedef, id, gorulen) {
   for (const d of (kimlik[id].bagimliliklar || []).filter(x => kimlik[x])) {
@@ -501,8 +571,16 @@ function calistir(id, yol) {
     const bagP = cak.length ? Promise.all([bagP0, sirP]).then(([b]) => b) : bagP0
     // Erken test: bağımlılığı olan kod kartında test yazarı + kırmızı kapı bağımlılıkları beklemeden başlar; işçi turu onaydan sonra.
     // Döngüdeki kartta erken başlama yok (eski yol: önce bağımlılıklar çözülür).
-    if (tddKarti(k) && bag.length > 0 && !donguda(id, id, new Set())) {
+    const dongu = bag.length > 0 && donguda(id, id, new Set())
+    // Spekülatif başlatma: tdd olmayan, döngüsüz, sıralı çakışması (S3) olmayan ve yazma alanı hiçbir (geçişli)
+    // bağımlılığıyla kesişmeyen kart; aksi halde eski yol (kesişende isleniyor çıkış 5 alırdı).
+    const spekUygun = bag.length > 0 && !tddKarti(k) && !dongu && !cak.length &&
+      ![...tumBagimliliklar(id)].some(d => d !== id && alanKesisir(kimlik[d], k))
+    if (tddKarti(k) && bag.length > 0 && !dongu) {
       soz[id] = yurut(k, bagP)
+    } else if (spekUygun) {
+      log(`${k.id}: spekülatif başlatma → işçi bağımlılıkların (${bag.join(', ')}) kapısıyla başlar, denetim onaylarından sonra`)
+      soz[id] = yurut(k, null, { hazirP: Promise.all(bag.map(d => hazirSoz(d).p)), bagP })
     } else {
       soz[id] = bagP.then(sonuclar => {
         const eksik = sonuclar.filter(s => s.durum !== 'onaylandi').map(s => s.id)
@@ -510,6 +588,7 @@ function calistir(id, yol) {
         return yurut(k)
       })
     }
+    soz[id] = soz[id].then(r => { hazirCoz(id, false); return r })
   }
   return soz[id]
 }

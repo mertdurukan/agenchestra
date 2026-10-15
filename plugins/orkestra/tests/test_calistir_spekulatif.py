@@ -27,6 +27,9 @@ KOSUM_JS = PARALEL_KOSUM_JS.replace(_ESKI_ARGS, "{ gorevler: sen.gorevler, kart_
 
 RET = {"karar": "ret", "neden": "kapsam-eksik", "bulgular": ["kriter 1 eksik"], "duzeltme_talimati": "kriter 1 tamamla"}
 ONAY = {"karar": "onay", "bulgular": []}
+# Farklı ön kontrol hataları (aynı özet arka arkaya gelirse kart 'ortam' olur).
+HATA_X = {"gecti": False, "ihlaller": [{"tur": "kapsam", "ayrinti": "src/x.py"}]}
+HATA_Y = {"gecti": False, "ihlaller": [{"tur": "sir", "ayrinti": "anahtar sızdı"}]}
 
 
 def kart(id_, alan, bag=(), **ek):
@@ -109,7 +112,7 @@ class K2DenetimOnayiBekler(SpekulatifTaban):
     def test_a_kapisi_hic_gecmezse_b_isci_acilmaz_atlandi(self):
         s, c = self.kos([kart("G-A", "src/a.py"), kart("G-B", "src/b.py", ["G-A"])],
                         kartlar={"G-A": {"onkontrol": [False] * 20}})
-        self.assertEqual(s["G-A"]["durum"], "reddedildi")
+        self.assertNotEqual(s["G-A"]["durum"], "onaylandi")  # aynı kapı hatası: 'ortam'
         self.assertEqual(s["G-B"]["durum"], "atlandi")
         self.assertIn("G-A", s["G-B"]["neden"])
         self.assertEqual([x for x in c if x["id"] == "G-B"], [])
@@ -127,7 +130,7 @@ class K3YenidenKosu(SpekulatifTaban):
         self.assertIn("BAĞIMLILIK DEĞİŞTİ", b_is[1]["istem"])
         a_den_son = max(x["son"] for x in self.denetimler(c, "G-A"))
         self.assertGreater(b_is[1]["bas"], a_den_son)
-        self.assertEqual([g["surec"] for g in s["G-B"]["gecmis"]].count("yeniden"), 1)
+        self.assertEqual(len([g for g in s["G-B"]["gecmis"] if g["surec"] == "yeniden" and g["karar"] == "-"]), 1)
         # B için 3 ajan (iş + yeniden + denetim); 'Ajan:' log satırı tüm çağrılarla tutar.
         self.assertEqual(len([x for x in c if x["id"] == "G-B"]), 3)
         self.assertIn(f"Ajan: {len(c)} ", next(l for l in self.loglar if l.startswith("Ajan:")))
@@ -145,7 +148,7 @@ class K3YenidenKosu(SpekulatifTaban):
         # Tavan 4. B: iş, düzeltme, yükseltme (kapı geçer), yeniden = 4 → denetim tavanı aşar.
         # Yeniden koşu sayılmasaydı B 3 ajanla denetime girer ve onaylanırdı.
         s, c = self.kos([kart("G-A", "src/a.py"), kart("G-B", "src/b.py", ["G-A"])],
-                        kartlar={"G-A": {"denetim": [RET, ONAY]}, "G-B": {"onkontrol": [False, False, True, True]}},
+                        kartlar={"G-A": {"denetim": [RET, ONAY]}, "G-B": {"onkontrol": [HATA_X, HATA_Y, True, True]}},
                         kart_ajan_tavani=4)
         self.assertEqual(s["G-A"]["durum"], "onaylandi")
         self.assertEqual(s["G-B"]["durum"], "tavan")
