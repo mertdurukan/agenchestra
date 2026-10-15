@@ -378,7 +378,8 @@
       r.setAttribute('aria-label', n + ek);
     });
   }
-  const rozetGetir = yol => fetch(yol, { cache: 'no-store' })
+  // İstek zaman aşımıyla sınırlı: takılı tek istek rozetYolda'yı sonsuza dek açık tutup rozeti dondurmasın.
+  const rozetGetir = yol => fetch(yol, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(v => (v && typeof v === 'object' && !v.hata ? v : null));
   O.rozetTazele = () => {
