@@ -157,6 +157,24 @@ def asili_ajanlar(sd: str, simdi=None) -> list:
     return out
 
 
+def _is_todolari(sd: str) -> list[dict]:
+    """Açık işlerin todo.md durumu: yapılan/toplam madde ve açık maddelerin ilk beşi (Claude içi panelin tek kaynağı)."""
+    import is_kaydi as IK
+    out = []
+    try:
+        liste = IK.is_liste(sd, "acik")
+    except Exception:  # noqa: BLE001
+        return out
+    for g in liste:
+        try:
+            t = IK.todo_ozet(g["klasor"])
+        except Exception:  # noqa: BLE001
+            continue
+        out.append({"id": g["id"], "ad": IK.is_adi(g.get("baslik")), "biten": t["biten"], "toplam": t["toplam"],
+                    "acik": [temiz_metin(m, 120) for m in t["acik_maddeler"][:5]]})
+    return out
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     bugun = datetime.date.today()  # yerel gün sınırı; analitik.py ile aynı (UTC 'Z' damgaları yerel güne çevrilir)
@@ -251,7 +269,7 @@ def olustur(sd: str, proje: str) -> dict:
         onaylar = None
 
     return {
-        "surum": SURUM, "acik": True, "orkestra": True, "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)),
+        "surum": SURUM, "acik": True, "orkestra": True, "isler": _is_todolari(sd), "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)),
         "kartlar": kartlar,
         "sayac": dict(collections.Counter(k["durum"] for k in acik)),
         "maliyet": {

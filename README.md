@@ -50,7 +50,7 @@ araclar/yayin_kur.py                yayın klonunu açar, git hook'larını yaza
 ## Yeni bir projeye kurmak (tek komut)
 
 ```
-python C:\Users\PC\Desktop\Claude-Orchestration\araclar\projeye_kur.py <proje klasörü>
+python <depo>/araclar/projeye_kur.py <proje klasörü>
 ```
 
 Komut şunları yapar:
@@ -64,13 +64,63 @@ Genel ayarlara dokunmaz ve tekrar çalıştırmak güvenlidir.
 - Önizleme için `--kuru`, arayüz olmadan kurmak için `--ui-yok`, projeden çıkarmak için `--kaldir` kullan.
 - Kurulumdan sonra o projede yeni bir Claude oturumu aç.
 
+## Başka bilgisayarda kurulum (GitHub private)
+
+Depo GitHub'da özel (private) tutulur. İki yol vardır; ikisi de marketplace kaynağı olarak GitHub deposunu kullanır (kök `.claude/settings.json` içindeki `extraKnownMarketplaces` → `source: github`).
+
+### Gereksinimler
+
+- **Claude Code:** kurulu ve oturum açılmış (`claude` komutu ya da masaüstü uygulaması).
+- **Python 3:** hook'lar ve `orkestra` CLI'ı Python betikleridir. Alt sürüm için resmi bir bildirim yoktur; kod taramasında en yüksek gereksinim 3.8'dir (atama ifadesi `:=`, `plugins/orkestra/scripts/ozet.py:160`). Her sürümde koşturulmadı, bu yüzden 3.8 alt sınırı **doğrulanmadı**; güncel bir 3.x kullan. `python` komutu PATH'te olmalıdır.
+- **git** ve özel depoya okuma erişimi: Claude Code marketplace'i makinedeki `git` ile, soru sormadan (etkileşimsiz) klonlar; Claude Code'un kendi git belirteci yoktur. Kimlik doğrulama (kaynak: [Grant access to a private marketplace](https://code.claude.com/docs/en/plugins/host-marketplace#grant-access-to-a-private-marketplace)):
+  - SSH: anahtar parolasız çalışmalı (örn. `ssh-agent`) ve `github.com` `known_hosts` içinde olmalı. `owner/repo` biçiminde Claude Code önce `ssh -T git@github.com` dener, olmazsa HTTPS'e düşer.
+  - HTTPS: git kimlik yardımcısında (credential helper) kayıtlı bir kimlik bilgisi gerekir; yardımcı soru soramaz. GitHub'da `gh auth login` ve ardından `gh auth setup-git` bunu kaydeder.
+  - SSH anahtarı olmayan makinede `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` ayarlanır (oturum içi `/plugin` kurulumları ve güncellemeler HTTPS'e kendiliğinden düşmez).
+  - Yalnız `GITHUB_TOKEN` ortam değişkeni arka plan denetimini tek başına doğrulamaz; belirteç ancak `gh` gibi bir kimlik yardımcısı üzerinden işe yarar.
+
+### Yol A: depoyu klonla ve Claude Code'da aç
+
+1. Depoyu klonla: `git clone https://github.com/SAHIP/Claude-Orchestration.git` (SAHIP yer tutucusu için aşağıya bak).
+2. Klasörde Claude Code'u aç ve klasöre güven (workspace trust).
+3. Kök `.claude/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`: `orkestra@claude-orchestration`, `orkestra-ui@claude-orchestration`) devreye girer; plugin'ler marketplace'ten yüklenir.
+4. Yeni oturumda `/plugin` ile plugin'lerin listelendiğini doğrula. Sistem yalnız açılmış projelerde iz tutar: bu klasörde izleme istiyorsan `/orkestra:baslat` çalıştır.
+
+### Yol B: kendi projene kur (tek komut)
+
+```
+python <depo>/araclar/projeye_kur.py <proje klasörü> --kaynak github
+```
+
+- `--repo SAHIP/DEPO` ile GitHub deposu verilir; verilmezse klonun `origin` adresinden türetilir, bulunamazsa komut hata verir.
+- `--kaynak yerel` (varsayılan) yayın klonunu kullanır: `--yayin <yol>`, yoksa `ORKESTRA_YAYIN`, yoksa `<depo>/../claude-orchestration-yayin`. `--kaynak github` bu yola ihtiyaç duymaz.
+- Önce `--kuru` ile ne yapılacağını görebilirsin. Seçenekler için `python <depo>/araclar/projeye_kur.py --help`.
+- Sonra o projede yeni bir Claude oturumu aç. Özel depo için yukarıdaki git kimlik bilgisi bu makinede hazır olmalıdır.
+
+### SAHIP yer tutucusu
+
+Kök `.claude/settings.json` içinde `"repo": "SAHIP/Claude-Orchestration"` yazar. `SAHIP` yer tutucudur: depoyu GitHub'a yüklediğin hesap ya da kuruluş adıyla değiştir ve commitle; aksi halde Yol A marketplace'i bulamaz. Yol B'de bu dosyaya gerek yoktur, `--repo` verilir ya da `origin`'den türetilir.
+
+### Depoya girmeyenler
+
+- Çalışma verisi `.claude/orkestra/` (kartlar, defter, maliyet, özet; `.gitignore`'da). Her makinede `orkestra baslat` ile yeniden açılır.
+- Kişisel ve makineye özgü ayarlar: `~/.claude/settings.json`, `~/.claude/orkestra-panel/` (niyet, kota kayıtları) ve plugin önbelleği `~/.claude/plugins/`. Depodaki tek ayar dosyası kök `.claude/settings.json`'dır.
+- Bir projeye Yol B ile kurulum, o projenin kendi `.claude/settings.json`, `.gitignore` ve `CLAUDE.md` dosyalarını değiştirir; bunlar o projenin deposuna aittir.
+
+### Resmi dokümanla doğrulama (Claude Code dokümanı, 15.10.2026'da okundu)
+
+| İddia | Sonuç | Kaynak |
+|---|---|---|
+| (a) `directory` kaynağı göreli yol kabul eder mi, neye göre çözülür | Kısmen doğrulandı: proje `.claude/settings.json` içinde `directory` ya da `file` kaynağında göreli yol, deponun **ana checkout'una** göre çözülür (git worktree'den çalışsan da ana checkout). `directory` için `path` "marketplace kökü"dür (`.claude-plugin/marketplace.json`'u içeren klasör). Başka bir çözüm tabanı (oturum klasörü, ayar dosyası konumu) açıkça belirtilmemiştir: **doğrulanmadı**. Bu depo `directory` değil `github` kaynağı kullanır; göreli `directory` yolu bu kurulum için gerekli değildir. | [Require plugins per repository](https://code.claude.com/docs/en/plugins/org#require-plugins-per-repository), [Marketplace sources](https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-sources) |
+| (b) Proje `.claude/settings.json` içindeki `extraKnownMarketplaces` + `enabledPlugins` güven onayından sonra kurulumu kendiliğinden yapar mı | Kısmen doğrulandı: `extraKnownMarketplaces` yalnız klasöre güvenildikten sonra uygulanır; güvenilmeyen klasörde mesajsız yok sayılır. `enabledPlugins` oturum başında uygulanır. Marketplace'in **göreli yolla** (`./plugins/...`) listelediği plugin'ler marketplace kopyasından yüklenir; harici kaynaklı (örn. kendi GitHub deposu) plugin'ler için `claude plugin install <ad>@<marketplace> --scope project` gerekir. Bu deponun `marketplace.json` girdileri göreli yoldur (`./plugins/orkestra`, `./plugins/orkestra-ui`). Güven onayı sonrası ayrı bir "kurulsun mu" sorusu çıkıp çıkmadığı dokümanda yazmaz: **doğrulanmadı**; çıkarsa kabul et, çıkmazsa `/plugin` ile kontrol et. | [Require plugins per repository](https://code.claude.com/docs/en/plugins/org#require-plugins-per-repository), [When each surface applies the plugin keys](https://code.claude.com/docs/en/plugins/org#when-each-surface-applies-the-plugin-keys), [Settings: key waits for trust](https://code.claude.com/docs/en/settings) |
+| (c) Özel GitHub kaynağı için kimlik doğrulama | Doğrulandı: makinedeki `git` ve mevcut kimlik bilgileri (SSH anahtarı ya da kimlik yardımcısı); Claude Code'un kendi belirteci yok, etkileşimli soru yok. GitHub'da `gh auth login` + `gh auth setup-git`. | [Grant access to a private marketplace](https://code.claude.com/docs/en/plugins/host-marketplace#grant-access-to-a-private-marketplace) |
+
 ## Kurulum ayrıntısı (çalışma alanına özgü)
 
 Ayarlar bilgisayara değil çalışma alanına bağlıdır. Plugin'ler **proje kapsamında** kurulur ve yalnız o projede etkindir. Genel ayar dosyası (`~/.claude/settings.json`) boş kalır.
 
 ```
 cd <proje klasörü>
-claude plugin marketplace add C:\Mert\McD\Claude_Orkestrasyon\plugin_yayin
+claude plugin marketplace add <yayın klonu klasörü>
 claude plugin install orkestra@claude-orchestration --scope project
 claude plugin install orkestra-ui@claude-orchestration --scope project
 ```
@@ -89,7 +139,7 @@ Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `
 
 ### Yayın klonu (plugin_yayin)
 
-`claude plugin update` commit'i değil marketplace klasörünün o anki çalışma ağacını kopyalar. Paralel oturumların commitlenmemiş işi çalışan plugin'e sızmasın diye marketplace bu klasörden değil, bu deponun temiz git klonundan okur: `C:\Mert\McD\Claude_Orkestrasyon\plugin_yayin` (origin = bu klasör).
+`claude plugin update` commit'i değil marketplace klasörünün o anki çalışma ağacını kopyalar. Paralel oturumların commitlenmemiş işi çalışan plugin'e sızmasın diye marketplace bu klasörden değil, bu deponun temiz git klonundan (yayın klonu) okur. Varsayılan konum `<depo>/../claude-orchestration-yayin`, `--yayin` ya da `ORKESTRA_YAYIN` ile değişir (origin = bu klasör).
 - Kurulum (tek komut, tekrar güvenli): `python araclar\yayin_kur.py` (`--yayin <yol>` ya da `ORKESTRA_YAYIN` ile yol değişir). Klonu açar ve `.git/hooks/` altına `post-commit`, `post-rewrite` (amend/rebase) ve `orkestra-yayin-esitle.sh` yazar; hook şablonları `araclar/git_hooklar/` altında izlenir.
 - `plugin_yayin` elle düzenlenmez: hook klondaki yerel değişikliği `checkout -f` ile ezer; yalnız main'deki commit'ler yayına çıkar (başka dalda atılan commit klona dokunmaz).
 - Her commit sonrası hook klonu çalışma dalıyla eşitler. Hata commit'i bozmaz (her zaman 0 çıkar, mesaj stderr'e).
@@ -150,12 +200,12 @@ Paralel oturumlar ve işçiler aynı commitlenmemiş çalışma ağacını payla
 
 | İşçi basamağı | İşçi | Denetçi |
 |---|---|---|
-| T0 betik / T1 | Haiku 5.5 | Sonnet 5.5 medium |
-| T2 | Sonnet 5.5 | Opus 5.5 medium |
+| T0 betik / T1 | Haiku 5.5 | Haiku 5.5 (T0 kartları T1 yoluyla; denetçiden önce T0 ön kontrol betiği koşar) |
+| T2 | Sonnet 5.5 | Sonnet 5.5 medium |
 | T3 | Opus 5.5 medium | Opus 5.5 high, iki mercek |
 | T4 | Opus 5.5 xhigh | Opus 5.5 xhigh (ayrı örnek), iki mercek |
 
-Bir iş aynı basamakta iki kez reddedilirse bir üst basamakta yeniden denenir.
+Bir iş aynı basamakta iki kez reddedilirse (AYNI_BASAMAKTA_EN_COK_RET = 2) bir üst basamakta yeniden denenir; yetenek-yetersiz nedeninde ilk ret de yükseltir. Kartta toplam ret DENETCI_OPUS_RET_ESIGI (= 2) değerine ulaşınca denetimler opus'a geçer (T4'te xhigh).
 
 ## Testler
 

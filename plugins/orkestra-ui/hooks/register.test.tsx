@@ -31,6 +31,10 @@ const HAM: HamOzet = {
     // olay alanı yok (eski ozet.json): mod kısa durum işaretini kendisi sezer
     { zaman: '2026-10-13T10:06:00+03:00', gorev: 'G-002', surec: 'denetim', ajan: 'orkestra:denetci', metin: 'TESLİM' },
   ],
+  isler: [
+    { id: 'I-001', ad: 'Orkestra açık maddeler', biten: 3, toplam: 5, acik: ['Panel sadeleşsin', 'Test yaz'] },
+    { id: 'I-002', ad: 'Langfuse erken uyarı', biten: 1, toplam: 2, acik: ['Alarm e-postası'] },
+  ],
   perspektif: { zamani_geldi: false, rapor: true, calisiyor: false },
 }
 
@@ -90,35 +94,21 @@ test('eylemImzasi: yalnız ret/teslim bekleyen/rapor imza üretir; kart değişi
 })
 
 for (const surface of ['terminal', 'desktop'] as const) {
-  test(`pane özet sırasını uygular: dikkat, çalışan, maliyet, olaylar, perspektif, alt satır (${surface})`, async ($, on) => {
+  test(`pane yalnız yapılanlar/yapılacaklar gösterir; üstte toplam (${surface})`, async ($, on) => {
     sahte(on, HAM)
     await $.command.run({ command: 'orkestra', args: '' })
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
     const t = metin(await ui.drawn())
-    for (const parca of ['Kod taraması', 'G-002 · T2 · Reddedildi · $0,20', 'Yeni iş', 'G-004 · T2 · Çalışıyor · $0,12',
-      '1 kart teslim edildi', 'Bu sohbet $0,42 · bugün $1,50', 'Son olaylar', 'README satırı eklendi',
-      'Perspektif raporu hazır → /orkestra:perspektif', 'Ayrıntı: /orkestra-web', `veri ${SAAT}`]) {
+    for (const parca of ['Yapılan 4 / toplam 7 iş · %57', 'Yapılanlar (4)', '3/5  Orkestra açık maddeler', 'Yapılacaklar (3)',
+      'Orkestra açık maddeler · 2 açık', '○ Panel sadeleşsin', 'Langfuse erken uyarı · 1 açık', 'Ayrıntı: /orkestra-web', `veri ${SAAT}`]) {
       expect(t).toContain(parca)
     }
-    // sıra: dikkat < çalışan < maliyet < olaylar < perspektif < alt satır
-    const sira = ['Kod taraması', 'Yeni iş', 'Bu sohbet', 'Son olaylar', 'Perspektif raporu hazır', 'Ayrıntı:'].map(p => t.indexOf(p))
+    const sira = ['Yapılan 4', 'Yapılanlar (', 'Yapılacaklar (', 'Ayrıntı:'].map(p => t.indexOf(p))
     expect(sira).toEqual([...sira].sort((a, b) => a - b))
-    expect(t).not.toContain('Eski teslim')  // teslim edilmiş kart yalnız sayı
-    for (const yok of ['isleniyor', 'orkestra:isci', 'Sohbetler (bu', 'Orkestrasyon', 'Token ve maliyet', '$0.42', 'veri eski']) {
-      expect(t).not.toContain(yok)  // ham süreç/kimlik, eski bölümler, noktalı para, eski veri uyarısı yok
+    // eski görünüm kullanıcıya gösterilmez
+    for (const yok of ['Kod taraması', 'Reddedildi', 'Bu sohbet', 'bugün $', 'Son olaylar', 'Perspektif raporu', 'kart teslim edildi', 'veri eski']) {
+      expect(t).not.toContain(yok)
     }
-  })
-
-  test(`olay satırları Son olaylar'da yok, markdown işaretleri gösterilmez (${surface})`, async ($, on) => {
-    sahte(on, HAM)
-    await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
-    const t = metin(await ui.drawn())
-    expect(t).not.toContain('G-001 denetim')  // olay=true
-    expect(t).not.toContain('TESLİM')  // olay alanı yok ama kısa durum işareti: sezilir
-    expect(t).not.toContain('**')
-    expect(t).not.toContain('`')
-    expect(t).toContain('README satırı eklendi')
   })
 
   test(`veri 10 dk'dan eskiyse uyarı satırı çıkar (${surface})`, async ($, on) => {
@@ -128,22 +118,16 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(metin(await ui.drawn())).toContain(`veri eski (${ESKI_SAAT})`)
   })
 
-  test(`dikkat gerektiren kart yoksa "Açık iş yok · son teslim" yazar (${surface})`, async ($, on) => {
-    sahte(on, SESSIZ)
-    await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
-    expect(metin(await ui.drawn())).toContain('Açık iş yok · son teslim 11:07 G-003')
-  })
-
-  test(`çalışan kart varken "Açık iş yok" yazılmaz; uretim yoksa veri parçası yazılmaz (${surface})`, async ($, on) => {
-    const calisan: HamOzet = { ...HAM, uretim: undefined as unknown as string, kartlar: [HAM.kartlar![3]], sayac: {}, perspektif: { zamani_geldi: false, rapor: false, calisiyor: false } }
-    sahte(on, calisan)
+  test(`todo'su olmayan işlerde sıfırdan başlar, uretim yoksa veri parçası yazılmaz (${surface})`, async ($, on) => {
+    const bos: HamOzet = { ...HAM, uretim: undefined as unknown as string, isler: [] }
+    sahte(on, bos)
     await $.command.run({ command: 'orkestra', args: '' })
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'Pane', requestId: 'orkestra', props: PANE_PROPS })
     const t = metin(await ui.drawn())
-    expect(t).toContain('Yeni iş')
-    expect(t).not.toContain('Açık iş yok')
-    expect(t).not.toContain('veri')
+    expect(t).toContain('Yapılan 0 / toplam 0 iş · %0')
+    expect(t).toContain('Henüz biten madde yok')
+    expect(t).toContain('Açık madde yok')
+    expect(t).not.toContain('veri ')
     expect(t).toContain('Ayrıntı: /orkestra-web')
   })
 

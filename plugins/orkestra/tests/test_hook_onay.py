@@ -61,13 +61,16 @@ class HookOnay(unittest.TestCase):
         m = self.baglam(self.hook("UserPromptSubmit", {"prompt": "devam et"}))
         self.assertIn(f"{k['id']} kararın: B", m)
         # ikinci istekte tekrarlanmaz
-        self.assertNotIn(k["id"], self.baglam(self.hook("UserPromptSubmit", {"prompt": "tamam"})))
+        self.assertNotIn("kararın", self.baglam(self.hook("UserPromptSubmit", {"prompt": "tamam"})))
 
     def test_session_start_sonrasi_gecmis_user_prompt_submit_te_dokulmez(self):
         a = onay.iste(self.sd, "Eski", "m", tur="perspektif")
         onay.karar_ver(self.sd, a["id"], "onay")
         self.assertIn(a["id"], self.baglam(self.hook("SessionStart")))
-        self.assertNotIn(a["id"], self.baglam(self.hook("UserPromptSubmit", {"prompt": "merhaba"})))
+        # karar bildirimi dökülmez; bekleyen kalmadığı için yalnız çalıştırma yönergesi gelir
+        m = self.baglam(self.hook("UserPromptSubmit", {"prompt": "merhaba"}))
+        self.assertNotIn("Panel kararları", m)
+        self.assertIn("orkestra:onay", m)
 
     def test_onay_hatasi_hooku_dusurmez(self):
         # Bozuk şekilli kayıt: onay.baglam_metni KeyError atar

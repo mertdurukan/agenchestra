@@ -1,12 +1,12 @@
 """Orkestrayı bir projeye kurar — çalışma alanına özgü, genel ayarlara dokunmadan.
 
 Kullanım:
-    python C:\\Users\\PC\\Desktop\\Claude-Orchestration\\araclar\\projeye_kur.py <proje klasörü> [--ui-yok] [--kuru]
-    python ...\\projeye_kur.py <proje klasörü> --kaldir
+    python araclar/projeye_kur.py <proje klasörü> [--ui-yok] [--kuru] [--kaynak {yerel,github}] [--repo SAHIP/DEPO]
+    python araclar/projeye_kur.py <proje klasörü> --kaldir
 
 Ne yapar (hepsi o projenin içinde):
-  1. Marketplace'i yayın klonundan (Claude_Orkestrasyon/plugin_yayin; --yayin ya da ORKESTRA_YAYIN ile değişir)
-     bu bilgisayarda tanıtır (claude plugin marketplace add; zaten varsa geçer). Klon yoksa önce araclar/yayin_kur.py.
+  1. Marketplace'i yayın klonundan (--yayin > ORKESTRA_YAYIN > <depo>/../claude-orchestration-yayin)
+     bu bilgisayarda tanıtır (--kaynak github ise GitHub deposundan) (claude plugin marketplace add; zaten varsa geçer). Klon yoksa önce araclar/yayin_kur.py.
      Bu, ayar değil, makinenin plugin kaydıdır (~/.claude/plugins/known_marketplaces.json).
   2. orkestra ve orkestra-ui plugin'lerini PROJE kapsamında kurar → <proje>/.claude/settings.json.
   3. Proje ayarlarına orkestra varsayılanlarını EKLER (var olan değerin üstüne yazmaz):
@@ -24,6 +24,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -31,8 +32,18 @@ import sys
 DEPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARKET = "claude-orchestration"
 # Marketplace kaynağı: geliştirme deposunun temiz git klonu (yalnız commitlenmiş kod). Kurulum: araclar/yayin_kur.py
-VARSAYILAN_YAYIN = "C:/Mert/McD/Claude_Orkestrasyon/plugin_yayin"
-YAYIN = (os.environ.get("ORKESTRA_YAYIN") or VARSAYILAN_YAYIN).replace("\\", "/")
+
+
+def yayin_yolu(arguman=None):
+    """Öncelik: argüman > ORKESTRA_YAYIN > depo konumundan türetilen varsayılan."""
+    v = arguman or os.environ.get("ORKESTRA_YAYIN") or os.path.join(os.path.dirname(DEPO), "claude-orchestration-yayin")
+    return os.path.abspath(v).replace("\\", "/") if not (arguman or os.environ.get("ORKESTRA_YAYIN")) else v.replace("\\", "/")
+
+
+# Geriye uyumlu ad: depo konumundan türetilir, sabit kişisel yol içermez.
+VARSAYILAN_YAYIN = os.path.join(os.path.dirname(DEPO), "Claude_Orkestrasyon", "plugin_yayin").replace("\\", "/")
+YAYIN = yayin_yolu()
+KAYNAK = None  # {"source": ...} marketplace kaynağı (main doldurur)
 PLUGINLER = ["orkestra", "orkestra-ui"]
 VARSAYILAN = {
     "model": "claude-opus-5-5",
@@ -98,7 +109,7 @@ def ayar_birlestir(proje, ui, kuru):
     if "statusLine" not in s:  # kullanıcının kendi durum satırı varsa dokunma
         s["statusLine"] = {"type": "command", "command": KOTA_KOMUTU}
     girdi = s.setdefault("extraKnownMarketplaces", {}).setdefault(MARKET, {})
-    girdi.setdefault("source", {"source": "directory", "path": YAYIN})
+    girdi.setdefault("source", KAYNAK or {"source": "directory", "path": YAYIN})
     girdi["autoUpdate"] = True
     ep = s.setdefault("enabledPlugins", {})
     ep[f"orkestra@{MARKET}"] = True
@@ -141,7 +152,7 @@ def kur(proje, ui, kuru):
     print(f"Orkestra kuruluyor → {proje}")
     kod, cikti = kos([exe, "plugin", "marketplace", "list"], proje, False)
     if MARKET not in cikti:
-        kos([exe, "plugin", "marketplace", "add", YAYIN], proje, kuru)
+        kos([exe, "plugin", "marketplace", "add", KAYNAK.get("repo") or KAYNAK["path"]], proje, kuru)
     for p in PLUGINLER if ui else PLUGINLER[:1]:
         kos([exe, "plugin", "install", f"{p}@{MARKET}", "--scope", "project", "-y"], proje, kuru)
     ayar_birlestir(proje, ui, kuru)
@@ -170,6 +181,14 @@ def kaldir(proje, kuru):
             f.write("\n")
 
 
+def origin_repo():
+    r = subprocess.run(["git", "remote", "get-url", "origin"], cwd=DEPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode:
+        return None
+    m = re.search(r"github\.com[:/]+([^/\s]+/[^/\s]+?)(?:\.git)?/?\s*$", r.stdout.strip())
+    return m.group(1) if m else None
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -178,11 +197,19 @@ def main():
     p.add_argument("--ui-yok", action="store_true", help="arayüz modunu kurma")
     p.add_argument("--kuru", action="store_true", help="yalnız ne yapılacağını göster")
     p.add_argument("--kaldir", action="store_true", help="bu projeden kaldır")
-    p.add_argument("--yayin", help="marketplace kaynağı (yayın klonu); varsayılan ORKESTRA_YAYIN ya da " + VARSAYILAN_YAYIN)
+    p.add_argument("--yayin", help="yerel marketplace kaynağı (yayın klonu); varsayılan ORKESTRA_YAYIN ya da <depo>/../claude-orchestration-yayin")
+    p.add_argument("--kaynak", choices=["yerel", "github"], default="yerel", help="marketplace kaynağı türü (varsayılan yerel)")
+    p.add_argument("--repo", help="--kaynak github için SAHIP/DEPO (yoksa depo origin'inden türetilir)")
     a = p.parse_args()
-    if a.yayin:
-        global YAYIN
-        YAYIN = a.yayin.replace("\\", "/")
+    global YAYIN, KAYNAK
+    YAYIN = yayin_yolu(a.yayin)
+    if a.kaynak == "github":
+        repo = a.repo or origin_repo()
+        if not repo:
+            sys.exit("--kaynak github için repo bulunamadı: --repo SAHIP/DEPO ver ya da depoya github origin ekle.")
+        KAYNAK = {"source": "github", "repo": repo}
+    else:
+        KAYNAK = {"source": "directory", "path": YAYIN}
     proje = os.path.abspath(a.proje)
     if not os.path.isdir(proje):
         sys.exit(f"klasör yok: {proje}")

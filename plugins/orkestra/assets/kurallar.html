@@ -12,6 +12,14 @@
   .kural-satir .dugmeler { margin-top: var(--a-8); }
   .kural-satir.sonuk { opacity: .7; }
   details.nasil > .kural-liste { margin-top: var(--a-8); }
+  .dosya-duzen { display: grid; grid-template-columns: minmax(200px, 280px) 1fr; gap: 12px; align-items: start; }
+  @media (max-width: 760px) { .dosya-duzen { grid-template-columns: 1fr; } }
+  .dosya-liste h3 { font-size: .85em; margin: var(--a-8) 0 4px; opacity: .8; }
+  .dosya-liste ul { list-style: none; margin: 0; padding: 0; }
+  .dosya-liste button { display: block; width: 100%; text-align: left; margin: 0 0 2px; }
+  .dosya-liste button[aria-current="true"] { font-weight: 600; outline: 2px solid currentColor; }
+  .dosya-editor textarea { width: 100%; min-height: 55vh; font: 13px/1.45 ui-monospace, Consolas, monospace; tab-size: 2; box-sizing: border-box; }
+  .dosya-editor .ust { display: flex; gap: var(--a-8); flex-wrap: wrap; align-items: baseline; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -43,9 +51,9 @@
   </section>
 
   <section class="bolum" aria-labelledby="kaynakBaslik">
-    <h2 id="kaynakBaslik">Diğer kural kaynakları (salt okuma) <span class="meta" id="kaynakSayi"></span></h2>
-    <p class="aciklama">Projedeki CLAUDE.md ve kural dosyalarından; buradan değiştirilemez.</p>
-    <div id="kaynakIcerik"><p class="bos">Yükleniyor…</p></div>
+    <h2 id="kaynakBaslik">Kural dosyaları <span class="meta" id="kaynakSayi"></span></h2>
+    <p class="aciklama">Sistemin çalışmasını yöneten bütün dosyalar: CLAUDE.md, AGENTS.md, kural dosyaları, ajanlar, skill'ler, ayarlar, eklenti kuralları ve hafıza. Seç, oku, düzenle, kaydet. Kayıttan önce eski sürüm yedeklenir; dosya başka yerde değiştiyse kayıt reddedilir.</p>
+    <div id="dosyaIcerik" class="dosya-duzen"><p class="bos">Yükleniyor…</p></div>
   </section>
 </main>
 <div id="ipucu"></div>
@@ -143,33 +151,94 @@
   function liste(satirlar, bos) {
     return satirlar.length ? `<ul class="kural-liste">${satirlar.join('')}</ul>` : `<p class="bos">${bos}</p>`;
   }
-  function kaynakHtml(k, i) {
-    const d = 'kaynak-' + i;
-    return `<details class="kaynak" data-d="${d}"><summary>${esc(k.baslik)} <span class="meta" title="${esc(k.yol)}">${esc(O.yolGizle(k.yol))}</span></summary>
-      <pre>${esc(k.metin)}</pre></details>`;
+  // ------------------------------------------------------------ kural dosyaları (düzenleyici)
+  // Dosya metni taslağı yoklamayla ezilmez: liste yalnız açılışta, kayıtta ve alan değişince yüklenir.
+  const D = { liste: null, hata: '', sec: null, dosya: null, taslak: '', yuk: false, kayit: false, mesaj: '', bilgi: '', filtre: '' };
+  const kirli = () => !!(D.dosya && D.taslak !== D.dosya.metin);
+  const boyutYaz = b => b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB';
+  function dosyaCiz() {
+    const kap = $('#dosyaIcerik');
+    if (D.hata && !D.liste) return yerlestir(kap, `<p class="bos">Dosyalar alınamadı: ${esc(O.yolGizle(D.hata))}</p>`);
+    if (!D.liste) return yerlestir(kap, '<p class="bos">Yükleniyor…</p>');
+    $('#kaynakSayi').textContent = String(D.liste.length);
+    const f = D.filtre.trim().toLowerCase();
+    const gruplar = {};
+    D.liste.filter(x => !f || x.ad.toLowerCase().includes(f)).forEach(x => { (gruplar[x.grup_ad] = gruplar[x.grup_ad] || []).push(x); });
+    const sol = `<nav class="dosya-liste" aria-label="Kural dosyaları">
+      <input type="search" placeholder="Dosya ara" value="${esc(D.filtre)}" data-filtre="1" data-anahtar="df" aria-label="Dosya ara">
+      ${Object.entries(gruplar).map(([g, l]) => `<h3>${esc(g)}</h3><ul>${l.map(x =>
+        `<li><button type="button" data-dosya="${esc(x.id)}" title="${esc(x.ad)} · ${esc(boyutYaz(x.boyut))}"${D.sec === x.id ? ' aria-current="true"' : ''}>${esc(x.ad)}${x.yazilabilir ? '' : ' (salt okuma)'}</button></li>`).join('')}</ul>`).join('') || '<p class="bos">Eşleşen dosya yok.</p>'}
+    </nav>`;
+    let sag = '<div class="dosya-editor"><p class="bos">Soldan bir dosya seç.</p></div>';
+    if (D.sec) {
+      if (D.yuk) sag = '<div class="dosya-editor"><p class="bos">Açılıyor…</p></div>';
+      else if (!D.dosya) sag = `<div class="dosya-editor"><p class="hata-satir" role="status">${esc(D.mesaj)}</p></div>`;
+      else {
+        const meta = D.liste.find(x => x.id === D.sec) || {};
+        const yaz = meta.yazilabilir !== false;
+        sag = `<div class="dosya-editor"><form data-dosya-form="1">
+          <div class="ust"><strong>${esc(D.dosya.ad)}</strong>
+            <span class="meta" title="${esc(D.dosya.yol)}">${esc(meta.grup_ad || '')}${kirli() ? ' · kaydedilmemiş değişiklik' : ''}</span></div>
+          <textarea data-metin="1" data-anahtar="dt" spellcheck="false" aria-label="${esc(D.dosya.ad)} içeriği"${yaz ? '' : ' readonly'}>${esc(D.taslak)}</textarea>
+          <div class="dugmeler">${yaz ? `<button type="submit" class="onayla" data-anahtar="dk"${D.kayit || !kirli() ? ' disabled' : ''}>Kaydet</button>
+            <button type="button" data-geri="1"${D.kayit || !kirli() ? ' disabled' : ''}>Değişikliği at</button>` : ''}
+            <button type="button" data-yenile="1"${D.kayit ? ' disabled' : ''}>Diskten yeniden oku</button></div>
+          <p class="${D.mesaj ? 'hata-satir' : 'meta'}" role="status" aria-live="polite">${esc(D.mesaj || D.bilgi)}</p></form></div>`;
+      }
+    }
+    yerlestir(kap, sol + sag);
   }
+  async function jsonGet(url) {
+    const r = await fetch(url, { cache: 'no-store' });
+    let v = null; try { v = await r.json(); } catch (e) { /* JSON değil */ }
+    if (!r.ok || !v || v.tamam === false || v.acik === false) throw new Error((v && v.hata) || ('HTTP ' + r.status));
+    return v;
+  }
+  async function dosyaListeYukle() {
+    try { D.liste = (await jsonGet('/api/kural-dosyalar?alan=' + encodeURIComponent(O.alan))).dosyalar; D.hata = ''; }
+    catch (e) { D.hata = e.message || String(e); }
+    dosyaCiz();
+  }
+  async function dosyaAc(id, zorla) {
+    if (!zorla && kirli() && !confirm('Kaydedilmemiş değişiklikler atılsın mı?')) return;
+    D.sec = id; D.yuk = true; D.dosya = null; D.mesaj = ''; D.bilgi = ''; dosyaCiz();
+    try { D.dosya = await jsonGet('/api/kural-dosya?alan=' + encodeURIComponent(O.alan) + '&id=' + encodeURIComponent(id)); D.taslak = D.dosya.metin; }
+    catch (e) { D.mesaj = 'Açılamadı: ' + O.yolGizle(e.message || String(e)); }
+    D.yuk = false; dosyaCiz();
+  }
+  async function dosyaKaydet() {
+    if (!kirli() || D.kayit) return;
+    D.kayit = true; D.mesaj = ''; dosyaCiz();
+    try {
+      const v = await O.gonder('/api/kural-dosya?alan=' + encodeURIComponent(O.alan), { id: D.dosya.id, metin: D.taslak, taban: D.dosya.taban });
+      D.dosya = { ...D.dosya, metin: D.taslak, taban: v.kayit.taban };
+      D.bilgi = 'Kaydedildi.';
+      O.bildirim('Dosya kaydedildi.');
+      dosyaListeYukle();
+    } catch (e) { D.mesaj = 'Kaydedilemedi: ' + O.yolGizle(e && e.message ? e.message : String(e)); }
+    D.kayit = false; dosyaCiz();
+  }
+  window.addEventListener('beforeunload', e => { if (kirli()) { e.preventDefault(); e.returnValue = ''; } });
 
   function ciz() {
     if (!S.veri) {
       let m = '<p class="bos">Yükleniyor…</p>';
       if (K && K.durum === 'hata') m = `<p class="bos">Kurallar alınamadı: ${esc(O.yolGizle(K.hata))}</p>`;
-      for (const k of ['etkin', 'oneri', 'gecmis', 'kaynak']) yerlestir($('#' + k + 'Icerik'), m);
-      for (const k of ['etkin', 'oneri', 'gecmis', 'kaynak']) $('#' + k + 'Sayi').textContent = '';
+      for (const k of ['etkin', 'oneri', 'gecmis']) yerlestir($('#' + k + 'Icerik'), m);
+      for (const k of ['etkin', 'oneri', 'gecmis']) $('#' + k + 'Sayi').textContent = '';
       yerlestir($('#yeniIcerik'), K && K.durum === 'hata' ? '' : yeniForm());
       return;
     }
-    const et = dizi('etkin'), on = dizi('oneriler'), ge = dizi('gecmis'), ka = dizi('kaynaklar');
+    const et = dizi('etkin'), on = dizi('oneriler'), ge = dizi('gecmis');
     $('#etkinSayi').textContent = et.length ? String(et.length) : '';
     $('#oneriSayi').textContent = on.length ? on.length + ' bekliyor' : '';
     $('#gecmisSayi').textContent = ge.length ? String(ge.length) : '';
-    $('#kaynakSayi').textContent = ka.length ? String(ka.length) : '';
     yerlestir($('#etkinIcerik'), liste(et.map(etkinSatir), 'Etkin kural yok. Aşağıdan ekleyebilirsin.'));
     yerlestir($('#oneriIcerik'), liste(on.map(oneriSatir), 'Önerilen kural yok.'));
     yerlestir($('#yeniIcerik'), yeniForm());
     yerlestir($('#gecmisIcerik'), ge.length
       ? `<details class="nasil" data-d="gecmis"><summary>Kaldırılan ve reddedilen kurallar (${ge.length})</summary>${liste(ge.map(gecmisSatir), '')}</details>`
       : '<p class="bos">Geçmişte kural yok.</p>');
-    yerlestir($('#kaynakIcerik'), ka.length ? ka.map(kaynakHtml).join('') : '<p class="bos">Başka kural kaynağı bulunamadı.</p>');
   }
 
   // ------------------------------------------------------------ gönderme
@@ -206,6 +275,9 @@
   ana.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.dosya) return dosyaAc(b.dataset.dosya);
+    if (b.dataset.geri) { D.taslak = D.dosya.metin; D.mesaj = ''; return dosyaCiz(); }
+    if (b.dataset.yenile) { if (kirli() && !confirm('Kaydedilmemiş değişiklikler atılsın mı?')) return; return dosyaAc(D.sec, true); }
     if (b.dataset.duzenle) { const r = dizi('etkin').find(x => x.id === b.dataset.duzenle); S.duzen = b.dataset.duzenle; S.kaldir = null; S.taslak[S.duzen] = { metin: r ? r.metin : '', neden: r ? r.neden || '' : '' }; return ciz(); }
     if (b.dataset.kaldira) { S.kaldir = b.dataset.kaldira; S.duzen = null; S.taslak[S.kaldir] = { not: '' }; return ciz(); }
     if (b.dataset.iptal) { const id = b.dataset.iptal; S.duzen = S.kaldir = null; delete S.taslak[id]; delete S.hata[id]; return ciz(); }
@@ -217,6 +289,12 @@
   });
   ana.addEventListener('input', e => {
     const el = e.target, a = el.dataset && el.dataset.alan;
+    if (el.dataset && el.dataset.filtre) { D.filtre = el.value; return dosyaCiz(); }
+    if (el.dataset && el.dataset.metin) {
+      const once = kirli(); D.taslak = el.value; D.bilgi = '';
+      if (once !== kirli()) dosyaCiz();   // yalnız kirli durumu değişince yeniden çiz (imleç korunur)
+      return;
+    }
     if (!a) return;
     if (el.dataset.id === YENI) S.yeni[a] = el.value;
     else (S.taslak[el.dataset.id] = S.taslak[el.dataset.id] || {})[a] = el.value;
@@ -224,6 +302,7 @@
   ana.addEventListener('submit', e => {
     e.preventDefault();
     const f = e.target;
+    if (f.dataset.dosyaForm) return dosyaKaydet();
     if (f.dataset.yeniForm) {
       const metin = S.yeni.metin.trim();
       if (!metin) return hataYaz(YENI, 'Kural metni boş olamaz.');
@@ -253,7 +332,8 @@
     cizici: v => { S.veri = v; ciz(); },
     durum: () => { yerlestir($('#kBayat'), O.bayatIsaret(K)); if (!S.veri) ciz(); },
   });
-  window.addEventListener('orkestra:alan', () => { S.veri = null; S.duzen = S.kaldir = null; S.taslak = {}; S.hata = {}; S.acik.clear(); ciz(); });
+  dosyaListeYukle();
+  window.addEventListener('orkestra:alan', () => { D.liste = D.dosya = D.sec = null; D.taslak = ''; D.mesaj = D.bilgi = ''; dosyaListeYukle(); S.veri = null; S.duzen = S.kaldir = null; S.taslak = {}; S.hata = {}; S.acik.clear(); ciz(); });
   ciz();
 })();
 </script>

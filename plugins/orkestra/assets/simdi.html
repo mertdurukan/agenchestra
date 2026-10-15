@@ -157,7 +157,7 @@
         <span class="sim${d.dolu ? ' dolu' : ''}${d.nabiz ? ' nabiz' : ''}" aria-hidden="true">${d.simge}</span>
         <div><div class="baslik">${esc(x.ne)}</div>
         ${ayrinti ? `<div class="ayrinti">${esc(ayrinti)}</div>` : ''}
-        <div class="alt"><span class="durum">${d.ad}</span>${x.sohbet ? ` · ${esc(x.sohbet)}` : ''} · <span title="${esc(B.tarih(x.zaman))}">${B.saat(x.zaman)}</span></div></div></li>`;
+        <div class="alt"><span class="durum">${d.ad}</span> · <span title="${esc(B.tarih(x.zaman))}">${B.saat(x.zaman)}</span></div></div></li>`;
     }).join('') : bekleniyor ? '<li class="bos">Yükleniyor…</li>'
       : '<li class="bos">Henüz olay yok. Claude her yeni işin başında tek satır niyet yazar.</li>';
     yerlestir($('#olayListe'), html);

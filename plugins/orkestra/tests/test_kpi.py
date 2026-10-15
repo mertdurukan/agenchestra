@@ -370,10 +370,10 @@ class SalitOkuma(Temel):
         self.assertEqual(agac_goruntusu(self.proje), once)
 
     def test_gercek_durum_klasorunde_gecerli_json_ve_yazma_yok(self):
-        gercek = "C:/Mert/McD"
-        sd = os.path.join(gercek, ".claude", "orkestra")
-        if not os.path.isdir(sd):
-            self.skipTest("gerçek durum klasörü bu makinede yok")
+        # geçici proje + gerçekçi durum klasörü (makineye bağlı yol yok, skip yok)
+        gercek = self.proje
+        sd = self.sd
+        durum_kur(sd)
         # canlı yazılan dosyalar (defter, maliyet, oturum, kilitler, etkin kart) karşılaştırma dışı
         def canli(rel):
             r = rel.replace("\\", "/")

@@ -4,8 +4,8 @@ Neden ayrı araç: Claude'un otomatik izin denetimi oturum kayıtlarını deği�
 bu temizliği yalnız sen, bilerek yaparsın.
 
 Kullanım (PowerShell ya da cmd):
-    python C:\\Users\\PC\\Desktop\\Claude-Orchestration\\araclar\\sifre_temizle.py            # önce yalnız sayar
-    python C:\\Users\\PC\\Desktop\\Claude-Orchestration\\araclar\\sifre_temizle.py --uygula    # sonra temizler
+    python araclar/sifre_temizle.py            # önce yalnız sayar
+    python araclar/sifre_temizle.py --uygula    # sonra temizler
 
 Şifre ekrana yazılmadan sorulur (getpass). Taranan yerler: ~/.claude (oturum kayıtları, görev çıktıları,
 dosya geçmişi), %LOCALAPPDATA%\\Temp\\claude (scratchpad'ler), %APPDATA%\\Claude.

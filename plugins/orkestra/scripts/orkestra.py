@@ -1870,6 +1870,28 @@ def cmd_is_liste(a):
         print("\t".join(s))
 
 
+def cmd_is_rapor(a):
+    import is_rapor as IR
+    sd = sd_gerekli()
+    if a.is_id:
+        d = IR.detay(sd, a.is_id)
+        if d is None:
+            hata(f"iş yok: {a.is_id}")
+        print(IR.metin_detay(d))
+        return
+    r = IR.rapor(sd)
+    if a.csv:
+        t = IR.csv_metni(r)
+        if a.cikti:
+            with open(a.cikti, "w", encoding="utf-8", newline="") as f:
+                f.write(t)
+            print(f"yazıldı: {a.cikti}")
+        else:
+            sys.stdout.write(t)
+        return
+    print(IR.metin(r))
+
+
 def cmd_is_kapat(a):
     sd = sd_gerekli()
     _is_gerekli(sd, a.is_id)
@@ -2522,6 +2544,11 @@ def main():
     il = is_.add_parser("liste")
     il.add_argument("--durum", choices=["acik", "beklemede", "kapandi", "hepsi"], default="acik")
     il.set_defaults(f=cmd_is_liste)
+    irp = is_.add_parser("rapor", help="iş başına maliyet/süre/kalite raporu (salt okuma)")
+    irp.add_argument("is_id", nargs="?")
+    irp.add_argument("--csv", action="store_true")
+    irp.add_argument("--cikti", metavar="DOSYA", help="--csv çıktısını dosyaya yaz")
+    irp.set_defaults(f=cmd_is_rapor)
     ik_ = is_.add_parser("kapat")
     ik_.add_argument("is_id")
     ik_.set_defaults(f=cmd_is_kapat)

@@ -168,7 +168,7 @@
     teslim: ['Teslim edildi', 'var(--neutral)'], beklemede: ['Beklemede', 'var(--neutral)'], iptal: ['İptal', 'var(--neutral)'],
   };
   const BEKLEYEN = {
-    sen: ['Seni bekliyor', 'var(--warning)'], claude: ['Claude çalışıyor', 'var(--s1)'], bitti: ['Bitti', 'var(--good)'],
+    sen: ['Seni bekliyor', 'var(--warning)'], claude: ['Çalışıyor', 'var(--s1)'], bitti: ['Bitti', 'var(--good)'],
     beklemede: ['Beklemede', 'var(--neutral)'], kapandi: ['Kapandı', 'var(--neutral)'],
   };
   const KAYNAK = { motor: ["Claude'un hesabı", ''], defter: ['tahmini (orkestra defteri)', 'tahmini'], tahmin: ['kaba tahmin (transkript)', 'kaba'] };
@@ -315,13 +315,13 @@
   O.alan = url.searchParams.get('alan') || O.depo.al('orkestra.alan') || '';
   O.alanlar = [];
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
-  const SEKMELER = [['simdi', 'Şimdi', '/'], ['isler', 'İşler', '/isler'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
-    ['onaylar', 'Onaylar', '/onaylar'], ['etki', 'Etki', '/etki'], ['kurallar', 'Kurallar', '/kurallar']];
+  const SEKMELER = [['isler', 'Dashboard', '/isler'], ['maliyet', 'Maliyet', '/maliyet'], ['verim', 'Verim ve sağlık', '/verim'],
+    ['onaylar', 'Onaylar', '/onaylar'], ['etki', 'Etki', '/etki'], ['kurallar', 'Kurallar', '/kurallar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar'], ['simdi', 'Son olaylar', '/']];
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {
     document.querySelectorAll('#kabuk [data-sekme]').forEach(a => { a.href = a.dataset.yol + sorgu(); });
     const m = document.querySelector('#kabuk .marka');
-    if (m) m.href = '/' + sorgu();
+    if (m) m.href = '/isler' + sorgu();
   }
   function alanYaz(yeni, yay) {
     const degisti = yeni !== O.alan;
@@ -356,25 +356,37 @@
   }
 
   // Onaylar sekmesi rozeti: /onay-sayac.json ({alan_id: sayaç}) tek uçuşlu yoklanır; seçili alanın 'bekliyor' sayısı > 0 ise görünür.
-  let rozetYolda = null, rozetSayac = null;
+  // Aynı rozet bekleyen durumu olan diğer sekmelere de konur: Dashboard = "seni bekliyor" sohbetleri
+  // (/simdi.json sayac.sen), Onaylar = bekleyen onaylar, Kurallar = bekleyen kural önerileri. Son olaylar, Maliyet ve Verim'de rozet yok.
+  let rozetYolda = null, rozetSayac = null, rozetSimdi = null;
+  const rozetSayilari = () => {
+    const s = (rozetSayac && rozetSayac[O.alan]) || {};
+    const sen = Number(rozetSimdi && rozetSimdi.sen) || 0;
+    return {
+      isler: [sen, ' sohbet seni bekliyor'],
+      onaylar: [Number(s.bekliyor) || 0, ' onay bekliyor'], kurallar: [Number(s.tur && s.tur.kural) || 0, ' kural önerisi bekliyor'],
+    };
+  };
   function rozetYaz() {
-    const a = document.querySelector('#kabuk [data-sekme="onaylar"]');
-    if (!a) return;
-    const s = rozetSayac && rozetSayac[O.alan];
-    const n = s && Number(s.bekliyor) > 0 ? Number(s.bekliyor) : 0;
-    let r = a.querySelector('.sekme-rozet');
-    if (!n) { if (r) r.remove(); return; }
-    if (!r) { r = document.createElement('span'); r.className = 'sekme-rozet'; r.setAttribute('role', 'img'); a.appendChild(r); }
-    r.textContent = n > 99 ? '99+' : String(n);
-    r.setAttribute('aria-label', n + ' onay bekliyor');
+    const sayilar = rozetSayilari();
+    document.querySelectorAll('#kabuk [data-sekme]').forEach(a => {
+      const [n, ek] = sayilar[a.dataset.sekme] || [0, ''];
+      let r = a.querySelector('.sekme-rozet');
+      if (!n) { if (r) r.remove(); return; }
+      if (!r) { r = document.createElement('span'); r.className = 'sekme-rozet'; r.setAttribute('role', 'img'); a.appendChild(r); }
+      r.textContent = n > 99 ? '99+' : String(n);
+      r.setAttribute('aria-label', n + ek);
+    });
   }
+  const rozetGetir = yol => fetch(yol, { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(v => (v && typeof v === 'object' && !v.hata ? v : null));
   O.rozetTazele = () => {
     if (rozetYolda) return rozetYolda;
-    rozetYolda = fetch('/onay-sayac.json', { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(v => { if (v && typeof v === 'object' && !v.hata) rozetSayac = v; rozetYaz(); })
-      .catch(() => { /* rozet ikincil: hata kullanıcıya gösterilmez, eski sayı kalır */ })
-      .finally(() => { rozetYolda = null; });
+    rozetYolda = Promise.all([
+      rozetGetir('/onay-sayac.json').then(v => { if (v) rozetSayac = v; }, () => { /* rozet ikincil: eski sayı kalır */ }),
+      rozetGetir('/simdi.json').then(v => { if (v) rozetSimdi = v.sayac || {}; }, () => { /* aynı */ }),
+    ]).then(rozetYaz).finally(() => { rozetYolda = null; });
     return rozetYolda;
   };
   window.addEventListener('orkestra:alan', rozetYaz);
@@ -399,7 +411,7 @@
     if (!h) { h = document.createElement('header'); h.id = 'kabuk'; document.body.prepend(h); }
     h.classList.add('kabuk');
     h.innerHTML = `<div class="kabuk-ic">
-      <a class="marka" href="/" aria-label="Orkestra"><img src="/logo.png" alt="Orkestra"></a>
+      <a class="marka" href="/isler" aria-label="Orkestra"><img src="/logo.png" alt="Orkestra"></a>
       <nav class="sekmeler" aria-label="Sayfalar">${SEKMELER.map(([k, ad, yol]) =>
         `<a data-sekme="${k}" data-yol="${yol}" href="${yol}"${k === sayfa ? ' aria-current="page"' : ''}>${ad}</a>`).join('')}</nav>
       <span class="bosluk"></span>

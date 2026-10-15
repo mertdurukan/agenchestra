@@ -8,6 +8,8 @@ export type KartOzeti = {
   usd: number
 }
 
+export type IsTodosu = { id: string; ad: string; biten: number; toplam: number; acik: string[] }
+
 export type DefterSatiri = { saat: string; gorev: string; metin: string }
 
 // Panelin gösterdiği, bu oturumun gözünden veri.
@@ -23,6 +25,7 @@ export type UiOzet = {
   // Teslim edilmiş kartlar yalnız sayı olarak; son teslim "açık iş yok" satırı için.
   teslim?: { sayi: number; sonId?: string; sonSaat?: string }
   defter?: DefterSatiri[]  // olay olmayan, temiz son 3 satır
+  isler?: IsTodosu[]       // açık işlerin todo durumu: panelin tek gösterimi
   perspektif?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
 }
 
@@ -43,6 +46,7 @@ export type HamOzet = {
   }
   sohbetler?: { oturum: string; baslik: string; usd: number; kaynak: 'motor' | 'defter'; son: string }[]
   defter?: { zaman?: string; gorev: string; surec: string; ajan: string; metin: string; oturum?: string | null; olay?: boolean }[]
+  isler?: IsTodosu[]
   perspektif?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
   ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }  // eski anahtar (geriye uyum)
 }
