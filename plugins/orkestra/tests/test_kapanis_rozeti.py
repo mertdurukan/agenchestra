@@ -73,6 +73,7 @@ class KapanisTemel(unittest.TestCase):
         with mock.patch.object(niyet, "NIYET_YOLU", self.niyet_yolu), \
                 mock.patch.object(niyet, "_gecici", return_value=False), \
                 mock.patch.object(niyet, "masaustu_oturumlari", return_value={}), \
+                mock.patch.object(niyet, "_hayalet", return_value=False), \
                 mock.patch.object(niyet, "_basliklar", return_value={}), \
                 mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]), \
                 mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
