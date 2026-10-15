@@ -47,7 +47,7 @@ class BaglamRapor(unittest.TestCase):
     def test_kirilim_toplami_genel_toplama_esit(self):
         self.yaz("o1", {"baglam": "RNV/05/002"})
         rows = analitik.baglam_coz(self.sd, [satir(1.5), satir(2.0, baglam="RNV"), satir(0.5, oturum="yok"),
-                                              satir(1.0, baglam="McD/x")])
+                                              satir(1.0, baglam="Proje/x")])
         k = analitik.baglam_kirilim(rows)
         self.assertAlmostEqual(k["toplam_usd"], 5.0)
         self.assertAlmostEqual(sum(p["usd"] for p in k["projeler"]), 5.0)
@@ -57,7 +57,7 @@ class BaglamRapor(unittest.TestCase):
 
     def test_onek_suzmesi(self):
         rows = analitik.baglam_coz(self.sd, [satir(1, baglam="RNV/a/1"), satir(2, baglam="RNV/b/1"),
-                                              satir(4, baglam="McD/x"), satir(8)])
+                                              satir(4, baglam="Proje/x"), satir(8)])
         s = analitik.baglam_filtre(rows, "RNV/a")
         self.assertEqual([r["baglam"] for r in s], ["RNV/a/1"])
         self.assertEqual(len(analitik.baglam_filtre(rows, "RNV")), 2)
