@@ -179,7 +179,8 @@ Paralel oturumlar ve işçiler aynı commitlenmemiş çalışma ağacını payla
   - Önek hiçbir deponun içinde değilse joker taşıyan ya da var olan bir klasörü gösteren desen reddedilir: `Üst/**`, `Depo*/**`, `C:/Users/**`. Depo dışında yalnız tek dosya literal yolu geçer.
   - İç içe depoyu fiziksel kesişim yakalar. Dış depodaki `RNV/**`, altındaki bir depoda ya da o deponun worktree'sinde açık olan kartla çakışır.
   - `kart yeni` ve `kart toplu` aynı denetimi yalnız uyarı olarak yazar. Yazma alanı boş kart denetlenmez.
-- **Kart çalışma ağacı:** `orkestra kart agac <id>` kartın deposunda `<depo>-kart-<id>` klasörüne `kart/<id>` dalıyla bir git worktree açar.
+- **Kart çalışma ağacı:** `orkestra kart agac <id>` kartın deposunda `<depo>/.claude/worktrees/kart-<id>` klasörüne `kart/<id>` dalıyla bir git worktree açar (`ORKESTRA_AGAC_KOKU` doluysa `<kök>/<depo-adı>/kart-<id>`). Klasör `.git/info/exclude`a bir kez eklenir; `.gitignore` değişmez. Kayıtlı `calisma_agaci.yol` korunur, eski `<depo>-kart-<id>` düzeni çalışmaya devam eder.
+  - İptalde temiz ağaç `git worktree remove` ile kaldırılır, birleşmiş dal `branch -d` ile silinir (force yok). Kirli ağaç ve kayıt kalır, uyarı yazılır. `orkestra kart agac-temizle` proje deposunu ve kartlardaki tüm depoları (calisma_agaci, _birlesik, _kaldirildi) tarayıp biten/kartsız ağaçları listeler (kuru koşu), `--uygula` kaldırır; açık kartın ağacına ve kalıp dışı ağaçlara dokunmaz.
   - Kartın yazma alanı yeni köke çevrilir. `calisma_agaci` alanı (`depo`, `yol`, `dal`, `taban`) karta yazılır. `Çalışma ağacı: <yol>` satırı kartın girdisinin başına eklenir; işçi istemi bu satırı görür.
   - Ayrık çalışma ağaçlarındaki kartlar birbiriyle çakışmaz. Biri ötekinin içinde kalan (iç içe) depo ayrık sayılmaz.
   - Hook, işçinin yazımını kartın çalışma ağacında denetler; paylaşılan ağaca yazmasını reddeder.

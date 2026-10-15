@@ -19,7 +19,9 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
         kod kartında onay için son is-bitti'den sonraki en son test koşusu geçen yeşil olmalı ve dosyalar kilitle aynı)
   orkestra kart yukselt G-001 --basamak T3 --neden M
   orkestra kart teslim G-001 [--ozet M]                                        (yalnız ana ajan, onaylı kart)
-  orkestra kart agac G-001 [--taban HEAD]         kart başına git çalışma ağacı (<depo>-kart-<id>, dal kart/<id>)
+  orkestra kart agac G-001 [--taban HEAD]         kart başına git çalışma ağacı (<depo>/.claude/worktrees/kart-<id>; ORKESTRA_AGAC_KOKU varsa
+        <kök>/<depo-adı>/kart-<id>; dal kart/<id>). İptalde temiz ağaç kaldırılır (force yok)
+  orkestra kart agac-temizle [--uygula]          biten/kartsız kart ağaçlarını listeler (--uygula: kaldırır; kirli ağaç atlanır)
   orkestra kart birlestir G-001                  kart dalını --no-ff birleştirir; çatışmada geri alır, kart beklemede
   orkestra defter ekle G-001 --surec is [--yaptim M] [--sonuc M] [--not M]
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
@@ -563,8 +565,11 @@ def cmd_kart_durum(a):
                 k["beklemede_sira"] = L.sonraki_sira(k)  # sonraki denetimlerle sıralanabilsin
         k["gecmis"].append({"zaman": L.simdi(), "olay": a.durum, "ajan": ajan_tipi, "agent_id": ajan_id,
                             "not": L.maskele(a.not_ or "")[:500]})
+        uyarilar = _iptal_agac_temizle(k) if a.durum == "iptal" else []
         L.kart_yaz(sd, k)
     print(f"{a.gid} → {k['durum']}")
+    for u in uyarilar:
+        print(f"uyarı: {u}", file=sys.stderr)
 
 
 def _neden_kodlari() -> str:
@@ -1084,6 +1089,92 @@ def cmd_kart_agac(a):
         k["gecmis"].append({"zaman": L.simdi(), "olay": "calisma-agaci", "yol": ca["yol"], "dal": ca["dal"], "taban": ca["taban"]})
         L.kart_yaz(sd, k)
     print(ca["yol"])
+
+
+def _iptal_agac_temizle(k: dict) -> list[str]:
+    """İptal edilen kartın çalışma ağacını kaldırır (force yok). Kirli ağaçta kayıt ve ağaç kalır; uyarı döner."""
+    ca = k.get("calisma_agaci") or {}
+    if not (ca.get("depo") and ca.get("yol")):
+        return []
+    yol = ca["yol"]
+    if os.path.isdir(yol):
+        r = L.git(["status", "--porcelain", "--untracked-files=all"], yol)
+        if r.returncode == 0 and r.stdout.strip():
+            return [f"{k['id']} iptal edildi ama çalışma ağacı kirli, kaldırılmadı ve kayıt korundu ({yol}); "
+                    "commitle/temizle, sonra `orkestra kart agac-temizle --uygula`."]
+    uyarilar = L.agac_kaldir(ca["depo"], yol, ca.get("dal"))
+    if os.path.isdir(yol):  # kaldırılamadı: kayıt korunur
+        return uyarilar
+    k["calisma_agaci_kaldirildi"] = k.pop("calisma_agaci")
+    if "yazma_alani_ilk" in k:
+        k["yazma_alani"] = k.pop("yazma_alani_ilk")
+    k["girdi"] = _girdi_agacsiz(k.get("girdi"))
+    k["gecmis"].append({"zaman": L.simdi(), "olay": "calisma-agaci-kaldirildi", "yol": yol})
+    return uyarilar
+
+
+def cmd_kart_agac_temizle(a):
+    sd = sd_gerekli()
+    if a.uygula:
+        _, ajan_tipi = _kim(a)
+        if ajan_tipi not in ("ana", "bilinmiyor"):
+            hata("çalışma ağaçlarını yalnız ana ajan temizler.", 3)
+    ks = L.kartlar(sd)
+    depolar = _agac_temizle_depolari(ks)
+    if not depolar:
+        print("taranacak git deposu yok (proje git deposu değil, kartlarda depo bilgisi de yok); temizlenecek çalışma ağacı yok.")
+        return
+    bulundu = False
+    for depo in depolar:
+        if a.uygula:
+            L.git(["worktree", "prune"], depo)  # klasörü elle silinmiş kayıtlar
+        s = L.agac_temizle_siniflandir(depo, ks)
+        if not s["aday"] and not s["kalip_disi"]:
+            continue
+        bulundu = True
+        if len(depolar) > 1:
+            print(f"Depo: {depo}")
+        baslik = "kaldırılanlar" if a.uygula else "adaylar (kuru koşu; kaldırmak için --uygula)"
+        print(f"Biten ya da kartsız ağaçlar — {baslik}:" if s["aday"] else "Biten ya da kartsız ağaç yok.")
+        for w in s["aday"]:
+            if not a.uygula:
+                print(f"  {w['yol']}  [{w['neden']}]")
+                continue
+            r = L.git(["status", "--porcelain", "--untracked-files=all"], w["yol"]) if os.path.isdir(w["yol"]) else None
+            if r is not None and (r.returncode != 0 or r.stdout.strip()):
+                print(f"  atlandı (kirli): {w['yol']}  [{w['neden']}]")
+                continue
+            u = L.agac_kaldir(depo, w["yol"], w["dal"])
+            if os.path.isdir(w["yol"]):
+                print(f"  atlandı: {w['yol']} — {'; '.join(u)}")
+                continue
+            print(f"  kaldırıldı: {w['yol']}  [{w['neden']}]")
+            for x in u:
+                print(f"    uyarı: {x}")
+        for w in s["kalip_disi"]:
+            print(f"  kalıp dışı (dokunulmadı): {w['yol']}")
+    if not bulundu:
+        print("temizlenecek kart çalışma ağacı yok.")
+
+
+def _agac_temizle_depolari(ks: list[dict]) -> list[str]:
+    """Taranacak git kökleri: proje deposu (git ise) + kartlardaki calisma_agaci / _birlesik / _kaldirildi depo değerleri. Benzersiz."""
+    adaylar = [L.proje_dizini()]
+    for k in ks:
+        for alan in ("calisma_agaci", "calisma_agaci_birlesik", "calisma_agaci_kaldirildi"):
+            d = (k.get(alan) or {}).get("depo")
+            if d and os.path.isdir(d):
+                adaylar.append(d)
+    out, gorulen = [], set()
+    for d in adaylar:
+        kok = L.git_koku(d)
+        if not kok:
+            continue
+        anahtar = os.path.normcase(os.path.abspath(kok)).replace("\\", "/").rstrip("/")
+        if anahtar not in gorulen:
+            gorulen.add(anahtar)
+            out.append(kok)
+    return out
 
 
 def _birlestir(sd, k) -> tuple[bool, str]:
@@ -2399,6 +2490,9 @@ def main():
     ag.add_argument("gid")
     ag.add_argument("--taban", default="HEAD", help="worktree'nin açılacağı commit (varsayılan: deponun HEAD'i)")
     ag.set_defaults(f=cmd_kart_agac)
+    at = kart.add_parser("agac-temizle", help="biten/kartsız kart çalışma ağaçlarını listele ya da kaldır")
+    at.add_argument("--uygula", action="store_true", help="kuru koşu yerine kaldır (kirli ağaç atlanır, force yok)")
+    at.set_defaults(f=cmd_kart_agac_temizle)
     bi = kart.add_parser("birlestir", help="kart dalını --no-ff birleştir ve worktree'yi temizle")
     bi.add_argument("gid")
     bi.set_defaults(f=cmd_kart_birlestir)

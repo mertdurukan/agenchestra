@@ -143,7 +143,7 @@ class AlanDogrulama(TabanTest):
         self.assertEqual(self.kart(gid)["test_koku"], self.dis_n)
 
     def test_kart_toplu_gecersiz_kok_hic_kart_olusturmaz(self):
-        plan = [{"baslik": "iyi", "basamak": "T2", "kabul_kriterleri": ["k"]},
+        plan = [{"baslik": "iyi", "basamak": "T2", "sinif": "belge", "kabul_kriterleri": ["k"]},
                 {"baslik": "kötü", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"],
                  "test_komutu": self.komut, "test_alani": ["testler/*.py"], "test_koku": "goreli/yol"}]
         yol = os.path.join(self.proje, "plan.json")

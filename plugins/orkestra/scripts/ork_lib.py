@@ -678,8 +678,47 @@ def kart_test_koku(proje: str, kart: dict) -> str:
     return os.path.abspath((kart or {}).get("test_koku") or proje)
 
 
+AGAC_KOKU_ORTAM = "ORKESTRA_AGAC_KOKU"
+AGAC_GIZLI_KLASOR = ".claude/worktrees"
+NL = chr(10)
+
+
+def agac_yolu(depo: str, gid: str) -> tuple[str, bool]:
+    """Kart çalışma ağacının yolu ve varsayılan (depo içi) düzende olup olmadığı.
+
+    `ORKESTRA_AGAC_KOKU` doluysa `<kök>/<depo-adı>/kart-<id>`; değilse `<depo>/.claude/worktrees/kart-<id>`."""
+    depo = os.path.abspath(depo).replace("\\", "/").rstrip("/")
+    kok = (os.environ.get(AGAC_KOKU_ORTAM) or "").strip()
+    if kok:
+        return os.path.abspath(os.path.join(kok, os.path.basename(depo), f"kart-{gid}")).replace("\\", "/"), False
+    return f"{depo}/{AGAC_GIZLI_KLASOR}/kart-{gid}", True
+
+
+def _gizli_klasoru_dislat(depo: str) -> None:
+    """`<depo>/.claude/worktrees` git'te zaten yok sayılmıyorsa `.git/info/exclude`a bir kez ekler (.gitignore'a dokunmaz)."""
+    r = git(["check-ignore", "-q", "--no-index", AGAC_GIZLI_KLASOR + "/kart-x"], depo)
+    if r.returncode == 0:
+        return
+    r = git(["rev-parse", "--git-common-dir"], depo)
+    if r.returncode != 0 or not r.stdout.strip():
+        return
+    ortak = r.stdout.strip()
+    if not os.path.isabs(ortak):
+        ortak = os.path.join(depo, ortak)
+    ex = os.path.join(ortak, "info", "exclude")
+    mevcut = ""
+    if os.path.exists(ex):
+        with open(ex, encoding="utf-8", errors="replace") as f:
+            mevcut = f.read()
+    if any(s.strip().rstrip("/") == AGAC_GIZLI_KLASOR for s in mevcut.splitlines()):
+        return
+    os.makedirs(os.path.dirname(ex), exist_ok=True)
+    with open(ex, "a", encoding="utf-8", newline=NL) as f:
+        f.write(("" if not mevcut or mevcut.endswith(NL) else NL) + AGAC_GIZLI_KLASOR + "/" + NL)
+
+
 def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, list[str]]:
-    """Kartın yazma alanının bulunduğu git deposunda `<depo>-kart-<id>` klasörüne `kart/<id>` dalıyla worktree açar.
+    """Kartın yazma alanının bulunduğu git deposunda `kart/<id>` dalıyla worktree açar (yol: `agac_yolu`).
 
     Dönen: (calisma_agaci, yeni köke çevrilmiş yazma alanı). Hata durumunda ValueError."""
     gid = kart["id"]
@@ -696,7 +735,7 @@ def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, li
                          "kartının test_komutu ve test_alani test köküne (test_koku, yoksa proje) göredir, ağaçtaki "
                          "kodu sınayamaz. Kartı paylaşılan ağaçta yürüt, test_koku'yu depo içine al ya da depoyu "
                          "kapsayan bir projeden çalış.")
-    yol = f"{depo}-kart-{gid}"
+    yol, varsayilan = agac_yolu(depo, gid)
     dal = f"kart/{gid}"
     if os.path.exists(yol):
         raise ValueError(f"çalışma ağacı klasörü zaten var: {yol}")
@@ -704,6 +743,8 @@ def kart_agaci_ac(proje: str, kart: dict, taban: str = "HEAD") -> tuple[dict, li
     if r.returncode != 0:
         raise ValueError(f"taban okunamadı ({taban}): {(r.stderr or r.stdout).strip()}")
     taban_sha = r.stdout.strip()
+    if varsayilan:
+        _gizli_klasoru_dislat(depo)
     r = git(["worktree", "add", "-b", dal, yol, taban_sha], depo)
     if r.returncode != 0:
         raise ValueError(f"git worktree add başarısız: {(r.stderr or r.stdout).strip()}")
@@ -891,6 +932,79 @@ def kart_agaci_birlestir(kart: dict, mesaj: str | None = None, proje: str | None
         uyari.append(f"dal silinemedi: {(rr.stderr or rr.stdout).strip()}")
     return {"sonuc": "tamam", "dosyalar": dosyalar, "commit": commit,
             "mesaj": f"{dal} → {depo} birleştirildi ({commit[:8]})" + ("; " + "; ".join(uyari) if uyari else "")}
+
+
+def agac_kaldir(depo: str, yol: str, dal: str | None) -> list[str]:
+    """Çalışma ağacını `--force` OLMADAN kaldırır, sonra (ağaç gittiyse) dalı `branch -d` ile siler.
+
+    Dönen: uyarı metinleri. Boşsa ağaç kalktı (dal birleşmemişse korunur, bu da uyarıdır). Kirli ağaç kalır ve
+    uyarı döner; ağaç kalktıysa `os.path.exists(yol)` yanlış olur."""
+    uyari = []
+    if yol and os.path.isdir(yol):
+        r = git(["worktree", "remove", yol], depo)
+        if r.returncode != 0:
+            return [f"çalışma ağacı kaldırılamadı, kayıt korundu ({yol}): {(r.stderr or r.stdout).strip()}"]
+    else:
+        git(["worktree", "prune"], depo)
+    if dal:
+        r = git(["branch", "-d", dal], depo)
+        if r.returncode != 0:
+            uyari.append(f"{dal} dalı silinmedi (birleşmemiş iş olabilir): {(r.stderr or r.stdout).strip()}")
+    return uyari
+
+
+def _agac_kayitlari(depo: str) -> list[dict]:
+    """`git worktree list --porcelain` → [{yol, dal, prunable}] (ana ağaç hariç)."""
+    r = git(["worktree", "list", "--porcelain"], depo)
+    if r.returncode != 0:
+        return []
+    out, cur = [], None
+    for s in r.stdout.splitlines() + [""]:
+        if s.startswith("worktree "):
+            cur = {"yol": s[9:].strip().replace("\\", "/"), "dal": None, "prunable": False}
+        elif s.startswith("branch ") and cur:
+            cur["dal"] = s[7:].strip().replace("refs/heads/", "", 1)
+        elif s.startswith("prunable") and cur:
+            cur["prunable"] = True
+        elif not s.strip() and cur:
+            out.append(cur)
+            cur = None
+    return [x for x in out[1:]]
+
+
+def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
+    """Deponun worktree'lerini sınıflar: aday (kartı teslim/iptal ya da kartsız kart ağacı), acik (kart açık),
+    kalip_disi (kart düzenine uymayan). Her öğe {yol, dal, kart, neden}."""
+    depo_n = os.path.abspath(depo).replace("\\", "/").rstrip("/")
+    kartlar_ = {k.get("id"): k for k in ks}
+    kok = (os.environ.get(AGAC_KOKU_ORTAM) or "").strip()
+    ebeveynler = {_kiyas(f"{depo_n}/{AGAC_GIZLI_KLASOR}")}
+    if kok:
+        ebeveynler.add(_kiyas(os.path.abspath(os.path.join(kok, os.path.basename(depo_n)))))
+    eski = re.compile(re.escape(_kiyas(depo_n)) + r"-kart-(.+)$")
+    sonuc = {"aday": [], "acik": [], "kalip_disi": []}
+    for w in _agac_kayitlari(depo):
+        y = w["yol"]
+        ad = y.rstrip("/").rsplit("/", 1)[-1]
+        ust = _kiyas(os.path.dirname(y.rstrip("/")))
+        gid = None
+        if ust in ebeveynler and ad.startswith("kart-"):
+            gid = ad[5:]
+        else:
+            m = eski.match(_kiyas(y))
+            if m:
+                gid = y[len(y) - len(m.group(1)):]
+        if not gid:
+            sonuc["kalip_disi"].append({**w, "kart": None, "neden": "kart düzenine uymuyor"})
+            continue
+        k = kartlar_.get(gid)
+        if k is None:
+            sonuc["aday"].append({**w, "kart": gid, "neden": "kartı yok"})
+        elif kart_durumu_hesapla(k) in ("teslim", "iptal"):
+            sonuc["aday"].append({**w, "kart": gid, "neden": f"kart {kart_durumu_hesapla(k)}"})
+        else:
+            sonuc["acik"].append({**w, "kart": gid, "neden": "kart açık"})
+    return sonuc
 
 
 # ---------------------------------------------------------------- test kapısı (kod kartları)
