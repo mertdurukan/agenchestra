@@ -27,9 +27,20 @@ NODE = shutil.which("node")
 HARNES = r"""
 const fs = require('fs');
 const [,, htmlYol, ozetJson] = process.argv;
+const path = require('path');
+const dizin = path.dirname(htmlYol);
 const html = fs.readFileSync(htmlYol, 'utf8');
-const betikler = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-const kod = betikler[betikler.length - 1];
+// Sayfa betiği ayrı dosyada: html'deki yerel <script src> (ortak.js hariç) okunur; satır içi betik de varsa eklenir.
+const dosyalar = [...html.matchAll(/<script[^>]*\bsrc="([^"]+)"[^>]*>/g)].map(m => m[1]).filter(y => !y.startsWith('ortak.'));
+const satirIci = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+const kod = [...dosyalar.map(y => fs.readFileSync(path.join(dizin, y), 'utf8')), ...satirIci].join('\n');
+// Paylaşılan çizim yardımcıları (yerlestir, ciz, bayatCiz) ortak.js'ten alınır; tüm ortak.js yüklenmez (DOM, zamanlayıcı).
+const ortak = fs.readFileSync(path.join(dizin, 'ortak.js'), 'utf8');
+const ortakBas = ortak.indexOf('  function yerlestir(');
+const ortakSonIz = 'O.bayatCiz = bayatCiz;';
+const ortakSon = ortak.indexOf(ortakSonIz);
+if (ortakBas < 0 || ortakSon < 0) throw new Error('ortak.js yardimcilari bulunamadi');
+const ortakKod = ortak.slice(ortakBas, ortakSon + ortakSonIz.length);
 const kaplar = {};
 function kap(ad) {
   if (kaplar[ad]) return kaplar[ad];
@@ -60,6 +71,7 @@ const O0 = {
 };
 const O = new Proxy(O0, { get: (t, p) => (p in t ? t[p] : (p === 'then' ? undefined : (() => ''))) });
 global.O = O; window.O = O;
+new Function('O', 'document', ortakKod)(O, document);
 new Function('window', 'document', 'O', 'matchMedia', kod)(window, document, O, matchMedia);
 const o = JSON.parse(ozetJson);
 const ozetAyar = veriler.ozet;
@@ -83,6 +95,8 @@ class SimdiHtmlStatik(unittest.TestCase):
     def test_serit_ve_alan_okuma_yok(self):
         with open(SIMDI, encoding="utf-8") as f:
             h = f.read()
+        with open(SIMDI.replace(".html", ".js"), encoding="utf-8") as f:  # sayfa betiği ayrı dosyada
+            h += f.read()
         for parca in ("asili_ajanlar", "asiliAjanlar", "dikkatCiz", "dikkat-alani", 'id="dikkat', "bitmeyen"):
             self.assertNotIn(parca, h)
 

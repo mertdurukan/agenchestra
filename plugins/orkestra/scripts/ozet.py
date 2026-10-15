@@ -20,6 +20,18 @@ import analitik as A  # noqa: E402  (bugün hesabı ve ajan adı eşlemesi tek y
 SURUM = 2
 ASILI_AJAN_DK = 30
 ASILI_AJAN_TEMIZLE_SAAT = 24
+ASILI_SESSIZLIK_DK = 15  # son araç çağrısından bu yana geçen süre (PostToolUse `son_arac`) aşılırsa ajan takılı sayılır
+ASILI_OTURUM_SESSIZ_SAAT = 2  # oturum bu kadardır hiç olay yazmadıysa kayıtları ölü sayılır
+
+def _sessizlik_esigi_dk() -> int:
+    """Araç çağırmadan geçen bu kadar dakika ajanı takılı sayar; ORKESTRA_SESSIZLIK_DK ile ayarlanır."""
+    try:
+        v = int(os.environ.get("ORKESTRA_SESSIZLIK_DK", ""))
+        if v > 0:
+            return v
+    except ValueError:
+        pass
+    return ASILI_SESSIZLIK_DK
 
 
 def _yuvarla(d: dict, n: int = 4) -> dict:
@@ -116,11 +128,58 @@ def _transkript_son_dokunus(oturum, agent_id):
         return None
 
 
-def asili_ajanlar(sd: str, simdi=None) -> list:
+def _oturum_son_olaylar() -> dict:
+    """niyet.jsonl'dan oturum -> (son olay zamanı, son olay türü). Okunamazsa boş (süzgeç devre dışı)."""
+    son = {}
+    try:
+        import niyet
+        for k in L.jsonl_oku(niyet.NIYET_YOLU):
+            if not isinstance(k, dict) or not k.get("oturum"):
+                continue
+            z = A._zaman(k.get("zaman"))
+            if z and (k["oturum"] not in son or z >= son[k["oturum"]][0]):
+                son[k["oturum"]] = (z, k.get("tur"))
+    except Exception:
+        return {}
+    return son
+
+
+def _oturum_olu(ol, simdi) -> bool:
+    return bool(ol and (ol[1] == "kapandi" or (simdi - ol[0]).total_seconds() / 3600 >= ASILI_OTURUM_SESSIZ_SAAT))
+
+
+def sahipsiz_ajanlar(sd: str, simdi=None) -> list:
+    """Oturumu kapanmış (ya da ASILI_OTURUM_SESSIZ_SAAT sessiz) ama `acik_ajan_*.json` kaydı kalmış ajanlar (salt okuma)."""
+    simdi = simdi or datetime.datetime.now().astimezone()
+    olaylar = _oturum_son_olaylar()
+    out = []
+    try:
+        adlar = sorted(os.listdir(os.path.join(sd, "oturumlar")))
+    except OSError:
+        return out
+    for ad in adlar:
+        if not (ad.startswith("acik_ajan_") and ad.endswith(".json")):
+            continue
+        try:
+            with open(os.path.join(sd, "oturumlar", ad), encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        if isinstance(d, dict) and _oturum_olu(olaylar.get(d.get("oturum")), simdi):
+            out.append({"agent_id": d.get("agent_id"), "ajan": d.get("ajan"), "gorev": d.get("gorev", "-"),
+                        "oturum": d.get("oturum"), "sahipsiz": True})
+    return out
+
+
+def asili_ajanlar(sd: str, simdi=None, oturum=None) -> list:
     """`oturumlar/acik_ajan_*.json` kayıtlarından başlangıcı ASILI_AJAN_DK'dan eski olanları döner;
-    ASILI_AJAN_TEMIZLE_SAAT'ten eski kayıtları siler (bitişi hiç gelmeyen ajanların kalıntısı)."""
+    ASILI_AJAN_TEMIZLE_SAAT'ten eski kayıtları siler (bitişi hiç gelmeyen ajanların kalıntısı).
+    Canlılık süzgeci: kaydın oturumu kapanmışsa (son olay `kapandi`) ya da ASILI_OTURUM_SESSIZ_SAAT'tir sessizse
+    kayıt asılı sayılmaz ve silinir; niyet kaydı olmayan oturum eski kuralla çalışır. `oturum` verilirse yalnız
+    o oturumun kayıtları döner (başka oturumun ajanı bu oturuma uyarı üretmez)."""
     simdi = simdi or datetime.datetime.now().astimezone()
     out = []
+    olaylar = _oturum_son_olaylar()
     try:
         adlar = sorted(os.listdir(os.path.join(sd, "oturumlar")))
     except OSError:
@@ -143,8 +202,27 @@ def asili_ajanlar(sd: str, simdi=None) -> list:
                 os.remove(yol)
             except OSError:
                 pass
-        elif dk >= ASILI_AJAN_DK:
-            son = _transkript_son_dokunus(d.get("oturum"), d.get("agent_id"))
+        else:
+            son_arac = A._zaman(d.get("son_arac"))
+            sessiz = int((simdi - son_arac).total_seconds() / 60) if son_arac else None
+            # Sessizlik saati: son araç çağrısı bilinen ajan, eşik dolmadıkça (uzun süredir çalışsa da) asılı sayılmaz;
+            # eşik dolduysa yaşı ne olursa olsun takılı sayılır. Kaydı olmayan eski kuralla (yaş) çalışır.
+            if sessiz is not None:
+                if sessiz < _sessizlik_esigi_dk():
+                    continue
+            elif dk < ASILI_AJAN_DK:
+                continue
+            ol = olaylar.get(d.get("oturum"))
+            if _oturum_olu(ol, simdi):
+                # Oturum kapanmış ya da uzun süredir sessiz: ajan canlı değil, kayıt kalıntıdır.
+                try:
+                    os.remove(yol)
+                except OSError:
+                    pass
+                continue
+            if oturum and d.get("oturum") != oturum:
+                continue
+            son = None if sessiz is not None else _transkript_son_dokunus(d.get("oturum"), d.get("agent_id"))
             if son is not None and (simdi.timestamp() - son) / 60 >= ASILI_AJAN_DK:
                 # Transkript ASILI_AJAN_DK'dır yazılmıyor: ajan çalışmıyor, bitiş kaydı düşmemiş (bayat kayıt).
                 try:
@@ -153,7 +231,7 @@ def asili_ajanlar(sd: str, simdi=None) -> list:
                     pass
                 continue
             out.append({"agent_id": d.get("agent_id"), "ajan": d.get("ajan"), "gorev": d.get("gorev", "-"),
-                        "surec": d.get("surec"), "oturum": d.get("oturum"), "dakika": int(dk)})
+                        "surec": d.get("surec"), "oturum": d.get("oturum"), "dakika": int(dk), "sessiz_dk": sessiz})
     return out
 
 

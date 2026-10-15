@@ -225,7 +225,7 @@ class KapanisKosullari(KapanisTemel):
 class IslerHtmlKapanis(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with open(os.path.join(KOK, "assets", "isler.html"), encoding="utf-8") as f:
+        with open(os.path.join(KOK, "assets", "isler.js"), encoding="utf-8") as f:
             cls.html = f.read()
         m = re.search(r"function sohbetKarti\(r\)\s*\{", cls.html)
         assert m, "sohbetKarti bulunamadı"

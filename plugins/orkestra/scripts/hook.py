@@ -591,6 +591,19 @@ def _is_surekliligi(sd: str, oid: str, ofset_yolu: str, ozet: dict, kayda_deger:
     return msg
 
 
+def _bayat_todo_uyarisi(sd: str, is_id) -> str:
+    """Bağlı işin açık todo maddesinde anılan G-NNN kartı teslim/iptal ise TEK satırlık uyarı, yoksa boş metin."""
+    if not is_id:
+        return ""
+    import is_kaydi
+    b = is_kaydi.todo_bitmis_kartli(sd, is_id)
+    if not b:
+        return ""
+    liste = ", ".join(f"{n}. madde {g} ({d})" for n, g, d in b[:4])
+    return (f"Orkestra: {is_id} todo'sunda açık ama kartı bitmiş: {liste} — "
+            f"`orkestra is todo {is_id} --bitti <n>`.")
+
+
 def stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -620,7 +633,9 @@ def stop(inp: dict):
             bekleme = niyet.bekleme_nedeni(inp.get("transcript_path"), ofset, inp.get("last_assistant_message"))
         except Exception:
             bekleme = None
-        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None, bekleme=bekleme)
+        # neden çıkarılamadıysa (soru/karar yok) panel 'Seni bekliyor' yerine nötr durum gösterir (G-095)
+        niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None, bekleme=bekleme,
+                   bekleme_yok=True if bekleme == "" else None)
     baglam = ""
     try:
         esleme = B.esleme_oku(sd)
@@ -670,6 +685,13 @@ def stop(inp: dict):
             hatirlatma = _is_surekliligi(sd, oid, ofset_yolu, ozet, bool(kayda_deger), inp)
         except Exception:
             hatirlatma = ""
+    if not perspektif:
+        try:  # bayat todo: açık maddede anılan kart bitmiş (tek satır)
+            u = _bayat_todo_uyarisi(sd, _oturum_isi(sd, oid))
+            if u:
+                hatirlatma = (hatirlatma + " " + u).strip()
+        except Exception:
+            pass
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif or inp.get("background_tasks"):
         gec()
@@ -701,18 +723,20 @@ def stop(inp: dict):
 
 # ---------------------------------------------------------------- diğer olaylar
 
-def asili_uyari(sd: str) -> str:
-    """Bitmeyen alt ajan varsa tek satırlık uyarı, yoksa boş metin (hatada sessiz)."""
+def asili_uyari(sd: str, oturum: str | None = None) -> str:
+    """Bitmeyen alt ajan varsa tek satırlık uyarı, yoksa boş metin (hatada sessiz).
+    `oturum` verilirse yalnız o oturumun kayıtları sayılır."""
     try:
         import ozet
-        a = ozet.asili_ajanlar(sd)
+        a = ozet.asili_ajanlar(sd, oturum=oturum)
     except Exception:
         return ""
     if not a:
         return ""
-    liste = "; ".join(f"{x['ajan']} {x['gorev']} ({x['dakika']} dk)" for x in a[:5])
-    return (f"Orkestra: {ozet.ASILI_AJAN_DK} dakikadır bitmeyen ajan(lar): {liste}; "
-            "takıldıysa TaskStop ile durdur ya da kartı beklemede yap.")
+    liste = "; ".join(f"{x['ajan']} {x['gorev']} ({x['dakika']} dk"
+                      + (f", {x['sessiz_dk']} dk sessiz" if x.get("sessiz_dk") is not None else "") + ")" for x in a[:5])
+    return (f"Orkestra: {ozet.ASILI_AJAN_DK} dk'dır bitmeyen ajan(lar): {liste}; "
+            "takıldıysa TaskStop ya da kartı beklemede yap.")
 
 
 def _son_dokunus(g: dict) -> str | None:
@@ -802,20 +826,29 @@ def _yonlendirme_ipucu(sd: str, oid, istek: str) -> str:
         return ""
 
 
-def _acik_isler_satirlari(sd: str) -> list[str]:
+def _acik_isler_satirlari(sd: str, bagli: str | None = None) -> list[str]:
+    """Açık iş satırları. Oturum bir işe bağlıysa (`bagli`) yalnız o işin satırı uzun (başlık 40, son satır 80);
+    diğerleri kısa (kimlik + başlık 24 + todo + not), ayrıntı `orkestra is goster <id>`. Bağsız oturumda hepsi uzun."""
     import is_kaydi
     parcalar = []
     liste = is_kaydi.is_liste(sd, "acik")[:5]
     notlar = _kapanis_notlari(sd, liste)
+    if bagli:  # bağlı iş öne
+        liste = sorted(liste, key=lambda g: str(g.get("id")) != str(bagli))
     for g in liste:
         try:
-            p = f"{g['id']} {str(g.get('baslik') or '')[:40]}"
+            uzun = not bagli or str(g.get("id")) == str(bagli)
+            p = f"{g['id']} {str(g.get('baslik') or '')[:40 if uzun else 24]}"
             klasor = g.get("klasor") or ""
             try:
                 t = is_kaydi.todo_ozet(klasor)
                 p += f" todo {t['biten']}/{t['toplam']}"
             except Exception:
                 pass
+            if not uzun:
+                p += notlar.get(g["id"], "")
+                parcalar.append(p)
+                continue
             try:
                 with open(os.path.join(klasor, "oturumlar.md"), encoding="utf-8", errors="replace") as f:
                     dolu = [x.rstrip() for x in f if x.strip() and not x.lstrip().startswith("#")]  # başlık satırı sayılmaz
@@ -830,7 +863,7 @@ def _acik_isler_satirlari(sd: str) -> list[str]:
     if not parcalar:
         return []
     return ["Açık işler: " + " ; ".join(parcalar),
-            "Devam için `orkestra is devam <id>`; sıradaki adımları `orkestra is todo <id> --ekle` ile işin todo.md'sine yaz."]
+            "Devam için `orkestra is devam <id>`; adımlar: `orkestra is todo <id> --ekle` (todo.md)."]
 
 
 PANEL_GIRDI = "orkestra-panel"   # çalışma alanının .claude/launch.json'ındaki girdi adı
@@ -906,6 +939,35 @@ def _panel_ac_satiri(sd: str, oid) -> str:
         return ""
 
 
+def _kurallar_satiri() -> str:
+    """Genel orkestra kurallarının (KURALLAR.md) mutlak yolu; hook.py konumundan türetilir, dosya yoksa boş."""
+    yol = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KURALLAR.md")
+    return f"Orkestra kuralları: {yol} (orkestra işinden önce oku)." if os.path.isfile(yol) else ""
+
+
+def _kart_satiri(ks: list) -> str:
+    """Açık kartlar kimlik+durum+kısa başlık (24); beklemedekiler yalnız kimlik. Ayrıntı: `orkestra kart liste`."""
+    aktif = [k for k in ks if L.kart_durumu_hesapla(k) != "beklemede"]
+    bekl = [k for k in ks if L.kart_durumu_hesapla(k) == "beklemede"]
+    s = "Açık/bekleyen kartlar: " + "; ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}] {k['baslik'][:24]}" for k in aktif[:6])
+    if bekl:
+        s += (" · " if aktif else "") + f"beklemede {len(bekl)}: " + ",".join(str(k["id"]) for k in bekl[:8])
+    if len(aktif) > 6:
+        s += f" · +{len(aktif) - 6} kart daha"
+    return s + " (`orkestra kart liste`)"
+
+
+def _niyet_metni(oturum: str | None) -> str:
+    """UserPromptSubmit niyet hatırlatması (niyet.baglam_metni'nin kısa eşi; aynı yönerge)."""
+    import niyet
+    k = niyet.son_niyet(oturum) if oturum else None
+    kayitli = (f"Kayıtlı niyet: ne=\"{k.get('ne', '')}\" · neden=\"{k.get('neden', '')}\"" if k and k.get("tur") == "niyet"
+               else "Bu sohbet için kayıtlı niyet yok.")
+    return ("Orkestra niyet: " + kayitli + " Yeni iş/iş değişimiyse ilk araç çağrınla bir kez: "
+            "`orkestra niyet --ne \"<≤12 kelime>\" --neden \"<hangi hedefe hizmet; ≤15 kelime>\" [--baglam \"<Proje/Süreç/Görev>\"]`; "
+            "devamıysa YAZMA; bitince `--sonuc \"<≤15 kelime>\"`. Kullanıcıya söz etme.")
+
+
 def session_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -913,17 +975,24 @@ def session_start(inp: dict):
     import perspektif
     perspektif.oturum_say(sd, inp.get("source"))
     ks = [k for k in L.kartlar(sd) if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",)]
-    satirlar = ["Orkestra bu projede açık. Ana ajan: planla → `orkestra kart` ile kartla → işçi + AYRI denetçiyle dağıt "
-                "(`/orkestra:is`) → onaylıyı `orkestra kart teslim` ile topla. Ortak defter: `orkestra defter baglam <id>`."]
+    satirlar = ["Orkestra bu projede açık: planla → `orkestra kart` → işçi + AYRI denetçi (`/orkestra:is`) → "
+                "`orkestra kart teslim`. Defter: `orkestra defter baglam <id>`."]
     if ks:
-        satirlar.append("Açık/bekleyen kartlar: " + "; ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}] {k['baslik'][:40]}" for k in ks[:8]))
+        satirlar.append(_kart_satiri(ks))
     try:  # açık işler: hata hook'u düşürmez
-        satirlar.extend(_acik_isler_satirlari(sd))
+        satirlar.extend(_acik_isler_satirlari(sd, _oturum_isi(sd, inp.get("session_id"))))
     except Exception:
         pass
-    uyari = asili_uyari(sd)  # asılı ajan uyarısı düşük öncelikli satırlardan önce: 1800 kesiminde sona kalmasın
+    uyari = asili_uyari(sd, inp.get("session_id"))  # asılı ajan uyarısı düşük öncelikli satırlardan önce: 1800 kesiminde sona kalmasın
     if uyari:
         satirlar.append(uyari)
+    try:  # bağlı olmayan todo dosyaları: TEK satır, hatada sessiz
+        import is_kaydi
+        tu = is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd")))
+        if tu:
+            satirlar.append(tu)
+    except Exception:
+        pass
     try:  # önbellek bayatlığı: hızlı, hatada sessiz
         b = L.bayatlik()
         if b:
@@ -959,7 +1028,10 @@ def session_start(inp: dict):
     ei = _etki_ipucu(sd)
     if ei:
         om = (om + "\n" + ei) if om else ei
-    pa = "" if os.environ.get("ORKESTRA_PERSPEKTIF") else _panel_ac_satiri(sd, inp.get("session_id"))
+    ky = _kurallar_satiri()
+    if ky:  # kural dosyası yolu kesimden korunan kısma girer
+        om = (ky + "\n" + om) if om else ky
+    pa ="" if os.environ.get("ORKESTRA_PERSPEKTIF") else _panel_ac_satiri(sd, inp.get("session_id"))
     if pa:  # panel açma satırı da kesimden korunan kısma girer (oturumda bir kez)
         om = (pa + "\n" + om) if om else pa
     ek = "\n".join(satirlar)[:max(0, 1800 - len(om) - 1)] + "\n" + om if om else "\n".join(satirlar)[:1800]  # onay/panel yönlendirmesi kesilmesin
@@ -1024,7 +1096,7 @@ def user_prompt_submit(inp: dict):
                 L.hook_cikti({"decision": "block", "reason": f"{neden}\nMesajın: {metin[:500]}"})
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
-            parcalar = [niyet.baglam_metni(inp.get("session_id")), asili_uyari(sd),
+            parcalar = [_niyet_metni(inp.get("session_id")), asili_uyari(sd, inp.get("session_id")),
                         _yonlendirme_ipucu(sd, inp.get("session_id"), metin)]
             try:  # panel onay kararları: hata hook'u düşürmez
                 import onay
@@ -1038,12 +1110,29 @@ def user_prompt_submit(inp: dict):
     gec()
 
 
+def _son_arac_yaz(sd: str, aid) -> None:
+    """agent_id'li araç çağrısında acik_ajan kaydına `son_arac` zamanını yazar (kayıt yoksa/bozuksa sessiz geçer)."""
+    if not aid:
+        return
+    yol = os.path.join(sd, "oturumlar", f"acik_ajan_{aid}.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            d = json.load(f)
+        if not isinstance(d, dict):
+            return
+        d["son_arac"] = L.simdi()
+        L.atomik_yaz(yol, json.dumps(d, ensure_ascii=False))
+    except Exception:
+        pass
+
+
 def post_tool_use(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
         gec()
     arac = inp.get("tool_name")
     g = inp.get("tool_input") or {}
+    _son_arac_yaz(sd, inp.get("agent_id"))  # sessizlik saati: her araç çağrısı ajanın son-araç zamanını tazeler
     kayit = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "ajan_baglami": inp.get("agent_type") or "ana"}
     if arac == "Skill":
         kayit.update(tur="skill", skill=g.get("skill") or g.get("name"))
@@ -1110,12 +1199,35 @@ def _oturum_satiri_yaz(sd: str, oid: str | None) -> None:
     L.sona_ekle(yol, satir)
 
 
+def _acik_ajan_kayitlarini_sil(sd: str, oid: str | None) -> None:
+    """Kapanan oturumun acik_ajan_*.json kayıtlarını siler; başka oturumlara ve bozuk dosyalara dokunmaz."""
+    if not oid:
+        return
+    klasor = os.path.join(sd, "oturumlar")
+    try:
+        adlar = os.listdir(klasor)
+    except OSError:
+        return
+    for ad in adlar:
+        if not (ad.startswith("acik_ajan_") and ad.endswith(".json")):
+            continue
+        yol = os.path.join(klasor, ad)
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, dict) and d.get("oturum") == oid:
+                os.remove(yol)
+        except Exception:
+            continue
+
+
 def session_end(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd or os.environ.get("ORKESTRA_PERSPEKTIF"):
         gec()
     import niyet
     niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "kapandi")
+    _acik_ajan_kayitlarini_sil(sd, inp.get("session_id"))
     try:
         _oturum_satiri_yaz(sd, inp.get("session_id"))
     except Exception:  # ölçüm satırı hatası kapanışı bozmasın
@@ -1157,7 +1269,8 @@ def main():
     try:
         OLAYLAR[olay](inp)
     except SystemExit:
-        if olay in ("SessionStart", "SubagentStop", "Stop", "PostToolUse"):
+        if olay in ("SessionStart", "SubagentStop", "Stop") or (
+                olay == "PostToolUse" and inp.get("tool_name") in ("Skill", "Agent", "Task", "Workflow")):
             sd = L.durum_dizini(inp.get("cwd"))
             if sd:
                 import ozet

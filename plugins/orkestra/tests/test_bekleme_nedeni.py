@@ -50,11 +50,11 @@ class BeklemeNedeni(unittest.TestCase):
 
     def test_yan_zincir_sayilmaz(self):
         yol, of = self._transkript([_arac("AskUserQuestion", {"questions": [{"question": "Alt ajan?"}]}, sidechain=True)])
-        self.assertEqual(niyet.bekleme_nedeni(yol, of, "Rapor yazıldı."), "Rapor yazıldı.")
+        self.assertEqual(niyet.bekleme_nedeni(yol, of, "Rapor yazıldı."), "")  # soru yok: neden çıkarılamaz (G-095)
 
-    def test_soru_yoksa_recap_ilk_cumle(self):
+    def test_soru_yoksa_recap_bos(self):
         yol, of = self._transkript([_arac("mcp__ccd_turn__wrap_up", {"recap": "Testler geçti. Commit yok."})])
-        self.assertEqual(niyet.bekleme_nedeni(yol, of, ""), "Testler geçti.")
+        self.assertEqual(niyet.bekleme_nedeni(yol, of, ""), "")  # yalnız recap: açık soru değil (G-095)
 
     def test_markdown_temizlenir_ve_kisaltilir(self):
         m = "Özet:\n- **Bir** madde\n\n```py\nx = 1?\n```\n" + "[Plan](a.md) " + "uzun " * 60 + "onaylıyor musun?"
@@ -87,7 +87,7 @@ class GorunumBekleme(KapanisTemel):
 
 class IslerHtmlBekleme(unittest.TestCase):
     def test_sen_karti_yalniz_bekleme(self):
-        with open(os.path.join(KOK, "assets", "isler.html"), encoding="utf-8") as f:
+        with open(os.path.join(KOK, "assets", "isler.js"), encoding="utf-8") as f:
             html = f.read()
         govde = html[html.index("function sohbetKarti(r)"):html.index("function sohbetCiz()")]
         self.assertRegex(govde, r"const sen = r\.bekleyen === 'sen'")

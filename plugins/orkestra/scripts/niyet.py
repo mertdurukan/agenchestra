@@ -178,6 +178,8 @@ def olay(oturum: str | None, proje: str | None, tur: str, **alan) -> None:
 
 
 BEKLEME_UZUNLUK = 140
+# soru işareti olmayan ama kullanıcıdan onay/karar/izin/yanıt isteyen cümle
+BEKLEME_ISARETI = re.compile(r"(onay|karar|izin|yanıt|cevap)\w*\s+(bekli|ver\w*\s*(misin|musun)|iste)", re.I)
 
 
 def _duz_metin(m: str) -> str:
@@ -232,22 +234,23 @@ def _transkript_sorulari(yol: str | None, ofset: int) -> dict:
 def bekleme_nedeni(transkript: str | None, ofset: int, son_mesaj: str | None) -> str:
     """Claude turu bitirdiğinde kullanıcıdan ne beklendiği, tek kısa cümle (deterministik; LLM yok).
 
-    Sıra: bu turdaki AskUserQuestion sorusu → wrap_up'ın `ask`'ı → son mesajdaki son soru cümlesi →
-    wrap_up recap'inin ilk cümlesi → son mesajın son cümlesi. Hiçbiri yoksa ''.
+    Yalnız açık bir soru/karar/izin beklentisi varsa dolu döner. Sıra: bu turdaki AskUserQuestion sorusu →
+    wrap_up'ın `ask`'ı → son mesajdaki son soru (ya da onay/karar/izin bekleyen) cümlesi. Hiçbiri yoksa ''
+    (G-095: neden çıkarılamayan tur 'seni bekliyor' sayılmaz, nötr durumda kalır; recap/son cümle yedeği yok).
     """
     t = _transkript_sorulari(transkript, ofset)
     cumleler = _cumleler(son_mesaj or "")
-    soru = next((c for c in reversed(cumleler) if c.endswith("?")), None)
-    recap = (_cumleler(t["recap"]) or [None])[0] if t.get("recap") else None
-    secilen = t.get("soru") or t.get("ask") or soru or recap or (cumleler[-1] if cumleler else "")
-    return _kisalt(secilen, BEKLEME_UZUNLUK)
+    soru = next((c for c in reversed(cumleler) if c.endswith("?") or BEKLEME_ISARETI.search(c)), None)
+    secilen = t.get("soru") or t.get("ask") or soru or ""
+    return _kisalt(secilen, BEKLEME_UZUNLUK) if secilen else ""
 
 
 def son_niyet(oturum: str) -> dict | None:
-    """Bu oturumun en son niyet kaydı (hook bağlamına koymak için)."""
+    """Bu oturumun en son niyet kaydı (tur=niyet). `--sonuc` kaydı niyeti ezmez: sonuc yalnız
+    iş bitti demektir, oturumun niyeti kayıtlı kalır (G-091: sonuc sonrası 'kayıtlı niyet yok' hatası)."""
     son = None
     for k in L.jsonl_oku(NIYET_YOLU):
-        if k.get("oturum") == oturum and k.get("tur") in ("niyet", "sonuc"):
+        if k.get("oturum") == oturum and k.get("tur") == "niyet":
             son = k
     return son
 
@@ -371,7 +374,7 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         s = oturumlar.setdefault(oid, {"oturum": oid, "proje_yol": o.get("proje"), "ne": None, "neden": None, "sonuc": None,
                                        "niyet_zamani": None, "son_istek": None, "son_olay": None, "son_zaman": None,
                                        "baslangic": o.get("zaman"), "istek_sayisi": 0, "kapandi": False, "hooklu": False,
-                                       "arka_plan": False, "bekleme": None})
+                                       "arka_plan": False, "bekleme": None, "bekleme_yok": False})
         s["proje_yol"] = s["proje_yol"] or o.get("proje")
         t = o.get("tur")
         s["hooklu"] = s["hooklu"] or t in ("tur", "kapandi", "niyet", "sonuc")
@@ -394,9 +397,11 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
             s["kapandi"] = False
             s["arka_plan"] = False
             s["bekleme"] = None  # kullanıcı yanıtladı: eski bekleme nedeni geçersiz
+            s["bekleme_yok"] = False
         elif t == "tur":
             s["arka_plan"] = bool(o.get("arka_plan"))  # tur bitti ama arka planda iş sürüyor olabilir
             s["bekleme"] = o.get("bekleme") or None
+            s["bekleme_yok"] = bool(o.get("bekleme_yok")) and not s["bekleme"]  # Stop kancası neden çıkaramadı (G-095)
         elif t == "kapandi":
             s["kapandi"] = True
         if t in ("istek", "tur", "kapandi", "niyet", "sonuc"):
@@ -464,6 +469,8 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
             bekleyen = "claude"  # hook'suz (eski) sohbette transkript 10 dk durgunsa Claude çalışmıyordur
         elif s["son_olay"] == "istek" and not s["hooklu"]:
             bekleyen = "beklemede"  # kancasız sohbet, istekten sonra 10 dk+ durgun: sıra kullanıcıda değil
+        elif s["bekleme_yok"]:
+            bekleyen = "notr"  # tur sonuçsuz bitti, soru/karar/izin yok: yanlış alarm olmasın (G-095)
         else:
             bekleyen = "sen"
         # niyet yazılmadıysa yedek: açık kart ya da son istek
@@ -495,7 +502,7 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
     for r in satirlar:
         if r["bekleyen"] != "kapandi":
             r["kapanis"] = _kapanis(r, r["bekleyen"], r["kartlar"]["acik"], r["isler"], simdi)
-    sira = {"sen": 0, "claude": 1, "bitti": 2, "beklemede": 3, "kapandi": 4}
+    sira = {"sen": 0, "claude": 1, "notr": 2, "bitti": 3, "beklemede": 4, "kapandi": 5}
     satirlar.sort(key=lambda r: (sira.get(r["bekleyen"], 9), -(_zaman(r["son_zaman"]) or sinir).timestamp()))
     for a in akis:
         a["proje"] = _proje_adi(a.get("proje_yol"))
