@@ -1,25 +1,25 @@
-"""workflows/calistir.js PAR-2/4/5 testleri: kapı birleştirme, kapı semaforu, erken test.
+"""workflows/calistir.js erken test (PAR-4) ve paralel yürütme testleri.
 
 Betik sahte `agent/parallel/log/args` ile node'da koşturulur (test_calistir_akisi.py ile aynı yöntem);
 node yoksa gerekçeli skip edilir. node yolu `ORKESTRA_NODE` ile de verilebilir.
 
-Sahte kapı ajanı, gerçek ajanın istemdeki talimatı izlemesini taklit eder: `--asama X` komutu geçerse ve istemde
-`on_kontrol.py` varsa ön kontrol sonucunu da döner; kapı geçmediyse on_kontrol=null döner. Dönüş hem düz alanlarla
-(gecti/cikis_kodu/ozet) hem {yesil|kirmizi: {...}, on_kontrol} biçimiyle verilir; böylece testler dönüş zarfının
-ayrıntısına değil, çağrı sayısı/sırası/eşzamanlılık davranışına bağlıdır.
+Kapılar artık `kart durum is-bitti` (CLI) içinde koşar; ayrı kapı / ön kontrol ajanı ve kapı semaforu yoktur.
+Sahte ajan kart başına senaryo okur (`kartlar[id]`): kirmizi (test yazarının kapısı), yesil (kod kartı işçisi),
+onkontrol (kod dışı işçi), denetim. Girdiler: true | false | {gecti, cikis_kodu, ozet} (test_calistir_akisi.KAPI_JS).
 """
 import json
 import os
-import re
 import shutil
 import subprocess
 import tempfile
 import unittest
 
+from test_calistir_akisi import KAPI_JS
+
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BETIK = os.path.join(KOK, "workflows", "calistir.js")
 NODE = os.environ.get("ORKESTRA_NODE") or shutil.which("node")
-NODE_YOK_GEREKCE = ("node bulunamadı (PATH'te yok, ORKESTRA_NODE boş): calistir.js paralel/kapı senaryoları "
+NODE_YOK_GEREKCE = ("node bulunamadı (PATH'te yok, ORKESTRA_NODE boş): calistir.js paralel senaryoları "
                     "koşturulamadı; statik testler yine de koşar.")
 
 KOSUM_JS = r"""
@@ -29,16 +29,13 @@ const kaynak = fs.readFileSync(betikYolu, 'utf8').replace(/^export\s+const\s+met
 const sen = JSON.parse(fs.readFileSync(senaryoYolu, 'utf8'))
 const kart = sen.kartlar || {}
 const cagrilar = [], loglar = [], sayac = {}
-let seq = 0, kapiAktif = 0, kapiEnCok = 0, yazarAktif = 0, yazarEnCok = 0
+let seq = 0, yazarAktif = 0, yazarEnCok = 0
 const bekle = ms => new Promise(r => setTimeout(r, ms || 0))
 function sira(anahtar, liste, varsayilan) {
   const i = (sayac[anahtar] = (sayac[anahtar] === undefined ? -1 : sayac[anahtar]) + 1)
   return Array.isArray(liste) && i < liste.length ? liste[i] : varsayilan
 }
-function kapiSonucu(g) {
-  if (g === true || g === false) return { gecti: g, cikis_kodu: g ? 0 : 4, ozet: 'kapi ' + g, cikti_kuyrugu: '' }
-  return Object.assign({ gecti: false, cikis_kodu: 4, ozet: '', cikti_kuyrugu: '' }, g)
-}
+""" + KAPI_JS + r"""
 async function agent(istem, o) {
   const id = String(o.label).split(' ')[0]
   const ks = kart[id] || {}
@@ -50,37 +47,23 @@ async function agent(istem, o) {
     yazarAktif++; yazarEnCok = Math.max(yazarEnCok, yazarAktif)
     await bekle((sen.gecikme || {}).yazar)
     yazarAktif--
-    return bitir({ ozet: 'test yazıldı', ciktilar: ['t.py'], kanit: ['-'] })
-  }
-  if (o.phase === 'Ön kontrol') {
-    await bekle((sen.gecikme || {}).onkontrol)
-    return bitir(/taban$/.test(o.label) ? { gecti: true, ihlaller: [] } : sira('onk:' + id, ks.onkontrol, { gecti: true, ihlaller: [] }))
-  }
-  if (o.phase === 'Kapı') {
-    kapiAktif++; kapiEnCok = Math.max(kapiEnCok, kapiAktif)
-    await bekle((sen.gecikme || {}).kapi)
-    kapiAktif--
-    const m = /--asama (kirmizi|yesil)/.exec(istem)
-    const asama = m ? m[1] : 'yesil'
-    const k = kapiSonucu(sira(asama + ':' + id, ks[asama], true))
-    const onkVar = /on_kontrol\.py/.test(istem)
-    const onk = k.gecti && onkVar
-      ? (asama === 'kirmizi' ? { gecti: true, ihlaller: [] } : sira('onk:' + id, ks.onkontrol, { gecti: true, ihlaller: [] }))
-      : null
-    return bitir(Object.assign({}, k, { [asama]: k, yesil: k, on_kontrol: onk }))
+    const y = kapiYanit(sira('kir:' + id, ks.kirmizi, true), 'kirmizi')
+    return bitir(y && Object.assign({ ozet: 'test yazıldı', ciktilar: ['t.py'], kanit: ['-'] }, y))
   }
   if (o.agentType === 'orkestra:denetci') {
     await bekle(((sen.gecikme || {}).denetim || {})[id])
     return bitir(sira('den:' + id, ks.denetim, { karar: 'onay', bulgular: [] }))
   }
   await bekle(((sen.gecikme || {}).isci || {})[id])
-  return bitir({ ozet: 'iş yapıldı', ciktilar: ['x.py'], kanit: ['-'] })
+  const kod = istem.includes('Sınıf: kod')
+  const y = kod ? kapiYanit(sira('yes:' + id, ks.yesil, true), 'yesil') : kapiYanit(sira('onk:' + id, ks.onkontrol, true), 'onkontrol')
+  return bitir(y && Object.assign({ ozet: 'iş yapıldı', ciktilar: ['x.py'], kanit: ['-'] }, y))
 }
 async function parallel(fns) { return Promise.all(fns.map(f => f())) }
 function log(m) { loglar.push(String(m)) }
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 new AsyncFunction('agent', 'parallel', 'log', 'args', kaynak)(agent, parallel, log, { gorevler: sen.gorevler })
-  .then(sonuc => process.stdout.write(JSON.stringify({ sonuc, cagrilar, loglar, kapiEnCok, yazarEnCok })))
+  .then(sonuc => process.stdout.write(JSON.stringify({ sonuc, cagrilar, loglar, yazarEnCok })))
   .catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1) })
 """
 
@@ -103,10 +86,17 @@ def duz_kart(id_="G-901", **ek):
 class StatikTestler(unittest.TestCase):
     """node gerekmez."""
 
-    def test_semafor_sabiti_varsayilan_iki(self):
+    def test_kapi_semaforu_ve_kapi_ajani_yok(self):
         with open(BETIK, encoding="utf-8") as f:
             js = f.read()
-        self.assertRegex(js, r"KAPI_ES_ZAMANLI\s*=\s*2\b")
+        self.assertNotIn("KAPI_ES_ZAMANLI", js)
+        self.assertNotIn("phase: 'Kapı'", js)
+        self.assertNotIn("phase: 'Ön kontrol'", js)
+
+    def test_erken_test_tdd_kartina_baglidir(self):
+        with open(BETIK, encoding="utf-8") as f:
+            js = f.read()
+        self.assertIn("if (tddKarti(k) && bag.length > 0", js)
 
 
 @unittest.skipUnless(NODE, NODE_YOK_GEREKCE)
@@ -129,6 +119,7 @@ class AkisTestleri(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
         c = json.loads(p.stdout.decode("utf-8"))
         self.cikti = c
+        self.assertEqual([x for x in c["cagrilar"] if x["phase"] in ("Kapı", "Ön kontrol")], [])
         return c["sonuc"]["sonuclar"], c["cagrilar"], c["loglar"]
 
     @staticmethod
@@ -136,55 +127,30 @@ class AkisTestleri(unittest.TestCase):
         def ad(c):
             if c["agentType"] == "orkestra:test-yazari":
                 return "test"
-            if c["phase"] == "Kapı":
-                return "kapi-" + re.search(r"--asama (\w+)", c["istem"]).group(1)
-            if c["phase"] == "Ön kontrol":
-                return "onk"
             if c["agentType"] == "orkestra:denetci":
                 return "denetim"
             return "is"
         return [ad(c) for c in cagrilar if id_ is None or c["id"] == id_]
 
-    # ---- Kriter 1: mutlu yol
-    def test_mutlu_yol_ayri_on_kontrol_cagrisi_yok_ve_iki_eksik_cagri(self):
+    # ---- mutlu yol
+    def test_mutlu_yol_kapi_ve_on_kontrol_ajani_yok(self):
         s, c, _ = self.kos([kod_karti()])
         self.assertEqual(s[0]["durum"], "onaylandi")
-        self.assertEqual([x for x in c if x["phase"] == "Ön kontrol"], [])
-        self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "denetim"])
-        self.assertEqual(len(c), 5)  # eskiden 8 (taban + kontrol ayrı ajan, iki mercek ayrı denetçi): 3 eksik
+        self.assertEqual(self.adimlar(c), ["test", "is", "denetim"])
+        self.assertEqual(len(c), 3)  # eskiden 8 (taban + kontrol, iki kapı, iki mercek ayrı ajan)
 
-    def test_kapi_istemleri_test_kos_sonra_on_kontrol_icerir(self):
-        _, c, _ = self.kos([kod_karti()])
-        kapilar = [x for x in c if x["phase"] == "Kapı"]
-        self.assertEqual(len(kapilar), 2)
-        kir, yes = kapilar
-        self.assertIn("--asama kirmizi", kir["istem"])
-        self.assertIn("--asama yesil", yes["istem"])
-        for k, alt in ((kir, "taban"), (yes, "kontrol")):
-            self.assertIn("on_kontrol.py", k["istem"])
-            self.assertRegex(k["istem"], r"on_kontrol\.py[^\n]*\b%s\b" % alt)
-            self.assertLess(k["istem"].index("test-kos"), k["istem"].index("on_kontrol.py"))
-        self.assertIn("x.py", yes["istem"])  # kontrol, işçinin bildirdiği çıktılarla koşar (--ciktilar)
-        self.assertEqual(kir["agentType"], "orkestra:isci-t1")
-        self.assertEqual(yes["agentType"], "orkestra:isci-t1")
-
-    def test_kod_olmayan_kart_davranisi_ayni(self):
+    def test_kod_olmayan_kart_davranisi(self):
         s, c, _ = self.kos([duz_kart()])
         self.assertEqual(s[0]["durum"], "onaylandi")
-        self.assertEqual(self.adimlar(c), ["onk", "is", "onk", "denetim"])
-        self.assertEqual([x for x in c if x["phase"] == "Kapı"], [])
-        self.assertIn("taban", c[0]["label"])
-        self.assertIn("kontrol", c[2]["label"])
+        self.assertEqual(self.adimlar(c), ["is", "denetim"])
 
-    # ---- Kriter 2: yeşil geçmez / on_kontrol / sınıflama
-    def test_yesil_gecmeyince_denetci_yok_ayri_on_kontrol_yok_duzeltme_turu(self):
+    # ---- yeşil geçmez / sınıflama (işçinin is-bitti kapısı)
+    def test_yesil_gecmeyince_denetci_yok_duzeltme_turu(self):
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"yesil": [False, True]}})
-        self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim"])
+        self.assertEqual(self.adimlar(c), ["test", "is", "is", "denetim"])
         isler = [x for x in c if x["phase"] == "İş"]
         self.assertTrue(isler[1]["ilk"].endswith("#SUREC:duzeltme"))
-        self.assertIn("Yeşil test kapısı geçmedi", isler[1]["istem"])
+        self.assertIn("is-bitti kapısı geçmedi", isler[1]["istem"])
         self.assertEqual(s[0]["durum"], "onaylandi")
 
     def test_yesil_hep_gecmez_yukselir_denetci_hic_yok(self):
@@ -194,13 +160,13 @@ class AkisTestleri(unittest.TestCase):
                          ["orkestra:isci-t2"] * 2 + ["orkestra:isci-t3"] * 2 + ["orkestra:isci-t4"] * 2)
         self.assertEqual(s[0]["durum"], "reddedildi")
 
-    def test_yesil_gecer_on_kontrol_ihlali_denetciyi_atlar_duzeltme_turu(self):
+    def test_kod_disi_kapi_ihlali_denetciyi_atlar_duzeltme_turu(self):
         ihlal = {"gecti": False, "ihlaller": [{"tur": "kapsam", "ayrinti": "src/b.py"}]}
-        s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"onkontrol": [ihlal]}})
-        self.assertEqual(self.adimlar(c),
-                         ["test", "kapi-kirmizi", "is", "kapi-yesil", "is", "kapi-yesil", "denetim"])
+        s, c, _ = self.kos([duz_kart()], kartlar={"G-901": {"onkontrol": [ihlal]}})
+        self.assertEqual(self.adimlar(c), ["is", "is", "denetim"])
         isler = [x for x in c if x["phase"] == "İş"]
         self.assertIn("ön kontrol kapsam", isler[1]["istem"])
+        self.assertIn("Ret nedeni: talimat-ihlali", isler[1]["istem"])
         self.assertEqual(s[0]["durum"], "onaylandi")
 
     def test_yesil_zaman_asimi_kart_duzeltilmeli(self):
@@ -208,58 +174,47 @@ class AkisTestleri(unittest.TestCase):
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"yesil": [z]}})
         self.assertEqual(s[0]["durum"], "kart-duzeltilmeli")
         self.assertEqual(s[0]["neden"], "kapi-zaman-asimi")
-        self.assertEqual(self.adimlar(c), ["test", "kapi-kirmizi", "is", "kapi-yesil"])
+        self.assertEqual(self.adimlar(c), ["test", "is"])
 
     def test_yesil_cli_hatasi_kart_duzeltilmeli(self):
         h = {"gecti": False, "cikis_kodu": 2, "ozet": "orkestra: test_komutu/test_alani yok"}
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"yesil": [h]}})
         self.assertEqual(s[0]["durum"], "kart-duzeltilmeli")
         self.assertEqual(s[0]["neden"], "kapi-cli-hatasi")
-        self.assertEqual(self.adimlar(c), ["test", "kapi-kirmizi", "is", "kapi-yesil"])
+        self.assertEqual(self.adimlar(c), ["test", "is"])
 
     def test_kirmizi_zaman_asimi_ve_cli_hatasi_siniflamasi(self):
         z = {"gecti": False, "cikis_kodu": -1, "ozet": "zaman aşımı"}
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"kirmizi": [z]}})
         self.assertEqual(s[0]["neden"], "kapi-zaman-asimi")
-        self.assertEqual(self.adimlar(c), ["test", "kapi-kirmizi"])
+        self.assertEqual(self.adimlar(c), ["test"])
         h = {"gecti": False, "cikis_kodu": 2, "ozet": "kilit yok"}
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"kirmizi": [h]}})
         self.assertEqual(s[0]["neden"], "kapi-cli-hatasi")
 
-    def test_kirmizi_gecmez_yeniden_deneme_bugunku_gibi_ve_is_acilmaz(self):
+    def test_kirmizi_gecmez_yeniden_deneme_ve_is_acilmaz(self):
         s, c, _ = self.kos([kod_karti()], kartlar={"G-900": {"kirmizi": [False, False, False]}})
         self.assertEqual(s[0]["durum"], "reddedildi")
         self.assertEqual(s[0]["neden"], "kirmizi-teyit")
-        self.assertEqual(self.adimlar(c), ["test", "kapi-kirmizi"] * 3)
-        self.assertEqual([x for x in c if x["phase"] in ("İş", "Ön kontrol")], [])
+        self.assertEqual(self.adimlar(c), ["test"] * 3)
+        self.assertEqual([x for x in c if x["phase"] == "İş"], [])
 
-    # ---- Kriter 3: semafor
-    def test_uc_bagimsiz_kod_kartinda_en_cok_iki_es_zamanli_kapi(self):
+    # ---- eşzamanlılık: kapı semaforu kalktı, test yazarları sınırsız
+    def test_bagimsiz_kod_kartlari_paralel_test_yazarlari_sinirsiz(self):
         kartlar = [kod_karti("G-910"), kod_karti("G-911"), kod_karti("G-912")]
-        s, c, _ = self.kos(kartlar, gecikme={"kapi": 150})
+        s, c, _ = self.kos(kartlar, gecikme={"yazar": 150})
         self.assertEqual([x["durum"] for x in s], ["onaylandi"] * 3)
-        self.assertLessEqual(self.cikti["kapiEnCok"], 2)
-        self.assertEqual(self.cikti["kapiEnCok"], 2)  # sınır gerçekten kullanılıyor (tam seri değil)
-        kapilar = [x for x in c if x["phase"] == "Kapı"]
-        self.assertEqual(len(kapilar), 6)
+        self.assertEqual(self.cikti["yazarEnCok"], 3)
 
-    def test_semafor_yalniz_kapi_cagrilarini_sinirlar(self):
+    def test_kirmizi_hata_yolunda_diger_kartlar_etkilenmez(self):
         kartlar = [kod_karti("G-910"), kod_karti("G-911"), kod_karti("G-912")]
-        self.kos(kartlar, gecikme={"yazar": 150, "kapi": 20})
-        self.assertEqual(self.cikti["yazarEnCok"], 3)  # test yazarları sınırsız
-        self.assertLessEqual(self.cikti["kapiEnCok"], 2)
-
-    def test_semafor_hata_yolunda_kilitlenmez(self):
-        kartlar = [kod_karti("G-910"), kod_karti("G-911"), kod_karti("G-912")]
-        s, _, _ = self.kos(kartlar, gecikme={"kapi": 30},
-                           kartlar={"G-910": {"kirmizi": [False] * 5}, "G-911": {"kirmizi": [False] * 5}})
+        s, _, _ = self.kos(kartlar, kartlar={"G-910": {"kirmizi": [False] * 5}, "G-911": {"kirmizi": [False] * 5}})
         self.assertEqual([x["durum"] for x in s], ["reddedildi", "reddedildi", "onaylandi"])
-        self.assertLessEqual(self.cikti["kapiEnCok"], 2)
 
-    # ---- Kriter 4: erken test
+    # ---- erken test
     def test_bagimli_kartin_test_yazari_bagimlilik_denetimi_bitmeden_baslar_isci_sonra(self):
         a, b = kod_karti("G-920"), kod_karti("G-921", bagimliliklar=["G-920"])
-        s, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}, "kapi": 10})
+        s, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}})
         self.assertEqual([x["durum"] for x in s], ["onaylandi", "onaylandi"])
         a_den = [x for x in c if x["id"] == "G-920" and x["agentType"] == "orkestra:denetci"]
         b_yazar = [x for x in c if x["id"] == "G-921" and x["agentType"] == "orkestra:test-yazari"][0]
@@ -267,13 +222,22 @@ class AkisTestleri(unittest.TestCase):
         self.assertLess(b_yazar["bas"], min(x["son"] for x in a_den))
         self.assertGreater(b_isci["bas"], max(x["son"] for x in a_den))
 
-    def test_bagimli_kartin_kirmizi_kapisi_da_beklemeden_kosar(self):
+    def test_bagimli_kartin_kirmizi_kapisi_test_yazarinda_beklemeden_biter(self):
         a, b = kod_karti("G-920"), kod_karti("G-921", bagimliliklar=["G-920"])
-        _, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}, "kapi": 10})
-        b_kir = [x for x in c if x["id"] == "G-921" and x["phase"] == "Kapı"][0]
+        _, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}})
+        b_yazar = [x for x in c if x["id"] == "G-921" and x["agentType"] == "orkestra:test-yazari"][0]
         a_den_son = max(x["son"] for x in c if x["id"] == "G-920" and x["agentType"] == "orkestra:denetci")
-        self.assertIn("--asama kirmizi", b_kir["istem"])
-        self.assertLess(b_kir["bas"], a_den_son)
+        self.assertIn("Kırmızı teyidi is-bitti koşar", b_yazar["istem"])  # kırmızı kapı test yazarının is-bitti'sinde
+        self.assertLess(b_yazar["son"], a_den_son)
+
+    def test_tdd_false_bagimli_kart_erken_test_yok_bagimliligi_bekler(self):
+        a, b = kod_karti("G-920"), kod_karti("G-921", bagimliliklar=["G-920"], tdd=False)
+        s, c, _ = self.kos([a, b], gecikme={"denetim": {"G-920": 150}})
+        self.assertEqual([x["durum"] for x in s], ["onaylandi", "onaylandi"])
+        self.assertEqual([x for x in c if x["id"] == "G-921" and x["agentType"] == "orkestra:test-yazari"], [])
+        a_den_son = max(x["son"] for x in c if x["id"] == "G-920" and x["agentType"] == "orkestra:denetci")
+        b_ilk = min(x["bas"] for x in c if x["id"] == "G-921")
+        self.assertGreater(b_ilk, a_den_son)
 
     def test_bagimlilik_reddedilirse_kart_atlandi_testler_yazildi_kilitli_notu(self):
         a, b = kod_karti("G-920"), kod_karti("G-921", bagimliliklar=["G-920"])
@@ -281,7 +245,7 @@ class AkisTestleri(unittest.TestCase):
         self.assertEqual(s[0]["durum"], "reddedildi")
         self.assertEqual(s[1]["durum"], "atlandi")
         self.assertIn("G-920", s[1].get("neden", ""))
-        self.assertEqual(self.adimlar(c, "G-921"), ["test", "kapi-kirmizi"])  # işçi hiç açılmadı
+        self.assertEqual(self.adimlar(c, "G-921"), ["test"])  # işçi hiç açılmadı
         self.assertTrue(any("testler yazıldı, kilitli" in m and "G-921" in m for m in loglar), loglar)
 
     def test_kod_olmayan_bagimli_kart_bagimliligi_bekler(self):

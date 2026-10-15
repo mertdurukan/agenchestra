@@ -41,13 +41,14 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
   - `kabul_kriterleri`: ölçülebilir, kanıtla doğrulanabilir.
   - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
-- Kod üreten (program, betik, modül değiştiren) her alt iş test-önce yürür. Kartına ayrıca şunları yaz:
+- Kod üreten (program, betik, modül değiştiren) her alt iş testle yürür. Kartına ayrıca şunları yaz:
   - `sinif`: `"kod"`;
+  - `tdd`: yalnız riskli kartta `true` (davranış değişikliği olan çok dosyalı iş, kanonik iş mantığı, hata düzeltmesinde yeniden üretim testi). Varsayılan `false`: işçi kodu ve testleri birlikte yazar, test alanı yazma alanına eklenir, kilit yeşilde kurulur. `true` ise test yazarı + kırmızı kapı koşar ve işçi testlere dokunamaz;
   - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`). Kartın dokunduğu modülün test dosyalarıyla DARALT; tam paket gerekiyorsa paralel koşucuyu kullan: `py -3.13 plugins/orkestra/scripts/test_paralel.py -n 8 plugins/orkestra/tests` (orkestra eklentisinde seri ~12 dk → ~4 dk);
   - `test_alani`: test dosyalarının glob listesi (proje köküne göre). Testleri `orkestra:test-yazari` yalnız buraya yazar.
   - `test_koku` (isteğe bağlı): testler proje dışındaki bir depodaysa o deponun mutlak dizini (`kart yeni --test-koku` ya da JSON alanı). `test_komutu` orada koşar, `test_alani` ve test kilidi ona göredir.
   - Sonradan düzeltmek için `orkestra kart test-ayar <id> [--test-koku YOL] [--test-komutu M] [--test-alani GLOB]...` (tek başına çalıştır). Kilit varken yalnız `test_koku` değişir ve yeni kökteki test dosyaları kilitle birebir aynı olmalıdır. Kök değişince eski kökteki yeşil sayılmaz: onaydan önce yeni kökte yeniden yeşil koşulur.
-  - İşçinin `yazma_alani` `test_alani`'nı İÇERMEZ (kesişmez). İşçi testi değiştiremez, yalnız testleri geçirecek kodu yazar.
+  - `tdd: true` kartında işçinin `yazma_alani` `test_alani`'nı İÇERMEZ; işçi testi değiştiremez.
   - CLI, `sinif: kod` kartında `test_komutu` ve `test_alani` olmadan kartı kabul etmez.
 - Planı bir JSON dosyasına yaz (scratchpad'e; `ref` alanı ile birbirine bağla) ve kartları oluştur:
   `orkestra kart toplu --json-dosya <plan.json>` → çıktıdaki kart listesini sakla.
@@ -57,37 +58,35 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
 - Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
+- İsteğe bağlı `args.kart_ajan_tavani` (varsayılan 8): kart başına en çok ajan. Dolan kart `tavan` döner; kartı `beklemede` yap.
 - Betik her kart için şunu yapar:
   - basamağa uygun işçi ajanı çalıştırır;
-  - işten önce T0 ön kontrol `taban`, her işçiden sonra denetçiden önce `kontrol` çalıştırır (`scripts/on_kontrol.py`; ihlalde denetçi çağrılmaz, ret sayılır);
+  - kapılar AJAN DEĞİLDİR: `kart durum isleniyor` T0 ön kontrol tabanını alır ve kart kilidini uygular (kapalı/başkasında → çıkış 6, sonuç `kilitli`); `kart durum is-bitti` testi (kod kartında yeşil, test yazarında kırmızı) ve ön kontrolü koşar, geçmezse kaydetmez ve işçi aynı oturumda düzeltir. İşçi en çok 3 denemeden sonra `kapi: gecmedi` bildirirse denetçi çağrılmaz, ret sayılır;
   - ardından AYRI bir `orkestra:denetci` çalıştırır (işçiyle aynı basamak modelinde; kartta toplam 2 retten sonra opus; yeniden denetim yalnız önceki karşılanmayan kriterler + gerileme);
   - T3 ve üstünde iki mercekle denetler (T1-T3'te mercekler TEK denetçi çağrısında birleşir; yalnız T4'te ayrı, bağımsız denetçiler);
   - aynı basamakta iki ret gelirse basamağı yükseltir;
   - bağımlılık onaylanmadıysa o işi atlar.
 - Kod kartında (`sinif: kod`) sıra şöyledir:
-  1. **Test:** `orkestra:test-yazari` (`#SUREC:test-yaz`) kabul kriterlerinden testleri `test_alani`'na yazar.
-  2. **Kırmızı kapı:** `orkestra:isci-t1` (`#SUREC:test-kapisi`) `orkestra kart test-kos <id> --asama kirmizi` çalıştırır. Kod yokken testler başarısız olmalıdır; geçerse test dosyaları kilitlenir. Geçmezse test yazarına geri bildirimle en çok 2 yeniden deneme yapılır; yine geçmezse kart `reddedildi` (neden `kirmizi-teyit`).
-  3. **İş:** basamağa uygun işçi kodu yazar (testlere dokunmaz).
-  4. **Yeşil kapı:** aynı kapı ajanı `--asama yesil` çalıştırır. Geçmezse denetçi ÇAĞRILMAZ; işçiye test çıktı kuyruğuyla düzeltme turu açılır. Bu tur ret sayılır ve basamak yükseltmeye dahildir.
-  5. **Denetim:** mercekler + `test kalitesi` merceği. Denetçi yeşil kayıt yoksa onay yazamaz (CLI zorlar).
-  - Denetçi `TEST:` önekli bulgu ile ret verirse kart `reddedildi` (neden `test-kalitesi`) döner; işçiye düzeltme açılmaz.
-  - Kapı notları: yeşil kapı ile ön kontrol tek kapı çağrısında koşar; kırmızı kapı ile taban da. Kapılar aynı anda en çok 2 test koşusuyla sınırlıdır. Bağımlı kod kartında test yazımı bağımlılığı beklemez (testler erken yazılır).
+  1. **Test (yalnız `tdd: true`):** `orkestra:test-yazari` (`#SUREC:test-yaz`) testleri `test_alani`'na yazar; is-bitti'si kırmızıyı koşar (kod yokken testler başarısız olmalı) ve geçince testleri kilitler. Geçmezse en çok 2 yeniden deneme; yine geçmezse kart `reddedildi` (neden `kirmizi-teyit`).
+  2. **İş:** basamağa uygun işçi kodu yazar (`tdd: false` ise testleri de); is-bitti yeşili ve ön kontrolü koşar.
+  3. **Denetim:** mercekler + `test kalitesi` merceği; denetçi testi yeniden koşmaz. Denetçi yeşil kayıt yoksa onay yazamaz (CLI zorlar).
+  - `tdd: true` kartında denetçi `TEST:` önekli bulgu ile ret verirse kart `reddedildi` (neden `test-kalitesi`) döner. `tdd: false` kartında bu normal düzeltme turudur.
+  - Bağımlı `tdd` kartında test yazımı bağımlılığı beklemez (testler erken yazılır).
 
 Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Bağımsız kartlar için Agent aracını AYNI mesajda birden çok kez çağır, `run_in_background: true` ile.
 - `subagent_type` işçi kartın basamağına göre seçilir: `orkestra:isci-t1` … `orkestra:isci-t4`.
 - Her ajanın istemi `#GOREV:<id> #SUREC:is` satırıyla başlar.
-- Her işçi bitince ayrı bir `orkestra:denetci` çalıştır. Çağrıda `model` işçiyle aynı basamakta olsun: T1→haiku, T2→sonnet, T3→opus (high), T4→opus (xhigh); kartta toplam ret ≥2 olduktan sonra opus. İşçiden önce `python ${CLAUDE_PLUGIN_ROOT}/scripts/on_kontrol.py taban <id>`, işçiden sonra denetçiden önce `... kontrol <id> --ciktilar a,b` çalıştır; `gecti=false` ise denetçiyi çağırma, ret say. İstem `#GOREV:<id> #SUREC:denetim` ile başlar.
+- Her işçi bitince ayrı bir `orkestra:denetci` çalıştır. Çağrıda `model` işçiyle aynı basamakta olsun: T1→haiku, T2→sonnet, T3→opus (high), T4→opus (xhigh); kartta toplam ret ≥2 olduktan sonra opus. İşçi kapıyı geçemediğini bildirdiyse (is-bitti kaydedilmedi) denetçiyi çağırma, ret say. İstem `#GOREV:<id> #SUREC:denetim` ile başlar.
 - Ret gelirse aynı basamakta en çok iki düzeltme dene (`#SUREC:duzeltme`). Hâlâ ret varsa `orkestra kart yukselt <id> --basamak <üst> --neden "..."` ile yükselt ve bir üst işçiyle yeniden dene.
+- Elle dağıtımda da ön kontrol ve test kapısı için ayrı ajan açma: işçinin is-bitti'si koşar.
 - Kod kartında (`sinif: kod`) elle dağıtımda da aynı sıra izlenir:
-  1. `orkestra:test-yazari` çalıştır (istem `#GOREV:<id> #SUREC:test-yaz`; test komutu ve test alanını yaz).
-  2. Kırmızı kapı: `orkestra:isci-t1` ile (istem `#GOREV:<id> #SUREC:test-kapisi`) `orkestra kart test-kos <id> --asama kirmizi` koştur. Geçmezse test yazarına geri bildirimle en çok 2 kez yeniden dene; yine geçmezse kartı reddedilmiş say (neden `kirmizi-teyit`) ve planı düzelt.
-  3. İşçiyi çalıştır.
-  4. Yeşil kapı: aynı biçimde `--asama yesil`. Geçmezse denetçiyi çağırma; işçiye test çıktı kuyruğuyla `#SUREC:duzeltme` turu aç (ret sayılır, iki retten sonra yükselt).
-  5. Yeşil geçince denetçiyi çalıştır; mercek listesine `test kalitesi` ekle.
+  1. Yalnız `tdd: true` ise `orkestra:test-yazari` çalıştır (istem `#GOREV:<id> #SUREC:test-yaz`); kırmızıyı onun is-bitti'si koşar.
+  2. İşçiyi çalıştır; yeşili ve ön kontrolü onun is-bitti'si koşar.
+  3. is-bitti kaydedildiyse denetçiyi çalıştır; mercek listesine `test kalitesi` ekle.
 
 ## Test kalitesi reddi (kod kartı)
-- Denetçi `TEST:` önekli bulgu ile ret verdiyse sorun koddaki değil testteki eksiktir. Testler kilitli olduğu için işçi bunu düzeltemez.
+- `tdd: true` kartında denetçi `TEST:` önekli bulgu ile ret verdiyse sorun koddaki değil testteki eksiktir. Testler kilitli olduğu için işçi bunu düzeltemez.
 - Kilidi yalnız sen açarsın: `orkestra kart test-kilit-ac <id> --neden "<denetçinin TEST: bulgusu>"`.
 - Sonra kartı yeniden planla (gerekirse kabul kriterlerini ya da `test_alani`'nı düzelt) ve test-önce akışını baştan yürüt: test yazarı → kırmızı → işçi → yeşil → denetim.
 - Kırmızı teyit reddinde (`kirmizi-teyit`) kilit yoktur. Kriterlerin test edilebilirliğini ve `test_komutu`'nu gözden geçirip yeniden dağıt.
@@ -98,6 +97,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 - Reddedilen ya da atlanan kart için kullanıcıya nedenini söyle. Ya planı düzelt ya da `orkestra kart durum <id> beklemede --not "neden"` (ya da `iptal`) yap.
 - Ortak dosyalar (README, dizinler, notlar günlüğü) gerekiyorsa şimdi sen güncelle.
 - Teslimattan önce işin todo.md'sini güncelle: biten maddeleri `orkestra is todo <id> --bitti <n|parça> [--not "..."]` ile kapat; açık kalan ve yeni çıkan sıradaki adımları `orkestra is todo <id> --ekle "..."` ile yaz (sohbet kapanınca kaybolmasın).
+- `orkestra maliyet anomali --gun 1` çalıştır; bu işin kartlarında anomali varsa (teslim sonrası ajan, eşzamanlı koşu, tavan, T4) nedenini teslim mesajına yaz ve işin todo'suna ekle.
 - Kullanıcıya tek teslimat mesajı ver:
   - ne üretildi (dosya bağlantılarıyla);
   - denetim sonucu;

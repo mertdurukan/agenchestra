@@ -61,7 +61,7 @@ class AgacTestKapisi(unittest.TestCase):
         git(self.proje, "commit", "-q", "-m", "ilk")
         r = kos([CLI, "baslat"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod",
+        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
                      "--test-komutu", f'"{sys.executable}" -m unittest discover -s tests', "--test-alani", "tests/**",
                      "--yazma", "src/**", "--yazma", "tests/**")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -298,7 +298,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         git(self.depo, "commit", "-q", "-m", "ilk")
         r = kos([CLI, "baslat"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod",
+        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
                      "--test-komutu", f'"{sys.executable}" -m unittest discover -s depo/tests',
                      "--test-alani", "depo/tests/**", "--yazma", "depo/src/**", "--yazma", "depo/tests/**")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -336,7 +336,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         isci = dict(ajan_id="tw", ajan_tipi="orkestra:isci-t2")
         r = self.cli("kart", "test-kos", self.g, "--asama", "kirmizi", **isci)  # paylaşılan ağaçta, ağaç yokken
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        r = self.cli("kart", "durum", self.g, "is-bitti", "--ozet", "bitti", **isci)
+        r = self.cli("kart", "durum", self.g, "is-bitti", "--ozet", "bitti", ajan_id="tw", ajan_tipi="orkestra:arsivci")  # kapısız: yeşil aşağıda elle
         self.assertEqual(r.returncode, 0, r.stderr)
         yaz(os.path.join(self.depo, "src", "x.py"), "def f():\n    return 2\n")
         r = self.cli("kart", "test-kos", self.g, "--asama", "yesil", **isci)

@@ -18,6 +18,7 @@ Sen orkestra PERSPEKTİF ajanısın. Kullanıcı yok. Hafızayı, kuralları ve 
    - `orkestra defter oku --son 40` çıktısı.
    - `orkestra gunluk ozet --gun 14` çıktısı.
    - `orkestra maliyet rapor --gun 14` çıktısı.
+   - `orkestra maliyet anomali --gun 14` çıktısı (kural tabanlı: pahalı kart, kart başına ajan, teslim sonrası ajan, eşzamanlı işçi, kapı ajanı, ana ajan payı, T4).
    - Mevcut skill'ler: projenin `.claude/skills/` klasörü ve orkestra skill'leri.
 4. Adı geçen dosya ve klasör yollarının hâlâ var olup olmadığını Glob ile kontrol et.
 5. Raporu `.claude/orkestra/perspektif/perspektif_<YYYYMMDD_HHMM>.md` dosyasına yaz. Başka hiçbir dosyaya yazma.
@@ -48,6 +49,7 @@ Türkçe, kısa cümleler:
    - Reddedilen ve yükseltilen kartlar.
    - Denetimin maliyet payı (hedef %15-30).
    - Dikkat çeken maliyet.
+   - Maliyet anomalileri: `maliyet anomali` çıktısındaki her kural için kök neden ve somut düzeltme önerisi (kural, betik ya da eşik). Bunlar da bölüm 6 biçiminde `Vaat:` satırı taşır. Gözlemi öneriye çevirmeden bırakma.
 
 ## Vaat satırı (bölüm 6'daki her öneri için zorunlu)
 Önerinin değişiklik/gerekçe satırlarından sonra, girintili tek satır:

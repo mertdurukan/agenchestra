@@ -128,7 +128,7 @@ Rapor bölümleri (Türkçe, kısa cümleler):
 ## 5. Boyut — MEMORY.md satır/bayt; 200 satır sınırına yakınsa hangi kayıtlar konu dosyalarına bölünmeli.
 ## 6. Önerilen değişiklikler — her biri için dosya, ne değişecek, gerekçe; uygulanabilir kısa diff blokları.
 ## 7. Skill adayları — gunluk.jsonl'da skill'siz tekrarlanan (≥3) istek türleri; her aday için ad, tetik cümleleri, girdi→çıktı, başlangıç basamağı (T0-T4), mevcut betik.
-## 8. Orkestra sağlığı — ortak defterde etiketsiz (#GOREV yok) ajan oranı, reddedilen/yükseltilen kartlar, dikkat çeken maliyet.
+## 8. Orkestra sağlığı — ortak defterde etiketsiz (#GOREV yok) ajan oranı, reddedilen/yükseltilen kartlar, dikkat çeken maliyet; `orkestra maliyet anomali --gun 14` çıktısındaki her anomali için kök neden ve Vaat satırlı düzeltme önerisi.
 
 Kurallar: sır değeri, şifre, çalışan adı yazma. Emin olmadığın şeyi "doğrulanamadı" diye işaretle. Değişiklik UYGULAMA.
 """

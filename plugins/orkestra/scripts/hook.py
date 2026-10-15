@@ -53,6 +53,8 @@ def kilitli_testler(sd: str, ks: list[dict] | None = None) -> dict[str, str]:
     for k in L.kartlar(sd) if ks is None else ks:
         if k.get("durum") in ("teslim", "iptal"):
             continue
+        if (k.get("test_kilidi") or {}).get("yesilde"):
+            continue  # TDD'siz kart: testler işçinin, kilit yalnız onay kanıtı
         d = (k.get("test_kilidi") or {}).get("dosyalar")
         if isinstance(d, dict):
             for y in d:

@@ -192,7 +192,7 @@ class TestAyarYazmaAlani(unittest.TestCase):
         return C.kos([C.CLI] + list(args) + ["--ajan-id", "ana", "--ajan-tipi", "ana"], self.proje)
 
     def kart_ac(self, test_koku=None):
-        a = ["kart", "yeni", "--baslik", "t", "--basamak", "T2", "--sinif", "kod", "--kabul", "k", "--yazma", "src/**",
+        a = ["kart", "yeni", "--baslik", "t", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k", "--yazma", "src/**",
              "--test-komutu", "python x.py", "--test-alani", "eski/*.py"]
         if test_koku:
             a += ["--test-koku", test_koku]
@@ -273,7 +273,7 @@ class KilitliTestAyar(unittest.TestCase):
     def kilitli_kart(self, test_koku):
         kok = self.dis if test_koku else self.proje
         _json_yaz(os.path.join(kok, "testler", "test_a.py"), self.BETIK)
-        a = ["kart", "yeni", "--baslik", "t", "--basamak", "T2", "--sinif", "kod", "--kabul", "k", "--yazma", "src/**",
+        a = ["kart", "yeni", "--baslik", "t", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k", "--yazma", "src/**",
              "--test-komutu", self.komut, "--test-alani", "testler/*.py"]
         if test_koku:
             a += ["--test-koku", self.dis]

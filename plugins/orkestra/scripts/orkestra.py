@@ -24,7 +24,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra defter ekle G-001 --surec is [--yaptim M] [--sonuc M] [--not M]
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
   orkestra defter oku [--gorev G] [--son N] | ozet
-  orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | yeniden-etiketle [--uygula]
+  orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | anomali [--gun N] [--json] | yeniden-etiketle [--uygula]
   orkestra perspektif durum | basla | bitti
   orkestra gunluk ozet [--gun 7]
   orkestra onay liste [--durum D] [--tur T] [--json] | goster ID | iste --baslik B --metin M [--secenek S]... [--oturum O]
@@ -46,6 +46,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
@@ -195,6 +196,9 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         k["butce"] = butce
     if test_alanlari:
         k.update(test_alanlari)
+        if not test_alanlari["tdd"] and not test_alanlari.get("test_koku"):
+            # TDD'siz kartta testleri işçi yazar: test alanı yazma alanına katılır.
+            k["yazma_alani"] = list(dict.fromkeys(list(k.get("yazma_alani") or []) + test_alanlari["test_alani"]))
     k["is"] = bag
     adim = _ik().adim_coz(k["baslik"])
     if adim:
@@ -225,7 +229,9 @@ def _test_alanlari_dogrula(d: dict) -> dict | None:
     if not isinstance(alan, list) or not [g for g in alan if isinstance(g, str) and g.strip()]:
         hata(f"kod kartında test_alani zorunlu (boş olmayan glob listesi; --test-alani): {ad}")
     sonuc = {"test_komutu": komut.strip(), "test_alani": [g.strip() for g in alan if isinstance(g, str) and g.strip()],
-             "test_kilidi": None, "test_kosulari": []}
+             "test_kilidi": None, "test_kosulari": [],
+             # TDD yalnız riskli kod kartında (TOK-4): varsayılan kapalı; açıkken test yazarı + kırmızı kapı koşar.
+             "tdd": d.get("tdd") is True or str(d.get("tdd")).lower() in ("1", "true", "evet")}
     if tk:
         sonuc["test_koku"] = tk
     return sonuc
@@ -238,7 +244,7 @@ def cmd_kart_yeni(a):
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
-                       "is": a.is_id, "risk": a.risk,
+                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk,
                        "butce": ({"usd": a.butce_usd, "token": a.butce_token}
                                  if a.butce_usd is not None or a.butce_token is not None else None)})
     if not k["kabul_kriterleri"]:
@@ -371,10 +377,145 @@ def _is_turu(k: dict, a, ajan_id: str, ajan_tipi: str, sira: int) -> dict:
     return t
 
 
+# Kart kilidi (TOK-1): kapalı kart yeniden işlenmez; başka ajanın yakın zamanda aldığı kart ikinci ajana verilmez.
+# Çıkış 6 = kart kilitli: işçi işe başlamadan durur (workflow sonucu 'kilitli').
+KAPALI_DURUMLAR = ("teslim", "onaylandi", "iptal")
+SAHIPLIK_SURESI_S = 2 * 3600
+
+
+def _kart_kilidi_engeli(k: dict, ajan_id: str) -> str | None:
+    durum = L.kart_durumu_hesapla(k)
+    if durum in KAPALI_DURUMLAR:
+        return (f"kart {durum}: yeniden işlenmez (yeniden açmak için ana ajan `orkestra kart durum {k['id']} planlandi`). "
+                "İşi BIRAK, kapı=kilitli bildir.")
+    if k.get("durum") != "isleniyor":
+        return None
+    for o in reversed(k.get("gecmis") or []):
+        if o.get("olay") != "isleniyor":
+            continue
+        sahip = o.get("agent_id")
+        if not sahip or sahip == ajan_id or sahip in ("bilinmiyor", "ana"):
+            return None
+        ts = _zaman_s(o.get("zaman"))
+        if ts is not None and time.time() - ts > SAHIPLIK_SURESI_S:
+            return None  # bayat sahiplik: ajan bitişi düşmemiş
+        return f"kart başka bir ajanda işleniyor ({sahip}, {o.get('zaman')}); ikinci koşu açılmaz. İşi BIRAK, kapı=kilitli bildir."
+    return None
+
+
+def _zaman_s(z) -> float | None:
+    import datetime
+    try:
+        t = datetime.datetime.fromisoformat(str(z))
+        return t.timestamp() if t.tzinfo else t.astimezone().timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def tdd_karti(k: dict) -> bool:
+    """Test-önce akışı: yalnız `tdd` açık kod kartında (alanı olmayan eski kod kartları TDD sayılır)."""
+    return k.get("sinif") == "kod" and k.get("tdd", True) is not False
+
+
+# Kapılar is-bitti'de (TOK-5): test ve ön kontrol model çağırmadan CLI'de koşar; geçmezse is-bitti kaydedilmez
+# (çıkış 4), işçi aynı oturumda düzeltir. Bash aracının 600 sn sınırına sığsın diye test zaman aşımı en çok 540 sn.
+KAPI_TEST_ZAMAN_ASIMI_S = 540
+
+
+def _ic_komut(fn, ns) -> tuple[int, str]:
+    """CLI alt komutunu süreç içinde koşar; (çıkış kodu, stdout+stderr)."""
+    import contextlib
+    import io
+    tampon = io.StringIO()
+    kod = 0
+    with contextlib.redirect_stdout(tampon), contextlib.redirect_stderr(tampon):
+        try:
+            r = fn(ns)
+            kod = r if isinstance(r, int) else 0
+        except SystemExit as e:
+            kod = e.code if isinstance(e.code, int) else (0 if e.code is None else 2)
+    return kod, tampon.getvalue()
+
+
+def _test_zaman_asimi(k: dict) -> int:
+    z = k.get("test_zaman_asimi")
+    z = z if isinstance(z, (int, float)) and z > 0 else KAPI_TEST_ZAMAN_ASIMI_S
+    return int(min(z, KAPI_TEST_ZAMAN_ASIMI_S))
+
+
+def _onkontrol_ns(gid: str, ajan_id: str | None, ciktilar: list[str] | None = None):
+    return argparse.Namespace(id=gid, proje=None, ciktilar=",".join(ciktilar or []), kaynak=None, ajan_id=ajan_id)
+
+
+def _taban_kapisi(sd: str, k: dict, ajan_id: str) -> None:
+    """İlk isleniyor'da ön kontrol tabanı (dosya özetleri, gerekirse test tabanı). Hata işi durdurmaz."""
+    if os.path.exists(os.path.join(sd, "gorevler", k["id"] + ".onkontrol.json")):
+        return
+    import on_kontrol
+    _ic_komut(on_kontrol.taban, _onkontrol_ns(k["id"], ajan_id))
+
+
+def _is_bitti_kapisi(sd: str, k: dict, ajan_id: str, ajan_tipi: str, ciktilar: list[str]) -> tuple[bool, str, dict]:
+    """is-bitti kapısı. Dönüş: (geçti, rapor metni, kayıt). Kapı yalnız işçi ve test yazarı için koşar."""
+    ad = ajan_tipi.split(":", 1)[-1].lower()
+    kod_karti = k.get("sinif") == "kod" and k.get("test_komutu") and k.get("test_alani")
+    kayit: dict = {}
+    if ad == "test-yazari":
+        if not (kod_karti and tdd_karti(k)):
+            return True, "", kayit
+        if k.get("test_kilidi"):
+            son = [x for x in (k.get("test_kosulari") or []) if x.get("asama") == "kirmizi"]
+            kayit["test"] = "kirmizi-kayitli"
+            return bool(son and son[-1].get("gecti")), "", kayit
+        kod, cikti = _ic_komut(cmd_kart_test_kos, argparse.Namespace(
+            gid=k["id"], asama="kirmizi", zaman_asimi=_test_zaman_asimi(k), ajan_id=ajan_id, ajan_tipi=ajan_tipi))
+        kayit["test"] = "kirmizi-gecti" if kod == 0 else f"kirmizi-gecmedi({kod})"
+        return kod == 0, cikti, kayit
+    if not ad.startswith("isci"):
+        return True, "", kayit
+    rapor = []
+    if kod_karti:
+        kod, cikti = _ic_komut(cmd_kart_test_kos, argparse.Namespace(
+            gid=k["id"], asama="yesil", zaman_asimi=_test_zaman_asimi(k), ajan_id=ajan_id, ajan_tipi=ajan_tipi))
+        kayit["test"] = "yesil-gecti" if kod == 0 else f"yesil-gecmedi({kod})"
+        if kod != 0:
+            return False, cikti, kayit
+        yesiller = [x for x in (_kart_al(sd, k["id"]).get("test_kosulari") or []) if x.get("asama") == "yesil"]
+        if yesiller and isinstance(yesiller[-1].get("sira"), int):
+            kayit["yesil_sira"] = yesiller[-1]["sira"]
+        rapor.append(cikti.strip())
+    import on_kontrol
+    kod, cikti = _ic_komut(on_kontrol.kontrol, _onkontrol_ns(k["id"], ajan_id, ciktilar))
+    kayit["on_kontrol"] = "gecti" if kod == 0 else f"gecmedi({kod})"
+    rapor.append(cikti.strip())
+    return kod in (0, 2), "\n".join(r for r in rapor if r), kayit  # 2 = kullanım hatası: işi durdurmaz
+
+
 def cmd_kart_durum(a):
     sd = sd_gerekli()
     ajan_id, ajan_tipi = _kim(a)
     path = L.kart_yolu(sd, a.gid)
+    kapi_kaydi = None
+    if a.durum in ("isleniyor", "is-bitti") and ajan_tipi not in ("ana", "bilinmiyor"):
+        k0 = _kart_al(sd, a.gid)
+        if a.durum == "isleniyor":
+            engel = _kart_kilidi_engeli(k0, ajan_id)
+            if engel:
+                hata(f"{a.gid} kilitli — {engel}", 6)
+            _taban_kapisi(sd, k0, ajan_id)
+        else:
+            ciktilar = list(dict.fromkeys(list(k0.get("ciktilar") or []) + list(a.cikti or [])))
+            gecti, rapor, kapi_kaydi = _is_bitti_kapisi(sd, k0, ajan_id, ajan_tipi, ciktilar)
+            if not gecti:
+                print(rapor[-6000:])
+                if "(çıkış -1," in rapor:
+                    hata(f"{a.gid} is-bitti KAYDEDİLMEDİ: test komutu zaman aşımı ({_test_zaman_asimi(k0)} sn). "
+                         "Kod düzeltmesiyle çözülmez; kapi=gecmedi bildir.", 4)
+                for kalip in ("hiçbir proje dosyasına uymuyor", "kilit yok", "test_komutu/test_alani yok", "kapsamıyor"):
+                    if any(l.startswith("orkestra:") and kalip in l for l in rapor.splitlines()):
+                        hata(f"{a.gid} is-bitti KAYDEDİLMEDİ: kart/test ayarı hatası ({kalip}); kapi=gecmedi bildir.", 2)
+                hata(f"{a.gid} is-bitti KAYDEDİLMEDİ: kapı geçmedi ({kapi_kaydi}). Yukarıdaki çıktıya göre düzelt ve "
+                     "is-bitti'yi yeniden çalıştır.", 4)
     with L.kilit(path):
         k = _kart_al(sd, a.gid)
         if a.durum == "is-bitti":
@@ -387,7 +528,10 @@ def cmd_kart_durum(a):
             for c in a.cikti or []:
                 if c not in k["ciktilar"]:
                     k["ciktilar"].append(c)
-            k.setdefault("is_turlari", []).append(_is_turu(k, a, ajan_id, ajan_tipi, k["son_is_sira"]))
+            tur = _is_turu(k, a, ajan_id, ajan_tipi, k["son_is_sira"])
+            if kapi_kaydi:
+                tur["kapi"] = kapi_kaydi
+            k.setdefault("is_turlari", []).append(tur)
             if a.ozet:
                 k["son_ozet"] = L.maskele(a.ozet)[:2000]
             k["durum"] = "denetimde"
@@ -471,8 +615,10 @@ def _yesil_kapi_engeli(k: dict) -> str | None:
         return str(e)
     kosular = k.get("test_kosulari") or []
     son_is_sira = k.get("son_is_sira")
+    kapi_sira = ((k.get("is_turlari") or [{}])[-1].get("kapi") or {}).get("yesil_sira")
     if son_is_sira is not None:
-        sonraki = [x for x in kosular if (x.get("sira") or 0) > son_is_sira]
+        alt = kapi_sira if isinstance(kapi_sira, int) else son_is_sira + 1
+        sonraki = [x for x in kosular if (x.get("sira") or 0) >= alt]
     else:
         sonraki = [x for x in kosular if x.get("zaman", "") >= (k.get("son_is_zamani") or "")]
     if not sonraki:
@@ -512,7 +658,10 @@ def cmd_kart_test_kos(a):
         hata("kartta test_komutu/test_alani yok.")
     if a.asama == "kirmizi" and k.get("test_kilidi"):
         hata("test dosyaları zaten kilitli: kırmızı yeniden koşulamaz (kilidi yalnız ana ajan açar: `kart test-kilit-ac`).")
-    if a.asama == "yesil" and not k.get("test_kilidi"):
+    tdd = tdd_karti(k)
+    if a.asama == "kirmizi" and not tdd:
+        hata("kart TDD değil (tdd=false): kırmızı aşama yok; testler işçiyle birlikte yazılır, yeşilde kilitlenir.")
+    if a.asama == "yesil" and tdd and not k.get("test_kilidi"):
         hata("test dosyalarında kilit yok: önce kırmızı aşama koşulmalı (`kart test-kos … --asama kirmizi`).")
     if a.zaman_asimi <= 0:
         hata("--zaman-asimi pozitif olmalı.")
@@ -540,6 +689,12 @@ def cmd_kart_test_kos(a):
             hash_tutarli = None  # kırmızıda kıyas yok: kilidi bu koşu kurar
             if gecti:
                 k["test_kilidi"] = {"zaman": L.simdi(), "dosyalar": once}
+        elif not tdd:
+            # TDD'siz kod kartı: testler işçinin; kilit her geçen yeşilde koşulan dosyalarla yeniden kurulur.
+            hash_tutarli = once == sonra
+            gecti = karar["yesil"] and hash_tutarli
+            if gecti:
+                k["test_kilidi"] = {"zaman": L.simdi(), "dosyalar": sonra, "yesilde": True}
         else:
             if not k.get("test_kilidi"):
                 hata("test kilidi koşu sırasında açıldı; yeşil kaydedilmedi.")
@@ -1248,6 +1403,12 @@ def _tur_isi(sd, gorev, oturum):
         return str(v) if v else None
     except Exception:
         return None
+
+
+def cmd_maliyet_anomali(a):
+    import maliyet_anomali as MA
+    liste = MA.calistir(sd_gerekli(), a.gun or None)
+    print(json.dumps(liste, ensure_ascii=False, indent=1) if a.json else MA.metin(liste))
 
 
 def cmd_maliyet_ozet(a):
@@ -2088,6 +2249,8 @@ def main():
                    help="kod kartında zorunlu (tekrarlanabilir): test dosyası glob'u, test köküne göre")
     y.add_argument("--test-koku", dest="test_koku",
                    help="kod kartında isteğe bağlı: test kökü (var olan mutlak dizin; yoksa proje kökü)")
+    y.add_argument("--tdd", action="store_true",
+                   help="kod kartında test-önce akışı (test yazarı + kırmızı kapı); yalnız riskli kartta")
     y.add_argument("--risk", help="dusuk|orta|yuksek (isteğe bağlı; ölçüm kaydı)")
     y.add_argument("--butce-usd", dest="butce_usd", help="isteğe bağlı bütçe (USD); yalnız kayıt")
     y.add_argument("--butce-token", dest="butce_token", help="isteğe bağlı bütçe (token); yalnız kayıt")
@@ -2188,6 +2351,10 @@ def main():
     for ad in ("--giris", "--cikis", "--onb-okuma", "--onb-yazma", "--sure-ms"):
         tu.add_argument(ad, type=int, default=0)
     tu.set_defaults(f=cmd_maliyet_tur)
+    an = mal.add_parser("anomali", help="deterministik maliyet anomali denetimi (kart × koşu × zaman kuralları)")
+    an.add_argument("--gun", type=int, default=1, help="son N gün (0 = tümü)")
+    an.add_argument("--json", action="store_true")
+    an.set_defaults(f=cmd_maliyet_anomali)
     ge = mal.add_parser("gecmis")
     ge.add_argument("--bu-oturum-dahil", action="store_true")
     ge.set_defaults(f=cmd_maliyet_gecmis)

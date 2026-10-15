@@ -46,7 +46,7 @@ class TestKilidiHook(unittest.TestCase):
         return (c.get("hookSpecificOutput") or {}).get("permissionDecisionReason") or ""
 
     def kod_karti(self, kilitli=None, durum=None):
-        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "k", "--sinif", "kod",
+        r = C.kos([C.CLI, "kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "k", "--sinif", "kod", "--tdd",
                    "--test-komutu", "python -m unittest", "--test-alani", "tests/**", "--yazma", "src/**"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
         gid = r.stdout.strip()

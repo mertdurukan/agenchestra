@@ -79,7 +79,7 @@ class Taban(unittest.TestCase):
         return C.kos(a, self.proje)
 
     def kod_karti(self, alan):
-        r = self.cli("kart", "yeni", "--baslik", "kart " + alan, "--basamak", "T2", "--sinif", "kod",
+        r = self.cli("kart", "yeni", "--baslik", "kart " + alan, "--basamak", "T2", "--sinif", "kod", "--tdd",
                      "--kabul", "çalışır", "--yazma", "src/**", "--test-komutu", self.komut,
                      "--test-alani", alan, "--test-koku", self.dis)
         self.assertEqual(r.returncode, 0, r.stderr)

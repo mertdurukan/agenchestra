@@ -102,6 +102,20 @@ def kisalt_baslik(s, sinir: int = 80) -> str:
     return s if len(s) <= sinir else s[:sinir - 1].rstrip() + "…"
 
 
+def _transkript_son_dokunus(oturum, agent_id):
+    """Alt ajan transkriptinin son yazılma zamanı (epoch sn); bulunamazsa None (karar verilmez)."""
+    if not oturum or not agent_id:
+        return None
+    import glob
+    kok = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    desen = os.path.join(glob.escape(kok), "*", glob.escape(oturum), "subagents", "**", f"agent-{glob.escape(agent_id)}.jsonl")
+    try:
+        yollar = glob.glob(desen, recursive=True)
+        return max(os.path.getmtime(y) for y in yollar) if yollar else None
+    except OSError:
+        return None
+
+
 def asili_ajanlar(sd: str, simdi=None) -> list:
     """`oturumlar/acik_ajan_*.json` kayıtlarından başlangıcı ASILI_AJAN_DK'dan eski olanları döner;
     ASILI_AJAN_TEMIZLE_SAAT'ten eski kayıtları siler (bitişi hiç gelmeyen ajanların kalıntısı)."""
@@ -130,6 +144,14 @@ def asili_ajanlar(sd: str, simdi=None) -> list:
             except OSError:
                 pass
         elif dk >= ASILI_AJAN_DK:
+            son = _transkript_son_dokunus(d.get("oturum"), d.get("agent_id"))
+            if son is not None and (simdi.timestamp() - son) / 60 >= ASILI_AJAN_DK:
+                # Transkript ASILI_AJAN_DK'dır yazılmıyor: ajan çalışmıyor, bitiş kaydı düşmemiş (bayat kayıt).
+                try:
+                    os.remove(yol)
+                except OSError:
+                    pass
+                continue
             out.append({"agent_id": d.get("agent_id"), "ajan": d.get("ajan"), "gorev": d.get("gorev", "-"),
                         "surec": d.get("surec"), "oturum": d.get("oturum"), "dakika": int(dk)})
     return out
