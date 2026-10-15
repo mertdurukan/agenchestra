@@ -62,6 +62,24 @@ class NiyetDurumTesti(unittest.TestCase):
     def test_kapandi_oncelikli(self):
         self.assertEqual(self._durum([(30, "tur", {"arka_plan": True}), (10, "kapandi", {})]), "kapandi")
 
+    def test_arsivli_sohbet_ne_satirda_ne_akista(self):
+        with tempfile.TemporaryDirectory() as d:
+            yol = os.path.join(d, "niyet.jsonl")
+            with open(yol, "w", encoding="utf-8") as f:
+                for oturum in ("arsivli", "acik"):
+                    for tur, ek in (("istek", {"metin": "x"}), ("niyet", {"ne": "iş", "neden": "amaç"})):
+                        f.write(json.dumps({"zaman": _z(5), "oturum": oturum, "proje": PROJE, "tur": tur, **ek}) + "\n")
+            md = {"arsivli": {"id": "l1", "baslik": "A", "arsiv": True, "link": "x"},
+                  "acik": {"id": "l2", "baslik": "B", "arsiv": False, "link": "y"}}
+            with mock.patch.object(niyet, "NIYET_YOLU", yol), \
+                    mock.patch.object(niyet, "masaustu_oturumlari", return_value=md), \
+                    mock.patch.object(niyet, "_basliklar", return_value={}), \
+                    mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]), \
+                    mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
+                g = niyet.gorunum()
+        self.assertEqual([r["oturum"] for r in g["oturumlar"]], ["acik"])
+        self.assertEqual({a["oturum"] for a in g["akis"]}, {"acik"})
+
 
 if __name__ == "__main__":
     unittest.main()
