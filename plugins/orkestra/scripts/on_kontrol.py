@@ -273,7 +273,7 @@ def kontrol(a) -> int:
             if "taban-yok" not in uyarilar:
                 uyarilar.append("taban-yok")
         else:
-            once, simdi = taban_kaydi["test"], test_kos(kart["test_komutu"], proje)
+            once, simdi = taban_kaydi["test"], test_kos(kart["test_komutu"], proje, kart)
             if once["basarisiz"] or simdi["basarisiz"]:
                 yeni = sorted(set(simdi["basarisiz"]) - set(once["basarisiz"]))
                 onceden = sorted(set(simdi["basarisiz"]) & set(once["basarisiz"]))
