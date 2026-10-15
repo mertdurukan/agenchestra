@@ -395,6 +395,8 @@ def subagent_start(inp: dict):
             pass
     if gorev == "-" or not L.kart_oku(sd, gorev):
         gec()
+    if str(inp.get("agent_type") or "").endswith("denetci"):
+        _denetim_basladi(sd, gorev, aid, inp.get("agent_type"))
     try:
         import subprocess
         out = subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "orkestra.py"), "defter", "baglam", gorev, "--max", "1800"],
