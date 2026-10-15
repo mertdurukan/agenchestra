@@ -56,7 +56,18 @@ def masaustu_oturumlari() -> dict:
     except Exception:
         onb = {}
     out, yeni, degisti = {}, {}, False
-    for p in glob.glob(os.path.join(kok, "*", "*", "local_*.json")):
+    dosyalar = glob.glob(os.path.join(kok, "*", "*", "local_*.json"))
+    if not dosyalar and onb:
+        # Süreç uygulamanın kayıt klasörünü göremiyor (farklı APPDATA/oturum ortamı): önbelleği ezme, bununla devam et.
+        dosyalar = [p for p in onb if isinstance(onb[p], dict)]
+        yeni = {p: onb[p] for p in dosyalar}
+        for p in dosyalar:
+            k = onb[p]
+            if k.get("cli") and k.get("id"):
+                out[k["cli"]] = {"id": k["id"], "baslik": k.get("baslik"), "arsiv": k.get("arsiv"),
+                                 "link": "claude://claude.ai/epitaxy/" + k["id"]}
+        return out
+    for p in dosyalar:
         try:
             imza = f"{os.path.getsize(p)}:{int(os.path.getmtime(p))}"
         except OSError:
