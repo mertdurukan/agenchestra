@@ -57,7 +57,7 @@ class OnayliBagimlilikAlani(unittest.TestCase):
         return self.kos([CLI] + list(args) + ["--ajan-id", ajan_id, "--ajan-tipi", ajan_tipi])
 
     def kart(self, yazma, bagimli=()):
-        a = ["kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge",
+        a = ["kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge",
              "--yazma", yazma]
         for b in bagimli:
             a += ["--bagimli", b]

@@ -252,8 +252,10 @@ def kontrol(a) -> int:
                 ihlaller.append({"tur": TUR_SATIR_SONU, "ayrinti": f"{yol}: {once['satir_sonu']} -> {simdi['satir_sonu']}"})
 
     # (b) kapsam
+    test_kok = kart.get("test_koku") or proje
+    test_alani = kart.get("test_alani") or []
     for c in ciktilar:
-        if not yol_alanda_mi(proje, c, alan):
+        if not (yol_alanda_mi(proje, c, alan) or yol_alanda_mi(test_kok, c, test_alani)):
             ihlaller.append({"tur": TUR_KAPSAM, "ayrinti": f"{c}: yazma_alani dışında"})
 
     # (c) test farkı

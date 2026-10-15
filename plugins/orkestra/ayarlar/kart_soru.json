@@ -1,0 +1,17 @@
+{
+  "soru_max_karakter": 200,
+  "analiz_siniflari": [
+    "analiz",
+    "analitik",
+    "arastirma"
+  ],
+  "genis_tarama_kaliplari": [
+    "\\btüm\\b",
+    "\\bbütün\\b",
+    "\\bhepsi",
+    "\\bher (tenant|şema|tablo|müşteri)",
+    "\\bdistinct\\b",
+    "count\\(",
+    "tam tarama"
+  ]
+}

@@ -99,7 +99,7 @@ class HookOnay(unittest.TestCase):
         import ork_lib as L
         import perspektif
         for i in range(8):
-            r = self.kos([CLI, "kart", "yeni", "--baslik", f"Çok uzun başlıklı açık kart numara {i} " * 3, "--basamak", "T1", "--sinif", "belge",
+            r = self.kos([CLI, "kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", f"Çok uzun başlıklı açık kart numara {i} " * 3, "--basamak", "T1", "--sinif", "belge",
                           "--kabul", "x", "--yazma", "docs/**"])
             self.assertEqual(r.returncode, 0, r.stderr)
         for i in range(40):

@@ -2,9 +2,10 @@
 
 Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra baslat                                   bu projede durum klasörünü açar
-  orkestra kart yeni --baslik T --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
+  orkestra kart yeni --baslik T --soru "kartın cevaplayacağı tek soru" --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
                      [--test-komutu M] [--test-alani GLOB]...     (--sinif kod ise ikisi ZORUNLU; glob proje köküne göre)
                      [--test-koku MUTLAK_DIZIN]                    (kod kartı, isteğe bağlı: test kökü proje yerine bu dizin)
+                     [--genislet-onay]   (analiz kartında geniş tarama uyarısını kullanıcı onayıyla kaldırır; --soru ZORUNLU, tek cümle)
   orkestra kart toplu plan.json | --json-dosya plan.json   (liste: [{baslik, basamak, kabul_kriterleri, yazma_alani, bagimliliklar,
                                                     test_komutu, test_alani, ...}])
   orkestra kart goster G-001 | liste [--hepsi] [--json]
@@ -53,6 +54,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
+import soru_sinif as SS  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -174,6 +176,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
     _sinif_zorunlu(d)
+    _soru_zorunlu(d, sd)
     test_alanlari = _test_alanlari_dogrula(d)
     risk = _risk_dogrula(d)
     butce = _butce_dogrula(d)
@@ -191,6 +194,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "sinif": d.get("sinif") or "-",
         "basamak": basamak,
         "baslangic_basamak": basamak,
+        "soru": d["soru"].strip(),
         "girdi": d.get("girdi") or "",
         "kabul_kriterleri": list(d.get("kabul_kriterleri") or []),
         "yazma_alani": yazma,
@@ -205,6 +209,8 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "ciktilar": [],
         "gecmis": [{"zaman": L.simdi(), "olay": "olusturuldu", "basamak": basamak}],
     }
+    if d.get("genislet_onay") is True:
+        k["genislet_onay"] = True
     if risk is not None:
         k["risk"] = risk
     if butce is not None:
@@ -235,6 +241,50 @@ def _sinif_zorunlu(d: dict) -> None:
     sn = d.get("sinif")
     if not isinstance(sn, str) or not sn.strip() or sn.strip() == "-":
         hata(f"sinif zorunlu (--sinif); geçerli sınıflar: {', '.join(SINIFLAR)}. Kart: {d.get('baslik') or '(başlıksız)'}")
+
+
+KART_SORU_DOSYA = "kart_soru.json"
+KART_SORU_VARSAYILAN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ayarlar", KART_SORU_DOSYA)
+
+
+def _kart_soru_ayar(sd) -> dict:
+    """Eklenti varsayılanı + proje ezmesi (durum dizinindeki kart_soru.json); bozuk/eksik dosya varsayılana düşer."""
+    ayar = {"soru_max_karakter": 200, "analiz_siniflari": ["analiz", "analitik", "arastirma"], "genis_tarama_kaliplari": []}
+    ayar.update(SS._json_oku(KART_SORU_VARSAYILAN) or {})
+    if sd:
+        ayar.update(SS._json_oku(os.path.join(sd, KART_SORU_DOSYA)) or {})
+    return ayar
+
+
+def _soru_zorunlu(d: dict, sd) -> None:
+    """Yeni kart açılışında soru zorunlu: boş olmayan tek cümle (satır sonu yok, soru_max_karakter'i aşmaz)."""
+    ad = d.get("baslik") or "(başlıksız)"
+    s = d.get("soru")
+    if not isinstance(s, str) or not s.strip():
+        hata(f"soru zorunlu (--soru): kartın cevaplayacağı tek soru (tek cümle). Kart: {ad}")
+    s = s.strip()
+    mx = _kart_soru_ayar(sd).get("soru_max_karakter", 200)
+    if "\n" in s or "\r" in s or (isinstance(mx, int) and len(s) > mx):
+        hata(f"soru tek cümle olmalı (satır sonu yok, en çok {mx} karakter): {ad}")
+
+
+def _genis_tarama_uyarisi(sd, k: dict) -> None:
+    """Analiz sınıfı kartta geniş kapsam kalıbı varsa yalnız uyarı (stderr); genislet_onay varsa susar."""
+    if k.get("genislet_onay") is True:
+        return
+    ayar = _kart_soru_ayar(sd)
+    if (k.get("sinif") or "").strip().lower() not in [str(x).lower() for x in ayar.get("analiz_siniflari") or []]:
+        return
+    metin = SS._normallestir(" ".join([k.get("soru") or "", k.get("girdi") or "", *map(str, k.get("kabul_kriterleri") or [])]))
+    for kalip in ayar.get("genis_tarama_kaliplari") or []:
+        try:
+            m = re.search(kalip, metin)
+        except re.error:
+            continue
+        if m:
+            print(f"orkestra: uyarı {k['id']}: geniş tarama ({m.group(0)}) — önce en ucuz kanıt (ör. varlık kontrolü); "
+                  "genişletme kullanıcı onayıyla --genislet-onay", file=sys.stderr)
+            return
 
 
 def _test_alanlari_dogrula(d: dict) -> dict | None:
@@ -273,6 +323,7 @@ def cmd_kart_yeni(a):
     if not a.kabul:  # iş/klasör açılmadan önce
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
     k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
+                       "soru": a.soru, "genislet_onay": a.genislet_onay or None,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
                        "tdd": a.tdd, "is": a.is_id, "risk": a.risk, "madde": a.madde, "oto_teslim": a.oto_teslim,
@@ -283,6 +334,7 @@ def cmd_kart_yeni(a):
     L.kart_yaz(sd, k)
     _kart_is_bagla(sd, k)
     _cakisma_uyarisi(sd, [k])
+    _genis_tarama_uyarisi(sd, k)
     print(k["id"])
 
 
@@ -310,6 +362,7 @@ def cmd_kart_toplu(a):
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
         _sinif_zorunlu(d)
+        _soru_zorunlu(d, sd)
         _test_alanlari_dogrula(d)
         _risk_dogrula(d)
         _butce_dogrula(d)
@@ -338,6 +391,8 @@ def cmd_kart_toplu(a):
         if dongu(k["id"], set()):
             hata(f"bağımlılık döngüsü: {k['id']}")
     _cakisma_uyarisi(sd, olusan)
+    for k in olusan:
+        _genis_tarama_uyarisi(sd, k)
     print(json.dumps([{"id": k["id"], "baslik": k["baslik"], "basamak": k["basamak"], "bagimliliklar": k["bagimliliklar"]}
                       for k in olusan], ensure_ascii=False))
 
@@ -2502,6 +2557,9 @@ def main():
     y.add_argument("--basamak", default="T2")
     y.add_argument("--sinif")
     y.add_argument("--girdi")
+    y.add_argument("--soru", help="zorunlu: kartın cevaplayacağı tek soru (tek cümle)")
+    y.add_argument("--genislet-onay", dest="genislet_onay", action="store_true",
+                   help="analiz kartında geniş tarama uyarısını kullanıcı onayıyla kaldırır")
     y.add_argument("--kabul", action="append", default=[])
     y.add_argument("--yazma", action="append", default=[])
     y.add_argument("--bagimli", action="append", default=[])

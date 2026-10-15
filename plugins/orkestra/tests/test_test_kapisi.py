@@ -83,7 +83,7 @@ class TestKapisi(unittest.TestCase):
         return kos(a, self.proje)
 
     def kod_karti(self, komut=None, alanlar=("testler/*.py",), sinif="kod"):
-        a = ["kart", "yeni", "--baslik", "kod işi", "--basamak", "T2", "--sinif", sinif, *(["--tdd"] if sinif == "kod" else []),
+        a = ["kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "kod işi", "--basamak", "T2", "--sinif", sinif, *(["--tdd"] if sinif == "kod" else []),
              "--kabul", "çalışır", "--yazma", "src/**"]
         if komut is not False:
             a += ["--test-komutu", komut or self.komut]
@@ -130,25 +130,25 @@ class TestKapisi(unittest.TestCase):
         self.assertEqual(k["test_kosulari"], [])
 
     def test_kod_kartinda_test_komutu_eksik_reddedilir(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
                      "--yazma", "src/**", "--test-alani", "testler/*.py")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("test_komutu", r.stderr)
 
     def test_kod_kartinda_test_komutu_bos_metin_reddedilir(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
                      "--yazma", "src/**", "--test-komutu", "   ", "--test-alani", "testler/*.py")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("test_komutu", r.stderr)
 
     def test_kod_kartinda_test_alani_eksik_reddedilir(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T2", "--sinif", "kod", "--tdd", "--kabul", "k",
                      "--yazma", "src/**", "--test-komutu", self.komut)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("test_alani", r.stderr)
 
     def test_toplu_kod_karti_alanlar_eksik_reddedilir(self):
-        taban = {"baslik": "x", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"]}
+        taban = {"soru": "Kısa test sorusu?", "baslik": "x", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"]}
         for ek, beklenen in (({"test_alani": ["testler/*.py"]}, "test_komutu"),
                              ({"test_komutu": self.komut}, "test_alani"),
                              ({"test_komutu": self.komut, "test_alani": []}, "test_alani")):
@@ -162,7 +162,7 @@ class TestKapisi(unittest.TestCase):
     def test_toplu_kod_karti_alanlarla_olusur(self):
         yol = os.path.join(self.proje, "toplu.json")
         with open(yol, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "x", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"],
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "x", "basamak": "T2", "sinif": "kod", "tdd": True, "kabul_kriterleri": ["k"], "yazma_alani": ["src/**"],
                         "test_komutu": self.komut, "test_alani": ["testler/*.py"]}], f)
         r = self.cli("kart", "toplu", yol)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -174,14 +174,14 @@ class TestKapisi(unittest.TestCase):
         self.assertEqual(k["test_kosulari"], [])
 
     def test_kod_olmayan_kartta_alan_gerekmez_eski_davranis(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
         self.assertEqual(r.returncode, 0, r.stderr)
-        r2 = self.cli("kart", "yeni", "--baslik", "y", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
+        r2 = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "y", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
         self.assertEqual(r2.returncode, 0, r2.stderr)
 
     # ---------------------------------------------------------- 2) test-kos
     def test_test_kos_kod_olmayan_kartta_hata(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
         g = r.stdout.strip()
         r = self.kos_t(g, "kirmizi")
         self.assertNotEqual(r.returncode, 0)
@@ -456,7 +456,7 @@ class TestKapisi(unittest.TestCase):
         self.assertEqual(self.ret(g).returncode, 0)
 
     def test_kod_olmayan_kartta_onay_eski_davranis(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T1", "--sinif", "belge", "--kabul", "k", "--yazma", "docs/**")
         g = r.stdout.strip()
         self.is_bitti(g)
         r = self.onay(g)

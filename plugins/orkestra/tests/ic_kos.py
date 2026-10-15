@@ -18,8 +18,12 @@ import io
 import os
 import subprocess
 import sys
+import threading
 import traceback
 
+# Süreç içi yol sys.argv/os.environ/cwd/stdin/stdout'u süreç genelinde değiştirir; eşzamanlı iş parçacıkları
+# birbirinin durumunu ezmesin diye tek kilit altında seri koşar (alt süreç yolu kilitsiz).
+_KILIT = threading.RLock()
 _MODULLER: dict = {}
 _EV_ANAHTARLARI = ("USERPROFILE", "HOME", "HOMEDRIVE", "HOMEPATH")
 
@@ -87,6 +91,11 @@ def kos(args: list, cwd: str | None = None, env: dict | None = None, input: str 
     if not _ic_mi(args):
         return subprocess.run([sys.executable] + list(args), cwd=cwd, env=env, input=input, capture_output=True,
                               text=True, encoding="utf-8", timeout=timeout)
+    with _KILIT:
+        return _ic_kos(args, cwd, env, input)
+
+
+def _ic_kos(args: list, cwd: str | None, env: dict | None, input: str | None) -> subprocess.CompletedProcess:
     m = _modul(args[0])
     eski = (list(sys.argv), dict(os.environ), os.getcwd(), sys.stdin)
     out, err = io.StringIO(), io.StringIO()

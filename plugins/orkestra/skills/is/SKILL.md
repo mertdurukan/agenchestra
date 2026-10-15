@@ -34,13 +34,17 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 - Önce projedeki skill'lere bak. Bir alt iş için uygun skill varsa işçiye "şu skill'i kullan" diye yaz.
 - Her alt iş için şunları belirle:
   - `baslik`
+  - `soru` (zorunlu, `--soru`): kartın cevaplayacağı tek cümle. Boşsa ya da satır sonu içeriyorsa/en çok 200 karakteri (`ayarlar/kart_soru.json` `soru_max_karakter`) aşıyorsa CLI kartı reddeder.
+    - Önce en ucuz kanıt: soruyu cevaplayan en dar ölçümle başla (ör. varlık kontrolü "kolon var mı", sayımdan önce).
+    - Genişletme (tüm tablo, tüm şema, sayım, tam tarama) kullanıcıya sorularak yapılır; onaylanırsa karta `--genislet-onay` (JSON: `genislet_onay: true`) konur.
+    - `analiz`, `analitik`, `arastirma` sınıfı kartta geniş tarama kalıbı (`genis_tarama_kaliplari`) çıkarsa CLI yalnız uyarır (stderr); onay varsa susar. Ayar: `ayarlar/kart_soru.json`; proje ezmesi `.claude/orkestra/kart_soru.json`.
   - `basamak`: T0 betik (T1 işçi çalıştırır), T1 Haiku, T2 Sonnet, T3 Opus medium, T4 Opus xhigh. Kuşkudaysan DAHA DÜŞÜK basamağı seç; yükseltmeyi denetçi reddi tetikler.
     - Kartları yazmadan önce her alt iş için `py -3.13 <plugin>/scripts/oner.py basamak --sinif <sinif> --metin "<başlık + kriterler>"` çalıştır.
     - Öneri bağlayıcı değildir (K-3: otomatik uygulama yok); `yetersiz-veri` dönerse "kuşkuda düşük" kuralı geçerlidir.
     - Benzer kart uyarılarındaki kriter ipuçlarını kabul kriterlerine kat.
     - Teslim türü (`oto_teslim`): kod kartında varsayılan kendiliğinden teslimdir; kod dışı kartta (belge, analiz, kanonik, dış teslim) varsayılan elle teslimdir (ana ajan). Riskli kod kartında plan JSON'una `"oto_teslim": false` yaz (`kart yeni --elle-teslim`).
   - `kabul_kriterleri`: ölçülebilir, kanıtla doğrulanabilir.
-  - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
+  - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. Aynı dosyayı değiştiren işler zincir kurulmaz, tek kartta birleştirilir (kriterler ayrı satır); birleşik kart 8 kriterden fazlaysa en çok 2 kartlık zincire bölünür. `bagimliliklar` yalnız çıktı bağımlılığı içindir, dosya çakışması için kullanılmaz. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
 - Kod üreten (program, betik, modül değiştiren) her alt iş testle yürür. Kartına ayrıca şunları yaz:
   - `sinif`: `"kod"`;
@@ -57,7 +61,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 
 ## 2. Dağıt
 Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
-- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
+- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, soru, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
 - İsteğe bağlı `args.kart_ajan_tavani` (varsayılan 8): kart başına en çok ajan. Dolan kart `tavan` döner; kartı `beklemede` yap.
 - Kart USD bütçesi: harcama tavana ulaşınca `kart durum isleniyor` çıkış 7 verir, kart `butce` döner. Tavan sırası: kartın `butce.usd` > geçmiş taban (sınıf×basamak 2×p90) > basamak varsayılanı (T1 1 $, T2 3 $, T3 8 $, T4 12 $). Gör: `orkestra kart butce <id>`; gerekçeyle aç: `--usd <yeni>` (yalnız ana ajan).

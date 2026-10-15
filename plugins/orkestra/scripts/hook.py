@@ -1106,6 +1106,13 @@ def user_prompt_submit(inp: dict):
         if not sistem:
             parcalar = [_niyet_metni(inp.get("session_id")), asili_uyari(sd, inp.get("session_id")),
                         _yonlendirme_ipucu(sd, inp.get("session_id"), metin)]
+            try:  # bilgi sorusu notu (G-120): listenin başına; hata hook'u düşürmez
+                import soru_sinif
+                sn = soru_sinif.not_metni(metin, sd)
+                if sn:
+                    parcalar.insert(0, " ".join(sn.split()))
+            except Exception:
+                pass
             try:  # panel onay kararları: hata hook'u düşürmez
                 import onay
                 om = onay.baglam_metni(sd, inp.get("session_id"), "UserPromptSubmit")

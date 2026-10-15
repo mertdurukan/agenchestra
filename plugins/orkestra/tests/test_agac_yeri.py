@@ -192,7 +192,7 @@ class AgacYeriCli(Temel):
         return kos([CLI] + list(args) + ["--ajan-id", ajan_id, "--ajan-tipi", ajan_tipi], self.proje, env_ek=env_ek)
 
     def kart(self, desen="src/**"):
-        r = self.cli("kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge", "--yazma", desen)
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge", "--yazma", desen)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 
@@ -462,7 +462,7 @@ class AgacTemizleCaprazDepo(Temel):
         return kos([CLI] + list(args) + ["--ajan-id", "ana", "--ajan-tipi", "ana"], self.A)
 
     def kart(self):
-        r = self.cli("kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge", "--yazma", "src/**")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "iş", "--basamak", "T2", "--kabul", "yapıldı", "--sinif", "belge", "--yazma", "src/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 

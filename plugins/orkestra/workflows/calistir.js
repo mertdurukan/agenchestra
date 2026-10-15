@@ -157,6 +157,7 @@ function isciIstemi(k, surec, ret) {
   return [
     `#GOREV:${k.id} #SUREC:${surec}`,
     `Görev: ${k.baslik}`,
+    k.soru ? `Soru: ${k.soru}` : '',
     k.girdi ? `Girdi: ${k.girdi}` : '',
     'Kabul kriterleri:',
     ...k.kabul_kriterleri.map((c, i) => `  ${i + 1}. ${c}`),
@@ -172,6 +173,7 @@ function testYazariIstemi(k, geriBildirim) {
   return [
     `#GOREV:${k.id} #SUREC:test-yaz`,
     `Görev: ${k.baslik} — uygulama kodundan ÖNCE kabul kriterlerinden test yaz.`,
+    k.soru ? `Soru: ${k.soru}` : '',
     k.girdi ? `Girdi: ${k.girdi}` : '',
     'Kabul kriterleri:',
     ...k.kabul_kriterleri.map((c, i) => `  ${i + 1}. ${c}`),

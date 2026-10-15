@@ -60,7 +60,7 @@ class Ortak(unittest.TestCase):
 
     def kart(self, *ek):
         sinif = [] if "--sinif" in ek else ["--sinif", "belge"]  # G-109: sinif zorunlu
-        r = self.cli("kart", "yeni", "--baslik", "iş", "--basamak", "T2", "--kabul", "çalışır", "--yazma", "src/**", *sinif, *ek)
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "iş", "--basamak", "T2", "--kabul", "çalışır", "--yazma", "src/**", *sinif, *ek)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 

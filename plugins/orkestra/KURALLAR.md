@@ -7,6 +7,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - Onay yazma. Onayı yalnız ayrı denetçi verir.
 - Kart gerektiren işi `/orkestra:is` ile yürüt.
 - Tekrar eden işte önce var olan skill'lere bak.
+- Bilgi sorusu: hook notu "BİLGİ SORUSU" gelirse en çok 5 cümleyle cevapla. İş durumu, tablo ya da kaynak taraması ekleme; ayrıntıyı ancak istenirse ver. Ayar: `ayarlar/soru_sinif.json`; proje ezmesi `.claude/orkestra/soru_sinif.json`.
 - Ana ajan mı, orkestra mı? Kart döngüsünün bir bedeli var: işçi, ön kontrol ve denetçi her seferinde bağlamı sıfırdan kurar; bağlam aktarılırken bilgi kaybolur. Bu bedeli yalnız paralellik, bağlam ayrımı ya da bağımsız denetim kazandırıyorsa öde.
   - Doğrudan (kart açma):
     - soru-cevap, açıklama, durum özeti yap;
@@ -41,6 +42,9 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 ## Dağıtım
 - Bağımsız işleri paralel koştur.
 - Paralel işlerin yazma alanları kesişmesin.
+  - Yazma alanı kesişen (aynı dosyayı değiştiren) işlere zincir kurma; tek kartta birleştir, kriterler ayrı satır olsun.
+  - Birleşik kart 8 kriterden fazlaysa en çok 2 kartlık zincire böl.
+  - Mantıksal bağımlılık (çıktısını okuma) ile dosya çakışmasını ayrı değerlendir; yalnız çıktısını bekleyen iş bağımlılık olur.
 - Kart dağıtımını varsayılan olarak `Workflow` aracıyla `orkestra:calistir` üzerinden yap.
 - Workflow kullanılamazsa kartları elle dağıt.
 - Workflow izni yalnız orkestra kartı dağıtımı içindir; başka iş türlerine genişlemez.
@@ -66,6 +70,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
   2. API ya da MCP çağrısı; sonucu bağlama almadan önce betikle süz ve topla.
   3. Tarayıcıda sayfa içi JS ile toplanmış sonuç.
   4. Sayfa metni ya da ekran görüntüsü okuma (son çare).
+- En ucuz kanıt: soruyu cevaplayan en dar ölçümle başla (ör. "kolon var mı" varlık kontrolü, sayımdan ve tam taramadan önce). Genişletmeyi yalnız kullanıcıya sorarak yap.
 - Toplu sınıflamada kuralları ana ajan yazsın, satırları Haiku işlesin.
 - Tespit ve düzeltmeyi önce deterministik Python kurallarıyla kur (kod, regex, sayaç, oturum bağlantısı).
 - LLM'i yalnız kuralla ayrılamayan belirsiz durumlarda kullan.

@@ -56,13 +56,13 @@ class OtoTeslim(unittest.TestCase):
         return [x.get("olay") for x in self.goster(g)["gecmis"]]
 
     def kod_karti(self, *ek):
-        r = self.ok("kart", "yeni", "--baslik", "kod işi", "--basamak", "T2", "--sinif", "kod", "--tdd",
+        r = self.ok("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "kod işi", "--basamak", "T2", "--sinif", "kod", "--tdd",
                     "--kabul", "çalışır", "--yazma", "src/**", "--test-komutu", self.komut,
                     "--test-alani", "testler/*.py", *ek)
         return r.stdout.strip()
 
     def belge_karti(self, *ek):
-        r = self.ok("kart", "yeni", "--baslik", "belge işi", "--basamak", "T1", "--sinif", "belge",
+        r = self.ok("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "belge işi", "--basamak", "T1", "--sinif", "belge",
                     "--kabul", "yazıldı", "--yazma", "docs/**", *ek)
         return r.stdout.strip()
 
@@ -88,11 +88,11 @@ class OtoTeslim(unittest.TestCase):
 
     def test_k1_toplu_json_varsayilan_ve_false(self):
         plan = [
-            {"baslik": "k1", "sinif": "kod", "kabul_kriterleri": ["a"], "yazma_alani": ["src/a/**"],
+            {"soru": "Kısa test sorusu?", "baslik": "k1", "sinif": "kod", "kabul_kriterleri": ["a"], "yazma_alani": ["src/a/**"],
              "test_komutu": self.komut, "test_alani": ["testler/*.py"]},
-            {"baslik": "k2", "sinif": "kod", "kabul_kriterleri": ["a"], "yazma_alani": ["src/b/**"],
+            {"soru": "Kısa test sorusu?", "baslik": "k2", "sinif": "kod", "kabul_kriterleri": ["a"], "yazma_alani": ["src/b/**"],
              "test_komutu": self.komut, "test_alani": ["testler/*.py"], "oto_teslim": False},
-            {"baslik": "b1", "sinif": "belge", "kabul_kriterleri": ["a"], "yazma_alani": ["docs/a/**"]},
+            {"soru": "Kısa test sorusu?", "baslik": "b1", "sinif": "belge", "kabul_kriterleri": ["a"], "yazma_alani": ["docs/a/**"]},
         ]
         yol = os.path.join(self.proje, "plan.json")
         with open(yol, "w", encoding="utf-8") as f:
@@ -102,7 +102,7 @@ class OtoTeslim(unittest.TestCase):
         self.assertEqual(degerler, [True, False, False])
 
     def test_k1_gecersiz_deger_reddedilir(self):
-        plan = [{"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["a"], "oto_teslim": "evet"}]
+        plan = [{"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["a"], "oto_teslim": "evet"}]
         yol = os.path.join(self.proje, "plan.json")
         with open(yol, "w", encoding="utf-8") as f:
             json.dump(plan, f)

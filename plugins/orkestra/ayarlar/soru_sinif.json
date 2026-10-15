@@ -1,0 +1,37 @@
+{
+  "not": "BİLGİ SORUSU: en çok 5 cümle; iş durumu, tablo, kaynak taraması yok; ayrıntı ancak istenirse.",
+  "kisa_max_karakter": 120,
+  "uzun_max_karakter": 300,
+  "soru_kaliplari": [
+    "\\bne demek\\b",
+    "\\bnedir\\b",
+    "\\bneden\\b",
+    "\\bniye\\b",
+    "\\bgerekir mi\\b",
+    "\\bnasıl\\b",
+    "\\bhangisi\\b",
+    "\\bne işe yarar\\b",
+    "\\bne anlama gel\\w*",
+    "\\bfark[ıi] ne\\b"
+  ],
+  "soru_eki_regex": "\\bm[ıiuü]\\s*\\??\\s*$",
+  "eylem_kaliplari": [
+    "\\byap(?:ın|alım|ar\\s+m[ıi]s[ıi]n\\w*|abilir\\w*|sana|ıp|mak)?\\b",
+    "\\buygula(?:r|yın|yalım|yabilir|sana|yıp|mak)?\\b",
+    "\\bbaşla(?:yalım|yın|r|sana|yıp|mak)?\\b",
+    "\\bbaşlat(?:ın|alım|ır|abilir|sana|mıyor\\w*|ıp|mak)?\\b",
+    "\\bdüzelt(?:in|elim|ir|ebilir|sana|ip|mek)?\\b",
+    "\\bekle(?:yin|yelim|r|yebilir|sene|yip|mek)?\\b",
+    "\\byaz(?:ın|alım|ar|abilir|sana|ıp|mak)?\\b",
+    "\\bsil(?:in|elim|er|ebilir|sene|ip|mek)?\\b",
+    "\\bçalıştır(?:ın|alım|ır|abilir|sana|ıp|mak)?\\b",
+    "\\bgüncelle(?:yin|yelim|r|yebilir|sene|yip|mek)?\\b",
+    "\\boluştur(?:un|alım|ur|abilir|sana|up|mak)?\\b",
+    "\\bcommit\\w*",
+    "\\bpush\\w*",
+    "\\boku(?:yun|yalım|r\\s+mus(?:un|unuz)|yabilir\\w*|sana|yup)?\\b",
+    "\\bincele(?:yin|yelim|r\\s+mis(?:in|iniz)|yebilir\\w*|sene|yip)?\\b",
+    "\\bkontrol\\s+e(?:t|din|delim|der\\s+mis(?:in|iniz)|debilir\\w*)\\b",
+    "\\bbak(?:ın|alım|ar\\s+m[ıi]s[ıi]n\\w*|abilir\\w*|sana)?\\b"
+  ]
+}
