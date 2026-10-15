@@ -371,8 +371,12 @@ def olustur(sd: str, proje: str) -> dict:
 def yaz(sd: str, proje: str) -> dict | None:
     """Anlık görüntüyü yazar; hata arayüzü bozmasın diye ozet_hata.txt'ye düşer, istisna fırlatmaz."""
     try:
-        o = olustur(sd, proje)
-        L.atomik_yaz(os.path.join(sd, "ozet.json"), json.dumps(o, ensure_ascii=False))
+        # Paralel ajan bitişleri aynı dosyayı aynı anda değiştirmeye çalışıp Windows'ta PermissionError alıyordu:
+        # kilit altında sıraya girer; sonra gelen güncel durumu hesaplar, bayat anlık görüntü yazılmaz.
+        yol = os.path.join(sd, "ozet.json")
+        with L.kilit(yol, bekleme_s=5.0):
+            o = olustur(sd, proje)
+            L.atomik_yaz(yol, json.dumps(o, ensure_ascii=False))
         return o
     except Exception as e:  # noqa: BLE001
         try:

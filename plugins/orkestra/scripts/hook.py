@@ -141,10 +141,17 @@ _KABUK_YAZMA_ISLEC = (r"(?:>>?|\btee\b|Set-Content|Add-Content|Out-File|\bsed\s+
                       r"Remove-Item|Move-Item|Copy-Item|\btruncate\b)")
 
 
+_KABUK_YAZMA_ON = re.compile(_KABUK_YAZMA_ISLEC + r"|open\(", re.I)
+
+
 def kabuk_kilitli_yazma(komut: str, kilitli: dict[str, str]) -> str | None:
     """Kabuk komutu kilitli bir test dosyasını yazma işlecinin HEDEFİ yapıyorsa kart kimliğini döndürür (en iyi çaba).
     Yakalanamayanlar (değişken/dolaylı yol, betik içi yazma) `kart test-kos yesil` hash denetimine kalır."""
+    dusuk = komut.lower()
     for rel, gid in kilitli.items():
+        # Ön süzme: ne yol ne dosya adı komutta geçiyorsa regex derlemeye gerek yok (her Bash çağrısında yüzlerce derleme).
+        if rel.lower() not in dusuk and os.path.basename(rel).lower() not in dusuk:
+            continue
         ad = "(?:" + re.escape(rel) + "|" + re.escape(os.path.basename(rel)) + ")(?![\\w.])"
         r = re.compile(_KABUK_YAZMA_ISLEC + r"[^|;&\n]*?" + ad
                        + r"|open\([^)\n]*" + ad + r"[^)\n]*,\s*['\"][wax]", re.I)
@@ -311,7 +318,8 @@ def pre_tool_use(inp: dict):
 
     if arac in KABUK_ARACLARI:
         komut = girdi.get("command") or ""
-        kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd))
+        # Kilitli test denetimi yalnız yazma işleci içeren komutta anlamlı; yalnız-okuma komutunda kartları (125 JSON) okuma.
+        kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd)) if _KABUK_YAZMA_ON.search(komut) else None
         if kgid:
             reddet(f"kilitli test: komut {kgid} kartının kilitli test dosyasına yazıyor/siliyor. Kilit yalnız ana ajanın "
                    "`orkestra kart test-kilit-ac` komutuyla açılır.")
