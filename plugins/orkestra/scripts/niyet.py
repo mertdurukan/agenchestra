@@ -521,7 +521,7 @@ def gorunum(gun: int = GORUNUM_GUN) -> dict:
         a["sohbet"] = m.get("baslik") or (basliklar.get(a["oturum"]) or (None,))[0] or (a["oturum"] or "")[:8]
         a["link"] = m.get("link")
         a["arsiv"] = bool(m.get("arsiv"))
-    akis = [a for a in akis if not a["arsiv"]]  # arşivli sohbetlerin olayları akışta görünmez
+    akis = [a for a in akis if not a["arsiv"] and a["oturum"] not in hayalet]  # arşivli sohbetlerin olayları akışta görünmez
     akis = sorted([a for a in akis if a["tur"] != "onceki"], key=lambda a: a["zaman"] or "", reverse=True)[:40]
     sayac = collections.Counter(r["bekleyen"] for r in satirlar)
     return {"uretim": L.simdi(), "oturumlar": satirlar, "akis": akis, "sayac": dict(sayac),
