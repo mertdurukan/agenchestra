@@ -62,7 +62,7 @@ class AgacTestKapisi(unittest.TestCase):
         git(self.proje, "commit", "-q", "-m", "ilk")
         r = kos([CLI, "baslat"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
                      "--test-komutu", f'"{sys.executable}" -m unittest discover -s tests', "--test-alani", "tests/**",
                      "--yazma", "src/**", "--yazma", "tests/**")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -193,7 +193,7 @@ class AgacTestKapisi(unittest.TestCase):
 
     def ikinci_kart_agaci(self):
         """İkinci kartı açıp ağacını kurar; her CLI çağrısının dönüş kodu ve yolun geçici dizin altında olduğu denetlenir."""
-        r = self.cli("kart", "yeni", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok", "--sinif", "belge",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "k2", "--basamak", "T2", "--kabul", "ok", "--sinif", "belge",
                      "--yazma", "tests/**", "--yazma", "src/**")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         g2 = r.stdout.strip()
@@ -321,7 +321,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         git(self.depo, "commit", "-q", "-m", "ilk")
         r = kos([CLI, "baslat"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "kod", "--basamak", "T2", "--kabul", "ok", "--sinif", "kod", "--tdd",
                      "--test-komutu", f'"{sys.executable}" -m unittest discover -s depo/tests',
                      "--test-alani", "depo/tests/**", "--yazma", "depo/src/**", "--yazma", "depo/tests/**")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -349,7 +349,7 @@ class AgacProjeKokunuKapsamiyor(unittest.TestCase):
         self.assertEqual(git(self.depo, "branch", "--list", f"kart/{self.g}").strip(), "")
         self.assertNotIn("calisma_agaci", self.kart())
         # kod kartı olmayan kart aynı düzende ağaç açabilir (testi yok, kapı yok)
-        r = self.cli("kart", "yeni", "--baslik", "belge", "--basamak", "T2", "--kabul", "ok", "--sinif", "belge", "--yazma", "depo/src/**")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "belge", "--basamak", "T2", "--kabul", "ok", "--sinif", "belge", "--yazma", "depo/src/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         g2 = r.stdout.strip()
         r = self.cli("kart", "agac", g2)

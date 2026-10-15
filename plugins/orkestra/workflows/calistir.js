@@ -39,6 +39,7 @@ const RET_NEDEN_ACIKLAMA = {
   'talimat-ihlali': 'kart ya da protokol talimatı çiğnenmiş (yazma alanı, sır vb.)',
   'kriter-belirsiz': 'kabul kriteri belirsiz ya da çelişkili (kart düzeltilmeli)',
   'yetenek-yetersiz': 'iş bu basamağın yeteneğini aşıyor (üst basamak gerekir)',
+  'ortam': 'başarısızlık kodun değil ortamın: yük altında zamanlama, başka kartın değişikliği, eksik araç/izin; kodu ya da modeli değiştirmek çözmez',
 }
 
 const ISCI_SEMA = {
@@ -55,8 +56,9 @@ const ISCI_SEMA = {
   },
   required: ['ozet', 'ciktilar', 'kanit', 'kapi'],
 }
-// Ret nedeni kodları (scripts/ret_nedeni.py ile aynı): dikkat grubu → işçi düzeltir; kriter-belirsiz → kart; yetenek-yetersiz → basamak.
-const RET_NEDENLERI = ['kapsam-eksik', 'bicim', 'sayi-tutarsiz', 'kanit-yok', 'talimat-ihlali', 'kriter-belirsiz', 'yetenek-yetersiz']
+// Ret nedeni kodları (scripts/ret_nedeni.py ile aynı): dikkat grubu → işçi düzeltir; kriter-belirsiz → kart; yetenek-yetersiz → basamak;
+// ortam → ana ajan (yeniden deneme/yükseltme yok).
+const RET_NEDENLERI = ['kapsam-eksik', 'bicim', 'sayi-tutarsiz', 'kanit-yok', 'talimat-ihlali', 'kriter-belirsiz', 'yetenek-yetersiz', 'ortam']
 const DENETIM_SEMA = {
   type: 'object',
   properties: {
@@ -89,16 +91,17 @@ function testKalitesiReddi(d) {
   return satirlar.some(s => String(s).trim().toUpperCase().startsWith('TEST:'))
 }
 
-// Birden çok mercekten gelen retlerden nedene göre öncelikli olanı seçer: kriter-belirsiz > yetenek-yetersiz > ilk ret.
+// Birden çok mercekten gelen retlerden nedene göre öncelikli olanı seçer: kriter-belirsiz > yetenek-yetersiz > ortam > ilk ret.
 function retSec(kararlar) {
   const retler = kararlar.filter(d => d.karar !== 'onay')
-  return retler.find(d => d.neden === 'kriter-belirsiz') || retler.find(d => d.neden === 'yetenek-yetersiz') || retler[0]
+  return retler.find(d => d.neden === 'kriter-belirsiz') || retler.find(d => d.neden === 'yetenek-yetersiz') || retler.find(d => d.neden === 'ortam') || retler[0]
 }
 
-// Ret sonrası bir sonraki adım (saf karar): 'kart' | 'yukselt' | 'son' | 'devam'.
+// Ret sonrası bir sonraki adım (saf karar): 'kart' | 'ortam' | 'yukselt' | 'son' | 'devam'.
 // Neden yoksa ya da dikkat grubundaysa mevcut iki-ret kuralı geçerlidir.
 function retSonrasi(neden, retSayisi, sonBasamak) {
   if (neden === 'kriter-belirsiz') return 'kart'
+  if (neden === 'ortam') return 'ortam'
   if (neden === 'yetenek-yetersiz') return sonBasamak ? 'son' : 'yukselt'
   if (retSayisi >= AYNI_BASAMAKTA_EN_COK_RET) return sonBasamak ? 'son' : 'yukselt'
   return 'devam'
@@ -120,6 +123,17 @@ function ayniRet(a, b) {
   return x !== null && x === retImzasi(b)
 }
 
+// Kapı özeti normalize (saf): rakamlar, süreler, mutlak yollar ve hex kimlikler atılır; yalnız bunlarla ayrışan
+// iki özet aynı kapı hatasıdır (ör. yük altında değişen süre/sıra/geçici dizin).
+function kapiOzetiNormalize(m) {
+  return String(m || '').toLowerCase()
+    .replace(/[a-z]:[\\/][^\s'"]*/g, ' ')
+    .replace(/(^|[\s'"(=])\/[^\s'"]+/g, '$1 ')
+    .replace(/\b[0-9a-f]{7,}\b/g, ' ')
+    .replace(/\d+/g, ' ')
+    .replace(/\s+/g, ' ').trim()
+}
+
 // Denetçi modeli (saf): basamak modeli; toplam ret eşiğinden sonra opus (T4'te xhigh).
 function denetciModeli(basamak, toplamRet) {
   const d = DENETCI[basamak]
@@ -139,16 +153,18 @@ const KAPI_PROTOKOLU = [
 ].join('\n')
 
 // ---------------------------------------------------------------- istemler
-function isciIstemi(k, surec, ret) {
+function isciIstemi(k, surec, ret, not) {
   return [
     `#GOREV:${k.id} #SUREC:${surec}`,
     `Görev: ${k.baslik}`,
+    k.soru ? `Soru: ${k.soru}` : '',
     k.girdi ? `Girdi: ${k.girdi}` : '',
     'Kabul kriterleri:',
     ...k.kabul_kriterleri.map((c, i) => `  ${i + 1}. ${c}`),
     `Yazma alanı: ${(k.yazma_alani || []).join(', ') || '(sınırsız)'}`,
     testBilgisi(k),
     kodKarti(k) ? (tddKarti(k) ? 'Testleri geçirecek kodu yaz; testi değiştirme.' : 'Kodu ve test_alani\'ndaki testleri birlikte yaz (her kriter için en az bir test).') : '',
+    not || '',
     ret ? `ÖNCEKİ DENETİM RET VERDİ.${ret.neden ? ` Ret nedeni: ${ret.neden} — ${RET_NEDEN_ACIKLAMA[ret.neden] || ''}.` : ''} Düzeltme talimatı: ${ret.duzeltme_talimati || '-'}\nBulgular: ${(ret.bulgular || []).join(' | ')}` : '',
     KAPI_PROTOKOLU,
   ].filter(Boolean).join('\n')
@@ -158,6 +174,7 @@ function testYazariIstemi(k, geriBildirim) {
   return [
     `#GOREV:${k.id} #SUREC:test-yaz`,
     `Görev: ${k.baslik} — uygulama kodundan ÖNCE kabul kriterlerinden test yaz.`,
+    k.soru ? `Soru: ${k.soru}` : '',
     k.girdi ? `Girdi: ${k.girdi}` : '',
     'Kabul kriterleri:',
     ...k.kabul_kriterleri.map((c, i) => `  ${i + 1}. ${c}`),
@@ -191,7 +208,7 @@ function denetimIstemi(k, is, mercekler, oncekiRet) {
       : '',
     testBilgisi(k),
     'Test ve ön kontrol kapıları işçinin is-bitti\'sinde CLI tarafından koşuldu ve geçti (kayıt: `orkestra kart goster <id>` → test_kosulari, onkontrol_kosulari). Testi YENİDEN KOŞMA; kayda güven, değişen dosyaların diff\'ine ve kriterlere bak.',
-    `Ret verirsen nedeni şu kodlardan tek biri seç (öncelik: kriter belirsizse kriter-belirsiz; işin zorluğu basamağı aşıyorsa yetenek-yetersiz; aksi halde dikkat grubundan en belirgini): ${RET_NEDENLERI.join(', ')}. CLI'ya \`--neden <kod>\` ile yaz, şemadaki 'neden' alanına da koy.`,
+    `Ret verirsen nedeni şu kodlardan tek biri seç (öncelik: kriter belirsizse kriter-belirsiz; işin zorluğu basamağı aşıyorsa yetenek-yetersiz; başarısızlık kodun değil test/araç ortamının (yük altında zamanlama, başka kartın değişikliği, eksik araç/izin) ise ortam; aksi halde dikkat grubundan en belirgini): ${RET_NEDENLERI.join(', ')}. CLI'ya \`--neden <kod>\` ile yaz, şemadaki 'neden' alanına da koy.`,
     'Çıktıları kendin aç, her kriteri kanıtla değerlendir, kararı `orkestra kart denetim <id> --karar onay|ret [--neden <kod>] --gerekce ... --talimat ...` ile yaz, son yanıtın şemaya uygun olsun.',
   ].filter(Boolean).join('\n')
 }
@@ -307,12 +324,16 @@ async function testOnce(k, basamak, gecmis) {
 }
 
 // ---------------------------------------------------------------- tek görev
-async function yurut(k, bagBekle) {
+// bagBekle: erken test yolu (tdd); spek: { hazirP, bagP } spekülatif başlatma (H2c): işçi bağımlılıkların kapısıyla başlar,
+// denetçi bağımlılıklar onaylanınca çağrılır; bağımlılık onaydan önce ret/düzeltme geçirdiyse işçi turu bir kez yeniden koşar.
+async function yurut(k, bagBekle, spek) {
   let basamak = k.basamak === 'T0' ? 'T1' : k.basamak
   let retSayisi = 0
   let sonRet = null
   let toplamRet = 0 // kartın tüm basamaklardaki ret sayısı (denetçi modeli için)
   let denetimRet = null // son LLM denetçi reti: yeniden denetim yalnız bunların karşılanmasına bakar; yükseltmede sıfırlanır
+  let oncekiKapiHam = null
+  let oncekiKapiOzeti = null // son turdaki geçmeyen kapının normalize özeti (kapı geçince sıfırlanır)
   let oncekiBasamakRet = null // yükseltmeyi tetikleyen, önceki basamağın son reti
   const gecmis = []
   const kod = kodKarti(k)
@@ -328,11 +349,25 @@ async function yurut(k, bagBekle) {
       return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, gecmis }
     }
   }
+  let spekBekliyor = !!spek // denetimden önce bağımlılıkların onayı beklenecek mi
+  let yenidenSurec = false // sonraki işçi turu spekülasyon geçersizliğiyle yeniden koşu mu
+  if (spek) {
+    const hazirlar = await spek.hazirP
+    if (!hazirlar.every(Boolean)) {
+      const eksik = (await spek.bagP).filter(x => x.durum !== 'onaylandi').map(x => x.id)
+      log(`${k.id}: bağımlılığın kapısı geçmedi → işçi turu açılmadı`)
+      return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, gecmis }
+    }
+  }
 
   for (let tur = 0; tur < 10; tur++) {
     if (tavanda(k)) return tavanSonucu(k, basamak, gecmis, sonRet)
-    const surec = tur === 0 ? 'is' : retSayisi === 0 ? 'yukseltme' : 'duzeltme'
-    const is = await kartAjani(k, isciIstemi(k, surec, sonRet), {
+    const surec = yenidenSurec ? 'yeniden' : tur === 0 ? 'is' : retSayisi === 0 ? 'yukseltme' : 'duzeltme'
+    const not = yenidenSurec
+      ? 'BAĞIMLILIK DEĞİŞTİ: işin bağımlılığın onaydan önceki haliyle başlamıştı; bağımlılık sonradan düzeltildi. Çıktını bağımlılıkların onaylı haline göre gözden geçirip yeniden üret.'
+      : ''
+    yenidenSurec = false
+    const is = await kartAjani(k, isciIstemi(k, surec, sonRet, not), {
       agentType: ISCI[basamak], schema: ISCI_SEMA, label: `${k.id} işçi ${basamak}`, phase: 'İş',
     })
     if (!is) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'işçi ajan sonuç döndürmedi' }
@@ -344,7 +379,27 @@ async function yurut(k, bagBekle) {
     const kapi = kapiSonucu(is)
     if (!kapi.gecti && kapiZamanAsimiMi(kapi)) return zamanAsimiSonucu(k, basamak, gecmis, kapi, 'yesil')
     if (!kapi.gecti && kapiCliHatasi(kapi)) return cliHatasiSonucu(k, basamak, gecmis, kapi, 'yesil')
+    if (kapi.gecti) {
+      oncekiKapiOzeti = null
+      hazirCoz(k.id, true, gecmis.length) // bağımlıların spekülatif işçisi bu kapıyla başlar (yalnız ilk çözüm sayılır)
+    }
     if (!kapi.gecti) {
+      // Aynı kartta arka arkaya iki kapı hatası normalize edilince aynıysa sorun kod/model değil ortamdır.
+      const norm = kapiOzetiNormalize(kapi.ozet)
+      // Kod kartında birebir aynı özet deterministik gerçek test hatasıdır (kod düzeltir, eski akış); yalnız rakam/süre/yol
+      // farkıyla ayrışan özet kararsız ortamı gösterir. Kod dışı kartta birebir tekrar da ortam sayılır.
+      const ham = String(kapi.ozet || '')
+      const ozdes = kod && ham === oncekiKapiHam
+      if (oncekiKapiOzeti !== null && norm === oncekiKapiOzeti && !ozdes) {
+        gecmis.push({ basamak, surec, karar: 'ayni-kapi-hatasi' })
+        log(`${k.id}: is-bitti kapısı arka arkaya aynı hatayla geçmedi → ortam sorunu; ana ajan kartı beklemede yapmalı (yükseltme yok)`)
+        return {
+          id: k.id, durum: 'ortam', neden: 'ayni-kapi-hatasi', basamak, gecmis,
+          son_ret: { duzeltme_talimati: 'is-bitti kapısı iki turda aynı hatayla geçmedi (normalize özet aynı); ortam kaynaklı olabilir, ana ajan ortamı/testi incelemeli.', bulgular: [kapi.ozet || '-'] },
+        }
+      }
+      oncekiKapiOzeti = norm
+      oncekiKapiHam = ham
       gecmis.push({ basamak, surec, karar: kod ? 'yesil-gecmedi' : 'on-kontrol-ret' })
       sonRet = {
         yesil: true, neden: kod ? undefined : 'talimat-ihlali',
@@ -352,6 +407,23 @@ async function yurut(k, bagBekle) {
         bulgular: [kapi.ozet || '-'],
       }
     } else {
+      if (spekBekliyor) {
+        // Denetçi bağımlılıkların hepsi onaylanmadan çağrılmaz.
+        spekBekliyor = false
+        const bs = await spek.bagP
+        const eksik = bs.filter(x => x.durum !== 'onaylandi').map(x => x.id)
+        if (eksik.length) {
+          log(`${k.id}: işçi kapısı geçti ama bağımlılık onaylanmadı (${eksik.join(', ')}) → denetim açılmadı`)
+          return { id: k.id, durum: 'atlandi', neden: `bağımlılık onaylanmadı: ${eksik.join(', ')}`, basamak, gecmis }
+        }
+        const degisen = bs.filter(spekulasyonBozuldu).map(x => x.id)
+        if (degisen.length) {
+          gecmis.push({ basamak, surec: 'yeniden', karar: '-', neden: `bağımlılık düzeltildi: ${degisen.join(', ')}` })
+          log(`${k.id}: bağımlılık onaydan önce ret/düzeltme geçirdi (${degisen.join(', ')}) → spekülatif iş geçersiz, işçi turu bir kez yeniden`)
+          yenidenSurec = true
+          continue
+        }
+      }
       const dm = denetciModeli(basamak, toplamRet)
       const mercekler = basamak === 'T3' || basamak === 'T4'
         ? ['doğruluk: iddialar ve sayılar kaynağıyla tutuyor mu', 'kanıt ve kapsam: her kriter kanıtlı ve eksiksiz mi']
@@ -387,7 +459,7 @@ async function yurut(k, bagBekle) {
     const i = SIRA.indexOf(basamak)
     // Yükseltmeden sonra yeni basamağın İLK reti önceki basamağın son retiyle aynıysa daha güçlü model de aynı duvara
     // çarpmıştır: sorun yetenek değil kart/kriterdir. (Aynı basamaktaki tekrar mevcut iki-ret yükseltmesine gider.)
-    if (retSayisi === 1 && sonRet.neden !== 'kriter-belirsiz' && ayniRet(oncekiBasamakRet, sonRet)) {
+    if (retSayisi === 1 && sonRet.neden !== 'kriter-belirsiz' && sonRet.neden !== 'ortam' && ayniRet(oncekiBasamakRet, sonRet)) {
       log(`${k.id}: yükseltme sonrası ilk ret öncekiyle aynı (tekrarlayan-ret) → ${basamak} basamağında kapatıldı`)
       return { id: k.id, durum: 'reddedildi', neden: 'tekrarlayan-ret', basamak, son_ret: sonRet, gecmis }
     }
@@ -396,6 +468,10 @@ async function yurut(k, bagBekle) {
     if (adim === 'kart') {
       log(`${k.id}: ret nedeni kriter-belirsiz → yeniden deneme yok, kart ana ajana döner`)
       return { id: k.id, durum: 'kart-duzeltilmeli', neden: 'kriter-belirsiz', basamak, son_ret: sonRet, gecmis }
+    }
+    if (adim === 'ortam') {
+      log(`${k.id}: ret nedeni ortam → yeniden deneme/yükseltme yok; ana ajan kartı beklemede yapmalı`)
+      return { id: k.id, durum: 'ortam', neden: 'ortam', basamak, son_ret: sonRet, gecmis }
     }
     if (adim === 'son') {
       return { id: k.id, durum: 'reddedildi', basamak, son_ret: sonRet, gecmis }
@@ -422,6 +498,39 @@ const kimlik = {}
 for (const k of kartlar) kimlik[k.id] = k
 
 const soz = {}
+// Spekülatif başlatma (H2c): hazir[id] kartın ilk işçi kapısı geçince true, kart kapı geçmeden biterse false çözülür.
+const hazir = {}
+const hazirAni = {} // kapı geçtiği andaki gecmis uzunluğu: sonrası bağımlıların spekülasyonunu bozabilir
+function hazirSoz(id) {
+  if (!hazir[id]) {
+    let coz
+    hazir[id] = { p: new Promise(r => { coz = r }), coz, cozuldu: false }
+  }
+  return hazir[id]
+}
+function hazirCoz(id, deger, an) {
+  const h = hazirSoz(id)
+  if (h.cozuldu) return
+  h.cozuldu = true
+  if (deger) hazirAni[id] = an || 0
+  h.coz(deger)
+}
+// Bağımlılığın kapısı geçtikten sonra ret, kapı hatası, yükseltme ya da kendi yeniden koşusu olduysa
+// bağımlıların o kapıyla başlayan işi geçersizdir.
+const BOZAN_KARARLAR = ['ret', 'yesil-gecmedi', 'on-kontrol-ret', 'denetim-yok']
+function spekulasyonBozuldu(sonuc) {
+  return (sonuc.gecmis || []).slice(hazirAni[sonuc.id] || 0)
+    .some(g => BOZAN_KARARLAR.includes(g.karar) || g.surec === 'yukseltme' || g.surec === 'yeniden')
+}
+// Kartın (geçişli) bağımlılıkları.
+function tumBagimliliklar(id, gorulen = new Set()) {
+  for (const d of (kimlik[id].bagimliliklar || []).filter(x => kimlik[x])) {
+    if (gorulen.has(d)) continue
+    gorulen.add(d)
+    tumBagimliliklar(d, gorulen)
+  }
+  return gorulen
+}
 // hedef, bağımlılık zinciri üzerinden kendine dönüyor mu (döngü)?
 function donguda(hedef, id, gorulen) {
   for (const d of (kimlik[id].bagimliliklar || []).filter(x => kimlik[x])) {
@@ -432,16 +541,46 @@ function donguda(hedef, id, gorulen) {
   }
   return false
 }
+// Yazma alanı çakışması (korumacı önek karşılaştırması): çakışan kartlar aynı anda açılmaz; alanı olmayan kart sıraya girmez.
+const alanOnegi = d => {
+  const t = String(d || '').split(String.fromCharCode(92)).join('/').toLowerCase()
+  const i = t.search(/[*?[]/)
+  return (i < 0 ? t : t.slice(0, i)).replace(/\/+$/, '')
+}
+function alanKesisir(a, b) {
+  const x = (a.yazma_alani || []).map(alanOnegi)
+  const y = (b.yazma_alani || []).map(alanOnegi)
+  if (!x.length || !y.length) return false // alanı olmayan kart (okuma/belge) sıraya girmez
+  return x.some(p => y.some(q => p === '' || q === '' || p.startsWith(q) || q.startsWith(p)))
+}
+// Listede kartın ÖNÜNDEKİ çakışan kartlar: yalnız önceki kart beklenir, böylece sıra döngüsü oluşmaz.
+function oncekiCakisanlar(k) {
+  const i = kartlar.indexOf(k)
+  return kartlar.slice(0, i).filter(o => o.id !== k.id && alanKesisir(o, k) && !donguda(k.id, o.id, new Set()))
+    .map(o => o.id)
+}
 function calistir(id, yol) {
   if (yol.includes(id)) return Promise.resolve({ id, durum: 'hata', neden: `bağımlılık döngüsü: ${[...yol, id].join(' → ')}` })
   if (!soz[id]) {
     const k = kimlik[id]
     const bag = (k.bagimliliklar || []).filter(d => kimlik[d])
-    const bagP = Promise.all(bag.map(d => calistir(d, [...yol, id])))
+    const cak = oncekiCakisanlar(k).filter(d => !bag.includes(d))
+    if (cak.length) log(`${k.id}: yazma alanı ${cak.join(', ')} ile çakışıyor → sırayla koşar (boş ajan açılmaz)`)
+    const bagP0 = Promise.all(bag.map(d => calistir(d, [...yol, id])))
+    const sirP = Promise.all(cak.map(d => calistir(d, [...yol, id])))
+    const bagP = cak.length ? Promise.all([bagP0, sirP]).then(([b]) => b) : bagP0
     // Erken test: bağımlılığı olan kod kartında test yazarı + kırmızı kapı bağımlılıkları beklemeden başlar; işçi turu onaydan sonra.
     // Döngüdeki kartta erken başlama yok (eski yol: önce bağımlılıklar çözülür).
-    if (tddKarti(k) && bag.length > 0 && !donguda(id, id, new Set())) {
+    const dongu = bag.length > 0 && donguda(id, id, new Set())
+    // Spekülatif başlatma: tdd olmayan, döngüsüz, sıralı çakışması (S3) olmayan ve yazma alanı hiçbir (geçişli)
+    // bağımlılığıyla kesişmeyen kart; aksi halde eski yol (kesişende isleniyor çıkış 5 alırdı).
+    const spekUygun = bag.length > 0 && !tddKarti(k) && !dongu && !cak.length &&
+      ![...tumBagimliliklar(id)].some(d => d !== id && alanKesisir(kimlik[d], k))
+    if (tddKarti(k) && bag.length > 0 && !dongu) {
       soz[id] = yurut(k, bagP)
+    } else if (spekUygun) {
+      log(`${k.id}: spekülatif başlatma → işçi bağımlılıkların (${bag.join(', ')}) kapısıyla başlar, denetim onaylarından sonra`)
+      soz[id] = yurut(k, null, { hazirP: Promise.all(bag.map(d => hazirSoz(d).p)), bagP })
     } else {
       soz[id] = bagP.then(sonuclar => {
         const eksik = sonuclar.filter(s => s.durum !== 'onaylandi').map(s => s.id)
@@ -449,6 +588,7 @@ function calistir(id, yol) {
         return yurut(k)
       })
     }
+    soz[id] = soz[id].then(r => { hazirCoz(id, false); return r })
   }
   return soz[id]
 }
@@ -456,7 +596,7 @@ function calistir(id, yol) {
 log(`${kartlar.length} kart; bağımsız olanlar paralel koşuyor.`)
 const sonuclar = await Promise.all(kartlar.map(k => calistir(k.id, [])))
 const say = d => sonuclar.filter(s => s.durum === d).length
-log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('alan-cakismasi')} alan çakışması, ${say('hata')} hata.`)
+log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('alan-cakismasi')} alan çakışması, ${say('ortam')} ortam, ${say('hata')} hata.`)
 const ajanToplam = Object.values(ajanSayaci).reduce((a, b) => a + b, 0)
 log(`Ajan: ${ajanToplam} (kart başına tavan ${KART_AJAN_TAVANI}).`)
 return { sonuclar }

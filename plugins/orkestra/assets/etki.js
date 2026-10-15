@@ -66,9 +66,14 @@
         <td class="sayi">${k.olculebilir && k.ayni_gidisat_gun ? O.B.sayi(k.ayni_gidisat_gun) + ' gündür' : '–'}</td>
         <td>${esc(durum)}</td></tr>`;
     };
-    kap.innerHTML = `<div class="tablo-kap"><table class="tablo"><thead><tr>
+    // Ölçülemez kayıtlar (ör. hafıza düzenlemesi) ana tabloyu doldurmasın: ayrı, kapalı bölümde
+    const olculen = v.kayitlar.filter(k => k.olculebilir), olculemez = v.kayitlar.filter(k => !k.olculebilir);
+    const tablo = liste => `<div class="tablo-kap"><table class="tablo"><thead><tr>
       <th>Karar</th><th>Uygulama</th><th class="sayi">Gün</th><th class="sayi">Taban → birikim</th><th>Gidişat</th><th class="sayi">Aynı gidişat</th><th>İzleme</th>
-      </tr></thead><tbody>${v.kayitlar.map(satir).join('')}</tbody></table></div>`;
+      </tr></thead><tbody>${liste.map(satir).join('')}</tbody></table></div>`;
+    const acik = olculemez.some(k => k.id === S.secili) || !olculen.length;
+    kap.innerHTML = (olculen.length ? tablo(olculen) : '<p class="bos">Ölçülebilir etkisi olan karar yok.</p>')
+      + (olculemez.length ? `<details class="etki-olculemez"${acik ? ' open' : ''}><summary>Ölçülemeyen kararlar (${O.B.sayi(olculemez.length)})</summary>${tablo(olculemez)}</details>` : '');
   }
 
   // ------------------------------------------------------------ grafik
@@ -206,7 +211,7 @@
 
 
   // ------------------------------------------------------------ veri
-  O.kabuk({ sayfa: 'etki' });
+  if (!O.sayfa) O.kabuk({ sayfa: 'etki' });   // Onaylar sayfasında kabuğu onaylar.js kurar
   K = O.veri(() => '/api/etki?alan=' + encodeURIComponent(O.alan), {
     ad: 'Etki ölçümü', aralik: 5000,
     gecerli: v => Array.isArray(v.kayitlar) && v.ozet && (!v.alan || !v.alan.id || v.alan.id === O.alan),

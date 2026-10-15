@@ -106,7 +106,7 @@ class IsCli(unittest.TestCase):
         i, klasor = self.ac()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]}, {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]}, {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         ids = [x["id"] for x in json.loads(r.stdout)]
@@ -125,8 +125,8 @@ class IsCli(unittest.TestCase):
         i, klasor = self.ac()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]},
-                       {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "is": "I-777"}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "is": "I-777"}], f)
         gdir = os.path.join(self.sd, "gorevler")
         once = sorted(os.listdir(gdir)) if os.path.isdir(gdir) else []
         r = self.cli("kart", "toplu", plan)
@@ -140,13 +140,13 @@ class IsCli(unittest.TestCase):
         # Davranış değişikliği (kart-iş bağı zorunlu): kapalı iş hata/ret üretmez; kart açık bir işe bağlanır.
         i, klasor = self.ac()
         self.assertEqual(self.cli("is", "kapat", i).returncode, 0)
-        r = self.cli("kart", "yeni", "--baslik", "x", "--sinif", "belge", "--kabul", "k")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--sinif", "belge", "--kabul", "k")
         self.assertEqual(r.returncode, 0, r.stderr)
         k = self.kart_json(r.stdout.strip())
         self.assertTrue(k.get("is"))
         self.assertNotEqual(k["is"], i)
         self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
-        r2 = self.cli("kart", "yeni", "--baslik", "y", "--sinif", "belge", "--kabul", "k", "--is", i)
+        r2 = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "y", "--sinif", "belge", "--kabul", "k", "--is", i)
         self.assertEqual(r2.returncode, 0, r2.stderr)
         self.assertNotEqual(self.kart_json(r2.stdout.strip())["is"], i)
         self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
@@ -157,7 +157,7 @@ class IsCli(unittest.TestCase):
         k = self.kart_json(g)
         self.assertTrue(k.get("is"))
         self.assertTrue(os.path.exists(os.path.join(self.sd, "isler.json")))
-        r = self.cli("kart", "yeni", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "I-777")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "I-777")
         self.assertNotEqual(r.returncode, 0)  # var olmayan açık kimlik hâlâ hata
 
     # ------------------------------------------------------------ T-03b düzeltmeleri
@@ -165,7 +165,7 @@ class IsCli(unittest.TestCase):
     def plan_yaz(self, n):
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": f"k{x}", "sinif": "belge", "kabul_kriterleri": ["k"]} for x in range(n)], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": f"k{x}", "sinif": "belge", "kabul_kriterleri": ["k"]} for x in range(n)], f)
         return plan
 
     def test_toplu_kapali_is_kartlar_acik_ise_baglanir(self):
@@ -190,29 +190,29 @@ class IsCli(unittest.TestCase):
         self.assertTrue(self.kart_json(g).get("is"))
 
     def test_kart_yeni_gecersiz_is_sayaci_ilerletmez(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "I-777")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "I-777")
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(self.kart(), "G-001")
 
     def test_kart_yeni_bicimsiz_is_sayaci_ilerletmez(self):
-        r = self.cli("kart", "yeni", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "uydurma")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "uydurma")
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(self.kart(), "G-001")
 
     def test_kart_yeni_kapali_is_hata_vermez_sayac_ardisik(self):
         i, klasor = self.ac()
         self.cli("is", "kapat", i)
-        r = self.cli("kart", "yeni", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", i)
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", i)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "G-001")
         self.assertEqual(self.oku(os.path.join(klasor, "is.json"))["kartlar"], [])
-        r = self.cli("kart", "yeni", "--baslik", "y", "--sinif", "belge", "--kabul", "k")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "y", "--sinif", "belge", "--kabul", "k")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "G-002")
 
     def test_kart_yeni_hata_sonrasi_numara_ardisik(self):
         g1 = self.kart()
-        r = self.cli("kart", "yeni", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "I-050")
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--sinif", "belge", "--kabul", "k", "--is", "I-050")
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(g1, "G-001")
         self.assertEqual(self.kart(), "G-002")

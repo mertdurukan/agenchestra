@@ -2,7 +2,7 @@
 
 GET /                          → Son olaylar sayfası (assets/simdi.html); /index.html aynı
 GET /maliyet                   → Maliyet sayfası (assets/maliyet.html; yoksa "hazırlanıyor")
-GET /verim                     → Verim ve sağlık sayfası (assets/verim.html; yoksa "hazırlanıyor")
+GET /verim                     → Maliyet ve verim sayfası (maliyet.html ile birleşik)
 GET /ortak.css, /ortak.js      → üç sayfanın ortak tasarım sistemi
 GET /alanlar.json              → çalışma alanları (ad, yol, orkestra kurulu mu, son etkinlik)
 GET /ozet.json?alan=<id>       → seçili alanın anlık görüntüsü (orkestra varsa tam, yoksa sohbet maliyetleri)
@@ -12,7 +12,7 @@ GET /analitik-tum.json         → bütün alanların toplamı ve karşılaştı
 GET /simdi.json                → her sohbet: ne yapılıyor, neye yarayacak, kimi bekliyor (niyet.gorunum)
 POST /ac?oturum=<id>           → sohbeti Claude uygulamasında aç (X-Orkestra: 1 başlığı zorunlu)
 GET /onaylar, /onaylar.html    → Onay merkezi sayfası (assets/onaylar.html; yoksa "hazırlanıyor")
-GET /kurallar, /kurallar.html  → Kurallar sayfası (assets/kurallar.html; yoksa "hazırlanıyor")
+GET /kurallar, /kurallar.html  → Onaylar, etki ve kurallar sayfası (onaylar.html ile birleşik)
 GET /onaylar.json?alan=<id>    → onay kuyruğu: sayaç, kayıtlar, perspektif (rapor, durum)
 GET /kurallar.json?alan=<id>   → etkin kurallar, öneriler, geçmiş, kural kaynakları
 GET /isler, /isler.html        → Dashboard sayfası (sohbetler + işler; assets/isler.html; yoksa "hazırlanıyor")
@@ -24,7 +24,7 @@ GET /yapilacaklar              → Yapılacaklar sayfası (assets/yapilacaklar.h
 GET /api/todo?alan=<id>[&is=<id>] → işin açık/biten maddeleri + açık iş listesi (salt okunur; POST 405)
 GET /api/kullanici-todo?alan=<id> → kullanıcının kendi yapılacakları
 POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra: 1, yerel Host, ≤64 KB)
-POST /onay?alan=<id>           → karar / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
+POST /onay?alan=<id>           → karar / simdi-uygula / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
 Test sunucusu: `panel.py _kos <port> --test` panel.json'u YAZMAZ (gerçek panelin durum dosyasını ezmez; G-096).
@@ -61,23 +61,23 @@ ASSETS = os.path.join(L.PLUGIN_ROOT, "assets")
 # yol → (dosya, içerik türü); sayfa dosyası henüz yoksa "hazırlanıyor" sayfası döner
 SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simdi.html",
             "/maliyet": "maliyet.html", "/maliyet.html": "maliyet.html",
-            "/verim": "verim.html", "/verim.html": "verim.html",
+            "/verim": "maliyet.html", "/verim.html": "maliyet.html",
             "/onaylar": "onaylar.html", "/onaylar.html": "onaylar.html",
-            "/kurallar": "kurallar.html", "/kurallar.html": "kurallar.html",
+            "/kurallar": "onaylar.html", "/kurallar.html": "onaylar.html",
             "/isler": "isler.html", "/isler.html": "isler.html",
-            "/etki": "etki.html", "/etki.html": "etki.html",
+            "/etki": "onaylar.html", "/etki.html": "onaylar.html",
             "/yapilacaklar": "yapilacaklar.html", "/yapilacaklar.html": "yapilacaklar.html"}
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
 # sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
 SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar")
-SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki")
+SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki", "yapilacaklar")
 STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8") for ad in SAYFA_JS})
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "10"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "13"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -99,6 +99,18 @@ def _alan_sd(alan_id, kesin: bool = False):
 
 def _alan_kisa(a: dict) -> dict:
     return {"id": a["id"], "ad": a["ad"], "yol": a["yol"]}
+
+
+def _simdi_json(alan_id: str | None) -> dict:
+    """Sohbet görünümü; alan verilirse yalnız o çalışma alanının sohbetleri (bilinmeyen alan → boş liste)."""
+    if not alan_id:
+        return niyet.gorunum()
+    a = next((x for x in L.calisma_alanlari() if x["id"] == alan_id), None)
+    if a is None:
+        return {"uretim": L.simdi(), "oturumlar": [], "akis": [], "sayac": {}, "alan": {"id": alan_id}}
+    g = niyet.gorunum(alan_yol=a["yol"])
+    g["alan"] = _alan_kisa(a)
+    return g
 
 
 def _perspektif(sd: str) -> dict:
@@ -128,7 +140,7 @@ def _onaylar_json(alan_id) -> dict:
     diger = [k for k in kayitlar if k.get("durum") != "bekliyor"]
     return {"acik": True, "alan": _alan_kisa(a), "sayac": onay.sayac(sd),
             "kayitlar": bekleyen + diger[:max(0, 200 - len(bekleyen))],
-            "perspektif": _perspektif(sd), "uretim": L.simdi()}
+            "perspektif": _perspektif(sd), "uygulama": onay.uygulama_durumu(sd), "uretim": L.simdi()}
 
 
 def _etki_kayit(k: dict, hepsi: list) -> dict:
@@ -316,6 +328,8 @@ def _onay_islemi(sd: str, g: dict):
         return onay.kural_duzenle(sd, g.get("id"), g.get("metin") or "", g.get("neden"))
     if islem == "kural-kaldir":
         return onay.kural_kaldir(sd, g.get("id"), g.get("not") or "")
+    if islem == "simdi-uygula":
+        return onay.simdi_uygula(sd)
     raise ValueError("bilinmeyen işlem.")
 
 
@@ -371,9 +385,9 @@ def _isleyici():
                 pass
 
         def _hazirlaniyor(self, ad: str) -> bytes:
-            baslik = {"maliyet.html": "Maliyet", "verim.html": "Verim ve sağlık",
-                     "onaylar.html": "Onaylar", "kurallar.html": "Kurallar",
-                     "isler.html": "Dashboard", "etki.html": "Etki",
+            baslik = {"maliyet.html": "Maliyet ve verim",
+                     "onaylar.html": "Onaylar, etki ve kurallar",
+                     "isler.html": "Dashboard",
                      "yapilacaklar.html": "Yapılacaklar"}.get(ad, "Sayfa")
             return (f'<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
                     f'<title>Orkestra · {baslik}</title><link rel="stylesheet" href="ortak.css"></head>'
@@ -522,7 +536,9 @@ def _isleyici():
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli("analitik-tum", 20.0, analitik.tum_alanlar))
             if u.path == "/simdi.json":
-                return self._gonder(200, "application/json; charset=utf-8", onbellekli("simdi", 3.0, niyet.gorunum))
+                alan = (q.get("alan") or [None])[0]
+                return self._gonder(200, "application/json; charset=utf-8",
+                                    onbellekli(("simdi", alan), 3.0, lambda: _simdi_json(alan)))
             if u.path == "/onaylar.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",

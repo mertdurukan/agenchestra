@@ -86,7 +86,7 @@ class Bagla(unittest.TestCase):
         return self.oku(os.path.join(klasor, "is.json"))
 
     def yeni(self, baslik, *yazma, ek=()):
-        a = ["kart", "yeni", "--baslik", baslik, "--kabul", "k", "--sinif", "belge"]
+        a = ["kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", baslik, "--kabul", "k", "--sinif", "belge"]
         for y in yazma:
             a += ["--yazma", y]
         r = self.cli(*a, *ek)
@@ -158,7 +158,7 @@ class Bagla(unittest.TestCase):
         # yazma 'docs/**' çözülemez → (d) ilk projede (RNV) başlığa göre yeni iş; kart yine bağlı, çıkış 0.
         self.baglam_yaz()
         k = self.gorev_klasoru()
-        r = self.cli("kart", "yeni", "--baslik", "kod", "--kabul", "k", "--sinif", "kod", "--yazma", "docs/**",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "kod", "--kabul", "k", "--sinif", "kod", "--yazma", "docs/**",
                      "--test-komutu", "echo x", "--test-alani", os.path.join(k, "tests", "t.py").replace("\\", "/"))
         self.assertEqual(r.returncode, 0, r.stderr)
         g = r.stdout.strip().splitlines()[-1]
@@ -184,8 +184,8 @@ class Bagla(unittest.TestCase):
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
             json.dump([
-                {"baslik": "PE-636 G4: a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k, "a.py").replace("\\", "/")]},
-                {"baslik": "PE-636 G5: b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k, "b.py").replace("\\", "/")]},
+                {"soru": "Kısa test sorusu?", "baslik": "PE-636 G4: a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k, "a.py").replace("\\", "/")]},
+                {"soru": "Kısa test sorusu?", "baslik": "PE-636 G5: b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k, "b.py").replace("\\", "/")]},
             ], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -202,8 +202,8 @@ class Bagla(unittest.TestCase):
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
             json.dump([
-                {"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k1, "a.py").replace("\\", "/")]},
-                {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k2, "b.py").replace("\\", "/")]},
+                {"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k1, "a.py").replace("\\", "/")]},
+                {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": [os.path.join(k2, "b.py").replace("\\", "/")]},
             ], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)

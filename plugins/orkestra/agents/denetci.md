@@ -40,9 +40,10 @@ Ret'te tam bir neden kodu seç ve CLI'ya `--neden` ile yaz. Kodlar:
 - `talimat-ihlali`: kart ya da protokol talimatı çiğnenmiş (yazma alanı dışı, sır yazma, kilitli teste dokunma).
 - `kriter-belirsiz`: kabul kriteri belirsiz, çelişkili ya da doğrulanamaz; işçi düzeltse de karşılanamaz, kart düzeltilmeli.
 - `yetenek-yetersiz`: işin zorluğu işçinin basamağını aşıyor; aynı basamakta tekrar denemek işe yaramaz.
+- `ortam`: başarısızlık kodun değil ortamın (yük altında zamanlama testi, başka kartın değişikliğinin bozduğu test, eksik araç/izin); kodu ya da modeli değiştirmek çözmez.
 
-Seçim önceliği: (1) kriter belirsizse `kriter-belirsiz`; (2) işin zorluğu basamağı aşıyorsa `yetenek-yetersiz`; (3) aksi halde dikkat grubundan (`kapsam-eksik`, `bicim`, `sayi-tutarsiz`, `kanit-yok`, `talimat-ihlali`) en belirgin olanı.
-Etkisi: `kriter-belirsiz` yeniden denemeyi durdurur ve kartı ana ajana döndürür; `yetenek-yetersiz` işi hemen bir üst basamağa taşır; dikkat grubunda mevcut iki-ret kuralı sürer. Onayda neden yazılmaz.
+Seçim önceliği: (1) kriter belirsizse `kriter-belirsiz`; (2) işin zorluğu basamağı aşıyorsa `yetenek-yetersiz`; (3) sorun ortamdansa `ortam`; (4) aksi halde dikkat grubundan (`kapsam-eksik`, `bicim`, `sayi-tutarsiz`, `kanit-yok`, `talimat-ihlali`) en belirgin olanı.
+Etkisi: `kriter-belirsiz` yeniden denemeyi durdurur ve kartı ana ajana döndürür; `yetenek-yetersiz` işi hemen bir üst basamağa taşır; `ortam` yeniden denemeyi ve yükseltmeyi durdurur, kartı ana ajana (beklemede) bırakır; dikkat grubunda mevcut iki-ret kuralı sürer. Onayda neden yazılmaz.
 CLI örneği:
 `orkestra kart denetim <id> --karar ret --neden kanit-yok --gerekce "kriter 2: KANITSIZ — sayı sorgu çıktısıyla gösterilmemiş" --talimat "Sayıyı üreten komutu ve çıktısını kanıta ekle"`
 

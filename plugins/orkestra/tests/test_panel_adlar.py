@@ -25,7 +25,7 @@ class PanelAdlar(unittest.TestCase):
         m = re.search(r"const SEKMELER = \[(.*?)\];", js, re.S)
         self.assertIsNotNone(m)
         sekmeler = m.group(1)
-        self.assertIn("['simdi', 'Son olaylar', '/']", sekmeler)
+        self.assertNotIn("Son olaylar", sekmeler)  # menüden gizli; sayfa GET / ile açılır
         self.assertIn("['isler', 'Dashboard', '/isler']", sekmeler)
         self.assertNotIn("'Şimdi'", sekmeler)
         self.assertNotIn("'İşler'", sekmeler)

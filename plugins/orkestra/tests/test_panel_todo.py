@@ -308,9 +308,7 @@ class PanelTodo(unittest.TestCase):
         self.assertNotIn("hazırlanıyor", s.lower())
         self.assertRegex(s, r"<input|<textarea", "metin kutusu")
         self.assertIn("Enter", s)
-        self.assertIn("<select", s)
-        self.assertIn("checkbox", s)
-        self.assertIn("/api/todo", s)
+        self.assertNotIn("<select", s)
         self.assertIn("/api/kullanici-todo", s)
         self.assertIn("Benim yapılacaklarım", s)
         self.assertIn("X-Orkestra", s + self._ortak_js())
@@ -321,7 +319,8 @@ class PanelTodo(unittest.TestCase):
         s = self._sayfa()
         self.assertNotIn("eylem: 'bitti'", s)
         self.assertNotIn("data-n=", s)
-        self.assertIn('type="checkbox" disabled', s)
+        # "İşlerin yapılacakları" bölümü arayüzden kaldırıldı (kullanıcı kararı 15.10); API salt okunur kalır
+        self.assertNotIn("İşlerin yapılacakları", s)
 
     def test_sayfa_i001_sabit_yazmaz(self):
         self.assertNotIn("I-001", self._sayfa())

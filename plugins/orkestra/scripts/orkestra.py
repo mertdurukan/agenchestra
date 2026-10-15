@@ -2,9 +2,10 @@
 
 Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra baslat                                   bu projede durum klasörünü açar
-  orkestra kart yeni --baslik T --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
+  orkestra kart yeni --baslik T --soru "kartın cevaplayacağı tek soru" --basamak T2 [--sinif S] [--girdi M] [--kabul K]... [--yazma GLOB]... [--bagimli G-001]...
                      [--test-komutu M] [--test-alani GLOB]...     (--sinif kod ise ikisi ZORUNLU; glob proje köküne göre)
                      [--test-koku MUTLAK_DIZIN]                    (kod kartı, isteğe bağlı: test kökü proje yerine bu dizin)
+                     [--genislet-onay]   (analiz kartında geniş tarama uyarısını kullanıcı onayıyla kaldırır; --soru ZORUNLU, tek cümle)
   orkestra kart toplu plan.json | --json-dosya plan.json   (liste: [{baslik, basamak, kabul_kriterleri, yazma_alani, bagimliliklar,
                                                     test_komutu, test_alani, ...}])
   orkestra kart goster G-001 | liste [--hepsi] [--json]
@@ -53,6 +54,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
+import soru_sinif as SS  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

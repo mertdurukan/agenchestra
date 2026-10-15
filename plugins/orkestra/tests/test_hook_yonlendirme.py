@@ -138,82 +138,48 @@ class IstekIpucu(_Ortak):
         self.fatura = self.is_ac("Fatura raporlama entegrasyonu", "001-fatura-raporlama")
         self.diger = self.is_ac("Kampanya takvimi düzenleme", "002-kampanya-takvim")
 
-    def test_baglisiz_oturum_uyan_istek_is_devam_ipucu(self):
-        m = self.istek(ISTEK_FATURA)
-        self.assertIn("orkestra is devam " + self.fatura["id"], m)
-        ipucu = [s for s in m.splitlines() if "orkestra is devam" in s]
-        self.assertEqual(len(ipucu), 1, m)
+    def _satir(self, m):
+        s = [x for x in m.splitlines() if x.startswith("Yeni görev")]
+        self.assertEqual(len(s), 1, m)
+        return s[0]
 
-    def test_baglisiz_oturum_alakasiz_istek_is_ac_ipucu(self):
-        m = self.istek(ISTEK_ALAKASIZ)
-        self.assertIn("orkestra is ac", m)
-        self.assertNotIn("orkestra is devam", m)
-        self.assertEqual(len([s for s in m.splitlines() if "orkestra is ac" in s]), 1, m)
+    def test_baglisiz_oturum_acik_isler_listelenir(self):
+        s = self._satir(self.istek(ISTEK_FATURA))
+        self.assertIn("bağlı iş yok", s)
+        self.assertIn(self.fatura["id"], s)
+        self.assertIn(self.diger["id"], s)
+        self.assertIn("orkestra is ac", s)
 
-    def test_acik_todo_metni_de_eslesmeyi_tetikler(self):
-        self.todo_yaz(self.diger, "# T\n\n- [ ] muhasebe mutabakat tablosunu hazırla\n")
-        m = self.istek("mutabakat tablosunu hazırlayalım")
-        self.assertIn("orkestra is devam " + self.diger["id"], m)
+    def test_eslesmeyen_istek_de_ayni_satiri_alir(self):
+        self.assertIn("orkestra is ac", self._satir(self.istek(ISTEK_ALAKASIZ)))
 
-    def test_kapali_is_aday_olmaz(self):
+    def test_bagli_oturum_bagli_isi_gosterir(self):
+        self.baglan(self.fatura)
+        s = self._satir(self.istek(ISTEK_ALAKASIZ))
+        self.assertIn("bağlı iş " + self.fatura["id"], s)
+
+    def test_kapali_is_listelenmez(self):
         is_kaydi.is_durum(self.sd, self.fatura["id"], "kapandi")
-        m = self.istek(ISTEK_FATURA)
-        self.assertNotIn("orkestra is devam " + self.fatura["id"], m)
+        s = self._satir(self.istek(ISTEK_FATURA))
+        self.assertNotIn(self.fatura["id"], s)
+        self.assertIn(self.diger["id"], s)
 
-    def test_bagli_is_konuya_uyuyorsa_ipucu_yok(self):
-        self.baglan(self.fatura)
-        m = self.istek(ISTEK_FATURA)
-        self.assertNotIn("orkestra is devam", m)
-        self.assertNotIn("orkestra is ac", m)
+    def test_her_yeni_gorevde_tekrarlanir(self):
+        self._satir(self.istek(ISTEK_FATURA))
+        self._satir(self.istek(ISTEK_ALAKASIZ))
 
-    def test_bagli_is_varken_eslesme_yoksa_ipucu_yok(self):
-        self.baglan(self.fatura)
-        m = self.istek(ISTEK_ALAKASIZ)
-        self.assertNotIn("orkestra is devam", m)
-        self.assertNotIn("orkestra is ac", m)
-
-    def test_ayni_oturumda_ayni_ipucu_tekrarlanmaz(self):
-        ilk = self.istek(ISTEK_FATURA)
-        self.assertIn("orkestra is devam " + self.fatura["id"], ilk)
-        ikinci = self.istek("fatura raporlama için bir daha bakalım")
-        self.assertNotIn("orkestra is devam", ikinci)
-
-    def test_ayni_is_ac_ipucu_tekrarlanmaz(self):
-        self.assertIn("orkestra is ac", self.istek(ISTEK_ALAKASIZ))
-        self.assertNotIn("orkestra is ac", self.istek("kuantum gitar nasıl öğrenilir"))
-
-    def test_baska_oturum_ipucunu_yeniden_alir(self):
-        self.istek(ISTEK_FATURA)
-        m = self.istek(ISTEK_FATURA, oid="baska-oturum-9999")
-        self.assertIn("orkestra is devam " + self.fatura["id"], m)
-
-    def test_farkli_ipucu_turu_tekrar_sayilmaz(self):
-        self.assertIn("orkestra is devam " + self.fatura["id"], self.istek(ISTEK_FATURA))
-        self.assertIn("orkestra is ac", self.istek(ISTEK_ALAKASIZ))
-
-    def test_sistem_iletisinde_ipucu_yok(self):
+    def test_sistem_iletisinde_satir_yok(self):
         cikti, kod = self.calistir(hook.user_prompt_submit, {"prompt": "<task-notification> " + ISTEK_FATURA})
         self.assertEqual(kod, 0)
-        self.assertNotIn("orkestra is devam", cikti)
-        self.assertNotIn("orkestra is ac", cikti)
-
-    def test_sistem_iletisi_ipucu_hakkini_tuketmez(self):
-        self.calistir(hook.user_prompt_submit, {"prompt": "<agent-message> " + ISTEK_FATURA})
-        m = self.istek(ISTEK_FATURA)
-        self.assertIn("orkestra is devam " + self.fatura["id"], m)
+        self.assertNotIn("Yeni görev (", cikti)
 
     def test_bos_istekte_cokmez(self):
-        m = self.istek("")
-        self.assertNotIn("orkestra is devam " + self.fatura["id"], m)
+        self.assertNotIn("Yeni görev (", self.istek(""))
 
-    def test_ipucu_durumu_gercek_olmayan_yere_yazilmaz(self):
+    def test_hook_durum_dosyasi_yazmaz(self):
         self.istek(ISTEK_FATURA)
-        izinli = os.path.realpath(self.proje)
-        for kok, _, dosyalar in os.walk(self.sd):
-            self.assertTrue(os.path.realpath(kok).startswith(izinli))
-        # ipucu anahtarı oturumlar/ altında oturuma özel bir json'da tutulur
         adlar = os.listdir(os.path.join(self.sd, "oturumlar"))
-        self.assertTrue(any(OTURUM in a and a.endswith(".json") for a in adlar), adlar)
+        self.assertFalse(any(a.startswith("yonlendirme_") for a in adlar), adlar)
 
 
 # ============================================================ kriter 3: session_start
@@ -223,8 +189,12 @@ class AcilisNotlari(_Ortak):
         a = self.is_ac("Bitmiş iş başlığı", "001-bitmis")
         self.todo_yaz(a, "# T\n\n- [x] bir\n- [x] iki\n")
         p = self.parca(self.acilis(), a["id"])
-        self.assertIn("orkestra is kapat " + a["id"], p)
-        self.assertIn("kapatılabilir", p)
+        self.assertIn("otomatik kapandı", p)
+        self.assertNotIn(a["id"], self._acik_idler())
+
+    def _acik_idler(self):
+        import is_kaydi
+        return [g["id"] for g in is_kaydi.is_liste(self.sd, "acik")]
 
     def test_todo_tamam_ama_acik_kart_varsa_not_yok(self):
         a = self.is_ac("Bitmiş ama kartlı iş", "001-kartli")
@@ -236,7 +206,8 @@ class AcilisNotlari(_Ortak):
         a = self.is_ac("Kartı teslim edilmiş iş", "001-teslim")
         self.todo_yaz(a, "# T\n\n- [x] bir\n")
         self.kart_yaz("G-001", a["id"], "teslim")
-        self.assertIn("orkestra is kapat " + a["id"], self.parca(self.acilis(), a["id"]))
+        self.acilis()
+        self.assertNotIn(a["id"], self._acik_idler())
 
     def test_todo_tamam_degilse_not_yok(self):
         a = self.is_ac("Yarım iş", "001-yarim")
@@ -343,7 +314,7 @@ class HataDayanikli(_Ortak):
         a = self.is_ac("Fatura raporlama", "001-fatura")
         os.remove(os.path.join(a["klasor"], "todo.md"))
         m = self.istek(ISTEK_FATURA)
-        self.assertIn("orkestra is devam " + a["id"], m)
+        self.assertIn("Açık işler: " + a["id"], m)
 
     def test_acilis_kapanis_kodu_hata_verirse_satir_yine_uretilir(self):
         a = self.is_ac("Fatura raporlama", "001-fatura")
@@ -370,6 +341,28 @@ class HataDayanikli(_Ortak):
             f.write("{bozuk")
         m = self.acilis()
         self.assertIn("Orkestra bu projede açık", m)
+
+
+class AlanUyarisi(_Ortak):
+    """Bağlı oturum iş klasörü dışına yazınca klasör başına bir kez, engellemeyen tek satır."""
+
+    def _yaz(self, hedef):
+        tam = os.path.join(self.proje, hedef)
+        return self.calistir(lambda g: hook._alan_uyarisi(self.sd, OTURUM, self.proje, tam), {})
+
+    def test_klasor_disi_bir_kez_uyarir_icinde_susar(self):
+        k = self.is_ac("fatura ekranı", "isler/001-fatura")
+        self.baglan(k)
+        cikti, _ = self._yaz("baska/dosya.py")
+        self.assertIn("Alan dışı yazma", cikti)
+        cikti2, _ = self._yaz("baska/dosya2.py")
+        self.assertEqual(cikti2, "")
+        cikti3, _ = self._yaz("isler/001-fatura/todo.md")
+        self.assertEqual(cikti3, "")
+
+    def test_bagsiz_oturum_susar(self):
+        cikti, _ = self._yaz("baska/dosya.py")
+        self.assertEqual(cikti, "")
 
 
 if __name__ == "__main__":

@@ -20,29 +20,29 @@ class SinifZorunlu(unittest.TestCase):
         return yol
 
     def test_yeni_sinifsiz_reddedilir(self):
-        r = self.kos("kart", "yeni", "--baslik", "X", "--kabul", "k")
+        r = self.kos("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "X", "--kabul", "k")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("sinif zorunlu", r.stderr)
         for s in ("kod", "belge", "arastirma"):
             self.assertIn(s, r.stderr)
 
     def test_toplu_sinifsiz_reddedilir_ve_kart_olusmaz(self):
-        yol = self.plan([{"baslik": "A", "sinif": "belge", "kabul_kriterleri": ["k"]},
-                         {"baslik": "B", "kabul_kriterleri": ["k"]}])
+        yol = self.plan([{"soru": "Kısa test sorusu?", "baslik": "A", "sinif": "belge", "kabul_kriterleri": ["k"]},
+                         {"soru": "Kısa test sorusu?", "baslik": "B", "kabul_kriterleri": ["k"]}])
         r = self.kos("kart", "toplu", yol)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("geçerli sınıflar", r.stderr)
         self.assertFalse(os.listdir(os.path.join(self.sd, "gorevler")) if os.path.isdir(os.path.join(self.sd, "gorevler")) else False)
 
     def test_sinifli_acilis_calisir(self):
-        r = self.kos("kart", "yeni", "--baslik", "X", "--sinif", "belge", "--kabul", "k")
+        r = self.kos("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "X", "--sinif", "belge", "--kabul", "k")
         self.assertEqual(r.returncode, 0, r.stderr)
-        yol = self.plan([{"baslik": "T", "sinif": "arastirma", "kabul_kriterleri": ["k"]}])
+        yol = self.plan([{"soru": "Kısa test sorusu?", "baslik": "T", "sinif": "arastirma", "kabul_kriterleri": ["k"]}])
         r2 = self.kos("kart", "toplu", yol)
         self.assertEqual(r2.returncode, 0, r2.stderr)
 
     def test_eski_sinifsiz_kart_okunur(self):
-        r = self.kos("kart", "yeni", "--baslik", "Eski", "--sinif", "belge", "--kabul", "k")
+        r = self.kos("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "Eski", "--sinif", "belge", "--kabul", "k")
         self.assertEqual(r.returncode, 0, r.stderr)
         gid = r.stdout.strip()
         yol = os.path.join(self.sd, "gorevler", f"{gid}.json")

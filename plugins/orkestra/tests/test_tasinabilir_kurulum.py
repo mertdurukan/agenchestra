@@ -104,8 +104,10 @@ class YayinYolu(unittest.TestCase):
     def test_varsayilan_gercek_depoda_sabit_yol_degil(self):
         with mock.patch.dict(os.environ, self.env, clear=True):
             y = norm(self.m.yayin_yolu())
-        self.assertNotIn("mert", y.split("/")[:3])
+        # Depo gerçekte hangi klasörde olursa olsun yol ondan türer; kaynakta sabit kullanıcı yolu yok.
         self.assertTrue(y.startswith(norm(os.path.dirname(DEPO))))
+        with open(self.m.__file__, encoding="utf-8") as f:
+            self.assertNotRegex(f.read(), r"(?i)[a-z]:[\/]+mert")
 
     def test_modulde_VARSAYILAN_YAYIN_sabiti_yok(self):
         self.assertFalse(hasattr(self.m, "VARSAYILAN_YAYIN") and "Mert" in str(self.m.VARSAYILAN_YAYIN))
@@ -206,7 +208,8 @@ class ProjeyeKur(unittest.TestCase):
         self.assertEqual(kod, 0)
         p = self.ayar()["extraKnownMarketplaces"]["claude-orchestration"]["source"]["path"]
         self.assertTrue(os.path.isabs(p))
-        self.assertNotIn("McD", p)
+        with open(os.path.join(ARACLAR, "projeye_kur.py"), encoding="utf-8") as f:
+            self.assertNotRegex(f.read(), r"(?i)[a-z]:[\/]+mert")   # sabit yol kaynakta yok
 
     def test_var_olan_kaynak_ve_ayar_ustune_yazilmaz(self):
         os.makedirs(os.path.dirname(self.ayar_yolu))

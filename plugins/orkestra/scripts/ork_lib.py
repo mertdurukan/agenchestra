@@ -179,13 +179,17 @@ def atomik_yaz(yol: str, metin: str) -> None:
     fd, gecici = tempfile.mkstemp(dir=os.path.dirname(yol), prefix=".tmp_")
     with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
         f.write(metin)
-    for deneme in range(5):
+    for deneme in range(12):  # toplam bekleme ~1,3 sn: yük altında (AV/okuyucu) 0,2 sn yetmiyordu
         try:
             os.replace(gecici, yol)
             return
         except PermissionError:
             # Windows: hedef başka bir okuyucuda açıkken kısa süre reddedilebilir.
-            if deneme == 4:
+            if deneme == 11:
+                try:
+                    os.remove(gecici)  # başarısız yazım .tmp_* dosyası bırakmasın
+                except OSError:
+                    pass
                 raise
             time.sleep(0.02 * (deneme + 1))
 
@@ -1118,6 +1122,50 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
     return kod, metin, round(time.monotonic() - bas, 2)
 
 
+# ---------------------------------------------------------------- test komutu daraltma
+
+_DEGER_ALAN_SECENEKLER = {"-p", "-k", "-m", "-n", "-c", "-o", "-W", "--maxfail", "--tb", "--rootdir", "--ignore", "--deselect",
+                          "--durations", "--basetemp", "--junitxml", "--zaman-asimi", "--en-yavas", "--confcutdir"}
+_TOKEN_RE = re.compile(r'"[^"]*"|\'[^\']*\'|\S+')
+
+
+def test_komutu_daralt(komut: str, proje: str, desenler: list[str]) -> tuple[str | None, str | None]:
+    """Geniş pytest / test_paralel.py komutunu kartın test_alani'ndaki mevcut test dosyalarına daraltır.
+
+    → (komut, not). Geniş = konumsal yol yok (cwd'nin tamamı) ya da bir konumsal yol klasör. Zaten dosya/düğüm
+    verilmişse, pytest/test_paralel dışı bir koşucuysa (ör. unittest discover) ya da ORKESTRA_TEST_DARALT=0 ise
+    komut aynen döner (not None). test_alani'na uyan test dosyası (test_*.py / *_test.py) yoksa (None, not): koşulacak
+    test yok, tam paket koşturulmaz. Tam paket iş sonunda bir kez ayrıca koşar."""
+    if os.environ.get("ORKESTRA_TEST_DARALT", "").strip() == "0":
+        return komut, None
+    ham = _TOKEN_RE.findall(komut or "")
+    jt = [t.strip("\"'") for t in ham]
+    kos = next((i for i, t in enumerate(jt) if t == "pytest" or os.path.basename(t.replace("\\", "/")) in ("test_paralel.py", "pytest.exe")), None)
+    if kos is None:
+        return komut, None
+    konumsal, atla = [], False
+    for i in range(kos + 1, len(jt)):
+        if atla:
+            atla = False
+        elif jt[i].startswith("-"):
+            atla = jt[i] in _DEGER_ALAN_SECENEKLER
+        else:
+            konumsal.append(i)
+    kok = os.path.abspath(proje)
+    if konumsal and not any(os.path.isdir(os.path.join(kok, jt[i].split("::")[0])) for i in konumsal):
+        return komut, None  # zaten dosya düzeyinde
+    dosyalar = [y for y in sorted(test_dosyasi_ozetleri(proje, desenler))
+                if re.search(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$", y)]
+    if not dosyalar:
+        return None, "test_alani'na uyan test dosyası yok; koşulacak test yok"
+    cikar = set(konumsal)
+    yeni = [t for i, t in enumerate(ham) if i not in cikar]
+    ekle = [f'"{d}"' if " " in d else d for d in dosyalar]
+    yer = konumsal[0] - sum(1 for c in cikar if c < konumsal[0]) if konumsal else len(yeni)
+    yeni[yer:yer] = ekle
+    return " ".join(yeni), f"geniş test komutu {len(dosyalar)} test dosyasına daraltıldı"
+
+
 # ---------------------------------------------------------------- test çıktısı ayrıştırma (test kapısı + ön kontrol)
 
 # `FAILED/ERROR <kimlik>` ve subTest düşüşü `SUBFAILED(i=1) <kimlik>` / `SUBFAIL <kimlik>` (parantezli parametre atlanır)
@@ -1365,7 +1413,40 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
     sürdürülünce her SubagentStop tüm transkripti yeniden okur): yalnız en son satır (zaman, eşitse maliyet_usd en
     büyük) kalır. agent_id boş (ana ajan) satırlarına dokunulmaz.
     """
-    rows = jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+    yol = os.path.join(sd, "maliyet.jsonl")
+    try:
+        st = os.stat(yol)
+        imza = (yol, st.st_mtime_ns, st.st_size)
+    except OSError:
+        imza = None
+    if imza and _MALIYET_ONBELLEK.get("imza") == imza:
+        return [dict(r) for r in _MALIYET_ONBELLEK["out"]]  # aynı süreçte dosya değişmediyse yeniden okuma (hook'ta 3-4 kez çağrılır)
+    out = _maliyet_kayitlari_oku(yol)
+    if imza:
+        _MALIYET_ONBELLEK.update({"imza": imza, "out": out})
+    return [dict(r) for r in out]
+
+
+_MALIYET_ONBELLEK: dict = {}
+
+
+_TOKEN_ALANLARI = ("giris", "cikis", "onbellek_okuma", "onbellek_yazma")
+
+
+def _satir_usd(r: dict) -> float:
+    """Defter satırının token sayılarından maliyet; önbellek yazma 1 sa tarifesiyle (hook satırlarıyla aynı)."""
+    return kullanim_maliyeti(r.get("model") or "", {
+        "input_tokens": r.get("giris") or 0, "output_tokens": r.get("cikis") or 0,
+        "cache_read_input_tokens": r.get("onbellek_okuma") or 0,
+        "cache_creation": {"ephemeral_1h_input_tokens": r.get("onbellek_yazma") or 0}})
+
+
+def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
+    rows = jsonl_oku(yol)
+    for r in rows:  # eski 'tur' satırları (tarife damgası yok) 5 dk tarifesiyle yazılmıştı: 1 sa tarifesiyle yeniden fiyatla
+        if (r.get("kaynak") == "tur" and not r.get("tarife") and r.get("model")
+                and any(r.get(a) for a in _TOKEN_ALANLARI)):
+            r["maliyet_usd"] = _satir_usd(r)
     tur_var = {(r.get("oturum"), r.get("agent_id")) for r in rows if r.get("kaynak") == "tur"}
     son: dict = {}
     for r in rows:
@@ -1384,7 +1465,32 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
             continue
         elif not r.get("agent_id") or son[k][1] is r:
             out.append(r)
+    out.extend(_hook_artigi(rows, tur_var))
     return out
+
+
+def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
+    """'tur' kaydı olan gruplarda hook'un gördüğü ama tur satırlarının kapsamadığı token (tur kaydı başlamadan önceki
+    turlar). Ana ajan hook satırları artımlıdır (toplanır); alt ajanda birikimlidir (en son satır). Artık = hook - tur,
+    bileşen başına en az 0; sıfırdan büyükse 'hook-artik' satırı olarak eklenir."""
+    sonuc = []
+    for k in tur_var:
+        hook = [r for r in rows if (r.get("oturum"), r.get("agent_id")) == k and r.get("kaynak") != "tur"]
+        if not hook:
+            continue
+        tur = [r for r in rows if (r.get("oturum"), r.get("agent_id")) == k and r.get("kaynak") == "tur"]
+        if k[1]:
+            hook = [max(hook, key=lambda r: (r.get("zaman") or "", r.get("maliyet_usd") or 0))]
+        art = {a: max(0, sum(r.get(a) or 0 for r in hook) - sum(r.get(a) or 0 for r in tur)) for a in _TOKEN_ALANLARI}
+        if not any(art.values()):
+            continue
+        son = max(hook, key=lambda r: r.get("zaman") or "")
+        satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model")}
+        satir.update(art)
+        satir["kaynak"] = "hook-artik"
+        satir["maliyet_usd"] = _satir_usd(satir)
+        sonuc.append(satir)
+    return sonuc
 
 
 # ---------------------------------------------------------------- sohbetler (çalışma alanındaki oturumlar)

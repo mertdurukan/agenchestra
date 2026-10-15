@@ -34,17 +34,22 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 - Önce projedeki skill'lere bak. Bir alt iş için uygun skill varsa işçiye "şu skill'i kullan" diye yaz.
 - Her alt iş için şunları belirle:
   - `baslik`
+  - `soru` (zorunlu, `--soru`): kartın cevaplayacağı tek cümle. Boşsa ya da satır sonu içeriyorsa/en çok 200 karakteri (`ayarlar/kart_soru.json` `soru_max_karakter`) aşıyorsa CLI kartı reddeder.
+    - Önce en ucuz kanıt: soruyu cevaplayan en dar ölçümle başla (ör. varlık kontrolü "kolon var mı", sayımdan önce).
+    - Genişletme (tüm tablo, tüm şema, sayım, tam tarama) kullanıcıya sorularak yapılır; onaylanırsa karta `--genislet-onay` (JSON: `genislet_onay: true`) konur.
+    - `analiz`, `analitik`, `arastirma` sınıfı kartta geniş tarama kalıbı (`genis_tarama_kaliplari`) çıkarsa CLI yalnız uyarır (stderr); onay varsa susar. Ayar: `ayarlar/kart_soru.json`; proje ezmesi `.claude/orkestra/kart_soru.json`.
   - `basamak`: T0 betik (T1 işçi çalıştırır), T1 Haiku, T2 Sonnet, T3 Opus medium, T4 Opus xhigh. Kuşkudaysan DAHA DÜŞÜK basamağı seç; yükseltmeyi denetçi reddi tetikler.
     - Kartları yazmadan önce her alt iş için `py -3.13 <plugin>/scripts/oner.py basamak --sinif <sinif> --metin "<başlık + kriterler>"` çalıştır.
     - Öneri bağlayıcı değildir (K-3: otomatik uygulama yok); `yetersiz-veri` dönerse "kuşkuda düşük" kuralı geçerlidir.
     - Benzer kart uyarılarındaki kriter ipuçlarını kabul kriterlerine kat.
+    - Teslim türü (`oto_teslim`): kod kartında varsayılan kendiliğinden teslimdir; kod dışı kartta (belge, analiz, kanonik, dış teslim) varsayılan elle teslimdir (ana ajan). Riskli kod kartında plan JSON'una `"oto_teslim": false` yaz (`kart yeni --elle-teslim`).
   - `kabul_kriterleri`: ölçülebilir, kanıtla doğrulanabilir.
-  - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
+  - `yazma_alani`: glob listesi. Paralel işlerin alanları KESİŞMEMELİ. Aynı dosyayı değiştiren işler zincir kurulmaz, tek kartta birleştirilir (kriterler ayrı satır); birleşik kart 8 kriterden fazlaysa en çok 2 kartlık zincire bölünür. `bagimliliklar` yalnız çıktı bağımlılığı içindir, dosya çakışması için kullanılmaz. README, notlar günlüğü gibi ortak dosyaları yalnız sentez adımında sen güncellersin.
   - `bagimliliklar`: yalnız gerçekten çıktısını bekleyen işler. Gereksiz bağımlılık paralelliği öldürür.
 - Kod üreten (program, betik, modül değiştiren) her alt iş testle yürür. Kartına ayrıca şunları yaz:
   - `sinif`: `"kod"`;
   - `tdd`: yalnız riskli kartta `true` (davranış değişikliği olan çok dosyalı iş, kanonik iş mantığı, hata düzeltmesinde yeniden üretim testi). Varsayılan `false`: işçi kodu ve testleri birlikte yazar, test alanı yazma alanına eklenir, kilit yeşilde kurulur. `true` ise test yazarı + kırmızı kapı koşar ve işçi testlere dokunamaz;
-  - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`). Kartın dokunduğu modülün test dosyalarıyla DARALT; tam paket gerekiyorsa paralel koşucuyu kullan: `py -3.13 plugins/orkestra/scripts/test_paralel.py -n 8 plugins/orkestra/tests` (orkestra eklentisinde seri ~12 dk → ~4 dk);
+  - `test_komutu`: proje kökünde kabukla koşulan, geçince 0 dönen test komutu (ör. `python -m unittest discover -s tests -p test_x.py`). Kartın dokunduğu modülün test dosyalarıyla DARALT. Geniş pytest/`test_paralel.py` komutu (klasör ya da yol yok) kart taban, test-kos ve ön kontrol koşusunda otomatik olarak `test_alani`'ndaki mevcut `test_*.py` dosyalarına iner (kapatma: `ORKESTRA_TEST_DARALT=0`; `test_koku`'lu kartta ve unittest discover'da inmez). Kartta tam paket YAZMA: tam paket iş sonunda bir kez, paralel koşucuyla koşar: `py -3.13 plugins/orkestra/scripts/test_paralel.py -n 8 plugins/orkestra/tests` (orkestra eklentisinde seri ~12 dk → ~4 dk);
   - `test_alani`: test dosyalarının glob listesi (proje köküne göre). Testleri `orkestra:test-yazari` yalnız buraya yazar.
   - `test_koku` (isteğe bağlı): testler proje dışındaki bir depodaysa o deponun mutlak dizini (`kart yeni --test-koku` ya da JSON alanı). `test_komutu` orada koşar, `test_alani` ve test kilidi ona göredir.
   - Sonradan düzeltmek için `orkestra kart test-ayar <id> [--test-koku YOL] [--test-komutu M] [--test-alani GLOB]...` (tek başına çalıştır). Kilit varken yalnız `test_koku` değişir ve yeni kökteki test dosyaları kilitle birebir aynı olmalıdır. Kök değişince eski kökteki yeşil sayılmaz: onaydan önce yeni kökte yeniden yeşil koşulur.
@@ -56,7 +61,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
 
 ## 2. Dağıt
 Tercih edilen yol, orkestra workflow'u (kayıtlı betik):
-- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
+- Workflow aracını `name: "orkestra:calistir"` ve `args: { "gorevler": [<kart toplu çıktısındaki id'lerle, kart goster JSON'ları>] }` ile çağır. Her kart nesnesinde `id, baslik, soru, basamak, girdi, kabul_kriterleri, yazma_alani, bagimliliklar` olsun; kod kartında ayrıca `sinif, test_komutu, test_alani` (varsa `test_koku`).
 - Ad ile bulunamazsa betiği `scriptPath` ile çalıştır: `${CLAUDE_PLUGIN_ROOT}/workflows/calistir.js`.
 - İsteğe bağlı `args.kart_ajan_tavani` (varsayılan 8): kart başına en çok ajan. Dolan kart `tavan` döner; kartı `beklemede` yap.
 - Kart USD bütçesi: harcama tavana ulaşınca `kart durum isleniyor` çıkış 7 verir, kart `butce` döner. Tavan sırası: kartın `butce.usd` > geçmiş taban (sınıf×basamak 2×p90) > basamak varsayılanı (T1 1 $, T2 3 $, T3 8 $, T4 12 $). Gör: `orkestra kart butce <id>`; gerekçeyle aç: `--usd <yeni>` (yalnız ana ajan).
@@ -94,6 +99,7 @@ Workflow kullanılamıyorsa (izin yok ya da kapalı) elle dağıt:
 
 ## 3. Topla ve getir
 - Workflow sonucunu ya da işçi ve denetçi yanıtlarını oku. `orkestra kart liste` ile durumları doğrula.
+- `oto_teslim` kartları denetçi onayında kendiliğinden teslim olur; sen yalnız `onaylandi` kalan kartları (elle teslim ya da oto-teslim uyarısı verenler) toplu teslim edersin.
 - Onaylı her kart için çıktıları kendin gözden geçir (dosyaları aç). Sonra onaylı kartları tek tek değil toplu kapat: `[{"id": "G-001", "ozet": "<tek cümle>"}, ...]` biçiminde bir JSON dosyası yaz, `orkestra kart teslim-toplu --json-dosya <f>` çalıştır. Tek kart için `orkestra kart teslim <id> --ozet "<tek cümle>"` kalır.
 - Reddedilen ya da atlanan kart için kullanıcıya nedenini söyle. Ya planı düzelt ya da `orkestra kart durum <id> beklemede --not "neden"` (ya da `iptal`) yap.
 - Ortak dosyalar (README, dizinler, notlar günlüğü) gerekiyorsa şimdi sen güncelle.

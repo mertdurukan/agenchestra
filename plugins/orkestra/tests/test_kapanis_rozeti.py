@@ -73,6 +73,7 @@ class KapanisTemel(unittest.TestCase):
         with mock.patch.object(niyet, "NIYET_YOLU", self.niyet_yolu), \
                 mock.patch.object(niyet, "_gecici", return_value=False), \
                 mock.patch.object(niyet, "masaustu_oturumlari", return_value={}), \
+                mock.patch.object(niyet, "_hayalet", return_value=False), \
                 mock.patch.object(niyet, "_basliklar", return_value={}), \
                 mock.patch.object(niyet, "_gunluk_istekleri", return_value=[]), \
                 mock.patch.object(niyet.L, "calisma_alanlari", return_value=[], create=True):
@@ -235,24 +236,15 @@ class IslerHtmlKapanis(unittest.TestCase):
             i += 1
         cls.govde = cls.html[bas:i]
 
-    def test_sohbet_karti_kapanis_kullanir(self):
-        self.assertIn("kapanis", self.govde)
-        self.assertIn("kapatilabilir", self.govde)
-
-    def test_kapatilabilir_rozeti_metni(self):
-        self.assertIn("Kapatılabilir", self.govde)
-
-    def test_eksikler_cizilir(self):
-        self.assertRegex(self.govde, r"kapanis\W+eksik|\.eksik")
-        self.assertRegex(self.govde, r"eksik[^;]*\.map\(|dizi\([^)]*eksik")
+    def test_sade_kart_kapanis_rozeti_cizmez(self):
+        # panel sade kart: kapanış rozeti (Kapatılabilir / eksikler) sohbet kartında çizilmez
+        self.assertNotIn("kapatilabilir", self.govde)
+        self.assertNotIn("Kapatılabilir", self.govde)
+        self.assertNotIn("eksik", self.govde)
 
     def test_kapanis_yoksa_cizim_cokmez(self):
         # kapanis alanı olmayan (kapandi) satırda güvenli erişim: doğrudan r.kapanis.xxx kullanılmamalı
         self.assertNotRegex(self.govde, r"r\.kapanis\.(kapatilabilir|eksik)")
-
-    def test_html_eksik_metin_kacisli(self):
-        # eksik metinleri esc()/metin() ile basılmalı
-        self.assertRegex(self.govde, r"(esc|metin)\([^;\n]*eksik|eksik[^;\n]*(esc|metin)\(")
 
 
 if __name__ == "__main__":

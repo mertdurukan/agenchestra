@@ -252,7 +252,7 @@
   }, true);
 
   // ------------------------------------------------------------ veri
-  O.kabuk({ sayfa: 'kurallar' });
+  if (!O.sayfa) O.kabuk({ sayfa: 'kurallar' });   // Onaylar sayfasında kabuğu onaylar.js kurar
   K = O.veri(() => '/kurallar.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'Kurallar', aralik: 4000,
     gecerli: v => Array.isArray(v.etkin) && (!v.alan || !v.alan.id || v.alan.id === O.alan),

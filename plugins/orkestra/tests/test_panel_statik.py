@@ -54,7 +54,7 @@ def js_css_dosyalari():
 class TanimlarYalnizOrtakta(unittest.TestCase):
     def test_sayfa_betikleri_var(self):
         sayfalar = [os.path.basename(h)[:-5] for h in html_dosyalari()]
-        self.assertGreaterEqual(len(sayfalar), 8)
+        self.assertGreaterEqual(len(sayfalar), 5)
         for s in sayfalar:
             self.assertTrue(os.path.isfile(os.path.join(ASSETS, s + ".js")), s + ".js yok")
 

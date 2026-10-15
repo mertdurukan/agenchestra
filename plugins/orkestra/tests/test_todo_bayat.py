@@ -128,7 +128,7 @@ class KartMadde(_Temel, unittest.TestCase):
     def test_toplu_json_madde_alani(self):
         self.is_ac()
         plan = os.path.join(self.proje, "plan.json")
-        yaz(plan, json.dumps([{"baslik": "A", "sinif": "belge", "kabul_kriterleri": ["x"], "yazma_alani": ["docs/**"],
+        yaz(plan, json.dumps([{"soru": "Kısa test sorusu?", "baslik": "A", "sinif": "belge", "kabul_kriterleri": ["x"], "yazma_alani": ["docs/**"],
                                "madde": "alfa"}]))
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -137,7 +137,7 @@ class KartMadde(_Temel, unittest.TestCase):
 
     def test_bos_madde_reddedilir(self):
         self.is_ac()
-        r = self.cli("kart", "yeni", "--baslik", "x", "--basamak", "T1", "--kabul", "k", "--yazma", "docs/**",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "x", "--basamak", "T1", "--kabul", "k", "--yazma", "docs/**",
                      "--sinif", "belge", "--madde", "  ")
         self.assertNotEqual(r.returncode, 0)
 

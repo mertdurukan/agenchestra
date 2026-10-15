@@ -47,7 +47,7 @@ class KartIsBagi(unittest.TestCase):
         return self.oku(os.path.join(self.sd, "isler.json"))
 
     def yeni(self, baslik="Deneme kartı", yazma=None, *ek):
-        a = ["kart", "yeni", "--baslik", baslik, "--sinif", "belge", "--kabul", "k"]
+        a = ["kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", baslik, "--sinif", "belge", "--kabul", "k"]
         if yazma:
             a += ["--yazma", yazma]
         return self.cli(*(a + list(ek)))
@@ -120,7 +120,7 @@ class KartIsBagi(unittest.TestCase):
         self.klasor_ac("RNV/01_a/002-iki", "iki")
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "is": i1}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "is": i1}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.kart_json(json.loads(r.stdout)[0]["id"])["is"], i1)
@@ -240,8 +240,8 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]},
-                       {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/002-x/**"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/002-x/**"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         for x in json.loads(r.stdout):
@@ -249,7 +249,7 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k2_kod_karti_da_baglanir(self):
         self.baglam_yaz()
-        r = self.cli("kart", "yeni", "--baslik", "Kod", "--kabul", "k", "--sinif", "kod", "--test-komutu", "python -m unittest",
+        r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "Kod", "--kabul", "k", "--sinif", "kod", "--test-komutu", "python -m unittest",
                      "--test-alani", "tests/**", "--yazma", "RNV/01_a/002-k/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(self.kart_json(r.stdout.strip()).get("is"))
@@ -290,7 +290,7 @@ class KartIsBagi(unittest.TestCase):
         self.cli("is", "kapat", i1)
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "is": i1}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "is": i1}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         i = self.kart_json(json.loads(r.stdout)[0]["id"])["is"]
@@ -369,7 +369,7 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": f"k{n}", "sinif": "belge", "kabul_kriterleri": ["k"]} for n in range(3)], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": f"k{n}", "sinif": "belge", "kabul_kriterleri": ["k"]} for n in range(3)], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         ids = [x["id"] for x in json.loads(r.stdout)]  # stdout hâlâ salt JSON
@@ -381,9 +381,9 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/a.md"]},
-                       {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/b.md"]},
-                       {"baslik": "c", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/c.md"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/a.md"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/b.md"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "c", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/c.md"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         ids = [x["id"] for x in json.loads(r.stdout)]
@@ -397,7 +397,7 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]}, {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]}, {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"]}], f)
         self.assertEqual(self.cli("kart", "toplu", plan).returncode, 0)
         self.assertEqual(self.cli("kart", "toplu", plan).returncode, 0)
         self.assertEqual(len(self.merkez()["isler"]), 1)
@@ -406,7 +406,7 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]}, {"baslik": "b", "sinif": "belge"}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]}, {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge"}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertNotEqual(r.returncode, 0)  # kabul kriteri eksik: gerçek doğrulama hatası hâlâ ret
         self.assertFalse(os.path.exists(os.path.join(self.sd, "isler.json")))
@@ -575,8 +575,8 @@ class KartIsBagi(unittest.TestCase):
         self.bozuk_merkez_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/001-bir/**"]},
-                       {"baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/007-x/**"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/001-bir/**"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/007-x/**"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("Traceback", r.stderr)

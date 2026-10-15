@@ -15,7 +15,7 @@
   let K = null;
   const S = { veri: null, gun: null, gSecili: null, tumKart: false, uyariAcik: false };
   const orkestrali = () => { const b = O.alanBilgi(); return b ? !!b.orkestra : true; };
-  const veri = () => (S.veri && !S.veri.hata) ? S.veri : null;
+  const veri = () => (S.veri && !S.veri.hata && S.veri.acik !== false) ? S.veri : null;
 
   // model rengi modele bağlı ve sabit (opus, sonnet, haiku, fable sırası; gerisi sırayla)
   const MODEL_SIRA = ['opus-5-5', 'sonnet-5-5', 'haiku-5-5', 'fable-5-1'];
@@ -99,7 +99,7 @@
     const usd = x => x == null ? '–' : B.usd(x);
     const t = d.toplam || {};
     const html = `<div class="tablo-kap"><table class="tablo"><tr><th>Sınıf</th><th>Başlangıç basamağı</th><th class="sayi">Kart</th><th class="sayi">Onaylanan</th>
-      <th class="sayi">Ortalama tur</th><th class="sayi">Toplam</th><th class="sayi">Onaylı iş başı</th></tr>` +
+      <th class="sayi">Ortalama tur</th><th class="sayi">Toplam</th><th class="sayi" title="Sınıfın tüm kart harcaması / onaylanan kart sayısı (red turları dahil)">Onaylanan kart başına (tüm turlar)</th></tr>` +
       satirlar.map(s => `<tr><td>${esc(s.sinif)}</td><td>${esc(s.baslangic_basamak ?? '–')}</td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.sayi(s.onaylanan)}</td>
         <td class="sayi">${s.ort_tur != null ? B.sayi(s.ort_tur, 2) : '–'}</td><td class="sayi">${usd(s.toplam_usd)}</td><td class="sayi">${usd(s.onayli_is_basi_usd)}</td></tr>`).join('') +
       `<tr><td><b>Toplam</b></td><td></td><td class="sayi"><b>${B.sayi(t.kart)}</b></td><td class="sayi"><b>${B.sayi(t.onaylanan)}</b></td>
@@ -118,7 +118,7 @@
     const v = veri(), b = v && v.birim;
     if (!b) return;
     let html = '<div class="karolar">' +
-      `<div class="karo"><b>${B.usd(b.kart_basi)}</b><span>Teslim edilen kart başına</span><small>medyan ${B.usd(b.kart_medyan)} · ${B.sayi(b.teslim_kart)} kart</small></div>` +
+      `<div class="karo"><b>${B.usd(b.kart_basi)}</b><span>Teslim edilen kart başına (yalnız teslim kartlar)</span><small>medyan ${B.usd(b.kart_medyan)} · ${B.sayi(b.teslim_kart)} kart</small></div>` +
       `<div class="karo"><b>${B.usd(b.sohbet_basi)}</b><span>Sohbet başına</span><small>medyan ${B.usd(b.sohbet_medyan)} · ${B.sayi(b.sohbet_sayisi)} sohbet</small></div></div>`;
     const uy = Array.isArray(b.uyarilar) ? b.uyarilar : [];
     if (!uy.length) html += `<p class="tek-satir">${rozet('iyi', 'var(--good)')} Son günlerde anormal sıçrama yok.</p>`;
@@ -399,7 +399,7 @@
   }
   function uyariCiz() {
     const sure = K && K.sonBasari ? `son başarılı yenileme ${B.saat(K.sonBasari)}` : 'henüz hiç veri alınamadı';
-    yerlestir($('#uyari'), K && K.uzunHata && orkestrali() ? `<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
+    yerlestir($('#verimUyari'), K && K.uzunHata && orkestrali() ? `<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
       <span class="metin"><b>Analitik verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(K.hata))}">${esc(sure)} · ${metin(kisalt(K.hata, 120))} · yeniden deneniyor</span></span></div>` : '');
   }
   const KABUL = ['basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'];
@@ -419,7 +419,7 @@
   function veriYokCiz() {
     if (veri()) return;
     const hata = S.veri && S.veri.hata ? O.hataMetni(S.veri.hata) : (K && K.durum === 'hata' ? K.hata : '');
-    const m = hata ? `<p class="bos">Veri alınamadı: ${metin(kisalt(hata, 200))}. Birkaç saniyede bir yeniden deneniyor.</p>` : '<p class="bos">Yükleniyor…</p>';
+    const m = S.veri && S.veri.acik === false ? `<p class="bos">${metin(S.veri.mesaj || 'Bu çalışma alanında orkestra açık değil.')}</p>` : hata ? `<p class="bos">Veri alınamadı: ${metin(kisalt(hata, 200))}. Birkaç saniyede bir yeniden deneniyor.</p>` : '<p class="bos">Yükleniyor…</p>';
     KABUL.forEach(ad => yerlestir($('#' + ad + 'Icerik'), m));
     $('#ganttOzet').textContent = '';
     yerlestir($('#ganttAyrinti'), '');
@@ -448,10 +448,10 @@
   $('#ganttGun').addEventListener('change', e => { S.gun = e.target.value; S.gSecili = null; ganttCiz(); });
 
   // ------------------------------------------------------------ veri
-  O.kabuk({ sayfa: 'verim' });
+  if (!O.sayfa) O.kabuk({ sayfa: 'verim' });   // Maliyet sayfasında kabuğu maliyet.js kurar
   K = O.veri(() => '/analitik.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'Analitik verisi', aralik: 15000,
-    gecerli: v => v && v.basamak && v.birim && v.akis && v.saglik,
+    gecerli: v => v && (v.acik === false || (v.basamak && v.birim && v.akis && v.saglik && (!v.alan || !v.alan.id || v.alan.id === O.alan))),
     cizici: v => { S.veri = v; hepsi(); },
     durum: () => ciz(durumCiz, ...(veri() ? [] : [veriYokCiz]), bayatBolumu, uyariCiz),
   });

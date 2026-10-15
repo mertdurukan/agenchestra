@@ -16,6 +16,7 @@ import time
 
 import ork_lib as L  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
+import soru_sinif as SS  # noqa: E402
 from komutlar._ortak import BETIK_DIZINI, hata, sd_gerekli  # noqa: E402
 
 

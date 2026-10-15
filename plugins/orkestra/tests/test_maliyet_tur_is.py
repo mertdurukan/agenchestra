@@ -137,7 +137,7 @@ class TestDigerAlanlarDegismez(_Ortak):
         self.oturum_bagla("I-002")
         r = self.tur()
         beklenen = {"oturum", "gorev", "surec", "ajan", "agent_id", "model", "giris", "cikis",
-                    "onbellek_okuma", "onbellek_yazma", "maliyet_usd", "sure_ms", "kaynak", "zaman", "is", "v"}
+                    "onbellek_okuma", "onbellek_yazma", "maliyet_usd", "sure_ms", "kaynak", "tarife", "zaman", "is", "v"}
         self.assertEqual(set(r), beklenen)
         self.assertEqual((r["oturum"], r["gorev"], r["surec"], r["ajan"]), (OTURUM, "-", "orkestrasyon", "ana-ajan"))
         self.assertEqual((r["giris"], r["cikis"], r["onbellek_okuma"], r["onbellek_yazma"], r["sure_ms"]),
