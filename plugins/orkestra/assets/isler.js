@@ -230,10 +230,6 @@
     const ip = `<b>${esc(r.proje)} › ${esc(r.sohbet)}</b>` + sat('Durum', esc(d.ad)) + sat('Son etkinlik', B.tarih(r.son_zaman)) +
       sat('Başlangıç', B.tarih(r.baslangic)) + sat('İstek', B.sayi(r.istek_sayisi)) + kartIp +
       (r.son_istek ? `<div class="meta">Son istek: ${metin(kisalt(r.son_istek, 220))}</div>` : '') + `<div class="meta">${acIpucu}</div>`;
-    const isler = dizi(r.isler), tikla = buAlanda(r);
-    const isChip = isler.map(x => tikla
-      ? `<button type="button" class="bag" data-git-is="${esc(x.id)}" data-anahtar="g:${esc(r.oturum)}:${esc(x.id)}" title="İşi aç: ${esc(x.ad)}">İş: ${esc(kisalt(x.ad, 38))} →</button>`
-      : `<span class="bag pasif">İş: ${esc(kisalt(x.ad, 38))}</span>`).join('');
     return `<div class="sohbet" style="--renk:${d.renk}" data-oturum="${esc(r.oturum)}" data-anahtar="s:${esc(r.oturum)}" tabindex="0" role="button"
         aria-label="${esc(r.proje + ' › ' + r.sohbet + ' · ' + d.ad + ' · sohbeti aç')}" data-ipucu="${esc(ip)}">
       <div class="ust">${sRozet(d, r.bekleyen === 'claude' ? ' nabiz' : '')}<span data-once="${esc(r.son_zaman || '')}">${B.once(r.son_zaman)}</span></div>
