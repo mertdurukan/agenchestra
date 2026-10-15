@@ -98,10 +98,12 @@ class ZamanAsimi(Temel):
         self.yaz("test_a_gecen.py", GECEN)
         self.yaz("test_b_asiri.py", ASIRI)
         self.yaz("test_c_gecen.py", GECEN)
-        kod, cikti, sure = kos(["--zaman-asimi", "3", "-n", "3", self.d])
+        # Eşik, hızlı dosyaların yük altında bile bitebileceği kadar geniş; yavaş dosya (300 sn uyku)
+        # eşikten bağımsız olarak her koşulda aşar. Süre sınırı eşiğe değil uykuya göre: öldürülmediyse >= 300.
+        kod, cikti, sure = kos(["--zaman-asimi", "20", "-n", "3", self.d])
         self.assertEqual(kod, 1, cikti)
         self.assertIn("zaman aşımı", cikti)
-        self.assertLess(sure, 30, "zaman aşımı alt süreci öldürmeli")
+        self.assertLess(sure, 120, "zaman aşımı alt süreci öldürmeli")
         satir = [s for s in cikti.splitlines() if "zaman aşımı" in s]
         self.assertTrue(any("test_b_asiri.py" in s for s in satir), satir)
         self.assertFalse(any("test_a_gecen.py" in s for s in satir), satir)
