@@ -8,8 +8,15 @@ VARLIK = os.path.join(KOK, "assets")
 
 
 def oku(ad):
+    """Sayfa (.html) için HTML + ona bağlı sayfa .js/.css dosyaları (ortak.* hariç) birlikte döner."""
     with open(os.path.join(VARLIK, ad), encoding="utf-8") as f:
-        return f.read()
+        h = f.read()
+    if ad.endswith(".html"):
+        for yol in re.findall(r'(?:src|href)="([\w-]+\.(?:js|css))"', h):
+            if not yol.startswith("ortak."):
+                with open(os.path.join(VARLIK, yol), encoding="utf-8") as g:
+                    h += "\n" + g.read()
+    return h
 
 
 class PanelAdlar(unittest.TestCase):

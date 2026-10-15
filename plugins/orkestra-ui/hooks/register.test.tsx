@@ -83,6 +83,12 @@ test('donustur: olay satırları elenir, markdown soyulur, teslim yalnız sayı 
   expect(o.kartlar?.map(k => k.id)).toEqual(['G-001', 'G-002', 'G-004'])
 })
 
+test('donustur: isler alanı olduğu gibi geçer; yoksa boş dizi olur', () => {
+  expect(donustur(HAM, BU).isler).toEqual(HAM.isler)
+  const { isler: _yok, ...islersiz } = HAM
+  expect(donustur(islersiz as HamOzet, BU).isler).toEqual([])
+})
+
 test('eylemImzasi: yalnız ret/teslim bekleyen/rapor imza üretir; kart değişince imza değişir', () => {
   expect(eylemImzasi(donustur(SESSIZ, BU))).toBe('')
   const bir = eylemImzasi(donustur(HAM, BU))

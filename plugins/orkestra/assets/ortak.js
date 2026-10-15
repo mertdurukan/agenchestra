@@ -407,6 +407,7 @@
   let hazirCoz;
   O.hazir = new Promise(c => { hazirCoz = c; });
   O.kabuk = ({ sayfa } = {}) => {
+    O.sayfa = sayfa;
     let h = document.getElementById('kabuk');
     if (!h) { h = document.createElement('header'); h.id = 'kabuk'; document.body.prepend(h); }
     h.classList.add('kabuk');
@@ -593,6 +594,37 @@
       '<div class="meta">Gösterilen bilgi son başarılı yenilemeden; birkaç saniyede bir yeniden deneniyor.</div>';
     return `<span class="bayat" tabindex="0" data-ipucu="${O.esc(ip)}">son güncelleme ${O.B.saat(en.sonBasari)} · yenilenemiyor</span>`;
   };
+
+  // Bir kabın içini yalnız HTML değiştiyse yeniden kurar; odaktaki öğe (data-anahtar) ve yazı imleci korunur.
+  // sonra(kap): isteğe bağlı kanca; yeniden kurulumdan sonra, odak geri verilmeden önce çalışır (ör. <details> durumu).
+  function yerlestir(kap, html, sonra) {
+    if (!kap || kap.__html === html) return;
+    const a = document.activeElement;
+    const anahtar = a && kap.contains(a) ? a.dataset.anahtar : null;
+    const bas = anahtar && 'selectionStart' in a ? [a.selectionStart, a.selectionEnd] : null;
+    kap.innerHTML = html; kap.__html = html;
+    if (sonra) sonra(kap);
+    if (anahtar) {
+      const y = [...kap.querySelectorAll('[data-anahtar]')].find(el => el.dataset.anahtar === anahtar);
+      if (y && !y.disabled) { y.focus({ preventScroll: true }); if (bas && y.setSelectionRange) { try { y.setSelectionRange(bas[0], bas[1]); } catch (e) { /* tür desteklemiyor */ } } }
+    }
+  }
+  O.yerlestir = yerlestir;
+
+  // Bölümler birbirinden bağımsız çizilir: birinin istisnası ötekileri durdurmaz. Hata varsa en sonda yeniden
+  // fırlatılır ki O.veri imzayı yazmasın ve bir sonraki yoklamada yeniden denesin.
+  function ciz(...bolumler) {
+    let ilk = null;
+    bolumler.forEach(f => { try { f(); } catch (e) { console.error((O.sayfa || 'Panel') + ':', f.name, e); ilk = ilk || e; } });
+    if (ilk) throw ilk;
+  }
+  O.ciz = ciz;
+
+  // Bölüm başlıklarındaki bayatlık işaretleri: { kapKimligi: O.bayatIsaret(...) } (gövdeye dokunmaz).
+  function bayatCiz(esleme) {
+    for (const [kimlik, isaret] of Object.entries(esleme)) yerlestir(document.getElementById(kimlik), isaret);
+  }
+  O.bayatCiz = bayatCiz;
 
   // "3 dk önce" gibi göreli zamanlar DOM'u yeniden kurmadan tazelenir: <span data-once="<iso>">.
   setInterval(() => {

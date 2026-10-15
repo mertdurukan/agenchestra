@@ -27,6 +27,7 @@ POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra
 POST /onay?alan=<id>           → karar / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
+Test sunucusu: `panel.py _kos <port> --test` panel.json'u YAZMAZ (gerçek panelin durum dosyasını ezmez; G-096).
 """
 from __future__ import annotations
 
@@ -69,9 +70,14 @@ SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simd
 STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
+# sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
+SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar")
+SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki")
+STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8") for ad in SAYFA_JS})
+STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "9"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "10"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -583,9 +589,11 @@ def _saglik(port: int) -> str | None:
         return None
 
 
-def calistir(port: int) -> None:
+def calistir(port: int, durum_yaz: bool = True) -> None:
+    """durum_yaz=False (--test): panel.json'a dokunmaz; test sunucusu gerçek paneli ölü porta yönlendirmesin."""
     sunucu = http.server.ThreadingHTTPServer(("127.0.0.1", port), _isleyici())
-    L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "zaman": L.simdi()}))
+    if durum_yaz:
+        L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "zaman": L.simdi()}))
     sunucu.serve_forever()
 
 
@@ -630,5 +638,7 @@ def baslat(port: int = 8765, alan_id: str | None = None, on_planda: bool = False
 
 if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "_kos":
-        os.makedirs(L.GENEL_DIZIN, exist_ok=True)
-        calistir(int(sys.argv[2]))
+        _test = "--test" in sys.argv[3:]
+        if not _test:
+            os.makedirs(L.GENEL_DIZIN, exist_ok=True)
+        calistir(int(sys.argv[2]), durum_yaz=not _test)

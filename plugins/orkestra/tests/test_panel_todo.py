@@ -291,9 +291,16 @@ class PanelTodo(unittest.TestCase):
             return f.read()
 
     def _sayfa(self):
+        """Sayfa HTML'i + ona bağlı sayfa .js/.css dosyaları (ortak.* hariç), sunucudan HTTP ile."""
         k, b = self.istek("GET", "/yapilacaklar")
         self.assertEqual(k, 200)
-        return b.decode("utf-8")
+        s = b.decode("utf-8")
+        for yol in re.findall(r'(?:src|href)="([\w-]+\.(?:js|css))"', s):
+            if not yol.startswith("ortak."):
+                k2, b2 = self.istek("GET", "/" + yol)
+                self.assertEqual(k2, 200, yol)
+                s += "\n" + b2.decode("utf-8")
+        return s
 
     def test_yapilacaklar_sayfasi_var_ve_ogeler_icerir(self):
         self.assertTrue(os.path.isfile(os.path.join(ASSETS, "yapilacaklar.html")), "yapilacaklar.html yok")
