@@ -380,6 +380,25 @@ def pre_tool_use(inp: dict):
 
 # ---------------------------------------------------------------- SubagentStart / Stop
 
+def _denetim_basladi(sd: str, gorev: str, aid, tip) -> None:
+    """Denetçi başlayınca karta 'denetim-basladi' olayı: 'is-bitti → denetim kararı' süresi denetçi başlayana
+    kadar bekleme, sonrası denetçi çalışması diye ayrılabilsin. Aynı is-bitti için ilk başlangıç sayılır."""
+    try:
+        with L.kilit(L.kart_yolu(sd, gorev)):
+            k = L.kart_oku(sd, gorev)
+            if not k or L.kart_durumu_hesapla(k) != "denetimde":
+                return
+            for g in reversed(k.get("gecmis") or []):
+                if g.get("olay") == "denetim-basladi":
+                    return
+                if g.get("olay") == "is-bitti":
+                    break
+            k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": "denetim-basladi", "ajan": tip, "agent_id": aid})
+            L.kart_yaz(sd, k)
+    except Exception:
+        pass
+
+
 def subagent_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
