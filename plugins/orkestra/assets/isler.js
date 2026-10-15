@@ -226,9 +226,6 @@
     } else {
       govde = `<div class="son-istek"><q>${metin(r.yedek || 'Henüz bilgi yok')}</q></div>`;
     }
-    const kp = sen ? null : (r.kapanis || null);
-    const kapEtiket = kp ? (kp.kapatilabilir ? '<span class="kap ok">Kapatılabilir</span>'
-      : dizi(kp.eksik).map(m => `<span class="kap eksik">${esc(m)}</span>`).join('')) : '';
     const acIpucu = r.link ? 'Tıkla: sohbeti Claude uygulamasında aç' : 'Tıkla: terminalde başlamış sohbeti uygulamada sürdür';
     const ip = `<b>${esc(r.proje)} › ${esc(r.sohbet)}</b>` + sat('Durum', esc(d.ad)) + sat('Son etkinlik', B.tarih(r.son_zaman)) +
       sat('Başlangıç', B.tarih(r.baslangic)) + sat('İstek', B.sayi(r.istek_sayisi)) + kartIp +
