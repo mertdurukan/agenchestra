@@ -675,6 +675,11 @@ def stop(inp: dict):
         if d in ("isleniyor", "denetimde", "reddedildi", "onaylandi"):
             acik.append((k["id"], d, k["baslik"]))
     if not acik:
+        try:  # insan aksiyonu: tur bitti → toast (sessiz hata)
+            import bildirim
+            bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
+        except Exception:
+            pass
         if hatirlatma:
             L.hook_cikti({"systemMessage": hatirlatma})
         gec()
@@ -947,7 +952,16 @@ def config_change(inp: dict):
     gec()
 
 
+def notification(inp: dict):
+    sd = L.durum_dizini(inp.get("cwd"))
+    if sd:
+        import bildirim
+        bildirim.bildirim_olayi(sd, inp.get("session_id") or "-", inp)
+    gec()
+
+
 OLAYLAR = {
+    "Notification": notification,
     "PreToolUse": pre_tool_use, "SubagentStart": subagent_start, "SubagentStop": subagent_stop, "Stop": stop,
     "SessionStart": session_start, "UserPromptSubmit": user_prompt_submit, "PostToolUse": post_tool_use,
     "SessionEnd": session_end, "ConfigChange": config_change,
