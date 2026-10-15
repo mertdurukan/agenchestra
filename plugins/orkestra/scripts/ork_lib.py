@@ -1122,6 +1122,50 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
     return kod, metin, round(time.monotonic() - bas, 2)
 
 
+# ---------------------------------------------------------------- test komutu daraltma
+
+_DEGER_ALAN_SECENEKLER = {"-p", "-k", "-m", "-n", "-c", "-o", "-W", "--maxfail", "--tb", "--rootdir", "--ignore", "--deselect",
+                          "--durations", "--basetemp", "--junitxml", "--zaman-asimi", "--en-yavas", "--confcutdir"}
+_TOKEN_RE = re.compile(r'"[^"]*"|\'[^\']*\'|\S+')
+
+
+def test_komutu_daralt(komut: str, proje: str, desenler: list[str]) -> tuple[str | None, str | None]:
+    """Geniş pytest / test_paralel.py komutunu kartın test_alani'ndaki mevcut test dosyalarına daraltır.
+
+    → (komut, not). Geniş = konumsal yol yok (cwd'nin tamamı) ya da bir konumsal yol klasör. Zaten dosya/düğüm
+    verilmişse, pytest/test_paralel dışı bir koşucuysa (ör. unittest discover) ya da ORKESTRA_TEST_DARALT=0 ise
+    komut aynen döner (not None). test_alani'na uyan test dosyası (test_*.py / *_test.py) yoksa (None, not): koşulacak
+    test yok, tam paket koşturulmaz. Tam paket iş sonunda bir kez ayrıca koşar."""
+    if os.environ.get("ORKESTRA_TEST_DARALT", "").strip() == "0":
+        return komut, None
+    ham = _TOKEN_RE.findall(komut or "")
+    jt = [t.strip("\"'") for t in ham]
+    kos = next((i for i, t in enumerate(jt) if t == "pytest" or os.path.basename(t.replace("\\", "/")) in ("test_paralel.py", "pytest.exe")), None)
+    if kos is None:
+        return komut, None
+    konumsal, atla = [], False
+    for i in range(kos + 1, len(jt)):
+        if atla:
+            atla = False
+        elif jt[i].startswith("-"):
+            atla = jt[i] in _DEGER_ALAN_SECENEKLER
+        else:
+            konumsal.append(i)
+    kok = os.path.abspath(proje)
+    if konumsal and not any(os.path.isdir(os.path.join(kok, jt[i].split("::")[0])) for i in konumsal):
+        return komut, None  # zaten dosya düzeyinde
+    dosyalar = [y for y in sorted(test_dosyasi_ozetleri(proje, desenler))
+                if re.search(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$", y)]
+    if not dosyalar:
+        return None, "test_alani'na uyan test dosyası yok; koşulacak test yok"
+    cikar = set(konumsal)
+    yeni = [t for i, t in enumerate(ham) if i not in cikar]
+    ekle = [f'"{d}"' if " " in d else d for d in dosyalar]
+    yer = konumsal[0] - sum(1 for c in cikar if c < konumsal[0]) if konumsal else len(yeni)
+    yeni[yer:yer] = ekle
+    return " ".join(yeni), f"geniş test komutu {len(dosyalar)} test dosyasına daraltıldı"
+
+
 # ---------------------------------------------------------------- test çıktısı ayrıştırma (test kapısı + ön kontrol)
 
 # `FAILED/ERROR <kimlik>` ve subTest düşüşü `SUBFAILED(i=1) <kimlik>` / `SUBFAIL <kimlik>` (parantezli parametre atlanır)
