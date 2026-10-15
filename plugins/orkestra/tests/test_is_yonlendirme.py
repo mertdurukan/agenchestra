@@ -69,8 +69,7 @@ class YonlendirTest(unittest.TestCase):
         self.assertNotIn("idsiz", s)
 
     def test_cok_is_ve_uzun_baslik_sinirli(self):
-        isler = [is_("I-%d" % n, "Uzun başlık
-ikinci satır " * 20) for n in range(20)]
+        isler = [is_("I-%d" % n, "Uzun başlık" + chr(10) + "ikinci satır " * 20) for n in range(20)]
         s = iy.yonlendir(isler, "I-3")
         self._kontrol(s)
         self.assertNotIn("I-10 ", s)
