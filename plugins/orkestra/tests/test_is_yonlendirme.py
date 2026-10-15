@@ -1,4 +1,4 @@
-"""is_yonlendirme: konu skoru, yönlendirme kararı, kapanış/bayat tespiti (G-062).
+"""is_yonlendirme: yeni görev satırı, kapanış/bayat tespiti (G-062).
 
 Tüm veri sentetiktir; dosya/ağ yok. Yalnız modül kaynağı statik olarak okunur.
 `python -m unittest discover -s plugins/orkestra/tests -p test_is_yonlendirme.py`
@@ -31,186 +31,49 @@ def is_(id_, baslik, klasor="", todolar=None):
 
 class ArayuzTest(unittest.TestCase):
     def test_fonksiyonlar_var(self):
-        for ad in ("tokenler", "skorla", "yonlendir", "kapanis_adaylari"):
+        for ad in ("yonlendir", "kapanis_adaylari"):
             self.assertTrue(callable(getattr(iy, ad, None)), ad)
 
 
-class TokenlerTest(unittest.TestCase):
-    def test_turkce_yonlendirme_ortak_kok(self):
-        a = iy.tokenler("İş yönlendirmesini düzelt")
-        b = iy.tokenler("is yonlendirme")
-        self.assertTrue(a & b, (a, b))
-
-    def test_buyuk_i_noktali_kucuk_harfe(self):
-        self.assertEqual(iy.tokenler("İSTANBUL"), iy.tokenler("istanbul"))
-        self.assertEqual(iy.tokenler("ISTANBUL"), iy.tokenler("istanbul"))
-
-    def test_bes_karakter_kirpma(self):
-        self.assertEqual(iy.tokenler("planlama"), {"planl"})
-        self.assertEqual(iy.tokenler("planlama"), iy.tokenler("planlanan"))
-
-    def test_kume_doner(self):
-        self.assertIsInstance(iy.tokenler("kalibrasyon envanter"), (set, frozenset))
-        self.assertEqual(len(iy.tokenler("kalibrasyon envanter")), 2)
-
-    def test_kisa_sozcukler_atilir(self):
-        self.assertEqual(iy.tokenler("ve ab x 1 12"), set())
-
-    def test_durak_sozcukler_atilir(self):
-        self.assertEqual(iy.tokenler("bir için bu ve"), set())
-
-    def test_durak_ve_anlamli_karisik(self):
-        self.assertEqual(iy.tokenler("bir kalibrasyon için"), iy.tokenler("kalibrasyon"))
-
-    def test_noktalama_ayirir_rakam_korunur(self):
-        t = iy.tokenler("rapor-2026, sevkiyat/plan!")
-        self.assertIn("2026", t)
-        self.assertNotIn("rapor-", t)
-        self.assertTrue({"rapor", "sevki"} <= t)
-
-    def test_bos_girdi(self):
-        self.assertEqual(iy.tokenler(""), set())
-        self.assertEqual(iy.tokenler("   ,.! "), set())
-
-
-class SkorlaTest(unittest.TestCase):
-    def test_baslik_iki_puan(self):
-        r = dict(iy.skorla("kalibrasyon", [is_("A", "Kalibrasyon raporu")]))
-        self.assertEqual(r["A"], 2)
-
-    def test_klasor_iki_puan(self):
-        r = dict(iy.skorla("kalibrasyon", [is_("A", "Başka konu", "001-kalibrasyon")]))
-        self.assertEqual(r["A"], 2)
-
-    def test_todo_bir_puan(self):
-        r = dict(iy.skorla("kalibrasyon", [is_("A", "Başka konu", "", ["kalibrasyon yap"])]))
-        self.assertEqual(r["A"], 1)
-
-    def test_birlesik_puan(self):
-        isler = [is_("A", "Kalibrasyon envanter", "", ["muhasebe kapat"])]
-        r = dict(iy.skorla("kalibrasyon envanter muhasebe", isler))
-        self.assertEqual(r["A"], 5)
-
-    def test_eslesme_yok_sifir(self):
-        r = dict(iy.skorla("sevkiyat", [is_("A", "Kalibrasyon")]))
-        self.assertEqual(r["A"], 0)
-
-    def test_azalan_sira(self):
-        isler = [is_("A", "Kalibrasyon"),
-                 is_("B", "Kalibrasyon envanter muhasebe"),
-                 is_("C", "Sevkiyat")]
-        r = iy.skorla("kalibrasyon envanter muhasebe", isler)
-        self.assertEqual([i for i, _ in r], ["B", "A", "C"])
-        self.assertEqual([s for _, s in r], [6, 2, 0])
-
-    def test_bos_listeler(self):
-        self.assertEqual(iy.skorla("kalibrasyon", []), [])
-        r = iy.skorla("", [is_("A", "Kalibrasyon")])
-        self.assertEqual(dict(r)["A"], 0)
-
-
 class YonlendirTest(unittest.TestCase):
-    def setUp(self):
-        self.A = is_("A-1", "Kalibrasyon envanter muhasebe sevkiyat")
-        self.B = is_("B-1", "Fiyatlandirma")
+    ISLER = [is_("I-1", "Fatura raporlama"), is_("I-2", "Kampanya takvimi")]
 
-    def test_bagli_yok_eslesme_yok_yeni(self):
-        r = iy.yonlendir("tamamen alakasiz vitrin", [self.A, self.B], None)
-        self.assertEqual(r["tur"], "yeni")
-        self.assertIsNone(r["is"])
-        self.assertIn("orkestra is ac", r["satir"])
-
-    def test_bos_is_listesi_yeni(self):
-        r = iy.yonlendir("kalibrasyon", [], None)
-        self.assertEqual(r["tur"], "yeni")
-
-    def test_dusuk_skor_bagli_yok_yeni(self):
-        # tek başlık eşleşmesi = 2 puan (<3)
-        r = iy.yonlendir("kalibrasyon", [self.A], None)
-        self.assertEqual(r["tur"], "yeni")
-
-    def test_bagli_yok_eslesme_3_ve_ustu_degistir(self):
-        r = iy.yonlendir("kalibrasyon envanter", [self.B, self.A], None)
-        self.assertEqual(r["tur"], "degistir")
-        self.assertEqual(r["is"], "A-1")
-        self.assertIn("orkestra is devam A-1", r["satir"])
-
-    def test_bagli_dusuk_baska_yuksek_degistir(self):
-        r = iy.yonlendir("kalibrasyon envanter muhasebe", [self.A, self.B], "B-1")
-        self.assertEqual(r["tur"], "degistir")
-        self.assertEqual(r["is"], "A-1")
-        self.assertIn("orkestra is devam A-1", r["satir"])
-
-    def test_bagli_zaten_en_iyi_none(self):
-        r = iy.yonlendir("kalibrasyon envanter muhasebe", [self.A, self.B], "A-1")
-        self.assertIsNone(r)
-
-    def test_fark_3ten_az_none(self):
-        # A=6, C=4 -> fark 2
-        c = is_("C-1", "Kalibrasyon envanter")
-        r = iy.yonlendir("kalibrasyon envanter muhasebe", [self.A, c], "C-1")
-        self.assertIsNone(r)
-
-    def test_bagli_yarisindan_az_degilse_none(self):
-        # en iyi 8, bagli 4: fark 4 (>=3) ama bagli en iyinin yarisindan az degil
-        a = is_("A-2", "Kalibrasyon envanter muhasebe sevkiyat")
-        c = is_("C-2", "Kalibrasyon envanter")
-        r = iy.yonlendir("kalibrasyon envanter muhasebe sevkiyat", [a, c], "C-2")
-        self.assertIsNone(r)
-
-    def test_bagli_yarisindan_az_ve_fark_yeterli_degistir(self):
-        # en iyi 8, bagli 2: yarisindan az ve fark 6
-        a = is_("A-2", "Kalibrasyon envanter muhasebe sevkiyat")
-        c = is_("C-2", "Kalibrasyon")
-        r = iy.yonlendir("kalibrasyon envanter muhasebe sevkiyat", [a, c], "C-2")
-        self.assertEqual(r["tur"], "degistir")
-        self.assertEqual(r["is"], "A-2")
-
-    def test_eslesme_yok_bagli_var_none(self):
-        r = iy.yonlendir("tamamen alakasiz vitrin", [self.A, self.B], "B-1")
-        self.assertIsNone(r)
-
-    def test_en_iyi_skor_3ten_az_bagli_var_none(self):
-        # A=2 (<3), bagli B=0: rahatsiz etme
-        r = iy.yonlendir("kalibrasyon", [self.A, self.B], "B-1")
-        self.assertIsNone(r)
-
-    def test_bos_istek_istisna_yok(self):
-        for bagli in (None, "B-1"):
-            r = iy.yonlendir("", [self.A, self.B], bagli)
-            self.assertIn(None if r is None else r["tur"], (None, "yeni"))
-
-
-class SatirTest(unittest.TestCase):
-    def _kontrol(self, r):
-        self.assertIsNotNone(r)
-        s = r["satir"]
+    def _kontrol(self, s):
         self.assertIsInstance(s, str)
-        self.assertNotIn("\n", s)
-        self.assertNotIn("\r", s)
-        self.assertLessEqual(len(s), 200)
-        self.assertTrue("orkestra is devam" in s or "orkestra is ac" in s, s)
+        self.assertNotIn(chr(10), s)
+        self.assertLessEqual(len(s), iy.SATIR_SINIR)
+        self.assertIn("orkestra is devam", s)
+        self.assertIn("orkestra is ac", s)
 
-    def test_yeni_satiri(self):
-        r = iy.yonlendir("yeni konu", [is_("A", "Kalibrasyon")], None)
-        self._kontrol(r)
-        self.assertIn("orkestra is ac", r["satir"])
+    def test_baglisiz_acik_isler_ve_kural(self):
+        s = iy.yonlendir(self.ISLER, None)
+        self._kontrol(s)
+        self.assertIn("bağlı iş yok", s)
+        self.assertIn("I-1 Fatura raporlama", s)
+        self.assertIn("I-2 Kampanya takvimi", s)
 
-    def test_degistir_satiri_id_icerir(self):
-        isler = [is_("A-9", "Kalibrasyon envanter muhasebe")]
-        r = iy.yonlendir("kalibrasyon envanter", isler, None)
-        self._kontrol(r)
-        self.assertIn("orkestra is devam A-9", r["satir"])
+    def test_bagli_is_adi_satirda(self):
+        s = iy.yonlendir(self.ISLER, "I-2")
+        self._kontrol(s)
+        self.assertIn("bağlı iş I-2 Kampanya takvimi", s)
 
-    def test_cok_uzun_baslik_ve_satir_sinirli(self):
-        uzun = "Kalibrasyon envanter muhasebe " * 40 + "\n ikinci satır"
-        isler = [is_("A-7", uzun, "klasor " * 50)]
-        r = iy.yonlendir("kalibrasyon envanter muhasebe", isler, None)
-        self._kontrol(r)
+    def test_acik_is_yoksa_yine_yeni_is_kurali(self):
+        for girdi in ([], None, "x"):
+            s = iy.yonlendir(girdi, None)
+            self._kontrol(s)
+            self.assertNotIn("Açık işler:", s)
 
-    def test_cok_uzun_istek_yeni_satir_sinirli(self):
-        r = iy.yonlendir("alakasiz\nsatir " * 100, [is_("A", "Kalibrasyon")], None)
-        self._kontrol(r)
+    def test_bozuk_girdi_atlanir(self):
+        s = iy.yonlendir([None, 5, {"baslik": "idsiz"}, is_("I-9", "Tek")], None)
+        self.assertIn("I-9 Tek", s)
+        self.assertNotIn("idsiz", s)
+
+    def test_cok_is_ve_uzun_baslik_sinirli(self):
+        isler = [is_("I-%d" % n, "Uzun başlık
+ikinci satır " * 20) for n in range(20)]
+        s = iy.yonlendir(isler, "I-3")
+        self._kontrol(s)
+        self.assertNotIn("I-10 ", s)
 
 
 class KapanisTest(unittest.TestCase):
