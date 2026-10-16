@@ -254,6 +254,11 @@ def doktor_gerekli() -> str | None:
     return None
 
 
+# Arka plan süreçleri için Windows oluşturma bayrağı: CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW. DETACHED_PROCESS EKLENMEZ:
+# DETACHED_PROCESS konsolsuz süreç doğurur ve CREATE_NO_WINDOW'u yok sayar; konsolsuz sürecin başlattığı her konsol programı
+# (git, py, python) varsayılan terminal uygulamasında yeni bir Terminal penceresi açar. NO_WINDOW tek başına gizli konsol verir, alt süreçler onu devralır.
+ARKA_PLAN_BAYRAK = 0x00000200 | 0x08000000 if os.name == "nt" else 0
+
 DOKTOR_ARA = 3600  # sn: başarısız ya da yazamayan doktor her oturumda yeniden başlamasın
 
 
@@ -277,9 +282,8 @@ def doktor_baslat(proje: str | None = None) -> bool:
     args = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "doktor.py"), "--duzelt", "--arka-plan"]
     if proje:
         args += ["--proje", proje]
-    bayrak = 0x00000008 | 0x00000200 | 0x08000000 if os.name == "nt" else 0  # DETACHED | NEW_PROCESS_GROUP | NO_WINDOW
     try:
-        subprocess.Popen(args, creationflags=bayrak, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        subprocess.Popen(args, creationflags=ARKA_PLAN_BAYRAK, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, close_fds=True)
     except OSError:
         return False

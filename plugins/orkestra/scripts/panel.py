@@ -822,9 +822,8 @@ def baslat(port: int | None = None, alan_id: str | None = None, on_planda: bool 
         print(f"http://127.0.0.1:{port}/{sorgu}  (Ctrl+C ile durur)", flush=True)
         calistir(port)
         return ""
-    bayrak = 0x00000008 | 0x00000200 | 0x08000000 if os.name == "nt" else 0
     subprocess.Popen([sys.executable, os.path.abspath(__file__), "_kos", str(port)], cwd=L.GENEL_DIZIN if os.path.isdir(L.GENEL_DIZIN) else None,
-                     creationflags=bayrak, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     creationflags=cfg.ARKA_PLAN_BAYRAK, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, close_fds=True)
     for _ in range(30):
         if _saglik(port):

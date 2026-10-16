@@ -1196,9 +1196,9 @@ def simdi_uygula(sd: str, tur: str = "perspektif") -> dict:
             raise ValueError("Uygulama zaten sürüyor.")
         _yaz_json(_kosu_yolu(sd), {"baslangic": L.simdi(), "idler": idler, "tur": tur, "bitis": None, "sonuc": None})
     args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, exe, P.hafiza_dizini(proje)]
-    bayrak = 0x00000008 | 0x00000200 | 0x08000000 if os.name == "nt" else 0  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+    import cfg
     try:
-        subprocess.Popen(args, cwd=proje, creationflags=bayrak, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        subprocess.Popen(args, cwd=proje, creationflags=cfg.ARKA_PLAN_BAYRAK, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, close_fds=True)
     except OSError as e:
         _kosu_bitir(sd, f"başlatılamadı: {type(e).__name__}")

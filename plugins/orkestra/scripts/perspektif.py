@@ -306,10 +306,7 @@ def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = Fal
     except Exception:
         pass
     args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, hafiza, exe]
-    bayrak = 0
-    if os.name == "nt":
-        bayrak = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
-    subprocess.Popen(args, cwd=proje, creationflags=bayrak, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+    subprocess.Popen(args, cwd=proje, creationflags=cfg.ARKA_PLAN_BAYRAK, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, close_fds=True)
     return f"perspektif arka planda başladı → {os.path.join(sd, 'perspektif')}"
 
