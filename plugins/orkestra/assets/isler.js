@@ -214,13 +214,14 @@
     const kartIp = k.aktif && k.aktif.length ? k.aktif.map(x => `<div class="meta">${esc(x.id)} · ${metin(x.baslik)}</div>`).join('') : '';
     const kartMetni = `${k.acik || 0} açık kart`;
     const sen = r.bekleyen === 'sen';   // sade kart: kapanış rozetleri ve iş/kart satırı çizilmez
+    // Sohbetin amacı: niyet kaydındaki hedef cümlesi (neden alanı); yoksa başlık (ne)
+    const amac = r.niyet_var ? `<div class="amac">${metin(r.neden || r.ne)}</div>` : '';
     let govde;
     if (sen) {
-      // Seni bekliyor: yalnız ne beklendiği (Stop kancasının son mesajdan çıkardığı); niyet/neden satırları gösterilmez
-      govde = `<div class="bekleme">${metin(r.bekleme || 'Yanıtını bekliyor')}</div>`;
+      // Seni bekliyor: amaç + Stop kancasının son mesajdan çıkardığı ne beklendiği
+      govde = `${amac}<div class="bekleme">${metin(r.bekleme || 'Yanıtını bekliyor')}</div>`;
     } else if (r.niyet_var) {
-      // Açıklama (neden) varsa yalnız o; yoksa başlık (ne) açıklama olarak gösterilir
-      govde = `${r.neden ? `<div class="neden">${metin(r.neden)}</div>` : `<div class="neden">${metin(r.ne)}</div>`}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
+      govde = `${amac}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
     } else if (r.son_istek) {
       govde = `<div class="son-istek"><q>${metin(r.son_istek)}</q></div>`;
     } else {

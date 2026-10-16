@@ -672,6 +672,29 @@ def _zaman_ekle(sd: str, kayit: dict) -> None:
         _hata_yaz(sd, "zaman_ekle", e)
 
 
+def _arac_satirlari_ekle(sd: str, oturum, ozet: dict, kimlik: dict, ek: dict) -> None:
+    """I-030 P4: her araç çağrısı için zaman.jsonl'e tur='arac' satırı, tek toplu yazımla.
+    ust_span_id turun (ana/alt) span_id'sidir; token alanları mesaj usage'ının paylaştırılmış tahminidir.
+    Hata kancayı düşürmez, gunluk'e 'hook-hatasi' yazılır."""
+    try:
+        izler = ozet.get("arac_izleri") or []
+        if not izler:
+            return
+        ust = kimlik.get("span_id")
+        zaman = L.simdi()
+        satirlar = []
+        for n, iz in enumerate(izler, 1):
+            satirlar.append({"zaman": zaman, "oturum": oturum, **ek, "tur": "arac", "arac": iz.get("arac"),
+                             "span_id": f"{ust}.c{n}" if ust else None,  # istek yoksa kimlik alanları boş (P1)
+                             "ust_span_id": ust, "istek_id": kimlik.get("istek_id"), "sure_ms": iz.get("sure_ms"),
+                             "giris": iz.get("giris", 0), "cikis": iz.get("cikis", 0),
+                             "onbellek_okuma": iz.get("onbellek_okuma", 0), "onbellek_yazma": iz.get("onbellek_yazma", 0),
+                             "tahmin": True})
+        L.jsonl_toplu_ekle(os.path.join(sd, "zaman.jsonl"), satirlar)
+    except Exception as e:
+        _hata_yaz(sd, "arac_satirlari", e)
+
+
 def subagent_stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -711,6 +734,7 @@ def subagent_stop(inp: dict):
     _zaman_ekle(sd, {"zaman": L.simdi(), "oturum": inp.get("session_id"), "is": taban["is"], "tur": "alt", "agent_id": aid,
                      **({"atif_nedeni": taban["atif_nedeni"]} if taban.get("atif_nedeni") else {}),
                      "ajan": atip, "gorev": gorev, "sure_ms": taban["sure_ms"], **kimlik})
+    _arac_satirlari_ekle(sd, inp.get("session_id"), ozet, kimlik, {"is": taban["is"], "agent_id": aid, "gorev": gorev})
     ana_model = max(ozet["modeller"].items(), key=lambda x: x[1]["maliyet_usd"])[0] if ozet["modeller"] else "-"
     ilk = re.sub(r"#(GOREV|SUREC):\S+", "", ozet["ilk_kullanici"] or "").strip().replace("\n", " ")
     L.defter_ekle(sd, {"oturum": inp.get("session_id"), "gorev": gorev, "surec": surec, "baglam": baglam, "ajan": atip, "agent_id": aid, "model": ana_model,
@@ -964,6 +988,7 @@ def stop(inp: dict):
     if not perspektif and ozet.get("ilk_zaman"):
         _zaman_ekle(sd, {"zaman": L.simdi(), "oturum": oid, **L.is_alanlari(sd, oid, "-"), "tur": "ana",
                          "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "istek_zamani": ozet["ilk_zaman"], **kimlik})
+        _arac_satirlari_ekle(sd, oid, ozet, kimlik, {"is": L.is_alanlari(sd, oid, "-").get("is")})
     ajan = "perspektif-bakimcisi" if perspektif else "ana-ajan"
     surec = "perspektif" if perspektif else "orkestrasyon"
     if ozet["modeller"]:
@@ -1479,6 +1504,13 @@ def session_start(inp: dict):
     ms = _model_sapma_satiri(inp)
     if ms:
         satirlar.append(ms)
+    try:  # iz kapsama eşik aşımı: TEK satır, hatada sessiz
+        import iz as IZ
+        ik = IZ.kapsama_satiri(sd)
+        if ik:
+            satirlar.append(ik)
+    except Exception:
+        pass
     try:  # bağlı olmayan todo dosyaları: TEK satır, hatada sessiz
         import is_kaydi
         tu = is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd")))
@@ -1598,6 +1630,9 @@ def user_prompt_submit(inp: dict):
             iid = L.istek_id_yeni(sd, inp.get("session_id"))
             if iid:
                 istek["istek_id"] = iid
+            ne = L.ne_ozeti(metin)  # I-030 P5: kural tabanlı tek satır; boş iletide yazılmaz
+            if ne:
+                istek["ne"] = ne
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "istek",
                                                          "metin": metin[:300], "uzunluk": len(metin), **istek})
         # Niyet kaydı: kullanıcı yazdı → Claude çalışıyor. Sistem iletileri (<agent-message>, <task-notification>) istek metni sayılmaz.

@@ -14,8 +14,8 @@
   .sohbet .ust .ad b { color: var(--text-primary); font-weight: 600; }
   .sohbet .bekleme { font-size: var(--t-16); font-weight: 600; line-height: 1.35; margin-top: var(--a-4); overflow-wrap: anywhere; }
   .sohbet .ne { font-size: var(--t-16); font-weight: 600; line-height: 1.35; margin-top: var(--a-4); overflow-wrap: anywhere; }
-  .sohbet .neden { color: var(--text-secondary); font-size: var(--t-13); overflow-wrap: anywhere; }
-  .sohbet .neden::before { content: "→ "; color: var(--text-muted); }
+  .sohbet .amac { color: var(--text-secondary); font-size: var(--t-13); overflow-wrap: anywhere; }
+  .sohbet .amac::before { content: "Amaç: "; color: var(--text-muted); font-weight: 600; }
   .sohbet .sonuc { color: var(--text-secondary); font-size: var(--t-13); }
   .sohbet .sonuc::before { content: "✓ "; color: var(--good); }
   .son-istek { margin-top: var(--a-4); font-size: var(--t-13); color: var(--text-secondary); }

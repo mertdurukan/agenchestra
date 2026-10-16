@@ -28,6 +28,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
   orkestra defter oku [--gorev G] [--son N] | ozet
   orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | anomali [--gun N] [--json] | yeniden-etiketle [--uygula]
+  orkestra iz <istek_id|I-nnn|oturum> [--json|--csv] | iz kapsama [--json]   süre/token ağacı (toplam = defter) ve atıf kapsama ölçümü
   orkestra perspektif durum | basla | bitti
   orkestra gunluk ozet [--gun 7]
   orkestra onay liste [--durum D] [--tur T] [--json] | goster ID | iste --baslik B --metin M [--secenek S]... [--oturum O]
@@ -63,10 +64,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin  # noqa: E402
+from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz  # noqa: E402
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

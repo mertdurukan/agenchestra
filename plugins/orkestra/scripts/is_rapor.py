@@ -13,6 +13,7 @@ import os
 import re
 
 import ork_lib as L
+import iz
 
 KOVA = "I-000"
 KOVA_BASLIK = "İşe bağlanmamış"
@@ -90,6 +91,7 @@ def rapor(sd: str) -> dict:
     for i in sirali:
         m = [r for r in mal if r["_is"] == i]
         z = [r for r in zam if r["_is"] == i]
+        t = iz.toplam(m)
         gunler = sorted(g for g in (_gun(r) for r in m + z) if g)
         oturum = {r.get("oturum") for r in m + z if r.get("oturum")}
         kayit = isler.get(i) if isinstance(isler.get(i), dict) else {}
@@ -97,8 +99,8 @@ def rapor(sd: str) -> dict:
         satirlar.append({
             "is": i,
             "baslik": KOVA_BASLIK if i == KOVA else (kayit.get("baslik") or ""),
-            "usd": round(sum(_sayi(r.get("maliyet_usd")) for r in m), 6),
-            "token": sum(_token(r) for r in m),
+            "usd": round(t["usd"], 6),
+            "token": t["token"],
             "claude_sn": sum(_sayi(r.get("sure_ms")) for r in z if r.get("tur") == "ana") / 1000,
             "alt_sn": sum(_sayi(r.get("sure_ms")) for r in z if r.get("tur") == "alt") / 1000,
             "oturum": len(oturum),

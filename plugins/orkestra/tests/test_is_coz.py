@@ -155,9 +155,25 @@ class TestIsCozSira(_Ortak):
             self.assertEqual(L.is_coz(self.sd, OTURUM, "G-1"), (None, "kart-isiz"))
 
     def test_k1_hata_fail_open(self):
+        # G-156: okunamayan kart istisna/'hata' değil, oturumun işine düşer
         self.kart("G-1", **{"is": "I-100"})
-        with mock.patch.object(L, "kart_oku", side_effect=RuntimeError("bozuk")):
-            self.assertEqual(L.is_coz(self.sd, OTURUM, "G-1"), ("-", "hata"))
+        self.oturum(**{"is": "I-200"})
+        with mock.patch.object(L, "kart_oku", side_effect=RuntimeError("bozuk")) as km:
+            r = L.is_coz(self.sd, OTURUM, "G-1")
+        km.assert_called_once_with(self.sd, "G-1")  # hata yolu gerçekten koştu
+        self.assertEqual(r, ("I-200", None))  # oturumda iş varken oturum işi döner
+
+    def test_k1_hata_kart_okunamaz_oturumsuz_kart_isiz(self):
+        self.kart("G-1", **{"is": "I-100"})
+        with mock.patch.object(L, "kart_oku", side_effect=RuntimeError("bozuk")) as km, \
+                mock.patch.object(niyet, "son_baglam", return_value=""):
+            r = L.is_coz(self.sd, OTURUM, "G-1")
+        km.assert_called_once_with(self.sd, "G-1")
+        self.assertEqual(r, (None, "kart-isiz"))  # oturumda da iş yoksa mevcut dönüş
+
+    def test_k1_hata_kart_okunamaz_istisna_firlatmaz_niyete_duser(self):
+        with mock.patch.object(L, "kart_oku", side_effect=RuntimeError("bozuk")),                 mock.patch.object(niyet, "son_baglam", return_value="I-300"):
+            self.assertEqual(L.is_coz(self.sd, OTURUM, "G-1"), ("I-300", None))
 
     def test_k1_gecersiz_sd_istisna_firlatmaz(self):
         r = L.is_coz(None, OTURUM, "G-1")

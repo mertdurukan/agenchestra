@@ -175,6 +175,12 @@ def jsonl_ekle(yol: str, kayit: dict) -> None:
     sona_ekle(yol, json.dumps({"v": KAYIT_SURUMU, **kayit}, ensure_ascii=False) + "\n")
 
 
+def jsonl_toplu_ekle(yol: str, kayitlar: list[dict]) -> None:
+    """Çok satırı tek sona_ekle çağrısıyla ekler (tek kilit, tek açma); boş listede dosyaya dokunmaz."""
+    if kayitlar:
+        sona_ekle(yol, "".join(json.dumps({"v": KAYIT_SURUMU, **k}, ensure_ascii=False) + "\n" for k in kayitlar))
+
+
 # ---------------------------------------------------------------- istek kimliği (I-030 P1)
 
 def _oturum_json_yol(sd, oturum):
@@ -267,7 +273,10 @@ def is_coz(sd, oturum, gorev=None, niyet_dahil=True):
     try:
         gorevli = bool(gorev) and gorev != "-"
         if gorevli:
-            k = kart_oku(sd, gorev)
+            try:  # bozuk/okunamayan kart oturumun işine düşer (çökme ya da 'hata' değil)
+                k = kart_oku(sd, gorev)
+            except Exception:
+                k = None
             v = k.get("is") if isinstance(k, dict) else None
             if v:
                 return str(v), None
@@ -440,6 +449,8 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
     okuma_sayac: dict[str, int] = {}
     son_kullanim: dict[str, tuple[str, dict]] = {}
     arac_idleri: set[str] = set()
+    arac_izi: list[tuple] = []  # (tool_use_id, ad, mesaj_id, tool_use zamanı)
+    sonuc_zamani: dict[str, str] = {}  # tool_use_id -> ilk tool_result zamanı
     with open(yol, "rb") as f:
         f.seek(ofset)
         veri = f.read()
@@ -466,8 +477,11 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
                 sonuc["ilk_kullanici"] = t
         if tip == "user" and isinstance(mesaj, dict) and isinstance(mesaj.get("content"), list):
             for b in mesaj["content"]:
-                if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error") is True:
-                    hata_idleri.add(str(b.get("tool_use_id") or id(b)))
+                if isinstance(b, dict) and b.get("type") == "tool_result":
+                    if b.get("is_error") is True:
+                        hata_idleri.add(str(b.get("tool_use_id") or id(b)))
+                    if b.get("tool_use_id") and ts:
+                        sonuc_zamani.setdefault(b["tool_use_id"], ts)
         if tip != "assistant":
             continue
         mid = mesaj.get("id") or o.get("uuid")
@@ -477,6 +491,7 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
             if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id") not in arac_idleri:
                 arac_idleri.add(b.get("id"))
                 ad = b.get("name", "?")
+                arac_izi.append((b.get("id"), ad, mid, ts))
                 sonuc["araclar"][ad] = sonuc["araclar"].get(ad, 0) + 1
                 giris = b.get("input") or {}
                 fp = giris.get("file_path") or giris.get("notebook_path")
@@ -504,7 +519,52 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
     sonuc["tur"] = len(son_kullanim)
     sonuc["arac_cagrisi"] = len(arac_idleri)
     sonuc["arac_sayilari"] = {"arac_hata": len(hata_idleri), "tekrar_okuma": sum(n - 1 for n in okuma_sayac.values() if n > 1)}
+    sonuc["arac_izleri"] = arac_izleri_hesapla(arac_izi, sonuc_zamani, son_kullanim)
     return sonuc
+
+
+_USAGE_ALANLARI = (("giris", "input_tokens"), ("cikis", "output_tokens"),
+                   ("onbellek_okuma", "cache_read_input_tokens"), ("onbellek_yazma", "cache_creation_input_tokens"))
+
+
+def _paylastir(toplam: int, n: int) -> list[int]:
+    """toplam'ı n parçaya tamsayı olarak böler; kalan ilk parçalara 1'er dağıtılır (toplam korunur)."""
+    q, r = divmod(max(0, toplam), n)
+    return [q + (1 if i < r else 0) for i in range(n)]
+
+
+def arac_izleri_hesapla(arac_izi, sonuc_zamani, son_kullanim) -> list[dict]:
+    """Araç başına {tool_use_id, arac, sure_ms, giris, cikis, onbellek_okuma, onbellek_yazma} (I-030 P4).
+
+    sure_ms: tool_use satırı zamanından ilk tool_result zamanına (sonuç yoksa ya da negatifse None).
+    Token: aynı asistan mesajının (mesaj kimliği tekil) usage'ı o mesajdaki araç sayısına bölünür;
+    toplam usage'a eşittir, yaklaşıktır (tahmin)."""
+    mesaj_araclari: dict = {}
+    for i, (_tid, _ad, mid, _ts) in enumerate(arac_izi):
+        mesaj_araclari.setdefault(mid, []).append(i)
+    paylar: dict[int, dict] = {}
+    for mid, sira in mesaj_araclari.items():
+        u = (son_kullanim.get(mid) or (None, {}))[1] or {}
+        for alan, anahtar in _USAGE_ALANLARI:
+            v = u.get(anahtar, 0)
+            for i, p in zip(sira, _paylastir(v if isinstance(v, int) and not isinstance(v, bool) else 0, len(sira))):
+                paylar.setdefault(i, {})[alan] = p
+    izler = []
+    for i, (tid, ad, _mid, ts) in enumerate(arac_izi):
+        sure = sure_ms(ts, sonuc_zamani.get(tid)) if ts and tid in sonuc_zamani else None
+        izler.append({"tool_use_id": tid, "arac": ad, "sure_ms": sure if sure is None or sure >= 0 else None,
+                      **{alan: paylar.get(i, {}).get(alan, 0) for alan, _ in _USAGE_ALANLARI}})
+    return izler
+
+
+def ne_ozeti(metin: str | None, azami: int = 120) -> str:
+    """İstek metninin kural tabanlı tek satırlık özeti (I-030 P5): satır sonları boşluğa çevrilir,
+    ilk cümle (. ! ? ardından boşluk ya da son) alınır, en çok `azami` karakter. LLM çağrısı yok."""
+    t = " ".join(str(metin or "").split())
+    if not t:
+        return ""
+    m = re.match(r"(.+?[.!?…])(?=\s|$)", t)
+    return (m.group(1) if m else t)[:azami].rstrip()
 
 
 def etiketler(metin: str | None) -> tuple[str, str]:

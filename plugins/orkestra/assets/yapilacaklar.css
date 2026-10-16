@@ -14,7 +14,8 @@
 .yap-liste li.bos { display: block; }
 .yap-metin { flex: 1; min-width: 0; white-space: pre-wrap; line-height: 1.45; }
 .yap-metin small { display: block; color: var(--text-muted); margin-top: 2px; }
-.yap-liste li > button { flex: none; white-space: nowrap; overflow-wrap: normal; }
+.yap-liste li > button, .yap-dugme button { flex: none; white-space: nowrap; overflow-wrap: normal; }
+.yap-dugme { flex: none; display: flex; flex-direction: column; gap: var(--a-4); }
 .yap-liste li.bitti .yap-metin > span { color: var(--text-muted); text-decoration: line-through; }
 .yap-liste li.bekler { opacity: .55; }
 .yap-geri { display: flex; gap: var(--a-8); align-items: center; padding: var(--a-8); margin-bottom: var(--a-8); border: 1px solid var(--line); border-radius: var(--k-6); }

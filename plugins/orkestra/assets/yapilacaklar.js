@@ -23,7 +23,8 @@
     const g = q ? maddeler.filter(x => x.metin.toLowerCase().includes(q)) : maddeler;
     $('#kSayi').textContent = maddeler.length + ' madde';
     $('#kListe').innerHTML = g.length ? g.map(x =>
-      `<li><button type="button" data-id="${esc(x.id)}" aria-label="Tamamla: ${esc(x.metin)}">Tamamla</button>` +
+      `<li><div class="yap-dugme"><button type="button" data-kopya="${esc(x.id)}" aria-label="Kopyala: ${esc(x.metin)}">Kopyala</button>` +
+      `<button type="button" data-id="${esc(x.id)}" aria-label="Tamamla: ${esc(x.metin)}">Tamamla</button></div>` +
       `<div class="yap-metin"><span>${esc(x.metin)}</span><small title="${esc(x.zaman || '')}">${esc(goreli(x.zaman))}</small></div></li>`).join('')
       : `<li class="bos">${q ? 'Aramaya uyan madde yok.' : 'Henüz madde yok. Yukarıya yaz, Enter ile ekle.'}</li>`;
   }
@@ -81,7 +82,27 @@
   $('#kEkle').addEventListener('click', ekle);
   $('#kAra').addEventListener('input', e => { ara = e.target.value; listeCiz(); });
 
+  async function kopyala(metin) {
+    try { await navigator.clipboard.writeText(metin); return true; } catch (_) { /* yerel http: eski yola düş */ }
+    const t = document.createElement('textarea');
+    t.value = metin; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { /* ok=false */ }
+    t.remove();
+    return ok;
+  }
+
   $('#kListe').addEventListener('click', async e => {
+    const c = e.target.closest('button[data-kopya]');
+    if (c) {
+      const x = maddeler.find(m => m.id === c.dataset.kopya);
+      const ok = await kopyala(x ? x.metin : '');
+      const ilk = c.textContent;
+      c.textContent = ok ? 'Kopyalandı' : 'Kopyalanamadı';
+      setTimeout(() => { c.textContent = ilk; }, 1500);
+      return;
+    }
     const b = e.target.closest('button[data-id]');
     if (!b) return;
     const x = maddeler.find(m => m.id === b.dataset.id);
