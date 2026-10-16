@@ -285,6 +285,84 @@ class K5PanoJs(unittest.TestCase):
         self.assertIn("plan-kusuru", self.js)
         self.assertIn("'pano'", self.js)
 
+    def test_js_ek_olcu_bolumu(self):
+        for a in A.EK_SIRASI:
+            self.assertIn(a, self.js)
+        self.assertIn("ekBolum", self.js)
+
+
+def satir(gorev, usd, **ek):
+    return dict({"zaman": z(0, 2), "gorev": gorev, "maliyet_usd": usd, "agent_id": "x"}, **ek)
+
+
+class K7EkOlculer(unittest.TestCase):
+    """Hedefsiz ek ölçüler: panonun 5 ölçüsüne ve hedef.json'a dokunmadan `ek` altında yeni anahtarlar."""
+
+    def ek(self, kartlar, kayitlar=(), alan="tum_zaman"):
+        e = pano(kartlar, kayitlar)["ek"]
+        self.assertEqual(set(e), set(A.EK_SIRASI))
+        return {a: e[a][alan] for a in e}
+
+    def test_ana_kirilim_bolusur_ve_ana_payi_ile_tutarli(self):
+        k = kart("G-1", denetimler=[{"karar": "onay", "sira": 2}])
+        r = [satir("G-1", 1.0), satir("-", 2.0, **{"is": "I-1"}), satir("-", 3.0), satir("", 0.5, perspektif=True), satir(None, 0.25, ruya=True, **{"is": "I-1"})]
+        p = pano([k], r)
+        a = p["ek"]["ana_kirilim"]["tum_zaman"]
+        self.assertEqual((a["is_bagli_usd"], a["is_bagsiz_usd"], a["perspektif_usd"]), (2.0, 3.0, 0.75))
+        self.assertAlmostEqual(a["is_bagli_usd"] + a["is_bagsiz_usd"] + a["perspektif_usd"], a["ana_usd"], places=4)
+        self.assertAlmostEqual(a["ana_usd"] / a["toplam_usd"], p["olculer"]["ana_ajan_payi"]["tum_zaman"]["deger"], places=3)
+
+    def test_onayli_kart_toplam_usd_ana_ajan_dahil(self):
+        k1, k2 = kart("G-1"), kart("G-2", durum="bekliyor")
+        e = self.ek([k1, k2], [satir("G-1", 1.0), satir("G-2", 1.0), satir("-", 4.0)])["onayli_kart_toplam_usd"]
+        self.assertEqual((e["deger"], e["pay"], e["payda"]), (6.0, 6.0, 1))
+        self.assertIsNone(self.ek([k2], [satir("-", 4.0)])["onayli_kart_toplam_usd"]["deger"])
+
+    def test_isci_dagilim_kuyrugu_gosterir(self):
+        ks = [kart("G-1", isciler=1), kart("G-2", isciler=3), kart("G-3", isciler=8)]
+        d = self.ek(ks)["isci_dagilim"]
+        self.assertEqual((d["adet"], d["medyan"], d["p90"], d["en_cok"], d["kart_ge4"]), (3, 3.0, 8.0, 8.0, 1))
+        self.assertEqual(self.ek([])["isci_dagilim"]["medyan"], None)
+
+    def test_onayli_usd_dagilim_yalniz_onayli_kartlar(self):
+        ks = [kart("G-1"), kart("G-2"), kart("G-3", durum="bekliyor")]
+        d = self.ek(ks, [satir("G-1", 1.0), satir("G-2", 5.0), satir("G-3", 99.0)])["onayli_usd_dagilim"]
+        self.assertEqual((d["adet"], d["medyan"], d["en_cok"]), (2, 3.0, 5.0))
+
+    def test_ilk_gecis_onay_ilk_karara_bakar(self):
+        ks = [kart("G-1", denetimler=[{"karar": "ret", "sira": 1}, {"karar": "onay", "sira": 2}]),
+              kart("G-2", denetimler=[{"karar": "onay", "sira": 1}]), kart("G-3")]
+        e = self.ek(ks)["ilk_gecis_onay"]
+        self.assertEqual((e["deger"], e["pay"], e["payda"]), (0.5, 1, 2))
+
+    def test_onbellek_isabet_ana_ve_karta_bagli(self):
+        r = [satir("-", 1.0, onbellek_okuma=90, giris=10), satir("G-1", 1.0, onbellek_okuma=50, giris=25, onbellek_yazma=25)]
+        e = self.ek([kart("G-1")], r)["onbellek_isabet"]
+        self.assertEqual(e["ana"]["deger"], 0.9)
+        self.assertEqual(e["karta_bagli"]["deger"], 0.5)
+        self.assertIsNone(self.ek([kart("G-1")], [satir("G-1", 1.0)])["onbellek_isabet"]["ana"]["deger"])
+
+    def test_sinif_basina_pahaliya_gore_sirali_siniflandirilmamis_tire(self):
+        a, b, c = kart("G-1"), kart("G-2"), kart("G-3")
+        a["sinif"], b["sinif"] = "kod", "belge"
+        s = self.ek([a, b, c], [satir("G-1", 1.0), satir("G-2", 3.0), satir("G-3", 0.5)])["sinif_basina"]
+        self.assertEqual(list(s), ["belge", "kod", "-"])
+        self.assertEqual(s["belge"], {"kart": 1, "usd": 3.0})
+
+    def test_pencere_disi_ek_olcuye_girmez(self):
+        eski = kart("G-1", olus=z(10))
+        r = [dict(satir("G-1", 1.0), zaman=z(10)), satir("-", 2.0)]
+        p = pano([eski], r)["ek"]
+        self.assertEqual(p["ana_kirilim"]["son_3_gun"]["toplam_usd"], 2.0)
+        self.assertEqual(p["ana_kirilim"]["tum_zaman"]["toplam_usd"], 3.0)
+        self.assertEqual(p["isci_dagilim"]["son_3_gun"]["adet"], 0)
+
+    def test_mevcut_olculer_ek_yuzunden_degismez(self):
+        k = kart("G-1", denetimler=[{"karar": "onay", "sira": 2}])
+        p = pano([k], [satir("G-1", 1.0), satir("-", 0.5)])
+        self.assertEqual(set(p["olculer"]), set(OLCULER))
+        self.assertAlmostEqual(p["olculer"]["ana_ajan_payi"]["tum_zaman"]["deger"], 0.5 / 1.5, places=3)
+
 
 if __name__ == "__main__":
     unittest.main()

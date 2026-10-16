@@ -770,6 +770,58 @@ def onlenebilir_israf(kartlar: list, usd_ajan: dict, esik: dict) -> dict:
     return {"esik_surumu": esik.get("surum"), "onlenebilir_usd": _r(toplam), "siniflar": siniflar}
 
 
+EK_SIRASI = ("ana_kirilim", "onayli_kart_toplam_usd", "isci_dagilim", "onayli_usd_dagilim", "ilk_gecis_onay", "onbellek_isabet",
+             "sinif_basina")
+
+
+def _dagilim(x: list) -> dict:
+    """Ortalamanın gizlediği kuyruk için: adet, medyan, P90 (en yakın sıra) ve en çok."""
+    x = sorted(v for v in x if v is not None)
+    n = len(x)
+    if not n:
+        return {"adet": 0, "medyan": None, "p90": None, "en_cok": None}
+    med = x[n // 2] if n % 2 else (x[n // 2 - 1] + x[n // 2]) / 2
+    return {"adet": n, "medyan": _r(med), "p90": _r(x[min(n - 1, int(round(0.9 * (n - 1))))]), "en_cok": _r(x[-1])}
+
+
+def _onbellek_isabet(rs: list) -> dict:
+    """Okunan önbellek / tüm giriş tokenı. Payda 0 ise deger None."""
+    o = sum(r.get("onbellek_okuma") or 0 for r in rs)
+    t = o + sum((r.get("giris") or 0) + (r.get("onbellek_yazma") or 0) for r in rs)
+    return {"deger": _r(o / t) if t else None, "pay": o, "payda": t}
+
+
+def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
+    """Hedefsiz ek ölçüler (hedef.json'a dokunmaz): ana ajan kırılımı, toplam maliyet, dağılımlar, ilk geçiş onayı,
+    önbellek isabeti, iş sınıfı başına maliyet. ks pencere içindeki iptal olmayan kartlar, rs pencere içindeki defter satırları."""
+    usd = lambda xs: sum(r.get("maliyet_usd") or 0.0 for r in xs)  # noqa: E731
+    ana = [r for r in rs if L.ana_ajan_satiri_mi(r)]
+    karta = [r for r in rs if not L.ana_ajan_satiri_mi(r)]
+    persp = [r for r in ana if r.get("perspektif") or r.get("ruya")]
+    kalan = [r for r in ana if not (r.get("perspektif") or r.get("ruya"))]
+    kart_usd: dict = collections.defaultdict(float)
+    for r in karta:
+        kart_usd[r.get("gorev")] += r.get("maliyet_usd") or 0.0
+    ilk = [next((d.get("karar") for d in k.get("denetimler") or [] if d.get("karar") in ("onay", "ret")), None) for k in ks]
+    ilk = [x for x in ilk if x]
+    sinif: dict = {}
+    for k in ks:
+        e = sinif.setdefault(str(k.get("sinif") or "-"), {"kart": 0, "usd": 0.0})
+        e["kart"] += 1
+        e["usd"] += kart_usd.get(k.get("id"), 0.0)
+    isci = [len(k.get("isciler") or []) for k in ks]
+    return {
+        "ana_kirilim": {"is_bagli_usd": _r(usd([r for r in kalan if r.get("is")])), "is_bagsiz_usd": _r(usd([r for r in kalan if not r.get("is")])),
+                        "perspektif_usd": _r(usd(persp)), "ana_usd": _r(usd(ana)), "toplam_usd": _r(usd(rs))},
+        "onayli_kart_toplam_usd": {"deger": _r(usd(rs) / len(onayli)) if onayli else None, "pay": _r(usd(rs)), "payda": len(onayli)},
+        "isci_dagilim": dict(_dagilim(isci), kart_ge4=sum(1 for x in isci if x >= 4)),
+        "onayli_usd_dagilim": _dagilim([kart_usd.get(k.get("id"), 0.0) for k in onayli]),
+        "ilk_gecis_onay": {"deger": _r(ilk.count("onay") / len(ilk)) if ilk else None, "pay": ilk.count("onay"), "payda": len(ilk)},
+        "onbellek_isabet": {"ana": _onbellek_isabet(ana), "karta_bagli": _onbellek_isabet(karta)},
+        "sinif_basina": {s: {"kart": e["kart"], "usd": _r(e["usd"])} for s, e in sorted(sinif.items(), key=lambda kv: -kv[1]["usd"])},
+    }
+
+
 def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None = None, esik: dict | None = None) -> dict:
     """5 hedef ölçüsü x {son_3_gun, tum_zaman} ve önlenebilir israf. Her ölçü {deger, hedef, durum, ornek, pay, payda}.
     Pencere: kart olusturma / defter satırı zamanı >= simdi - pencere_gun. Payda 0 -> deger None, durum veri-yok."""
@@ -791,7 +843,7 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             usd_ajan[r["agent_id"]] += r.get("maliyet_usd") or 0.0
     out: dict = {"surum": 1, "uretim": L.simdi(), "pencere_gun": gun,
                  "teknik_kapi_baslangic": hedef.get("teknik_kapi_baslangic"),
-                 "olculer": {a: {} for a in OLCU_SIRASI}, "israf": {}}
+                 "olculer": {a: {} for a in OLCU_SIRASI}, "israf": {}, "ek": {a: {} for a in EK_SIRASI}}
 
     for ad, alt in pencereler.items():
         def icinde(z):
@@ -832,6 +884,8 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
                 e["yorum"] = yorum
             out["olculer"][o][ad] = e
         out["israf"][ad] = onlenebilir_israf(ks, usd_ajan, esik)
+        for a, v in ek_olculer(ks, rs, onayli).items():
+            out["ek"][a][ad] = v
     return out
 
 

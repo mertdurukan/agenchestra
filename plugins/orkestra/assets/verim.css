@@ -88,3 +88,5 @@
   .pano-israf { margin-top: var(--a-16); }
   .pano-israf h3 { margin: 0 0 var(--a-8); font-size: var(--t-14, 14px); }
   .pano-israf .sat { display: flex; gap: var(--a-12); align-items: baseline; }
+  .pano-ek h4 { margin: var(--a-12) 0 var(--a-4); font-size: var(--t-13); font-weight: 600; color: var(--text-secondary, var(--text-primary)); }
+  .pano-ek .sat > span:first-child { min-width: 7em; color: var(--text-secondary, var(--text-primary)); }

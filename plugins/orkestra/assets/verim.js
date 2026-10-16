@@ -77,7 +77,39 @@
     };
     yerlestir(kap, `<div class="karolar pano">${OLCU_TANIM.map(kutu).join('')}</div>
       <div class="pano-israf"><h3>Önlenebilir israf</h3>${israfSatir('son_3_gun')}${israfSatir('tum_zaman')}
-      <p class="aciklama">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${B.sayi((israf.tum_zaman || {}).esik_surumu)}.</p></div>`);
+      <p class="aciklama">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${B.sayi((israf.tum_zaman || {}).esik_surumu)}.</p></div>
+      ${ekBolum(p.ek)}`);
+  }
+
+  // Hedefsiz ek ölçüler (analitik.ek_olculer): ortalamanın gizlediği dağılım, ana ajan dahil toplam maliyet, kalite ve önbellek.
+  // Her ölçü iki pencere için ayrı satırdır; veri yoksa bölüm çizilmez.
+  const nz = (f, v, ...a) => (v == null ? '–' : f(v, ...a));
+  const EK_TANIM = [
+    ['ana_kirilim', 'Ana ajan harcaması kırılımı', 'ana ajan harcamasının işe bağlı, işe bağsız ve perspektif payı (USD)',
+      a => `işe bağlı <b>${B.usd(a.is_bagli_usd)}</b> · işe bağsız <b>${B.usd(a.is_bagsiz_usd)}</b> · perspektif ${B.usd(a.perspektif_usd)}`],
+    ['onayli_kart_toplam_usd', 'Onaylı kart başına toplam USD', 'pencere içindeki tüm harcama (ana ajan dahil) / onaylı kart',
+      a => `<b>${nz(B.usd, a.deger)}</b> <span class="meta" style="display:inline">${B.usd(a.pay)} / ${B.sayi(a.payda, 0)}</span>`],
+    ['isci_dagilim', 'İşçi ajanı / kart dağılımı', 'kart başına tekil işçi ajanı sayısı; denetçiler dahil değildir',
+      a => `medyan <b>${nz(B.sayi, a.medyan, 1)}</b> · P90 ${nz(B.sayi, a.p90, 0)} · en çok ${nz(B.sayi, a.en_cok, 0)} · 4 ve üzeri işçili ${B.sayi(a.kart_ge4, 0)} / ${B.sayi(a.adet, 0)} kart`],
+    ['onayli_usd_dagilim', 'Onaylı kart USD dağılımı', 'onaylı kartların kendi harcaması (USD)',
+      a => `medyan <b>${nz(B.usd, a.medyan)}</b> · P90 ${nz(B.usd, a.p90)} · en çok ${nz(B.usd, a.en_cok)}`],
+    ['ilk_gecis_onay', 'İlk geçişte onay', 'ilk denetim kararı onay olan kart / karar verilmiş kart; hedef yok',
+      a => `<b>${nz(B.yuzde, a.deger)}</b> <span class="meta" style="display:inline">${B.sayi(a.pay, 0)} / ${B.sayi(a.payda, 0)}</span>`],
+    ['onbellek_isabet', 'Önbellek isabeti', 'okunan önbellek tokenı / tüm giriş tokenı',
+      a => `ana ajan <b>${nz(B.yuzde, (a.ana || {}).deger)}</b> · karta bağlı <b>${nz(B.yuzde, (a.karta_bagli || {}).deger)}</b>`],
+    ['sinif_basina', 'İş sınıfı başına maliyet', 'kartın sınıfına göre kart sayısı ve karta bağlı harcama; en pahalı 5 sınıf',
+      a => Object.entries(a).slice(0, 5).map(([s, e]) => `${esc(s)} ${B.sayi(e.kart, 0)} kart <b>${B.usd(e.usd)}</b>`).join(' · ') || 'kart yok'],
+  ];
+  function ekBolum(ek) {
+    if (!ek) return '';
+    const bloklar = EK_TANIM.map(([anahtar, ad, tanim, bicim]) => {
+      const satirlar = ['son_3_gun', 'tum_zaman'].map(w => {
+        const a = (ek[anahtar] || {})[w];
+        return a ? `<div class="sat" tabindex="0" data-ipucu="${esc(`<b>${ad} · ${PENCERE_AD[w]}</b><div class="meta">${tanim}</div>`)}"><span>${esc(PENCERE_AD[w])}</span><span>${bicim(a)}</span></div>` : '';
+      }).join('');
+      return satirlar ? `<h4>${esc(ad)}</h4>${satirlar}` : '';
+    }).join('');
+    return bloklar ? `<div class="pano-israf pano-ek"><h3>Ek ölçüler</h3>${bloklar}<p class="aciklama">Hedefsiz bilgi ölçüleridir; hedef panosundaki 5 ölçünün yerine geçmez. Toplam ve ana ajan tutarları aynı defterden gelir.</p></div>` : '';
   }
 
   // ------------------------------------------------------------ 1. Basamak verimliliği
