@@ -1614,7 +1614,7 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
     yol = os.path.join(sd, "maliyet.jsonl")
     try:
         st = os.stat(yol)
-        imza = (yol, st.st_mtime_ns, st.st_size)
+        imza = (yol, st.st_mtime_ns, st.st_size, _duzeltme_imzasi(sd))  # düzeltme dosyası da imzada
     except OSError:
         imza = None
     if imza and _MALIYET_ONBELLEK.get("imza") == imza:
@@ -1628,6 +1628,35 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
 _MALIYET_ONBELLEK: dict = {}
 
 
+def _duzeltme_imzasi(sd: str):
+    """maliyet_duzeltme.jsonl (mtime_ns, size); dosya yoksa None."""
+    try:
+        st = os.stat(os.path.join(sd, "maliyet_duzeltme.jsonl"))
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _duzeltme_uygula(yol: str, out: list[dict]) -> list[dict]:
+    """Ham defter yanındaki maliyet_duzeltme.jsonl'i bindirir (yalnız bellekte): işsiz satırın işini anahtardan
+    doldurur (dolu işe dokunmaz); doldurulamayan işsiz satıra atif_nedeni='oturum-isiz' ekler (yoksa)."""
+    harita: dict = {}
+    for e in jsonl_oku(os.path.join(os.path.dirname(yol), "maliyet_duzeltme.jsonl")):
+        if e.get("anahtar") and e.get("is") and e["anahtar"] not in harita:
+            harita[e["anahtar"]] = e
+    for r in out:
+        if r.get("is") and r.get("is") != "-":
+            continue
+        e = harita.get("|".join(str(r.get(a)) for a in ("oturum", "zaman", "agent_id", "kaynak", "model")))
+        if e:
+            r["is"] = e["is"]
+            r["atif_kaynagi"] = e.get("kaynak")
+            r.pop("atif_nedeni", None)
+        else:
+            r.setdefault("atif_nedeni", "oturum-isiz")
+    return out
+
+
 _TOKEN_ALANLARI = ("giris", "cikis", "onbellek_okuma", "onbellek_yazma")
 
 
@@ -1639,7 +1668,7 @@ def _satir_usd(r: dict) -> float:
         "cache_creation": {"ephemeral_1h_input_tokens": r.get("onbellek_yazma") or 0}})
 
 
-def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
+def _maliyet_kayitlari_oku(yol: str, duzeltme: bool = True) -> list[dict]:
     rows = jsonl_oku(yol)
     for r in rows:  # eski 'tur' satırları (tarife damgası yok) 5 dk tarifesiyle yazılmıştı: 1 sa tarifesiyle yeniden fiyatla
         if (r.get("kaynak") == "tur" and not r.get("tarife") and r.get("model")
@@ -1664,7 +1693,7 @@ def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
         elif not r.get("agent_id") or son[k][1] is r:
             out.append(r)
     out.extend(_hook_artigi(rows, tur_var))
-    return out
+    return _duzeltme_uygula(yol, out) if duzeltme else out
 
 
 def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:

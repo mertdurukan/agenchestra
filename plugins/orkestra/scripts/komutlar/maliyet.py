@@ -286,6 +286,15 @@ def cmd_maliyet_ozet(a):
     print(json.dumps(o) if a.json else f"bugün ≈${o['bugun_usd']:.2f} · bu oturum ≈${o['oturum_usd']:.2f} · toplam ≈${o['toplam_usd']:.2f} ({o['kosu']} koşu)")
 
 
+def cmd_maliyet_duzelt(a):
+    """Geriye dönük iş atfı: varsayılan kuru koşu; --uygula maliyet_duzeltme.jsonl'e yalnız ekler (ham defter değişmez)."""
+    import maliyet_duzelt as MD
+    sd = sd_gerekli()
+    p = MD.planla(sd)
+    n = MD.uygula(sd, p) if a.uygula else None
+    print(MD.metin(p, n))
+
+
 def kaydet(alt):
     """Bu modülün alt komutlarını ana ayrıştırıcıya ekler."""
     mal = alt.add_parser("maliyet").add_subparsers(dest="alt", required=True)
@@ -319,6 +328,9 @@ def kaydet(alt):
     ye.add_argument("--uygula", action="store_true")
     ye.add_argument("--transkript-dizini", help=argparse.SUPPRESS)
     ye.set_defaults(f=cmd_maliyet_yeniden_etiketle)
+    du = mal.add_parser("duzelt", help="işe bağsız geçmiş satırları kart/oturumdan işe atfeder (varsayılan kuru koşu)")
+    du.add_argument("--uygula", action="store_true", help="maliyet_duzeltme.jsonl'e ekle (yoksa yalnız sayım)")
+    du.set_defaults(f=cmd_maliyet_duzelt)
     oz = mal.add_parser("ozet")
     oz.add_argument("--json", action="store_true")
     oz.set_defaults(f=cmd_maliyet_ozet)
