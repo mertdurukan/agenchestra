@@ -78,6 +78,10 @@ def calisma_dizini(dosya):
 def tek_dosya(dosya, zaman_asimi):
     """-> (dosya, çıkış_kodu, çıktı, süre, zaman_asimi_mi)"""
     env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    env.setdefault("ORKESTRA_TEKNIK_KAPISI", "0")
+    env.setdefault("ORKESTRA_MEVCUT_KAPISI", "0")
+    env.setdefault("ORKESTRA_SIRA_KAPISI", "0")
+    env.setdefault("ORKESTRA_DOGRULAMA_KAPISI", "0")
     komut = [sys.executable, "-m", "pytest", os.path.abspath(dosya), "-q", "-p", "no:cacheprovider"]
     t = time.time()
     try:

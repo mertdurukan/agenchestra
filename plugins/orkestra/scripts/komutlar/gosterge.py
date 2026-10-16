@@ -22,7 +22,7 @@ from komutlar._ortak import sd_gerekli  # noqa: E402
 
 def cmd_gunluk_ozet(a):
     sd = sd_gerekli()
-    esik = (datetime.datetime.now().astimezone() - datetime.timedelta(days=a.gun)).isoformat()
+    esik = L.gun_baslangici(a.gun).isoformat()
     kayitlar = [r for r in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")) if r.get("zaman", "") >= esik]
     tur = collections.Counter(r.get("tur") for r in kayitlar)
     skill = collections.Counter(r.get("skill") for r in kayitlar if r.get("tur") == "skill")
@@ -77,7 +77,7 @@ def kaydet(alt):
     ui.set_defaults(f=cmd_ui_ozet)
 
     pa = alt.add_parser("panel")
-    pa.add_argument("--port", type=int, default=8765)
+    pa.add_argument("--port", type=int, default=None, help="varsayılan: cfg (panel_port)")
     pa.add_argument("--on-planda", action="store_true", help="sunucuyu bu süreçte çalıştır (Ctrl+C ile durur)")
     pa.add_argument("--ac", action="store_true", help="adresi varsayılan tarayıcıda aç")
     pa.set_defaults(f=cmd_panel)

@@ -34,7 +34,7 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 .claude-plugin/marketplace.json     yerel klasör marketplace'i (claude-orchestration)
 plugins/orkestra/                   çekirdek plugin
   agents/      triyaj, isci-t1..t4, denetci, arastirmaci, hafiza-bakimcisi, skill-avcisi, arsivci
-  skills/      is, baslat, maliyet, defter, perspektif, skill-avi        →  /orkestra:<ad>
+  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, sade-excel, toplu-etiketle  →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
   scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: sekiz sayfa, /analitik → /verim; sunulan dosyalar STATIK),
@@ -73,7 +73,7 @@ Depo GitHub'da özel (private) tutulur. İki yol vardır; ikisi de marketplace k
 
 - **Claude Code:** kurulu ve oturum açılmış (`claude` komutu ya da masaüstü uygulaması).
 - **Python 3:** hook'lar ve `orkestra` CLI'ı Python betikleridir. Alt sürüm için resmi bir bildirim yoktur; kod taramasında en yüksek gereksinim 3.8'dir (atama ifadesi `:=`, `plugins/orkestra/scripts/ozet.py:160`). Her sürümde koşturulmadı, bu yüzden 3.8 alt sınırı **doğrulanmadı**; güncel bir 3.x kullan. `python` komutu PATH'te olmalıdır.
-- **pytest:** test kapısı (`is-bitti`) pytest ister; kurulu değilse `python plugins/orkestra/scripts/kur.py` açık bir uyarı basar (kurulum yapmaz). Kur: `python -m pip install pytest`.
+- **pytest:** test kapısı (`is-bitti`) pytest ister; kurulu değilse `python plugins/orkestra/scripts/kur.py` açık bir uyarı basar (kurulum yapmaz); tam sağlık denetimi ve onarım için `orkestra doktor`. Kur: `python -m pip install pytest`.
 - **ORKESTRA_PYTHON:** kapının kendi Python çağrıları için yorumlayıcı yolu (ortam değişkeni). Ayarlı değilse `py -3.13` bulunursa o, yoksa çalışan Python (`sys.executable`) kullanılır. `test_komutu` içindeki çağrılara dokunulmaz.
 - **git** ve özel depoya okuma erişimi: Claude Code marketplace'i makinedeki `git` ile, soru sormadan (etkileşimsiz) klonlar; Claude Code'un kendi git belirteci yoktur. Kimlik doğrulama (kaynak: [Grant access to a private marketplace](https://code.claude.com/docs/en/plugins/host-marketplace#grant-access-to-a-private-marketplace)):
   - SSH: anahtar parolasız çalışmalı (örn. `ssh-agent`) ve `github.com` `known_hosts` içinde olmalı. `owner/repo` biçiminde Claude Code önce `ssh -T git@github.com` dener, olmazsa HTTPS'e düşer.
@@ -165,9 +165,14 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | `/orkestra:defter [görev]` | Ortak defterin son kayıtları |
 | `/orkestra:perspektif [şimdi]` | Perspektif raporunu gösterir, onaylananları uygular |
 | `/orkestra:skill-avi` | Tekrar eden işlerden skill taslağı çıkarır |
+| `/orkestra:devir [konu]` | Sohbeti sıfır bağlamlı yeni sohbete kayıpsız devreden tek `.md` devir belgesi üretir |
+| `/orkestra:neredeyiz` | Konuşmanın durum özeti: hedef, adımlar, şu an, sıradaki adım |
+| `/orkestra:sade-excel` | CSV/JSON tabloyu sade Excel teslimatına çevirir (Özet + en çok 2 veri sayfası; Python `openpyxl` gerekir) |
+| `/orkestra:toplu-etiketle` | Yüzlerce satırı kurallara göre paralel Haiku işçileriyle etiketler, birleştirme ve örneklem denetimi betikle |
 | `/orkestra:onay` | Panelde onaylanan kararları (perspektif önerileri, skill taslakları, ajan soruları) uygular |
 | `orkestra onay liste/goster/iste/karar/al/uygulandi/iptal/esitle` | Onay kuyruğu: panelin Onaylar sayfasıyla aynı kayıtlar; `iste` ajanın panelden karar istemesi, `karar --onay\|--ret` sohbette verilen kararı kaydeder |
-| `orkestra kural liste/oner/ekle/duzenle/kaldir` | Kalıcı kurallar: `oner` panelde Kurallar sayfasında onaya düşer, etkin kurallar `.claude/rules/orkestra_kurallari.md` olarak yazılır |
+| `orkestra kural liste/oner/ekle/duzenle/kaldir` | Kalıcı kurallar: `oner` panelde Kurallar sayfasında onaya düşer, etkin kurallar `.claude/rules/orkestra_kurallari.md` olarak yazılır. İki katmanlıdır (`KURALLAR.md`, "Kural katmanları") |
+| `orkestra kural ekle --katman plugin`, `kural tasi <id> --katman proje\|plugin`, `kural kapat/ac <id>`, `kural esitle` | Kural katmanları: plugin kuralı eklentide saklanır ve her projede geçerlidir; proje kuralı yalnız o projededir |
 | `orkestra …` (Bash) | Kart, defter, maliyet, perspektif CLI'ı (`orkestra --help`) |
 
 ## Paralel çalışma

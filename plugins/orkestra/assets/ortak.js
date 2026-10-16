@@ -405,6 +405,39 @@
     return v;
   };
 
+  // ------------------------------------------------------------ Dashboard iş verisini sıfırla (son onaylı)
+  // Yalnız iş kayıtları sıfırlanır; maliyet, verim, onay, etki ve kurallar sunucuda da dokunulmaz.
+  function islerSifirlaSor(dugme) {
+    if (document.getElementById('sifirlaOnay')) return;
+    const d = document.createElement('dialog');
+    d.id = 'sifirlaOnay'; d.className = 'sifirla-onay';
+    d.setAttribute('aria-labelledby', 'sifirlaBaslik');
+    const ad = (O.alanBilgi() || {}).ad || O.alan || 'seçili çalışma alanı';
+    d.innerHTML = `<form method="dialog">
+      <h2 id="sifirlaBaslik">İşler sıfırlansın mı?</h2>
+      <p><b>${O.esc(ad)}</b> alanındaki Dashboard iş verisi sıfırdan başlar. Maliyet ve verim, onay, etki ve kurallar etkilenmez.
+        Eski iş listesi alanın <code>yedek</code> klasörüne kaydedilir.</p>
+      <p class="meta" id="sifirlaHata" role="alert"></p>
+      <div class="dugmeler"><button type="button" value="vazgec" id="sifirlaVazgec">Vazgeç</button>
+        <button type="button" class="reddet" id="sifirlaEvet">Evet, sıfırla</button></div></form>`;
+    document.body.appendChild(d);
+    const kapat = () => { d.close(); d.remove(); dugme.focus(); };
+    d.querySelector('#sifirlaVazgec').addEventListener('click', kapat);
+    d.addEventListener('cancel', e => { e.preventDefault(); kapat(); });
+    d.querySelector('#sifirlaEvet').addEventListener('click', async e => {
+      const evet = e.currentTarget; evet.disabled = true; evet.textContent = 'Sıfırlanıyor…';
+      try {
+        await O.gonder('/api/isler-sifirla?alan=' + encodeURIComponent(O.alan), { onay: true });
+        location.reload();
+      } catch (err) {
+        evet.disabled = false; evet.textContent = 'Evet, sıfırla';
+        d.querySelector('#sifirlaHata').textContent = 'Sıfırlanamadı: ' + O.hataMetni(err);
+      }
+    });
+    d.showModal();
+    d.querySelector('#sifirlaVazgec').focus();
+  }
+
   let hazirCoz;
   O.hazir = new Promise(c => { hazirCoz = c; });
   O.kabuk = ({ sayfa } = {}) => {
@@ -419,8 +452,11 @@
       <span class="bosluk"></span>
       <label class="alan-sec"><span class="alan-etiket">Çalışma alanı</span> <select id="alanSec"></select></label>
       <span class="canli" id="canli" aria-live="off" tabindex="0"><i></i><span>bağlanıyor</span></span>
+      ${sayfa === 'isler' ? '<button type="button" class="isler-sifirla" id="islerSifirla">Sıfırla</button>' : ''}
     </div>`;
     sekmeBagla();
+    const sifirlaDugme = document.getElementById('islerSifirla');
+    if (sifirlaDugme) sifirlaDugme.addEventListener('click', () => islerSifirlaSor(sifirlaDugme));
     // Yapışkan başlığın gerçek yüksekliği --kabuk-yuk'e yazılır: html{scroll-padding-top} Shift+Tab ile odaklanan öğeyi altında bırakmaz.
     const yukOlc = () => document.documentElement.style.setProperty('--kabuk-yuk', Math.ceil(h.getBoundingClientRect().height) + 'px');
     yukOlc();

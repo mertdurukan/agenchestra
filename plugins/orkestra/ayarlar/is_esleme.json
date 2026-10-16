@@ -1,0 +1,7 @@
+{
+  "not": "Istek-is eslesme esikleri: en yuksek puan >= yuksek ise bagla; < dusuk ise yeni is ac; arasi en yakin en cok iki isten sec.",
+  "yuksek": 0.6,
+  "dusuk": 0.2,
+  "durak_sozcukler": ["ile", "için", "icin", "ama", "fakat", "gibi", "daha", "çok", "cok", "bir", "bu", "şu", "su", "ve", "veya", "yeni", "olan", "olarak"],
+  "soru_etiketi": "soru"
+}

@@ -4,12 +4,105 @@ Sınıflandırmayı (görev hangi işe ait, yoksa yeni iş) ana ajan yapar; mod�
 ve karar kuralını tek satırda gösterir. Saf Python, yalnız standart kütüphane; dosya, ağ ve alt süreç
 kullanmaz; yan etkisi yoktur.
 """
+import re
 from datetime import datetime, timedelta
 
 BAYAT_GUN = 14
 SATIR_SINIR = 500
 MAX_IS = 6
 BASLIK_SINIR = 28
+
+
+VARSAYILAN_AYAR = {
+    "yuksek": 0.6,
+    "dusuk": 0.2,
+    "durak_sozcukler": ["ile", "için", "icin", "ama", "fakat", "gibi", "daha", "çok", "cok",
+                        "bir", "bu", "şu", "su", "ve", "veya", "yeni", "olan", "olarak"],
+    "soru_etiketi": "soru",
+}
+MIN_SOZCUK = 3
+ONEK_MIN = 5
+_TR_KATLA = str.maketrans("çğıöşü", "cgiosu")
+
+
+def _kucult(metin):
+    return str(metin).replace("İ", "i").replace("I", "ı").lower()
+
+
+def _katla(sozcuk):
+    return sozcuk.translate(_TR_KATLA)
+
+
+def _ayar(ayar):
+    """Ayarı doğrular; bozuk/eksik alan gömülü varsayılana düşer."""
+    a = dict(VARSAYILAN_AYAR)
+    if not isinstance(ayar, dict):
+        return a
+    yuksek, dusuk = ayar.get("yuksek"), ayar.get("dusuk")
+    num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
+    if num(yuksek) and num(dusuk) and 0 < dusuk <= yuksek <= 1:
+        a["yuksek"], a["dusuk"] = float(yuksek), float(dusuk)
+    if isinstance(ayar.get("durak_sozcukler"), list):
+        a["durak_sozcukler"] = [str(x) for x in ayar["durak_sozcukler"]]
+    if isinstance(ayar.get("soru_etiketi"), str) and ayar["soru_etiketi"].strip():
+        a["soru_etiketi"] = ayar["soru_etiketi"].strip()
+    return a
+
+
+def _sozcukler(metin, durak):
+    """Küçük harf (Türkçe İ/ı), noktalama atılır; durak ve ≤2 karakterli sözcükler elenir; ASCII'ye katlanır."""
+    if not isinstance(metin, str):
+        return []
+    out = []
+    for s in re.findall(r"[^\W_]+", _kucult(metin)):
+        if len(s) < MIN_SOZCUK or s.isdigit() or s in durak:
+            continue
+        out.append(_katla(s))
+    return out
+
+
+def _eslesir(a, b):
+    if a == b:
+        return True
+    kisa, uzun = (a, b) if len(a) <= len(b) else (b, a)
+    return len(kisa) >= ONEK_MIN and uzun.startswith(kisa)
+
+
+def eslestir(istek, isler, ayar=None):
+    """İstek sözcüklerinin iş metniyle örtüşme oranı (0-1); puana göre azalan [{'id','puan'}]."""
+    if not isinstance(istek, str) or not isinstance(isler, (list, tuple)):
+        return []
+    a = _ayar(ayar)
+    durak_ham = {_kucult(x) for x in a["durak_sozcukler"]}
+    istek_s = set(_sozcukler(istek, durak_ham))
+    if not istek_s:
+        return []
+    sonuc = []
+    for is_ in isler:
+        if not isinstance(is_, dict) or is_.get("id") is None:
+            continue
+        metin = " ".join(str(is_.get(k) or "") for k in ("baslik", "klasor", "metin"))
+        is_s = set(_sozcukler(metin, durak_ham))
+        say = sum(1 for s in istek_s if any(_eslesir(s, t) for t in is_s))
+        sonuc.append({"id": is_["id"], "puan": min(1.0, say / len(istek_s))})
+    sonuc.sort(key=lambda x: -x["puan"])
+    return sonuc
+
+
+def karar(puanlar, ayar=None):
+    """('bagla', id) | ('ac', None) | ('sec', [id, ...]) (en çok iki)."""
+    a = _ayar(ayar)
+    liste = [p for p in puanlar if isinstance(p, dict) and isinstance(p.get("puan"), (int, float))] \
+        if isinstance(puanlar, (list, tuple)) else []
+    if not liste:
+        return ("ac", None)
+    liste.sort(key=lambda x: -x["puan"])
+    ilk = liste[0]
+    if ilk["puan"] >= a["yuksek"]:
+        return ("bagla", ilk["id"])
+    if ilk["puan"] < a["dusuk"]:
+        return ("ac", None)
+    return ("sec", [p["id"] for p in liste[:2] if p["puan"] >= a["dusuk"]])
 
 
 def _tek_satir(metin, sinir):
@@ -30,8 +123,16 @@ def yonlendir(isler, bagli_id):
         if len(liste) < MAX_IS:
             liste.append("%s %s" % (_tek_satir(is_["id"], 20), baslik))
     bagli = ("bağlı iş %s %s" % (bagli_id, bagli_baslik)).strip() if bagli_id is not None else "bağlı iş yok"
-    kural = ("Yeni görev (%s): bağlı işin parçasıysa devam; başka açık işe aitse `orkestra is devam <id>`; "
-             "hiçbirine uymuyorsa `orkestra is ac \"<başlık>\" --klasor <klasör>`." % bagli)
+    if bagli_id is not None:
+        # K-004: bağlı işten farklı konu bu sohbette yapılmaz; ilk mesajda yeni oturum önerilir.
+        kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa bu sohbette yapma: "
+                 "ilk mesajda `start_session` (initiation offer, başlık) ile yeni oturum öner. Kullanıcı 'burada yap' "
+                 "derse: başka açık işe aitse `orkestra is devam <id>`, değilse `orkestra is ac \"<başlık>\" --klasor <klasör>`."
+                 % bagli)
+    else:
+        kural = ("Yeni görev (%s): başka açık işe aitse `orkestra is devam <id>`; "
+                 "hiçbirine uymuyorsa `orkestra is ac \"<başlık>\" --klasor <klasör>`." % bagli)
+    kural += " Yeni iş sıralıdır: mevcut durum, plan, todo (P-005)."
     if liste:
         kural += " Açık işler: " + "; ".join(liste)
     return _tek_satir(kural, SATIR_SINIR)

@@ -124,6 +124,21 @@ class _Ortak(unittest.TestCase):
             if os.path.exists(yol):
                 os.utime(yol, (t, t))
 
+    def karar_yama(self, karar, puanlar):
+        """eslestir/karar sonucunu sabitler (G-151 motorundan bağımsız; hook'un bu sonuca tepkisi sınanır)."""
+        st = contextlib.ExitStack()
+        st.enter_context(mock.patch.object(is_yonlendirme, "eslestir", return_value=puanlar, create=True))
+        st.enter_context(mock.patch.object(is_yonlendirme, "karar", return_value=karar, create=True))
+        self.addCleanup(st.close)
+        return st
+
+    def oturum_json(self, oid=OTURUM):
+        try:
+            with open(os.path.join(self.sd, "oturumlar", oid + ".json"), encoding="utf-8") as f:
+                return json.load(f)
+        except OSError:
+            return {}
+
     def parca(self, metin, is_id):
         """'Açık işler:' satırında verilen işe ait parça."""
         satir = next(s for s in metin.splitlines() if s.startswith("Açık işler:"))
@@ -143,15 +158,20 @@ class IstekIpucu(_Ortak):
         self.assertEqual(len(s), 1, m)
         return s[0]
 
+    def _sec(self, idler=None):
+        idler = idler or [self.fatura["id"], self.diger["id"]]
+        self.karar_yama(("sec", idler), [{"id": i, "puan": 0.5 - n * 0.1} for n, i in enumerate(idler)])
+
     def test_baglisiz_oturum_acik_isler_listelenir(self):
-        s = self._satir(self.istek(ISTEK_FATURA))
-        self.assertIn("bağlı iş yok", s)
-        self.assertIn(self.fatura["id"], s)
-        self.assertIn(self.diger["id"], s)
-        self.assertIn("orkestra is ac", s)
+        self._sec()
+        m = self.istek(ISTEK_FATURA)
+        self.assertIn(self.fatura["id"], m)
+        self.assertIn(self.diger["id"], m)
+        self.assertIn("orkestra is ac", m)
 
     def test_eslesmeyen_istek_de_ayni_satiri_alir(self):
-        self.assertIn("orkestra is ac", self._satir(self.istek(ISTEK_ALAKASIZ)))
+        self._sec()
+        self.assertIn("orkestra is ac", self.istek(ISTEK_ALAKASIZ))
 
     def test_bagli_oturum_bagli_isi_gosterir(self):
         self.baglan(self.fatura)
@@ -160,11 +180,13 @@ class IstekIpucu(_Ortak):
 
     def test_kapali_is_listelenmez(self):
         is_kaydi.is_durum(self.sd, self.fatura["id"], "kapandi")
-        s = self._satir(self.istek(ISTEK_FATURA))
-        self.assertNotIn(self.fatura["id"], s)
-        self.assertIn(self.diger["id"], s)
+        self._sec([self.diger["id"]])
+        m = self.istek(ISTEK_FATURA)
+        self.assertNotIn(self.fatura["id"], m)
+        self.assertIn(self.diger["id"], m)
 
     def test_her_yeni_gorevde_tekrarlanir(self):
+        self.baglan(self.fatura)
         self._satir(self.istek(ISTEK_FATURA))
         self._satir(self.istek(ISTEK_ALAKASIZ))
 
@@ -312,6 +334,7 @@ class HataDayanikli(_Ortak):
 
     def test_istek_todo_eksik_cikis_0(self):
         a = self.is_ac("Fatura raporlama", "001-fatura")
+        self.baglan(a)
         os.remove(os.path.join(a["klasor"], "todo.md"))
         m = self.istek(ISTEK_FATURA)
         self.assertIn("Açık işler: " + a["id"], m)
@@ -363,6 +386,251 @@ class AlanUyarisi(_Ortak):
     def test_bagsiz_oturum_susar(self):
         cikti, _ = self._yaz("baska/dosya.py")
         self.assertEqual(cikti, "")
+
+
+# ============================================================ G-152 P2-P3: otomatik bağla / aç / seç
+
+class OtomatikYonlendirme(_Ortak):
+    """Bağsız oturumda her gerçek mesajda eslestir+karar çalışır (is_yonlendirme, G-151 sözleşmesi:
+    eslestir -> [{'id','puan'}], karar -> ('bagla', id) | ('ac', None) | ('sec', [id, id]))."""
+
+    SORU = "Bu fatura raporu neden boş geliyor?"
+    DEVAM = "tamam devam et"
+
+    def setUp(self):
+        super().setUp()
+        os.environ["CLAUDE_PROJECT_DIR"] = self.proje
+        self.fatura = self.is_ac("Fatura raporlama entegrasyonu", "001-fatura-raporlama")
+        self.diger = self.is_ac("Kampanya takvimi düzenleme", "002-kampanya-takvim")
+
+    def _puan(self, *idler):
+        return [{"id": i, "puan": round(0.9 - n * 0.1, 2)} for n, i in enumerate(idler)]
+
+    def _is_idleri(self):
+        return sorted(g["id"] for g in is_kaydi.is_liste(self.sd, "acik"))
+
+    # --- K1 bagla
+    def test_bagla_oturumu_isa_baglar(self):
+        fid = self.fatura["id"]
+        self.karar_yama(("bagla", fid), self._puan(fid))
+        m = self.istek(ISTEK_FATURA)
+        self.assertIn("bağlandı " + fid, m)
+        d = self.oturum_json()
+        self.assertEqual(d.get("is"), fid)
+        self.assertTrue(d.get("is_baglanma"))
+        self.assertEqual([x["is"] for x in d.get("is_gecmis", [])], [fid])
+        self.assertIn(OTURUM, [o["oturum"] for o in is_kaydi.is_al(self.sd, fid)["oturumlar"]])
+
+    def test_bagla_yeni_is_acmaz(self):
+        fid = self.fatura["id"]
+        once = self._is_idleri()
+        self.karar_yama(("bagla", fid), self._puan(fid))
+        self.istek(ISTEK_FATURA)
+        self.assertEqual(self._is_idleri(), once)
+
+    def test_bagla_sonraki_mesajda_baglidir_eslestir_cagrilmaz(self):
+        fid = self.fatura["id"]
+        self.karar_yama(("bagla", fid), self._puan(fid))
+        self.istek(ISTEK_FATURA)
+        with mock.patch.object(is_yonlendirme, "eslestir", side_effect=AssertionError("bağlıda çağrılmaz"), create=True):
+            self.istek(ISTEK_ALAKASIZ)
+        self.assertEqual(self.oturum_json().get("is"), fid)
+
+    # --- K1/K2 ac
+    def test_ac_is_turu_etiketsiz_acar_ve_baglar(self):
+        once = set(self._is_idleri())
+        self.karar_yama(("ac", None), [])
+        m = self.istek(ISTEK_ALAKASIZ)
+        yeni = set(self._is_idleri()) - once
+        self.assertEqual(len(yeni), 1, m)
+        yid = yeni.pop()
+        self.assertIn("Yeni iş otomatik açıldı", m)
+        self.assertIn(yid, m)
+        self.assertEqual(self.oturum_json().get("is"), yid)
+        self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], [])
+        self.assertIn(OTURUM, [o["oturum"] for o in is_kaydi.is_al(self.sd, yid)["oturumlar"]])
+
+    def test_ac_soru_turu_soru_etiketiyle_acar(self):
+        once = set(self._is_idleri())
+        self.karar_yama(("ac", None), [])
+        m = self.istek(self.SORU)
+        yeni = set(self._is_idleri()) - once
+        self.assertEqual(len(yeni), 1, m)
+        yid = yeni.pop()
+        self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], ["soru"])
+        self.assertEqual(self.oturum_json().get("is"), yid)
+        self.assertIn("Yeni iş otomatik açıldı", m)
+
+    def test_soru_bagla_kararinda_etiketli_is_acilmaz(self):
+        fid = self.fatura["id"]
+        once = self._is_idleri()
+        self.karar_yama(("bagla", fid), self._puan(fid))
+        self.istek(self.SORU)
+        self.assertEqual(self._is_idleri(), once)
+        self.assertEqual(self.oturum_json().get("is"), fid)
+
+    def test_soru_etiketi_ayardan_okunur(self):
+        # proje durum dizinindeki is_esleme.json soru_etiketi'ni ezer (G-151 ayar dosyası)
+        with open(os.path.join(self.sd, "is_esleme.json"), "w", encoding="utf-8") as f:
+            json.dump({"soru_etiketi": "bilgi-sorusu"}, f)
+        once = set(self._is_idleri())
+        self.karar_yama(("ac", None), [])
+        self.istek(self.SORU)
+        yid = (set(self._is_idleri()) - once).pop()
+        self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], ["bilgi-sorusu"])
+
+    # --- K1 sec
+    def test_sec_en_yakin_iki_isi_ve_secim_satirini_verir(self):
+        a, b = self.fatura["id"], self.diger["id"]
+        once = self._is_idleri()
+        self.karar_yama(("sec", [a, b]), self._puan(a, b))
+        m = self.istek(ISTEK_FATURA)
+        self.assertIn(a, m)
+        self.assertIn(b, m)
+        self.assertIn("ilk araç çağrısından önce", m)
+        self.assertIn("orkestra is devam", m)
+        self.assertIn("orkestra is ac", m)
+        self.assertEqual(self._is_idleri(), once)
+        self.assertIsNone(self.oturum_json().get("is"))
+
+    # --- K2 devam
+    def test_devam_turu_bagsizda_is_acmaz_bagsiz_uyarisi_ve_sec(self):
+        a, b = self.fatura["id"], self.diger["id"]
+        once = self._is_idleri()
+        # karar 'ac' dese de devam türünde iş açılmaz
+        self.karar_yama(("ac", None), self._puan(a, b))
+        m = self.istek(self.DEVAM)
+        self.assertEqual(self._is_idleri(), once)
+        self.assertIsNone(self.oturum_json().get("is"))
+        self.assertIn("bağsız", m.lower())
+        self.assertIn("orkestra is devam", m)
+        self.assertIn(a, m)
+
+    # --- K1 sistem iletisi
+    def test_sistem_iletisinde_otomatik_islem_yok(self):
+        once = self._is_idleri()
+        self.karar_yama(("ac", None), [])
+        self.calistir(hook.user_prompt_submit, {"prompt": "<task-notification> " + ISTEK_ALAKASIZ})
+        self.assertEqual(self._is_idleri(), once)
+        self.assertIsNone(self.oturum_json().get("is"))
+
+    def test_bos_mesajda_is_acilmaz(self):
+        once = self._is_idleri()
+        self.karar_yama(("ac", None), [])
+        self.istek("")
+        self.assertEqual(self._is_idleri(), once)
+
+    # --- K4 bağlı oturum değişmez
+    def test_bagli_oturumda_otomatik_islem_yok_ve_k004_ipucu_surer(self):
+        self.baglan(self.fatura)
+        once = self._is_idleri()
+        yok_say = ("istek_sira", "istek_tur", "son_istek_id")
+
+        def karsilastirilacak():
+            return {k: v for k, v in self.oturum_json().items() if k not in yok_say}
+
+        onceki = karsilastirilacak()
+        with mock.patch.object(is_yonlendirme, "eslestir", side_effect=AssertionError("çağrılmamalı"), create=True), \
+                mock.patch.object(is_yonlendirme, "karar", side_effect=AssertionError("çağrılmamalı"), create=True):
+            m = self.istek(ISTEK_ALAKASIZ)
+        self.assertEqual(self._is_idleri(), once)
+        self.assertEqual(karsilastirilacak(), onceki)
+        self.assertEqual(karsilastirilacak().get("is"), self.fatura["id"])
+        self.assertIn("bağlı iş " + self.fatura["id"], m)
+        self.assertIn("start_session", m)  # K-004 yeni oturum önerisi korunur
+
+    # --- K3 klasör
+    def test_klasor_esleme_ilk_projesi_altinda_NNN_tarih_slug(self):
+        os.makedirs(os.path.join(self.proje, "calisma", "004-20260101-eski"))
+        with open(os.path.join(self.sd, "baglam.json"), "w", encoding="utf-8") as f:
+            json.dump({"projeler": ["calisma", "diger"]}, f)
+        once = set(self._is_idleri())
+        self.karar_yama(("ac", None), [])
+        self.istek("Kuantum gitar öğrenme planı hazırlayalım")
+        yid = (set(self._is_idleri()) - once).pop()
+        klasor = os.path.normpath(is_kaydi.is_al(self.sd, yid)["klasor"])
+        self.assertEqual(os.path.dirname(klasor), os.path.normpath(os.path.join(self.proje, "calisma")))
+        self.assertRegex(os.path.basename(klasor), r"^005-\d{8}-kuantum-gitar")
+
+    def test_klasor_esleme_yoksa_durum_dizini_isler_altinda(self):
+        once = set(self._is_idleri())
+        self.karar_yama(("ac", None), [])
+        self.istek(ISTEK_ALAKASIZ)
+        yid = (set(self._is_idleri()) - once).pop()
+        klasor = os.path.normpath(is_kaydi.is_al(self.sd, yid)["klasor"])
+        self.assertEqual(os.path.dirname(klasor), os.path.normpath(os.path.join(self.sd, "isler")))
+        self.assertRegex(os.path.basename(klasor), r"^\d{3}-\d{8}-kuantum-gitar")
+
+    def test_proje_altina_yazilamazsa_durum_dizini_isler_altina_duser(self):
+        with open(os.path.join(self.sd, "baglam.json"), "w", encoding="utf-8") as f:
+            json.dump({"projeler": ["calisma"]}, f)
+        gercek = is_kaydi.is_ac
+        cagrilar = []
+
+        def sahte(sd, baslik, klasor, *a, **k):
+            cagrilar.append(os.path.normpath(klasor))
+            if len(cagrilar) == 1:
+                raise PermissionError("yazılamaz")
+            return gercek(sd, baslik, klasor, *a, **k)
+
+        once = set(self._is_idleri())
+        self.karar_yama(("ac", None), [])
+        with mock.patch.object(is_kaydi, "is_ac", side_effect=sahte):
+            m = self.istek(ISTEK_ALAKASIZ)
+        self.assertEqual(len(cagrilar), 2, cagrilar)
+        self.assertTrue(cagrilar[0].startswith(os.path.normpath(os.path.join(self.proje, "calisma"))))
+        self.assertEqual(os.path.dirname(cagrilar[1]), os.path.normpath(os.path.join(self.sd, "isler")))
+        self.assertEqual(os.path.basename(cagrilar[0]), os.path.basename(cagrilar[1]))
+        self.assertEqual(len(set(self._is_idleri()) - once), 1)
+        self.assertIn("Yeni iş otomatik açıldı", m)
+
+    # --- K3/K7 fail-open
+    def test_is_acma_hatasinda_hook_cokmez_ipucu_yoluna_duser(self):
+        once = self._is_idleri()
+        self.karar_yama(("ac", None), [])
+        with mock.patch.object(is_kaydi, "is_ac", side_effect=RuntimeError("disk dolu")):
+            cikti, kod = self.calistir(hook.user_prompt_submit, {"prompt": ISTEK_ALAKASIZ})
+        self.assertEqual(kod, 0)
+        m = json.loads(cikti)["hookSpecificOutput"]["additionalContext"]
+        self.assertNotIn("Yeni iş otomatik açıldı", m)
+        self.assertIn("orkestra is ac", m)  # eski ipucu yolu
+        self.assertEqual(self._is_idleri(), once)
+        self.assertIsNone(self.oturum_json().get("is"))
+
+    def test_eslestir_hatasinda_hook_cokmez(self):
+        with mock.patch.object(is_yonlendirme, "eslestir", side_effect=RuntimeError("patladı"), create=True):
+            cikti, kod = self.calistir(hook.user_prompt_submit, {"prompt": ISTEK_FATURA})
+        self.assertEqual(kod, 0)
+        self.assertEqual(json.loads(cikti)["hookSpecificOutput"]["hookEventName"], "UserPromptSubmit")
+        self.assertIsNone(self.oturum_json().get("is"))
+
+    def test_baglama_yazimi_hatasinda_hook_cokmez(self):
+        fid = self.fatura["id"]
+        self.karar_yama(("bagla", fid), self._puan(fid))
+        with mock.patch.object(is_kaydi, "is_oturum_bagla", side_effect=RuntimeError("kayıt bozuk")):
+            cikti, kod = self.calistir(hook.user_prompt_submit, {"prompt": ISTEK_FATURA})
+        self.assertEqual(kod, 0)
+        json.loads(cikti)
+
+    # --- gerçek motor (G-151) ile uçtan uca
+    def test_gercek_motor_ilgisiz_istek_yeni_is_acar(self):
+        once = set(self._is_idleri())
+        self.istek("Kuantum gitar öğrenme egzersizleri çalışma programı")
+        self.assertEqual(len(set(self._is_idleri()) - once), 1)
+
+    def test_gercek_motor_baslikla_ortusen_istek_isa_baglar(self):
+        once = self._is_idleri()
+        self.istek("Fatura raporlama entegrasyonu")
+        self.assertEqual(self.oturum_json().get("is"), self.fatura["id"])
+        self.assertEqual(self._is_idleri(), once)
+
+    # --- K8
+    def test_otomatik_is_ac_mevcut_yardimcilari_kullanir(self):
+        import inspect
+        self.assertTrue(hasattr(hook, "_otomatik_is_ac"), "hook._otomatik_is_ac yok")
+        kaynak = inspect.getsource(hook._otomatik_is_ac)
+        for parca in ("L.kilit", "L.atomik_yaz", "esleme_oku", "sonraki_klasor_adi"):
+            self.assertIn(parca, kaynak)
 
 
 if __name__ == "__main__":

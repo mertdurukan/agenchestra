@@ -23,6 +23,17 @@ import traceback
 
 # Süreç içi yol sys.argv/os.environ/cwd/stdin/stdout'u süreç genelinde değiştirir; eşzamanlı iş parçacıkları
 # birbirinin durumunu ezmesin diye tek kilit altında seri koşar (alt süreç yolu kilitsiz).
+# Mevcut testler teknik not vermez: varsayılan kapı kapalı (yeni testler açıkça '1' yapar).
+os.environ.setdefault("ORKESTRA_TEKNIK_KAPISI", "0")
+os.environ.setdefault("ORKESTRA_MEVCUT_KAPISI", "0")  # mevcut-durum kapısı: yeni testler açıkça '1' yapar
+os.environ.setdefault("ORKESTRA_SIRA_KAPISI", "0")  # iş sırası kapısı (P-005): yeni testler açıkça '1' yapar
+os.environ.setdefault("ORKESTRA_DOKTOR_OTOMATIK", "0")  # hızlı yol arka plan doktoru başlatmasın (I-026 P9)
+os.environ.setdefault("ORKESTRA_OZET_KAPISI", "0")  # kapanış özet kapısı (P-009): yeni testler açıkça '1' yapar
+os.environ.setdefault("ORKESTRA_DOGRULAMA_KAPISI", "0")  # plan ✅/❌ kapısı: yeni testler açıkça '1' yapar
+# Eklenti kural katmanı: testler gerçek depoyu görmesin (conftest.py ile aynı varsayılan; unittest ile koşulunca da geçerli)
+import tempfile as _tempfile  # noqa: E402
+os.environ.setdefault("ORKESTRA_EKLENTI_KURALLARI",
+                      os.path.join(_tempfile.gettempdir(), "orkestra_test_eklenti_yok", "kurallar", "eklenti_kurallari.json"))
 _KILIT = threading.RLock()
 _MODULLER: dict = {}
 _EV_ANAHTARLARI = ("USERPROFILE", "HOME", "HOMEDRIVE", "HOMEPATH")

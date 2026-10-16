@@ -212,13 +212,12 @@ class TodoCli(unittest.TestCase):
         bugun = datetime.date.today().isoformat()
         self.assertEqual(oku(todo), f"- [ ] ust\n  - [x] iç iş — {bugun}: bitti notu\n    alt satır\n")
 
-    def test_ekle_ve_bitti_birlikte_hata(self):
+    def test_ekle_ve_bitti_birlikte_once_bitir_sonra_ekle(self):
         i, todo = self.ac()
         yaz(todo, "- [ ] a\n")
         r = self.cli("is", "todo", i, "--ekle", "x", "--bitti", "1")
-        self.assertNotEqual(r.returncode, 0)
-        self.assertTrue(r.stderr.strip())
-        self.assertEqual(oku(todo), "- [ ] a\n")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(oku(todo), "- [x] a\n- [ ] x\n")
 
     def test_kapali_ise_ekle_hata(self):
         i, todo = self.ac()

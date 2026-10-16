@@ -1,0 +1,45 @@
+{
+  "surum": 1,
+  "mod": "genis",
+  "aciklama": "genis: kapı dışındaki her araç çağrısı onaysız (hook allow; kullanıcının settings deny/ask kuralları yine geçerli). kapi: yalnız kapı ve yasaklar, gerisi Claude Code varsayılanında. kapali: politika yok. ORKESTRA_IZIN=0|kapi|genis ortam değişkeni modu ezer.",
+  "kabuk_yasak": [
+    {
+      "ad": "git push (zorla, silme ya da ayna)",
+      "desen": "\\bgit\\b[^;&|\\n]*\\bpush\\b[^;&|\\n]*(?:\\s-f\\b|\\s--force\\S*|\\s--delete\\b|\\s-d\\b|\\s--mirror\\b|\\s\\+\\S)"
+    }
+  ],
+  "kabuk_kapi": [
+    {
+      "ad": "git push",
+      "desen": "\\bgit\\b(?:\\s+(?:-[Cc]\\s+\\S+|--[\\w-]+=\\S+|-\\S+))*\\s+push\\b"
+    },
+    {
+      "ad": "gh ile yazma (PR, issue, release, repo, gist, workflow, etiket, sır)",
+      "desen": "\\bgh\\s+(?:pr\\s+(?:create|merge|close|reopen|comment|review|edit|ready)|issue\\s+(?:create|close|reopen|comment|edit|delete|transfer|pin|unpin|lock|unlock)|release\\s+(?:create|delete|edit|upload)|repo\\s+(?:create|delete|edit|fork|rename|archive|unarchive)|gist\\s+(?:create|edit|delete)|workflow\\s+(?:run|enable|disable)|label\\s+(?:create|delete|edit)|secret\\s+(?:set|delete)|variable\\s+(?:set|delete))\\b"
+    },
+    {
+      "ad": "gh api ile yazma",
+      "desen": "\\bgh\\s+api\\b[^;&|\\n]*(?:(?:-X|--method)[\\s=]*\"?(?:POST|PUT|PATCH|DELETE)\"?|\\s(?:-f|-F|--field|--raw-field|--input)\\b)"
+    }
+  ],
+  "rest_kapi": [
+    {
+      "ad": "GitHub ya da Jira REST'ine yazma",
+      "arac": "\\b(?:curl|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr)\\b",
+      "adres": "atlassian\\.net|api\\.github\\.com|\\bjira\\b",
+      "yazma": "(?:-X|--request)[\\s=]*[\"']?(?:POST|PUT|PATCH|DELETE)|(?:^|\\s)(?:-d|--data(?:-\\w+)?|--json|-F|--form)\\b|-Method\\s+[\"']?(?:Post|Put|Patch|Delete)|-Body\\b"
+    }
+  ],
+  "mcp": [
+    {
+      "ad": "GitHub",
+      "arac": "^mcp__github__",
+      "okuma": "^mcp__github__(?:get_|list_|search_|issue_read$|pull_request_read$)"
+    },
+    {
+      "ad": "Jira/Atlassian",
+      "arac": "(?i)^mcp__.*(?:atlassian|jira)",
+      "okuma": "(?i)__(?:get|search|lookup|fetch|atlassianUserInfo)"
+    }
+  ]
+}

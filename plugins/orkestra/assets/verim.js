@@ -32,6 +32,54 @@
   const SEV = { iyi: ['iyi', 'var(--good)'], uyari: ['dikkat', 'var(--warning)'], kritik: ['kritik', 'var(--critical)'] };
   const sev = s => { const t = SEV[s]; return t ? { ad: t[0], renk: t[1] } : { ad: s ? String(s) : '–', renk: 'var(--neutral)' }; };
 
+  // ------------------------------------------------------------ 0. Hedef panosu (sayfanın en üstü): 5 ölçü x 2 pencere
+  const OLCU_TANIM = [
+    ['ana_ajan_payi', 'Ana ajan payı', 'ust', x => B.yuzde(x), 'ana ajan harcaması / toplam harcama (USD)', v => B.usd(v)],
+    ['isci_cagrisi_kart', 'İşçi çağrısı / kart', 'ust', x => B.sayi(x, 2), 'işçi çağrısı / kart', v => B.sayi(v)],
+    ['onayli_kart_usd', 'Onaylı kart başına USD', 'ust', x => B.usd(x), 'onaylı kartların harcaması (USD) / onaylı kart', v => B.sayi(v)],
+    ['ret_orani', 'Ret oranı', 'band', x => B.yuzde(x), 'ret / (ret + onay) denetimi', v => B.sayi(v)],
+    ['teknik_not_kapsama', 'Teknik not kapsaması', 'alt', x => B.yuzde(x), 'teknik notu dolu kart / kapı sonrası onaylı kart', v => B.sayi(v)],
+  ];
+  const PENCERE_AD = { son_3_gun: 'Son 3 gün', tum_zaman: 'Tüm zaman' };
+  // durum metni renge bağlı değil: her zaman sözcük ve simge de yazılır
+  const DURUM_METNI = { iyi: ['✓', 'hedefte', 'var(--good)'], uyari: ['!', 'dikkat', 'var(--warning)'], kotu: ['✕', 'hedef dışı', 'var(--critical)'], 'veri-yok': ['–', 'veri yok', 'var(--neutral)'] };
+  const YORUM_METNI = { 'gevsek-riski': 'gevşeklik riski (bant altı)', 'plan-kusuru': 'plan kusuru (bant üstü)' };
+  const durumMetni = (d, yorum) => {
+    const t = DURUM_METNI[d] || DURUM_METNI['veri-yok'];
+    return { simge: t[0], ad: t[1] + (yorum && YORUM_METNI[yorum] ? ' · ' + YORUM_METNI[yorum] : ''), renk: t[2] };
+  };
+  const hedefMetni = (tur, h, bicim) => tur === 'band' && Array.isArray(h) ? `hedef ${bicim(h[0])}–${bicim(h[1])}`
+    : h == null ? 'hedef –' : `hedef ${tur === 'ust' ? '≤ ' : tur === 'alt' ? '= ' : ''}${bicim(h)}`;
+  function panoCiz() {
+    const v = veri(), kap = $('#panoIcerik');
+    const p = v && v.hedef_panosu && v.hedef_panosu.olculer ? v.hedef_panosu : null;
+    if (!p) { yerlestir(kap, `<p class="bos">${v ? 'Hedef panosu verisi yok.' : 'Yükleniyor…'}</p>`); return; }
+    const kutu = ([anahtar, ad, tur, bicim, payTanim, paydaBicim]) => {
+      const satirlar = ['son_3_gun', 'tum_zaman'].map(w => {
+        const e = (p.olculer[anahtar] || {})[w] || { durum: 'veri-yok', deger: null };
+        const d = durumMetni(e.durum, e.yorum);
+        const pay = e.durum === 'veri-yok' ? 'örnek yok' : `${anahtar === 'ana_ajan_payi' || anahtar === 'onayli_kart_usd' ? B.usd(e.pay) : B.sayi(e.pay, 0)} / ${anahtar === 'ana_ajan_payi' ? B.usd(e.payda) : B.sayi(e.payda, 0)}`;
+        const ip = `<b>${esc(ad)} · ${esc(PENCERE_AD[w])}</b>${sat('Pay / payda', esc(pay))}<div class="meta">${esc(payTanim)}</div>`;
+        return `<div class="pano-satir" tabindex="0" data-ipucu="${esc(ip)}" style="--renk:${d.renk}">
+          <span class="pencere">${esc(PENCERE_AD[w])}</span>
+          <b class="deger">${e.deger == null ? '–' : bicim(e.deger)}</b>
+          <span class="durum"><i aria-hidden="true">${d.simge}</i>${esc(d.ad)}</span>
+          <small>${esc(hedefMetni(tur, e.hedef, bicim))} · ${esc(pay)}</small></div>`;
+      }).join('');
+      return `<div class="karo pano-kutu" data-olcu="${esc(anahtar)}"><span class="pano-ad">${esc(ad)}</span>${satirlar}</div>`;
+    };
+    const israf = p.israf || {};
+    const israfSatir = w => {
+      const i = israf[w];
+      if (!i) return '';
+      const ned = Object.entries(i.siniflar || {}).map(([k, e]) => `${esc(k)} ${B.sayi(e.ret)}`).join(' · ');
+      return `<div class="sat"><span>${esc(PENCERE_AD[w])}</span><span><b>${B.usd(i.onlenebilir_usd)}</b> <span class="meta" style="display:inline">${esc(ned || 'ret yok')}</span></span></div>`;
+    };
+    yerlestir(kap, `<div class="karolar pano">${OLCU_TANIM.map(kutu).join('')}</div>
+      <div class="pano-israf"><h3>Önlenebilir israf</h3>${israfSatir('son_3_gun')}${israfSatir('tum_zaman')}
+      <p class="aciklama">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${B.sayi((israf.tum_zaman || {}).esik_surumu)}.</p></div>`);
+  }
+
   // ------------------------------------------------------------ 1. Basamak verimliliği
   function basamakCiz() {
     const v = veri(), b = v && v.basamak;
@@ -146,7 +194,7 @@
   }
 
   // ------------------------------------------------------------ 3. Kart akışı
-  const ASAMA = [['kuyruk', 'kuyruk_dk', 'Kuyrukta bekleme', 'var(--s4)'], ['is', 'is_dk', 'İş', 'var(--s1)'], ['denetim bekleme', 'denetim_bekleme_dk', 'Denetimde bekleme', 'var(--s2)']];
+  const ASAMA = [['kuyruk', 'kuyruk_dk', 'Kuyrukta bekleme', 'var(--s4)'], ['is', 'is_dk', 'İş', 'var(--s1)'], ['denetim bekleme', 'denetim_bekleme_dk', 'Denetçi başlamayı bekleme', 'var(--s2)'], ['denetim calisma', 'denetim_calisma_dk', 'Denetçi çalışması', 'var(--s7)']];
   function akisCiz() {
     const v = veri(), a = v && v.akis;
     if (!a) return;
@@ -155,15 +203,18 @@
     const kt = (anahtar, deger, etiket, alt, renk) => {
       const dar = anahtar === darbogaz;
       return `<div class="karo${dar ? ' vurgu' : ''}"${dar ? ` style="--renk:${renk}"` : ''}><b>${B.dk(deger)}</b><span>${etiket}</span>
-        <small>${alt}</small>${dar ? '<small><strong style="color:var(--text-primary)">▲ Darboğaz</strong> · ortalamada en uzun aşama</small>' : ''}</div>`;
+        <small>${alt}</small>${dar ? '<small><strong style="color:var(--text-primary)">▲ Darboğaz</strong> · medyanda en uzun aşama</small>' : ''}</div>`;
     };
+    const esik = o.uzun_esik_dk || 30;
+    const uzunNot = n => n ? ` · <strong style="color:var(--warning)">⚠ ${B.sayi(n)} kart ${esik} dk üzeri</strong>` : '';
     let html = '';
     if (!o.kart) html = '<p class="bos">Henüz teslim edilen kart yok; akış teslimden sonra ölçülür.</p>';
     else html = '<div class="karolar">' +
-      `<div class="karo"><b>${B.dk(o.toplam_ort)}</b><span>Plandan teslime (ort.)</span><small>medyan ${B.dk(o.toplam_medyan)} · @@SAYIM@@</small></div>` +
-      kt('kuyruk', o.kuyruk_ort, 'Kuyrukta bekleme', 'kart → işçi başladı', ASAMA[0][3]) +
-      kt('is', o.is_ort, 'İş süresi', 'işçi çalışması, düzeltmeler dahil', ASAMA[1][3]) +
-      kt('denetim bekleme', o.denetim_bekleme_ort, 'Denetimde bekleme', 'iş bitti → denetim kararı', ASAMA[2][3]) + '</div>';
+      `<div class="karo"><b>${B.dk(o.toplam_medyan)}</b><span>Plandan teslime (medyan)</span><small>ort. ${B.dk(o.toplam_ort)} · @@SAYIM@@</small></div>` +
+      kt('kuyruk', o.kuyruk_medyan, 'Kuyrukta bekleme (medyan)', `kart → işçi başladı · ort. ${B.dk(o.kuyruk_ort)}${uzunNot(o.kuyruk_uzun)}`, ASAMA[0][3]) +
+      kt('is', o.is_medyan, 'İş süresi (medyan)', `işçi çalışması, düzeltmeler dahil · ort. ${B.dk(o.is_ort)}`, ASAMA[1][3]) +
+      kt('denetim bekleme', o.denetim_bekleme_medyan, 'Denetçi başlamayı bekleme (medyan)', `iş bitti → denetçi başladı · ort. ${B.dk(o.denetim_bekleme_ort)} · ${B.sayi(o.denetim_ayrilan || 0)} kartta ayrıldı${uzunNot(o.denetim_uzun)}`, ASAMA[2][3]) +
+      kt('denetim calisma', o.denetim_calisma_medyan, 'Denetçi çalışması (medyan)', `denetçi başladı → karar · ort. ${B.dk(o.denetim_calisma_ort)}`, ASAMA[3][3]) + '</div>';
     const teslimMi = k => k.toplam_dk != null || k.durum === 'teslim';
     const acikMi = k => !teslimMi(k) && k.durum !== 'iptal';
     // teslimler ölçümü olanlar; açık kartlar (Sırada dahil) ölçümsüz de gelir
@@ -185,13 +236,16 @@
 
       // ölçek yalnız teslim edilen kartlardan; süren kartın çubuğu taralıdır ve ölçeği aşarsa kırpılır
       const maks = Math.max(...tum.filter(teslimMi).map(k => ASAMA.reduce((t, [, f]) => t + (k[f] || 0), 0)), 0.0001);
-      // süren aşama kartın durumundan: Sırada → kuyruk, Çalışıyor/Reddedildi → iş, Denetimde → denetim bekleme
+      // süren aşama kartın durumundan: Sırada → kuyruk, Çalışıyor/Reddedildi → iş, Denetimde → denetçi başladıysa çalışma, değilse başlamayı bekleme
       const SUREN = { planlandi: 'kuyruk', isleniyor: 'is', reddedildi: 'is', denetimde: 'denetim bekleme' };
+      const surenAsama = k => k.durum === 'denetimde' && k.denetim_basladi ? 'denetim calisma' : SUREN[k.durum];
       const baslik = (ad, anahtar) => `<th class="sayi${anahtar === darbogaz ? ' vurgu-sutun' : ''}">${ad}${anahtar === darbogaz ? ' ▲' : ''}</th>`;
       const hucre = (k, anahtar, f) => {
-        const suren = !teslimMi(k) && SUREN[k.durum] === anahtar;
+        const suren = !teslimMi(k) && surenAsama(k) === anahtar;
         const dv = deg(k, f), deger = dv != null ? B.dk(dv) : '–';
-        return `<td class="sayi${anahtar === darbogaz ? ' vurgu-sutun' : ''}">${suren ? deger + ' · <em>sürüyor</em>' : deger}</td>`;
+        const uzun = (anahtar === 'kuyruk' || anahtar === 'denetim bekleme') && dv != null && dv > esik
+          ? ` <span title="${esik} dk üzeri bekleme" style="color:var(--warning)">⚠</span>` : '';
+        return `<td class="sayi${anahtar === darbogaz ? ' vurgu-sutun' : ''}">${suren ? deger + ' · <em>sürüyor</em>' : deger}${uzun}</td>`;
       };
       const durumEt = k => { if (teslimMi(k)) return ''; const d = E.durum(k.durum); return ` ${rozet(d.ad, d.renk)}`; };
       const cubuk = k => {
@@ -202,17 +256,17 @@
         return `<span class="asama${tarali ? ' suren' : ''}" aria-hidden="true">${parca.map(([d, r]) => `<i${tarali ? ' class="tarali"' : ''} style="width:${yz(d * olcek / maks * 100)}%;--renk:${r}"></i>`).join('')}${tarali && toplamK > maks ? '<b>…</b>' : ''}</span>`;
       };
       html += `<p class="meta tablo-ust">Tablo: ${sayim}. Süren ve sıradaki kartların ölçümü sürüyor; toplamı ve aşamalar eksik.</p>`;
-      html += `<div class="tablo-kap"><table class="tablo"><tr><th>Kart</th><th>Basamak</th><th class="sayi">Tur</th>${baslik('Kuyruk', 'kuyruk')}${baslik('İş', 'is')}${baslik('Denetim bekleme', 'denetim bekleme')}
+      html += `<div class="tablo-kap"><table class="tablo"><tr><th>Kart</th><th>Basamak</th><th class="sayi">Tur</th>${baslik('Kuyruk', 'kuyruk')}${baslik('İş', 'is')}${baslik('Denetçi bekleme', 'denetim bekleme')}${baslik('Denetçi çalışma', 'denetim calisma')}
         <th class="sayi">Toplam</th><th>Aşamalar</th></tr>` +
         liste.map(k => `<tr><td class="ad">${esc(k.id)}${durumEt(k)}<span class="meta">${metin(kisalt(k.baslik, 70))}</span></td><td>${esc(k.basamak || '–')}</td><td class="sayi">${B.sayi(k.tur)}</td>
-          ${hucre(k, 'kuyruk', 'kuyruk_dk')}${hucre(k, 'is', 'is_dk')}${hucre(k, 'denetim bekleme', 'denetim_bekleme_dk')}
+          ${hucre(k, 'kuyruk', 'kuyruk_dk')}${hucre(k, 'is', 'is_dk')}${hucre(k, 'denetim bekleme', 'denetim_bekleme_dk')}${hucre(k, 'denetim calisma', 'denetim_calisma_dk')}
           <td class="sayi">${teslimMi(k) ? B.dk(k.toplam_dk) : '–'}</td>
           <td>${cubuk(k)}</td></tr>`).join('') + '</table></div>';
       html += `<div class="lejant">${ASAMA.map(([, , ad, r]) => `<span><i style="--renk:${r}"></i>${ad}</span>`).join('')}</div>`;
       if (tum.length > liste.length || S.tumKart) html += `<button type="button" class="tablo-dugme" id="tumKartDugme" data-anahtar="tumkart" aria-expanded="${S.tumKart}">${S.tumKart ? `Yalnız son ${LIMIT} teslim ve açık kartları göster` : `Tümünü göster · ${sayim}`}</button>`;
     } else if (o.kart) html += '<p class="bos">Akışı ölçülebilen kart yok.</p>';
     html += `<details class="nasil"><summary>Nasıl hesaplanır?</summary>
-      <p>Kuyruk: kart oluşturulduktan işçi başlayana kadar. İş: işçi çalışma süreleri toplamı. Denetimde bekleme: iş bitti ile denetim kararı arası. Darboğaz, ortalaması en uzun olan aşamadır; tabloda o sütun vurgulanır.</p></details>`;
+      <p>Kuyruk: kart oluşturulduktan işçi başlayana kadar. İş: işçi çalışma süreleri toplamı. Denetçi başlamayı bekleme: iş bitti ile denetçi başlaması arası. Denetçi çalışması: denetçi başlaması ile denetim kararı arası. Denetçi başlangıcı kartta kayıtlı değilse (eski kartlar) denetçi koşu kaydından türetilir; ikisi de yoksa kart bu iki sütunda boş kalır ve ölçüye girmez. Kutular medyanı gösterir; birkaç uzun bekleyen kart ortalamayı şişirdiği için ortalama küçük yazıyla yanında durur. ${esik} dk üzeri kuyruk ve denetçi bekleme ⚠ ile işaretlenir. Denetim turu sayılırken denetimsiz tekrar is-bitti'ler birleştirilir: bekleme son is-bitti'den sayılır. Darboğaz, medyanı en uzun olan aşamadır; tabloda o sütun vurgulanır.</p></details>`;
     yerlestir($('#akisIcerik'), html.replace('@@SAYIM@@', sayim));
   }
 
@@ -394,7 +448,7 @@
   // ------------------------------------------------------------ durum: bayatlık, hata, orkestrasız
   function bayatBolumu() {
     const i = O.bayatIsaret(K), e = {};
-    ['basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'].forEach(ad => { e[ad + 'Bayat'] = i; });
+    ['pano', 'basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'].forEach(ad => { e[ad + 'Bayat'] = i; });
     bayatCiz(e);
   }
   function uyariCiz() {
@@ -402,10 +456,11 @@
     yerlestir($('#verimUyari'), K && K.uzunHata && orkestrali() ? `<div class="dikkat" style="--renk:var(--critical)"><span class="simge" aria-hidden="true">!</span>
       <span class="metin"><b>Analitik verisi alınamadı</b><span class="meta" title="${esc(O.yolGizle(K.hata))}">${esc(sure)} · ${metin(kisalt(K.hata, 120))} · yeniden deneniyor</span></span></div>` : '');
   }
-  const KABUL = ['basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'];
+  const KABUL = ['pano', 'basamak', 'ret', 'onayli', 'birim', 'akis', 'gantt', 'skill', 'saglik'];
   function durumCiz() {
     const ork = orkestrali();
     $('#icerik').classList.toggle('gizli', !ork);
+    $('#pano').classList.toggle('gizli', !ork);
     $('#orkestrasiz').hidden = ork;
     if (!ork) {
       yerlestir($('#orkIcerik'), `<p class="bos">Bu çalışma alanında orkestra kurulu değil; burada yalnız <a href="/maliyet${O.alan ? '?alan=' + encodeURIComponent(O.alan) : ''}">Maliyet</a> sayfası anlamlı.</p>
@@ -426,7 +481,7 @@
     $('#ganttGun').innerHTML = ''; $('#ganttGun').__html = '';
   }
 
-  const hepsi = () => { if (durumCiz()) ciz(basamakCiz, retCiz, onayliCiz, birimCiz, akisCiz, ganttCiz, skillCiz, saglikCiz, bayatBolumu, uyariCiz); else ciz(bayatBolumu, uyariCiz); };
+  const hepsi = () => { if (durumCiz()) ciz(panoCiz, basamakCiz, retCiz, onayliCiz, birimCiz, akisCiz, ganttCiz, skillCiz, saglikCiz, bayatBolumu, uyariCiz); else ciz(bayatBolumu, uyariCiz); };
 
   // ------------------------------------------------------------ etkileşim
   const ana = $('main');

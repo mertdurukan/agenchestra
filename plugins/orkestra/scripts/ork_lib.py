@@ -25,6 +25,9 @@ import tempfile
 import time
 from contextlib import contextmanager
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
+
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SURECLER = (
     "triyaj", "plan", "is", "denetim", "duzeltme", "yukseltme", "sentez",
@@ -35,12 +38,25 @@ KAPALI_DURUMLAR = ("teslim", "iptal", "beklemede", "planlandi")
 ETIKET_GOREV = re.compile(r"#GOREV:([A-Za-z0-9_.\-]+)")
 ETIKET_SUREC = re.compile(r"#SUREC:([a-z\-]+)")
 DEFTER_MAX_BAYT = 4 * 1024 * 1024
+# Konsolsuz (panel gibi ayrık) süreçten çağrılan konsol programı Windows'ta yeni pencere açar; bu bayrak açtırmaz.
+PENCERESIZ = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
 
 
 # ---------------------------------------------------------------- zaman, yol
 
 def simdi() -> str:
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def gun_baslangici(gun, simdi: datetime.datetime | None = None) -> datetime.datetime:
+    """'Son N gün' penceresinin başı, bilgisayarın yerel saatine göre TAKVİM günü: gun=1 -> bugün 00:00,
+    gun=2 -> dün 00:00 ... Gün gece yarısında (yerel) döner; kayan 24 saat değildir. Tam sayı olmayan gün
+    (ör. 0,5) kayan pencere olarak kalır: simdi - gun."""
+    simdi = simdi or datetime.datetime.now().astimezone()
+    if float(gun) != int(gun):
+        return simdi - datetime.timedelta(days=gun)
+    ilk = simdi.date() - datetime.timedelta(days=max(int(gun), 1) - 1)
+    return datetime.datetime.combine(ilk, datetime.time.min, tzinfo=simdi.tzinfo)
 
 
 def proje_dizini(cwd: str | None = None) -> str:
@@ -157,6 +173,150 @@ def kayit_surumu(kayit) -> int:
 
 def jsonl_ekle(yol: str, kayit: dict) -> None:
     sona_ekle(yol, json.dumps({"v": KAYIT_SURUMU, **kayit}, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------- istek kimliği (I-030 P1)
+
+def _oturum_json_yol(sd, oturum):
+    return os.path.join(sd, "oturumlar", f"{oturum}.json")
+
+
+def _oturum_json_oku(yol):
+    """(durum, sözlük): 'yok' (dosya yok), 'ok', 'bozuk' (okunamaz ya da sözlük değil)."""
+    if not os.path.exists(yol):
+        return "yok", {}
+    try:
+        with open(yol, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return "bozuk", {}
+    return ("ok", d) if isinstance(d, dict) else ("bozuk", {})
+
+
+def _sayi(v) -> int:
+    return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else 0
+
+
+def istek_id_yeni(sd, oturum):
+    """Yeni kullanıcı isteği için '<oturum ilk 8>-<sıra 4 hane>' üretir; sıra oturum json'unda kilitli artar
+    (istek_sira, son_istek_id; istek_tur sıfırlanır). Hata durumunda None (istisna fırlatmaz, dosya bozulmaz)."""
+    try:
+        if not sd or not oturum:
+            return None
+        yol = _oturum_json_yol(sd, oturum)
+        with kilit(yol):
+            durum, d = _oturum_json_oku(yol)
+            if durum == "bozuk":
+                return None
+            sira = _sayi(d.get("istek_sira")) + 1
+            kimlik = f"{str(oturum)[:8]}-{sira:04d}"
+            d.update({"istek_sira": sira, "son_istek_id": kimlik, "istek_tur": 0})
+            atomik_yaz(yol, json.dumps(d))
+            return kimlik
+    except Exception:
+        return None
+
+
+def istek_id_oku(sd, oturum):
+    """Oturumun son istek_id'si; yoksa ya da hata varsa None."""
+    try:
+        if not sd or not oturum:
+            return None
+        durum, d = _oturum_json_oku(_oturum_json_yol(sd, oturum))
+        v = d.get("son_istek_id") if durum == "ok" else None
+        return str(v) if v else None
+    except Exception:
+        return None
+
+
+def istek_kimlik_alanlari(sd, oturum, agent_id=None, tur_arttir=False) -> dict:
+    """Kayıt satırına eklenecek {istek_id, span_id, ust_span_id}; kimlik yoksa {} (alan yazılmaz).
+    Ana tur span'ı '<istek_id>.t<n>' (tur_arttir=True n'yi kilitli artırır, değilse geçerli n, en az 1);
+    alt ajan span'ı '<istek_id>.a-<agent_id>'. ust_span_id her ikisinde istek_id."""
+    try:
+        iid = istek_id_oku(sd, oturum)
+        if not iid:
+            return {}
+        if agent_id:
+            span = f"{iid}.a-{agent_id}"
+        else:
+            n = 1
+            yol = _oturum_json_yol(sd, oturum)
+            if tur_arttir:
+                with kilit(yol):
+                    durum, d = _oturum_json_oku(yol)
+                    if durum == "ok" and d.get("son_istek_id") == iid:
+                        n = _sayi(d.get("istek_tur")) + 1
+                        d["istek_tur"] = n
+                        atomik_yaz(yol, json.dumps(d))
+            else:
+                durum, d = _oturum_json_oku(yol)
+                n = max(1, _sayi(d.get("istek_tur"))) if durum == "ok" else 1
+            span = f"{iid}.t{n}"
+        return {"istek_id": iid, "span_id": span, "ust_span_id": iid}
+    except Exception:
+        return {}
+
+
+# ---------------------------------------------------------------- iş atfı (I-030 P2)
+
+def is_coz(sd, oturum, gorev=None, niyet_dahil=True):
+    """Tek iş çözümü: (is_id_ya_da_None, atif_nedeni). Sıra: görev kartının is alanı, oturum json'u, niyet bağlamı.
+    Hiçbiri yoksa (None, 'kart-isiz') (gerçek bir görev var ama iş yok) ya da (None, 'oturum-isiz');
+    hata durumunda ('-', 'hata'); istisna fırlatmaz."""
+    try:
+        gorevli = bool(gorev) and gorev != "-"
+        if gorevli:
+            k = kart_oku(sd, gorev)
+            v = k.get("is") if isinstance(k, dict) else None
+            if v:
+                return str(v), None
+        if sd and oturum:
+            durum, d = _oturum_json_oku(_oturum_json_yol(sd, oturum))
+            v = d.get("is") if durum == "ok" else None
+            if v:
+                return str(v), None
+        if niyet_dahil and oturum:
+            try:
+                import niyet
+                b = str(niyet.son_baglam(oturum) or "").strip()
+            except Exception:
+                b = ""
+            if re.fullmatch(r"I-\d+", b):
+                return b, None
+        return None, ("kart-isiz" if gorevli else "oturum-isiz")
+    except Exception:
+        return "-", "hata"
+
+
+def is_alanlari(sd, oturum, gorev=None) -> dict:
+    """Maliyet/zaman satırına yazılacak {'is': ..., ['atif_nedeni': ...]}; is_coz üzerinden. Bağsızda is None."""
+    is_id, neden = is_coz(sd, oturum, gorev)
+    if is_id and is_id != "-":
+        return {"is": is_id}
+    return {"is": None, "atif_nedeni": neden or "oturum-isiz"}
+
+
+def atif_yaz(sd, oturum, is_id, kaynak) -> bool:
+    """Oturum bir işe bağlandığında, o oturumun bağsız maliyet satırları için <sd>/atif.jsonl'e TEK ek olay yazar.
+    Ham defter değişmez; aynı oturum+iş için tekrar yazılmaz; bağsız satır yoksa yazılmaz. Hata yutulur (False)."""
+    try:
+        if not (sd and oturum and is_id):
+            return False
+        bagsiz = [r for r in jsonl_oku(os.path.join(sd, "maliyet.jsonl"))
+                  if r.get("oturum") == oturum and (not r.get("is") or r.get("is") == "-")]
+        if not bagsiz:
+            return False
+        yol = os.path.join(sd, "atif.jsonl")
+        with kilit(os.path.join(sd, "atif_kontrol")):  # jsonl_ekle yol'un kendi kilidini alır: ayrı kilit
+            if any(e.get("oturum") == oturum and e.get("is") == is_id for e in jsonl_oku(yol)):
+                return False
+            jsonl_ekle(yol, {"tur": "atif", "zaman": simdi(), "oturum": oturum, "is": is_id, "kaynak": kaynak,
+                             "satir_adedi": len(bagsiz), "ilk_zaman": bagsiz[0].get("zaman"),
+                             "son_zaman": bagsiz[-1].get("zaman")})
+        return True
+    except Exception:
+        return False
 
 
 def jsonl_oku(yol: str) -> list[dict]:
@@ -479,6 +639,58 @@ def kart_durumu_hesapla(kart: dict) -> str:
     return durum or "planlandi"
 
 
+def ana_ajan_satiri_mi(satir: dict) -> bool:
+    """Ana ajan payının tek tanımı: defter satırının görevi boş ya da '-' (karta bağlı olmayan harcama). KPI, hedef
+    panosu, maliyet anomalisi (K6) ve etki ölçümü aynı tanımı kullanır."""
+    g = satir.get("gorev")
+    return not g or g == "-"
+
+
+def zaman_kayitlari(sd: str) -> list[dict]:
+    """zaman.jsonl satırları. Alt ajan satırı her SubagentStop'ta yazılır ve süre transkriptin tamamını kapsar
+    (devam ettirilen ajanda kümülatif); aynı (oturum, agent_id) için yalnız en büyük süreli satır kalır, yoksa
+    süreler çifte toplanır. agent_id'siz ('?') satırlar olduğu gibi kalır."""
+    out: list[dict] = []
+    alt: dict = {}
+    for r in jsonl_oku(os.path.join(sd, "zaman.jsonl")):
+        if not isinstance(r, dict):
+            continue
+        aid = r.get("agent_id")
+        if r.get("tur") != "alt" or not aid or aid == "?":
+            out.append(r)
+            continue
+        anahtar = (r.get("oturum"), aid)
+        if anahtar not in alt:
+            alt[anahtar] = len(out)
+            out.append(r)
+        elif (r.get("sure_ms") or 0) > (out[alt[anahtar]].get("sure_ms") or 0):
+            out[alt[anahtar]] = r
+    return out
+
+
+def satir_isi(satir: dict, kart_is: dict) -> str:
+    """Defter satırının bağlı olduğu iş: satırın görevi bir karta bağlıysa kartın işi (kart hangi işteyse harcaması da
+    oradadır); aksi halde satırın kendi `is` alanı; yoksa boş. is_rapor ve panel iş toplamları aynı kuralı kullanır."""
+    g = satir.get("gorev")
+    if g and kart_is.get(g):
+        return kart_is[g]
+    return satir.get("is") or ""
+
+
+def ret_onay_say(kartlar: list[dict]) -> tuple[int, int]:
+    """(ret, onay+ret) denetim karar sayısı; iptal kartlar sayılmaz. Ret oranının tek tanımı (KPI ile aynı)."""
+    ret = karar = 0
+    for k in kartlar:
+        if k.get("durum") == "iptal":
+            continue
+        for d in k.get("denetimler") or []:
+            kr = d.get("karar") if isinstance(d, dict) else None
+            if kr in ("ret", "onay"):
+                karar += 1
+                ret += kr == "ret"
+    return ret, karar
+
+
 def sonraki_sira(kart: dict) -> int:
     kart["olay_sira"] = kart.get("olay_sira", 0) + 1
     return kart["olay_sira"]
@@ -567,7 +779,7 @@ def desen_kesisir(proje: str, a: str, b: str) -> bool:
 
 def git(args: list[str], cwd: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", cwd] + list(args), capture_output=True, text=True, encoding="utf-8",
-                          errors="replace")
+                          errors="replace", **PENCERESIZ)
 
 
 def git_koku(yol: str, onbellek: dict | None = None) -> str | None:
@@ -814,7 +1026,7 @@ def kart_proje_koku(proje: str, kart: dict) -> str:
 def _git_bayt(args: list[str], cwd: str) -> bytes | None:
     """git çıktısı ham bayt olarak (dosya içeriği, -z listeleri); hata ya da sıfırdan farklı çıkışta None."""
     try:
-        r = subprocess.run(["git", "-C", cwd] + list(args), capture_output=True)
+        r = subprocess.run(["git", "-C", cwd] + list(args), capture_output=True, **PENCERESIZ)
     except (OSError, ValueError):
         return None
     return r.stdout if r.returncode == 0 else None
@@ -1067,22 +1279,8 @@ def kilitle_tutarli(test_kilidi: dict | None, mevcut: dict) -> bool:
 
 
 def python_yorumlayici() -> str:
-    """Kapının kendi Python çağrıları için yorumlayıcı yolu (tek seçim noktası).
-
-    Sıra: ORKESTRA_PYTHON ortam değişkeni (doluysa aynen) -> `py -3.13` bulunursa onun yolu -> sys.executable."""
-    ayar = (os.environ.get("ORKESTRA_PYTHON") or "").strip()
-    if ayar:
-        return ayar
-    if shutil.which("py"):
-        try:
-            r = subprocess.run(["py", "-3.13", "-c", "import sys;print(sys.executable)"], capture_output=True,
-                               text=True, timeout=20)
-            yol = (r.stdout or "").strip().splitlines()
-            if r.returncode == 0 and yol and os.path.isfile(yol[-1]):
-                return yol[-1]
-        except (OSError, subprocess.SubprocessError):
-            pass
-    return sys.executable
+    """Kapının kendi Python çağrıları için yorumlayıcı yolu (tek seçim noktası; cfg: ORKESTRA_PYTHON > makine config'i > `py -3.13` > sys.executable)."""
+    return cfg.al("python") or sys.executable
 
 
 def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float]:
@@ -1472,24 +1670,34 @@ def _maliyet_kayitlari_oku(yol: str) -> list[dict]:
 def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
     """'tur' kaydı olan gruplarda hook'un gördüğü ama tur satırlarının kapsamadığı token (tur kaydı başlamadan önceki
     turlar). Ana ajan hook satırları artımlıdır (toplanır); alt ajanda birikimlidir (en son satır). Artık = hook - tur,
-    bileşen başına en az 0; sıfırdan büyükse 'hook-artik' satırı olarak eklenir."""
+    bileşen başına en az 0; sıfırdan büyükse 'hook-artik' satırı olarak eklenir. Netleme MODEL başına yapılır: karışık
+    modelli grupta bir modelin fazlası ötekinin eksiğini kapatıp fiyat farkını yutmasın."""
     sonuc = []
+    hook_grup: dict = {}  # satırlar bir kez gruplanır; grup başına yeniden taramak satır sayısıyla ikinci derece yavaşlar
+    tur_grup: dict = {}
+    for r in rows:
+        k = (r.get("oturum"), r.get("agent_id"))
+        if k in tur_var:
+            (tur_grup if r.get("kaynak") == "tur" else hook_grup).setdefault(k, []).append(r)
     for k in tur_var:
-        hook = [r for r in rows if (r.get("oturum"), r.get("agent_id")) == k and r.get("kaynak") != "tur"]
+        hook = hook_grup.get(k)
         if not hook:
             continue
-        tur = [r for r in rows if (r.get("oturum"), r.get("agent_id")) == k and r.get("kaynak") == "tur"]
+        tur = tur_grup.get(k, [])
         if k[1]:
             hook = [max(hook, key=lambda r: (r.get("zaman") or "", r.get("maliyet_usd") or 0))]
-        art = {a: max(0, sum(r.get(a) or 0 for r in hook) - sum(r.get(a) or 0 for r in tur)) for a in _TOKEN_ALANLARI}
-        if not any(art.values()):
-            continue
-        son = max(hook, key=lambda r: r.get("zaman") or "")
-        satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model")}
-        satir.update(art)
-        satir["kaynak"] = "hook-artik"
-        satir["maliyet_usd"] = _satir_usd(satir)
-        sonuc.append(satir)
+        for model in sorted({r.get("model") or "" for r in hook}):
+            h = [r for r in hook if (r.get("model") or "") == model]
+            t = [r for r in tur if (r.get("model") or "") == model]
+            art = {a: max(0, sum(r.get(a) or 0 for r in h) - sum(r.get(a) or 0 for r in t)) for a in _TOKEN_ALANLARI}
+            if not any(art.values()):
+                continue
+            son = max(h, key=lambda r: r.get("zaman") or "")
+            satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model")}
+            satir.update(art)
+            satir["kaynak"] = "hook-artik"
+            satir["maliyet_usd"] = _satir_usd(satir)
+            sonuc.append(satir)
     return sonuc
 
 
@@ -1644,31 +1852,54 @@ def calisma_alanlari() -> list[dict]:
 # ---------------------------------------------------------------- plugin önbellek bayatlığı
 
 def claude_exe() -> str | None:
-    """claude.exe: CLAUDE_CODE_EXECPATH > %APPDATA%/%LOCALAPPDATA% altındaki en yeni > PATH."""
-    e = os.environ.get("CLAUDE_CODE_EXECPATH")
-    if e and os.path.exists(e):
-        return e
-    adaylar = []
-    for kok in (os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")):
-        if not kok:
-            continue
-        adaylar += glob.glob(os.path.join(kok, "Claude", "claude-code", "*", "*", "claude.exe"))
-        adaylar += glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code", "*", "*", "claude.exe"))
-    adaylar = [a for a in adaylar if os.path.exists(a)]
-    if adaylar:
-        return max(adaylar, key=os.path.getmtime)
-    import shutil
-    return shutil.which("claude")
+    """claude.exe: cfg (CLAUDE_CODE_EXECPATH > makine config'i > %APPDATA%/%LOCALAPPDATA% altındaki en yeni > PATH)."""
+    return cfg.al("claude_exe")
 
 
 def pazar_kaynagi(pazar: str = "claude-orchestration") -> str | None:
     """known_marketplaces.json'daki installLocation (kaynak depo klasörü)."""
+    return cfg.pazar_kaynagi(pazar)
+
+
+def _klon_kaynagi(kok: str) -> str | None:
+    """`kok` bir git klonuysa ve origin'i yerel bir klasörse o klasör (yayın klonu → geliştirme deposu); değilse None."""
     try:
-        with open(os.path.join(os.path.expanduser("~"), ".claude", "plugins", "known_marketplaces.json"), encoding="utf-8") as f:
-            yol = (json.load(f).get(pazar) or {}).get("installLocation")
-        return yol if yol and os.path.isdir(yol) else None
-    except Exception:
+        with open(os.path.join(kok, ".git", "config"), encoding="utf-8", errors="replace") as f:
+            m = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*(\S+)', f.read())
+    except OSError:
         return None
+    url = m.group(1) if m else ""
+    return url if url and os.path.isdir(url) else None
+
+
+def kopyada_mi(yol: str) -> str | None:
+    """`yol`, eklentinin kopyasında mı? Kopyaya yazılan değişiklik bir sonraki eşitleme/güncellemede silinir.
+    Kopya: Claude Code'un yönettiği ~/.claude/plugins/marketplaces ve cache altı, ya da origin'i yerel bir klasör olan
+    yayın klonu (known_marketplaces installLocation). Dönüş: değişikliğin yapılacağı yer (bilinmiyorsa "kaynak depo"); kopya değilse None.
+    ORKESTRA_KOPYA_YAZMA=1 kapıyı kapatır."""
+    if os.environ.get("ORKESTRA_KOPYA_YAZMA") == "1":
+        return None
+    yonetilen = os.path.join(os.path.expanduser("~"), ".claude", "plugins")
+    for alt in ("marketplaces", "cache"):
+        if yol_altinda(yol, os.path.join(yonetilen, alt)):
+            return "kaynak depo"
+    kok = pazar_kaynagi()
+    if kok and yol_altinda(yol, kok):
+        return _klon_kaynagi(kok)
+    return None
+
+
+def kaynaga_cevir(yol: str) -> str:
+    """Eklenti kopyasındaki (yayın klonu) bir yolu kaynak depodaki karşılığına çevirir; kopya değilse aynen döner.
+    Eklentiye yazılacak ya da oturuma gösterilecek yollar kaynağı göstersin diye (kopyaya yazılan iş eşitlemede silinirdi)."""
+    if os.environ.get("ORKESTRA_KOPYA_YAZMA") == "1":
+        return yol
+    kok = pazar_kaynagi()
+    if kok and yol_altinda(yol, kok):
+        kaynak = _klon_kaynagi(kok)
+        if kaynak:
+            return os.path.normpath(os.path.join(kaynak, os.path.relpath(os.path.abspath(yol), os.path.abspath(kok))))
+    return yol
 
 
 def icerik_ozetleri(kok: str) -> dict[str, str]:
@@ -1711,7 +1942,7 @@ def bayatlik(calisan: str | None = None, kaynak_depo: str | None = None) -> dict
     try:
         import subprocess
         r = subprocess.run(["git", "-C", kaynak_depo, "status", "--porcelain", "--", "plugins", ".claude-plugin"],
-                           capture_output=True, text=True, timeout=1.0)
+                           capture_output=True, text=True, timeout=1.0, **PENCERESIZ)
         if r.returncode == 0:
             commitsiz = bool(r.stdout.strip())
     except Exception:

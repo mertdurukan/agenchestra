@@ -51,7 +51,7 @@ def _adaylar(proje: str) -> list[tuple[str, str, str]]:
     ekle("proje", proje, ["CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"])
     ekle("proje", proje, [".claude/rules/**/*.md", ".claude/agents/*.md", ".claude/commands/*.md",
                           ".claude/skills/*/SKILL.md", ".claude/settings.json", ".claude/settings.local.json"])
-    ekle("eklenti", L.PLUGIN_ROOT, ["KURALLAR.md", "GELISTIRME.md", "agents/*.md", "skills/*/SKILL.md",
+    ekle("eklenti", L.PLUGIN_ROOT, ["KURALLAR.md", "GELISTIRME.md", "kurallar/*.json", "agents/*.md", "skills/*/SKILL.md",
                                     "hooks/hooks.json"])
     h = os.path.join(os.path.expanduser("~"), ".claude")
     ekle("kullanici", h, ["CLAUDE.md", "settings.json"])

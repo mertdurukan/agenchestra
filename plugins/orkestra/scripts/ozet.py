@@ -374,13 +374,18 @@ def yaz(sd: str, proje: str) -> dict | None:
         # Paralel ajan bitişleri aynı dosyayı aynı anda değiştirmeye çalışıp Windows'ta PermissionError alıyordu:
         # kilit altında sıraya girer; sonra gelen güncel durumu hesaplar, bayat anlık görüntü yazılmaz.
         yol = os.path.join(sd, "ozet.json")
-        with L.kilit(yol, bekleme_s=5.0):
+        with L.kilit(yol, bekleme_s=20.0):   # soğuk olustur ~4 sn sürer; 5 sn, dört paralel bitişte zaman aşımı veriyordu
             o = olustur(sd, proje)
             L.atomik_yaz(yol, json.dumps(o, ensure_ascii=False))
         return o
     except Exception as e:  # noqa: BLE001
         try:
-            L.atomik_yaz(os.path.join(sd, "ozet_hata.txt"), f"{L.simdi()} {type(e).__name__}: {e}\n")
+            hata_yolu = os.path.join(sd, "ozet_hata.txt")   # son 20 hata kalır (yalnız sonuncusu değil)
+            onceki = []
+            if os.path.exists(hata_yolu):
+                with open(hata_yolu, encoding="utf-8", errors="replace") as f:
+                    onceki = f.read().splitlines()[-19:]
+            L.atomik_yaz(hata_yolu, "\n".join(onceki + [f"{L.simdi()} {type(e).__name__}: {e}"]) + "\n")
         except Exception:
             pass
         return None

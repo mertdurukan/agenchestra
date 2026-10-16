@@ -2,6 +2,7 @@
 """Orkestra kurulum denetimi: gereksinimleri yoklar, hiçbir şey kurmaz.
 
   kur.py            pytest seçilen yorumlayıcıda yoksa uyarı satırı basar; çıkış kodu her durumda 0.
+Tam sağlık denetimi ve onarım: `orkestra doktor` (scripts/doktor.py); kur.py yalnız hızlı pytest yoklamasıdır.
 Yorumlayıcı seçimi: ork_lib.python_yorumlayici() (ORKESTRA_PYTHON -> py -3.13 -> sys.executable).
 """
 from __future__ import annotations
@@ -34,6 +35,7 @@ def main() -> int:
     print(f"Python yorumlayıcı: {y}")
     u = uyari_uret(y)
     print(u if u else "pytest: var")
+    print("Tam sağlık denetimi ve onarım için: orkestra doktor")
     return 0
 
 

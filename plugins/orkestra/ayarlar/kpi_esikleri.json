@@ -1,0 +1,14 @@
+{
+  "surum": 1,
+  "ret_sinifi": {
+    "kapsam-eksik": "onlenebilir",
+    "bicim": "onlenebilir",
+    "sayi-tutarsiz": "onlenebilir",
+    "kanit-yok": "onlenebilir",
+    "yetenek-yetersiz": "onlenebilir",
+    "kriter-belirsiz": "plan-kusuru",
+    "talimat-ihlali": "koruyucu",
+    "ortam": "ortam"
+  },
+  "israf_siniflari": ["onlenebilir"]
+}

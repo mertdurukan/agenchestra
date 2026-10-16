@@ -37,8 +37,9 @@
 <main>
   <h1 class="gorunmez">Onaylar, etki ve kurallar</h1>
   <section class="bolum" aria-labelledby="oBaslik">
-    <h2 id="oBaslik">Onaylar <span class="meta" id="oSayi"></span><span id="oBayat"></span> <button type="button" class="cip" id="uygulaDugme" hidden></button></h2>
+    <h2 id="oBaslik">Onaylar <span class="meta" id="oSayi"></span><span id="oBayat"></span> <button type="button" class="cip" id="uygulaDugme" hidden></button> <button type="button" class="cip" id="perspektifCalistir" title="Claude Code'da yeni sohbet açıp perspektifi çalıştırır">Perspektif çalıştır</button></h2>
     <p class="aciklama">Burada verdiğin kararları Claude bir sonraki mesajda ya da /orkestra:onay ile uygular; kural onayları hemen etkinleşir. Uygulananların etkisi aşağıdadır.</p>
+    <div id="perspDurum" class="persp-durum" aria-live="polite"></div>
     <div class="cipler" role="group" aria-label="Görünüm" id="gorunumCipler"></div>
     <div class="cipler" role="group" aria-label="Geçmiş durumu" id="durumCipler"></div>
     <div class="cipler" role="group" aria-label="Tür" id="turCipler"></div>
@@ -63,7 +64,7 @@
 
   <section class="bolum" aria-labelledby="etkinBaslik">
     <h2 id="etkinBaslik">Etkin kurallar <span class="meta" id="etkinSayi"></span><span id="kBayat"></span></h2>
-    <p class="aciklama">Etkin kurallar <code>.claude/rules/orkestra_kurallari.md</code> dosyasına yazılır ve her oturumda yüklenir.</p>
+    <p class="aciklama">İki katman vardır: <strong>eklenti</strong> kuralları orkestra eklentisinde saklanır ve eklentiyi kullanan her projede geçerlidir; <strong>proje</strong> kuralları yalnız bu projeye özgüdür. Çakışmada proje kuralı önce gelir. Etkin kurallar <code>.claude/rules/orkestra_kurallari.md</code> dosyasına yazılır ve her oturumda yüklenir.</p>
     <div id="etkinIcerik"><p class="bos">Yükleniyor…</p></div>
   </section>
 

@@ -1,4 +1,22 @@
 #!/usr/bin/env sh
 # orkestra CLI sarmalayıcısı (Git Bash / POSIX). Ayrıntı: orkestra --help
+# Yorumlayıcı sırası hook_python ile aynı: ORKESTRA_PYTHON > python3 > python > py -3 (WindowsApps Store stub'ları atlanır).
 DIR="$(cd "$(dirname "$0")" && pwd)"
-exec python "$DIR/../scripts/orkestra.py" "$@"
+CLI="$DIR/../scripts/orkestra.py"
+if [ -n "$ORKESTRA_PYTHON" ] && [ -x "$ORKESTRA_PYTHON" ]; then
+  exec "$ORKESTRA_PYTHON" "$CLI" "$@"
+fi
+bul() {
+  _y="$(command -v "$1" 2>/dev/null)" || return 1
+  case "$_y" in *WindowsApps*) return 1 ;; esac
+  return 0
+}
+if bul python3; then
+  exec python3 "$CLI" "$@"
+elif bul python; then
+  exec python "$CLI" "$@"
+elif bul py; then
+  exec py -3 "$CLI" "$@"
+fi
+echo "orkestra: python3/python/py bulunamadı (ORKESTRA_PYTHON ile yorumlayıcı göster)" >&2
+exit 127

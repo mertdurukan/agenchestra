@@ -24,20 +24,26 @@ KPILER = ("dogrulanmis_basari", "basari_basina_maliyet", "basari_basina_token", 
 TANIMLAR = {
     "dogrulanmis_basari": {"pay": "denetçi onaylı kart sayısı (durum onaylandi|teslim)",
                            "payda": "toplam kart − iptal kartı"},
-    "basari_basina_maliyet": {"pay": "onaylı kartların maliyet_usd toplamı (ana ajan gorev='-' hariç)",
+    "basari_basina_maliyet": {"pay": "onaylı kartların maliyet_usd toplamı (ana ajan gorev='-' hariç; reddedilen/iptal kartın maliyeti dahil DEĞİL)",
                               "payda": "onaylı kart sayısı"},
     "basari_basina_token": {"pay": "onaylı kartların giris+cikis+onbellek_okuma+onbellek_yazma toplamı",
                             "payda": "onaylı kart sayısı"},
     "onbellek_isabet": {"pay": "onbellek_okuma toplamı",
-                        "payda": "giris + onbellek_okuma + onbellek_yazma toplamı"},
-    "ret_orani": {"pay": "denetçi ret kararı sayısı", "payda": "toplam denetim kararı (onay+ret)"},
-    "onkontrol_ret_orani": {"pay": "geçmeyen ön kontrol sayısı", "payda": "toplam ön kontrol sayısı"},
+                        "payda": "giris + onbellek_okuma + onbellek_yazma toplamı (iptal kartlar dışarıda)"},
+    "ret_orani": {"pay": "denetçi ret kararı sayısı", "payda": "toplam denetim kararı (onay+ret); iptal kartlar dışarıda"},
+    "onkontrol_ret_orani": {"pay": "geçmeyen ön kontrol koşusu (kart.onkontrol_kosulari)", "payda": "toplam ön kontrol koşusu"},
     "yeniden_deneme_carpani": {"pay": "toplam işçi çağrısı (kartların isciler sayısı)",
                                "payda": "kart sayısı (iptal hariç)"},
     "p95_sure_sn": {"pay": "olusturma → teslim (yoksa onaylandi) süreleri, saniye; nearest-rank %95",
                     "payda": "tamamlanan kart sayısı"},
     "onay_bekleme_sn": {"pay": "karar.zaman − olusturma, saniye; medyan ve nearest-rank p95",
                         "payda": "karar verilmiş onay sayısı"},
+    # Hedef panosu (analitik.hedef_panosu, ayarlar/hedef.json): pencere son 3 gün ve tüm zaman
+    "ana_ajan_payi": {"pay": "ana ajan payı = karta bağlı olmayan (gorev boş ya da '-') defter maliyeti; kartsız alt ajan satırları dahil", "payda": "pencere içindeki tüm defter maliyeti"},
+    "isci_cagrisi_kart": {"pay": "kartların isciler sayısı toplamı", "payda": "kart sayısı (iptal hariç)"},
+    "onayli_kart_usd": {"pay": "onaylı kartlara bağlı defter maliyeti", "payda": "onaylı kart sayısı"},
+    "teknik_not_kapsama": {"pay": "teknik alanı dolu onaylı/teslim kart (teknik_kapi_baslangic sonrası)",
+                           "payda": "teknik_kapi_baslangic sonrası oluşan onaylı/teslim kart"},
 }
 
 
@@ -137,7 +143,7 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
     Çıktıda 'ornek' (KPI başına payda sayısı) da döner."""
     esik = None
     if gun is not None:
-        esik = datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)
+        esik = L.gun_baslangici(gun)
 
     def icinde(zaman) -> bool:
         if esik is None and aralik is None:
@@ -161,9 +167,8 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         if not isinstance(den, list):
             den = k.get("denetimler") or []
         kararlar = [d.get("karar") for d in den if isinstance(d, dict) and d.get("karar") in ("onay", "ret")]
-        ok = _json(os.path.join(sd, "gorevler", gid + ".onkontrol.json"))
-        kont = ok.get("kontroller") if isinstance(ok, dict) else None
-        kont = [c for c in (kont or []) if isinstance(c, dict) and "gecti" in c]
+        # Ön kontrol koşuları kartın kendisinde tutulur (on_kontrol._kosu_kaydet); .onkontrol.json yalnız taban/dosya özeti taşır.
+        kont = [c for c in (k.get("onkontrol_kosulari") or []) if isinstance(c, dict) and "gecti" in c]
         k = dict(k)
         k["_karar"] = len(kararlar)
         k["_ret"] = kararlar.count("ret")
@@ -179,7 +184,7 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         if not icinde(r.get("zaman")):
             continue
         g = r.get("gorev")
-        if not g or g == "-":
+        if L.ana_ajan_satiri_mi(r):
             ana.append(r)
         elif g in idler:
             mal_kart.setdefault(g, []).append(r)

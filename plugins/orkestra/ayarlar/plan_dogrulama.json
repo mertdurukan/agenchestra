@@ -1,0 +1,5 @@
+{
+  "mod": "ihlal",
+  "zaman_asimi_sn": 30,
+  "aciklama": "mod: golge = todo yazımı engellenmez, uyarı verilir ve gunluk.jsonl'a düşer; ihlal = engelli P<n> için todo yazımı reddedilir. Kapatma: ORKESTRA_DOGRULAMA_KAPISI=0. `orkestra plan dogrula` komutu moddan bağımsız her zaman katı çıkış kodu verir."
+}

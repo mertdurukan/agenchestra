@@ -1,0 +1,14 @@
+{
+  "surum": 1,
+  "teknik_kapi_baslangic": "2026-10-16",
+  "pencere_gun": 3,
+  "uyari_carpani": 1.25,
+  "teknik_uyari_alt": 0.8,
+  "olculer": {
+    "ana_ajan_payi": {"tur": "ust", "hedef": 0.40},
+    "isci_cagrisi_kart": {"tur": "ust", "hedef": 2},
+    "onayli_kart_usd": {"tur": "ust", "hedef": 1.5},
+    "ret_orani": {"tur": "band", "alt": 0.10, "ust": 0.20},
+    "teknik_not_kapsama": {"tur": "alt", "hedef": 1.0}
+  }
+}

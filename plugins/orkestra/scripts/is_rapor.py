@@ -71,11 +71,12 @@ def _todo(klasor) -> tuple[int, int]:
 
 
 def _veri(sd: str) -> dict:
-    mal = [dict(r, _is=_is_id(r.get("is"))) for r in L.maliyet_kayitlari(sd)]
-    zam = [dict(r, _is=_is_id(r.get("is"))) for r in L.jsonl_oku(os.path.join(sd, "zaman.jsonl"))]
+    kartlar = L.kartlar(sd)
+    kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
+    mal = [dict(r, _is=_is_id(L.satir_isi(r, kart_is))) for r in L.maliyet_kayitlari(sd)]
+    zam = [dict(r, _is=_is_id(L.satir_isi(r, kart_is))) for r in L.zaman_kayitlari(sd)]
     isler = _json(os.path.join(sd, "isler.json")).get("isler")
     isler = isler if isinstance(isler, dict) else {}
-    kartlar = L.kartlar(sd)
     return {"mal": mal, "zam": zam, "isler": isler, "kartlar": kartlar}
 
 
@@ -110,18 +111,13 @@ def rapor(sd: str) -> dict:
     toplam_usd = sum(s["usd"] for s in satirlar)
     kova_usd = sum(s["usd"] for s in satirlar if s["is"] == KOVA)
     biten_t = sum(s["todo_biten"] for s in satirlar)
-    ret = onay = 0
-    for k in kartlar:
-        for d in k.get("denetimler") or []:
-            kr = d.get("karar") if isinstance(d, dict) else None
-            ret += kr == "ret"
-            onay += kr == "onay"
+    ret, karar = L.ret_onay_say(kartlar)  # iptal kartlar hariç: KPI ret_orani ile aynı tanım
     gir = sum(_sayi(r.get("giris")) for r in mal)
     oku = sum(_sayi(r.get("onbellek_okuma")) for r in mal)
     yaz = sum(_sayi(r.get("onbellek_yazma")) for r in mal)
     kalite = {
         "todo_basina_usd": (toplam_usd - kova_usd) / biten_t if biten_t else None,
-        "ret_orani": ret / (ret + onay) if (ret + onay) else None,
+        "ret_orani": ret / karar if karar else None,
         "onbellek_isabet": oku / (gir + oku + yaz) if (gir + oku + yaz) else None,
         "baglanmamis_emek_yuzde": 100 * kova_usd / toplam_usd if toplam_usd else 0,
     }

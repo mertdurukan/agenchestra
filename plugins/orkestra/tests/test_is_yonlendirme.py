@@ -57,6 +57,16 @@ class YonlendirTest(unittest.TestCase):
         self._kontrol(s)
         self.assertIn("bağlı iş I-2 Kampanya takvimi", s)
 
+    def test_bagli_oturumda_farkli_konu_yeni_oturum_onerir(self):
+        # K-004: bağlı işten farklı konu bu sohbette yapılmaz, ilk mesajda start_session önerilir.
+        s = iy.yonlendir(self.ISLER, "I-2")
+        self.assertIn("start_session", s)
+        self.assertIn("FARKLI", s)
+        self.assertLess(s.index("start_session"), s.index("orkestra is devam"))
+
+    def test_baglisiz_oturumda_yeni_oturum_onerisi_yok(self):
+        self.assertNotIn("start_session", iy.yonlendir(self.ISLER, None))
+
     def test_acik_is_yoksa_yine_yeni_is_kurali(self):
         for girdi in ([], None, "x"):
             s = iy.yonlendir(girdi, None)
@@ -197,6 +207,153 @@ class StatikTest(unittest.TestCase):
                 self.assertNotIn(n.func.id, {"open", "exec", "eval", "__import__"})
             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute):
                 self.assertNotIn(n.func.attr, {"read_text", "write_text", "system", "popen"})
+
+
+I013 = {"id": "I-013", "baslik": "İş yönlendirmesinde tür ve alan ayrımı (yeni iş görünmüyor)",
+        "klasor": "015-20261016-is-yonlendirme-tur-alan"}
+I015 = {"id": "I-015", "baslik": "Orkestra LLM'den Python'a alma: ana ajan turları, kanıt kapısı, kural→ön kontrol, koşullu denetçi",
+        "klasor": "017-20261016-llm-python-gecis"}
+I018 = {"id": "I-018", "baslik": "Orkestra Cursor uyumu: tek kaynak + adaptör planı",
+        "klasor": "019-20261016-cursor-uyumu"}
+ACIK = [I013, I015, I018]
+AYAR_YOLU = os.path.join(KOK, "ayarlar", "is_esleme.json")
+AYAR = {"yuksek": 0.6, "dusuk": 0.2, "durak_sozcukler": [], "soru_etiketi": "soru"}
+
+
+class EslestirTest(unittest.TestCase):
+    def test_k1_islevler_var(self):
+        self.assertTrue(callable(getattr(iy, "eslestir", None)))
+        self.assertTrue(callable(getattr(iy, "karar", None)))
+
+    def test_k1_siralama_ve_aralik(self):
+        r = iy.eslestir("Orkestra iş yönlendirme tür alan ayrımı", ACIK)
+        self.assertEqual({x["id"] for x in r}, {"I-013", "I-015", "I-018"})
+        puanlar = [x["puan"] for x in r]
+        self.assertEqual(puanlar, sorted(puanlar, reverse=True))
+        for x in r:
+            self.assertIsInstance(x["puan"], (int, float))
+            self.assertGreaterEqual(x["puan"], 0)
+            self.assertLessEqual(x["puan"], 1)
+        self.assertEqual(r[0]["id"], "I-013")
+        self.assertGreater(r[0]["puan"], r[-1]["puan"])
+
+    def test_k1_bos_girdiler(self):
+        self.assertEqual(iy.eslestir("", ACIK), [])
+        self.assertEqual(iy.eslestir("   ", ACIK), [])
+        self.assertEqual(iy.eslestir(None, ACIK), [])
+        self.assertEqual(iy.eslestir("tür alan ayrımı", []), [])
+        self.assertEqual(iy.eslestir("tür alan ayrımı", None), [])
+
+    def test_k1_klasor_ve_metin_kullanilir(self):
+        isler = [{"id": "X-1", "baslik": "Genel iş", "metin": "kampanya fiyat raporu hazırlığı"},
+                 {"id": "X-2", "baslik": "Genel iş", "klasor": "depo-taşıma"}]
+        self.assertEqual(iy.eslestir("kampanya fiyat raporu", isler)[0]["id"], "X-1")
+        self.assertEqual(iy.eslestir("depo taşıma", isler)[0]["id"], "X-2")
+
+    def test_k1_ilgisiz_dusuk_puan(self):
+        for x in iy.eslestir("Boyner kampanya fiyat raporu", ACIK):
+            self.assertLess(x["puan"], 0.2)
+
+    def test_k1_tam_ortusme_yuksek(self):
+        r = iy.eslestir(I013["baslik"], ACIK)
+        self.assertEqual(r[0]["id"], "I-013")
+        self.assertGreaterEqual(r[0]["puan"], 0.6)
+
+    def test_k2_buyuk_kucuk_harf_noktalama_duyarsiz(self):
+        a = iy.eslestir("TÜR, ALAN: ayrımı!", [I013])[0]["puan"]
+        b = iy.eslestir("tür alan ayrımı", [I013])[0]["puan"]
+        self.assertAlmostEqual(a, b)
+        self.assertGreater(a, 0)
+
+    def test_k2_turkce_buyuk_I_ve_i(self):
+        a = iy.eslestir("İŞ YÖNLENDİRMESİNDE TÜR ALAN AYRIMI", [I013])[0]["puan"]
+        b = iy.eslestir("iş yönlendirmesinde tür alan ayrımı", [I013])[0]["puan"]
+        self.assertAlmostEqual(a, b)
+        self.assertGreater(a, 0.5)
+
+    def test_k2_kisa_sozcukler_atilir(self):
+        r = iy.eslestir("ab cd ef", [{"id": "A", "baslik": "ab cd ef xyz"}])
+        self.assertTrue(r == [] or all(x["puan"] == 0 for x in r))
+
+    def test_k2_ayardaki_durak_sozcuk_etki_eder(self):
+        isler = [{"id": "A", "baslik": "zebra kampanya"}]
+        p1 = iy.eslestir("zebra", isler, dict(AYAR, durak_sozcukler=["zebra"]))
+        p2 = iy.eslestir("zebra", isler, AYAR)
+        self.assertTrue(p1 == [] or p1[0]["puan"] == 0)
+        self.assertGreater(p2[0]["puan"], 0)
+
+    def test_k2_ayar_dosyasi_alanlari(self):
+        import json
+        self.assertTrue(os.path.isfile(AYAR_YOLU), "ayarlar/is_esleme.json yok")
+        with open(AYAR_YOLU, encoding="utf-8") as f:
+            a = json.load(f)
+        for alan in ("yuksek", "dusuk", "durak_sozcukler", "soru_etiketi"):
+            self.assertIn(alan, a)
+        self.assertTrue(0 < a["dusuk"] < a["yuksek"] <= 1)
+        self.assertIsInstance(a["durak_sozcukler"], list)
+        self.assertTrue(a["durak_sozcukler"])
+        self.assertTrue(str(a["soru_etiketi"]).strip())
+
+    def test_k2_bozuk_ayarla_varsayilan_calisir(self):
+        for ayar in (None, {}, "bozuk", 5, {"yuksek": "x"}):
+            r = iy.eslestir(I013["baslik"], ACIK, ayar)
+            self.assertEqual(r[0]["id"], "I-013")
+            self.assertEqual(iy.karar(r, ayar)[0], "bagla")
+
+    def test_k3_bagla(self):
+        k = iy.karar([{"id": "I-1", "puan": 0.9}, {"id": "I-2", "puan": 0.1}])
+        self.assertEqual(k, ("bagla", "I-1"))
+
+    def test_k3_ac(self):
+        self.assertEqual(iy.karar([{"id": "I-1", "puan": 0.0}]), ("ac", None))
+        self.assertEqual(iy.karar([]), ("ac", None))
+
+    def test_k3_sec_en_cok_iki(self):
+        k = iy.karar([{"id": "A", "puan": 0.4}, {"id": "B", "puan": 0.35},
+                      {"id": "C", "puan": 0.3}], AYAR)
+        self.assertEqual(k, ("sec", ["A", "B"]))
+
+    def test_k3_sec_tek_is(self):
+        self.assertEqual(iy.karar([{"id": "A", "puan": 0.4}], AYAR), ("sec", ["A"]))
+
+    def test_k3_esikler_ayardan_ve_sinir_degerleri(self):
+        ayar = dict(AYAR, yuksek=0.5, dusuk=0.25)
+        self.assertEqual(iy.karar([{"id": "A", "puan": 0.5}], ayar), ("bagla", "A"))
+        self.assertEqual(iy.karar([{"id": "A", "puan": 0.25}], ayar), ("sec", ["A"]))
+        self.assertEqual(iy.karar([{"id": "A", "puan": 0.2499}], ayar), ("ac", None))
+        ayar2 = dict(ayar, yuksek=0.8, dusuk=0.7)
+        self.assertEqual(iy.karar([{"id": "A", "puan": 0.5}], ayar2), ("ac", None))
+
+    def test_k4_ilgili_istek_baglar_ya_da_secer(self):
+        k = iy.karar(iy.eslestir("Orkestra iş yönlendirme tür alan ayrımı", ACIK))
+        self.assertIn(k[0], ("bagla", "sec"))
+        if k[0] == "bagla":
+            self.assertEqual(k[1], "I-013")
+        else:
+            self.assertIn("I-013", k[1])
+
+    def test_k4_ilgisiz_istek_acar(self):
+        self.assertEqual(iy.karar(iy.eslestir("Boyner kampanya fiyat raporu", [I013])), ("ac", None))
+        self.assertEqual(iy.karar(iy.eslestir("Boyner kampanya fiyat raporu", ACIK)), ("ac", None))
+
+    def test_k4_ayrim_olculebilir(self):
+        ilgili = iy.eslestir("Orkestra iş yönlendirme tür alan ayrımı", [I013])[0]["puan"]
+        ilgisiz = iy.eslestir("Boyner kampanya fiyat raporu", [I013])[0]["puan"]
+        self.assertGreater(ilgili - ilgisiz, 0.3)
+
+    def test_k4_diger_isler_dogru_eslesir(self):
+        self.assertEqual(iy.eslestir("Cursor uyumu adaptör planı", ACIK)[0]["id"], "I-018")
+        self.assertEqual(iy.eslestir("LLM'den Python'a alma kanıt kapısı", ACIK)[0]["id"], "I-015")
+
+    def test_k5_girdi_degismez(self):
+        import copy
+        kopya = copy.deepcopy(ACIK)
+        iy.eslestir("tür alan ayrımı", ACIK)
+        self.assertEqual(ACIK, kopya)
+
+    def test_k5_bozuk_is_ogeleri_atlanir(self):
+        r = iy.eslestir("tür alan ayrımı", [None, "x", {"baslik": "kimliksiz tür alan"}, I013])
+        self.assertEqual(r[0]["id"], "I-013")
 
 
 if __name__ == "__main__":

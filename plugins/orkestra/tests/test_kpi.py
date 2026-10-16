@@ -11,7 +11,7 @@ Sözleşme (testin tanımladığı çıktı şeması):
 Kurallar: iptal kartı hiçbir paydaya/paya girmez; pay ya da payda 0 ise değer None; p95 = en yakın sıra
 (nearest-rank: sıralı listede ceil(0.95*n). eleman); medyan çift sayıda ortadaki ikinin ortalaması; maliyet
 satırları ork_lib.maliyet_kayitlari ile tekilleştirilir; genel onbellek_isabet ana ajan satırlarını da kapsar;
-onkontrol: <id>.onkontrol.json içindeki "kontroller": [{"gecti": bool}] (yoksa katkı yok);
+onkontrol: kartın "onkontrol_kosulari": [{"gecti": bool}] alanı (yoksa katkı yok);
 kırılımda sinif = kart["sinif"], basamak = kart["basamak"] (son basamak, baslangic_basamak değil).
 """
 import json
@@ -95,11 +95,12 @@ def durum_kur(sd, kartlar=KARTLAR, maliyet=MALIYET, onaylar=ONAYLAR, kontroller=
     os.makedirs(os.path.join(sd, "gorevler"), exist_ok=True)
     os.makedirs(os.path.join(sd, "onaylar"), exist_ok=True)
     for k in kartlar:
+        if k["id"] in kontroller:   # ön kontrol koşuları kartın kendisinde tutulur (on_kontrol._kosu_kaydet)
+            k = dict(k, onkontrol_kosulari=[{"gecti": g} for g in kontroller[k["id"]]])
         yaz_json(os.path.join(sd, "gorevler", k["id"] + ".json"), k)
         yaz_json(os.path.join(sd, "gorevler", k["id"] + ".denetim.json"), k["denetimler"])
         if k["id"] in kontroller:
-            yaz_json(os.path.join(sd, "gorevler", k["id"] + ".onkontrol.json"),
-                     {"zaman": z(9), "dosyalar": {}, "kontroller": [{"gecti": g} for g in kontroller[k["id"]]]})
+            yaz_json(os.path.join(sd, "gorevler", k["id"] + ".onkontrol.json"), {"zaman": z(9), "dosyalar": {}})
     # yalnız taban içeren onkontrol dosyası ret saymamalı
     if any(k["id"] == "G-002" for k in kartlar):
         yaz_json(os.path.join(sd, "gorevler", "G-002.onkontrol.json"), {"zaman": z(9), "dosyalar": {}})

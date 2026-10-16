@@ -16,6 +16,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import is_sirasi as SIRA  # noqa: E402
 
 DURUMLAR = ("acik", "beklemede", "kapandi")
 _ID = re.compile(r"^I-(\d+)$")
@@ -98,23 +99,165 @@ def _is_json_yolu(klasor: str) -> str:
 
 
 _SABLON = {
-    "plan.md": "# {baslik}\n\n## Amaç\n\n## Kararlar\n",
+    "plan.md": "# {baslik}\n\n## Amaç\n\n## Kararlar\n",  # sablonlar/plan.md yoksa yedek
     "todo.md": "# Yapılacaklar — {baslik}\n\n- [ ] \n",
     "oturumlar.md": "# Oturumlar — {baslik}\n\n",
 }
+SABLON_DIZINI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sablonlar")
+
+# tür -> (şablon dosyası, hedef dosya adı kalıbı, sohbet bağlantı etiketi)
+BELGE_TURLERI = {
+    "mevcut_durum": ("mevcut_durum.md", "mevcut_durum_{gun}.md", "mevcut durum"),
+    "plan": ("plan.md", "plan.md", "plan dosyası"),
+    "ozet": ("calisma_ozeti.md", "calisma_ozeti_{gun}.md", "çalışma özeti"),
+    "bulgu": ("bulgu.md", "bulgu.md", "bulgu"),
+    "jira": ("jira_onerisi.md", "jira_onerisi.md", "jira önerisi"),
+    "rapor": ("rapor.md", "rapor.md", "rapor"),
+}
+# okunacak belge adları (K-003): bağlantı komutu bu kalıplara uyan dosyaları listeler
+_BELGE_KALIPLARI = (
+    (re.compile(r"^(?!devir).*ozet.*\.md$", re.I), "çalışma özeti"),
+    (re.compile(r"^bulgu.*\.md$", re.I), "bulgu"),
+    (re.compile(r"^jira_onerisi.*\.md$", re.I), "jira önerisi"),
+    (re.compile(r"^rapor.*\.md$", re.I), "rapor"),
+)
 
 
-def is_ac(sd: str, baslik: str, klasor: str, etiketler=None) -> dict:
+def sablon_metni(ad: str, baslik: str, simdi: datetime.datetime | None = None, gun: str | None = None) -> str:
+    """sablonlar/<ad> içeriği; {baslik}, {tarih} (GG.AA.YYYY), {saat} (SS:DD), {gun} (YYYYMMDD; `gun` verilmediyse
+    bugün) yer tutucuları doldurulur. plan.md dosyası yoksa yerleşik yedek kullanılır; diğer şablonlarda dosya yoksa
+    FileNotFoundError."""
+    simdi = simdi or datetime.datetime.now()
+    try:
+        with open(os.path.join(SABLON_DIZINI, ad), encoding="utf-8") as f:
+            metin = f.read()
+    except FileNotFoundError:
+        if ad not in _SABLON:
+            raise
+        metin = _SABLON[ad]
+    return (metin.replace("{baslik}", baslik).replace("{tarih}", simdi.strftime("%d.%m.%Y"))
+            .replace("{saat}", simdi.strftime("%H:%M")).replace("{gun}", gun or simdi.strftime("%Y%m%d")))
+
+
+def _dogrulamali(klasor: str) -> bool:
+    try:
+        import plan_dogrulama as PD
+        return PD.dogrulamali_mi(klasor)
+    except Exception:  # kapı şablon seçimini asla bozmaz
+        return False
+
+
+def belge_olustur(klasor: str, baslik: str, tur: str, simdi: datetime.datetime | None = None) -> tuple[str, bool]:
+    """İş klasöründe şablondan belge açar. (yol, oluştu_mu); var olan dosya asla ezilmez (oluştu_mu=False).
+    Sıralı işte (P-005) plan.md, mevcut durum tamam olmadan açılmaz (ValueError); plan sıralı şablondan açılır."""
+    if tur not in BELGE_TURLERI:
+        raise ValueError(f"bilinmeyen belge türü: {tur} (geçerli: {', '.join(BELGE_TURLERI)})")
+    simdi = simdi or datetime.datetime.now()
+    sablon, hedef, _ = BELGE_TURLERI[tur]
+    yol = os.path.join(klasor, hedef.format(gun=simdi.strftime("%Y%m%d")))
+    gun = None
+    if tur == "plan" and SIRA.sirali_mi(klasor):
+        if not os.path.exists(yol):
+            eksik = SIRA.plan_onkosulu(klasor)
+            if eksik:
+                raise ValueError(SIRA.mesaj(eksik, "plan.md"))
+        sablon = "plan_sirali.md"
+        if _dogrulamali(klasor):  # plan doğrulama kapısı: iddia sözdizimli şablon (✅/❌ kapısı)
+            sablon = "plan_dogrulamali.md"
+        md = SIRA.mevcut_durum_yolu(klasor)
+        gun = re.sub(r"\D", "", os.path.basename(md)) if md else None
+    os.makedirs(klasor, exist_ok=True)
+    try:
+        with open(yol, "x", encoding="utf-8", newline="\n") as f:
+            f.write(sablon_metni(sablon, baslik, simdi, gun))
+    except FileExistsError:
+        return yol, False
+    return yol, True
+
+
+def baglanti_satiri(etiket: str, yol: str, proje_koku: str) -> str:
+    """'<etiket>: [<ad>](<proje köküne göre yol>)'. Yol her zaman '/' ile yazılır; kök dışındaysa mutlaktır."""
+    mutlak = os.path.abspath(yol)
+    try:
+        goreli = os.path.relpath(mutlak, proje_koku)
+    except ValueError:  # farklı sürücü
+        goreli = mutlak
+    if goreli.startswith(".."):
+        goreli = mutlak
+    goreli = goreli.replace("\\", "/")
+    if re.search(r"[ ()]", goreli):
+        goreli = f"<{goreli}>"
+    return f"{etiket}: [{os.path.basename(mutlak)}]({goreli})"
+
+
+def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bool = False,
+                       ek: list[str] | None = None, simdi_ts: float | None = None) -> list[str]:
+    """K-003 sohbet satırları. plan.md ve todo.md (varsa) her zaman; iş klasöründeki okunacak belgeler
+    (özet, bulgu, jira_onerisi, rapor) son `son_dk` dakikada değiştiyse ya da `tumu` ise; `ek` yolları da eklenir."""
+    simdi_ts = time.time() if simdi_ts is None else simdi_ts
+    satirlar = []
+    gorulen = set()
+    md = SIRA.mevcut_durum_yolu(klasor)  # P-005: teslim satırlarının en başında
+    if md:
+        gorulen.add(os.path.normcase(os.path.abspath(md)))
+        satirlar.append(baglanti_satiri("mevcut durum", md, proje_koku))
+    for ad, etiket in (("plan.md", "plan dosyası"), ("todo.md", "to-do dosyası")):
+        yol = os.path.join(klasor, ad)
+        if os.path.isfile(yol):
+            gorulen.add(os.path.normcase(os.path.abspath(yol)))
+            satirlar.append(baglanti_satiri(etiket, yol, proje_koku))
+    adaylar = []
+    try:
+        adlar = sorted(os.listdir(klasor))
+    except OSError:
+        adlar = []
+    for ad in adlar:
+        yol = os.path.join(klasor, ad)
+        if not os.path.isfile(yol):
+            continue
+        for kalip, etiket in _BELGE_KALIPLARI:
+            if kalip.match(ad):
+                if tumu or simdi_ts - os.path.getmtime(yol) <= son_dk * 60:
+                    adaylar.append((etiket, yol))
+                break
+    for yol in ek or []:
+        ad = os.path.basename(yol)
+        adaylar.append((next((e for k, e in _BELGE_KALIPLARI if k.match(ad)), "belge"), yol))
+    for etiket, yol in adaylar:
+        anahtar = os.path.normcase(os.path.abspath(yol))
+        if anahtar in gorulen:
+            continue
+        gorulen.add(anahtar)
+        satirlar.append(baglanti_satiri(etiket, yol, proje_koku))
+    return satirlar
+
+
+def _dogrulama_varsayilan() -> bool:
+    try:
+        import plan_dogrulama as PD
+        return PD.kapi_acik()
+    except Exception:
+        return False
+
+
+def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | None = None) -> dict:
+    """Yeni iş. Kapı açıkken (P-005) iş sıralıdır: ilk dosya mevcut durum iskeletidir, plan.md ve todo.md
+    önceki adım tamamlanınca açılır; kapı kapalıyken (ORKESTRA_SIRA_KAPISI=0) eski üç dosya yazılır.
+    Sıralı işe ayrıca `dogrulama` bayrağı konur (plan ✅/❌ kapısı); `dogrulama=False` ya da
+    ORKESTRA_DOGRULAMA_KAPISI=0 ile konmaz, None varsayılandır (kapı açıksa konur)."""
     klasor = os.path.abspath(klasor)
     os.makedirs(klasor, exist_ok=True)
-    for ad, sablon in _SABLON.items():
+    sirali = SIRA.kapi_acik()
+    for ad in (("oturumlar.md",) if sirali else _SABLON):
         yol = os.path.join(klasor, ad)
         if not os.path.exists(yol):  # var olan asla ezilmez
             try:
                 with open(yol, "x", encoding="utf-8", newline="\n") as f:
-                    f.write(sablon.format(baslik=baslik))
+                    f.write(sablon_metni(ad, baslik))
             except FileExistsError:  # var-mı kontrolü ile yazma arası yarış
                 pass
+    if sirali:
+        belge_olustur(klasor, baslik, "mevcut_durum")
     is_id = yeni_is_id(sd)
     an = L.simdi()
     kayit = {
@@ -122,7 +265,17 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None) -> dict:
         "olusturma": an, "guncelleme": an, "etiketler": list(etiketler or []),
         "kartlar": [], "oturumlar": [], "gecmis": [{"zaman": an, "olay": "acildi"}],
     }
+    if sirali:
+        kayit["sira"] = SIRA.SIRA_ADI
+        if dogrulama is None:
+            dogrulama = _dogrulama_varsayilan()
+        if dogrulama:
+            import plan_dogrulama as PD
+            kayit["dogrulama"] = PD.DOGRULAMA_ADI
     with L.kilit(_is_json_yolu(klasor)):
+        if os.path.exists(_is_json_yolu(klasor)):  # klasörde önceki bir işin kaydı varsa ezilmez, yedeklenir
+            import shutil
+            shutil.copy2(_is_json_yolu(klasor), _is_json_yolu(klasor) + ".eski-" + re.sub(r"\D", "", an)[:14])
         _yaz(_is_json_yolu(klasor), kayit)
     yol = _merkez(sd)
     with L.kilit(yol):
@@ -360,6 +513,18 @@ def is_klasorle_bul(sd: str, klasor: str, kapali_dahil: bool = False) -> str | N
     return None
 
 
+def sira_ac(sd: str, is_id: str) -> dict:
+    """Eski bir işi sıralı yapar (P-005): `sira` bayrağını koyar, mevcut durum yoksa iskeleti açar."""
+    def islem(k):
+        k["sira"] = SIRA.SIRA_ADI
+        k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": "sira:acildi"})
+
+    kayit = _degistir(sd, is_id, islem)
+    if SIRA.mevcut_durum_yolu(kayit["klasor"]) is None:
+        belge_olustur(kayit["klasor"], kayit.get("baslik") or "", "mevcut_durum")
+    return kayit
+
+
 def is_oturum_bagla(sd: str, is_id: str, oturum: str) -> dict:
     def islem(k):
         if not any(o.get("oturum") == oturum for o in k.setdefault("oturumlar", [])):
@@ -394,11 +559,38 @@ def _todo_oku(yol: str) -> str:
         return f.read()
 
 
+def todo_ekle_ihlali(klasor: str, metin: str) -> str | None:
+    """Sıralı işte (P-005) madde eklenebilir mi: mevcut durum ve plan tamam, madde `P<n>:` ile planlı. Değilse neden."""
+    if not SIRA.sirali_mi(klasor):
+        return None
+    eksik = SIRA.todo_onkosulu(klasor)
+    if eksik:
+        return SIRA.mesaj(eksik, "todo.md")
+    ihlal = SIRA.todo_satir_ihlalleri(f"- [ ] {metin}", SIRA.plan_maddeleri(klasor))
+    if ihlal:
+        return "; ".join(ihlal)
+    return _dogrulama_ihlali(klasor, f"- [ ] {metin}") or None
+
+
+def _dogrulama_ihlali(klasor: str, metin: str) -> str:
+    """Plan ✅/❌ kapısı: hook `_sira_kapisi` ile aynı işlevleri çağırır. Gölge modda boş döner (uyarı +
+    günlük); kapı hata verirse sessiz geçer, yazımı bozmaz."""
+    try:
+        import plan_dogrulama as PD
+        return PD.todo_onkosulu(klasor) or PD.todo_satir_engelleri(klasor, metin)
+    except Exception:
+        return ""
+
+
 def todo_ekle(klasor: str, metin: str) -> str:
-    """todo.md sonuna '- [ ] <metin>' ekler (kilit altında, atomik). Dönüş: eklenen madde metni."""
+    """todo.md sonuna '- [ ] <metin>' ekler (kilit altında, atomik). Dönüş: eklenen madde metni.
+    Sıralı işte madde `P<n>:` ile başlamalı ve plan tamam olmalı (ValueError)."""
     metin = " ".join(str(metin).split())
     if not metin:
         raise ValueError("madde metni boş")
+    neden = todo_ekle_ihlali(klasor, metin)
+    if neden:
+        raise ValueError(neden)
     yol = _todo_yol(klasor)
     with L.kilit(yol):
         icerik = _todo_oku(yol) if os.path.exists(yol) else "# Yapılacaklar\n\n"

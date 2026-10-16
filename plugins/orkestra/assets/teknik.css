@@ -1,0 +1,54 @@
+/* Teknik detay sayfası: solda iş listesi, sağda zaman çizelgesi. Yalnız ortak.css değişkenleri kullanılır. */
+.t-duzen { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--a-16); align-items: start; }
+.t-liste-kap { position: sticky; top: calc(var(--kabuk-yuk) + var(--a-16)); display: grid; gap: var(--a-8); min-width: 0; }
+.t-liste-bas { display: flex; align-items: baseline; gap: var(--a-8); padding: 0 var(--a-4); }
+.t-liste-bas h2 { margin: 0; font-size: var(--t-13); font-weight: 600; color: var(--text-secondary); }
+ul.t-isler { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--a-4); }
+button.t-is {
+  width: 100%; text-align: left; display: grid; gap: 4px; padding: var(--a-12); border-radius: var(--k-10);
+  background: var(--surface-1); border: 1px solid var(--line); color: var(--text-primary); min-width: 0;
+}
+button.t-is:hover { border-color: var(--text-muted); }
+button.t-is[aria-current="true"] { background: var(--surface-2); border-color: var(--s1); box-shadow: inset 3px 0 0 var(--s1); }
+.t-is .ad { font-size: var(--t-14); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.t-is .alt { display: flex; gap: var(--a-8); flex-wrap: wrap; color: var(--text-muted); font-size: var(--t-12); font-variant-numeric: tabular-nums; }
+
+.t-sag { min-width: 0; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--k-10); padding: var(--a-16); }
+.t-is-baslik { margin: 0 0 var(--a-12); font-size: var(--t-16); overflow-wrap: anywhere; }
+.t-arac { display: flex; flex-wrap: wrap; align-items: center; gap: var(--a-8) var(--a-12); margin-bottom: var(--a-16); }
+.t-arac label { display: inline-flex; align-items: center; gap: var(--a-4); color: var(--text-muted); font-size: var(--t-12); }
+.t-arac input[type="search"] { flex: 1 1 200px; min-width: 0; background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--k-6); padding: 5px var(--a-8); }
+
+ol.t-zaman { list-style: none; margin: 0; padding: 0 0 0 var(--a-16); border-left: 2px solid var(--line); display: grid; gap: var(--a-12); }
+ol.t-zaman > li { position: relative; min-width: 0; }
+ol.t-zaman > li::before {
+  content: ""; position: absolute; left: calc(-1 * var(--a-16) - 6px); top: 14px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--renk, var(--neutral)); border: 2px solid var(--surface-1);
+}
+button.t-kart {
+  width: 100%; text-align: left; display: grid; gap: 4px; padding: var(--a-8) var(--a-12); border-radius: var(--k-6);
+  background: var(--surface-0); border: 1px solid var(--line); color: var(--text-primary); min-width: 0;
+}
+button.t-kart[aria-expanded="true"] { background: var(--surface-2); border-color: var(--text-muted); }
+.t-kart .ust { display: flex; gap: var(--a-8); align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.t-kart .kid { font-size: var(--t-12); color: var(--text-muted); font-weight: 600; }
+.t-kart .bas { font-size: var(--t-14); font-weight: 600; overflow-wrap: anywhere; flex: 1 1 200px; min-width: 0; }
+.t-kart .alt { display: flex; gap: var(--a-12); flex-wrap: wrap; color: var(--text-secondary); font-size: var(--t-12); font-variant-numeric: tabular-nums; }
+.t-rozet-yok { font-size: var(--t-12); color: var(--warning); border: 1px solid var(--warning); border-radius: 999px; padding: 0 var(--a-8); white-space: nowrap; }
+mark { background: color-mix(in srgb, var(--warning) 35%, transparent); color: inherit; border-radius: 2px; }
+
+.t-detay { margin-top: var(--a-8); display: grid; gap: var(--a-12); min-width: 0; }
+.t-blok { border: 1px solid var(--line); border-radius: var(--k-6); padding: var(--a-8) var(--a-12); background: var(--surface-0); min-width: 0; }
+.t-blok h4 { margin: 0 0 var(--a-4); font-size: var(--t-12); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.t-blok p, .t-blok li { margin: 0; font-size: var(--t-13); color: var(--text-secondary); overflow-wrap: anywhere; }
+.t-blok ul { margin: var(--a-4) 0 0; padding-left: var(--a-16); display: grid; gap: 2px; }
+.t-blok .etiket { color: var(--text-muted); font-size: var(--t-12); }
+.t-blok .eksik { color: var(--text-muted); font-style: italic; }
+.t-blok code { white-space: normal; }
+.t-hata { color: var(--critical); font-size: var(--t-13); }
+
+@media (max-width: 860px) {
+  .t-duzen { grid-template-columns: minmax(0, 1fr); }
+  .t-liste-kap { position: static; }
+  .t-sag { padding: var(--a-12); }
+}

@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
+import kanit_kapisi as KK  # noqa: E402
 
 # neden -> (kabul kriteri şablonu, deterministik ön kontrol tarifi ya da None)
 ONERI = {
@@ -79,7 +80,8 @@ def kural_adaylari(kartlar: list[dict], esik: int = 3) -> list[dict]:
             continue
         kriter, on_kontrol = ONERI[neden]
         out.append({"sinif": sn, "neden": neden, "sayi": n, "ornek_kartlar": ornek[(sn, neden)],
-                    "oneri_kriter": kriter, "oneri_on_kontrol": on_kontrol})
+                    "oneri_kriter": kriter, "oneri_on_kontrol": on_kontrol,
+                    "kontrol_kimligi": KK.neden_kontrol(neden)})
     out.sort(key=lambda a: (-a["sayi"], a["sinif"], a["neden"]))
     return out
 
@@ -137,8 +139,10 @@ def butce_tavani(kartlar: list[dict], kayitlar: list[dict], min_grup: int = 4) -
 def rapor(sd: str, esik: int = 3) -> dict:
     kartlar = L.kartlar(sd)
     kay = L.maliyet_kayitlari(sd)
+    etkin = KK.etkin_kontroller(sd)
     return {"kural_adaylari": kural_adaylari(kartlar, esik), "anomaliler": anomaliler(kartlar, kay),
-            "butce_tavani": butce_tavani(kartlar, kay)}
+            "butce_tavani": butce_tavani(kartlar, kay),
+            "kontrol_etkin": {k: k in etkin for k in KK.kontrol_kimlikleri()}}
 
 
 def duz(r: dict, sinir: int = 40) -> str:

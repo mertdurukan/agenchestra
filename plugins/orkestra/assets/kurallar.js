@@ -5,7 +5,7 @@
   const { yerlestir } = O;
 
   // Durum: veri sunucudan gelir; taslaklar, açık düzenleme/kaldırma satırı, hata ve yoldaki istekler yeniden çizimde korunur.
-  const S = { veri: null, duzen: null, kaldir: null, taslak: {}, yeni: { metin: '', neden: '' }, hata: {}, yolda: new Set(), acik: new Set() };
+  const S = { veri: null, duzen: null, kaldir: null, taslak: {}, yeni: { metin: '', neden: '', katman: 'proje' }, hata: {}, yolda: new Set(), acik: new Set() };
   let K = null;
 
   const dizi = ad => (S.veri && Array.isArray(S.veri[ad])) ? S.veri[ad] : [];
@@ -18,9 +18,12 @@
   const kilit = id => (S.yolda.has(id) ? ' disabled' : '');
 
   // ------------------------------------------------------------ bölümler
+  const KATMAN_AD = { plugin: 'Eklenti (her projede)', proje: 'Proje' };
   function kuralMeta(r) {
     const neden = r.neden ? `Neden: ${esc(r.neden)} · ` : '';
-    return `<span class="meta">${neden}<code>${esc(r.id)}</code> · ${esc(tarih(r))}</span>`;
+    const katman = `<span class="katman" data-katman="${esc(r.katman || 'proje')}">${esc(KATMAN_AD[r.katman || 'proje'])}</span>`;
+    const kapali = r.devre_disi ? ' · <strong>bu projede kapalı</strong>' : '';
+    return `<span class="meta">${katman}${kapali} · ${neden}<code>${esc(r.id)}</code> · ${esc(tarih(r))}</span>`;
   }
   function etkinSatir(r) {
     const id = r.id, t = S.taslak[id] || { metin: r.metin, neden: r.neden || '' };
@@ -46,6 +49,7 @@
       <div class="dugmeler">
         <button type="button" data-duzenle="${esc(id)}" data-anahtar="d-${esc(id)}">Düzenle</button>
         <button type="button" data-kaldira="${esc(id)}" data-anahtar="k-${esc(id)}">Kaldır</button>
+        <button type="button" data-tasi="${esc(id)}" data-hedef="${r.katman === 'plugin' ? 'proje' : 'plugin'}" data-anahtar="t-${esc(id)}"${kilit(id)}>${r.katman === 'plugin' ? 'Yalnız projeye al' : 'Eklentiye taşı (her projede geçsin)'}</button>
       </div>${hataSatir(id)}</li>`;
   }
   function oneriSatir(r) {
@@ -72,6 +76,9 @@
     return `<form class="kural-form" data-yeni-form="1">
       <label>Kural metni (zorunlu)<textarea rows="3" data-alan="metin" data-id="${YENI}" data-anahtar="ym" required${kilit(YENI)}>${esc(S.yeni.metin)}</textarea></label>
       <label>Neden (isteğe bağlı)<input type="text" data-alan="neden" data-id="${YENI}" data-anahtar="yn" value="${esc(S.yeni.neden)}"${kilit(YENI)}></label>
+      <label>Katman<select data-alan="katman" data-id="${YENI}" data-anahtar="yk"${kilit(YENI)}>
+        <option value="proje"${S.yeni.katman === 'plugin' ? '' : ' selected'}>Proje: yalnız bu projede geçerli</option>
+        <option value="plugin"${S.yeni.katman === 'plugin' ? ' selected' : ''}>Eklenti: orkestra eklentisinde saklanır, her projede geçerli</option></select></label>
       <div class="dugmeler"><button type="submit" class="onayla" data-anahtar="ye"${kilit(YENI)}>Kuralı ekle</button></div>
       ${hataSatir(YENI)}</form>`;
   }
@@ -206,6 +213,11 @@
     if (b.dataset.geri) { D.taslak = D.dosya.metin; D.mesaj = ''; return dosyaCiz(); }
     if (b.dataset.yenile) { if (kirli() && !confirm('Kaydedilmemiş değişiklikler atılsın mı?')) return; return dosyaAc(D.sec, true); }
     if (b.dataset.duzenle) { const r = dizi('etkin').find(x => x.id === b.dataset.duzenle); S.duzen = b.dataset.duzenle; S.kaldir = null; S.taslak[S.duzen] = { metin: r ? r.metin : '', neden: r ? r.neden || '' : '' }; return sayfaCiz(); }
+    if (b.dataset.tasi) {
+      const id = b.dataset.tasi, hedef = b.dataset.hedef;
+      if (!confirm(hedef === 'plugin' ? id + ' orkestra eklentisine taşınsın mı? Eklentiyi kullanan her projede geçerli olur.' : id + ' yalnız bu projeye alınsın mı? Eklenti deposundan çıkar.')) return;
+      return gonder(id, { islem: 'kural-tasi', id, katman: hedef }, 'Kural taşındı.');
+    }
     if (b.dataset.kaldira) { S.kaldir = b.dataset.kaldira; S.duzen = null; S.taslak[S.kaldir] = { not: '' }; return sayfaCiz(); }
     if (b.dataset.iptal) { const id = b.dataset.iptal; S.duzen = S.kaldir = null; delete S.taslak[id]; delete S.hata[id]; return sayfaCiz(); }
     if (b.dataset.karar) {
@@ -233,7 +245,7 @@
     if (f.dataset.yeniForm) {
       const metin = S.yeni.metin.trim();
       if (!metin) return hataYaz(YENI, 'Kural metni boş olamaz.');
-      return gonder(YENI, { islem: 'kural-ekle', metin, neden: S.yeni.neden.trim() }, 'Kural eklendi.', () => { S.yeni = { metin: '', neden: '' }; });
+      return gonder(YENI, { islem: 'kural-ekle', metin, neden: S.yeni.neden.trim(), katman: S.yeni.katman }, 'Kural eklendi.', () => { S.yeni = { metin: '', neden: '', katman: S.yeni.katman }; });
     }
     if (f.dataset.duzenForm) {
       const id = f.dataset.duzenForm, t = S.taslak[id] || {};

@@ -63,8 +63,17 @@ def _onay_calistir(f, *args, **kw):
         hata(str(e))
 
 
+def _onay_kapsam(k: dict) -> str:
+    """Liste kapsam sütunu: perspektif türünde kayıttaki yayin.kapsam (yayin yok ya da bozuksa proje); diğer türlerde '-'."""
+    if k.get("tur") != "perspektif":
+        return "-"
+    y = k.get("yayin")
+    kapsam = y.get("kapsam") if isinstance(y, dict) else None
+    return kapsam if kapsam in ("proje", "evrensel") else "proje"
+
+
 def _onay_satir(k: dict) -> str:
-    return f"{k['id']}  {k['durum']:<11} {k['tur']:<10} {k['baslik']}"
+    return f"{k['id']}  {k['durum']:<11} {k['tur']:<10} {_onay_kapsam(k):<9} {k['baslik']}"
 
 
 def cmd_onay(a):
@@ -191,27 +200,47 @@ def cmd_kural(a):
     i = a.alt
     kaynak = _onay_oturumu(a) if os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CLAUDE_CODE_SESSION_ID") else "cli"
     if i == "liste":
-        kayitlar = onay.kurallar(sd)
+        try:
+            kayitlar = onay.kurallar(sd, a.katman)
+        except ValueError as e:
+            hata(str(e))
         if a.json:
             print(json.dumps(kayitlar, ensure_ascii=False, indent=2))
         else:
             for r in kayitlar:
-                print(f"{r['id']}  {r['durum']:<11} {r['metin']}")
+                ek = (f"  [kontrol: {r['kontrol']}]" if r.get("kontrol") else "") + ("  [bu projede kapalı]" if r.get("devre_disi") else "")
+                print(f"{r['id']}  {r.get('katman', 'proje'):<6} {r['durum']:<11} {r['metin']}{ek}")
             if not kayitlar:
                 print("kural yok")
     elif i == "oner":
-        r = _onay_calistir(lambda m: m.kural_oner(sd, a.metin, a.neden, kaynak))
+        r = _onay_calistir(lambda m: m.kural_oner(sd, a.metin, a.neden, kaynak, kontrol=a.kontrol))
         k = onay._anahtarli(sd, f"kural:{r['id']}")
-        print(f"{r['id']} önerildi" + (f" (onay {k['id']})" if k else ""))
+        print(f"{r['id']} önerildi (katman: proje)" + (f" (onay {k['id']})" if k else ""))
     elif i == "ekle":
-        r = _onay_calistir(lambda m: m.kural_ekle(sd, a.metin, a.neden, kaynak="cli"))
-        print(f"{r['id']} etkin")
+        r = _onay_calistir(lambda m: m.kural_ekle(sd, a.metin, a.neden, kaynak="cli", kontrol=a.kontrol, katman=a.katman))
+        print(f"{r['id']} etkin (katman: {r['katman']})")
+        if r["katman"] == "proje":
+            print("Not: kural yalnız bu projede geçerli. Her projede geçmesi gerekiyorsa: orkestra kural tasi " + r["id"] + " --katman plugin")
+    elif i == "tasi":
+        r = _onay_calistir(lambda m: m.kural_tasi(sd, a.id, a.katman, kimligi_koru=a.kimligi_koru))
+        print(f"{r['id']} {r['katman']} katmanına taşındı" + (f" (eski kimlik {r['eski_id']})" if r.get("eski_id") else ""))
+    elif i == "kapat":
+        r = _onay_calistir(lambda m: m.kural_kapat(sd, a.id, a.not_))
+        print(f"{r['id']} bu projede kapatıldı (eklenti deposu değişmedi)")
+    elif i == "ac":
+        r = _onay_calistir(lambda m: m.kural_ac(sd, a.id))
+        print(f"{r['id']} bu projede yeniden açıldı")
+    elif i == "esitle":
+        print("kural dosyası yenilendi" if _onay_calistir(lambda m: m.kural_dosyasi_esitle(sd)) else "kural dosyası güncel")
     elif i == "duzenle":
         r = _onay_calistir(lambda m: m.kural_duzenle(sd, a.id, a.metin, a.neden))
         print(f"{r['id']} güncellendi")
     elif i == "kaldir":
         r = _onay_calistir(lambda m: m.kural_kaldir(sd, a.id, a.not_))
         print(f"{r['id']} → {r['durum']}")
+    elif i == "bagla":
+        r = _onay_calistir(lambda m: m.kural_bagla(sd, a.id, kontrol=a.kontrol, kaldir=a.kaldir))
+        print(f"{r['id']} kontrol: {r.get('kontrol') or '-'}")
 
 
 def kaydet(alt):
@@ -274,10 +303,30 @@ def kaydet(alt):
     ku = alt.add_parser("kural").add_subparsers(dest="alt", required=True)
     x = ku.add_parser("liste")
     x.add_argument("--json", action="store_true")
+    x.add_argument("--katman", choices=["proje", "plugin", "eklenti"], help="yalnız bu katmanın kuralları")
     for ad in ("oner", "ekle"):
         x = ku.add_parser(ad)
         x.add_argument("--metin", required=True)
         x.add_argument("--neden", default="")
+        x.add_argument("--kontrol", default=None, help="kayıtlı ön kontrol kimliği (ayarlar/on_kontrol.json)")
+        if ad == "ekle":
+            x.add_argument("--katman", choices=["proje", "plugin", "eklenti"], default="proje",
+                           help="proje: yalnız bu projede geçerli (varsayılan); plugin: orkestra eklentisinde saklanır, her projede geçerli")
+    x = ku.add_parser("tasi", help="etkin kuralı öbür katmana taşır (proje <-> plugin)")
+    x.add_argument("id")
+    x.add_argument("--katman", required=True, choices=["proje", "plugin", "eklenti"], help="hedef katman")
+    x.add_argument("--kimligi-koru", action="store_true", help="kimliği değiştirme (belge/kod atıf yapıyorsa)")
+    x = ku.add_parser("kapat", help="eklenti kuralını yalnız bu projede kapat")
+    x.add_argument("id")
+    x.add_argument("--not", dest="not_", default="")
+    x = ku.add_parser("ac", help="bu projede kapatılmış eklenti kuralını yeniden aç")
+    x.add_argument("id")
+    ku.add_parser("esitle", help="proje kural dosyasını iki katmandan yeniden üret")
+    x = ku.add_parser("bagla", help="kurala kayıtlı ön kontrol bağla ya da bağı kaldır")
+    x.add_argument("id")
+    g_ = x.add_mutually_exclusive_group(required=True)
+    g_.add_argument("--kontrol")
+    g_.add_argument("--kaldir", action="store_true")
     x = ku.add_parser("duzenle")
     x.add_argument("id")
     x.add_argument("--metin", required=True)

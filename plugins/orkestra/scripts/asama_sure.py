@@ -78,9 +78,10 @@ def yuzdelik(degerler: list[float], p: float) -> float:
 
 
 def hesapla(satirlar: list[dict], gun: float | None = None, gorev: str | None = None) -> list[dict]:
+    import ork_lib as L
     esik = None
     if gun is not None:
-        esik = datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)
+        esik = L.gun_baslangici(gun)
     gruplar: dict = {}
     for r in satirlar:
         if gorev is not None and r.get("gorev") != gorev:

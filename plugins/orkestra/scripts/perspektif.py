@@ -21,6 +21,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 import ork_lib as L  # noqa: E402
 
 GUN_ESIGI = 7
@@ -206,15 +207,8 @@ def hafiza_dizini(proje: str, transkript: str | None = None) -> str:
 
 
 def claude_exe() -> str | None:
-    e = os.environ.get("CLAUDE_CODE_EXECPATH")
-    if e and os.path.exists(e):
-        return e
-    adaylar = []
-    for kok in (os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")):
-        adaylar += glob.glob(os.path.join(kok, "Claude", "claude-code", "*", "*", "claude.exe"))
-        adaylar += glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code", "*", "*", "claude.exe"))
-    adaylar = [a for a in adaylar if os.path.exists(a)]
-    return max(adaylar, key=os.path.getmtime) if adaylar else None
+    """claude.exe: cfg (CLAUDE_CODE_EXECPATH > makine config'i > keşif)."""
+    return cfg.al("claude_exe")
 
 
 ISTEM = """#SUREC:perspektif
@@ -242,14 +236,17 @@ Kurallar: sır değeri, şifre, çalışan adı yazma. Emin olmadığın şeyi "
 
 
 def headless_mumkun(sd: str, exe: str | None) -> bool:
-    """Komut satırı oturum açmış mı? (masaüstü oturumunun kimliği başsız koşuya geçmez). Sonuç 12 saat önbellekte."""
+    """Komut satırı oturum açmış mı? (masaüstü oturumunun kimliği başsız koşuya geçmez).
+    Yalnız OLUMLU sonuç 12 saat önbelleğe alınır; olumsuz sonuç her seferinde yeniden sorulur (`auth status` ucuzdur).
+    Neden: 16.10'da ağ hatasıyla düşen bir koşu 'oturum yok' diye 12 saat önbelleğe yazıldı; `claude auth login`
+    sonrası bile 'Şimdi uygula' reddedildi."""
     if not exe:
         return False
     d = _oku(sd)
     onb = d.get("headless") or {}
     try:
-        if onb.get("zaman") and (datetime.datetime.now().astimezone() - datetime.datetime.fromisoformat(onb["zaman"])).total_seconds() < 12 * 3600:
-            return bool(onb.get("mumkun"))
+        if onb.get("mumkun") and onb.get("zaman") and (datetime.datetime.now().astimezone() - datetime.datetime.fromisoformat(onb["zaman"])).total_seconds() < 12 * 3600:
+            return True
     except Exception:
         pass
     try:
@@ -259,7 +256,10 @@ def headless_mumkun(sd: str, exe: str | None) -> bool:
         mumkun = False
     with L.kilit(_durum_yolu(sd)):
         st = _oku(sd)
-        st["headless"] = {"zaman": L.simdi(), "mumkun": mumkun}
+        if mumkun:
+            st["headless"] = {"zaman": L.simdi(), "mumkun": True}
+        else:
+            st.pop("headless", None)
         _yaz(sd, st)
     return mumkun
 
@@ -336,7 +336,7 @@ def _kos(sd: str, proje: str, hafiza: str, exe: str):
         with L.kilit(_durum_yolu(sd)):
             st = _oku(sd)
             st["calisiyor"] = None
-            st["headless"] = {"zaman": L.simdi(), "mumkun": False}
+            st.pop("headless", None)  # koşu başarısızlığı (ağ/DNS dahil) 'oturum yok' kanıtı değildir; bir sonraki kontrol yeniden sorar
             _yaz(sd, st)
         return
     L.atomik_yaz(rapor, f"# Perspektif raporu — {L.simdi()[:16]}\n\n" + L.maskele(metin) + "\n")

@@ -177,8 +177,9 @@ def _istatistik(degerler):
 
 
 def hesapla(sd, gun=None, simdi=None):
+    import ork_lib as L
     simdi = simdi or datetime.datetime.now().astimezone()
-    sinir = simdi - datetime.timedelta(days=gun) if gun is not None else None
+    sinir = L.gun_baslangici(gun, simdi) if gun is not None else None
     dagilim = {a: [] for a in ASAMALAR}
     acikler = []
     sayi = 0

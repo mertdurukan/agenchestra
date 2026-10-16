@@ -34,7 +34,7 @@ Türkçe, kısa cümleler:
 5. **Boyut:**
    - MEMORY.md'nin satır ve bayt sayısı. Oturum başında yalnız ilk 200 satır ya da 25 KB okunur.
    - Çok uzun konu dosyaları ve önerilen bölünme.
-6. **Önerilen değişiklikler:** Her biri için dosya, değişiklik ve gerekçe; uygulanabilir kısa diff blokları ekle. Her önerinin altına ZORUNLU bir `Vaat:` satırı ekle (aşağıdaki "Vaat satırı" bölümü).
+6. **Önerilen değişiklikler:** Her biri için dosya, değişiklik ve gerekçe; uygulanabilir kısa diff blokları ekle. Her önerinin altına ZORUNLU bir `Vaat:` satırı ve bir `Yayın:` satırı ekle (aşağıdaki "Vaat satırı" ve "Yayın satırı" bölümleri).
 7. **Skill adayları:** Skill'siz ve en az 3 kez tekrarlanan iş türleri. Her aday için:
    - ad;
    - tetik cümleleri;
@@ -53,13 +53,39 @@ Türkçe, kısa cümleler:
 
 `   Vaat: ölçü=<kpi:<ad>|betik:<ad>|sayac:<ad>|ölçülemez>; yön=<azalmalı|artmalı|değişmemeli>; kapsam=<genel|sınıf|ajan>`
 
-- **ölçü:** Mevcut veriden okunabilen bir ölçü seç. `kpi:<ad>` `orkestra kpi` çıktısındaki KPI'lardır (ör. `kpi:ret_orani`, `kpi:basari_basina_maliyet`). `sayac:<ad>` maliyet ve kartlardan sayılan değerdir. `betik:<ad>` tek sayı üreten küçük deterministik betiktir (ör. MEMORY.md bayt sayısı, ölü yol sayısı).
+- **ölçü:** Mevcut veriden okunabilen bir ölçü seç.
+  - `kpi:<ad>` `orkestra kpi` çıktısındaki KPI'lardır (ör. `kpi:ret_orani`, `kpi:basari_basina_maliyet`).
+  - `sayac:<ad>` maliyet ve kartlardan sayılan değerdir.
+  - `betik:<ad>` tek sayı üreten küçük deterministik betiktir (ör. MEMORY.md bayt sayısı, ölü yol sayısı).
 - **yön:** Değişiklik sonrası ölçünün nereye gitmesini vaat ediyorsun.
 - **kapsam:** Ölçünün hangi sınıf ya da ajan için bakılacağı; belirsizse `genel`.
-- **Ölçülemez öneri:** Uygun, mevcut veriden okunabilen bir ölçü yoksa `Vaat: ölçü=ölçülemez; yön=-; kapsam=-` yaz ve tek cümleyle nedenini ekle. Çoğu hafıza önerisi (kopya birleştirme, ölü yol silme) bu türdendir; bunların "uygulandı mı" kanıtı (yol var mı, kopya kaldı mı, bayt) onay aşamasında doğrulanır, kullanıcıya dönük etki iddia edilmez.
+- **Ölçülemez öneri:** Uygun, mevcut veriden okunabilen bir ölçü yoksa `Vaat: ölçü=ölçülemez; yön=-; kapsam=-` yaz ve tek cümleyle nedenini ekle.
+  - Çoğu hafıza önerisi (kopya birleştirme, ölü yol silme) bu türdendir.
+  - Bunların "uygulandı mı" kanıtı (yol var mı, kopya kaldı mı, bayt) onay aşamasında doğrulanır, kullanıcıya dönük etki iddia edilmez.
 - **Sahte metrik YASAK:** Ölçü uydurma, var olmayan KPI adı yazma, ölçülemeyen öneriye kendiliğinden iyileşme sayısı atfetme. Emin değilsen `ölçülemez` yaz.
 - Satır boş ya da eksik bırakılmaz; yoksa öneri ölçülemez sayılır.
 - Satır girintili yazılır ve numaralı madde olarak başlamaz (rapor ayrıştırıcısı yalnız `N.` ile başlayan satırları yeni madde sayar).
+
+## Yayın satırı (bölüm 6'daki her öneri için zorunlu)
+Amaç: Projeden bağımsız değer taşıyan öneri, kullanıcı onayıyla eklenti katmanına (her projede geçerli kural) terfi edebilsin.
+
+Vaat satırından sonra, girintili şu üç alan alt alta yazılır:
+
+`   Yayın: kapsam=<proje|evrensel>; hedef=<kural|skill|yok>`
+
+`   Eklenti metni: <projeden bağımsız tek paragraf>`
+
+`   Neden: <ölçülmüş kanıt: sayı, komut çıktısı ya da dosya:satır>`
+
+- **Ayrı ad:** `Yayın:` satırındaki `kapsam=` yayın kapsamıdır (proje ya da evrensel). `Vaat:` satırındaki `kapsam=` ölçü kapsamıdır (genel, sınıf, ajan). İkisi karıştırılmaz.
+- **kapsam=evrensel:** Öneri, bu projenin adı, yolu ya da müşterisi bilinmeden de doğruysa yazılır. Başka her durumda `kapsam=proje` yazılır.
+- **hedef:** Terfi edecekse `kural` ya da `skill`; terfi edecek bir şey yoksa `yok`. `kapsam=proje` ise `hedef=yok` yazılır ve `Eklenti metni:` ile `Neden:` alanları boş bırakılmaz, `-` yazılır.
+- **Eklenti metni:** Projeden bağımsız tek paragraftır. Proje adı, müşteri adı, çalışan adı, Jira kodu, kart kimliği ve dosya yolu içermez.
+- **İlk yazımda arındır:** Eklenti metni ilk yazımda projeden arındırılarak yazılır. Sonradan temizlenecek taslak yazılmaz.
+- **Emin değilsen:** Metni projeden arındırarak yazabildiğinden emin değilsen `kapsam=proje` yaz. Kullanıcıya evrensel değer abartılmaz.
+- **Neden:** Ölçülmüş kanıt yazılır (sayı, komut çıktısı, dosya:satır). Kanıt yoksa `kapsam=proje` yazılır.
+- Satır girintili yazılır ve numaralı madde olarak başlamaz (rapor ayrıştırıcısı yalnız `N.` ile başlayan satırları yeni madde sayar).
+- Ajan terfi etmez: kural eklemez, dosya değiştirmez. Terfi onay aşamasında kullanıcı onayıyla yapılır (`/orkestra:onay`).
 
 ## Kurallar
 - Sır değeri, şifre ya da çalışan adı yazma.

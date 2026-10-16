@@ -105,7 +105,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     k = {
         "id": gid,
         "baslik": d.get("baslik") or "(başlıksız)",
-        "sinif": d.get("sinif") or "-",
+        "sinif": (d.get("sinif") or "-").strip().lower() or "-",   # kapılar tam "kod" eşleşmesi arar
         "basamak": basamak,
         "baslangic_basamak": basamak,
         "soru": d["soru"].strip(),
@@ -286,6 +286,22 @@ def cmd_kart_toplu(a):
         if d.get("madde") is not None and (not isinstance(d["madde"], str) or not d["madde"].strip()):
             hata(f"madde boş olmayan metin olmalı: {d.get('baslik')}")
         _acik_is_dogrula(sd, d.get("is"))
+    # Bağımlılıklar kart oluşmadan önce çözülür: bilinmeyen başvuru ve ref döngüsü yarım kart bırakmaz; listede sonra
+    # gelen bir ref'e ileri başvuru, bağımlılığı önce kurulacak sırayla çözülür.
+    refler = {d["ref"]: d for d in liste if d.get("ref")}
+    for d in liste:
+        for b in d.get("bagimliliklar") or []:
+            if b not in refler and not L.kart_oku(sd, b):
+                hata(f"bilinmeyen bağımlılık: {b} (kart: {d.get('baslik')})")
+    sirali, kalan = [], list(liste)
+    while kalan:
+        hazir = next((d for d in kalan if all(b not in refler or any(refler[b] is s for s in sirali)
+                                                for b in d.get("bagimliliklar") or [])), None)
+        if hazir is None:
+            hata("bağımlılık döngüsü (ref): " + ", ".join(str(d.get("ref") or d.get("baslik")) for d in kalan))
+        sirali.append(hazir)
+        kalan = [d for d in kalan if d is not hazir]
+    liste = sirali
     onbellek = {}  # aynı klasöre çözülen kartlar tek işe bağlanır
     for d in liste:
         takma = d.pop("ref", None)
@@ -466,7 +482,28 @@ def _taban_kapisi(sd: str, k: dict, ajan_id: str) -> None:
     _ic_komut(on_kontrol.taban, _onkontrol_ns(k["id"], ajan_id))
 
 
-def _is_bitti_kapisi(sd: str, k: dict, ajan_id: str, ajan_tipi: str, ciktilar: list[str]) -> tuple[bool, str, dict]:
+def _kanit_kapisi(sd: str, k: dict, ozet, kanitlar, ciktilar: list[str], kayit: dict) -> tuple[bool, str]:
+    """K-001/K-002 kanıt kapısı (yalnız işçi, test+ön kontrol geçtikten sonra). Hiçbir hata is-bitti'yi engellemez.
+    Dönüş: (ihlal, ihlal raporu). Gölge uyarıları kayit['_mesajlar']'a konur (çağıran yazdırır ve siler)."""
+    try:
+        import kanit_kapisi
+        r = kanit_kapisi.kapi(sd, L.proje_dizini(), k, ozet, list(kanitlar or []), ciktilar)
+        ek = dict(r.get("kayit") or {})
+        if "hata" in ek:
+            ek["kanit_hata"] = ek.pop("hata")
+        kayit.update(ek)
+        mesajlar = [str(m) for m in (r.get("mesajlar") or [])]
+        if r.get("ihlal"):
+            return True, "\n".join("orkestra: " + m for m in mesajlar)
+        if mesajlar:
+            kayit["_mesajlar"] = mesajlar
+    except Exception as e:
+        kayit["kanit_hata"] = type(e).__name__
+    return False, ""
+
+
+def _is_bitti_kapisi(sd: str, k: dict, ajan_id: str, ajan_tipi: str, ciktilar: list[str],
+                     ozet=None, kanitlar=None) -> tuple[bool, str, dict]:
     """is-bitti kapısı. Dönüş: (geçti, rapor metni, kayıt). Kapı yalnız işçi ve test yazarı için koşar."""
     ad = ajan_tipi.split(":", 1)[-1].lower()
     kod_karti = k.get("sinif") == "kod" and k.get("test_komutu") and k.get("test_alani")
@@ -499,7 +536,118 @@ def _is_bitti_kapisi(sd: str, k: dict, ajan_id: str, ajan_tipi: str, ciktilar: l
     kod, cikti = _ic_komut(on_kontrol.kontrol, _onkontrol_ns(k["id"], ajan_id, ciktilar))
     kayit["on_kontrol"] = "gecti" if kod == 0 else f"gecmedi({kod})"
     rapor.append(cikti.strip())
-    return kod in (0, 2), "\n".join(r for r in rapor if r), kayit  # 2 = kullanım hatası: işi durdurmaz
+    if kod not in (0, 2):  # 2 = kullanım hatası: işi durdurmaz
+        return False, "\n".join(r for r in rapor if r), kayit
+    ihlal, ihlal_rapor = _kanit_kapisi(sd, k, ozet, kanitlar, ciktilar, kayit)
+    if ihlal:
+        rapor.append(ihlal_rapor)
+        return False, "\n".join(r for r in rapor if r), kayit
+    return True, "\n".join(r for r in rapor if r), kayit
+
+
+def _kanit_kirp(sd: str, kanitlar) -> list:
+    """--kanit satırlarını maskeler; satır başına ve toplam üst sınıra (ayarlar/on_kontrol.json) kırpar."""
+    satir_az, toplam_az = 400, 6000
+    try:
+        import kanit_kapisi
+        c = kanit_kapisi.ayar_yukle(sd)["kontroller"]["kanit-satiri"]
+        satir_az, toplam_az = int(c.get("kanit_satir_azami", satir_az)), int(c.get("kanit_toplam_azami", toplam_az))
+    except Exception:
+        pass
+    out, kalan = [], toplam_az
+    for x in kanitlar:
+        if kalan <= 0:
+            break
+        m = L.maskele(str(x))[:min(satir_az, kalan)]
+        out.append(m)
+        kalan -= len(m)
+    return out
+
+
+def _teknik_kapisi(a, ajan_tipi: str):
+    """İşçi is-bitti teknik not kapısı. Geçerli notu döner; kapı kapalı/işçi değilse None; geçersizse çıkış 4."""
+    if os.environ.get("ORKESTRA_TEKNIK_KAPISI") == "0":
+        return None
+    if not ajan_tipi.split(":", 1)[-1].lower().startswith("isci"):
+        return None
+    import json as _json
+    import teknik_not
+    yol = getattr(a, "teknik", None)
+    on = f"{a.gid} is-bitti KAYDEDİLMEDİ: teknik not"
+    if not yol:
+        hata(f"{on} yok: --teknik <json_dosya> ver (yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler).", 4)
+    try:
+        with open(yol, encoding="utf-8") as f:
+            nesne = _json.load(f)
+    except OSError as e:
+        hata(f"{on} dosyası okunamadı ({yol}): {e.__class__.__name__}.", 4)
+    except ValueError as e:
+        hata(f"{on} JSON bozuk: {e}", 4)
+    tamam, hatalar = teknik_not.dogrula(nesne)
+    if not tamam:
+        hata(f"{on} geçersiz: " + "; ".join(hatalar), 4)
+    return nesne
+
+
+def mevcut_kapisi_acik(k: dict, ajan_tipi: str) -> bool:
+    """Mevcut-durum kapısı yalnız kod kartında çalışan işçiye (test yazarı hariç) uygulanır; ORKESTRA_MEVCUT_KAPISI=0 kapatır."""
+    if os.environ.get("ORKESTRA_MEVCUT_KAPISI") == "0":
+        return False
+    return k.get("sinif") == "kod" and ajan_tipi.split(":", 1)[-1].lower().startswith("isci")
+
+
+def _mevcut_kapisi(k: dict, ajan_tipi: str) -> None:
+    """İşçi is-bitti: kod kartında kayıtlı mevcut-durum notu yoksa çıkış 4 (not `orkestra kart mevcut` ile kaydedilir)."""
+    if mevcut_kapisi_acik(k, ajan_tipi) and not isinstance(k.get("mevcut_durum"), dict):
+        hata(f"{k['id']} is-bitti KAYDEDİLMEDİ: mevcut durum notu yok. Kod yazmadan önce ilgili mevcut kodu oku ve "
+             f"`orkestra kart mevcut {k['id']} --dosya <json>` ile kaydet (okunan, yetenekler, karar, neden, etkilenenler).", 4)
+
+
+def _maskele_nesne(v):
+    if isinstance(v, str):
+        return L.maskele(v)
+    if isinstance(v, list):
+        return [_maskele_nesne(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _maskele_nesne(x) for k, x in v.items()}
+    return v
+
+
+def cmd_kart_mevcut(a):
+    """Kod kartı mevcut-durum notunu doğrular ve karta yazar (işçi kod yazmadan önce çalıştırır)."""
+    sd = sd_gerekli()
+    k0 = _kart_al(sd, a.gid)
+    if k0.get("sinif") != "kod":
+        hata(f"{a.gid} kod kartı değil (sinif={k0.get('sinif')}): mevcut durum notu yalnız kod kartında.")
+    try:
+        with open(a.dosya, encoding="utf-8") as f:
+            nesne = json.load(f)
+    except OSError as e:
+        hata(f"{a.gid} mevcut durum notu okunamadı ({a.dosya}): {e.__class__.__name__}.", 4)
+    except ValueError as e:
+        hata(f"{a.gid} mevcut durum notu JSON bozuk: {e}", 4)
+    import mevcut_durum
+    proje = L.proje_dizini()
+    ca = k0.get("calisma_agaci") or {}
+    kokler = ([ca["yol"]] if ca.get("yol") and os.path.isdir(ca["yol"]) else []) + [proje]
+    alan = list(k0.get("yazma_alani") or [])
+
+    def yazma_eslesir(y: str) -> bool:
+        es = L.agac_esdegeri(k0, y)
+        return L.desen_eslesir(proje, es if es is not None else y, alan)
+
+    tamam, hatalar = mevcut_durum.dogrula(nesne, kokler, yazma_eslesir if alan else None)
+    if not tamam:
+        hata(f"{a.gid} mevcut durum notu KAYDEDİLMEDİ: " + "; ".join(hatalar), 4)
+    with L.kilit(L.kart_yolu(sd, a.gid)):
+        k = _kart_al(sd, a.gid)
+        k["mevcut_durum"] = _maskele_nesne(nesne)
+        k["mevcut_durum_zaman"] = L.simdi()
+        ajan_id, ajan_tipi = _kim(a)
+        k["gecmis"].append({"zaman": k["mevcut_durum_zaman"], "olay": "mevcut-durum", "ajan": ajan_tipi,
+                            "agent_id": ajan_id, "not": f"karar={nesne['karar']}; okunan={len(nesne['okunan'])}"})
+        L.kart_yaz(sd, k)
+    print(f"{a.gid} mevcut durum notu kaydedildi (karar={nesne['karar']}, okunan={len(nesne['okunan'])})")
 
 
 def cmd_kart_durum(a):
@@ -507,6 +655,7 @@ def cmd_kart_durum(a):
     ajan_id, ajan_tipi = _kim(a)
     path = L.kart_yolu(sd, a.gid)
     kapi_kaydi = None
+    teknik_nesne = None
     if a.durum in ("isleniyor", "is-bitti") and ajan_tipi not in ("ana", "bilinmiyor"):
         k0 = _kart_al(sd, a.gid)
         if a.durum == "isleniyor":
@@ -519,8 +668,14 @@ def cmd_kart_durum(a):
                 hata(f"{a.gid} bütçe — {engel} İşi BIRAK, kapi=butce bildir.", 7)
             _taban_kapisi(sd, k0, ajan_id)
         else:
+            _mevcut_kapisi(k0, ajan_tipi)  # en ucuz kanıt: mevcut kod okunmadan teknik not/test koşusu başlamaz
+            teknik_nesne = _teknik_kapisi(a, ajan_tipi)  # ucuz kanıt önce: not eksikken test koşusu başlamaz
             ciktilar = list(dict.fromkeys(list(k0.get("ciktilar") or []) + list(a.cikti or [])))
-            gecti, rapor, kapi_kaydi = _is_bitti_kapisi(sd, k0, ajan_id, ajan_tipi, ciktilar)
+            kanitlar = [L.maskele(x) for x in (getattr(a, "kanit", None) or [])]
+            gecti, rapor, kapi_kaydi = _is_bitti_kapisi(sd, k0, ajan_id, ajan_tipi, ciktilar, a.ozet, kanitlar)
+            if gecti:
+                for m in kapi_kaydi.pop("_mesajlar", []):
+                    print("orkestra: " + m)
             if not gecti:
                 with L.kilit(path):  # sahipliği bırak: aynı ajan yeniden dener ya da workflow düzeltme ajanı açar
                     kk = _kart_al(sd, a.gid)
@@ -538,6 +693,9 @@ def cmd_kart_durum(a):
                      "is-bitti'yi yeniden çalıştır.", 4)
     with L.kilit(path):
         k = _kart_al(sd, a.gid)
+        mevcut = L.kart_durumu_hesapla(k)
+        if mevcut in ("iptal", "teslim") and (a.durum == "is-bitti" or (a.durum == "isleniyor" and ajan_tipi not in ("ana", "bilinmiyor"))):
+            hata(f"{a.gid} {mevcut} kartta '{a.durum}' kaydedilmez (kapanmış kart canlandırılmaz); yeni kart aç.")
         if a.durum == "is-bitti":
             if ajan_tipi == "ana":
                 hata("ana ajan işçi işi bitiremez: işi bir işçi ajana ver.")
@@ -554,6 +712,11 @@ def cmd_kart_durum(a):
             k.setdefault("is_turlari", []).append(tur)
             if a.ozet:
                 k["son_ozet"] = L.maskele(a.ozet)[:2000]
+            if getattr(a, "kanit", None):
+                k["son_kanit"] = _kanit_kirp(sd, a.kanit)
+            if teknik_nesne is not None:
+                k["teknik"] = teknik_nesne
+                k["teknik_zaman"] = L.simdi()
             k["durum"] = "denetimde"
         else:
             if a.durum in ("iptal", "beklemede", "planlandi") and ajan_tipi not in ("ana", "bilinmiyor"):
@@ -577,6 +740,75 @@ def cmd_kart_durum(a):
     print(f"{a.gid} → {k['durum']}")
     for u in uyarilar:
         print(f"uyarı: {u}", file=sys.stderr)
+    if a.durum == "is-bitti" and ajan_tipi.split(":", 1)[-1].lower().startswith("isci"):
+        _politika_uygula(sd, a.gid)
+
+
+def _politika_hesapla(sd, gid) -> dict | None:
+    """Denetim politikası kararı (L5). mod 'tam' ise None (kayıt yok, çıktı yok); 'golge'/'etkin' ise karar kartın
+    politika_kararlari alanına yazılır ve döner. Hata çağırana sızmaz (None)."""
+    try:
+        import denetim_politika as DP
+    except ImportError:  # modülü olmayan kurulum: politika yok = mod 'tam' (sessiz)
+        return None
+    try:
+        cfg = DP.ayar_yukle(sd)
+        mod = cfg.get("mod", "tam")
+        if mod not in ("golge", "etkin"):
+            return None
+        kartlar = L.kartlar(sd)
+        kart = next((c for c in kartlar if c.get("id") == gid), None)
+        if not kart:
+            return None
+        gecit = DP.gecit_kontrol(kartlar, cfg)
+        s = DP.karar(kart, DP.grup_tablosu(kartlar, cfg), cfg, bool(gecit.get("acik")))
+        s["mod"] = mod
+        DP.kaydet(sd, gid, s, mod)
+        return s
+    except Exception as e:  # politika is-bitti'yi asla engellemez
+        print(f"orkestra: uyarı {gid}: denetim politikası hesaplanamadı ({type(e).__name__}); kart denetimde kaldı",
+              file=sys.stderr)
+        return None
+
+
+def _politika_uygula(sd, gid) -> None:
+    """is-bitti sonrası: politika 'uygulanir' derse (mod etkin + geçit açık + atla) CLI otomatik onay yazar.
+    Kod kartında denetçi onayıyla aynı taze yeşil kuralı geçerlidir; engel varsa onay yazılmaz."""
+    s = _politika_hesapla(sd, gid)
+    if not s or not s.get("uygulanir"):
+        return
+    neden = str(s.get("neden") or "-")
+    try:
+        with L.kilit(L.kart_yolu(sd, gid)):
+            k = _kart_al(sd, gid)
+            if L.kart_durumu_hesapla(k) != "denetimde":
+                return
+            if k.get("sinif") == "kod":
+                engel = _yesil_kapi_engeli(k)
+                if engel:
+                    k["gecmis"].append({"zaman": L.simdi(), "olay": "politika-onay-engeli", "ajan": "politika",
+                                        "not": L.maskele(engel)[:300]})
+                    L.kart_yaz(sd, k)
+                    print(f"orkestra: politika otomatik onayı verilmedi: {engel}", file=sys.stderr)
+                    return
+            kayit = {"zaman": L.simdi(), "sira": L.sonraki_sira(k), "karar": "onay", "denetim_turu": "otomatik",
+                     "gerekce": f"politika: {neden}", "talimat": "", "agent_id": None, "ajan": "politika",
+                     "basamak": k.get("basamak"),
+                     "politika": {x: s.get(x) for x in ("karar", "neden", "grup", "mod", "orneklenmis", "uygulanir")}}
+            k.setdefault("denetimler", []).append(kayit)
+            k["durum"] = L.kart_durumu_hesapla(k)
+            k["gecmis"].append({"zaman": kayit["zaman"], "olay": "denetim:onay", "ajan": "politika", "agent_id": None,
+                                "otomatik": True})
+            L.kart_yaz(sd, k)
+            L.atomik_yaz(os.path.join(sd, "gorevler", f"{gid}.denetim.json"),
+                         json.dumps(k["denetimler"], ensure_ascii=False, indent=2) + "\n")
+    except Exception as e:
+        print(f"orkestra: uyarı {gid}: politika otomatik onayı yazılamadı ({type(e).__name__}); kart denetimde kaldı",
+              file=sys.stderr)
+        return
+    print(f"OTOMATIK-ONAY: politika {neden}")
+    if k["durum"] == "onaylandi" and k.get("oto_teslim") is True and k.get("sinif") == "kod":
+        _oto_teslim_dene(sd, gid, f"politika: {neden}")
 
 
 def _neden_kodlari() -> str:
@@ -608,6 +840,11 @@ def cmd_kart_denetim(a):
             hata("bu kartta işçi olarak çalışan ajan kendi işini denetleyemez.", 3)
         if not k.get("son_is_zamani"):
             hata("denetlenecek işçi çıktısı yok (işçi `kart durum … is-bitti` demedi).", 3)
+        if L.kart_durumu_hesapla(k) in ("iptal", "teslim"):
+            hata(f"{a.gid} kapanmış kartta denetim kararı yazılmaz.", 3)
+        son_den = max((d.get("sira", -1) for d in k["denetimler"] if isinstance(d.get("sira"), int)), default=-1)
+        if isinstance(k.get("son_is_sira"), int) and k["son_is_sira"] < son_den:
+            hata("son denetimden sonra yeni işçi çıktısı yok (işçi yeniden `is-bitti` demeden ikinci karar yazılmaz).", 3)
         if a.karar == "onay" and k.get("sinif") == "kod":
             engel = _yesil_kapi_engeli(k)
             if engel:
@@ -986,6 +1223,9 @@ def cmd_kart_yukselt(a):
         k = _kart_al(sd, a.gid)
         if BASAMAKLAR.index(b) <= BASAMAKLAR.index(k["basamak"]):
             hata("yükseltme yalnız yukarı yapılır.")
+        durum = L.kart_durumu_hesapla(k)
+        if durum in ("teslim", "iptal", "onaylandi"):   # biten/onaylı kart yeniden işlenmeye çevrilmez
+            hata(f"yükseltme {durum} kartta yapılmaz; yeni kart aç.")
         k["gecmis"].append({"zaman": L.simdi(), "olay": "yukseltme", "eski": k["basamak"], "yeni": b, "not": a.neden})
         k["basamak"] = b
         k["durum"] = "isleniyor"
@@ -1341,8 +1581,16 @@ def kaydet(alt):
     du.add_argument("--ozet")
     du.add_argument("--surec", help="is-bitti: süreç adı (verilmezse ajan tipinden: isci -> is)")
     du.add_argument("--cikti", action="append", default=[])
+    du.add_argument("--kanit", action="append", default=[],
+                    help='is-bitti: kabul kriteri kanıtı, tekrarlanır: --kanit "K1: <dosya:satır | komut çıktısı | sayı>"')
+    du.add_argument("--teknik", help="işçi is-bitti: teknik not JSON dosyası yolu "
+                    "(yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler)")
     du.add_argument("--not", dest="not_")
     du.set_defaults(f=cmd_kart_durum)
+    mv = kart.add_parser("mevcut", help="kod kartı: mevcut kodu anladığını kanıtlayan not (kod yazmadan önce)")
+    mv.add_argument("gid")
+    mv.add_argument("--dosya", required=True, help="not JSON dosyası (okunan, yetenekler, karar, neden, etkilenenler)")
+    mv.set_defaults(f=cmd_kart_mevcut)
     de = kart.add_parser("denetim", formatter_class=argparse.RawTextHelpFormatter)
     de.add_argument("gid")
     de.add_argument("--karar", required=True, choices=["onay", "ret"])

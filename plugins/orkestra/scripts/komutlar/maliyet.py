@@ -23,8 +23,15 @@ from komutlar._ortak import BETIK_DIZINI, hata, oturum_id, sd_gerekli  # noqa: E
 def _maliyet_kayitlari(sd, gun):
     kayitlar = L.maliyet_kayitlari(sd)
     if gun:
-        esik = (datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)).isoformat()
-        kayitlar = [r for r in kayitlar if r.get("zaman", "") >= esik]
+        esik = L.gun_baslangici(gun)
+
+        def yeni(r):   # damgalar +03:00 ya da Z (ham transkript) olabilir: metin değil an karşılaştırılır
+            try:
+                z = datetime.datetime.fromisoformat(str(r.get("zaman") or "").replace("Z", "+00:00"))
+                return (z if z.tzinfo else z.astimezone()) >= esik
+            except ValueError:
+                return False
+        kayitlar = [r for r in kayitlar if yeni(r)]
     return kayitlar
 
 
@@ -81,7 +88,7 @@ def cmd_maliyet_rapor(a):
         metin += _md_tablo("Görev × süreç", ["gorev", "surec"], _pivot(kayitlar, ["gorev", "surec"]))
         metin += "\n" + _md_tablo("Ajan × model", ["ajan", "model"], _pivot(kayitlar, ["ajan", "model"]))
         metin += "\n" + _md_tablo("Süreç", ["surec"], _pivot(kayitlar, ["surec"]))
-        metin += "\n" + _md_tablo("Gün", ["gun"], _pivot([dict(r, gun=r.get("zaman", "")[:10]) for r in kayitlar], ["gun"]))
+        metin += "\n" + _md_tablo("Gün", ["gun"], _pivot([dict(r, gun=(lambda z: z.date().isoformat() if z else "-")(__import__("analitik")._zaman(r.get("zaman")))) for r in kayitlar], ["gun"]))
         metin += "\n" + _baglam_md(kayitlar)
         sohbet = {s["oturum"]: s for s in L.sohbetler(sd, L.proje_dizini(), limit=500)}
         satirlar = ["", "### Sohbet (çalışma alanındaki oturumlar)", "",
@@ -242,26 +249,12 @@ def cmd_maliyet_tur(a):
         "zaman": L.simdi(), "oturum": a.oturum, "gorev": gorev, "surec": surec, "ajan": ajan, "agent_id": a.agent_id,
         "model": a.model, "giris": a.giris, "cikis": a.cikis, "onbellek_okuma": a.onb_okuma, "onbellek_yazma": a.onb_yazma,
         "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur", "tarife": "1sa",
-        "is": _tur_isi(sd, gorev, a.oturum)})
+        **_tur_isi(sd, gorev, a.oturum), **L.istek_kimlik_alanlari(sd, a.oturum, agent_id=a.agent_id)})
 
 
 def _tur_isi(sd, gorev, oturum):
-    """hook.py `_kart_isi(...) or _oturum_isi(...)` ile aynı mantık; hata durumunda None (kayıt düşmez)."""
-    try:
-        if gorev and gorev != "-":
-            k = L.kart_oku(sd, gorev)
-            v = k.get("is") if isinstance(k, dict) else None
-            if v:
-                return str(v)
-    except Exception:
-        pass
-    try:
-        with open(os.path.join(sd, "oturumlar", f"{oturum}.json"), encoding="utf-8") as f:
-            d = json.load(f)
-        v = d.get("is") if isinstance(d, dict) else None
-        return str(v) if v else None
-    except Exception:
-        return None
+    """Tek çözüm ork_lib.is_coz: {'is': ..., ['atif_nedeni': ...]} (hata ve bağsızda is None)."""
+    return L.is_alanlari(sd, oturum, gorev)
 
 
 def cmd_maliyet_anomali(a):
@@ -285,9 +278,9 @@ def cmd_maliyet_etki(a):
 def cmd_maliyet_ozet(a):
     sd = sd_gerekli()
     kayitlar = L.maliyet_kayitlari(sd)
-    bugun = datetime.date.today().isoformat()
+    import analitik as AN
     oid = oturum_id()
-    o = {"bugun_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar if r.get("zaman", "").startswith(bugun)), 4),
+    o = {"bugun_usd": round(AN.bugun_usd(kayitlar), 4),  # yerel gün; damga +03:00 ya da Z olsa da aynı
          "oturum_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar if r.get("oturum") == oid), 4),
          "toplam_usd": round(sum(r.get("maliyet_usd", 0) for r in kayitlar), 4), "kosu": len(kayitlar)}
     print(json.dumps(o) if a.json else f"bugün ≈${o['bugun_usd']:.2f} · bu oturum ≈${o['oturum_usd']:.2f} · toplam ≈${o['toplam_usd']:.2f} ({o['kosu']} koşu)")

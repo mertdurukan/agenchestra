@@ -2,36 +2,36 @@
   "description": "Orkestra: denetim ayrımı ve yazma alanı kapıları, ortak defter, ajan x süreç token defteri, bitiş kapısı, perspektif tetiği. Yalnız .claude/orkestra/ açık projelerde iş yapar.",
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SessionStart", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionStart; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionStart; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionStart; fi", "timeout": 10 } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python UserPromptSubmit", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" UserPromptSubmit; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" UserPromptSubmit; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" UserPromptSubmit; fi", "timeout": 10 } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
-        "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python PreToolUse", "timeout": 10, "statusMessage": "orkestra kapısı" } ] }
+      { "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|WebFetch|WebSearch|mcp__.*",
+        "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PreToolUse; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PreToolUse; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PreToolUse; fi", "timeout": 10, "statusMessage": "orkestra kapısı" } ] }
     ],
     "PostToolUse": [
       { "matcher": "Skill|Agent|Task|Workflow",
-        "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python PostToolUse", "timeout": 10 } ] }
+        "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PostToolUse; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PostToolUse; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PostToolUse; fi", "timeout": 10 } ] }
     ],
     "SubagentStart": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SubagentStart", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; fi", "timeout": 10 } ] }
     ],
     "SubagentStop": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SubagentStop", "timeout": 30 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStop; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStop; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStop; fi", "timeout": 30 } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python Stop", "timeout": 30 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Stop; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Stop; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Stop; fi", "timeout": 30 } ] }
     ],
     "Notification": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python Notification", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Notification; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Notification; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Notification; fi", "timeout": 10 } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python SessionEnd", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionEnd; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionEnd; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionEnd; fi", "timeout": 10 } ] }
     ],
     "ConfigChange": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hook_python ConfigChange", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" ConfigChange; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" ConfigChange; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" ConfigChange; fi", "timeout": 10 } ] }
     ]
   }
 }

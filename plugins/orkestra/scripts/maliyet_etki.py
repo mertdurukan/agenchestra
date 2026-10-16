@@ -49,7 +49,7 @@ def _pencere(sd: str, bas: datetime.datetime, bit: datetime.datetime) -> dict:
         usd = float(r.get("maliyet_usd") or 0)
         toplam += usd
         gid = r.get("gorev")
-        if not r.get("agent_id"):  # ana ajan satırı (alt ajanların gorev='-' satırları ana pay değildir)
+        if L.ana_ajan_satiri_mi(r):  # ana ajan payı: tek tanım (ork_lib.ana_ajan_satiri_mi)
             ana += usd
             continue
         if gid in kartlar and r.get("agent_id"):
@@ -79,8 +79,10 @@ def _pencere(sd: str, bas: datetime.datetime, bit: datetime.datetime) -> dict:
 
 def _gidisat(once, sonra, ornek, yon) -> str:
     import etki
-    if once == 0 and sonra is not None and ornek >= MIN_ORNEK:  # taban 0: yalnız artış kötüdür
-        return "kotu" if sonra > 0 and yon == "azalmali" else "etkisiz"
+    if once == 0 and sonra is not None and ornek >= MIN_ORNEK:  # taban 0: yalnız artış anlamlıdır
+        if sonra > 0:   # taban 0: artış "azalmalı" metrikte kötü, "artmalı" metrikte iyidir
+            return "kotu" if yon == "azalmali" else "iyi"
+        return "etkisiz"
     return etki.gidisat(once, sonra, ornek, yon, {"min_ornek": MIN_ORNEK})
 
 

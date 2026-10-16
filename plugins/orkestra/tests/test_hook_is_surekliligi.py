@@ -452,6 +452,18 @@ class StopHatirlatma(_Ortak):
         c2 = self.stop(_tur_dokunuslu())
         self.assertEqual(self.mesaj(c2), "")
 
+    def test_b_sirali_iste_hatirlatma_guncel_adimi_soyler(self):
+        with mock.patch.dict(os.environ, {"ORKESTRA_SIRA_KAPISI": "1"}):
+            a = self.is_ac()
+            self.assertEqual(a.get("sira"), "mevcut-durum-plan-todo")
+            self.baglan(a, baglanma=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
+            c = self.stop(_tur_dokunuslu())
+            m = self.mesaj(c)
+        self.assertIn("sıralı iş (P-005)", m)
+        self.assertIn("adım: mevcut_durum", m)
+        self.assertIn(f"`orkestra is sira {a['id']}`", m)
+        self.assertNotIn("`orkestra is todo <id> --ekle`", m)
+
     def test_b_dokunussuz_turda_cikmaz(self):
         a = self.is_ac()
         self.baglan(a, baglanma=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))

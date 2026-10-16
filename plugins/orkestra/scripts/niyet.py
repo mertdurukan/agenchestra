@@ -182,6 +182,21 @@ def ac(oturum: str) -> dict:
     return {"tamam": True, "yol": "cli"}
 
 
+def perspektif_sohbeti_ac(proje_yol: str) -> dict:
+    """Claude masaüstü uygulamasında YENİ sohbet açar ve `/orkestra:perspektif şimdi` istemini verir (panel düğmesi)."""
+    import subprocess
+    import perspektif
+    if not proje_yol or not os.path.isdir(proje_yol):
+        return {"tamam": False, "hata": "çalışma alanı klasörü bulunamadı"}
+    exe = perspektif.claude_exe()
+    if not exe:
+        return {"tamam": False, "hata": "claude bulunamadı; yeni sohbette elle: /orkestra:perspektif şimdi"}
+    bayrak = 0x08000000 if os.name == "nt" else 0  # pencere açma
+    subprocess.Popen([exe, "--desktop", "/orkestra:perspektif şimdi"], cwd=proje_yol, stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=bayrak, close_fds=True)
+    return {"tamam": True}
+
+
 def olay(oturum: str | None, proje: str | None, tur: str, **alan) -> None:
     """Tek olay ekler. Hata asla çağırana taşmaz (hook'ları bozmamalı)."""
     if not oturum or oturum == "-" or _gecici(proje):
@@ -543,7 +558,7 @@ def gorunum(gun: int = GORUNUM_GUN, alan_yol: str | None = None) -> dict:
             "devam": None if m.get("link") else f"claude --resume {s['oturum']}",
             "ne": s["ne"], "neden": s["neden"], "sonuc": s["sonuc"], "yedek": yedek, "niyet_var": bool(s["ne"]),
             "bekleyen": bekleyen, "bekleme": s["bekleme"] if bekleyen == "sen" else None, "son_zaman": s["son_zaman"], "baslangic": s["baslangic"], "istek_sayisi": s["istek_sayisi"],
-            "son_istek": _kisalt(s["son_istek"], 160),
+            "son_istek": _kisalt(s["son_istek"], 160), "arka_plan": bool(s["arka_plan"]),
             "kartlar": {"acik": len(acik_kart), "toplam": len(kartlar.get(s["oturum"], [])),
                         "teslim": sum(1 for k in kartlar.get(s["oturum"], []) if k["durum"] == "teslim"),
                         "aktif": acik_kart[:3]},

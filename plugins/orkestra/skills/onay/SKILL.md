@@ -13,7 +13,15 @@ Kural: `orkestra …` komutlarını tek başına çalıştır (zincir, boru ya d
 2. Her kayıt için sırayla:
    1. Önce türe bak: başka oturumun `karar` kaydını (`oturum` alanı dolu ve bu oturum değil) `orkestra onay al` ÇALIŞTIRMADAN atla; yalnız soran oturum ya da oturumsuz karar alınır. Diğerleri için `orkestra onay al <id>` ile kaydı üstlen (başka oturum aldıysa hata verir; atla).
    2. Türüne göre uygula:
-      - **perspektif**: `orkestra perspektif hafiza` ile hafıza klasörünü al. Onaylı maddenin tam metnini (karar notu dahil) Agent aracıyla `orkestra:hafiza-bakimcisi` ajanına ver: hafıza klasörünün yolu + madde metni. Başlığı "Skill adayı" ile başlayan maddeler için hafıza değiştirme; `/orkestra:skill-avi` çalıştırmayı öner.
+      - **perspektif**: `orkestra perspektif hafiza` ile hafıza klasörünü al. Onaylı maddenin tam metnini (karar notu dahil) Agent aracıyla `orkestra:hafiza-bakimcisi` ajanına ver: hafıza klasörünün yolu + madde metni.
+        Başlığı "Skill adayı" ile başlayan maddeler için hafıza değiştirme; `/orkestra:skill-avi` çalıştırmayı öner.
+      - **perspektif terfisi** (yalnız maddede `Yayın: kapsam=evrensel` varsa; hafıza işinden sonra):
+        1. Maddedeki `Eklenti metni:` ve `Neden:` alanlarını oku.
+        2. Kullanıcıya tek onay sorusu sor: metni ve nedeni göster, "eklenti katmanına eklensin mi?" diye sor. Onay yoksa terfi yapılmaz.
+        3. Onay gelirse çalıştır: `orkestra kural ekle --metin <Eklenti metni> --neden <Neden> --katman plugin`.
+        4. Kapı metni reddederse (projeye özgü ifade isabeti) metni düzelt ve aynı komutu yeniden dene. Metnin anlamı değişiyorsa kullanıcıya göster.
+        5. `kapsam=proje` olan maddede terfi adımı yoktur.
+        6. Commit yapılmaz, `orkestra guncelle` çalıştırılmaz, push yapılmaz. Yalnız kullanıcıya bildirilir: kural eklendi, eklenti deposunda commit ve yayın ayrı adımdır.
       - **skill**: `skills/skill-avi/SKILL.md` adım 3'teki akışı izle: taslağı `.claude/orkestra/onerilen_skill/<ad>/` → `.claude/skills/<ad>/` taşı (`GEREKCE.md` kalır), ayrı `orkestra:denetci` (`model: opus`) ile incelet, ret gelirse düzelt.
       - **karar**: kaydı soran oturum sensen (`oturum` alanı bu oturumun kimliği) kararı (`karar.secim`, `karar.not`) işine uygula; başka oturumunsa yalnız bilgilendir, uygulama.
       - **kural**: panelde zaten uygulanır; atla.
@@ -28,8 +36,10 @@ Perspektif maddelerinde `Vaat:` satırı (ölçü, yön, kapsam) vardır. Uygula
 2. **Taban:** `orkestra onay al <id>` taban değerini otomatik alır ve dondurur. Ayrıca elle taban alma.
 3. **Uygula:** Yukarıdaki adım 2.2'deki gibi (hafıza-bakımcısı vb.).
 4. **Doğrula:** `orkestra onay uygulandi <id> --ozet "…"` uygulama doğrulamasını yapar (değişiklik yerinde mi: yol var/yok, satır, bayt). Bu "uygulandı mı" sorusudur, "işe yaradı mı" değildir.
-5. **Günlük izleme:** Uygulama gününden başlar, sabit süre ya da pencere yoktur. `orkestra onay etki-izle` eksik günleri doldurur (idempotent; oturum açılışında ve panel yüklenirken zaten çağrılır, elle de çalıştırılabilir). `orkestra onay etki-liste` gidişatları gösterir (iyi / kötü / etkisiz / yetersiz-veri / ölçülemez).
-6. **Kapatma:** `orkestra onay etki-kapat <id> --sonuc dogru-karar|yanlis-karar|belirsiz` yalnız kullanıcı karar verince çalıştırılır; kapatılana (ya da geri alınana) dek izleme sürer. Gidişat 3 gün üst üste `kotu` ise kullanıcıya tek soru sor: geri al / sürdür. Kendiliğinden geri alma ve kendiliğinden kapatma yok; doğru/yanlış kararı kullanıcınındır.
+5. **Günlük izleme:** Uygulama gününden başlar, sabit süre ya da pencere yoktur. `orkestra onay etki-izle` eksik günleri doldurur (idempotent; oturum açılışında ve panel yüklenirken zaten çağrılır, elle de çalıştırılabilir). 
+   `orkestra onay etki-liste` gidişatları gösterir (iyi / kötü / etkisiz / yetersiz-veri / ölçülemez).
+6. **Kapatma:** `orkestra onay etki-kapat <id> --sonuc dogru-karar|yanlis-karar|belirsiz` yalnız kullanıcı karar verince çalıştırılır; kapatılana (ya da geri alınana) dek izleme sürer. 
+   Gidişat 3 gün üst üste `kotu` ise kullanıcıya tek soru sor: geri al / sürdür. Kendiliğinden geri alma ve kendiliğinden kapatma yok; doğru/yanlış kararı kullanıcınındır.
 
 Kurallar:
 - **Sahte metrik YASAK:** Vaadi olmayan ya da ölçülemeyen kayda metrik uydurma. `ölçülemez` yaz; "iyi" ya da "başarılı" diye damgalama.

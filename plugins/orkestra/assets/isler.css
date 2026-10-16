@@ -137,3 +137,4 @@
   .kap { font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid currentColor; }
   .kap.ok { color: #1a7f37; font-weight: 600; }
   .kap.eksik { color: #9a6700; }
+  a.teknik-bag { text-decoration: none; display: inline-block; }

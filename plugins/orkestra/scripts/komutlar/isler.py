@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import collections
 import csv
+import glob
 import datetime
 import io
 import json
@@ -55,6 +56,7 @@ def _oturumu_bagla(sd, is_id):
         v.setdefault("is_gecmis", []).append({"is": is_id, "zaman": an})
         L.atomik_yaz(yol, json.dumps(v, ensure_ascii=False, indent=2) + "\n")
     _ik().is_oturum_bagla(sd, is_id, oturum_id())
+    L.atif_yaz(sd, oturum_id(), is_id, "cli-is-baglama")  # bağsız maliyet satırları için tek atif olayı (fail-open)
 
 
 def _is_gerekli(sd, is_id):
@@ -74,9 +76,13 @@ def _todo_satiri(klasor):
 
 def cmd_is_ac(a):
     sd = sd_gerekli()
-    kayit = _ik().is_ac(sd, a.baslik, a.klasor, a.etiket)
+    kayit = _ik().is_ac(sd, a.baslik, a.klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None)
     _oturumu_bagla(sd, kayit["id"])
     print(kayit["id"])
+    if kayit.get("sira"):  # stdout yalnız iş kimliği kalır; sıra yönlendirmesi stderr'e
+        md = _ik().SIRA.mevcut_durum_yolu(kayit["klasor"])
+        print(f"orkestra: sıra (P-005): önce {os.path.basename(md or 'mevcut_durum_<gün>.md')} doldurulur; "
+              "plan.md ve todo.md ondan sonra açılır. Durum: `orkestra is sira " + kayit["id"] + "`.", file=sys.stderr)
 
 
 def cmd_is_devam(a):
@@ -86,7 +92,11 @@ def cmd_is_devam(a):
     klasor = kayit["klasor"]
     t, satir = _todo_satiri(klasor)
     print(f"{a.is_id} — {kayit['baslik']} [{kayit['durum']}]")
-    print(f"plan: {os.path.join(klasor, 'plan.md')}")
+    if kayit.get("sira") and _ik().SIRA.sirali_mi(klasor):
+        adim, eksik = _ik().SIRA.adim(klasor)
+        print(f"sıra: {adim}" + (f" — eksik: {'; '.join(eksik[:3])}" if eksik else " — mevcut durum ve plan tamam"))
+    if os.path.exists(os.path.join(klasor, "plan.md")) or not kayit.get("sira"):
+        print(f"plan: {os.path.join(klasor, 'plan.md')}")
     print(satir)
     for m in t["acik_maddeler"]:
         print(f"  [ ] {m}")
@@ -97,6 +107,57 @@ def cmd_is_devam(a):
             dolu = [s.rstrip() for s in f if s.strip()]
         son = dolu[-1] if len(dolu) > 1 else ""  # ilk satır başlık
     print(f"oturumlar.md son satır: {son or '(henüz yok)'}")
+    for s in _ik().belge_baglantilari(klasor, _proje_koku(sd)):
+        print(s)
+
+
+def _proje_koku(sd):
+    return os.path.dirname(os.path.dirname(sd))
+
+
+def cmd_is_belge(a):
+    """Şablondan belge açar (var olanı ezmez) ve sohbet için hazır bağlantı satırlarını basar (K-003)."""
+    ik = _ik()
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    try:
+        yol, oldu = ik.belge_olustur(kayit["klasor"], kayit.get("baslik") or "", a.tur)
+    except ValueError as e:
+        hata(str(e))
+    print(("oluşturuldu: " if oldu else "var, değiştirilmedi: ") + yol)
+    for s in ik.belge_baglantilari(kayit["klasor"], _proje_koku(sd), ek=[yol]):
+        print(s)
+
+
+def cmd_is_sira(a):
+    """P-005 sırası: mevcut durum → plan → todo; hangi adımda olduğunu ve eksikleri basar. --ac eski işi sıralı yapar."""
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    ik = _ik()
+    if a.ac:
+        kayit = ik.sira_ac(sd, a.is_id)
+    if kayit.get("sira") != ik.SIRA.SIRA_ADI:
+        print(f"{a.is_id} sıra: yok (eski iş; sıralı yapmak için `orkestra is sira {a.is_id} --ac`)")
+        return
+    if not ik.SIRA.kapi_acik():
+        print(f"{a.is_id} sıra: kapalı (ORKESTRA_SIRA_KAPISI=0)")
+        return
+    adim, eksik = ik.SIRA.adim(kayit["klasor"])
+    print(f"{a.is_id} sıra: {adim}")
+    md = ik.SIRA.mevcut_durum_yolu(kayit["klasor"])
+    print(f"mevcut durum: {md or '(yok)'}")
+    print(f"plan: {'var' if os.path.exists(os.path.join(kayit['klasor'], 'plan.md')) else 'yok'}")
+    print(f"todo: {'var' if os.path.exists(os.path.join(kayit['klasor'], 'todo.md')) else 'yok'}")
+    for e in eksik:
+        print(f"  eksik: {e}")
+
+
+def cmd_is_baglanti(a):
+    """İşin okunacak belgeleri için sohbet bağlantı satırları: plan, todo ve yakın zamanda değişen belgeler (K-003)."""
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    for s in _ik().belge_baglantilari(kayit["klasor"], _proje_koku(sd), son_dk=a.son, tumu=a.tumu, ek=a.ek):
+        print(s)
 
 
 def cmd_is_devir(a):
@@ -150,37 +211,136 @@ def cmd_is_rapor(a):
     print(IR.metin(r))
 
 
+def _ozet_eksigi(klasor):
+    """Görev bitiş raporu (P-009): klasörde doldurulmuş calisma_ozeti_*.md yoksa eksik nedenini döner, varsa None.
+    Doldurulmuş = '**Ana bulgu:**' başlığının altında metin var (şablon boş bırakılmış olamaz)."""
+    adaylar = sorted(glob.glob(os.path.join(klasor, "calisma_ozeti_*.md")))
+    if not adaylar:
+        return "klasörde calisma_ozeti_<YYYYMMDD>.md yok"
+    for yol in adaylar:
+        try:
+            metin = open(yol, encoding="utf-8").read()
+        except OSError:
+            continue
+        m = re.search(r"\*\*Ana bulgu:\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+:\*\*|^#|\Z)", metin, re.S | re.M)
+        if m and m.group(1).strip():
+            return None
+    return "calisma_ozeti dosyasında 'Ana bulgu' boş (şablon doldurulmamış)"
+
+
 def cmd_is_kapat(a):
+    """Kapanış kapısı (P-009): görev tamamen kapanırken görev bitiş raporu (çalışma özeti) zorunlu.
+    ORKESTRA_OZET_KAPISI=0 kapıyı kapatır; hiç iş yapılmadan kapanan iş için `--ozetsiz NEDEN`."""
     sd = sd_gerekli()
-    _is_gerekli(sd, a.is_id)
+    kayit = _is_gerekli(sd, a.is_id)
+    ozetsiz = (getattr(a, "ozetsiz", None) or "").strip()
+    if os.environ.get("ORKESTRA_OZET_KAPISI") != "0" and not ozetsiz:
+        eksik = _ozet_eksigi(kayit["klasor"])
+        if eksik:
+            hata(f"{a.is_id} kapatılamadı: görev bitiş raporu yok ({eksik}). "
+                 f"Önce `orkestra is belge {a.is_id} ozet` ile özeti yaz ve doldur; "
+                 "mevcut durum, plan ve todo görev BAŞLANGICI belgeleridir, bitiş raporunun yerine geçmez (P-009). "
+                 "İş hiç yapılmadan kapanıyorsa: --ozetsiz \"neden\".")
     _ik().is_durum(sd, a.is_id, "kapandi")
+    _teknik_detay_yaz(sd, a.is_id)
     print(f"{a.is_id} → kapandi")
+    if ozetsiz:
+        print(f"özetsiz kapatıldı: {ozetsiz}")
+    else:
+        print("kapanış teslimi (K-003): yanıt sonunda yalnız çalışma özeti satırı verilir")
+        for sat in _ik().belge_baglantilari(kayit["klasor"], _proje_koku(sd), tumu=True):
+            if "çalışma özeti" in sat:
+                print(sat)
+
+
+def _teknik_detay_yaz(sd, is_id):
+    """Kapanışta işin klasörüne teknik_detay.md yazar (her kapanışta yeniden üretilir). Hata kapanışı bozmaz."""
+    try:
+        kayit = _ik().is_al(sd, is_id) or {}
+        if not kayit.get("kartlar"):
+            return
+        import teknik as T
+        metin, _ = T.md(sd, is_id, yaz=False)
+        zaman = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+        L.atomik_yaz(os.path.join(kayit["klasor"], "teknik_detay.md"), f"_Üretim zamanı: {zaman}_\n\n{metin}")
+    except Exception as e:  # noqa: BLE001 - kapanış hiçbir koşulda engellenmez
+        print(f"orkestra: uyarı: teknik_detay.md yazılamadı ({type(e).__name__}: {L.maskele(str(e))})", file=sys.stderr)
 
 
 TODO_KISA = 100  # --ekle/--bitti sonrası açık madde satırı en çok bu kadar karakter (numaralı; --bitti <n> ile aynı sıra)
 
 
+def _todo_coz(klasor, bitti):
+    """--bitti seçicilerini yazmadan ÖNCE özgün açık liste üzerinde çözer; (açık sıra no, seçici) listesi döner."""
+    ik = _ik()
+    yol = ik._todo_yol(klasor)
+    if not os.path.exists(yol):
+        raise ValueError("todo.md yok")
+    acik = []
+    for s in ik._todo_oku(yol).splitlines():
+        m = ik._TODO_ACIK.match(s)
+        if m and m.group(1).strip():
+            acik.append(m.group(1).strip())
+    cozulen = []
+    for sec in bitti:
+        sec = str(sec).strip()
+        if re.fullmatch(r"\d+", sec):
+            n = int(sec)
+            if not 1 <= n <= len(acik):
+                raise ValueError(f"açık madde sırası aralık dışı: {n} (açık madde: {len(acik)})")
+        else:
+            if not sec:
+                raise ValueError("seçici boş")
+            adaylar = [k for k, t in enumerate(acik, 1) if sec.lower() in t.lower()]
+            if len(adaylar) != 1:
+                durum = "eşleşme yok" if not adaylar else f"{len(adaylar)} eşleşme"
+                raise ValueError(f"'{sec}': {durum}; adaylar: " + " | ".join(acik if not adaylar else [acik[k - 1] for k in adaylar]))
+            n = adaylar[0]
+        if any(n == c[0] for c in cozulen):
+            raise ValueError(f"aynı madde birden çok kez seçildi: {n}")
+        cozulen.append((n, sec))
+    return cozulen
+
+
 def cmd_is_todo(a):
     sd = sd_gerekli()
     kayit = _is_gerekli(sd, a.is_id)
-    ekle, bitti, not_ = getattr(a, "ekle", None), getattr(a, "bitti", None), getattr(a, "not_", None)
-    if ekle is not None and bitti is not None:
-        hata("--ekle ve --bitti birlikte verilemez.")
-    if not_ is not None and bitti is None:
+    ekle = getattr(a, "ekle", None) or []
+    bitti = getattr(a, "bitti", None) or []
+    not_ = getattr(a, "not_", None) or []
+    if isinstance(ekle, str):
+        ekle = [ekle]
+    if isinstance(bitti, str):
+        bitti = [bitti]
+    if isinstance(not_, str):
+        not_ = [not_]
+    if not_ and not bitti:
         hata("--not yalnız --bitti ile kullanılır.")
-    if ekle is not None or bitti is not None:
-        if ekle is not None and kayit.get("durum") == "kapandi":
+    if len(not_) > 1 and len(not_) != len(bitti):
+        hata(f"--not sayısı 1 ya da --bitti sayısı ({len(bitti)}) kadar olmalı; verilen: {len(not_)}.")
+    yazildi = bool(ekle or bitti)
+    if yazildi:
+        if ekle and kayit.get("durum") == "kapandi":
             hata(f"{a.is_id} kapalı; --ekle yapılamaz.")
+        notlar = (not_ * len(bitti)) if len(not_) == 1 else (not_ or [None] * len(bitti))
         try:
-            if ekle is not None:
-                _ik().todo_ekle(kayit["klasor"], ekle)
-            else:
-                _ik().todo_bitir(kayit["klasor"], bitti, not_)
+            if any(not " ".join(str(e).split()) for e in ekle):
+                raise ValueError("madde metni boş")
+            for e in ekle:  # P-005: sıralı işte hiçbir şey yazılmadan önce (atomik)
+                neden = _ik().todo_ekle_ihlali(kayit["klasor"], " ".join(str(e).split()))
+                if neden:
+                    raise ValueError(neden)
+            # atomik doğrulama: tüm seçiciler özgün listeye göre çözülür, hata varsa hiçbir şey yazılmaz
+            cozulen = _todo_coz(kayit["klasor"], bitti) if bitti else []
+            # numaralar kayması: büyük sıradan küçüğe kapat (kapanan madde yalnız kendinden sonrakilerin sırasını etkiler)
+            for (n, _), nt in sorted(zip(cozulen, notlar), key=lambda x: -x[0][0]):
+                _ik().todo_bitir(kayit["klasor"], str(n), nt)
+            for e in ekle:
+                _ik().todo_ekle(kayit["klasor"], e)
         except (ValueError, OSError, TimeoutError) as e:
             hata(str(e))
     t, satir = _todo_satiri(kayit["klasor"])
     print(f"{a.is_id} {satir}")
-    yazildi = ekle is not None or bitti is not None
     for n, m in enumerate(t["acik_maddeler"], 1):
         if yazildi and len(m) > TODO_KISA:  # yazma sonrası kısa liste: ana ajan bağlamına her seferinde tüm todo girmesin
             m = m[:TODO_KISA - 1] + "…"
@@ -575,10 +735,25 @@ def kaydet(alt):
     ia.add_argument("baslik")
     ia.add_argument("--klasor", required=True)
     ia.add_argument("--etiket", action="append", default=[])
+    ia.add_argument("--dogrulamasiz", action="store_true", help="plan ✅/❌ doğrulama bayrağı ve şablonu konmaz (eski plan şablonu)")
     ia.set_defaults(f=cmd_is_ac)
     idv = is_.add_parser("devam")
     idv.add_argument("is_id")
     idv.set_defaults(f=cmd_is_devam)
+    ibg = is_.add_parser("belge", help="şablondan belge açar (mevcut_durum, plan, ozet, bulgu, jira, rapor; var olanı ezmez) ve sohbet bağlantı satırlarını basar")
+    ibg.add_argument("is_id")
+    ibg.add_argument("tur", choices=["mevcut_durum", "plan", "ozet", "bulgu", "jira", "rapor"])
+    ibg.set_defaults(f=cmd_is_belge)
+    isa = is_.add_parser("sira", help="P-005 sırası: mevcut durum → plan → todo; adım ve eksikler (--ac eski işi sıralı yapar)")
+    isa.add_argument("is_id")
+    isa.add_argument("--ac", action="store_true", help="sıra bayrağını koyar, mevcut durum iskeletini açar")
+    isa.set_defaults(f=cmd_is_sira)
+    ibl = is_.add_parser("baglanti", help="sohbet sonu bağlantı satırları: plan, todo ve son dakikalarda değişen okunacak belgeler (K-003)")
+    ibl.add_argument("is_id")
+    ibl.add_argument("--son", type=int, default=180, metavar="DK", help="bu kadar dakika içinde değişen belgeler (varsayılan 180)")
+    ibl.add_argument("--tumu", action="store_true", help="zamana bakmadan klasördeki tüm okunacak belgeler")
+    ibl.add_argument("--ek", action="append", default=[], metavar="DOSYA", help="ek dosya yolu (tekrarlanabilir)")
+    ibl.set_defaults(f=cmd_is_baglanti)
     idr = is_.add_parser("devir")
     idr.add_argument("is_id")
     idr.set_defaults(f=cmd_is_devir)
@@ -592,12 +767,13 @@ def kaydet(alt):
     irp.set_defaults(f=cmd_is_rapor)
     ik_ = is_.add_parser("kapat")
     ik_.add_argument("is_id")
+    ik_.add_argument("--ozetsiz", metavar="NEDEN", help="görev bitiş raporu (çalışma özeti) olmadan kapat; neden zorunlu (P-009)")
     ik_.set_defaults(f=cmd_is_kapat)
     it_ = is_.add_parser("todo")
     it_.add_argument("is_id")
-    it_.add_argument("--ekle", metavar="METİN", help="todo.md sonuna açık madde ekler")
-    it_.add_argument("--bitti", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize)")
-    it_.add_argument("--not", dest="not_", metavar="METİN", help="--bitti ile satır sonuna tarihli not")
+    it_.add_argument("--ekle", action="append", metavar="METİN", help="todo.md sonuna açık madde ekler (tekrarlanabilir; --bitti'den sonra uygulanır)")
+    it_.add_argument("--bitti", action="append", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize; tekrarlanabilir, özgün listeye göre çözülür)")
+    it_.add_argument("--not", dest="not_", action="append", metavar="METİN", help="--bitti ile satır sonuna tarihli not (1 değer tümüne; --bitti sayısı kadar değer sırayla)")
     it_.set_defaults(f=cmd_is_todo)
     itd = is_.add_parser("todo-denetle", help="isler.json'a bağlı olmayan todo.md kopyalarını ve worktree kopyalarını listeler (salt okuma)")
     itd.add_argument("--kok", help="taranacak dizin (varsayılan: proje)")

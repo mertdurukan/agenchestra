@@ -138,14 +138,15 @@ def _tum_kancalar() -> list[tuple[str, dict]]:
     return out
 
 
-def test_hooks_json_dogrudan_python_cagirmiyor():
+def test_hooks_json_dogrudan_python_cagiriyor():
+    # Kanca başına süreç sayısını düşürmek için sarmalayıcı (sh → sh alt kabukları → python) atlanır:
+    # `bash -c` doğrudan `exec python`. Yorumlayıcı sırası: python -> py -3 -> python3 (yalnız PATH'te bulunanlar,
+    # `command -v` kabuk yerleşiğidir, ek süreç açmaz).
     kancalar = _tum_kancalar()
     assert len(kancalar) >= 9
     for olay, h in kancalar:
-        ilk = h["command"].split()[0].replace("\\", "/")
-        tam = ilk.split("/")[-1].lower()
-        assert tam not in ("python", "python3", "py", "python.exe", "py.exe"), f"{olay}: çıplak yorumlayıcı"
-        assert "hook.py" not in h["command"], f"{olay}: hook.py yolunu sarmalayıcı bulur"
+        assert "hook_python" not in h["command"], f"{olay}: sarmalayıcı zincirine geri dönülmemeli"
+        assert "scripts/hook.py" in h["command"], f"{olay}: hook.py yolu komutta olmalı"
 
 
 def test_hooks_json_hicbir_kancada_args_yok():
@@ -157,11 +158,15 @@ def test_hooks_json_hicbir_kancada_args_yok():
 def test_hooks_json_komut_tam_bicimde_ve_olay_adi_dogru():
     olaylar = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]
     sayi = 0
+    hook = '"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py"'
     for olay, gruplar in olaylar.items():
         for g in gruplar:
             for h in g["hooks"]:
                 sayi += 1
-                assert h["command"] == "${CLAUDE_PLUGIN_ROOT}/bin/hook_python " + olay,                     f"{olay}: beklenen '${{CLAUDE_PLUGIN_ROOT}}/bin/hook_python {olay}', bulunan {h['command']!r}"
+                beklenen = (f'if command -v python >/dev/null 2>&1; then exec python {hook} {olay}; '
+                            f'elif command -v py >/dev/null 2>&1; then exec py -3 {hook} {olay}; '
+                            f'else exec python3 {hook} {olay}; fi')
+                assert h["command"] == beklenen, f"{olay}: beklenen {beklenen!r}, bulunan {h['command']!r}"
                 assert h["timeout"] in (10, 30)
     assert sayi >= 9
 

@@ -33,6 +33,16 @@ Adımlar:
 9. Doğrula: `git diff --stat $OLD $NEW` çıktısında yalnız kendi dosyaların olmalı.
 10. Ana indeksi eşitle: `git reset -q HEAD -- <yollar>`. Yapmazsan sonraki commit işini geri alır.
 
+## Kural katmanları (kod)
+- Kütüphane `scripts/onay.py` (kurallar bölümü), CLI `scripts/komutlar/onay.py` (`kural ...`), panel `assets/kurallar.js` + `panel.py` `_onay_islemi`. Kullanım ve öncelik: `KURALLAR.md` "Kural katmanları".
+- Eklenti katmanının deposu `kurallar/eklenti_kurallari.json`. `onay.eklenti_kural_yolu()` yolu çözer: önbellekten (`plugins/cache`) çalışırken yazım önbelleğe değil kaynak depoya (`known_marketplaces.json` installLocation) gider, çünkü önbellek güncellemede silinir. Eklenti kuralı eklemek eklenti kodunu değiştirmektir: commit, `orkestra guncelle`, yayın akışı bu dosyadaki gibi işler.
+- Yazımda `KURALLAR.md`'deki işaretçili blok (`<!-- eklenti-kurallari:basla/bitis -->`) yeniden üretilir; elle düzenlenmez. Proje kural dosyası SessionStart'ta `onay.kural_dosyasi_esitle` ile yenilenir (içerik aynıysa yazmaz).
+- Testler gerçek eklenti deposunu görmesin diye `tests/conftest.py` ve `tests/ic_kos.py` `ORKESTRA_EKLENTI_KURALLARI`'nı var olmayan bir geçici yola çevirir. Eklenti katmanını sınayan test bu değişkeni kendi geçici dosyasına ayarlar (`tests/test_kural_katman.py`).
+- Yeni bir kural katmanı alanı eklenirse `kural_gorunum`, `kurallar` ve `_kural_dosya_metni` üçü birlikte güncellenir.
+- Terfi kapısı: `scripts/onay.py` içinde `yayin_ayristir` (Yayın: etiketi), `terfi_denetle` (isabet listesi) ve `_terfi_kapisi` (isabette ValueError).
+- Yasak terimler proje durum dizinindeki `terfi_yasak.json` dosyasından okunur (liste ya da `{"terimler": [...]}`); dosya yoksa yalnız kalıp denetimi çalışır.
+- Testler: `tests/test_terfi.py`.
+
 ## Test takımı
 - Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; yaklaşık 4 dk).
 - Değişiklikten sonra commit'ten önce koş.
@@ -47,3 +57,8 @@ Adımlar:
 - Sayfa/sunucu sözleşmesi `SURUM = "13"` (satır 80). Değişince sağlık yanıtı (`ok <sürüm>`, satır 616) eşleşmez ve eski sunucu yeniden başlatılır.
 - Test sunucusu: `python plugins/orkestra/scripts/panel.py _kos <port> --test` panel.json dosyasını **yazmaz** (satır 641–644; G-096). Gerçek panelin durum dosyası `~/.claude/orkestra-panel/panel.json` yerinde kalır. Bayraksız `_kos <port>` bu dosyanın üzerine yazar; testte bayrağı kullan.
 - POST `/ac` gerçek ya da uydurma oturum kimliğiyle denenmez; masaüstü süreci başlatır.
+
+## İzin politikası (hook)
+- Karar mantığı `scripts/izin_politikasi.py`, desenler `ayarlar/izin_politikasi.json`; hook'a bağlantı `hook.py` içinde `_izin_karari` / `_kapi_uygula` / `gec()` (varsayılan allow). Eşleşme `hooks/hooks.json` PreToolUse `matcher`ındadır: yeni bir araç ailesi kapıya girecekse eşleşmeye de ekle (`orkestra doktor` MCP kapsamını denetler).
+- Karar sırası: kilitli test `deny` > yasak `deny` > kapı `ask` > `orkestra` CLI `allow` > geniş `allow`. Kabukta kapı, kilitli test denetiminden sonra uygulanır (kilidi onayla aşamasın).
+- Testler: `tests/test_izin_politikasi.py`. `tests/conftest.py` `ORKESTRA_IZIN=0` verir (eski hook testleri kapı kararlarını boş çıktıyla sınar); izin testleri modu kendileri seçer.

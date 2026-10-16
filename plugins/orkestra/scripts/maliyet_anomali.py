@@ -23,6 +23,10 @@ from __future__ import annotations
 import collections
 import datetime
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ork_lib as L  # noqa: E402
 
 ESIKLER = {"esik_kart_usd": 2.0, "esik_kart_ajan": 8, "esik_ana_pay": 0.5}
 ISCI_SURECLERI = ("is", "duzeltme", "yukseltme")
@@ -60,10 +64,9 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
     e = {**ESIKLER, **(esikler or {})}
     tavanlar = tavanlar or {}
     ajan = ajanlari_birlestir(satirlar)
-    # Ana ajan: kimliksiz satırlar; 'tur' kaynağı varsa yalnız o (hook satırı aynı turu ikinci kez sayar).
-    ana = [d for d in satirlar if d.get("ajan") == "ana-ajan" and not d.get("agent_id")]
-    if any(d.get("kaynak") == "tur" for d in ana):
-        ana = [d for d in ana if d.get("kaynak") == "tur"]
+    # Ana ajan payı: karta bağlı olmayan satırlar (ork_lib.ana_ajan_satiri_mi, KPI ile tek tanım). Satırlar
+    # maliyet_kayitlari'ndan gelir; tur/hook çifte sayımı orada çözülür.
+    ana = [d for d in satirlar if L.ana_ajan_satiri_mi(d)]
     out = []
     kart_ajan = collections.defaultdict(list)
     for d in ajan:
@@ -90,7 +93,8 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
         isciler = sorted(((x["_z"] - datetime.timedelta(milliseconds=x.get("sure_ms") or 0), x["_z"], x)
                           for x in liste if x.get("surec") in ISCI_SURECLERI), key=lambda t: t[0])
         for (b1, s1, x1), (b2, s2, x2) in zip(isciler, isciler[1:]):
-            if b2 < s1 and x1.get("agent_id") != x2.get("agent_id"):
+            # 2 sn'den az çakışma saat yuvarlaması sayılır (transkript damgası ile süre farkı); gerçek eşzamanlılık değil
+            if (s1 - b2).total_seconds() > 2 and x1.get("agent_id") != x2.get("agent_id"):
                 out.append({"kural": "K4", "ad": "es-zamanli-isci", "kart": gid,
                             "usd": round((x2.get("maliyet_usd") or 0), 2),
                             "ayrinti": f"{x1.get('surec')} ({b1:%H:%M}-{s1:%H:%M}) ile {x2.get('surec')} ({b2:%H:%M}-{s2:%H:%M}) çakışıyor"})
@@ -103,7 +107,7 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
     if kapi:
         out.append({"kural": "K5", "ad": "kapi-ajani", "kart": "-", "usd": round(sum(x.get("maliyet_usd") or 0 for x in kapi), 2),
                     "ayrinti": f"{len(kapi)} kapı/ön kontrol ajanı (kapılar CLI is-bitti'de koşmalı)"})
-    toplam = sum(d.get("maliyet_usd") or 0 for d in ajan + ana)
+    toplam = sum(d.get("maliyet_usd") or 0 for d in satirlar)
     ana_usd = sum(d.get("maliyet_usd") or 0 for d in ana)
     if toplam > 0 and ana_usd / toplam >= e["esik_ana_pay"]:
         out.append({"kural": "K6", "ad": "ana-ajan-payi", "kart": "-", "usd": round(ana_usd, 2),
@@ -113,12 +117,9 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
 
 
 def calistir(sd: str, gun: int | None = 1, simdi=None) -> list[dict]:
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import butce
-    import ork_lib as L
     simdi = simdi or datetime.datetime.now().astimezone()
-    sinir = simdi - datetime.timedelta(days=gun) if gun else None
+    sinir = L.gun_baslangici(gun, simdi) if gun else None
     tum = L.maliyet_kayitlari(sd)
     satirlar = []
     for d in tum:

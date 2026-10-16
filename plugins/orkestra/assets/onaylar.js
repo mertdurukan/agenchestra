@@ -139,8 +139,29 @@
     }
   }
 
+  // Perspektif şeridi: süren arka plan görevleri (yalnız varsa) ve açık işlerin todo sayımı (yapılan / kalan).
+  function perspDurumCiz() {
+    const kap = $('#perspDurum'); if (!kap) return;
+    const v = S.veri;
+    if (!v) { yerlestir(kap, ''); return; }
+    const bp = Array.isArray(v.arka_plan) ? v.arka_plan : [];
+    const t = v.todo || { biten: 0, kalan: 0, toplam: 0, isler: [] };
+    const ADLAR = { perspektif: 'Perspektif', uygulama: 'Uygulama', sohbet: 'Sohbet' };
+    let html = '';
+    if (bp.length) {
+      html += `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
+        bp.map(x => `<li>${esc(ADLAR[x.tur] || x.tur)}: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>';
+    }
+    html += t.toplam
+      ? `<p class="persp-satir"><b>Todo: ${t.biten} yapıldı · ${t.kalan} kaldı</b> <span class="meta">(${t.toplam} madde, ${t.isler.length} açık iş)</span></p>` +
+        '<ul>' + t.isler.map(i => `<li>${esc(i.id)} ${esc(i.ad)}: ${i.biten} yapıldı · ${i.kalan} kaldı</li>`).join('') + '</ul>'
+      : '<p class="persp-satir meta">Todo: açık işte madde yok.</p>';
+    yerlestir(kap, html);
+  }
+
   function sayfaCiz() {
     uygulaDugmeCiz();
+    perspDurumCiz();
     const kap = $('#liste');
     if (!S.veri) {
       yerlestir($('#gorunumCipler'), ''); yerlestir($('#durumCipler'), ''); yerlestir($('#turCipler'), ''); $('#oSayi').textContent = '';
@@ -227,6 +248,19 @@
     if (b.dataset.durum) { S.durum = b.dataset.durum; return sayfaCiz(); }
     if (b.dataset.gorunum) { S.gorunum = b.dataset.gorunum; S.durum = 'hepsi'; return sayfaCiz(); }
   });
+  let perspektifYolda = false;
+  async function perspektifCalistir(b) {
+    if (perspektifYolda) return;
+    perspektifYolda = true; b.disabled = true;
+    try {
+      await O.gonder('/perspektif-calistir?alan=' + encodeURIComponent(O.alan), {});
+      O.bildirim('Perspektif için yeni sohbet açılıyor.');
+    } catch (e) {
+      O.bildirim('Perspektif başlatılamadı: ' + O.yolGizle(e && e.message ? e.message : String(e)));
+    } finally { perspektifYolda = false; b.disabled = false; }
+  }
+  const pb = $('#perspektifCalistir');
+  if (pb) pb.addEventListener('click', () => perspektifCalistir(pb));
   ana.addEventListener('input', e => {
     const n = e.target.dataset && e.target.dataset.not;
     if (n) (S.taslak[n] = S.taslak[n] || {}).not = e.target.value;

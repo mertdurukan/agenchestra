@@ -52,7 +52,8 @@ VARSAYILAN = {
     "autoDreamEnabled": True,
     "workflowSizeGuideline": "large",
 }
-GITIGNORE = [".claude/orkestra/*", "!.claude/orkestra/README.md", ".claude/agent-memory-local/", ".claude/settings.local.json"]
+GITIGNORE = [".claude/orkestra/*", "!.claude/orkestra/README.md", ".claude/orkestra/yerel.json",
+             "!.claude/orkestra/doktor.d/", ".claude/agent-memory-local/", ".claude/settings.local.json"]
 CLAUDE_MD_BOLUMU = """
 ## Orkestra (Claude orkestrasyon sistemi)
 - Ana ajan (Opus 5.5 medium) planlar, dağıtır, toplar; işçi işini kendisi yapmaz ve onay yazmaz. Çok adımlı iş: `/orkestra:is <istek>`.
@@ -124,16 +125,26 @@ def ayar_birlestir(proje, ui, kuru):
 
 
 def gitignore(proje, kuru):
+    """Eksik satırları ekler. Dosyanın satır sonu (CRLF/LF) ve son satırının durumu korunur; var olan satır tekrar eklenmez."""
     if not os.path.isdir(os.path.join(proje, ".git")):
         return
     yol = os.path.join(proje, ".gitignore")
-    mevcut = open(yol, encoding="utf-8").read().splitlines() if os.path.exists(yol) else []
+    ham = ""
+    if os.path.exists(yol):
+        with open(yol, encoding="utf-8", newline="") as f:  # newline="": satır sonları olduğu gibi okunur
+            ham = f.read()
+    mevcut = [x.strip() for x in ham.splitlines()]
     eksik = [s for s in GITIGNORE if s not in mevcut]
-    if eksik:
-        print(f"  .gitignore ← {len(eksik)} satır")
-        if not kuru:
-            with open(yol, "a", encoding="utf-8", newline="\n") as f:
-                f.write(("\n" if mevcut and mevcut[-1] else "") + "# orkestra çalışma zamanı\n" + "\n".join(eksik) + "\n")
+    if not eksik:
+        return
+    print(f"  .gitignore ← {len(eksik)} satır")
+    if kuru:
+        return
+    sonu = "\r\n" if "\r\n" in ham else "\n"
+    onek = ("" if not ham or ham.endswith("\n") else sonu) + (sonu if ham.strip() and mevcut[-1] else "")
+    govde = sonu.join(["# orkestra çalışma zamanı"] + eksik) + sonu
+    with open(yol, "a", encoding="utf-8", newline="") as f:
+        f.write(onek + govde)
 
 
 def claude_md(proje, kuru):

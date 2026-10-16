@@ -3,8 +3,9 @@
 Depolama (sd = <proje>/.claude/orkestra):
   sd/onaylar/O-001.json ...      kayıt başına dosya
   sd/onaylar/gorulen.json        {oturum: son görülen karar zamanı}
-  sd/kurallar/kurallar.json      {kurallar: [...]}
-  <proje>/.claude/rules/orkestra_kurallari.md   etkin kurallardan üretilir (her değişimde atomik yazılır)
+  sd/kurallar/kurallar.json      {kurallar: [...], devre_disi: {...}}   proje katmanı
+  <eklenti>/kurallar/eklenti_kurallari.json   {kurallar: [...]}          plugin katmanı (her projede geçerli)
+  <proje>/.claude/rules/orkestra_kurallari.md   iki katmanın etkin kurallarından üretilir (her değişimde atomik yazılır)
 
 Eşzamanlılık: tüm değişiklikler tek kilit altında (sd/onaylar/.islem). Kilit yeniden girişli değildir;
 bu yüzden herkese açık işlevler kilidi alıp `_` önekli iç işlevleri çağırır.
@@ -26,6 +27,11 @@ TURLER = ("perspektif", "skill", "kural", "karar")
 DURUMLAR = ("bekliyor", "onaylandi", "reddedildi", "uygulaniyor", "uygulandi", "eskidi", "iptal")
 KURAL_DURUMLARI = ("oneri", "etkin", "reddedildi", "kaldirildi")
 KURAL_DOSYASI = "orkestra_kurallari.md"
+KATMANLAR = ("proje", "plugin")
+KATMAN_TAKMA = {"eklenti": "plugin"}
+EKLENTI_DOSYASI = "eklenti_kurallari.json"
+ESKI_BASLA = "<!-- eklenti-kurallari:basla -->"
+ESKI_BITIS = "<!-- eklenti-kurallari:bitis -->"
 SKILL_MAX = 6000
 KAYNAK_MAX = 8000
 BAGLAM_MAX = 900
@@ -113,7 +119,7 @@ def _olay(k: dict, olay: str, not_: str | None = None) -> None:
     k.setdefault("gecmis", []).append(g)
 
 
-def _yeni_kayit(sd: str, tur: str, baslik: str, metin: str, kaynak, anahtar, secenekler, oturum) -> dict:
+def _yeni_kayit(sd: str, tur: str, baslik: str, metin: str, kaynak, anahtar, secenekler, oturum, ek: dict | None = None) -> dict:
     if tur not in TURLER:
         raise ValueError(f"geçersiz tür: {tur!r} ({', '.join(TURLER)})")
     simdi = L.simdi()
@@ -121,6 +127,8 @@ def _yeni_kayit(sd: str, tur: str, baslik: str, metin: str, kaynak, anahtar, sec
          "anahtar": anahtar or "", "secenekler": list(secenekler or []), "oturum": oturum,
          "durum": "bekliyor", "karar": None, "uygulama": None,
          "olusturma": simdi, "guncelleme": simdi, "gecmis": [{"zaman": simdi, "olay": "olusturuldu"}]}
+    if ek:
+        k.update(ek)
     _kayit_yaz(sd, k)
     return k
 
@@ -143,32 +151,198 @@ def _anahtarli(sd: str, anahtar: str) -> dict | None:
 
 
 # ---------------------------------------------------------------- kurallar (iç)
+#
+# İki katman: "proje" (sd/kurallar/kurallar.json; yalnız bu projeye özgü) ve "plugin" (eklenti deposunda
+# kurallar/eklenti_kurallari.json; her projede geçerli). Kayıt biçimi aynıdır, `katman` alanı katmanı söyler.
+# Kimlikler: proje K-nnn, eklentide yeni kurallar P-nnn; eklentiye taşınmış eski K-nnn kimlikleri korunur
+# (belgeler ve kod o kimliğe atıf yapıyor). Proje için sonraki K numarası iki katmandaki en büyük K'dan türer,
+# böylece korunan kimlik yeniden kullanılmaz. Çakışmada proje kuralı eklenti kuralından önce gelir.
+
+def eklenti_kural_yolu() -> str:
+    """Eklenti katmanının kural deposu. Önbellekten (plugins/cache) çalışırken yazım önbelleğe değil kaynak depoya gider
+    (önbellek güncellemede silinir); kaynak yoksa ya da kaynak klasörden çalışılıyorsa PLUGIN_ROOT. Test ve özel kurulum:
+    ORKESTRA_EKLENTI_KURALLARI tam dosya yolu."""
+    env = os.environ.get("ORKESTRA_EKLENTI_KURALLARI")
+    if env:
+        return env
+    kok = L.PLUGIN_ROOT
+    if "/plugins/cache/" in os.path.normcase(kok).replace("\\", "/"):
+        kaynak = L.pazar_kaynagi()
+        aday = os.path.join(kaynak, "plugins", "orkestra") if kaynak else ""
+        if aday and os.path.isdir(aday):
+            kok = aday
+    return L.kaynaga_cevir(os.path.join(kok, "kurallar", EKLENTI_DOSYASI))  # klondaysa kaynak depodaki dosya
+
+
+def _katman_adi(katman: str | None) -> str:
+    k = KATMAN_TAKMA.get((katman or "proje").strip().lower(), (katman or "proje").strip().lower())
+    if k not in KATMANLAR:
+        raise ValueError(f"geçersiz katman: {katman!r} ({', '.join(KATMANLAR)})")
+    return k
+
+
+def _depo_oku(sd: str) -> dict:
+    v = _oku_json(_kurallar_yolu(sd), {"kurallar": []})
+    if isinstance(v, list):
+        v = {"kurallar": v}
+    if not isinstance(v, dict):
+        v = {"kurallar": []}
+    if not isinstance(v.get("kurallar"), list):
+        v["kurallar"] = []
+    return v
+
 
 def _kurallar_oku(sd: str) -> list[dict]:
-    v = _oku_json(_kurallar_yolu(sd), {"kurallar": []})
-    return v.get("kurallar", []) if isinstance(v, dict) else []
+    """Proje katmanı (geriye uyumlu ad). Eski kayıtlarda katman yoksa 'proje' sayılır."""
+    liste_ = _depo_oku(sd)["kurallar"]
+    for r in liste_:
+        if isinstance(r, dict):
+            r.setdefault("katman", "proje")
+    return liste_
+
+
+def _eklenti_oku() -> list[dict]:
+    v = _oku_json(eklenti_kural_yolu(), {"kurallar": []})
+    liste_ = v.get("kurallar", []) if isinstance(v, dict) else []
+    liste_ = liste_ if isinstance(liste_, list) else []
+    for r in liste_:
+        if isinstance(r, dict):
+            r["katman"] = "plugin"
+    return liste_
+
+
+def _katman_oku(sd: str, katman: str) -> list[dict]:
+    return _eklenti_oku() if katman == "plugin" else _kurallar_oku(sd)
 
 
 def _kurallar_yaz(sd: str, liste: list[dict]) -> None:
-    _yaz_json(_kurallar_yolu(sd), {"kurallar": liste})
-    _kural_dosyasini_yaz(sd, liste)
+    """Proje deposunu yazar (devre_disi gibi başka anahtarlar korunur) ve kural dosyasını üretir."""
+    depo = _depo_oku(sd)
+    depo["kurallar"] = liste
+    _yaz_json(_kurallar_yolu(sd), depo)
+    _kural_dosyasini_yaz(sd)
 
 
-def _kural_dosyasini_yaz(sd: str, liste: list[dict]) -> None:
+def _eklenti_yaz(sd: str, liste: list[dict]) -> None:
+    _yaz_json(eklenti_kural_yolu(), {"kurallar": liste})
+    _kurallar_md_blogu_yaz(liste)
+    _kural_dosyasini_yaz(sd)
+
+
+def _katman_yaz(sd: str, katman: str, liste: list[dict]) -> None:
+    (_eklenti_yaz if katman == "plugin" else _kurallar_yaz)(sd, liste)
+
+
+def _devre_disi(sd: str) -> dict[str, dict]:
+    """Bu projede kapatılmış eklenti kuralları: {kimlik: {not, zaman}}."""
+    v = _depo_oku(sd).get("devre_disi")
+    return {k: (x if isinstance(x, dict) else {}) for k, x in v.items()} if isinstance(v, dict) else {}
+
+
+def etkin_kurallar(sd: str) -> list[dict]:
+    """Bu projede geçerli etkin kurallar: eklenti (bu projede kapatılmamış) önce, proje sonra; her kayıtta `katman`."""
+    kapali = _devre_disi(sd)
+    out = [r for r in _eklenti_oku() if r.get("durum") == "etkin" and r.get("id") not in kapali]
+    out += [r for r in _kurallar_oku(sd) if r.get("durum") == "etkin"]
+    return out
+
+
+def _kural_dosya_metni(sd: str) -> str:
+    plug = [r for r in _eklenti_oku() if r.get("durum") == "etkin"]
+    kapali = _devre_disi(sd)
+    plug_acik = [r for r in plug if r.get("id") not in kapali]
+    proje = [r for r in _kurallar_oku(sd) if r.get("durum") == "etkin"]
+    if not plug_acik and not proje:
+        return ""
+    satirlar = ["# Orkestra kuralları (panelden yönetilir)", "",
+                "Bu dosya Orkestra panelinden üretilir; elle düzenleme, panelde Kurallar sayfasını kullan.", ""]
+
+    def kural_satirlari(liste_):
+        for r in liste_:
+            tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
+            satirlar.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            if r.get("neden"):
+                satirlar.append(f"  - Neden: {_tek_satir(r['neden'])}")
+
+    if plug_acik:  # tek katmanlıysa eski düzen (başlıksız) korunur
+        satirlar += ["Çakışmada proje kuralı eklenti kuralından önce gelir.", "",
+                     "## Eklenti kuralları (orkestra eklentisinden; her projede geçerli)", ""]
+    kural_satirlari(plug_acik)
+    if plug_acik and proje:
+        satirlar += ["", "## Proje kuralları (yalnız bu projeye özgü)", ""]
+    kural_satirlari(proje)
+    kapali_etkin = [r for r in plug if r.get("id") in kapali]
+    if kapali_etkin:
+        satirlar += ["", "Bu projede kapatılmış eklenti kuralları (geçerli değil): "
+                     + ", ".join(f"{r['id']}" + (f" ({_tek_satir(kapali[r['id']].get('not'))})" if kapali[r["id"]].get("not") else "")
+                                 for r in kapali_etkin) + "."]
+    return "\n".join(satirlar) + "\n"
+
+
+def _kural_dosyasini_yaz(sd: str, liste: list[dict] | None = None) -> None:
+    """<proje>/.claude/rules/orkestra_kurallari.md: iki katmanın etkin kuralları. Etkin kural yoksa dosya silinir.
+    `liste` yalnız eski çağrılar için kabul edilir; içerik her zaman iki depodan okunur."""
     yol = _kural_dosya_yolu(sd)
-    etkin = [r for r in liste if r.get("durum") == "etkin"]
-    if not etkin:
+    metin = _kural_dosya_metni(sd)
+    if not metin:
         if os.path.exists(yol):
             os.remove(yol)
         return
-    satirlar = ["# Orkestra kuralları (panelden yönetilir)", "",
-                "Bu dosya Orkestra panelinden üretilir; elle düzenleme, panelde Kurallar sayfasını kullan.", ""]
-    for r in etkin:
-        tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-        satirlar.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
-        if r.get("neden"):
-            satirlar.append(f"  - Neden: {_tek_satir(r['neden'])}")
-    L.atomik_yaz(yol, "\n".join(satirlar) + "\n")
+    L.atomik_yaz(yol, metin)
+
+
+def kural_dosyasi_esitle(sd: str) -> bool:
+    """SessionStart: eklenti katmanı değişmişse (başka depodan güncelleme, başka projede eklenen kural) bu projenin kural
+    dosyasını yeniler. İçerik aynıysa yazmaz. Yazdıysa True. Kural dosyası oturum açılışında yüklendiği için yeni içerik
+    bir sonraki oturumda görünür."""
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        yol = _kural_dosya_yolu(sd)
+        metin = _kural_dosya_metni(sd)
+        try:
+            with open(yol, encoding="utf-8", newline="") as f:
+                var = f.read()
+        except OSError:
+            var = ""
+        if var.replace("\r\n", "\n") == metin:
+            return False
+        _kural_dosyasini_yaz(sd)
+        return True
+
+
+def _kurallar_md_blogu_yaz(liste: list[dict]) -> None:
+    """Eklenti KURALLAR.md'sindeki kayıtlı-kural bloğunu (işaretçiler arası) eklenti deposundan yeniden üretir.
+    KURALLAR.md yoksa dokunmaz (test ve özel kurulum)."""
+    yol = os.path.join(os.path.dirname(os.path.dirname(eklenti_kural_yolu())), "KURALLAR.md")
+    if not os.path.isfile(yol):
+        return
+    with open(yol, encoding="utf-8", newline="") as f:
+        ham = f.read()
+    crlf = "\r\n" in ham
+    t = ham.replace("\r\n", "\n")
+    etkin = [r for r in liste if r.get("durum") == "etkin"]
+    blok = ""
+    if etkin:
+        blok = [ESKI_BASLA, "## Kayıtlı eklenti kuralları", "",
+                "Bu bölüm `orkestra kural` komutuyla yönetilir (`kurallar/eklenti_kurallari.json`); elle düzenleme.", ""]
+        for r in etkin:
+            tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
+            blok.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            if r.get("neden"):
+                blok.append(f"  - Neden: {_tek_satir(r['neden'])}")
+        blok.append(ESKI_BITIS)
+        blok = "\n".join(blok)
+    desen = re.compile(re.escape(ESKI_BASLA) + r".*?" + re.escape(ESKI_BITIS), re.S)
+    if desen.search(t):
+        t = desen.sub(lambda _: blok, t, count=1)
+        if not blok:
+            t = re.sub(r"\n{3,}", "\n\n", t)
+    elif blok:
+        t = t.rstrip("\n") + "\n\n" + blok + "\n"
+    t = t.rstrip("\n") + "\n"
+    if t == ham.replace("\r\n", "\n").rstrip("\n") + "\n":
+        return
+    L.atomik_yaz(yol, t.replace("\n", "\r\n") if crlf else t)
 
 
 def _tek_satir(s: str) -> str:
@@ -182,21 +356,33 @@ def _kural_bul(liste: list[dict], kid: str) -> dict:
     raise ValueError(f"kural bulunamadı: {kid}")
 
 
-def _kural_sonraki_id(liste: list[dict]) -> str:
+def _kural_katmani(sd: str, kid: str) -> str:
+    """Kimliğin bulunduğu katman; ikisinde de yoksa ValueError."""
+    for katman in KATMANLAR:
+        if any(r.get("id") == kid for r in _katman_oku(sd, katman)):
+            return katman
+    raise ValueError(f"kural bulunamadı: {kid}")
+
+
+def _kural_sonraki_id(liste: list[dict], katman: str = "proje", diger: list[dict] | None = None) -> str:
+    """Proje: K-(iki katmandaki en büyük K)+1. Eklenti: P-(eklentideki en büyük P)+1."""
+    onek = "P" if katman == "plugin" else "K"
     en = 0
-    for r in liste:
-        m = re.fullmatch(r"K-(\d+)", r.get("id", ""))
+    for r in list(liste) + list(diger or []):
+        m = re.fullmatch(onek + r"-(\d+)", r.get("id", ""))
         if m:
             en = max(en, int(m.group(1)))
-    return f"K-{en + 1:03d}"
+    return f"{onek}-{en + 1:03d}"
 
 
-def _kural_yeni(liste: list[dict], metin: str, neden: str | None, durum: str, kaynak: str) -> dict:
+def _kural_yeni(liste: list[dict], metin: str, neden: str | None, durum: str, kaynak: str,
+                katman: str = "proje", diger: list[dict] | None = None) -> dict:
     metin = L.maskele(_tek_satir(metin))
     if not metin:
         raise ValueError("kural metni boş olamaz.")
     simdi = L.simdi()
-    r = {"id": _kural_sonraki_id(liste), "metin": metin, "neden": L.maskele(_tek_satir(neden)) if neden else "",
+    r = {"id": _kural_sonraki_id(liste, katman, diger), "katman": katman, "metin": metin,
+         "neden": L.maskele(_tek_satir(neden)) if neden else "",
          "durum": durum, "kaynak": kaynak, "olusturma": simdi, "guncelleme": simdi,
          "gecmis": [{"zaman": simdi, "olay": "olusturuldu" if durum == "oneri" else "eklendi", "metin": metin}]}
     if durum == "etkin":
@@ -282,6 +468,95 @@ def en_yeni_rapor(sd: str) -> str | None:
     return max(raporlar, key=damga)
 
 
+_YAYIN = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Yay[ıi]n(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.*)$", re.IGNORECASE)
+_YAYIN_ETIKET = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(Eklenti metni|Neden)(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.*)$", re.IGNORECASE)
+_KAPSAMLAR = ("proje", "evrensel")
+_HEDEFLER = ("kural", "skill", "yok")
+
+
+def yayin_ayristir(govde: str) -> tuple[dict, bool]:
+    """Madde gövdesindeki `Yayın: kapsam=<proje|evrensel>; hedef=<kural|skill|yok>` satırını ve altındaki
+    `Eklenti metni:` / `Neden:` satırlarını ayrıştırır. (yayin, bicimli) döner; satır yoksa ya da bozuksa
+    kapsam=proje, hedef=yok, bicimli=False."""
+    varsayilan = {"kapsam": "proje", "hedef": "yok", "metin": "", "neden": ""}
+    satirlar = (govde or "").splitlines()
+    for i, s in enumerate(satirlar):
+        m = _YAYIN.match(s)
+        if not m:
+            continue
+        alanlar = {}
+        for parca in re.split(r"[;,]", m.group(1).replace("**", "")):
+            if "=" in parca:
+                a, _, d = parca.partition("=")
+                alanlar[a.strip().lower()] = d.strip().strip("`").lower()
+        if alanlar.get("kapsam") not in _KAPSAMLAR or alanlar.get("hedef") not in _HEDEFLER:
+            return varsayilan, False
+        yayin = {"kapsam": alanlar["kapsam"], "hedef": alanlar["hedef"], "metin": "", "neden": ""}
+        cur = None
+        for s2 in satirlar[i + 1:]:
+            e = _YAYIN_ETIKET.match(s2)
+            if e:
+                cur = "metin" if e.group(1).lower().startswith("eklenti") else "neden"
+                yayin[cur] = e.group(2).strip()
+            elif cur and s2.strip():
+                yayin[cur] = (yayin[cur] + " " + s2.strip()).strip()
+            else:
+                cur = None
+        return yayin, True
+    return varsayilan, False
+
+
+# ---------------------------------------------------------------- terfi kapısı
+
+_TERFI_JIRA_IZINLI = ("UTF", "SHA", "ISO", "RFC", "MD", "HTTP")
+_TERFI_KALIPLAR = [
+    ("sır", re.compile(r"(?i)\b(?:api[_ -]?key|apikey|token|secret|password|passwd|şifre|sifre)\b\s*[:=]\s*\S+"), True),
+    ("sır", re.compile(r"\b(?:sk-[A-Za-z0-9_-]{16,}|pk-lf-[A-Za-z0-9-]{8,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|"
+                       r"eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{10,})"), True),
+    ("kart kimliği", re.compile(r"\bG-\d{2,}\b"), False),
+    ("Windows yolu", re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s\"'`]*"), False),
+    ("e-posta", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), False),
+]
+_TERFI_JIRA = re.compile(r"\b([A-Z][A-Z0-9]+)-(\d+)\b")
+
+
+def _terfi_yasak_terimleri(sd: str) -> list[str]:
+    yol = os.path.join(sd, "terfi_yasak.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            v = json.load(f)
+    except (OSError, ValueError):
+        return []
+    if isinstance(v, dict):
+        v = v.get("terimler", [])
+    return [t.strip() for t in v if isinstance(t, str) and t.strip()] if isinstance(v, list) else []
+
+
+def terfi_denetle(metin: str, neden: str, sd: str) -> list[str]:
+    """Eklenti katmanına (her projede geçerli) gidecek kural metni ve nedenini denetler; isabet satırları döner
+    (boş liste = temiz). Sır değeri isabet satırına yazılmaz."""
+    isabet = []
+    terimler = _terfi_yasak_terimleri(sd)
+    for alan, s in (("metin", metin or ""), ("neden", neden or "")):
+        for ad, kalip, gizli in _TERFI_KALIPLAR:
+            for m in kalip.finditer(s):
+                isabet.append(f"{alan}: {ad}: " + ("<gizli>" if gizli else m.group(0)[:60]))
+        for m in _TERFI_JIRA.finditer(s):
+            if m.group(1) not in _TERFI_JIRA_IZINLI:
+                isabet.append(f"{alan}: Jira kodu: {m.group(0)}")
+        alt = s.lower()
+        for t in terimler:
+            if t.lower() in alt:
+                isabet.append(f"{alan}: yasak terim: {t}")
+    return isabet
+
+
+def _terfi_kapisi(sd: str, metin: str, neden: str) -> None:
+    isabet = terfi_denetle(metin, neden, sd)
+    if isabet:
+        raise ValueError("eklenti katmanına terfi kapısı reddetti (kural yazılmadı): " + "; ".join(isabet))
+
+
 def _esitle_perspektif(sd: str) -> None:
     yol = en_yeni_rapor(sd)
     if not yol:
@@ -298,7 +573,8 @@ def _esitle_perspektif(sd: str) -> None:
             baslik = "Skill adayı: " + _skill_adi(ilk)
         else:
             baslik = re.sub(r"^\d+\.\s+", "", ilk).strip()[:100]
-        _yeni_kayit(sd, "perspektif", baslik, govde, yol, anahtar, [], None)
+        yayin, bicimli = yayin_ayristir(govde)
+        _yeni_kayit(sd, "perspektif", baslik, govde, yol, anahtar, [], None, ek={"yayin": yayin})
     # Daha eski rapordan gelen, hâlâ bekleyen perspektif kayıtları eskir.
     for k in _hepsi(sd):
         a = k.get("anahtar", "")
@@ -615,31 +891,102 @@ def _kisalt_metin(s: str) -> str:
 
 # ---------------------------------------------------------------- kurallar (genel)
 
-def kurallar(sd: str) -> list:
-    return _kurallar_oku(sd)
+def kurallar(sd: str, katman: str | None = None) -> list:
+    """İki katmanın tüm kayıtları (eklenti, proje sırasıyla); her kayıtta `katman`, eklenti kayıtlarında ayrıca `devre_disi`
+    (bu projede kapatılmış mı). `katman` verilirse yalnız o katman."""
+    k = _katman_adi(katman) if katman else None
+    kapali = _devre_disi(sd)
+    out = []
+    if k in (None, "plugin"):
+        out += [dict(r, devre_disi=r.get("id") in kapali) for r in _eklenti_oku()]
+    if k in (None, "proje"):
+        out += _kurallar_oku(sd)
+    return out
 
 
-def _kural_islemi(sd: str, islem):
+def _kural_islemi(sd: str, islem, katman: str = "proje"):
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
-        liste_ = _kurallar_oku(sd)
+        liste_ = _katman_oku(sd, katman)
         sonuc = islem(liste_)
-        _kurallar_yaz(sd, liste_)
+        _katman_yaz(sd, katman, liste_)
         return sonuc
 
 
-def kural_oner(sd: str, metin: str, neden: str, kaynak: str) -> dict:
-    """Öneri kuralı açar ve panelde onaylanması için tur='kural' onay kaydı ekler."""
+def _kural_id_islemi(sd: str, id: str, islem):
+    """Kimliğin katmanını bulur, işlemi o katmanda koşar (kilit altında)."""
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        katman = _kural_katmani(sd, id)
+        liste_ = _katman_oku(sd, katman)
+        sonuc = islem(liste_)
+        _katman_yaz(sd, katman, liste_)
+        return sonuc
+
+
+def _kontrol_dogrula(kontrol) -> str:
+    """Kontrol kimliği kayıtlı değilse ValueError (geçerli kimlikleri sayar)."""
+    import kanit_kapisi
+    gecerli = kanit_kapisi.kontrol_kimlikleri()
+    if kontrol not in gecerli:
+        raise ValueError(f"bilinmeyen kontrol kimliği: {kontrol}. Geçerli kimlikler: {', '.join(gecerli) or '(yok)'}")
+    return kontrol
+
+
+def kural_oner(sd: str, metin: str, neden: str, kaynak: str, kontrol: str | None = None) -> dict:
+    """Öneri kuralı açar ve panelde onaylanması için tur='kural' onay kaydı ekler. Öneri hep proje katmanındadır
+    (onay kaydı projede tutulur); eklentiye taşımak için onaylandıktan sonra `kural_tasi`."""
+    if kontrol:
+        _kontrol_dogrula(kontrol)
+
     def is_(liste_):
-        r = _kural_yeni(liste_, metin, neden, "oneri", kaynak)
+        r = _kural_yeni(liste_, metin, neden, "oneri", kaynak, "proje", _eklenti_oku())
+        if kontrol:
+            r["kontrol"] = kontrol
         _kural_onayi_ac(sd, r)
         return r
     return _kural_islemi(sd, is_)
 
 
-def kural_ekle(sd: str, metin: str, neden: str, kaynak: str = "panel") -> dict:
-    """Doğrudan etkin kural (kullanıcı yazar)."""
-    return _kural_islemi(sd, lambda liste_: _kural_yeni(liste_, metin, neden, "etkin", kaynak))
+def kural_ekle(sd: str, metin: str, neden: str, kaynak: str = "panel", kontrol: str | None = None,
+               katman: str = "proje") -> dict:
+    """Doğrudan etkin kural (kullanıcı yazar). `katman`: 'proje' (varsayılan) ya da 'plugin'."""
+    katman = _katman_adi(katman)
+    if kontrol:
+        _kontrol_dogrula(kontrol)
+    if katman == "plugin":
+        _terfi_kapisi(sd, metin, neden)
+
+    def is_(liste_):
+        r = _kural_yeni(liste_, metin, neden, "etkin", kaynak, katman,
+                        _kurallar_oku(sd) if katman == "plugin" else _eklenti_oku())
+        if kontrol:
+            r["kontrol"] = kontrol
+        return r
+    return _kural_islemi(sd, is_, katman)
+
+
+def kural_bagla(sd: str, id: str, kontrol: str | None = None, kaldir: bool = False) -> dict:
+    """Öneri ya da etkin kurala kayıtlı ön kontrol bağı yazar ya da kaldırır (etkinlik kurallardan türer)."""
+    if not kaldir:
+        if not kontrol:
+            raise ValueError("kontrol kimliği ya da --kaldir gerekli.")
+        _kontrol_dogrula(kontrol)
+
+    def is_(liste_):
+        r = _kural_bul(liste_, id)
+        if r["durum"] not in ("oneri", "etkin"):
+            raise ValueError(f"{id} için kontrol bağı değiştirilemez (durum: {r['durum']}).")
+        simdi = L.simdi()
+        if kaldir:
+            r.pop("kontrol", None)
+            r.setdefault("gecmis", []).append({"zaman": simdi, "olay": "kontrol-kaldirildi"})
+        else:
+            r["kontrol"] = kontrol
+            r.setdefault("gecmis", []).append({"zaman": simdi, "olay": "kontrol-baglandi", "kontrol": kontrol})
+        r["guncelleme"] = simdi
+        return r
+    return _kural_id_islemi(sd, id, is_)
 
 
 def kural_duzenle(sd: str, id: str, metin: str, neden: str | None = None) -> dict:
@@ -650,13 +997,19 @@ def kural_duzenle(sd: str, id: str, metin: str, neden: str | None = None) -> dic
         yeni = L.maskele(_tek_satir(metin))
         if not yeni:
             raise ValueError("kural metni boş olamaz.")
+        yeni_neden = L.maskele(_tek_satir(neden)) if neden is not None else None
+        # Eklenti katmanı her projede geçerlidir: metin ya da neden değişiyorsa terfi kapısından geçer (yazmadan önce).
+        if (r.get("katman") == "plugin" or _kural_katmani(sd, id) == "plugin") and (
+                yeni != r.get("metin") or (yeni_neden is not None and yeni_neden != r.get("neden"))):
+            # ham metin denetlenir (maskeleme e-posta gibi kalıpları kapı görmeden siler; kural_ekle de ham metni denetler)
+            _terfi_kapisi(sd, metin, neden if neden is not None else (r.get("neden") or ""))
         r.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": "duzenlendi", "metin": r["metin"]})
         r["metin"] = yeni
-        if neden is not None:
-            r["neden"] = L.maskele(_tek_satir(neden))
+        if yeni_neden is not None:
+            r["neden"] = yeni_neden
         r["guncelleme"] = L.simdi()
         return r
-    return _kural_islemi(sd, is_)
+    return _kural_id_islemi(sd, id, is_)
 
 
 def kural_kaldir(sd: str, id: str, not_: str) -> dict:
@@ -673,19 +1026,92 @@ def kural_kaldir(sd: str, id: str, not_: str) -> dict:
                 _olay(k, "iptal", "kural kaldırıldı")
                 _kayit_yaz(sd, k)
         return r
-    return _kural_islemi(sd, is_)
+    return _kural_id_islemi(sd, id, is_)
+
+
+def kural_tasi(sd: str, id: str, katman: str, kimligi_koru: bool = False) -> dict:
+    """Etkin bir kuralı öbür katmana taşır. Kimlik varsayılan olarak hedef katmanın sıradaki kimliği olur (eski kimlik
+    `eski_id` alanında kalır); `kimligi_koru` mevcut kimliği korur (belge ve kodun atıf yaptığı kimlikler için) ve hedefte
+    o kimlik varsa reddedilir."""
+    hedef_k = _katman_adi(katman)
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        kaynak_k = _kural_katmani(sd, id)
+        if kaynak_k == hedef_k:
+            raise ValueError(f"{id} zaten {hedef_k} katmanında.")
+        kaynak = _katman_oku(sd, kaynak_k)
+        hedef = _katman_oku(sd, hedef_k)
+        r = _kural_bul(kaynak, id)
+        if r["durum"] != "etkin":
+            raise ValueError(f"{id} taşınamaz (durum: {r['durum']}); yalnız etkin kural taşınır.")
+        if hedef_k == "plugin":
+            _terfi_kapisi(sd, r.get("metin", ""), r.get("neden", ""))
+        yeni_id = id if kimligi_koru else _kural_sonraki_id(hedef, hedef_k, kaynak)
+        if any(x.get("id") == yeni_id for x in hedef):
+            raise ValueError(f"{yeni_id} hedef katmanda zaten var; kimlik korunamaz.")
+        simdi = L.simdi()
+        kaynak.remove(r)
+        r["katman"] = hedef_k
+        if yeni_id != id:
+            r["eski_id"] = id
+            r["id"] = yeni_id
+        r["guncelleme"] = simdi
+        r.setdefault("gecmis", []).append({"zaman": simdi, "olay": "tasindi", "not": f"{kaynak_k} → {hedef_k}"
+                                           + (f" ({id} → {yeni_id})" if yeni_id != id else "")})
+        hedef.append(r)
+        _katman_yaz(sd, hedef_k, hedef)  # önce hedef: yarıda kalırsa kural kaybolmaz, çift kalır
+        _katman_yaz(sd, kaynak_k, kaynak)
+        return r
+
+
+def kural_kapat(sd: str, id: str, not_: str = "") -> dict:
+    """Eklenti kuralını yalnız BU projede kapatır (eklenti deposuna dokunmaz)."""
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        if _kural_katmani(sd, id) != "plugin":
+            raise ValueError(f"{id} proje kuralı; kapatmak yerine `kural kaldir` kullan. Yalnız eklenti kuralları kapatılır.")
+        r = _kural_bul(_eklenti_oku(), id)
+        if r["durum"] != "etkin":
+            raise ValueError(f"{id} etkin değil (durum: {r['durum']}).")
+        depo = _depo_oku(sd)
+        kapali = depo.get("devre_disi") if isinstance(depo.get("devre_disi"), dict) else {}
+        kapali[id] = {"not": L.maskele(_tek_satir(not_)), "zaman": L.simdi()}
+        depo["devre_disi"] = kapali
+        _yaz_json(_kurallar_yolu(sd), depo)
+        _kural_dosyasini_yaz(sd)
+        return dict(r, devre_disi=True)
+
+
+def kural_ac(sd: str, id: str) -> dict:
+    """Bu projede kapatılmış eklenti kuralını yeniden açar."""
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        depo = _depo_oku(sd)
+        kapali = depo.get("devre_disi") if isinstance(depo.get("devre_disi"), dict) else {}
+        if id not in kapali:
+            raise ValueError(f"{id} bu projede kapalı değil.")
+        del kapali[id]
+        if kapali:
+            depo["devre_disi"] = kapali
+        else:
+            depo.pop("devre_disi", None)
+        _yaz_json(_kurallar_yolu(sd), depo)
+        _kural_dosyasini_yaz(sd)
+        return dict(_kural_bul(_eklenti_oku(), id), devre_disi=False)
 
 
 def kural_gorunum(sd: str, proje: str) -> dict:
-    liste_ = _kurallar_oku(sd)
+    proje_liste = _kurallar_oku(sd)
+    eklenti = [dict(r, devre_disi=r.get("id") in _devre_disi(sd)) for r in _eklenti_oku()]
     oneriler = []
-    for r in liste_:
+    for r in proje_liste:
         if r.get("durum") == "oneri":
             k = _anahtarli(sd, f"kural:{r['id']}")
             oneriler.append(dict(r, onay_id=k["id"] if k else None))
-    return {"etkin": [r for r in liste_ if r.get("durum") == "etkin"],
+    return {"etkin": [r for r in eklenti if r.get("durum") == "etkin"]
+            + [r for r in proje_liste if r.get("durum") == "etkin"],
             "oneriler": oneriler,
-            "gecmis": [r for r in liste_ if r.get("durum") in ("reddedildi", "kaldirildi")],
+            "gecmis": [r for r in eklenti + proje_liste if r.get("durum") in ("reddedildi", "kaldirildi")],
             "kaynaklar": _kural_kaynaklari(proje)}
 
 

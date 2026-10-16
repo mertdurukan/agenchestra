@@ -119,6 +119,18 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .canli.kismi i { background: var(--warning); }
 .canli.kopuk { color: var(--critical); }
 .canli.kopuk i { background: var(--critical); }
+.kabuk .isler-sifirla { flex: none; font-size: var(--t-12); padding: 2px var(--a-8); color: var(--text-secondary); }
+.kabuk .isler-sifirla:hover { color: var(--text-primary); border-color: var(--serious); }
+
+/* İşleri sıfırla: son onay penceresi */
+dialog.sifirla-onay {
+  background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--line); border-radius: var(--k-10);
+  padding: var(--a-16) var(--a-24); max-width: min(440px, calc(100vw - 32px));
+}
+dialog.sifirla-onay::backdrop { background: rgba(0, 0, 0, .55); }
+dialog.sifirla-onay h2 { font-size: var(--t-16); margin: 0 0 var(--a-8); }
+dialog.sifirla-onay p { margin: 0 0 var(--a-12); font-size: var(--t-13); color: var(--text-secondary); }
+dialog.sifirla-onay .dugmeler { justify-content: flex-end; }
 
 /* ---------------------------------------------------------------- sayfa gövdesi */
 main {
@@ -334,6 +346,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .hata-satir:empty { display: none; }
 .kural-liste { display: grid; gap: var(--a-8); margin: 0; padding: 0; list-style: none; }
 .kural-satir { background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--k-6); padding: var(--a-8) var(--a-12); }
+.katman { font-weight: 600; color: var(--text-primary); }
 .kural-satir .kural-metin { margin: 0 0 var(--a-4); overflow-wrap: anywhere; }
 .kural-form { display: grid; gap: var(--a-8); margin-top: var(--a-8); }
 .kural-form label { display: grid; gap: var(--a-4); font-size: var(--t-12); color: var(--text-muted); }

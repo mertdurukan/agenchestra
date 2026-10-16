@@ -245,16 +245,27 @@ def _izle_kayit(sd: str, k: dict, bugun: datetime.date) -> bool:
     taban = (e.get("taban") or {}).get("deger")
     olaylar = []
     degisti = False
-    for i in range(len(gunluk), (bugun - bas).days + 1):
+    # Son iki satır her koşuda yeniden ölçülür: bugünün satırı gün içinde kısmi veriyle yazılır (dün kesinleşir);
+    # yeniden ölçmeden satır ilk ölçümde donar ve birikim/gidişat eski veriye dayanır.
+    for i in range(max(0, len(gunluk) - 2), (bugun - bas).days + 1):
         gun = bas + datetime.timedelta(days=i)
         g_deger, g_ornek = _olc(sd, vaat["metrik"], gun, gun)
         b_deger, b_ornek = _olc(sd, vaat["metrik"], bas, gun)
         g = gidisat(taban, b_deger, b_ornek, vaat["yon"], vaat.get("esik"))
         fark = (b_deger - taban) / taban if taban and b_deger is not None else None
-        onceki = gunluk[-1]["gidisat"] if gunluk else None
         satir = {"gun": i + 1, "tarih": gun.isoformat(), "gunluk_deger": g_deger, "gunluk_ornek": g_ornek,
                  "birikim_deger": b_deger, "birikim_ornek": b_ornek, "fark_goreli": fark, "gidisat": g,
                  "karisik": _karisik(sd, oid, e["uygulama_tarihi"])}
+        if i < len(gunluk):  # var olan satırın yeniden ölçümü: değer değişmediyse dokunma, olay üretme
+            eski = gunluk[i]
+            if eski == satir:
+                continue
+            gunluk[i] = satir
+            degisti = True
+            if eski.get("gidisat") != g:
+                olaylar.append(("gidisat-degisti", {"gun": satir["gun"], "onceki": eski.get("gidisat"), "yeni": g}))
+            continue
+        onceki = gunluk[-1]["gidisat"] if gunluk else None
         gunluk.append(satir)
         olaylar.append(("gunluk-olcum", {"gun": satir["gun"], "tarih": satir["tarih"], "gidisat": g,
                                          "birikim_deger": b_deger, "birikim_ornek": b_ornek}))

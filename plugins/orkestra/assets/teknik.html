@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Teknik detay</title>
+<link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="teknik.css">
+</head>
+<body>
+<header id="kabuk"></header>
+<main>
+  <h1 class="gorunmez">Teknik detay</h1>
+  <div class="duzen t-duzen">
+    <nav class="t-liste-kap" aria-labelledby="tBaslik">
+      <div class="t-liste-bas"><h2 id="tBaslik">İşler</h2><span class="meta" id="tSayi"></span><span id="tBayat"></span></div>
+      <div id="tIsler"><p class="bos">Yükleniyor…</p></div>
+    </nav>
+    <section class="t-sag" id="tSag" aria-labelledby="tIsBaslik">
+      <h2 id="tIsBaslik" class="t-is-baslik">Zaman çizelgesi</h2>
+      <div class="t-arac" id="tArac">
+        <label>Sınıf <select id="fSinif" aria-label="Sınıfa göre süz"></select></label>
+        <label>Basamak <select id="fBasamak" aria-label="Basamağa göre süz"></select></label>
+        <label>Denetim <select id="fDenetim" aria-label="Denetim sonucuna göre süz"></select></label>
+        <input type="search" id="tAra" placeholder="Dosya ya da kütüphane ara…" aria-label="Dosya adı ya da kütüphane adıyla ara" autocomplete="off">
+      </div>
+      <div id="tZaman" aria-live="off"><p class="bos">Soldan bir iş seçin.</p></div>
+    </section>
+  </div>
+</main>
+<div id="ipucu"></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script>
+<script src="teknik.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "surum": 1,
+  "mod": "tam",
+  "grup_anahtari": ["sinif", "basamak"],
+  "min_ornek": 10,
+  "max_ilk_ret_orani": 0.1,
+  "tdd_haric": true,
+  "yuksek_risk_haric": true,
+  "risk_degerleri": ["yuksek"],
+  "ornekleme_orani": 0.2,
+  "ornekleme_tuzu": "orkestra-denetim",
+  "gecit": {"min_denetim": 50, "min_kanit_kart": 20}
+}

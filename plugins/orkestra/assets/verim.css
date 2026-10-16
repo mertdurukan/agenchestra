@@ -75,3 +75,16 @@
     .g-izgara { grid-template-columns: 72px minmax(0, 1fr); }
     table.tablo td.ad { min-width: 160px; }
   }
+
+  /* hedef panosu (sayfanın en üstü): her kutuda iki pencere; durum sözcükle de yazılır (renge bağımlı değil) */
+  .karolar.pano { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .pano-kutu { display: grid; gap: var(--a-8); align-content: start; }
+  .pano-ad { font-weight: 650; color: var(--text-primary); }
+  .pano-satir { border-left: 3px solid var(--renk, var(--neutral)); padding-left: var(--a-8); outline-offset: 2px; }
+  .pano-satir .pencere { font-size: var(--t-12); color: var(--text-muted); }
+  .pano-satir .deger { font-size: var(--t-20); }
+  .pano-satir .durum { display: flex; gap: 6px; align-items: baseline; color: var(--text-primary); font-size: var(--t-13); font-weight: 600; }
+  .pano-satir .durum i { font-style: normal; color: var(--renk, var(--neutral)); }
+  .pano-israf { margin-top: var(--a-16); }
+  .pano-israf h3 { margin: 0 0 var(--a-8); font-size: var(--t-14, 14px); }
+  .pano-israf .sat { display: flex; gap: var(--a-12); align-items: baseline; }

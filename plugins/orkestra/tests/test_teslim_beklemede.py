@@ -113,6 +113,7 @@ class TeslimBeklemede(unittest.TestCase):
         self.isci_bitti(g)
         self.denetle(g, "onay")
         self.beklemede(g)
+        self.isci_bitti(g, "yeni çıktı")   # tarama 18: yeni işçi çıktısı olmadan ikinci karar yazılmaz
         self.denetle(g, "ret")
         once = self.ham(g)
         r = self.cli("kart", "teslim", g, **ANA)

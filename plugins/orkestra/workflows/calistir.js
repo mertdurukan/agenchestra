@@ -53,6 +53,8 @@ const ISCI_SEMA = {
     kapi: { type: 'string', enum: ['gecti', 'gecmedi', 'kilitli', 'butce', 'alan-cakismasi'] },
     kapi_cikis: { type: 'integer' },
     kapi_ozeti: { type: 'string' },
+    // is-bitti çıktısında CLI 'OTOMATIK-ONAY' satırı yazdıysa true (denetim politikası; varsayılan kapalı)
+    oto_onay: { type: 'boolean' },
   },
   required: ['ozet', 'ciktilar', 'kanit', 'kapi'],
 }
@@ -143,11 +145,14 @@ function denetciModeli(basamak, toplamRet) {
 
 // İşçi ve test yazarı için ortak kapı protokolü: kapılar is-bitti içinde CLI'de koşar (ayrı kapı ajanı yok).
 const KAPI_PROTOKOLU = [
-  'Protokol: `orkestra kart durum <id> isleniyor` → iş → `orkestra kart durum <id> is-bitti --ozet ... --cikti ...`.',
+  'Protokol: `orkestra kart durum <id> isleniyor` → iş → `orkestra kart durum <id> is-bitti --ozet ... --kanit "K1: <dosya:satır | komut çıktısı | sayı>" --kanit "K2: ..." --cikti ...` (işçi: her kabul kriteri için bir --kanit).',
   '- isleniyor çıkış 6 verirse kart kilitli: HİÇBİR şey yapma, hemen kapi="kilitli" döndür.',
   '- isleniyor çıkış 5 verirse yazma alanı başka açık kartla çakışıyor: HİÇBİR şey yapma, hemen kapi="alan-cakismasi", kapi_ozeti=CLI mesajı döndür.',
   '- isleniyor çıkış 7 verirse kart bütçesi doldu: HİÇBİR şey yapma, hemen kapi="butce", kapi_ozeti=CLI mesajı döndür.',
   '- is-bitti test ve ön kontrol kapılarını kendisi koşar (Bash timeout 600000 ver; testi ayrıca koşma). Çıkış 4 → kayıt yapılmadı: çıktıdaki düşen test/ihlale göre düzelt ve is-bitti\'yi yeniden çalıştır; en çok 3 deneme.',
+  '- İşçi is-bitti için `--teknik <json_dosya>` ekler (test yazarı hariç): {"yaklasim": 20-400 karakter, "neden_bu_yol": 20-400 karakter, "alternatifler": [{"secenek","neden_elendi"}], "entegrasyon": ["A → B: neden"], "riskler": [..]}; son üç anahtar zorunlu, liste boş olabilir. Not yoksa/geçersizse çıkış 4 ve test koşmaz.',
+  '- sinif=kod kartında işçi KOD YAZMADAN ÖNCE ilgili mevcut kodu okur ve `orkestra kart mevcut <id> --dosya <json_dosya>` ile mevcut durum notunu kaydeder (test yazarı hariç): {"okunan": [{"dosya","satir","alinti","rol"}], "yetenekler": [..], "karar": "degistir|ekle|yeni", "neden": 20-400 karakter, "etkilenenler": [..]}. Hook not kaydedilene kadar yazma alanına yazmayı reddeder; not yoksa is-bitti çıkış 4 verir.',
+  '- is-bitti çıktısında OTOMATIK-ONAY satırı varsa oto_onay=true yaz (yoksa alanı yazma).',
   '- Sonuç: kapı geçtiyse kapi="gecti"; denemeler bittiyse kapi="gecmedi", kapi_cikis=son çıkış kodu, kapi_ozeti=son çıktının son 30 satırı.',
   'Son yanıtın şemaya uygun olsun.',
 ].join('\n')
@@ -423,6 +428,11 @@ async function yurut(k, bagBekle, spek) {
           yenidenSurec = true
           continue
         }
+      }
+      // Denetim politikası CLI is-bitti içinde otomatik onay yazdıysa (OTOMATIK-ONAY) denetçi çağrılmaz.
+      if (is.oto_onay === true) {
+        gecmis.push({ basamak, surec: 'denetim', karar: 'oto-onay' })
+        return { id: k.id, durum: 'onaylandi', basamak, ozet: is.ozet, ciktilar: is.ciktilar, kanit: is.kanit, gecmis }
       }
       const dm = denetciModeli(basamak, toplamRet)
       const mercekler = basamak === 'T3' || basamak === 'T4'
