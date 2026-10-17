@@ -1,0 +1,8 @@
+{
+  "name": "orkestra",
+  "description": "Maliyet basamaklı (betik → Haiku → Sonnet → Opus) ajan orkestrasyonu: ana ajan planlar, işçiler yapar, ayrı denetçi onaylar; ortak defter ve token defteri. Claude Code eklentisiyle aynı skill, ajan ve CLI dosyalarını kullanır; Cursor'a özgü olan yalnız hooks/cursor-hooks.json ve scripts/cursor_hook.py'dir.",
+  "author": { "name": "Mert Durukan" },
+  "license": "UNLICENSED",
+  "keywords": ["orchestration", "subagents", "workflow", "memory", "cost"],
+  "hooks": "hooks/cursor-hooks.json"
+}

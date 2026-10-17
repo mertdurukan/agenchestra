@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": "python -c \"import os,sys,runpy;sys.argv=['cursor_hook.py','sessionStart'];runpy.run_path(os.path.join(os.environ.get('CURSOR_PLUGIN_ROOT') or os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','cursor_hook.py'),run_name='__main__')\"", "timeout": 10 }
+    ],
+    "beforeSubmitPrompt": [
+      { "command": "python -c \"import os,sys,runpy;sys.argv=['cursor_hook.py','beforeSubmitPrompt'];runpy.run_path(os.path.join(os.environ.get('CURSOR_PLUGIN_ROOT') or os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','cursor_hook.py'),run_name='__main__')\"", "timeout": 10 }
+    ],
+    "preToolUse": [
+      { "command": "python -c \"import os,sys,runpy;sys.argv=['cursor_hook.py','preToolUse'];runpy.run_path(os.path.join(os.environ.get('CURSOR_PLUGIN_ROOT') or os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','cursor_hook.py'),run_name='__main__')\"", "timeout": 10 }
+    ],
+    "postToolUse": [
+      { "command": "python -c \"import os,sys,runpy;sys.argv=['cursor_hook.py','postToolUse'];runpy.run_path(os.path.join(os.environ.get('CURSOR_PLUGIN_ROOT') or os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','cursor_hook.py'),run_name='__main__')\"", "timeout": 10 }
+    ],
+    "stop": [
+      { "command": "python -c \"import os,sys,runpy;sys.argv=['cursor_hook.py','stop'];runpy.run_path(os.path.join(os.environ.get('CURSOR_PLUGIN_ROOT') or os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','cursor_hook.py'),run_name='__main__')\"", "timeout": 30 }
+    ],
+    "sessionEnd": [
+      { "command": "python -c \"import os,sys,runpy;sys.argv=['cursor_hook.py','sessionEnd'];runpy.run_path(os.path.join(os.environ.get('CURSOR_PLUGIN_ROOT') or os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','cursor_hook.py'),run_name='__main__')\"", "timeout": 10 }
+    ]
+  }
+}

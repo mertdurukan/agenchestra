@@ -35,6 +35,11 @@
     "\\bbak(?:ın|alım|ar\\s+m[ıi]s[ıi]n\\w*|abilir\\w*|sana)?\\b"
   ],
   "devam_max_karakter": 0,
+  "devam_kisa_max_karakter": 24,
+  "devam_zayif_kaliplari": [
+    "\\b(bunu|şunu|buna|şuna)\\b",
+    "\\bbunlar\\w*"
+  ],
   "devam_kaliplari": [
     "\\bdevam\\b",
     "\\bönerinle\\b",

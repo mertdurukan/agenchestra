@@ -210,11 +210,13 @@ class HookUcAdanUca(unittest.TestCase):
         finally:
             shutil.rmtree(bos, ignore_errors=True)
 
-    def test_hooks_json_mcp_ve_web_araclarini_kapsar(self):
+    def test_hooks_json_tum_araclari_kapsar(self):
+        # eşleşme ".*": Read, Glob, Grep, Agent, Skill gibi araçlar da politikadan geçer (varsayılan Claude Code istemine düşmez)
         with open(os.path.join(KOK, "hooks", "hooks.json"), encoding="utf-8") as f:
             eslesme = json.load(f)["hooks"]["PreToolUse"][0]["matcher"]
-        for a in ("mcp__.*", "WebFetch", "WebSearch", "Bash", "PowerShell", "Write"):
-            self.assertIn(a, eslesme)
+        self.assertEqual(eslesme, ".*")
+        for a in ("mcp__github__x", "WebFetch", "WebSearch", "Bash", "PowerShell", "Write", "Read", "Glob", "Grep", "Agent", "Skill"):
+            self.assertRegex(a, eslesme)
 
     def test_session_start_politikayi_duyurur(self):
         g = {"session_id": OTURUM, "cwd": self.proje, "hook_event_name": "SessionStart", "source": "startup"}
