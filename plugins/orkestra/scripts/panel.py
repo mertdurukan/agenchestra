@@ -266,10 +266,15 @@ def _isler_json(alan_id) -> dict:
     if a is None:
         return sd
     usd = collections.Counter()
+    kart_satir = collections.defaultdict(list)
     kartlar = L.kartlar(sd, derin=False)  # bu işlevde yalnız okunur
     for r in L.maliyet_kayitlari(sd):
         if r.get("gorev") not in (None, "-"):
             usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
+            kart_satir[r["gorev"]].append(r)
+    is_kal = IK.is_kalem(sd, kartlar)
+    bos_kalem = L.kalemler([])
+    kalem_k = lambda i: L.kalemler(kart_satir.get(i, []))  # noqa: E731
     is_usd, is_harcama_son = IK.is_usd_ve_harcama_son(sd, kartlar)   # iş toplamı: is_rapor ile aynı atama kuralı
     adlar = ("yapildi", "simdi", "sirada", "planda_kart_yok", "iptal")
     kart_by = {k.get("id"): k for k in kartlar}
@@ -281,6 +286,7 @@ def _isler_json(alan_id) -> dict:
              "durum": "kapandi" if g.get("durum") == "kapandi" else "acik", "klasor": g.get("klasor", ""),
              "ilerleme": {"biten": 0, "toplam": 0},
              "usd": round(is_usd.get(g["id"], 0.0), 4), "son": son,
+             "token": (is_kal.get(g["id"]) or bos_kalem)["token"]["toplam"], "kalem": is_kal.get(g["id"]) or bos_kalem,
              "kovalar": {x: [] for x in adlar}}
         try:
             s = IK.is_serit(sd, g["id"], alt=True, tum_kartlar=kartlar)
@@ -289,7 +295,9 @@ def _isler_json(alan_id) -> dict:
                 for e in s[ad]:
                     if e["tur"] == "kart":
                         k = kart_by.get(e["kart"]) or {}
-                        e = {**e, "basamak": k.get("basamak"), "usd": round(usd.get(e["kart"], 0.0), 4)}
+                        kk = kalem_k(e["kart"])
+                        e = {**e, "basamak": k.get("basamak"), "usd": round(usd.get(e["kart"], 0.0), 4),
+                             "token": kk["token"]["toplam"], "kalem": kk}
                     kov[ad].append(e)
             o["ilerleme"] = s["ilerleme"]
             o["kovalar"] = kov
@@ -301,7 +309,8 @@ def _isler_json(alan_id) -> dict:
     sifirlama = IK.sifirlama_zamani(sd)
     siz = [k for k in kartlar if not k.get("is") and not (sifirlama and str(k.get("olusturma") or "") < sifirlama)]
     acik = [{"kart": k["id"], "baslik": k.get("baslik", ""), "durum": k.get("durum"),
-             "basamak": k.get("basamak"), "usd": round(usd.get(k["id"], 0.0), 4)}
+             "basamak": k.get("basamak"), "usd": round(usd.get(k["id"], 0.0), 4),
+             "token": kalem_k(k["id"])["token"]["toplam"], "kalem": kalem_k(k["id"])}
             for k in sorted(siz, key=IK._kart_no) if k.get("durum") not in ("teslim", "iptal")]
     return {"acik": True, "alan": _alan_kisa(a), "uretim": L.simdi(), "isler": isler,
             "kartsiz": {"sayi": len(siz), "acik": acik},
@@ -315,7 +324,7 @@ def _teknik_hata(kod: int, metin: str) -> dict:
     return {"acik": False, "hata": metin, "kod": kod}
 
 
-def _teknik_kart_ozet(sd: str, k: dict, usd: float, proje_kok: str) -> dict:
+def _teknik_kart_ozet(sd: str, k: dict, usd: float, proje_kok: str, kalem: dict | None = None) -> dict:
     """Kart satırı için hafif özet (git çağrısı yok): kütüphaneler çıktı dosyalarının importlarından."""
     import teknik as T  # noqa: PLC0415
     kut: list = []
@@ -333,6 +342,7 @@ def _teknik_kart_ozet(sd: str, k: dict, usd: float, proje_kok: str) -> dict:
     son = next((d.get("karar") for d in reversed(k.get("denetimler") or []) if isinstance(d, dict)), None)
     return {"id": k.get("id"), "baslik": k.get("baslik"), "sinif": k.get("sinif"), "basamak": k.get("basamak"),
             "durum": k.get("durum"), "usd": round(usd, 4),
+            "token": (kalem or L.kalemler([]))["token"]["toplam"], "kalem": kalem or L.kalemler([]),
             "sure": round(sum(sure.values()), 1) if sure else None,
             "teknik_var": isinstance(k.get("teknik"), dict) and bool(k.get("teknik")),
             "dosya_sayisi": len(dosyalar), "dosyalar": [os.path.basename(d) for d in dosyalar],
@@ -349,9 +359,11 @@ def _teknik_json(alan_id, is_id, kart_id) -> dict:
     if a is None:
         return _teknik_hata(404, "Bilinmeyen çalışma alanı ya da orkestra açık değil.")
     usd = collections.Counter()
+    kart_satir = collections.defaultdict(list)
     for r in L.maliyet_kayitlari(sd):
         if r.get("gorev") not in (None, "-"):
             usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
+            kart_satir[r["gorev"]].append(r)
     if kart_id:
         if not _KART_KIMLIK.match(kart_id):
             return _teknik_hata(404, f"Kart bulunamadı: {kart_id}")
@@ -367,13 +379,16 @@ def _teknik_json(alan_id, is_id, kart_id) -> dict:
         ks = sorted((k for k in kartlar if k.get("is") == is_id), key=T._sira_anahtari)
         kok = T._proje(sd)
         return T._mask({"acik": True, "alan": _alan_kisa(a), "is": {"id": is_id, "ad": IK.is_adi(kayit.get("baslik", "")), "durum": kayit.get("durum")},
-                        "kartlar": [_teknik_kart_ozet(sd, k, usd.get(k["id"], 0.0), kok) for k in ks], "uretim": L.simdi()})
+                        "kartlar": [_teknik_kart_ozet(sd, k, usd.get(k["id"], 0.0), kok, L.kalemler(kart_satir.get(k["id"], []))) for k in ks], "uretim": L.simdi()})
     isler = []
     is_usd, is_harcama_son = IK.is_usd_ve_harcama_son(sd, kartlar)
+    is_kal = IK.is_kalem(sd, kartlar)
     for g in IK.is_liste(sd):
         ks = [k for k in kartlar if k.get("is") == g["id"]]
+        kal = is_kal.get(g["id"]) or L.kalemler([])
         isler.append({"id": g["id"], "ad": IK.is_adi(g.get("baslik", "")), "durum": "kapandi" if g.get("durum") == "kapandi" else "acik",
                       "kart_sayisi": len(ks), "usd": round(is_usd.get(g["id"], 0.0), 4),
+                      "token": kal["token"]["toplam"], "kalem": kal,
                       "son": IK.is_son_etkinlik(g, [k.get("guncelleme") for k in ks], is_harcama_son.get(g["id"], ""))})
     isler.sort(key=lambda i: i["son"], reverse=True)
     isler.sort(key=lambda i: i["durum"] != "acik")

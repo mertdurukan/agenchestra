@@ -1033,6 +1033,15 @@ def is_usd_ve_harcama_son(sd: str, kartlar: list[dict]) -> tuple[dict, dict]:
     return usd, son
 
 
+def is_kalem(sd: str, kartlar: list[dict]) -> dict:
+    """{iş: L.kalemler(satırlar)} — is_usd_ve_harcama_son ile aynı atama kuralı (I-064: token ve USD dört kalemle)."""
+    kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
+    grup: dict = {}
+    for r in L.maliyet_kayitlari(sd):
+        grup.setdefault(L.satir_isi(r, kart_is), []).append(r)
+    return {i: L.kalemler(s) for i, s in grup.items()}
+
+
 def is_son_etkinlik(g: dict, kart_guncellemeleri, harcama_son: str = "") -> str:
     """İşin son etkinlik zamanı: kartların güncellemesi, işin is.json güncellemesi, son harcama ve todo.md değişikliğinin
     en geçidir; hiçbiri yoksa oluşturma zamanı. Panelde sıralama ve 'x gün önce' etiketi bunu kullanır."""

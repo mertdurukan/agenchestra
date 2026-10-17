@@ -9,6 +9,7 @@
   const sat = (ad, deger) => `<div class="sat"><span>${esc(ad)}</span><span>${deger}</span></div>`;
   const rozet = (ad, renk) => `<span class="rozet" style="--renk:${renk}"><i></i>${esc(ad)}</span>`;
   // ortak.js'te yok: yüzde değerini CSS genişliği için yuvarla
+  const scale = (o, n) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, n ? v / n : null]));   // kalem toplamı → kart başına
   const yz = v => Math.round(Math.max(0, Math.min(100, v)) * 100) / 100;
 
   // V: SON İYİ analitik verisi; hata anında silinmez (yalnız alan değişince sıfırlanır). Durum: K (O.veri kontrol nesnesi).
@@ -111,7 +112,7 @@
   // Hedef kartları (I-047): aynı soruya cevap veren ölçüler tek kartta. olcu = hedef panosu ölçüsü, ek = ilgili ek ölçü anahtarları,
   // tasi = ayrıntıya taşınan mevcut bölümler (kimlikleriyle birlikte; betikler yazmaya devam eder).
   const HEDEF_KART = [
-    { hedef: 'H1', soru: 'Bir kart bana kaça mal oluyor?', olcu: ['onayli_kart_usd'], ek: ['onayli_kart_toplam_usd', 'onayli_usd_dagilim', 'sinif_basina'], tasi: ['#onayli', '#birim'] },
+    { hedef: 'H1', soru: 'Bir kart bana kaça mal oluyor?', olcu: ['onayli_kart_usd'], ek: ['onayli_kart_toplam_usd', 'onayli_kart_toplam_token', 'toplam_kalem', 'onayli_usd_dagilim', 'sinif_basina'], tasi: ['#onayli', '#birim'] },
     { hedef: 'H2', soru: 'Reddedilen iş ne kadar ve neden?', olcu: ['ret_orani'], ek: ['ilk_gecis_onay'], israf: true, tasi: ['#ret'] },
     { hedef: 'H3', soru: 'Bir kart kaç işçi harcıyor?', olcu: ['isci_cagrisi_kart'], ek: ['isci_dagilim'], tasi: [] },
     { hedef: 'H4', soru: 'Ana ajan ne kadar harcıyor?', olcu: ['ana_ajan_payi'], ek: ['ana_kirilim', 'onbellek_isabet'], tasi: [] },
@@ -131,6 +132,15 @@
         G.pay([{ ad: 'İşe bağlı', deger: a.is_bagli_usd, renk: 'var(--s1)' }, { ad: 'İşe bağsız', deger: a.is_bagsiz_usd, renk: 'var(--s2)' }, { ad: 'Perspektif', deger: a.perspektif_usd, renk: 'var(--s3)' }], { bicim: B.usd, toplamEtiket: 'Ana ajan harcaması payları' })]],
     ['onayli_kart_toplam_usd', 'Kart başına USD (ana ajan dahil)', 'pencere içindeki tüm harcama (ana ajan dahil) / onaylı kart',
       a => [nz(B.usd, a.deger), `${B.usd(a.pay)} / ${B.sayi(a.payda, 0)} kart`, '']],
+    ['onayli_kart_toplam_token', 'Kart başına token (ana ajan dahil)', 'pencere içindeki tüm token (giriş + çıkış + önbellek okuma + önbellek yazma) / onaylı kart',
+      a => [nz(B.token, a.deger), `${B.token(a.pay)} / ${B.sayi(a.payda, 0)} kart`, '']],
+    ['toplam_kalem', 'Girdi, çıktı ve önbellek kalemleri', 'pencere içindeki tüm harcamanın dört kalemi: giriş, çıkış, önbellek okuma, önbellek yazma (üstteki düğme USD / token seçer)',
+      a => {
+        const m = B.olcu(), f = m === 'token' ? B.token : B.usd, d = a[m] || {};
+        const l = [['Giriş', d.giris], ['Çıkış', d.cikis], ['Önbellek okuma', d.onbellek_okuma], ['Önbellek yazma', d.onbellek_yazma]];
+        return [f(d.toplam), l.map(([k, v]) => `${k} ${f(v)}`).join(' · '),
+          G.pay(l.map(([k, v], i) => ({ ad: k, deger: v, renk: `var(--s${i + 1})` })), { bicim: f, toplamEtiket: 'Kalem payları' })];
+      }],
     ['isci_dagilim', 'Kart başına işçi', 'kart başına tekil işçi ajanı sayısı; denetçiler dahil değildir',
       a => [`${nz(B.sayi, a.medyan, 1)}`, `medyan · 4+ işçili ${B.sayi(a.kart_ge4, 0)} / ${B.sayi(a.adet, 0)} kart`,
         G.dagilim({ medyan: a.medyan, p90: a.p90, maks: a.en_cok, bicim: x => B.sayi(x, 1), etiket: 'İşçi ajanı sayısı' })]],
@@ -144,8 +154,9 @@
     ['sinif_basina', 'İş sınıfı maliyeti', 'kartın sınıfına göre kart sayısı ve karta bağlı harcama; en pahalı 5 sınıf',
       a => {
         const l = Object.entries(a).slice(0, 5);
-        return l.length ? [B.usd(l.reduce((t, [, e]) => t + (Number(e.usd) || 0), 0)), l.map(([k, e]) => `${esc(k)} ${B.sayi(e.kart, 0)}`).join(' · '),
-          G.pay(l.map(([k, e], i) => ({ ad: k, deger: e.usd, renk: `var(--s${i + 1})` })), { bicim: B.usd, toplamEtiket: 'İş sınıfı payları' })] : ['–', 'kart yok', ''];
+        const tk = B.olcu() === 'token', alan = tk ? 'token' : 'usd', f = tk ? B.token : B.usd;
+        return l.length ? [f(l.reduce((t, [, e]) => t + (Number(e[alan]) || 0), 0)), l.map(([k, e]) => `${esc(k)} ${B.sayi(e.kart, 0)}`).join(' · '),
+          G.pay(l.map(([k, e], i) => ({ ad: k, deger: e[alan], renk: `var(--s${i + 1})` })), { bicim: f, toplamEtiket: 'İş sınıfı payları' })] : ['–', 'kart yok', ''];
       }],
   ];
   function ekKutular(ek, yalniz) {
@@ -276,6 +287,7 @@
     if (!b) return;
     let html = '<div class="karolar">' +
       `<div class="karo"><b>${B.usd(b.kart_basi)}</b><span>Teslim edilen kart başına (yalnız teslim kartlar)</span><small>medyan ${B.usd(b.kart_medyan)} · ${B.sayi(b.teslim_kart)} kart</small></div>` +
+      `<div class="karo"><b>${B.token(b.kart_basi_token)}</b><span>Teslim edilen kart başına token</span><small>medyan ${B.token(b.kart_medyan_token)} · ${esc(B.kalem(b.kart_kalem && { token: scale(b.kart_kalem.token, b.teslim_kart), usd: scale(b.kart_kalem.usd, b.teslim_kart) }))}</small></div>` +
       `<div class="karo"><b>${B.usd(b.sohbet_basi)}</b><span>Sohbet başına</span><small>medyan ${B.usd(b.sohbet_medyan)} · ${B.sayi(b.sohbet_sayisi)} sohbet</small></div></div>`;
     const uy = Array.isArray(b.uyarilar) ? b.uyarilar : [];
     if (!uy.length) html += `<p class="tek-satir">${rozet('iyi', 'var(--good)')} Son günlerde anormal sıçrama yok.</p>`;

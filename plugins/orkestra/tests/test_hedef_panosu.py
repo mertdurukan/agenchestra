@@ -313,7 +313,7 @@ class K5PanoJs(unittest.TestCase):
     def test_js_ek_olcu_bolumu(self):
         for a in A.EK_SIRASI:
             self.assertIn(a, self.js)
-        self.assertIn("ekBolum", self.js)
+        self.assertIn("ekKutular", self.js)
 
 
 def satir(gorev, usd, **ek):
@@ -372,7 +372,7 @@ class K7EkOlculer(unittest.TestCase):
         a["sinif"], b["sinif"] = "kod", "belge"
         s = self.ek([a, b, c], [satir("G-1", 1.0), satir("G-2", 3.0), satir("G-3", 0.5)])["sinif_basina"]
         self.assertEqual(list(s), ["belge", "kod", "-"])
-        self.assertEqual(s["belge"], {"kart": 1, "usd": 3.0})
+        self.assertEqual(s["belge"], {"kart": 1, "usd": 3.0, "token": 0})  # I-064: token eşi eklendi
 
     def test_pencere_disi_ek_olcuye_girmez(self):
         eski = kart("G-1", olus=z(10))

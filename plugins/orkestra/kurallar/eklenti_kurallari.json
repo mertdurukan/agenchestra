@@ -145,12 +145,12 @@
     {
       "id": "P-001",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır.",
-      "neden": "Uzun teslim mesajı asıl kararı gölgeler ve gereksiz token harcatır; ayrıntı dosyada kalınca kullanıcı tek bakışta karar verir.",
+      "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu; K-003 bağlantı satırları bu 5 madde sayımına girmez. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır.",
+      "neden": "Uzun teslim mesajı asıl kararı gölgeler ve gereksiz token harcatır; ayrıntı dosyada kalınca kullanıcı tek bakışta karar verir. Kullanıcı 18.10.2026: bağlantı satırları belge işaretçisidir, içerik yükü değildir; 5 madde sayımına girmez.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T15:06:36+03:00",
-      "guncelleme": "2026-10-16T18:04:39+03:00",
+      "guncelleme": "2026-10-18T01:16:35+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T15:06:36+03:00",
@@ -161,6 +161,11 @@
           "zaman": "2026-10-16T18:04:39+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Sohbette verilen teslim ve özet mesajı en çok 5 madde olur: ne değişti, ana sayı, karar bekleyen tek konu. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo.md dosyasında kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo.md'ye yazılır."
+        },
+        {
+          "zaman": "2026-10-18T01:16:35+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır."
         }
       ],
       "etkinlesme": "2026-10-16T15:06:36+03:00"

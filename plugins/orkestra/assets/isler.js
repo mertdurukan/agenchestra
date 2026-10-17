@@ -111,7 +111,7 @@
     const adim = adimOf(o);
     const d = durumOf(o);
     const alt = [];
-    if (o.tur === 'kart') alt.push(esc(o.kart) + (o.basamak ? ' · ' + esc(o.basamak) : '') + (o.usd > 0 ? ' · ' + esc(B.usd(o.usd)) : ''));
+    if (o.tur === 'kart') alt.push(esc(o.kart) + (o.basamak ? ' · ' + esc(o.basamak) : '') + (o.usd > 0 ? ' · ' + esc(B.deger(o.usd, o.token)) : ''));
     if (o.bolum) alt.push(esc(o.bolum));
     if (kova === 'sirada' && dizi(o.bekledigi).length) alt.push(`← ${esc(o.bekledigi.join(', '))} bekleniyor`);
     return `<div class="kart" style="--renk:${esc(kova === 'simdi' ? d.renk : 'var(--neutral)')}">
@@ -126,7 +126,7 @@
     const meta = [
       `<span>${esc(is.id)}</span>`,
       is.son ? `<span title="${esc(B.tarih(is.son))}">son etkinlik <b>${esc(B.once(is.son))}</b></span>` : '',
-      `<span>maliyet <b>${esc(B.usd(is.usd))}</b></span>`,
+      `<span title="${esc(B.kalem(is.kalem))}">maliyet <b>${esc(B.deger(is.usd, is.token))}</b></span>`,
     ].filter(Boolean).join('');
     const odak = `<div class="odak">
       <div><h3>Şu an</h3>${simdi.length ? simdi.map((o, i) => kartHtml(o, is.id, i, 'simdi')).join('') : '<p class="bos-not">Şu an yürüyen bir adım yok.</p>'}</div>
@@ -169,7 +169,7 @@
         `<td class="kt-metin">${esc(metinKirp(o.metin, adim))}</td>` +
         `<td class="kt-bas">${esc(o.basamak || '')}</td>` +
         `<td class="kt-durum">${rozet(E.durum(o.durum))}</td>` +
-        `<td class="kt-usd">${o.usd > 0 ? esc(B.usd(o.usd)) : ''}</td>` +
+        `<td class="kt-usd" title="${esc(B.kalem(o.kalem))}">${o.usd > 0 ? esc(B.deger(o.usd, o.token)) : ''}</td>` +
         `<td class="kt-teknik"><a href="/teknik?is=${encodeURIComponent(is.id)}" title="Bu işin teknik ayrıntısı (H7)">Teknik ayrıntı</a></td></tr>`;
     }).join('');
     const tablo = gor.length

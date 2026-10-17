@@ -2,7 +2,7 @@
   "surum": 1,
   "not": "Okunacak belgelerin K-005 biçimi (yazım anı, PreToolUse) ve K-003 bağlantı satırı (Stop). mod: golge = yalnız kayıt ve tek satır uyarı; ihlal = yazım reddedilir / yanıt bir kez bloklanır. Geçiş kullanıcı kararıdır.",
   "yazim_kapisi": {
-    "mod": "golge",
+    "mod": "ihlal",
     "belge_adi_kalibi": "(?:^|[_\\-])(?:plan|todo|bulgu|jira_onerisi|rapor)(?:[_\\-.]|$)|ozet",
     "haric_ad_kalibi": "devir",
     "haric_yol_kalibi": "(?:^|/)(?:sablonlar|\\.claude|node_modules|\\.git)/",
@@ -15,7 +15,7 @@
     "bastirma_isareti": "<!-- biçim-tamam -->"
   },
   "baglanti_kapisi": {
-    "mod": "golge",
+    "mod": "ihlal",
     "belge_adi_kalibi": "(?:^|[_\\-])(?:plan|todo|bulgu|jira_onerisi|rapor)(?:[_\\-.]|$)|ozet",
     "haric_ad_kalibi": "devir",
     "haric_yol_kalibi": "(?:^|/)(?:sablonlar|\\.claude|node_modules|\\.git|tests?)/"

@@ -113,12 +113,15 @@ def rapor(sd: str) -> dict:
     toplam_usd = sum(s["usd"] for s in satirlar)
     kova_usd = sum(s["usd"] for s in satirlar if s["is"] == KOVA)
     biten_t = sum(s["todo_biten"] for s in satirlar)
+    toplam_tok = sum(s["token"] for s in satirlar)
+    kova_tok = sum(s["token"] for s in satirlar if s["is"] == KOVA)
     ret, karar = L.ret_onay_say(kartlar)  # iptal kartlar hariç: KPI ret_orani ile aynı tanım
     gir = sum(_sayi(r.get("giris")) for r in mal)
     oku = sum(_sayi(r.get("onbellek_okuma")) for r in mal)
     yaz = sum(_sayi(r.get("onbellek_yazma")) for r in mal)
     kalite = {
         "todo_basina_usd": (toplam_usd - kova_usd) / biten_t if biten_t else None,
+        "todo_basina_token": (toplam_tok - kova_tok) / biten_t if biten_t else None,   # I-064: token eşi
         "ret_orani": ret / karar if karar else None,
         "onbellek_isabet": oku / (gir + oku + yaz) if (gir + oku + yaz) else None,
         "baglanmamis_emek_yuzde": 100 * kova_usd / toplam_usd if toplam_usd else 0,
@@ -192,9 +195,11 @@ def metin(r: dict) -> str:
              for s in r["satirlar"]])
     k = r["kalite"]
     td = "-" if k["todo_basina_usd"] is None else f"{k['todo_basina_usd']:.2f}"
+    tt = "-" if k["todo_basina_token"] is None else f"{k['todo_basina_token']:,.0f}"
     return "\n".join([
         govde, "",
         f"kapanan todo başına USD: {td}",
+        f"kapanan todo başına token: {tt}",
         f"ret oranı: {_oran(k['ret_orani'])}",
         f"önbellek isabeti: {_oran(k['onbellek_isabet'])}",
         f"işe bağlanmamış emek: {_oran(k['baglanmamis_emek_yuzde'], True)}",

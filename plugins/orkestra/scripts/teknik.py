@@ -316,13 +316,18 @@ def _sureler(kart: dict) -> dict:
 
 def _maliyet(sd: str, kart_id: str) -> dict:
     toplam: dict = {}
+    tok: dict = {}
+    satir: list = []
     for r in L.maliyet_kayitlari(sd):
         if r.get("gorev") != kart_id:
             continue
         anahtar = (r.get("ajan") or "?", r.get("model") or "?")
         toplam[anahtar] = toplam.get(anahtar, 0.0) + float(r.get("maliyet_usd") or 0)
-    satirlar = [{"ajan": a, "model": m, "usd": round(u, 6)} for (a, m), u in sorted(toplam.items())]
-    return {"satirlar": satirlar, "toplam_usd": round(sum(s["usd"] for s in satirlar), 6)}
+        tok[anahtar] = tok.get(anahtar, 0) + sum(int(r.get(a) or 0) for a in L._TOKEN_ALANLARI)
+        satir.append(r)
+    satirlar = [{"ajan": a, "model": m, "usd": round(u, 6), "token": tok.get((a, m), 0)} for (a, m), u in sorted(toplam.items())]
+    return {"satirlar": satirlar, "toplam_usd": round(sum(s["usd"] for s in satirlar), 6),
+            "toplam_token": sum(s["token"] for s in satirlar), "kalem": L.kalemler(satir)}
 
 
 def _ogrenilen(kart: dict) -> dict:
@@ -358,7 +363,8 @@ def derle(sd: str, kart_id: str) -> dict:
                "son_commit": next((x["son_commit"] for x in git_var if x["son_commit"]), None)}
     dogr = _dogrulama(kart)
     mal = _maliyet(sd, kart_id)
-    maliyet_sure = {"maliyet": mal["satirlar"], "toplam_usd": mal["toplam_usd"], "sureler": _sureler(kart)}
+    maliyet_sure = {"maliyet": mal["satirlar"], "toplam_usd": mal["toplam_usd"], "toplam_token": mal["toplam_token"],
+                    "kalem": mal["kalem"], "sureler": _sureler(kart)}
     ogr = _ogrenilen(kart)
     kut = otomatik["kutuphaneler"]
     eksik = []

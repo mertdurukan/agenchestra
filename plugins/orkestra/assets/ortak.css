@@ -119,6 +119,9 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .canli.kismi i { background: var(--warning); }
 .canli.kopuk { color: var(--critical); }
 .canli.kopuk i { background: var(--critical); }
+.kabuk .olcu-sec { flex: none; display: inline-flex; gap: 0; }
+.kabuk .olcu-sec button { font-size: var(--t-12); padding: 2px var(--a-8); color: var(--text-secondary); }
+.kabuk .olcu-sec button[aria-pressed="true"] { color: var(--text-primary); border-color: var(--serious); font-weight: 600; }
 .kabuk .isler-sifirla { flex: none; font-size: var(--t-12); padding: 2px var(--a-8); color: var(--text-secondary); }
 .kabuk .isler-sifirla:hover { color: var(--text-primary); border-color: var(--serious); }
 

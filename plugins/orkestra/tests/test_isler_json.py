@@ -241,7 +241,7 @@ class PanelIsler(unittest.TestCase):
         self.assertEqual(ks["sayi"], 3)
         self.assertEqual([k["kart"] for k in ks["acik"]], ["G-010"])
         k = ks["acik"][0]
-        self.assertEqual(set(k), {"kart", "baslik", "durum", "basamak", "usd"})
+        self.assertEqual(set(k), {"kart", "baslik", "durum", "basamak", "usd", "token", "kalem"})
         self.assertEqual(k["basamak"], "T2")
         self.assertAlmostEqual(k["usd"], 0.5, places=4)
 

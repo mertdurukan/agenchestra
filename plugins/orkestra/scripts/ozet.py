@@ -432,6 +432,7 @@ def olustur(sd: str, proje: str) -> dict:
         "maliyet": {
             "bugun": round(A.bugun_usd(kayitlar, bugun), 4),
             "toplam": round(sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar), 4),
+            "kalem": L.kalemler(kayitlar),   # I-064: token ve USD, dört kalemle
             "surec": _yuvarla(dict(surec.most_common(10))),
             "model": _yuvarla(dict(model.most_common(6))),
             "ajan_surec": sorted([{"ajan": a, "surec": s, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}

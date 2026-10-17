@@ -43,7 +43,7 @@
     if (!l.length) return '<p class="bos">Bu çalışma alanında iş yok.</p>';
     return '<ul class="t-isler">' + l.map(i => `<li><button type="button" class="t-is" data-is="${esc(i.id)}" data-anahtar="is:${esc(i.id)}" aria-current="${i.id === S.secili}">
       <span class="ad">${esc(i.ad || i.id)}</span>
-      <span class="alt"><span>${esc(i.id)}</span><span>${esc(i.kart_sayisi)} kart</span><span>${esc(B.usd(i.usd))}</span><span>${i.durum === 'kapandi' ? 'tamamlandı' : 'açık'}</span></span></button></li>`).join('') + '</ul>';
+      <span class="alt"><span>${esc(i.id)}</span><span>${esc(i.kart_sayisi)} kart</span><span title="${esc(B.kalem(i.kalem))}">${esc(B.deger(i.usd, i.token))}</span><span>${i.durum === 'kapandi' ? 'tamamlandı' : 'açık'}</span></span></button></li>`).join('') + '</ul>';
   }
 
   // ---------------------------------------------------------------- süzgeç
@@ -111,8 +111,8 @@
         (dizi(x.k_satirlari).length ? '<ul>' + x.k_satirlari.map(s => `<li>${esc(s)}</li>`).join('') + '</ul>' : '')),
     ];
     const su = ms.sureler || {};
-    const bMal = `<p>Toplam <b>${esc(B.usd(ms.toplam_usd))}</b></p>` +
-      satirlar(dizi(ms.maliyet).map(m => `${esc(E.ajan(m.ajan))} · ${esc(E.model(m.model))}: ${esc(B.usd(m.usd))}`), 'Maliyet kaydı yok.') +
+    const bMal = `<p>Toplam <b>${esc(B.deger(ms.toplam_usd, ms.toplam_token))}</b></p><p class="etiket">${esc(B.kalem(ms.kalem))}</p>` +
+      satirlar(dizi(ms.maliyet).map(m => `${esc(E.ajan(m.ajan))} · ${esc(E.model(m.model))}: ${esc(B.deger(m.usd, m.token))}`), 'Maliyet kaydı yok.') +
       `<p class="etiket">Kuyruk ${esc(sureMetin(su.kuyruk_sn))} · iş ${esc(sureMetin(su.is_sn))} · denetim ${esc(sureMetin(su.denetim_sn))}</p>`;
     const ogr = [
       ...dizi(og.ret_dersleri).map(r => `Ret ${esc(r.sira ?? '')}: ${esc(r.neden || '')}${r.talimat ? ' — ' + esc(r.talimat) : ''}`),
@@ -136,7 +136,7 @@
     const eslesen = S.ara ? dizi(k.dosyalar).concat(dizi(k.kutuphaneler)).filter(x => kucuk(x).includes(kucuk(S.ara))).slice(0, 4) : [];
     return `<li style="--renk:${esc(dr.renk)}"><button type="button" class="t-kart" data-kart="${esc(k.id)}" data-anahtar="k:${esc(k.id)}" aria-expanded="${acik}">
       <span class="ust"><span class="kid">${esc(k.id)}</span><span class="bas">${esc(k.baslik || '')}</span>${k.teknik_var ? '' : '<span class="t-rozet-yok">teknik not yok (eski kart)</span>'}</span>
-      <span class="alt"><span>${esc(k.basamak || '–')}</span><span>${esc(k.sinif || '–')}</span><span>${esc(B.usd(k.usd))}</span><span>${esc(sureMetin(k.sure))}</span><span class="rozet" style="--renk:${esc(dr.renk)}"><i></i>${esc(dr.ad)}</span><span>${esc(k.dosya_sayisi)} dosya</span>${eslesen.length ? `<span>${eslesen.map(vurgu).join(', ')}</span>` : ''}</span></button>${det}</li>`;
+      <span class="alt"><span>${esc(k.basamak || '–')}</span><span>${esc(k.sinif || '–')}</span><span title="${esc(B.kalem(k.kalem))}">${esc(B.deger(k.usd, k.token))}</span><span>${esc(sureMetin(k.sure))}</span><span class="rozet" style="--renk:${esc(dr.renk)}"><i></i>${esc(dr.ad)}</span><span>${esc(k.dosya_sayisi)} dosya</span>${eslesen.length ? `<span>${eslesen.map(vurgu).join(', ')}</span>` : ''}</span></button>${det}</li>`;
   }
 
   function sagCiz() {

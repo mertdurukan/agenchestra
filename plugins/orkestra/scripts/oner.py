@@ -46,6 +46,15 @@ def _ilk_karar(k):
     return None
 
 
+def _kart_token(kayitlar) -> dict:
+    """{kart: dört kalemin ham token toplamı} — USD kıyasının token eşi (I-064)."""
+    t: dict = {}
+    for r in kayitlar or []:
+        g = r.get("gorev")
+        t[g] = t.get(g, 0) + sum(int(r.get(a) or 0) for a in L._TOKEN_ALANLARI)
+    return t
+
+
 def _kart_usd(kayitlar) -> dict:
     t: dict = {}
     for r in kayitlar or []:
@@ -208,6 +217,7 @@ def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=None, usd_fark=None) 
         usd_fark = pol["usd_fark"]
     sn = sinif_normal(sinif)
     usd = _kart_usd(kayitlar)
+    tok = _kart_token(kayitlar)
     gruplar: dict = {}
     for c in kartlar or []:
         if sinif_normal(c.get("sinif")) != sn:
@@ -218,9 +228,10 @@ def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=None, usd_fark=None) 
         b = c.get("baslangic_basamak") or c.get("basamak")
         if not b:
             continue
-        g = gruplar.setdefault(b, {"a": 0, "r": 0, "usd": 0.0, "dk": []})
+        g = gruplar.setdefault(b, {"a": 0, "r": 0, "usd": 0.0, "token": 0, "dk": []})
         g["a" if karar == "onay" else "r"] += 1
         g["usd"] += usd.get(c.get("id"), 0.0)
+        g["token"] += tok.get(c.get("id"), 0)
         g["dk"].append(_kart_dk(c))
     adaylar = []
     for b in sorted(gruplar):
@@ -231,7 +242,7 @@ def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=None, usd_fark=None) 
         ort = g["usd"] / n
         med = _medyan(g["dk"])
         adaylar.append({"basamak": b, "n": n, "ilk_gecis_olasiligi": p, "alt_sinir": al, "ort_usd": ort,
-                        "beklenen_usd": ort / al, "medyan_dk": med,
+                        "beklenen_usd": ort / al, "ort_token": g["token"] / n, "beklenen_token": g["token"] / n / al, "medyan_dk": med,
                         "beklenen_dk": (med / al) if med is not None else None})
     yeterli = [x for x in adaylar if x["n"] >= min_n]
     if yeterli:
@@ -266,6 +277,7 @@ def _duz(s: dict) -> str:
     for a in s["adaylar"][:6]:
         sat.append(f"  {a['basamak']}: n={a['n']} alt={a['alt_sinir']:.2f} "
                    f"ort=${a['ort_usd']:.4f} beklenen=${a['beklenen_usd']:.4f} "
+                   f"token ort={a['ort_token']:,.0f} beklenen={a['beklenen_token']:,.0f} "
                    f"dk={'-' if a['beklenen_dk'] is None else format(a['beklenen_dk'], '.0f')}")
     for b in s["benzer"][:3]:
         sat.append(f"  benzer {b['id']} ({b['basamak']}, ret={b['ret_sayisi']}, skor={b['skor']:.2f}) {str(b['baslik'])[:50]}")

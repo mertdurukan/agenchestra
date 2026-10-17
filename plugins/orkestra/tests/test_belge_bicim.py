@@ -94,7 +94,7 @@ class Kurallar(unittest.TestCase):
 
     def test_bozuk_ayar_varsayilana_duser(self):
         d = BB.ayar_oku("/yok/olan/dizin")
-        self.assertEqual(BB.mod(d, "yazim_kapisi"), "golge")
+        self.assertEqual(BB.mod(d, "yazim_kapisi"), "ihlal")  # eklentinin gönderdiği ayar: ihlal (18.10.2026)
         self.assertEqual(BB.mod({"yazim_kapisi": {"mod": "saçma"}}, "yazim_kapisi"), "golge")
 
 
@@ -135,6 +135,7 @@ class Kancalar(unittest.TestCase):
 
     # --- Ö4 yazım anı
     def test_golge_yazimi_engellemez_kayit_ve_uyari_dusurur(self):
+        self.ayar_yaz(yazim_kapisi="golge")
         c = self.yaz("is1/plan.md", IHLALLI)
         self.assertIsNone(self.karar(c))
         self.assertIn("K-005", c["hookSpecificOutput"]["additionalContext"])
@@ -150,6 +151,7 @@ class Kancalar(unittest.TestCase):
         self.assertEqual(self.ihlaller("belge_bicim"), [])
 
     def test_edit_ve_multiedit_parcasi_taranir(self):
+        self.ayar_yaz(yazim_kapisi="golge")
         c = self.yaz("is1/todo.md", "a; b; c; d", arac="Edit", alan="new_string")
         self.assertIn("sikisik_liste", c["hookSpecificOutput"]["additionalContext"])
         c = self.hook("PreToolUse", {"tool_name": "MultiEdit", "tool_input": {
@@ -175,6 +177,7 @@ class Kancalar(unittest.TestCase):
 
     # --- Ö3 Stop
     def test_stop_golge_baglantisiz_belgeyi_kaydeder_bloklamaz(self):
+        self.ayar_yaz(baglanti_kapisi="golge")
         c = self.stop("bitti", ["is1/rapor.md", "kod.py"])
         self.assertNotEqual(c.get("decision"), "block", c)
         k = self.ihlaller("belge_baglantisi_yok")

@@ -111,7 +111,12 @@ def _hesapla(kartlar: list[dict], mal_kart: dict, tum_mal: list[dict], sifir_olc
     oktop = sum(k["_ok_top"] for k in kartlar)
     cagri = sum(len(k.get("isciler") or []) for k in kartlar)
     sureler = [s for s in (k["_sure"] for k in kartlar) if s is not None]
+    kalem = L.kalemler(onayli_mal)  # I-064: onaylı kart başına token ve USD, dört kalemle (KPILER'e girmez: ikili ölçü)
+    kalem_kart = ({"token": {a: v / len(onayli) for a, v in kalem["token"].items()},
+                   "usd": {a: v / len(onayli) for a, v in kalem["usd"].items()}}
+                  if onayli and not sifir_olcum else None)
     return {
+        "basari_basina_kalem": kalem_kart,
         "dogrulanmis_basari": _bol(len(onayli), len(kartlar), sifir_olcum),
         "basari_basina_maliyet": _bol(usd, len(onayli), sifir_olcum),
         "basari_basina_token": _bol(tok, len(onayli), sifir_olcum),
@@ -235,6 +240,11 @@ def tablo(s: dict) -> str:
     satir = ["KPI (genel)"]
     for ad in (*KPILER, "onay_bekleme_sn"):
         satir.append(f"  {ad:<24} {_f(s['genel'].get(ad)):<28} = {TANIMLAR[ad]['pay']} / {TANIMLAR[ad]['payda']}")
+    kk = s["genel"].get("basari_basina_kalem")
+    if kk:
+        for tur, ad in (("token", "token"), ("usd", "usd")):
+            satir.append(f"  onayli_kart_basi_{ad:<6} " + " · ".join(f"{a} {_f(kk[tur][a])}" for a in L._TOKEN_ALANLARI)
+                         + f" · toplam {_f(kk[tur]['toplam'])}")
     a = s["ana_ajan_payi"]
     satir.append(f"  ana_ajan_payi            maliyet_usd {a['maliyet_usd']:.4f}, token {a['token']} (kartlara dağıtılmaz)")
     for r in s.get("planlayici") or []:

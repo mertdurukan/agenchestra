@@ -35,36 +35,50 @@ def _maliyet_kayitlari(sd, gun):
     return kayitlar
 
 
+_KALEMLER = ("giris", "cikis", "onbellek_okuma", "onbellek_yazma")
+
+
+def _bin(n) -> str:
+    """Binlik ayraç nokta (Türkçe; _md_tablo ile aynı)."""
+    return f"{n:,}".replace(",", ".")
+
+
 def _pivot(kayitlar, anahtarlar):
     p = collections.OrderedDict()
     for r in kayitlar:
         k = tuple(str(r.get(x, "-")) for x in anahtarlar)
-        d = p.setdefault(k, {"kosu": 0, "giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0})
+        d = p.setdefault(k, {"kosu": 0, "giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0,
+                             **{"usd_" + f: 0.0 for f in _KALEMLER}})
         d["kosu"] += 1
-        for f in ("giris", "cikis", "onbellek_okuma", "onbellek_yazma"):
+        for f in _KALEMLER:
             d[f] += r.get(f, 0) or 0
         d["maliyet_usd"] += r.get("maliyet_usd", 0) or 0
+        for f, v in L.kalem_usd(r).items():  # I-064: USD de dört kalemle (önbellek yazma kalan kuralı: toplam = maliyet_usd)
+            d["usd_" + f] += v
     return p
 
 
 def _md_tablo(baslik, anahtarlar, p):
-    satirlar = [f"### {baslik}", "", "| " + " | ".join(anahtarlar) + " | koşu | giriş | çıkış | önbellek okuma | önbellek yazma | ≈$ |",
-                "|" + "---|" * (len(anahtarlar) + 6)]
+    satirlar = [f"### {baslik}", "", "| " + " | ".join(anahtarlar) + " | koşu | giriş | çıkış | önbellek okuma | önbellek yazma | token toplam "
+                "| giriş $ | çıkış $ | önbellek okuma $ | önbellek yazma $ | ≈$ |",
+                "|" + "---|" * (len(anahtarlar) + 11)]
     for k, d in sorted(p.items(), key=lambda x: -x[1]["maliyet_usd"]):
-        satirlar.append("| " + " | ".join(k) + f" | {d['kosu']} | {d['giris']:,} | {d['cikis']:,} | {d['onbellek_okuma']:,} | {d['onbellek_yazma']:,} | {d['maliyet_usd']:.3f} |")
+        tok = sum(d[f] for f in _KALEMLER)
+        satirlar.append("| " + " | ".join(k) + f" | {d['kosu']} | {d['giris']:,} | {d['cikis']:,} | {d['onbellek_okuma']:,} | {d['onbellek_yazma']:,} | {tok:,} "
+                        f"| {d['usd_giris']:.3f} | {d['usd_cikis']:.3f} | {d['usd_onbellek_okuma']:.3f} | {d['usd_onbellek_yazma']:.3f} | {d['maliyet_usd']:.3f} |")
     return "\n".join(satirlar).replace(",", ".") + "\n"
 
 
 def _baglam_md(kayitlar):
     import analitik as AN
     k = AN.baglam_kirilim(kayitlar)
-    satirlar = ["### Bağlam (proje / süreç / görev)", "", "| bağlam | ≈$ | pay |", "|---|---|---|"]
+    satirlar = ["### Bağlam (proje / süreç / görev)", "", "| bağlam | ≈$ | token | pay |", "|---|---|---|---|"]
     for pr in k["projeler"]:
-        satirlar.append(f"| **{pr['proje']}** | {pr['usd']:.3f} | %{pr['pay'] * 100:.1f} |")
+        satirlar.append(f"| **{pr['proje']}** | {pr['usd']:.3f} | {_bin(pr['token'])} | %{pr['pay'] * 100:.1f} |")
         for b in pr["baglamlar"]:
             if b["baglam"] != pr["proje"]:
-                satirlar.append(f"| &nbsp;&nbsp;{b['baglam']} | {b['usd']:.3f} | %{b['pay'] * 100:.1f} |")
-    satirlar.append(f"| **Toplam** | {k['toplam_usd']:.3f} | %100.0 |")
+                satirlar.append(f"| &nbsp;&nbsp;{b['baglam']} | {b['usd']:.3f} | {_bin(b['token'])} | %{b['pay'] * 100:.1f} |")
+    satirlar.append(f"| **Toplam** | {k['toplam_usd']:.3f} | {_bin(k['token'])} | %100.0 |")
     return "\n".join(satirlar) + "\n"
 
 
@@ -75,16 +89,21 @@ def cmd_maliyet_rapor(a):
     if a.csv:
         buf = io.StringIO()
         alanlar = ["zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "giris", "cikis", "onbellek_okuma",
-                   "onbellek_yazma", "maliyet_usd", "sure_ms", "tur", "arac_cagrisi", "baglam"]
+                   "onbellek_yazma", "maliyet_usd", "usd_giris", "usd_cikis", "usd_onbellek_okuma", "usd_onbellek_yazma",
+                   "sure_ms", "tur", "arac_cagrisi", "baglam"]
         w = csv.DictWriter(buf, fieldnames=alanlar, extrasaction="ignore")
         w.writeheader()
         for r in kayitlar:
-            w.writerow(r)
+            w.writerow(dict(r, **{"usd_" + f: round(v, 6) for f, v in L.kalem_usd(r).items()}))
         metin = buf.getvalue()
     else:
         toplam = sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar)
         metin = f"# Token ve maliyet raporu ({'son ' + str(a.gun) + ' gün' if a.gun else 'tümü'}) — {L.simdi()[:16]}\n\n"
-        metin += f"Toplam {len(kayitlar)} koşu, ≈${toplam:.2f} (API liste fiyatıyla tahmin).\n\n"
+        kal = L.kalemler(kayitlar)
+        metin += f"Toplam {len(kayitlar)} koşu, ≈${toplam:.2f} (API liste fiyatıyla tahmin), {_bin(kal['token']['toplam'])} token.\n\n"
+        metin += ("Kalem kırılımı (token / ≈$): " + "; ".join(
+            f"{ad} {_bin(kal['token'][f])} / {kal['usd'][f]:.2f}" for f, ad in
+            (("giris", "giriş"), ("cikis", "çıkış"), ("onbellek_okuma", "önbellek okuma"), ("onbellek_yazma", "önbellek yazma"))) + ".\n\n")
         metin += _md_tablo("Görev × süreç", ["gorev", "surec"], _pivot(kayitlar, ["gorev", "surec"]))
         metin += "\n" + _md_tablo("Ajan × model", ["ajan", "model"], _pivot(kayitlar, ["ajan", "model"]))
         metin += "\n" + _md_tablo("Süreç", ["surec"], _pivot(kayitlar, ["surec"]))

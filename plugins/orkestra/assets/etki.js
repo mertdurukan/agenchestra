@@ -25,7 +25,8 @@
   const bicim = metrik => {
     const m = String(metrik || '');
     if (/oran|isabet/.test(m)) return v => O.B.yuzde(v, 1);
-    if (/maliyet/.test(m)) return v => O.B.usd(v);
+    if (/maliyet|usd/.test(m)) return v => O.B.usd(v);
+    if (/token/.test(m)) return v => O.B.token(v);
     return v => O.B.sayi(v, 2);
   };
 

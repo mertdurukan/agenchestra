@@ -452,7 +452,9 @@
         s += `<rect x="${x}" y="${y0 - h}" width="${bw}" height="${h}" rx="${j === dolu.length - 1 ? 2 : 0}" fill="${renk(k)}"/>`;
         taban += v;
       });
-      const ip = `<b>${esc(r.baslik || r.etiket)}</b>` + sat('Toplam', B.usd(tp)) +
+      const ip = `<b>${esc(r.baslik || r.etiket)}</b>` + sat('Toplam', B.usd(tp)) + (r.token != null ? sat('Token', B.token(r.token)) : '') +
+        (r.kalem ? ['giris', 'giriş', 'cikis', 'çıkış', 'onbellek_okuma', 'önbellek okuma', 'onbellek_yazma', 'önbellek yazma']
+          .reduce((a, v, i, d) => i % 2 ? a : a + sat(d[i + 1], B.usd(r.kalem.usd[v]) + ' · ' + B.token(r.kalem.token[v])), '') : '') +
         dolu.map(k => sat(ad(k), B.usd(r.parca[k]) + (tp ? ' · ' + B.yuzde(r.parca[k] / tp) : ''), renk(k))).join('');
       s += `<rect x="${sol + i * g}" y="${ust}" width="${g}" height="${Y - ust - alt}" fill="transparent" data-ipucu="${esc(ip)}"/>`;
       if (i % etiketAdim === 0) s += `<text x="${x + bw / 2}" y="${Y - 6}" text-anchor="middle">${esc(r.etiket)}</text>`;
@@ -493,7 +495,7 @@
     }
     const modeller = [...new Set(liste.flatMap(r => Object.keys(r.model || {})))]
       .sort((x, y) => (MODEL_SIRA.indexOf(x) + 1 || 99) - (MODEL_SIRA.indexOf(y) + 1 || 99));
-    const satirlar = liste.map(r => Object.assign(donemEtiket(r.donem, donem), { parca: r.model || {} }));
+    const satirlar = liste.map(r => Object.assign(donemEtiket(r.donem, donem), { parca: r.model || {}, token: r.token, kalem: r.kalem }));
     const cipGrup = (ad, anahtar, secenekler) => `<div class="cipler" role="group" aria-label="${esc(ad)}">${secenekler.map(([v, et]) =>
       `<button type="button" class="cip" data-${anahtar}="${v}" data-anahtar="${anahtar}:${v}" aria-pressed="${S[anahtar] === v}">${et}</button>`).join('')}</div>`;
     const arac = `<div class="arac">${tumu ? cipGrup('Birim', 'donem', [['gunluk', 'Günlük'], ['haftalik', 'Haftalık'], ['aylik', 'Aylık']]) : ''}

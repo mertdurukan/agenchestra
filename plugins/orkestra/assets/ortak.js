@@ -109,6 +109,16 @@
       if (a >= 1e3) return kisalt(1e3, 'K');
       return isaret + yerel(Math.round(a), 0);
     },
+    // I-064: ortak ölçü kipi ('usd' | 'token'); kabuktaki düğme değiştirir, sayfa yeniden yüklenir.
+    olcu() { return O.depo.al('orkestra.olcu') === 'token' ? 'token' : 'usd'; },
+    // Kipe göre tek değer: usd verilirse para, token verilirse token biçimi.
+    deger(usd, token) { return O.B.olcu() === 'token' ? O.B.token(token) : O.B.usd(usd); },
+    // Dört kalem (giriş, çıkış, önbellek okuma, önbellek yazma) kipe göre: kalem = {token:{...}, usd:{...}} (ork_lib.kalemler).
+    kalem(k) {
+      if (!k) return '–';
+      const m = O.B.olcu(), f = m === 'token' ? O.B.token : O.B.usd, d = k[m] || {};
+      return `giriş ${f(d.giris)} · çıkış ${f(d.cikis)} · önbellek okuma ${f(d.onbellek_okuma)} · önbellek yazma ${f(d.onbellek_yazma)}`;
+    },
     sayi(n, ondalik = 0) { return bos(n) || isNaN(Number(n)) ? '–' : yerel(n, ondalik, 0); },
     // Oran (0..1) → "%27"
     yuzde(x, ondalik = 0) { return bos(x) || isNaN(Number(x)) ? '–' : '%' + yerel(Number(x) * 100, ondalik, 0); },
@@ -474,10 +484,17 @@
         `<a data-sekme="${k}" data-yol="${yol}" href="${yol}"${k === sayfa ? ' aria-current="page"' : ''}>${ad}</a>`).join('')}</nav>
       <span class="bosluk"></span>
       <label class="alan-sec"><span class="alan-etiket">Çalışma alanı</span> <select id="alanSec"></select></label>
+      <span class="olcu-sec" role="group" aria-label="Ölçü birimi">${[['usd', 'USD'], ['token', 'Token']].map(([k, ad]) =>
+        `<button type="button" data-olcu="${k}" aria-pressed="${O.B.olcu() === k}">${ad}</button>`).join('')}</span>
       <span class="canli" id="canli" aria-live="off" tabindex="0"><i></i><span>bağlanıyor</span></span>
       ${sayfa === 'isler' ? '<button type="button" class="isler-sifirla" id="islerSifirla">Sıfırla</button>' : ''}
     </div>`;
     sekmeBagla();
+    h.querySelectorAll('[data-olcu]').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.olcu === O.B.olcu()) return;
+      O.depo.koy('orkestra.olcu', b.dataset.olcu);
+      location.reload();
+    }));
     const sifirlaDugme = document.getElementById('islerSifirla');
     if (sifirlaDugme) sifirlaDugme.addEventListener('click', () => islerSifirlaSor(sifirlaDugme));
     // Yapışkan başlığın gerçek yüksekliği --kabuk-yuk'e yazılır: html{scroll-padding-top} Shift+Tab ile odaklanan öğeyi altında bırakmaz.

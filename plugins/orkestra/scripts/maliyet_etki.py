@@ -25,13 +25,15 @@ KAPI_SURECLERI = ("test-kapisi", "on-kontrol")
 # (metrik, yön, tür) — tür: maliyet | kalite
 METRIKLER = (
     ("basari_basina_maliyet", "azalmali", "maliyet"),
+    ("basari_basina_token", "azalmali", "token"),
     ("kart_basina_ajan", "azalmali", "maliyet"),
     ("ana_ajan_payi", "azalmali", "maliyet"),
     ("yeniden_deneme_carpani", "azalmali", "maliyet"),
     ("kapi_ajani_kart_basina", "azalmali", "maliyet"),
     ("dogrulanmis_basari", "artmali", "kalite"),
     ("ret_orani", "azalmali", "kalite"),
-)
+) + tuple((f"basari_basina_{o}_{a}", "azalmali", o) for o in ("token", "usd") for a in L._TOKEN_ALANLARI)
+# tür 'token' ve 'usd': ikili ölçü (I-064). karar() yalnız 'kalite' ve 'maliyet' türüne baktığı için hükmü etkilemez.
 
 
 def _pencere(sd: str, bas: datetime.datetime, bit: datetime.datetime) -> dict:
@@ -42,12 +44,14 @@ def _pencere(sd: str, bas: datetime.datetime, bit: datetime.datetime) -> dict:
     ajan: dict = {}
     kapi = 0
     toplam = ana = 0.0
+    satirlar = []
     for r in L.maliyet_kayitlari(sd):
         z = A._zaman(r.get("zaman"))
         if not z or not (bas <= z < bit):
             continue
         usd = float(r.get("maliyet_usd") or 0)
         toplam += usd
+        satirlar.append(r)
         gid = r.get("gorev")
         if L.ana_ajan_satiri_mi(r):  # ana ajan payı: tek tanım (ork_lib.ana_ajan_satiri_mi)
             ana += usd
@@ -57,9 +61,12 @@ def _pencere(sd: str, bas: datetime.datetime, bit: datetime.datetime) -> dict:
             if r.get("surec") in KAPI_SURECLERI:
                 kapi += 1
     n = len(kartlar)
+    kal = g.get("basari_basina_kalem") or {}
     return {
         "deger": {
             "basari_basina_maliyet": g.get("basari_basina_maliyet"),
+            "basari_basina_token": g.get("basari_basina_token"),
+            **{f"basari_basina_{o}_{a}": (kal.get(o) or {}).get(a) for o in ("token", "usd") for a in L._TOKEN_ALANLARI},
             "kart_basina_ajan": (sum(len(v) for v in ajan.values()) / n) if n else None,
             "ana_ajan_payi": (ana / toplam) if toplam else None,
             "yeniden_deneme_carpani": g.get("yeniden_deneme_carpani"),
@@ -69,10 +76,13 @@ def _pencere(sd: str, bas: datetime.datetime, bit: datetime.datetime) -> dict:
         },
         "ornek": {
             "basari_basina_maliyet": orn.get("basari_basina_maliyet", 0),
+            "basari_basina_token": orn.get("basari_basina_token", 0),
+            **{f"basari_basina_{o}_{a}": orn.get("basari_basina_token", 0) for o in ("token", "usd") for a in L._TOKEN_ALANLARI},
             "kart_basina_ajan": n, "ana_ajan_payi": n, "yeniden_deneme_carpani": n, "kapi_ajani_kart_basina": n,
             "dogrulanmis_basari": orn.get("dogrulanmis_basari", 0), "ret_orani": orn.get("ret_orani", 0),
         },
         "toplam_usd": round(toplam, 2),
+        "kalem": L.kalemler(satirlar),
         "kart": n,
     }
 
@@ -110,8 +120,9 @@ def karsilastir(sd: str, kesim: datetime.datetime, gun: float = 7) -> dict:
         orn = min(o["ornek"][ad] or 0, s["ornek"][ad] or 0)
         satirlar.append({"metrik": ad, "tur": tur, "yon": yon, "once": a, "sonra": b, "ornek": orn,
                          "gidisat": _gidisat(a, b, orn, yon)})
-    return {"kesim": kesim.isoformat(), "gun": gun, "once": {"kart": o["kart"], "toplam_usd": o["toplam_usd"]},
-            "sonra": {"kart": s["kart"], "toplam_usd": s["toplam_usd"]}, "metrikler": satirlar,
+    return {"kesim": kesim.isoformat(), "gun": gun,
+            "once": {"kart": o["kart"], "toplam_usd": o["toplam_usd"], "toplam_token": o["kalem"]["token"]["toplam"], "kalem": o["kalem"]},
+            "sonra": {"kart": s["kart"], "toplam_usd": s["toplam_usd"], "toplam_token": s["kalem"]["token"]["toplam"], "kalem": s["kalem"]}, "metrikler": satirlar,
             "karar": karar(satirlar)}
 
 
@@ -121,7 +132,8 @@ def _f(v) -> str:
 
 def metin(r: dict) -> str:
     out = [f"Kesim {r['kesim']} · pencere ±{r['gun']:g} gün · önce {r['once']['kart']} kart "
-           f"{r['once']['toplam_usd']} $ · sonra {r['sonra']['kart']} kart {r['sonra']['toplam_usd']} $",
+           f"{r['once']['toplam_usd']} $ / {r['once']['toplam_token']} token · sonra {r['sonra']['kart']} kart "
+           f"{r['sonra']['toplam_usd']} $ / {r['sonra']['toplam_token']} token",
            "| metrik | tür | yön | önce | sonra | örnek | gidişat |", "|---|---|---|---|---|---|---|"]
     for s in r["metrikler"]:
         out.append(f"| {s['metrik']} | {s['tur']} | {s['yon']} | {_f(s['once'])} | {_f(s['sonra'])} | "

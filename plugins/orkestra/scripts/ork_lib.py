@@ -1837,6 +1837,38 @@ def _satir_usd(r: dict) -> float:
         "cache_creation": {"ephemeral_1h_input_tokens": r.get("onbellek_yazma") or 0}})
 
 
+def kalem_usd(r: dict) -> dict:
+    """Defter satırının dört kalemlik USD kırılımı (giris, cikis, onbellek_okuma, onbellek_yazma).
+
+    İlk üç kalem token x liste fiyatı. Önbellek yazma 'kalan'dır: satırın maliyet_usd'si eksi ilk üç kalem; böylece
+    hook satırlarındaki gerçek 5 dk/1 sa karışımı kaybolmaz ve kalem toplamı defter toplamına birebir eşit kalır
+    (negatif olamaz). maliyet_usd yoksa yazma 1 sa tarifesiyle fiyatlanır."""
+    f = model_fiyati(r.get("model") or "")
+    usd = {a: (r.get(a) or 0) * f[fiyat] / 1_000_000
+           for a, fiyat in (("giris", "giris"), ("cikis", "cikis"), ("onbellek_okuma", "onbellek_okuma"))}
+    if r.get("maliyet_usd") is not None:
+        usd["onbellek_yazma"] = max(0.0, float(r["maliyet_usd"]) - sum(usd.values()))
+    else:
+        usd["onbellek_yazma"] = (r.get("onbellek_yazma") or 0) * f["onbellek_yazma_1sa"] / 1_000_000
+    return usd
+
+
+def kalemler(satirlar: list[dict]) -> dict:
+    """Satır listesinin token ve USD toplamı, dört kalemle ve 'toplam'la: {'token': {...}, 'usd': {...}}.
+    Kıyas katmanları (analitik, kpi, rapor, panel) bu tek tanımı kullanır."""
+    token = {a: 0 for a in _TOKEN_ALANLARI}
+    usd = {a: 0.0 for a in _TOKEN_ALANLARI}
+    for r in satirlar:
+        k = kalem_usd(r)
+        for a in _TOKEN_ALANLARI:
+            token[a] += int(r.get(a) or 0)
+            usd[a] += k[a]
+    token["toplam"] = sum(token[a] for a in _TOKEN_ALANLARI)
+    usd = {a: round(v, 6) for a, v in usd.items()}
+    usd["toplam"] = round(sum(usd[a] for a in _TOKEN_ALANLARI), 6)
+    return {"token": token, "usd": usd}
+
+
 def _maliyet_kayitlari_oku(yol: str, duzeltme: bool = True) -> list[dict]:
     rows = jsonl_oku(yol)
     for r in rows:  # eski 'tur' satırları (tarife damgası yok) 5 dk tarifesiyle yazılmıştı: 1 sa tarifesiyle yeniden fiyatla
