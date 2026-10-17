@@ -132,6 +132,32 @@ dialog.sifirla-onay h2 { font-size: var(--t-16); margin: 0 0 var(--a-8); }
 dialog.sifirla-onay p { margin: 0 0 var(--a-12); font-size: var(--t-13); color: var(--text-secondary); }
 dialog.sifirla-onay .dugmeler { justify-content: flex-end; }
 
+/* Geniş ekran: kabuk solda dikey ray (kenar çubuğu). Aynı öğe, aynı kimlikler; dar ekranda yukarıdaki yapışkan başlık kalır.
+   Eşik O.rayModu() ile (ortak.js) aynıdır. */
+@media (min-width: 901px) {
+  :root { --ray: 232px; --kabuk-yuk: 0px; }
+  body { display: grid; grid-template-columns: var(--ray) minmax(0, 1fr); align-items: start; }
+  .kabuk {
+    grid-column: 1; grid-row: 1; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    border-bottom: 0; border-right: 1px solid var(--line);
+  }
+  main { grid-column: 2; grid-row: 1; width: 100%; }
+  .kabuk .kabuk-ic {
+    max-width: none; margin: 0; height: 100%; padding: var(--a-16) var(--a-12);
+    flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: var(--a-16);
+  }
+  .kabuk .marka { justify-content: center; padding: var(--a-4) 0 var(--a-8); border-bottom: 1px solid var(--line); }
+  .kabuk .marka img { height: 56px; }
+  .sekmeler { flex-direction: column; gap: 2px; }
+  .sekmeler a { display: flex; align-items: center; justify-content: space-between; gap: var(--a-8); padding: 8px var(--a-12); white-space: normal; }
+  .sekmeler a[aria-current="page"] { box-shadow: inset 3px 0 0 var(--focus); }
+  .sekmeler .sekme-rozet { margin-left: 0; flex: none; }
+  .kabuk .alan-sec { flex-direction: column; align-items: stretch; gap: var(--a-4); }
+  .kabuk .alan-sec select { max-width: none; width: 100%; }
+  .kabuk .canli { white-space: normal; }
+  .kabuk .isler-sifirla { align-self: flex-start; }
+}
+
 /* ---------------------------------------------------------------- sayfa gövdesi */
 main {
   max-width: var(--genislik); margin: 0 auto; padding: var(--a-24) var(--yan) 64px;
@@ -321,6 +347,24 @@ main.hazirlaniyor h1 { font-size: var(--t-20); color: var(--text-primary); }
 .onay-metin { margin: var(--a-8) 0 0; color: var(--text-secondary); font-size: var(--t-13); overflow-wrap: anywhere; }
 .onay-metin p { margin: 0 0 var(--a-8); white-space: pre-wrap; }
 .onay-metin.kati { max-height: 9em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+/* Karar kutusu: bekleyen kayıt kompakt satır. Sol sütun başlık ve özet, sağ sütun Onayla/Reddet/Not ekle.
+   .onay-eylem display:contents ile çocuklarını article'ın ızgarasına verir (kilitle() hâlâ .onay-eylem içini bulur). */
+.onay-kart.bekleyen { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--a-4) var(--a-16); align-items: start; padding: var(--a-12) var(--a-16); }
+.onay-kart.bekleyen > header { grid-column: 1; grid-row: 1; }
+.onay-kart.bekleyen > .onay-metin { grid-column: 1; grid-row: 2; margin: 0; }
+.onay-kart.bekleyen > .onay-metin.kati { max-height: 3.4em; }
+.onay-kart.bekleyen > .katla { grid-column: 1; grid-row: 3; justify-self: start; margin: 0; }
+.onay-kart.bekleyen > .onay-eylem { display: contents; }
+.onay-kart.bekleyen .onay-eylem > .dugmeler { grid-column: 2; grid-row: 1 / span 3; align-self: start; justify-content: flex-end; }
+.onay-kart.bekleyen .onay-eylem > fieldset, .onay-kart.bekleyen .onay-eylem > label,
+.onay-kart.bekleyen .onay-eylem > textarea, .onay-kart.bekleyen .onay-eylem > .hata-satir { grid-column: 1 / -1; }
+.onay-kart.bekleyen .onay-eylem > fieldset { margin-top: var(--a-4); }
+.onay-kart.bekleyen button.onayla { background: var(--good); border-color: var(--good); color: var(--surface-0); font-weight: 600; }
+.onay-kart.bekleyen button.onayla:hover { filter: brightness(1.1); }
+@media (max-width: 600px) {
+  .onay-kart.bekleyen { grid-template-columns: minmax(0, 1fr); }
+  .onay-kart.bekleyen .onay-eylem > .dugmeler { grid-column: 1; grid-row: auto; justify-content: flex-start; }
+}
 .onay-metin pre {
   margin: 0 0 var(--a-8); padding: var(--a-8) var(--a-12); background: var(--surface-1); border: 1px solid var(--line);
   border-radius: var(--k-6); overflow-x: auto; font-size: var(--t-12);

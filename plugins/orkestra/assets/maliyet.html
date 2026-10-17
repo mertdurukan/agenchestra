@@ -17,7 +17,7 @@
 
   <section class="bolum" id="pano" aria-labelledby="panoBaslik">
     <h2 id="panoBaslik">Hedef panosu <span id="panoBayat"></span></h2>
-    <p class="aciklama">Beş sayı hedefiyle birlikte. Eski dönem yanıltmasın diye iki pencere: son 3 gün ve tüm zaman.</p>
+    <p class="aciklama">Beş sayı hedefiyle birlikte. Pencereyi üstteki düğmelerle seç: bugün, son 3 gün, son 7 gün, bu ay ya da tüm zaman; pano, israf ve ek ölçüler seçilen pencereyi gösterir. Her ölçüde hedeften sapma yazar (artı: hedefin üstünde).</p>
     <div id="panoIcerik"><p class="bos">Yükleniyor…</p></div>
   </section>
 
@@ -29,9 +29,9 @@
 
   <section class="bolum" id="sohbetler" aria-labelledby="sohbetBaslik">
     <h2 id="sohbetBaslik">Sohbetler <span class="meta" id="sohbetSayi"></span><span id="sohbetBayat"></span></h2>
-    <p class="aciklama">Sohbet başına kayıtlı toplam. Birine tıkla: aşağıdaki kırılımlar yalnız o sohbete bakar.</p>
+    <p class="aciklama">Sohbet başına harcama ve token; gün, hafta, ay ya da tümü. Birine tıkla: aşağıdaki kırılımlar yalnız o sohbete bakar.</p>
     <details class="nasil"><summary>Tutarlar nasıl okunur?</summary>
-      <p>Sağdaki sözcük yoksa tutar Claude'un kendi hesabıdır (kapanmış sohbet). <b>tahmini</b>: açık sohbet, orkestra defterinden. <b>kaba</b>: transkript tahmini. Hepsi API liste fiyatıyladır.</p></details>
+      <p>Dönemli tutarlar ve tokenlar orkestra token defterindendir; üstteki «Bugün» tutarıyla aynı kaynak. Token = giriş + çıkış + önbellek okuma + önbellek yazma. Dönemler: <b>Gün</b> bugün (saat saat), <b>Hafta</b> son 7 gün, <b>Ay</b> bu ay, <b>Tümü</b> ilk kayıttan bugüne. Orkestrasız çalışma alanlarında defter yoktur: sohbetin kayıtlı toplamı gösterilir (<b>tahmini</b>: açık sohbet, <b>kaba</b>: transkript tahmini). Hepsi API liste fiyatıyladır.</p></details>
     <div id="sohbetIcerik"><p class="bos">Yükleniyor…</p></div>
   </section>
 

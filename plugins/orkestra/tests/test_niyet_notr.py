@@ -59,9 +59,9 @@ class IslerHtmlNotr(unittest.TestCase):
         self.assertRegex(self.html, r"say\.sen \? `\$\{say\.sen\} seni bekliyor`")
         self.assertNotRegex(self.html, r"say\.notr[^;\n]*seni bekliyor")
 
-    def test_nort_sen_karti_degil(self):
+    def test_notr_kartta_bekleme_metni_yok(self):
         govde = self.html[self.html.index("function sohbetKarti(r)"):self.html.index("function sohbetCiz()")]
-        self.assertRegex(govde, r"const sen = r\.bekleyen === 'sen'")
+        self.assertNotIn("r.bekleme", govde)
 
     def test_simdi_html_notr_bilmez(self):
         metin = ""

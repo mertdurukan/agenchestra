@@ -253,6 +253,42 @@ def _is_todolari(sd: str) -> list[dict]:
     return out
 
 
+def _sohbet_dokum(sd: str, proje: str, kayitlar: list, bugun: datetime.date) -> dict:
+    """Sohbet başına günlük (ve bugün için saatlik) harcama: dönem süzmesi ve zaman grafiği için.
+
+    Kaynak 'Bugün' tutarıyla aynı token defteridir (`kayitlar`), bu yüzden bugünün toplamı KPI ile tutar.
+    Her değer [usd, token]; token = giriş + çıkış + önbellek okuma + önbellek yazma. Başlık sohbet önbelleğinden gelir,
+    bilinmeyen oturum kısa kimlikle anılır."""
+    baslik = {}
+    try:
+        baslik = {s["oturum"]: s["baslik"] for s in L.sohbetler(sd, proje, limit=250, tahmin=False)}
+    except Exception:  # noqa: BLE001
+        pass
+    sohbet: dict = {}
+    for r in kayitlar:
+        oid, z = r.get("oturum"), A._zaman(r.get("zaman"))
+        if not oid or not z:
+            continue
+        usd = r.get("maliyet_usd", 0) or 0
+        tok = sum(r.get(a, 0) or 0 for a in ("giris", "cikis", "onbellek_okuma", "onbellek_yazma"))
+        e = sohbet.setdefault(oid, {"oturum": oid, "baslik": baslik.get(oid) or f"Sohbet {oid[:8]}", "son": None, "g": {}, "s": {}})
+        zi = z.isoformat(timespec="minutes")
+        if e["son"] is None or zi > e["son"]:
+            e["son"] = zi
+        g = e["g"].setdefault(z.date().isoformat(), [0.0, 0])
+        g[0] += usd
+        g[1] += tok
+        if z.date() == bugun:
+            h = e["s"].setdefault(f"{z.hour:02d}", [0.0, 0])
+            h[0] += usd
+            h[1] += tok
+    for e in sohbet.values():
+        for tablo in (e["g"], e["s"]):
+            for k, v in tablo.items():
+                tablo[k] = [round(v[0], 4), v[1]]
+    return {"gun": bugun.isoformat(), "sohbetler": sorted(sohbet.values(), key=lambda x: x["son"] or "", reverse=True)}
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     bugun = datetime.date.today()  # yerel gün sınırı; analitik.py ile aynı (UTC 'Z' damgaları yerel güne çevrilir)
@@ -360,6 +396,7 @@ def olustur(sd: str, proje: str) -> dict:
             "oturumlar": oturumlar,
         },
         "sohbetler": sohbetler,
+        "sohbet_dokum": _sohbet_dokum(sd, proje, kayitlar, bugun),
         "asili_ajanlar": asili_ajanlar(sd),
         "defter": defter,
         "perspektif": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"]),

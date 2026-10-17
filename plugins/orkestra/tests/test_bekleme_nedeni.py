@@ -86,14 +86,16 @@ class GorunumBekleme(KapanisTemel):
 
 
 class IslerHtmlBekleme(unittest.TestCase):
-    def test_sen_karti_yalniz_bekleme(self):
+    def test_kart_yalniz_amac(self):
+        # sade kart: gövdede yalnız amaç; bekleme nedeni, sonuç, son istek alıntısı ve açık kart satırı çizilmez
         with open(os.path.join(KOK, "assets", "isler.js"), encoding="utf-8") as f:
             html = f.read()
         govde = html[html.index("function sohbetKarti(r)"):html.index("function sohbetCiz()")]
-        self.assertRegex(govde, r"const sen = r\.bekleyen === 'sen'")
-        self.assertLess(govde.index("const sen"), govde.index("if (sen)"))  # TDZ yok
-        self.assertRegex(govde, r"metin\(r\.bekleme")
-        self.assertRegex(govde, r"\$\{sen \? '' : `<div class=\"alt\">")   # sade kart: alt satır (açık kart) çizilmez
+        self.assertIn('class="amac"', govde)
+        self.assertNotRegex(govde, r"metin\(r\.(bekleme|sonuc)")
+        self.assertNotIn("son-istek", govde)
+        self.assertNotIn('class="alt"', govde)
+        self.assertNotIn("açık kart", govde)
         self.assertNotIn("isChip", govde)
 
 

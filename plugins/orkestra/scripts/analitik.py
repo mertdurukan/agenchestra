@@ -685,6 +685,7 @@ def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
 
 AYAR_DIZINI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ayarlar")
 ONAYLI_DURUM = ("onaylandi", "teslim")
+PENCERE_SIRASI = ("bugun", "son_3_gun", "son_7_gun", "bu_ay", "tum_zaman")
 OLCU_SIRASI = ("ana_ajan_payi", "isci_cagrisi_kart", "onayli_kart_usd", "ret_orani", "teknik_not_kapsama")
 
 
@@ -718,6 +719,18 @@ def olcu_durumu(deger, spec: dict, uyari_carpani: float = 1.25, teknik_uyari_alt
     if deger <= spec["hedef"]:
         return "iyi", None
     return ("uyari" if deger <= spec["hedef"] * uyari_carpani else "kotu"), None
+
+
+def olcu_sapmasi(deger, spec: dict):
+    """Hedeften sapma, ölçünün kendi biriminde. Artı = hedefin üstünde, eksi = altında; hedef (ya da bant) içindeyse 0.
+    ust: deger - hedef (artı kötü). alt: deger - hedef (eksi kötü). band: bant dışına taşan miktar. Veri ya da hedef yoksa None."""
+    if deger is None or not spec:
+        return None
+    if spec.get("tur") == "band":
+        return deger - spec["ust"] if deger > spec["ust"] else (deger - spec["alt"] if deger < spec["alt"] else 0.0)
+    if spec.get("hedef") is None:
+        return None
+    return deger - spec["hedef"]
 
 
 def _kart_durum(k: dict) -> str:
@@ -823,8 +836,10 @@ def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
 
 
 def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None = None, esik: dict | None = None) -> dict:
-    """5 hedef ölçüsü x {son_3_gun, tum_zaman} ve önlenebilir israf. Her ölçü {deger, hedef, durum, ornek, pay, payda}.
-    Pencere: kart olusturma / defter satırı zamanı >= simdi - pencere_gun. Payda 0 -> deger None, durum veri-yok."""
+    """5 hedef ölçüsü x PENCERE_SIRASI (bugun, son_3_gun, son_7_gun, bu_ay, tum_zaman) ve önlenebilir israf.
+    Her ölçü {deger, hedef, durum, sapma, ornek, pay, payda}. Pencere: kart olusturma / defter satırı zamanı >= pencere başı
+    (bugun: yerel gün başı, son_3_gun: simdi - pencere_gun, son_7_gun: simdi - 7 gün, bu_ay: ayın 1'i 00:00).
+    Payda 0 -> deger None, durum veri-yok."""
     hedef = hedef if hedef is not None else _ayar("hedef.json")
     esik = esik if esik is not None else _ayar("kpi_esikleri.json")
     simdi = simdi or datetime.datetime.now().astimezone()
@@ -835,7 +850,9 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
     kapi = _zaman(hedef["teknik_kapi_baslangic"] + "T00:00:00") if hedef.get("teknik_kapi_baslangic") else None
     if kapi is not None and kapi.tzinfo is None:
         kapi = kapi.replace(tzinfo=simdi.tzinfo)
-    pencereler = {"son_3_gun": simdi - datetime.timedelta(days=gun), "tum_zaman": None}
+    gun_basi = simdi.replace(hour=0, minute=0, second=0, microsecond=0)
+    pencereler = {"bugun": gun_basi, "son_3_gun": simdi - datetime.timedelta(days=gun),
+                  "son_7_gun": simdi - datetime.timedelta(days=7), "bu_ay": gun_basi.replace(day=1), "tum_zaman": None}
 
     usd_ajan: dict = collections.defaultdict(float)
     for r in kayitlar:
@@ -878,8 +895,9 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             spec = olculer.get(o) or {}
             durum, yorum = olcu_durumu(deger, spec, carpan, t_alt) if spec else ("veri-yok", None)
             hd = [spec.get("alt"), spec.get("ust")] if spec.get("tur") == "band" else spec.get("hedef")
+            sapma = olcu_sapmasi(deger, spec)
             e = {"deger": _r(deger) if deger is not None else None, "hedef": hd, "tur": spec.get("tur"), "durum": durum,
-                 "ornek": ornek, "pay": _r(pay), "payda": _r(payda)}
+                 "sapma": _r(sapma) if sapma is not None else None, "ornek": ornek, "pay": _r(pay), "payda": _r(payda)}
             if yorum:
                 e["yorum"] = yorum
             out["olculer"][o][ad] = e

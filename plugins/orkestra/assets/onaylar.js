@@ -75,24 +75,32 @@
       ? `<fieldset><legend>Seçim (onaylamak için gerekli)</legend>${secenekler.map((s, i) =>
           `<label class="sec"><input type="radio" name="sec-${esc(k.id)}" value="${esc(s)}" data-secim="${esc(k.id)}"${t.secim === s ? ' checked' : ''}${kilit}> ${esc(s)}</label>`).join('')}</fieldset>`
       : '';
+    // Karar kutusu satırı: düğmeler başlık satırının sağında (CSS grid), not alanı "Not ekle" ile açılır; yazılmış not açık kalır.
+    const notAcik = !!t.not || S.acik.has('not-' + k.id);
+    const notHtml = notAcik
+      ? `<label class="meta" for="not-${esc(k.id)}">Not (isteğe bağlı)</label>
+      <textarea id="not-${esc(k.id)}" rows="2" data-not="${esc(k.id)}" data-anahtar="not-${esc(k.id)}"${kilit}>${esc(t.not || '')}</textarea>` : '';
     return `<div class="onay-eylem">${radyo}
-      <label class="meta" for="not-${esc(k.id)}">Not (isteğe bağlı)</label>
-      <textarea id="not-${esc(k.id)}" rows="2" data-not="${esc(k.id)}" data-anahtar="not-${esc(k.id)}"${kilit}>${esc(t.not || '')}</textarea>
       <div class="dugmeler">
         <button type="button" class="onayla" data-karar="onay" data-id="${esc(k.id)}" data-anahtar="onay-${esc(k.id)}"${kilit}>Onayla</button>
         <button type="button" class="reddet" data-karar="ret" data-id="${esc(k.id)}" data-anahtar="ret-${esc(k.id)}"${kilit}>Reddet</button>
+        <button type="button" class="cip" data-katla="not-${esc(k.id)}" data-anahtar="notac-${esc(k.id)}" aria-expanded="${notAcik}"${kilit}>${notAcik ? 'Notu gizle' : 'Not ekle'}</button>
       </div>
+      ${notHtml}
       <p class="hata-satir" role="status" aria-live="polite" data-hata="${esc(k.id)}">${esc(S.hata[k.id] || '')}</p>
     </div>`;
   }
 
   function kartHtml(k) {
     const sonuk = ['reddedildi', 'eskidi', 'iptal'].includes(k.durum);
-    const uzun = String(k.metin || '').length > 500 || String(k.metin || '').split('\n').length > 10;
+    const bek = k.durum === 'bekliyor';
+    // Bekleyen kayıt kompakt satırdır: gövde 3 satıra katlı gelir; geçmiş kayıtlar eski eşikle katlanır.
+    const uzun = bek ? (String(k.metin || '').length > 160 || String(k.metin || '').split('\n').length > 2)
+      : (String(k.metin || '').length > 500 || String(k.metin || '').split('\n').length > 10);
     const acik = S.acik.has(k.id), katli = uzun && !acik;
     const kaynak = tabanAd(k.kaynak);
     const ust = [kaynak, O.B.tarih(k.guncelleme || k.olusturma)].filter(s => s && s !== '–').map(esc).join(' · ');
-    return `<article class="onay-kart${sonuk ? ' sonuk' : ''}" style="--renk:${DURUM_RENK[k.durum] || 'var(--neutral)'}" data-kayit="${esc(k.id)}" aria-labelledby="b-${esc(k.id)}">
+    return `<article class="onay-kart${sonuk ? ' sonuk' : ''}${bek ? ' bekleyen' : ''}" style="--renk:${DURUM_RENK[k.durum] || 'var(--neutral)'}" data-kayit="${esc(k.id)}" aria-labelledby="b-${esc(k.id)}">
       <header><span class="tur-etiket" style="color:${TUR_RENK[k.tur] || 'var(--text-secondary)'}">${esc(TUR_AD[k.tur] || k.tur)}</span>
         <h3 id="b-${esc(k.id)}">${esc(k.baslik)}</h3><span class="meta">${ust}</span></header>
       <div class="onay-metin${katli ? ' kati' : ''}" id="m-${esc(k.id)}">${metinHtml(k.metin)}</div>

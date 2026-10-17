@@ -1,4 +1,4 @@
-"""G-138: verim hedef panosu (5 ölçü, iki pencere) ve önlenebilir israf (K11)."""
+"""G-138: verim hedef panosu (5 ölçü, 5 pencere, hedeften sapma) ve önlenebilir israf (K11)."""
 import datetime
 import json
 import os
@@ -14,7 +14,7 @@ import analitik as A  # noqa: E402
 import kpi as K  # noqa: E402
 
 OLCULER = ("ana_ajan_payi", "isci_cagrisi_kart", "onayli_kart_usd", "ret_orani", "teknik_not_kapsama")
-PENCERELER = ("son_3_gun", "tum_zaman")
+PENCERELER = ("bugun", "son_3_gun", "son_7_gun", "bu_ay", "tum_zaman")
 HEDEF = {"surum": 1, "teknik_kapi_baslangic": "2026-10-16", "pencere_gun": 3, "uyari_carpani": 1.25, "teknik_uyari_alt": 0.8,
          "olculer": {"ana_ajan_payi": {"tur": "ust", "hedef": 0.40}, "isci_cagrisi_kart": {"tur": "ust", "hedef": 2},
                      "onayli_kart_usd": {"tur": "ust", "hedef": 1.5}, "ret_orani": {"tur": "band", "alt": 0.10, "ust": 0.20},
@@ -63,6 +63,31 @@ class K1Yapi(unittest.TestCase):
         self.assertEqual(p["olculer"]["isci_cagrisi_kart"]["son_3_gun"]["deger"], 1.0)
         self.assertEqual(p["olculer"]["isci_cagrisi_kart"]["tum_zaman"]["deger"], 3.5)
         self.assertEqual(p["olculer"]["isci_cagrisi_kart"]["son_3_gun"]["ornek"], 1)
+
+    def test_gun_hafta_ay_pencereleri(self):
+        """Her pencerenin başı farklı: bugünkü, 5 gün önceki, 20 gün önceki (önceki ay) ve 60 gün önceki kart ayrı pencerelere düşer."""
+        kartlar = [kart("G-1", olus=z(0, 1), isciler=1), kart("G-2", olus=z(5), isciler=2),
+                   kart("G-3", olus=z(20), isciler=3), kart("G-4", olus=z(60), isciler=4)]
+        e = pano(kartlar)["olculer"]["isci_cagrisi_kart"]
+        self.assertEqual([e[w]["ornek"] for w in PENCERELER], [1, 1, 2, 2, 4])   # bu_ay (16 Ekim): G-1 ve G-2 (11 Ekim); G-3 Eylül'de kalır
+        self.assertEqual(e["bu_ay"]["deger"], 1.5)
+
+    def test_sapma_hedeften_uzakligi(self):
+        spec = HEDEF["olculer"]
+        self.assertAlmostEqual(A.olcu_sapmasi(0.55, spec["ana_ajan_payi"]), 0.15)        # ust: hedefin 0,15 üstünde
+        self.assertAlmostEqual(A.olcu_sapmasi(0.30, spec["ana_ajan_payi"]), -0.10)       # hedefin altında (iyi)
+        self.assertAlmostEqual(A.olcu_sapmasi(0.80, spec["teknik_not_kapsama"]), -0.20)  # alt: eksik kapsama
+        self.assertAlmostEqual(A.olcu_sapmasi(0.25, spec["ret_orani"]), 0.05)            # bant üstü
+        self.assertAlmostEqual(A.olcu_sapmasi(0.05, spec["ret_orani"]), -0.05)           # bant altı
+        self.assertEqual(A.olcu_sapmasi(0.15, spec["ret_orani"]), 0.0)                   # bant içi
+        self.assertIsNone(A.olcu_sapmasi(None, spec["ana_ajan_payi"]))
+        self.assertIsNone(A.olcu_sapmasi(1.0, {}))
+
+    def test_pano_sapma_alani(self):
+        p = pano([kart("G-1", isciler=5)])["olculer"]["isci_cagrisi_kart"]
+        for w in PENCERELER:
+            self.assertEqual(p[w]["sapma"], 3.0, w)   # 5 işçi / 1 kart, hedef 2
+        self.assertIsNone(pano([])["olculer"]["isci_cagrisi_kart"]["bugun"]["sapma"])
 
     def test_alan_analitigi_cikti_anahtari(self):
         with tempfile.TemporaryDirectory() as d:
@@ -279,7 +304,7 @@ class K5PanoJs(unittest.TestCase):
     def test_js_bes_olcu_ve_alanlari(self):
         for o in OLCULER:
             self.assertIn(o, self.js)
-        for parca in ("hedef_panosu", "panoCiz", "durumMetni", "son_3_gun", "tum_zaman", "pay", "payda"):
+        for parca in ("hedef_panosu", "panoCiz", "durumMetni", "bugun", "son_3_gun", "son_7_gun", "bu_ay", "tum_zaman", "sapma", "pay", "payda"):
             self.assertIn(parca, self.js)
         self.assertIn("gevsek-riski", self.js)
         self.assertIn("plan-kusuru", self.js)

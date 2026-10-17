@@ -59,6 +59,8 @@
   .is-ust { display: flex; align-items: baseline; gap: var(--a-8); min-width: 0; }
   .is-ad { flex: 1; min-width: 0; font-size: var(--t-14); font-weight: 600; line-height: 1.3;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .is-id { flex: none; font-size: var(--t-12); font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  button.is-sec .bar .yol { height: 6px; }
   .is-zaman { font-size: var(--t-12); color: var(--text-muted); white-space: nowrap; }
   .is-simdi { font-size: var(--t-12); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .is-simdi.bosta { color: var(--text-muted); }
@@ -100,6 +102,23 @@
 
   .adim { display: inline-block; font-size: var(--t-12); font-weight: 600; color: var(--text-secondary); border: 1px solid var(--line); border-radius: 999px; padding: 0 var(--a-8); white-space: nowrap; }
 
+  /* ---- görev kartları tablosu */
+  .kart-tablo { margin-top: var(--a-24); }
+  .kart-tablo h3 { margin: 0 0 var(--a-8); font-size: var(--t-12); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .kart-tablo h3 .n, .kart-tablo .cip .n { color: var(--text-muted); font-weight: 400; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .kart-tablo .cipler.filtre { margin-bottom: var(--a-12); }
+  .kt-kap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--k-6); background: var(--surface-0); max-height: 22rem; overflow-y: auto; }
+  .kart-tablo table { width: 100%; border-collapse: collapse; font-size: var(--t-13); }
+  .kart-tablo th { position: sticky; top: 0; background: var(--surface-0); text-align: left; font-size: var(--t-12); font-weight: 600; color: var(--text-muted); padding: 6px var(--a-12); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .kart-tablo td { padding: 6px var(--a-12); border-top: 1px solid var(--grid); vertical-align: baseline; }
+  .kart-tablo tbody tr:first-child td { border-top: 0; }
+  .kart-tablo tbody tr:hover { background: var(--surface-1); }
+  .kt-id { white-space: nowrap; }
+  .kt-metin { width: 100%; min-width: 28ch; overflow-wrap: break-word; }
+  .kt-bas, .kt-usd { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th.kt-usd, td.kt-usd { text-align: right; }
+  .kt-durum { white-space: nowrap; }
+
   /* ---- sekmeli plan / geçmiş */
   .gecmis { margin-top: var(--a-32); border-top: 1px solid var(--line); padding-top: var(--a-16); }
   .arac { display: flex; flex-wrap: wrap; align-items: center; gap: var(--a-8) var(--a-12); margin-bottom: var(--a-12); }
@@ -127,10 +146,12 @@
   details.madde ul.notlar { margin: 0 0 var(--a-8) 22px; }
   mark { background: color-mix(in srgb, var(--warning) 35%, transparent); color: inherit; border-radius: 2px; }
 
+  /* Sol ray 232px yer tuttuğu için orta genişlikte iş listesi daralır. */
+  @media (max-width: 1180px) { .duzen { grid-template-columns: 250px minmax(0, 1fr); } }
+  @media (max-width: 900px) { .detay { padding: var(--a-16); } }
   @media (max-width: 860px) {
     .duzen { grid-template-columns: minmax(0, 1fr); }
     .liste-kap { position: static; }
-    .detay { padding: var(--a-16); }
     .arac input[type="search"] { max-width: none; margin-left: 0; }
   }
   .kapanis { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 2px; }

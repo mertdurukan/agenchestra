@@ -317,6 +317,7 @@
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
   const SEKMELER = [['isler', 'Dashboard', '/isler'], ['maliyet', 'Maliyet ve verim', '/maliyet'],
     ['onaylar', 'Onaylar, etki ve kurallar', '/onaylar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar']];
+  O.rayModu = () => window.matchMedia('(min-width: 901px)').matches;   // ortak.css'teki kabuk kırılımıyla aynı eşik
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {
     document.querySelectorAll('#kabuk [data-sekme]').forEach(a => { a.href = a.dataset.yol + sorgu(); });
@@ -458,7 +459,8 @@
     const sifirlaDugme = document.getElementById('islerSifirla');
     if (sifirlaDugme) sifirlaDugme.addEventListener('click', () => islerSifirlaSor(sifirlaDugme));
     // Yapışkan başlığın gerçek yüksekliği --kabuk-yuk'e yazılır: html{scroll-padding-top} Shift+Tab ile odaklanan öğeyi altında bırakmaz.
-    const yukOlc = () => document.documentElement.style.setProperty('--kabuk-yuk', Math.ceil(h.getBoundingClientRect().height) + 'px');
+    // Geniş ekranda kabuk solda dikey raydır (üstte yer tutmaz): kayma payı 0. Dar ekranda yapışkan üst başlıktır.
+    const yukOlc = () => document.documentElement.style.setProperty('--kabuk-yuk', O.rayModu() ? '0px' : Math.ceil(h.getBoundingClientRect().height) + 'px');
     yukOlc();
     if (typeof ResizeObserver === 'function') new ResizeObserver(yukOlc).observe(h); else addEventListener('resize', yukOlc);
     document.getElementById('alanSec').addEventListener('change', e => alanYaz(e.target.value, true));

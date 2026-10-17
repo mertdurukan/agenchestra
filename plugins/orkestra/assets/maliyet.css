@@ -28,6 +28,20 @@
   .cubuk.pay .deger { min-width: 110px; }
   .cubuk.pay .deger .meta { margin-left: 6px; }
   .daha { margin-top: var(--a-8); }
+  button.cubuk.sohbet-c:disabled { cursor: default; opacity: 1; }
+
+  /* sohbet bölümü: dönem ve görünüm düğmeleri, özet satırı, alt başlıklar, liste görünümü */
+  .sohbet-ozet { margin: 0 0 var(--a-12); }
+  .sohbet-ozet b { color: var(--text-primary); }
+  .alt-baslik { margin: var(--a-16) 0 var(--a-8); font-size: var(--t-14, 14px); font-weight: 600; }
+  .alt-baslik .meta { font-weight: 400; margin-left: var(--a-8); }
+  table.tablo td.ad { max-width: 0; width: 44%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.tablo td.sayi { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.tablo tr.secili td { background: var(--surface-2); }
+  button.sohbet-ad { all: unset; cursor: pointer; color: var(--text-primary); max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  button.sohbet-ad:hover { text-decoration: underline; }
+  button.sohbet-ad:focus-visible { outline: 2px solid var(--text-muted); outline-offset: 2px; }
+  button.sohbet-ad[aria-pressed="true"] { font-weight: 650; }
   @media (max-width: 600px) {
     button.cubuk.sohbet-c { grid-template-columns: minmax(0, 1fr) auto auto; }
     .cubuk.pay .deger { min-width: 0; }

@@ -25,6 +25,7 @@
     veri: null,
     secili: new URL(location.href).searchParams.get('is') || O.depo.al('orkestra.isler.secili') || '',
     sekme: O.depo.al('orkestra.isler.sekme') || 'planda_kart_yok',
+    kartSuz: O.depo.al('orkestra.isler.kartSuz') || 'hepsi',
     ara: '',
     acik: new Set(),   // açık <details> / genişletilmiş not kimlikleri (yeniden çizimde korunur)
   };
@@ -49,7 +50,7 @@
   const barHtml = (il, buyuk) => {
     const { t, b, y } = yuzdeOf(il);
     return `<div class="bar${buyuk ? ' buyuk' : ''}"><span class="yol" role="progressbar" aria-label="İlerleme" aria-valuemin="0" aria-valuemax="${t}" aria-valuenow="${b}"><i style="width:${y}%"></i></span>` +
-      `<span>${buyuk ? `%${y} · ${b}/${t} tamamlandı` : `${b}/${t}`}</span></div>`;
+      `<span>${buyuk ? `%${y} · ${b}/${t} tamamlandı` : `${b} / ${t}`}</span></div>`;
   };
   // Arama vurgusu: metin önce kaçışlanır, sonra eşleşme <mark> ile sarılır.
   const vurgu = metin => {
@@ -73,7 +74,7 @@
     const sh = isSohbetleri(is.id).filter(r => ETKIN.has(r.bekleyen));
     const shMetin = sh.length ? `<div class="is-sohbet" style="--renk:${bekleyenD(sh[0].bekleyen).renk}"><i></i>${sh.length} sohbet · ${esc(bekleyenD(sh[0].bekleyen).ad.toLocaleLowerCase('tr'))}</div>` : '';
     return `<li><button type="button" class="is-sec" data-is="${esc(is.id)}" data-anahtar="is:${esc(is.id)}" aria-current="${secili}">
-      <span class="is-ust"><span class="is-ad">${esc(is.ad || is.baslik || is.id)}</span><span class="is-zaman" title="Son etkinlik ${esc(B.tarih(is.son))}">${esc(B.once(is.son))}</span></span>
+      <span class="is-ust"><span class="is-id">${esc(is.id)}</span><span class="is-ad">${esc(is.ad || is.baslik || is.id)}</span><span class="is-zaman" title="Son etkinlik ${esc(B.tarih(is.son))}">${esc(B.once(is.son))}</span></span>
       ${barHtml(is.ilerleme)}${simdiMetin}${shMetin}</button></li>`;
   }
 
@@ -137,6 +138,43 @@
       : '<span class="meta">Bu işe bağlı sohbet yok.</span>'}</div>`;
     return `<header><h2>${esc(is.ad || is.baslik || is.id)}</h2><div class="detay-meta">${meta}</div>${barHtml(is.ilerleme, true)}${shHtml}</header>
       ${is.hata ? `<p class="is-hata">Bu iş okunamadı: ${esc(O.yolGizle(O.hataMetni(is.hata)))}</p>` : ''}${odak}`;
+  }
+
+  // ---------------------------------------------------------------- sağ detay: görev kartları tablosu
+  // Seçili işin kart kayıtları (tur=kart) tüm kovalardan toplanır; süzgeç E.durum anahtarlarına göre.
+  const KART_SUZGEC = [
+    { k: 'hepsi', ad: 'Tümü', d: null },
+    { k: 'calisan', ad: 'Çalışan', d: ['isleniyor'] },
+    { k: 'denetimde', ad: 'Denetimde', d: ['denetimde'] },
+    { k: 'bekleyen', ad: 'Bekleyen', d: ['planlandi', 'beklemede'] },
+    { k: 'reddedilen', ad: 'Reddedilen', d: ['reddedildi'] },
+    { k: 'teslim', ad: 'Teslim', d: ['onaylandi', 'teslim'] },
+  ];
+  const KART_SIRA = ['isleniyor', 'denetimde', 'reddedildi', 'planlandi', 'beklemede', 'onaylandi', 'teslim', 'iptal'];
+  const kartlariTopla = is => Object.values(is.kovalar || {}).flatMap(dizi).filter(o => o.tur === 'kart')
+    .sort((a, b) => (KART_SIRA.indexOf(a.durum) + 1 || 99) - (KART_SIRA.indexOf(b.durum) + 1 || 99));
+
+  function kartTabloHtml(is) {
+    const tum = kartlariTopla(is);
+    if (!tum.length) return '';
+    const suz = KART_SUZGEC.find(f => f.k === S.kartSuz) || KART_SUZGEC[0];
+    const gor = suz.d ? tum.filter(o => suz.d.includes(o.durum)) : tum;
+    const cipler = KART_SUZGEC.map(f => {
+      const n = f.d ? tum.filter(o => f.d.includes(o.durum)).length : tum.length;
+      return `<button type="button" class="cip" data-kart-suz="${f.k}" data-anahtar="ks:${f.k}" aria-pressed="${f.k === suz.k}">${esc(f.ad)}<span class="n">${n}</span></button>`;
+    }).join('');
+    const satirlar = gor.map(o => {
+      const adim = adimOf(o);
+      return `<tr><td class="kt-id"><span class="adim">${esc(o.kart)}</span></td>` +
+        `<td class="kt-metin">${esc(metinKirp(o.metin, adim))}</td>` +
+        `<td class="kt-bas">${esc(o.basamak || '')}</td>` +
+        `<td class="kt-durum">${rozet(E.durum(o.durum))}</td>` +
+        `<td class="kt-usd">${o.usd > 0 ? esc(B.usd(o.usd)) : ''}</td></tr>`;
+    }).join('');
+    const tablo = gor.length
+      ? `<div class="kt-kap"><table><thead><tr><th>Kart</th><th>Görev</th><th>Basamak</th><th>Durum</th><th class="kt-usd">Maliyet</th></tr></thead><tbody>${satirlar}</tbody></table></div>`
+      : '<p class="bos">Bu süzgeçte kart yok.</p>';
+    return `<h3>Görev kartları <span class="n">${tum.length}</span></h3><div class="cipler filtre" role="group" aria-label="Kart durumuna göre süz">${cipler}</div>${tablo}`;
   }
 
   // ---------------------------------------------------------------- sağ detay: sekmeler + liste
@@ -212,21 +250,9 @@
     const d = bekleyenD(r.bekleyen);
     const k = r.kartlar || { acik: 0, toplam: 0, teslim: 0, aktif: [] };
     const kartIp = k.aktif && k.aktif.length ? k.aktif.map(x => `<div class="meta">${esc(x.id)} · ${metin(x.baslik)}</div>`).join('') : '';
-    const kartMetni = `${k.acik || 0} açık kart`;
-    const sen = r.bekleyen === 'sen';   // sade kart: kapanış rozetleri ve iş/kart satırı çizilmez
-    // Sohbetin amacı: niyet kaydındaki hedef cümlesi (neden alanı); yoksa başlık (ne)
-    const amac = r.niyet_var ? `<div class="amac">${metin(r.neden || r.ne)}</div>` : '';
-    let govde;
-    if (sen) {
-      // Seni bekliyor: amaç + Stop kancasının son mesajdan çıkardığı ne beklendiği
-      govde = `${amac}<div class="bekleme">${metin(r.bekleme || 'Yanıtını bekliyor')}</div>`;
-    } else if (r.niyet_var) {
-      govde = `${amac}${r.sonuc ? `<div class="sonuc">${metin(r.sonuc)}</div>` : ''}`;
-    } else if (r.son_istek) {
-      govde = `<div class="son-istek"><q>${metin(r.son_istek)}</q></div>`;
-    } else {
-      govde = `<div class="son-istek"><q>${metin(r.yedek || 'Henüz bilgi yok')}</q></div>`;
-    }
+    // Sade kart: gövdede yalnız sohbetin amacı yazar (niyet kaydındaki hedef cümlesi = neden; yoksa ne; niyet yoksa yedek/son istek).
+    // Sonuç, bekleme nedeni, son istek ve kart sayısı kartta çizilmez; ayrıntı üzerine gelince açılan ipucundadır.
+    const govde = `<div class="amac">${metin(r.niyet_var ? (r.neden || r.ne) : (r.yedek || r.son_istek || 'Amaç henüz yazılmadı'))}</div>`;
     const acIpucu = r.link ? 'Tıkla: sohbeti Claude uygulamasında aç' : 'Tıkla: terminalde başlamış sohbeti uygulamada sürdür';
     const ip = `<b>${esc(r.proje)} › ${esc(r.sohbet)}</b>` + sat('Durum', esc(d.ad)) + sat('Son etkinlik', B.tarih(r.son_zaman)) +
       sat('Başlangıç', B.tarih(r.baslangic)) + sat('İstek', B.sayi(r.istek_sayisi)) + kartIp +
@@ -234,8 +260,7 @@
     return `<div class="sohbet" style="--renk:${d.renk}" data-oturum="${esc(r.oturum)}" data-anahtar="s:${esc(r.oturum)}" tabindex="0" role="button"
         aria-label="${esc(r.proje + ' › ' + r.sohbet + ' · ' + d.ad + ' · sohbeti aç')}" data-ipucu="${esc(ip)}">
       <div class="ust">${sRozet(d, r.bekleyen === 'claude' ? ' nabiz' : '')}<span data-once="${esc(r.son_zaman || '')}">${B.once(r.son_zaman)}</span></div>
-      ${govde}
-      ${sen ? '' : `<div class="alt"><span class="kartlar">${esc(kartMetni)}</span></div>`}</div>`;
+      ${govde}</div>`;
   }
 
   function sohbetCiz() {
@@ -288,7 +313,7 @@
 
   function sayfaCiz() {
     const sayi = $('#iSayi');
-    const bosDetay = metin => { yerlestir($('#dBas'), metin); $('#gecmis').classList.add('gizli'); };
+    const bosDetay = metin => { yerlestir($('#dBas'), metin); $('#gecmis').classList.add('gizli'); $('#kartTablo').classList.add('gizli'); };
     if (!S.veri) {
       sayi.textContent = '';
       let metin = '<p class="bos">Yükleniyor…</p>';
@@ -314,6 +339,9 @@
     yerlestir($('#dBas'), basHtml(is));
     $('#gecmis').classList.remove('gizli');
     yerlestir($('#sekmeler'), sekmeHtml(is));
+    const kt = kartTabloHtml(is);
+    $('#kartTablo').classList.toggle('gizli', !kt);
+    yerlestir($('#kartTablo'), kt);
     const panel = $('#dListe');
     panel.setAttribute('aria-labelledby', 't-' + S.sekme);
     yerlestir(panel, kovaHtml(is));
@@ -406,6 +434,8 @@
     if (fl) { S.filtre = fl.dataset.filtre; O.depo.koy('orkestra.isler.filtre', S.filtre); sayfaCiz(); return; }
     const isB = e.target.closest('button.is-sec');
     if (isB) { sec(isB.dataset.is); return; }
+    const ks = e.target.closest('[data-kart-suz]');
+    if (ks) { S.kartSuz = ks.dataset.kartSuz; O.depo.koy('orkestra.isler.kartSuz', S.kartSuz); sayfaCiz(); return; }
     const sk = e.target.closest('[data-sekme]');
     if (sk) { sekmeSec(sk.dataset.sekme); return; }
     const g = e.target.closest('[data-genislet]');

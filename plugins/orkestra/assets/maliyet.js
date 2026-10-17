@@ -179,6 +179,132 @@
 
   // ------------------------------------------------------------ 2. Sohbetler
   const SOHBET_ILK = 10;
+  // Dönem süzmesi ve görünüm (grafik | liste) alan başına hatırlanır. Dönemli veri token defterindendir (ozet.sohbet_dokum).
+  const SD_ADLARI = { gun: 'Bugün', hafta: 'Son 7 gün', ay: 'Bu ay', tum: 'Tüm zaman' };
+  const SD_DUGME = [['gun', 'Gün'], ['hafta', 'Hafta'], ['ay', 'Ay'], ['tum', 'Tümü']];
+  const SD_ANAHTAR = a => 'orkestra.maliyet.sohbet.' + a + '.' + O.alan;
+  const sDonem = () => { const v = O.depo.al(SD_ANAHTAR('donem')); return SD_ADLARI[v] ? v : 'tum'; };
+  const sGorunum = () => O.depo.al(SD_ANAHTAR('gorunum')) === 'liste' ? 'liste' : 'grafik';
+  const dokum = () => (S.ozet && S.ozet.sohbet_dokum && Array.isArray(S.ozet.sohbet_dokum.sohbetler)) ? S.ozet.sohbet_dokum : null;
+  // YYYY-MM-DD aritmetiği saat dilimi kaymadan (UTC) yapılır
+  const gunKaydir = (g, n) => { const d = new Date(g + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const haftaBasi = g => { const d = new Date(g + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); };
+  const gunIcinde = (donem, bugun) => ({
+    gun: g => g === bugun,
+    hafta: g => g >= gunKaydir(bugun, -6) && g <= bugun,
+    ay: g => g.slice(0, 7) === bugun.slice(0, 7),
+    tum: () => true,
+  })[donem];
+  const SOHBET_RENK_SAYISI = 6;
+  const sohbetRenk = (k, i) => k === 'diger' ? 'var(--neutral)' : SERI[i];
+
+  // Zaman kovaları: gün → saatler, hafta ve ay → günler, tümü → günler (45 günü aşarsa haftalar)
+  function zamanKovalari(donem, dk, sohbetler) {
+    const bugun = dk.gun;
+    if (donem === 'gun') {
+      const saatler = sohbetler.flatMap(e => Object.keys(e.s || {})).map(Number);
+      if (!saatler.length) return [];
+      const kovalar = [];
+      for (let h = Math.min(...saatler); h <= Math.max(...saatler); h++) {
+        const hh = String(h).padStart(2, '0');
+        kovalar.push({ anahtar: hh, etiket: hh, baslik: `${hh}:00–${hh}:59`, deger: e => (e.s || {})[hh] });
+      }
+      return kovalar;
+    }
+    const ic = gunIcinde(donem, bugun);
+    const gunler = sohbetler.flatMap(e => Object.keys(e.g || {})).filter(ic).sort();
+    if (!gunler.length) return [];
+    const ilk = donem === 'hafta' ? gunKaydir(bugun, -6) : donem === 'ay' ? bugun.slice(0, 8) + '01' : gunler[0];
+    const haftalik = donem === 'tum' && (new Date(bugun) - new Date(ilk)) / 864e5 > 45;
+    const kovalar = [], goruldu = new Set();
+    for (let g = ilk; g <= bugun; g = gunKaydir(g, 1)) {
+      const k = haftalik ? haftaBasi(g) : g;
+      if (goruldu.has(k)) continue;
+      goruldu.add(k);
+      kovalar.push({ anahtar: k, etiket: B.gun(k), baslik: haftalik ? `${B.gun(k)} haftası` : B.gun(k), haftalik });
+    }
+    kovalar.forEach(kv => {
+      kv.deger = e => {
+        const t = [0, 0];
+        Object.entries(e.g || {}).forEach(([g, v]) => { if (ic(g) && (kv.haftalik ? haftaBasi(g) : g) === kv.anahtar) { t[0] += v[0]; t[1] += v[1]; } });
+        return t;
+      };
+    });
+    return kovalar;
+  }
+
+  function sohbetDonemli(kap, dk) {
+    const donem = sDonem(), gorunum = sGorunum(), ic = gunIcinde(donem, dk.gun);
+    const secili = kapsamId();
+    if (!secili && O.depo.al(KAPSAM_ANAHTARI()) && sohbetler().length) O.depo.koy(KAPSAM_ANAHTARI(), '');
+    const eski = {};
+    sohbetler().forEach(x => { eski[x.oturum] = x; });
+    const hepsi = dk.sohbetler.map(e => {
+      const t = [0, 0];
+      Object.entries(e.g || {}).forEach(([g, v]) => { if (ic(g)) { t[0] += v[0]; t[1] += v[1]; } });
+      return { e, oturum: e.oturum, baslik: e.baslik, usd: t[0], tok: t[1], son: e.son, eski: eski[e.oturum] };
+    });
+    const satirlar = hepsi.filter(r => r2(r.usd) > 0 || r.oturum === secili).sort((a, b) => b.usd - a.usd);
+    const topUsd = satirlar.reduce((a, r) => a + r.usd, 0), topTok = satirlar.reduce((a, r) => a + r.tok, 0);
+    $('#sohbetSayi').textContent = satirlar.length ? `${B.sayi(satirlar.length)} sohbet` : '';
+    const dugmeGrup = (ad, anahtar, secenekler, simdiki) => `<div class="cipler" role="group" aria-label="${esc(ad)}">${secenekler.map(([v, et]) =>
+      `<button type="button" class="cip" data-${anahtar}="${v}" data-anahtar="${anahtar}:${v}" aria-pressed="${simdiki === v}">${et}</button>`).join('')}</div>`;
+    const arac = `<div class="arac">${dugmeGrup('Dönem', 'sdonem', SD_DUGME, donem)}${dugmeGrup('Görünüm', 'sgorunum', [['grafik', 'Grafik'], ['liste', 'Liste']], gorunum)}</div>`;
+    const ozet = `<p class="meta sohbet-ozet">${esc(SD_ADLARI[donem])}: <b>${B.usd(topUsd)}</b> · ${B.token(topTok)} token · ${B.sayi(satirlar.length)} sohbet</p>`;
+    if (!satirlar.length) { yerlestir(kap, arac + ozet + '<p class="bos">Bu dönemde harcama yok.</p>'); return; }
+
+    const enCok = Math.max(satirlar[0].usd, 0.0001);
+    let liste = S.hepsiAcik ? satirlar : satirlar.slice(0, SOHBET_ILK);
+    if (secili && !liste.some(r => r.oturum === secili)) liste = liste.concat(satirlar.filter(r => r.oturum === secili));
+    const ipucu = r => {
+      const x = r.eski;
+      return `<b>${esc(r.baslik)}</b>` + sat(SD_ADLARI[donem], B.usd(r.usd)) + sat('Token', B.token(r.tok) + ' · ' + B.sayi(r.tok)) +
+        sat('Pay', B.yuzde(topUsd ? r.usd / topUsd : 0)) + sat('Son etkinlik', B.tarih(r.son)) +
+        (donem === 'tum' && x && sayiMi(x.usd) && r2(x.usd) !== r2(r.usd) ? sat(x.kaynak === 'motor' ? "Claude'un hesabı" : 'Kayıtlı toplam', B.usd(x.usd)) : '') +
+        (donem === 'tum' && x ? Object.entries(x.modeller || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => sat(E.model(k), B.usd(v), modelRenk(k))).join('') : '');
+    };
+
+    let govde;
+    if (gorunum === 'liste') {
+      const satir = r => {
+        const ad = r.eski
+          ? `<button type="button" class="sohbet-ad" aria-pressed="${r.oturum === secili}" data-kapsam="${esc(r.oturum)}" data-anahtar="s:${esc(r.oturum)}">${esc(r.baslik)}</button>`
+          : `<span class="sohbet-ad">${esc(r.baslik)}</span>`;
+        return `<tr data-ipucu="${esc(ipucu(r))}"${r.oturum === secili ? ' class="secili"' : ''}><td class="ad">${ad}</td><td class="sayi">${B.usd(r.usd)}</td>
+          <td class="sayi">${B.token(r.tok)}</td><td class="sayi">${B.yuzde(topUsd ? r.usd / topUsd : 0, 1)}</td><td class="sayi">${B.tarih(r.son)}</td></tr>`;
+      };
+      govde = `<div class="tablo-kap"><table class="tablo"><thead><tr><th>Sohbet</th><th class="sayi">Tutar</th><th class="sayi">Token</th><th class="sayi">Pay</th><th class="sayi">Son etkinlik</th></tr></thead>
+        <tbody>${liste.map(satir).join('')}</tbody></table></div>`;
+    } else {
+      const ust = satirlar.slice(0, SOHBET_RENK_SAYISI).map(r => r.oturum);
+      const anahtarlar = satirlar.length > SOHBET_RENK_SAYISI ? ust.concat(['diger']) : ust;
+      const adi = k => k === 'diger' ? 'Diğer sohbetler' : kisalt((satirlar.find(r => r.oturum === k) || {}).baslik, 40);
+      const renk = k => sohbetRenk(k, ust.indexOf(k));
+      const kovalar = zamanKovalari(donem, dk, satirlar.map(r => r.e));
+      const grafikSat = kovalar.map(kv => {
+        const parca = {};
+        satirlar.forEach(r => {
+          const v = kv.deger(r.e);
+          if (v && v[0] > 0) { const k = ust.includes(r.oturum) ? r.oturum : 'diger'; parca[k] = (parca[k] || 0) + v[0]; }
+        });
+        return { etiket: kv.etiket, baslik: kv.baslik, parca };
+      });
+      const cubuk = r => `<button type="button" class="cubuk sohbet-c" aria-pressed="${r.oturum === secili}"${r.eski ? ` data-kapsam="${esc(r.oturum)}"` : ' disabled'} data-anahtar="s:${esc(r.oturum)}" data-ipucu="${esc(ipucu(r))}">
+        <span class="etiket"><span class="ad">${esc(r.baslik)}</span><span class="zaman">${B.tarih(r.son)}</span></span>
+        <span class="yol"><span class="dolgu" style="width:${Math.max(0.4, 100 * r.usd / enCok)}%"></span></span>
+        <span class="deger">${B.usd(r.usd)}</span><span class="kaynak">${B.token(r.tok)}</span></button>`;
+      const grafikAdi = donem === 'gun' ? 'Saat saat' : (kovalar[0] && kovalar[0].haftalik) ? 'Hafta hafta' : 'Gün gün';
+      govde = `<h3 class="alt-baslik">${grafikAdi} harcama</h3>` +
+        `<div class="grafik">${yiginSutun(genislikOlc(kap, $('#sohbetler')), grafikSat, anahtarlar, renk, adi)}</div>` +
+        lejant(anahtarlar.map(k => [adi(k), renk(k)])) +
+        `<h3 class="alt-baslik">Sohbetler arası fark <span class="meta">tutar · sağda token</span></h3><div class="cubuklar">${liste.map(cubuk).join('')}</div>`;
+    }
+    if (satirlar.length > SOHBET_ILK) {
+      govde += `<div class="daha"><button type="button" data-anahtar="daha" data-tumunu aria-expanded="${S.hepsiAcik}">${S.hepsiAcik ? 'İlk ' + SOHBET_ILK + ' sohbeti göster' : 'Bütün sohbetler · ' + satirlar.length}</button></div>`;
+    }
+    yerlestir(kap, arac + ozet + govde);
+  }
+
   function sohbetCiz() {
     const kap = $('#sohbetIcerik');
     if (!S.ozet) { $('#sohbetSayi').textContent = ''; yerlestir(kap, yuklemeSatiri(KO, 'Sohbet verisi')); return; }
@@ -187,6 +313,11 @@
       yerlestir(kap, `<p class="bos">${S.ozet.hata ? 'Veri üretilemedi: ' + metin(O.hataMetni(S.ozet.hata)) : 'Bu çalışma alanı kapalı.'}</p>`);
       return;
     }
+    const dk = dokum();
+    if (dk) { sohbetDonemli(kap, dk); return; }
+    sohbetKayitli(kap);   // orkestrasız alan: token defteri yok, dönem süzmesi yapılamaz
+  }
+  function sohbetKayitli(kap) {
     const secili = kapsamId();
     if (!secili && O.depo.al(KAPSAM_ANAHTARI()) && sohbetler().length) O.depo.koy(KAPSAM_ANAHTARI(), '');   // artık listede olmayan sohbet
     const tum = sohbetler().filter(s => sayiMi(s.usd) && (r2(s.usd) > 0 || s.oturum === secili)).sort((a, b) => b.usd - a.usd);
@@ -475,16 +606,20 @@
     if (k) return kapsamSec(k.dataset.kapsam);
     if (e.target.closest('[data-kapsam-kaldir]')) { O.depo.koy(KAPSAM_ANAHTARI(), ''); kapsamBolumleri(); return; }
     if (e.target.closest('[data-tumunu]')) { S.hepsiAcik = !S.hepsiAcik; return sohbetCiz(); }
+    const sd = e.target.closest('[data-sdonem]');
+    if (sd) { O.depo.koy(SD_ANAHTAR('donem'), sd.dataset.sdonem); S.hepsiAcik = false; return sohbetCiz(); }
+    const sg = e.target.closest('[data-sgorunum]');
+    if (sg) { O.depo.koy(SD_ANAHTAR('gorunum'), sg.dataset.sgorunum); return sohbetCiz(); }
     const d = e.target.closest('[data-donem]');
     if (d) { S.donem = d.dataset.donem; return zamanCiz(); }
     const o = e.target.closest('[data-olcek]');
     if (o) { S.olcek = o.dataset.olcek; return zamanCiz(); }
   });
   // yapışkan kapsam şeridi kabuğun altında durur: kabuk yüksekliği (dar ekranda sekme satırı) ölçülür
-  const kabukYuksekligi = () => { const k = $('#kabuk'); if (k) document.documentElement.style.setProperty('--kabuk-h', k.offsetHeight + 'px'); };
+  const kabukYuksekligi = () => { const k = $('#kabuk'); if (k) document.documentElement.style.setProperty('--kabuk-h', (O.rayModu() ? 0 : k.offsetHeight) + 'px'); };
   if (window.ResizeObserver) new ResizeObserver(kabukYuksekligi).observe($('#kabuk'));
   let boyutZamani;
-  addEventListener('resize', () => { clearTimeout(boyutZamani); boyutZamani = setTimeout(() => ciz(zamanCiz, kotaCiz, tumCiz), 150); });
+  addEventListener('resize', () => { clearTimeout(boyutZamani); boyutZamani = setTimeout(() => ciz(sohbetCiz, zamanCiz, kotaCiz, tumCiz), 150); });
 
   // ------------------------------------------------------------ veri
   O.kabuk({ sayfa: 'maliyet' }).then(kabukYuksekligi);

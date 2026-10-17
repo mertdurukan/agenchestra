@@ -13,7 +13,7 @@
 
   // V: SON İYİ analitik verisi; hata anında silinmez (yalnız alan değişince sıfırlanır). Durum: K (O.veri kontrol nesnesi).
   let K = null;
-  const S = { veri: null, gun: null, gSecili: null, tumKart: false, uyariAcik: false };
+  const S = { veri: null, gun: null, gSecili: null, tumKart: false, uyariAcik: false, pencere: 'son_3_gun' };
   const orkestrali = () => { const b = O.alanBilgi(); return b ? !!b.orkestra : true; };
   const veri = () => (S.veri && !S.veri.hata && S.veri.acik !== false) ? S.veri : null;
 
@@ -32,15 +32,24 @@
   const SEV = { iyi: ['iyi', 'var(--good)'], uyari: ['dikkat', 'var(--warning)'], kritik: ['kritik', 'var(--critical)'] };
   const sev = s => { const t = SEV[s]; return t ? { ad: t[0], renk: t[1] } : { ad: s ? String(s) : '–', renk: 'var(--neutral)' }; };
 
-  // ------------------------------------------------------------ 0. Hedef panosu (sayfanın en üstü): 5 ölçü x 2 pencere
+  // ------------------------------------------------------------ 0. Hedef panosu (sayfanın en üstü): 5 ölçü x 5 pencere, hedeften sapma
   const OLCU_TANIM = [
-    ['ana_ajan_payi', 'Ana ajan payı', 'ust', x => B.yuzde(x), 'ana ajan harcaması / toplam harcama (USD)', v => B.usd(v)],
-    ['isci_cagrisi_kart', 'İşçi çağrısı / kart', 'ust', x => B.sayi(x, 2), 'işçi çağrısı / kart', v => B.sayi(v)],
-    ['onayli_kart_usd', 'Onaylı kart başına USD', 'ust', x => B.usd(x), 'onaylı kartların harcaması (USD) / onaylı kart', v => B.sayi(v)],
-    ['ret_orani', 'Ret oranı', 'band', x => B.yuzde(x), 'ret / (ret + onay) denetimi', v => B.sayi(v)],
-    ['teknik_not_kapsama', 'Teknik not kapsaması', 'alt', x => B.yuzde(x), 'teknik notu dolu kart / kapı sonrası onaylı kart', v => B.sayi(v)],
+    ['ana_ajan_payi', 'Ana ajan payı', 'ust', x => B.yuzde(x), 'ana ajan harcaması / toplam harcama (USD)', v => B.usd(v), 'puan'],
+    ['isci_cagrisi_kart', 'İşçi çağrısı / kart', 'ust', x => B.sayi(x, 2), 'işçi çağrısı / kart', v => B.sayi(v), 'adet'],
+    ['onayli_kart_usd', 'Onaylı kart başına USD', 'ust', x => B.usd(x), 'onaylı kartların harcaması (USD) / onaylı kart', v => B.sayi(v), 'usd'],
+    ['ret_orani', 'Ret oranı', 'band', x => B.yuzde(x), 'ret / (ret + onay) denetimi', v => B.sayi(v), 'puan'],
+    ['teknik_not_kapsama', 'Teknik not kapsaması', 'alt', x => B.yuzde(x), 'teknik notu dolu kart / kapı sonrası onaylı kart', v => B.sayi(v), 'puan'],
   ];
-  const PENCERE_AD = { son_3_gun: 'Son 3 gün', tum_zaman: 'Tüm zaman' };
+  const PENCERE_SIRASI = ['bugun', 'son_3_gun', 'son_7_gun', 'bu_ay', 'tum_zaman'];
+  const PENCERE_AD = { bugun: 'Bugün', son_3_gun: 'Son 3 gün', son_7_gun: 'Son 7 gün', bu_ay: 'Bu ay', tum_zaman: 'Tüm zaman' };
+  const EKSI = '−';
+  // Sapma: işaretli fark, ölçünün kendi biriminde (oran ölçülerinde yüzde puan). Artı = hedefin üstünde; 0 = hedef (bant) içinde.
+  const sapmaMetni = (x, birim) => {
+    if (x == null) return '';
+    if (Math.abs(x) < 1e-9) return 'sapma yok';
+    const a = Math.abs(x), isaret = x > 0 ? '+' : EKSI;
+    return isaret + (birim === 'puan' ? B.sayi(a * 100, 1) + ' puan' : birim === 'usd' ? B.usd(a) : B.sayi(a, 2)) + ' sapma';
+  };
   // durum metni renge bağlı değil: her zaman sözcük ve simge de yazılır
   const DURUM_METNI = { iyi: ['✓', 'hedefte', 'var(--good)'], uyari: ['!', 'dikkat', 'var(--warning)'], kotu: ['✕', 'hedef dışı', 'var(--critical)'], 'veri-yok': ['–', 'veri yok', 'var(--neutral)'] };
   const YORUM_METNI = { 'gevsek-riski': 'gevşeklik riski (bant altı)', 'plan-kusuru': 'plan kusuru (bant üstü)' };
@@ -50,23 +59,29 @@
   };
   const hedefMetni = (tur, h, bicim) => tur === 'band' && Array.isArray(h) ? `hedef ${bicim(h[0])}–${bicim(h[1])}`
     : h == null ? 'hedef –' : `hedef ${tur === 'ust' ? '≤ ' : tur === 'alt' ? '= ' : ''}${bicim(h)}`;
+  // Tek pencere süzgeci: hedef panosu, israf ve ek ölçüler seçili pencereyi gösterir.
+  const pencereSecici = () => `<div class="cipler" role="group" aria-label="Pano penceresi">${PENCERE_SIRASI.map(w =>
+    `<button type="button" class="cip" data-ek-pencere="${w}" data-anahtar="pencere:${w}" aria-pressed="${S.pencere === w}">${esc(PENCERE_AD[w])}</button>`).join('')}</div>`;
   function panoCiz() {
     const v = veri(), kap = $('#panoIcerik');
     const p = v && v.hedef_panosu && v.hedef_panosu.olculer ? v.hedef_panosu : null;
     if (!p) { yerlestir(kap, `<p class="bos">${v ? 'Hedef panosu verisi yok.' : 'Yükleniyor…'}</p>`); return; }
-    const kutu = ([anahtar, ad, tur, bicim, payTanim, paydaBicim]) => {
-      const satirlar = ['son_3_gun', 'tum_zaman'].map(w => {
+    const kutu = ([anahtar, ad, tur, bicim, payTanim, paydaBicim, birim]) => {
+      // hedef her pencerede aynı: kutu başlığında bir kez; satırda pencere, değer, sapma ve durum
+      const hedef = ((p.olculer[anahtar] || {}).tum_zaman || {}).hedef;
+      const satirlar = [S.pencere].map(w => {
         const e = (p.olculer[anahtar] || {})[w] || { durum: 'veri-yok', deger: null };
         const d = durumMetni(e.durum, e.yorum);
         const pay = e.durum === 'veri-yok' ? 'örnek yok' : `${anahtar === 'ana_ajan_payi' || anahtar === 'onayli_kart_usd' ? B.usd(e.pay) : B.sayi(e.pay, 0)} / ${anahtar === 'ana_ajan_payi' ? B.usd(e.payda) : B.sayi(e.payda, 0)}`;
-        const ip = `<b>${esc(ad)} · ${esc(PENCERE_AD[w])}</b>${sat('Pay / payda', esc(pay))}<div class="meta">${esc(payTanim)}</div>`;
-        return `<div class="pano-satir" tabindex="0" data-ipucu="${esc(ip)}" style="--renk:${d.renk}">
+        const sapma = sapmaMetni(e.sapma, birim);
+        const ip = `<b>${esc(ad)} · ${esc(PENCERE_AD[w])}</b>${sat('Pay / payda', esc(pay))}${sapma ? sat('Hedeften sapma', esc(sapma.replace(' sapma', ''))) : ''}<div class="meta">${esc(payTanim)}</div>`;
+        return `<div class="pano-satir" tabindex="0" data-ipucu="${esc(ip)}" data-pencere="${w}" style="--renk:${d.renk}">
           <span class="pencere">${esc(PENCERE_AD[w])}</span>
           <b class="deger">${e.deger == null ? '–' : bicim(e.deger)}</b>
           <span class="durum"><i aria-hidden="true">${d.simge}</i>${esc(d.ad)}</span>
-          <small>${esc(hedefMetni(tur, e.hedef, bicim))} · ${esc(pay)}</small></div>`;
+          <span class="sapma">${esc(sapma)}</span></div>`;
       }).join('');
-      return `<div class="karo pano-kutu" data-olcu="${esc(anahtar)}"><span class="pano-ad">${esc(ad)}</span>${satirlar}</div>`;
+      return `<div class="karo pano-kutu" data-olcu="${esc(anahtar)}"><span class="pano-ad">${esc(ad)}</span><small class="pano-hedef">${esc(hedefMetni(tur, hedef, bicim))}</small>${satirlar}</div>`;
     };
     const israf = p.israf || {};
     const israfSatir = w => {
@@ -75,14 +90,14 @@
       const ned = Object.entries(i.siniflar || {}).map(([k, e]) => `${esc(k)} ${B.sayi(e.ret)}`).join(' · ');
       return `<div class="sat"><span>${esc(PENCERE_AD[w])}</span><span><b>${B.usd(i.onlenebilir_usd)}</b> <span class="meta" style="display:inline">${esc(ned || 'ret yok')}</span></span></div>`;
     };
-    yerlestir(kap, `<div class="karolar pano">${OLCU_TANIM.map(kutu).join('')}</div>
-      <div class="pano-israf"><h3>Önlenebilir israf</h3>${israfSatir('son_3_gun')}${israfSatir('tum_zaman')}
+    yerlestir(kap, `${pencereSecici()}<div class="karolar pano">${OLCU_TANIM.map(kutu).join('')}</div>
+      <div class="pano-israf"><h3>Önlenebilir israf</h3>${israfSatir(S.pencere)}
       <p class="aciklama">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${B.sayi((israf.tum_zaman || {}).esik_surumu)}.</p></div>
       ${ekBolum(p.ek)}`);
   }
 
   // Hedefsiz ek ölçüler (analitik.ek_olculer): ortalamanın gizlediği dağılım, ana ajan dahil toplam maliyet, kalite ve önbellek.
-  // Her ölçü iki pencere için ayrı satırdır; veri yoksa bölüm çizilmez.
+  // Her ölçü seçili pencere (S.pencere) için tek satırdır; veri yoksa bölüm çizilmez.
   const nz = (f, v, ...a) => (v == null ? '–' : f(v, ...a));
   const EK_TANIM = [
     ['ana_kirilim', 'Ana ajan harcaması kırılımı', 'ana ajan harcamasının işe bağlı, işe bağsız ve perspektif payı (USD)',
@@ -103,7 +118,7 @@
   function ekBolum(ek) {
     if (!ek) return '';
     const bloklar = EK_TANIM.map(([anahtar, ad, tanim, bicim]) => {
-      const satirlar = ['son_3_gun', 'tum_zaman'].map(w => {
+      const satirlar = [S.pencere].map(w => {
         const a = (ek[anahtar] || {})[w];
         return a ? `<div class="sat" tabindex="0" data-ipucu="${esc(`<b>${ad} · ${PENCERE_AD[w]}</b><div class="meta">${tanim}</div>`)}"><span>${esc(PENCERE_AD[w])}</span><span>${bicim(a)}</span></div>` : '';
       }).join('');
@@ -526,7 +541,9 @@
       if (dugme) dugme.focus({ preventScroll: true });
       return;
     }
-    if (e.target.closest('#tumKartDugme')) { S.tumKart = !S.tumKart; akisCiz(); }
+    if (e.target.closest('#tumKartDugme')) { S.tumKart = !S.tumKart; akisCiz(); return; }
+    const ep = e.target.closest('[data-ek-pencere]');
+    if (ep) { S.pencere = ep.dataset.ekPencere; panoCiz(); }
   });
   ana.addEventListener('keydown', e => {
     if (e.key === 'Escape' && S.gSecili && e.target.closest && e.target.closest('#gantt')) { S.gSecili = null; ganttCiz(); }
