@@ -129,6 +129,7 @@
     return v;
   }
   async function dosyaListeYukle() {
+    if (O.tumAlan()) return;   // 'Tüm çalışma alanları': sayfa gizli, tek alan isteyen çağrı yapılmaz
     try { D.liste = (await jsonGet('/api/kural-dosyalar?alan=' + encodeURIComponent(O.alan))).dosyalar; D.hata = ''; }
     catch (e) { D.hata = e.message || String(e); }
     dosyaCiz();

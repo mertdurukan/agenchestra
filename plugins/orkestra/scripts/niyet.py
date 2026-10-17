@@ -91,9 +91,26 @@ def masaustu_oturumlari() -> dict:
     return out
 
 
+_BASI_ONBELLEK: dict = {}  # transkript yolu -> ((mtime_ns, boyut), sonuç); ilk 12 satır dosya değişince değişir
+
+
 def _transkript_basi(proje: str, oturum: str) -> dict | None:
     """Transkriptin ilk satırlarından: ilk istek metni, zamanı ve masaüstünde mi başladığı."""
     yol = os.path.join(L.proje_oturum_dizini(proje), oturum + ".jsonl")
+    try:
+        st = os.stat(yol)
+    except OSError:
+        return None
+    imza = (st.st_mtime_ns, st.st_size)
+    kayit = _BASI_ONBELLEK.get(yol)
+    if kayit and kayit[0] == imza:
+        return dict(kayit[1]) if kayit[1] else None
+    sonuc = _transkript_basi_oku(yol)
+    _BASI_ONBELLEK[yol] = (imza, sonuc)
+    return dict(sonuc) if sonuc else None
+
+
+def _transkript_basi_oku(yol: str) -> dict | None:
     try:
         with open(yol, encoding="utf-8", errors="ignore") as f:
             satirlar = [f.readline() for _ in range(12)]

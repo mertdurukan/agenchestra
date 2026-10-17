@@ -13,7 +13,7 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 - **Sohbet maliyeti:** Çalışma alanındaki her sohbet, kenar çubuğundaki adıyla ve maliyetiyle panelde listelenir.
   - Kapanmış sohbetlerde motorun kendi hesabı (`cost-state`) gösterilir.
   - Açık sohbetlerde defter değeri gösterilir ve `≈` ile işaretlenir.
-- **Perspektif:** Oturumlar arasında arka planda hafıza bakımı ve skill avı yapılır. Yalnız öneri üretir; hafızayı onayınla değiştirir.
+- **Perspektif:** Hafıza bakımı ve skill avı yapar. Yalnız elle başlar (`orkestra perspektif baslat`, `/orkestra:perspektif` ya da panelde Onaylar); kendiliğinden başlaması için `ORKESTRA_PERSPEKTIF_OTO=1` (7 gün ya da 10 oturum eşiği). Yalnız öneri üretir; hafızayı onayınla değiştirir.
 - **Arayüz (tek veri kaynağı):** Hook'lar ve CLI her durum değişikliğinde `.claude/orkestra/ozet.json` anlık görüntüsünü yazar; arayüzler yalnız bu dosyayı okur.
   - **Claude içinde** (`/orkestra`, Pane `orkestra`, `plugins/orkestra-ui/hooks/register.tsx` `paneCiz`): işlerin yapılanlarını ve yapılacaklarını gösterir. Üstte yapılan / toplam iş sayısı, yüzde ve çubuk. **Yapılanlar:** en az bir maddesi biten işler (`biten/toplam ad`). **Yapılacaklar:** açık maddesi olan işler (`ad · N açık`), her birinin ilk üç açık maddesi `○` ile. Kaynak `ozet.json` içindeki `isler` alanı; üretimi `plugins/orkestra/scripts/ozet.py` `_is_todolari` (açık işlerin `todo.md` maddeleri, en çok beş). Panel veri yaşını değil üretim saatini (`HH:MM`) yazar; veri 10 dakikadan eskiyse `veri eski (HH:MM)` sarıyla gösterilir (`register.tsx` 238–239 ve 260–261). Kart listesi, maliyet ve son olaylar bu panelde yok; onlar `/orkestra-web` sayfalarındadır.
   - **Prompt üstü bant** (`AbovePrompt`, `register.tsx`): Yalnız kullanıcıdan eylem beklenen durumda çıkar: ret (`reddedildi`), teslime hazır kart (`onaylandi`) ya da hazır perspektif raporu. Metin `Orkestra · N ret · N teslime hazır · perspektif raporu hazır`; `Panel` düğmesi Claude içi paneli açar. Yalnız maliyet bant çıkarmaz. **Gizle** o anki kart kimliklerini ve rapor durumunu imza olarak saklar; imza değişince (yeni ret, teslim ya da rapor) bant geri gelir.
@@ -47,6 +47,18 @@ plugins/orkestra-ui/                arayüz modu (Pane + AbovePrompt bandı + /o
 araclar/sifre_temizle.py            oturum kayıtlarından düz metin şifre temizleme (elle çalıştırılır)
 araclar/yayin_kur.py                yayın klonunu açar, git hook'larını yazar; araclar/git_hooklar/ hook şablonları
 ```
+
+## Tüm projelere kurmak (önerilen, tek komut)
+
+```
+python <depo>/araclar/projeye_kur.py --kullanici
+```
+
+Eklentileri user kapsamında kurar. Herhangi bir projede yeni oturum açılınca SessionStart hook'u `.claude/orkestra/` durum klasörünü kendiliğinden kurar (`orkestra baslat` gerekmez); git deposunda çalışma zamanı klasörünü `.git/info/exclude`a yazar, `.gitignore`'a dokunmaz. Kullanıcı klasöründe ve kök dizinlerde açmaz. Kapatmak için `ORKESTRA_OTOMATIK_ACIL=0`.
+
+- Tek projede kapatmak: `python <depo>/araclar/projeye_kur.py <proje klasörü> --kaldir`. Projenin `.claude/settings.json` dosyasına iki eklenti için `enabledPlugins: false` yazar; eklenti o projede yüklenmez, durum klasörü de kendiliğinden açılmaz.
+- Bütün projelerden kaldırmak: `python <depo>/araclar/projeye_kur.py --kullanici --kaldir`.
+- Önizleme için iki komutta da `--kuru`.
 
 ## Yeni bir projeye kurmak (tek komut)
 
@@ -117,20 +129,21 @@ Depo `mertdurukan/agenchestra` (özel), bu klasörün `origin`'i. Kök `.claude/
 | (b) Proje `.claude/settings.json` içindeki `extraKnownMarketplaces` + `enabledPlugins` güven onayından sonra kurulumu kendiliğinden yapar mı | Kısmen doğrulandı: `extraKnownMarketplaces` yalnız klasöre güvenildikten sonra uygulanır; güvenilmeyen klasörde mesajsız yok sayılır. `enabledPlugins` oturum başında uygulanır. Marketplace'in **göreli yolla** (`./plugins/...`) listelediği plugin'ler marketplace kopyasından yüklenir; harici kaynaklı (örn. kendi GitHub deposu) plugin'ler için `claude plugin install <ad>@<marketplace> --scope project` gerekir. Bu deponun `marketplace.json` girdileri göreli yoldur (`./plugins/orkestra`, `./plugins/orkestra-ui`). Güven onayı sonrası ayrı bir "kurulsun mu" sorusu çıkıp çıkmadığı dokümanda yazmaz: **doğrulanmadı**; çıkarsa kabul et, çıkmazsa `/plugin` ile kontrol et. | [Require plugins per repository](https://code.claude.com/docs/en/plugins/org#require-plugins-per-repository), [When each surface applies the plugin keys](https://code.claude.com/docs/en/plugins/org#when-each-surface-applies-the-plugin-keys), [Settings: key waits for trust](https://code.claude.com/docs/en/settings) |
 | (c) Özel GitHub kaynağı için kimlik doğrulama | Doğrulandı: makinedeki `git` ve mevcut kimlik bilgileri (SSH anahtarı ya da kimlik yardımcısı); Claude Code'un kendi belirteci yok, etkileşimli soru yok. GitHub'da `gh auth login` + `gh auth setup-git`. | [Grant access to a private marketplace](https://code.claude.com/docs/en/plugins/host-marketplace#grant-access-to-a-private-marketplace) |
 
-## Kurulum ayrıntısı (çalışma alanına özgü)
+## Kurulum ayrıntısı (kapsam)
 
-Ayarlar bilgisayara değil çalışma alanına bağlıdır. Plugin'ler **proje kapsamında** kurulur ve yalnız o projede etkindir. Genel ayar dosyası (`~/.claude/settings.json`) boş kalır.
+Varsayılan kurulum **user kapsamıdır** (`projeye_kur.py --kullanici`): eklentiler bu bilgisayardaki bütün projelerde yüklenir. Elle karşılığı:
 
 ```
-cd <proje klasörü>
 claude plugin marketplace add <yayın klonu klasörü>
-claude plugin install orkestra@claude-orchestration --scope project
-claude plugin install orkestra-ui@claude-orchestration --scope project
+claude plugin install orkestra@claude-orchestration --scope user
+claude plugin install orkestra-ui@claude-orchestration --scope user
 ```
 
-Komutlar `<proje>\.claude\settings.json` dosyasına `enabledPlugins` ve `extraKnownMarketplaces` alanlarını yazar.
+Komutlar `~/.claude/settings.json` dosyasına `enabledPlugins` yazar.
 
-Model, effort, hafıza ve perspektif ayarları da aynı dosyadadır. Proje ayarı, genel ayardan önce gelir.
+Yalnız tek projede kurmak istenirse proje kapsamı kalır (`projeye_kur.py <proje klasörü>`, ya da elle `--scope project`). Bu durumda `enabledPlugins` ve `extraKnownMarketplaces` `<proje>\.claude\settings.json` dosyasına yazılır ve kurulum depoyla birlikte taşınır.
+
+Model, effort ve hafıza ayarları proje ayarındadır. Proje ayarı, genel ayardan önce gelir.
 
 Masaüstü uygulamasında `claude` PATH'te yoktur. Gömülü ikili `%APPDATA%\Claude\claude-code\<sürüm>\…\claude.exe` altında bulunur. Hook'ların içinde aynı yol `CLAUDE_CODE_EXECPATH` değişkeninde durur.
 

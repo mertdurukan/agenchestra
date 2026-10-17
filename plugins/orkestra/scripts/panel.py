@@ -86,7 +86,7 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "15"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "16"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -110,9 +110,23 @@ def _alan_kisa(a: dict) -> dict:
     return {"id": a["id"], "ad": a["ad"], "yol": a["yol"]}
 
 
+TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_ALAN_YOLLARI bunu kabul eder
+TUM_ALAN_YOLLARI = frozenset({"/simdi.json"})
+
+
+def _tum_alan_reddi(yol: str, q: dict, yazma: bool = False) -> bytes | None:
+    """alan=* tek alan isteyen yollarda sessizce ilk alana düşmesin (yanlış veri, yanlış alana yazma): 400 gövdesi, yoksa None."""
+    if (q.get("alan") or [None])[0] != TUM_ALAN or yol in TUM_ALAN_YOLLARI:
+        return None
+    if not (yazma or yol.endswith(".json") or yol.startswith("/api/")):
+        return None  # sayfa ve statik dosya
+    return json.dumps({"hata": "Bu istek tek bir çalışma alanı ister; 'Tüm çalışma alanları' seçiliyken kullanılamaz."},
+                      ensure_ascii=False).encode("utf-8")
+
+
 def _simdi_json(alan_id: str | None) -> dict:
     """Sohbet görünümü; alan verilirse yalnız o çalışma alanının sohbetleri (bilinmeyen alan → boş liste)."""
-    if not alan_id:
+    if not alan_id or alan_id == TUM_ALAN:
         return niyet.gorunum()
     a = next((x for x in L.calisma_alanlari() if x["id"] == alan_id), None)
     if a is None:
@@ -162,24 +176,6 @@ def _sohbet_arka_plan(a: dict) -> list[dict]:
     except Exception:  # noqa: BLE001
         pass
     return out
-
-
-def _todo_sayac(sd: str) -> dict:
-    """Açık işlerin todo sayımı (IK.todo_ozet): {biten, kalan, toplam, isler: [{id, ad, biten, kalan}]}; todo'su olmayan iş atlanır."""
-    import is_kaydi as IK  # noqa: PLC0415
-    isler, biten, kalan = [], 0, 0
-    try:
-        for g in IK.is_liste(sd, "acik"):
-            t = IK.todo_ozet(g["klasor"])
-            if not t["toplam"]:
-                continue
-            k = len(t["acik_maddeler"])
-            isler.append({"id": g["id"], "ad": IK.is_adi(g.get("baslik", "")), "biten": t["biten"], "kalan": k})
-            biten += t["biten"]
-            kalan += k
-    except Exception:  # noqa: BLE001
-        pass
-    return {"biten": biten, "kalan": kalan, "toplam": biten + kalan, "isler": isler}
 
 
 def _onaylar_json(alan_id) -> dict:
@@ -270,7 +266,7 @@ def _isler_json(alan_id) -> dict:
     if a is None:
         return sd
     usd = collections.Counter()
-    kartlar = L.kartlar(sd)
+    kartlar = L.kartlar(sd, derin=False)  # bu işlevde yalnız okunur
     for r in L.maliyet_kayitlari(sd):
         if r.get("gorev") not in (None, "-"):
             usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
@@ -287,7 +283,7 @@ def _isler_json(alan_id) -> dict:
              "usd": round(is_usd.get(g["id"], 0.0), 4), "son": son,
              "kovalar": {x: [] for x in adlar}}
         try:
-            s = IK.is_serit(sd, g["id"], alt=True)
+            s = IK.is_serit(sd, g["id"], alt=True, tum_kartlar=kartlar)
             kov = {x: [] for x in adlar}
             for ad in adlar:
                 for e in s[ad]:
@@ -309,7 +305,7 @@ def _isler_json(alan_id) -> dict:
             for k in sorted(siz, key=IK._kart_no) if k.get("durum") not in ("teslim", "iptal")]
     return {"acik": True, "alan": _alan_kisa(a), "uretim": L.simdi(), "isler": isler,
             "kartsiz": {"sayi": len(siz), "acik": acik},
-            "arka_plan": _sohbet_arka_plan(a), "todo": _todo_sayac(sd)}
+            "arka_plan": _sohbet_arka_plan(a)}
 
 
 _KART_KIMLIK = re.compile(r"^[A-Za-z]+-\d+$")
@@ -470,27 +466,49 @@ def _isleyici():
     onbellek: dict = {}
     anahtar_kilit: dict = {}
 
+    yenileniyor: set = set()
+    ESKI_AZAMI = 120.0  # sn: bundan eski değer hemen verilmez, istek yenilemeyi bekler
+
+    def _uret_ve_sakla(anahtar, uret):
+        try:
+            veri = uret()
+        except Exception as e:  # noqa: BLE001
+            veri = {"acik": False, "hata": f"{type(e).__name__}: {e}"}
+        v = json.dumps(veri, ensure_ascii=False).encode("utf-8")
+        with kilit:
+            onbellek[anahtar] = (time.time(), v)
+        return v
+
+    def _arkada_yenile(anahtar, uret, ak):
+        try:
+            with ak:
+                _uret_ve_sakla(anahtar, uret)
+        finally:
+            with kilit:
+                yenileniyor.discard(anahtar)
+
     def onbellekli(anahtar, sure, uret):
         # Genel kilit yalnız sözlük erişimini korur; hesaplama anahtar başına kilitlenir. Yavaş bir uç nokta
         # (ör. ozet.json) başka uç noktaları bekletmez, aynı anahtar ise tek kez hesaplanır.
+        # Süresi dolmuş ama ESKI_AZAMI'den yeni değer varsa hemen verilir, yenileme arkada tek iş parçacığında
+        # yapılır (tarayıcı yoklaması üretimi beklemez). Hiç değer yoksa ya da çok eskiyse istek üretimi bekler.
         with kilit:
             z, v = onbellek.get(anahtar, (0.0, b""))
-            if time.time() - z <= sure:
+            yas = time.time() - z
+            if yas <= sure:
                 return v
             ak = anahtar_kilit.setdefault(anahtar, threading.Lock())
+            if v and yas <= ESKI_AZAMI:
+                if anahtar not in yenileniyor:
+                    yenileniyor.add(anahtar)
+                    threading.Thread(target=_arkada_yenile, args=(anahtar, uret, ak), daemon=True).start()
+                return v
         with ak:
             with kilit:
                 z, v = onbellek.get(anahtar, (0.0, b""))
             if time.time() - z <= sure:
                 return v
-            try:
-                veri = uret()
-            except Exception as e:  # noqa: BLE001
-                veri = {"acik": False, "hata": f"{type(e).__name__}: {e}"}
-            v = json.dumps(veri, ensure_ascii=False).encode("utf-8")
-            with kilit:
-                onbellek[anahtar] = (time.time(), v)
-            return v
+            return _uret_ve_sakla(anahtar, uret)
 
     class Isleyici(http.server.BaseHTTPRequestHandler):
         timeout = 10  # yavaş istemci iş parçacığını süresiz tutmasın
@@ -672,6 +690,9 @@ def _isleyici():
         def _post_isle(self):
             # Sohbeti aç. Özel başlık zorunlu: başka bir sitenin sayfası bu isteği CORS ön denetimi olmadan gönderemez.
             u = urllib.parse.urlparse(self.path)
+            red = _tum_alan_reddi(u.path, urllib.parse.parse_qs(u.query), yazma=True)
+            if red is not None:
+                return self._gonder(400, "application/json; charset=utf-8", red)
             if u.path == "/onay":
                 return self._post_onay(urllib.parse.parse_qs(u.query))
             if u.path == "/perspektif-calistir":
@@ -705,6 +726,9 @@ def _isleyici():
         def do_GET(self):
             u = urllib.parse.urlparse(self.path)
             q = urllib.parse.parse_qs(u.query)
+            red = _tum_alan_reddi(u.path, q)
+            if red is not None:
+                return self._gonder(400, "application/json; charset=utf-8", red)
             if u.path in SAYFALAR:
                 ad = SAYFALAR[u.path]
                 yol = os.path.join(ASSETS, ad)
@@ -821,7 +845,22 @@ def calistir(port: int, durum_yaz: bool = True) -> None:
     sunucu = http.server.ThreadingHTTPServer(("127.0.0.1", port), _isleyici())
     if durum_yaz:
         L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "zaman": L.simdi()}))
+        threading.Thread(target=_isit, args=(port,), daemon=True).start()
     sunucu.serve_forever()
+
+
+def _isit(port: int) -> None:
+    """Açılışta ağır uç noktaları bir kez ister; ilk sayfa açılışı soğuk üretimi beklemez (en iyi çaba)."""
+    try:
+        alanlar = [a["id"] for a in L.calisma_alanlari() if a.get("orkestra")]
+    except Exception:  # noqa: BLE001
+        return
+    for alan in alanlar:
+        for yol in ("isler", "simdi", "analitik", "ozet", "onaylar"):
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{port}/{yol}.json?alan={alan}", timeout=30).read()
+            except Exception:  # noqa: BLE001
+                pass
 
 
 def _durdur(eski: dict) -> None:

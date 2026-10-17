@@ -566,8 +566,9 @@
       return;
     }
     const alanlar = Array.isArray(t.alanlar) ? t.alanlar : [];
-    bolum.classList.toggle('gizli', alanlar.length <= 1);
-    if (alanlar.length <= 1) return;
+    const az = alanlar.length < (O.tumAlan() ? 1 : 2);   // 'Tüm çalışma alanları' seçiliyken tek alan da gösterilir
+    bolum.classList.toggle('gizli', az);
+    if (az) return;
     const top = t.toplam || {};
     const karolar = tutarKarolari([['Bugün', top.bugun, ''], ['Son 7 gün', top.hafta, ''], ['Bu ay', top.ay, ''], ['Kayıtlı toplam', top.toplam, `${B.sayi(alanlar.length)} çalışma alanı`]]);
     const adlar = alanlar.map(a => a.ad);

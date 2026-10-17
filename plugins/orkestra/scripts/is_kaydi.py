@@ -900,7 +900,7 @@ def _kart_no(k: dict):
     return (int(m.group()) if m else 0, str(k.get("id", "")))
 
 
-def is_serit(sd: str, is_id: str, alt: bool = False) -> dict:
+def is_serit(sd: str, is_id: str, alt: bool = False, tum_kartlar: list[dict] | None = None) -> dict:
     """Bir iş için yapıldı/şimdi/sırada/planda-kart-yok/iptal kovaları (deterministik)."""
     kayit = is_al(sd, is_id)
     giris = next((g for g in is_liste(sd) if g["id"] == is_id), None)
@@ -908,8 +908,9 @@ def is_serit(sd: str, is_id: str, alt: bool = False) -> dict:
         raise KeyError(f"iş yok: {is_id}")
     klasor = giris["klasor"]
     maddeler = todo_maddeleri(klasor)
-    kartlar = sorted((k for k in L.kartlar(sd) if k.get("is") == is_id), key=_kart_no)
-    durumlar = {k.get("id"): k.get("durum") for k in L.kartlar(sd)}
+    tum = tum_kartlar if tum_kartlar is not None else L.kartlar(sd, derin=False)  # yalnız okunur
+    kartlar = sorted((k for k in tum if k.get("is") == is_id), key=_kart_no)
+    durumlar = {k.get("id"): k.get("durum") for k in tum}
     kovalar = {"yapildi": [], "simdi": [], "sirada": [], "planda_kart_yok": [], "iptal": []}
     kart_adimlari = [(k["adim"], k.get("durum")) for k in kartlar if k.get("adim")]
     for md in maddeler:

@@ -314,6 +314,10 @@
   const url = new URL(location.href);
   O.alan = url.searchParams.get('alan') || O.depo.al('orkestra.alan') || '';
   O.alanlar = [];
+  // '*' = "Tüm çalışma alanları": yalnız sohbet listesi ve alan karşılaştırması birleşik; alana bağlı kaynaklar çekilmez, sayfa
+  // içeriği ortak.css ile gizlenir (html[data-tum-alan]). Son gerçek alan localStorage'da kalır, '*' yazılmaz.
+  O.TUM = '*';
+  O.tumAlan = () => O.alan === O.TUM;
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
   const SEKMELER = [['isler', 'Dashboard', '/isler'], ['maliyet', 'Maliyet ve verim', '/maliyet'],
     ['onaylar', 'Onaylar, etki ve kurallar', '/onaylar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar']];
@@ -327,7 +331,8 @@
   function alanYaz(yeni, yay) {
     const degisti = yeni !== O.alan;
     O.alan = yeni || '';
-    O.depo.koy('orkestra.alan', O.alan);
+    if (!O.tumAlan()) O.depo.koy('orkestra.alan', O.alan);
+    document.documentElement.toggleAttribute('data-tum-alan', O.tumAlan());
     const u = new URL(location.href);
     if (O.alan) u.searchParams.set('alan', O.alan); else u.searchParams.delete('alan');
     history.replaceState(null, '', u);
@@ -346,12 +351,13 @@
     if (sec) {
       const imza = liste.map(a => a.id + (a.orkestra ? '+' : '-') + a.ad).join('|');
       if (sec.dataset.imza !== imza) {
-        sec.innerHTML = liste.map(a => `<option value="${O.esc(a.id)}">${O.esc(a.ad)}${a.orkestra ? '' : ' · yalnız maliyet'}</option>`).join('');
+        sec.innerHTML = `<option value="${O.TUM}">Tüm çalışma alanları</option>` +
+          liste.map(a => `<option value="${O.esc(a.id)}">${O.esc(a.ad)}${a.orkestra ? '' : ' · yalnız maliyet'}</option>`).join('');
         sec.dataset.imza = imza;
       }
     }
     let hedef = O.alan;
-    if (!liste.some(a => a.id === hedef)) hedef = ((liste.find(a => a.orkestra) || liste[0]) || {}).id || '';
+    if (hedef !== O.TUM && !liste.some(a => a.id === hedef)) hedef =((liste.find(a => a.orkestra) || liste[0]) || {}).id || '';
     if (sec && document.activeElement !== sec) sec.value = hedef;
     alanYaz(hedef, true);
   }
@@ -361,7 +367,9 @@
   // (/simdi.json sayac.sen), Onaylar = bekleyen onaylar, Kurallar = bekleyen kural önerileri. Son olaylar, Maliyet ve Verim'de rozet yok.
   let rozetYolda = null, rozetSayac = null, rozetSimdi = null;
   const rozetSayilari = () => {
-    const s = (rozetSayac && rozetSayac[O.alan]) || {};
+    const s = O.tumAlan()
+      ? { bekliyor: Object.values(rozetSayac || {}).reduce((t, x) => t + (Number(x && x.bekliyor) || 0), 0) }
+      : (rozetSayac && rozetSayac[O.alan]) || {};
     const sen = Number(rozetSimdi && rozetSimdi.sen) || 0;
     return {
       isler: [sen, ' sohbet seni bekliyor'],
@@ -439,10 +447,24 @@
     d.querySelector('#sifirlaVazgec').focus();
   }
 
+  const TUM_UYARI_VARSAYILAN = 'Tüm çalışma alanları seçili. Bu sayfa tek çalışma alanı gösterir; üstteki listeden bir çalışma alanı seçin.';
+  const TUM_UYARI = {
+    isler: 'Tüm çalışma alanları seçili: yalnız sohbetler gösterilir. İşler için üstteki listeden bir çalışma alanı seçin.',
+    maliyet: 'Tüm çalışma alanları seçili: yalnız çalışma alanı karşılaştırması gösterilir. Ayrıntı için üstteki listeden bir çalışma alanı seçin.',
+  };
+
   let hazirCoz;
   O.hazir = new Promise(c => { hazirCoz = c; });
   O.kabuk = ({ sayfa } = {}) => {
     O.sayfa = sayfa;
+    document.documentElement.dataset.sayfa = sayfa || '';
+    const ana = document.querySelector('main');
+    if (ana && !document.getElementById('tumUyari')) {
+      const u = document.createElement('p');
+      u.id = 'tumUyari'; u.className = 'tum-uyari'; u.setAttribute('role', 'status');
+      u.textContent = TUM_UYARI[sayfa] || TUM_UYARI_VARSAYILAN;
+      ana.prepend(u);
+    }
     let h = document.getElementById('kabuk');
     if (!h) { h = document.createElement('header'); h.id = 'kabuk'; document.body.prepend(h); }
     h.classList.add('kabuk');
@@ -508,7 +530,7 @@
   //   işaret ve şerit güncellemek için); hata(mesaj, kontrol) her başarısız denemede.
   // cizici istisna atarsa imza yazılmaz; bir sonraki yoklamada yeniden denenir.
   const UZUN_HATA_DENEME = 3, UZUN_HATA_MS = 10000, ZAMAN_ASIMI_EN_AZ = 15000;
-  O.veri = (yol, { ad, aralik = 3000, cizici = () => {}, durum = () => {}, hata = () => {}, gecerli = null, yoksay = ['uretim'], alanaBagli = true, zamanAsimi = 0 } = {}) => {
+  O.veri = (yol, { ad, aralik = 3000, cizici = () => {}, durum = () => {}, hata = () => {}, gecerli = null, yoksay = ['uretim'], alanaBagli = true, tumDestek = false, zamanAsimi = 0 } = {}) => {
     let imza = null, zaman = null, durdu = false, basladi = false, sira = 0, oncekiOzet = '', ucus = null;
     const sinirMs = zamanAsimi > 0 ? zamanAsimi : Math.max(ZAMAN_ASIMI_EN_AZ, aralik * 5);
     const kaynakAdi = ad || (typeof yol === 'string' ? yol : 'veri');
@@ -589,6 +611,8 @@
       bildir();
     };
     const baslat = () => {
+      // 'Tüm çalışma alanları': alana bağlı kaynak sorulmaz (sunucu bilinmeyen alanı ilk alana düşürürdü: yanlış veri)
+      if (alanaBagli && !tumDestek && O.tumAlan()) return Promise.resolve();
       const u = { iptal: new AbortController(), soz: null };
       ucus = u;
       u.soz = calis(sira, u.iptal).finally(() => { if (ucus === u) ucus = null; });

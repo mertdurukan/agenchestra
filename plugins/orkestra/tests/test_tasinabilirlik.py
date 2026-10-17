@@ -123,13 +123,23 @@ class TemizMakineTest(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.home, ".claude")))
 
     @unittest.skipIf(ust_dizinde_orkestra_durumu_var(), ORTAM_KIRLI)
+    def test_oturum_acilisinda_orkestra_kendiliginden_acilir(self):
+        girdi = json.dumps({"hook_event_name": "SessionStart", "cwd": self.proje, "session_id": "t", "source": "startup"})
+        r = self.kos(os.path.join(SCRIPTS, "hook.py"), "SessionStart", girdi=girdi)
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("Orkestra bu projede açık", r.stdout)
+        self.assertTrue(os.path.isfile(os.path.join(self.proje, ".claude", "orkestra", "README.md")))
+
+    @unittest.skipIf(ust_dizinde_orkestra_durumu_var(), ORTAM_KIRLI)
     def test_ilk_oturum_arka_planda_makine_config_yazar(self):
         girdi = json.dumps({"hook_event_name": "SessionStart", "cwd": self.proje, "session_id": "t", "source": "startup"})
         t = time.perf_counter()
+        self.env["ORKESTRA_OTOMATIK_ACIL"] = "0"  # otomatik açılış kapalı: orkestrasız proje, hook sessiz geçer
         r = self.kos(os.path.join(SCRIPTS, "hook.py"), "SessionStart", girdi=girdi)
         self.assertEqual(r.returncode, 0, r.stderr[-500:])
         self.assertLess(time.perf_counter() - t, 10, "hook zaman aşımı sınırına yaklaştı")
-        self.assertEqual(r.stdout.strip(), "")  # proje orkestrasız: hook sessiz geçer
+        self.assertEqual(r.stdout.strip(), "")
+        self.assertFalse(os.path.exists(os.path.join(self.proje, ".claude", "orkestra")))
         bitis = time.time() + 60
         d = {}
         while time.time() < bitis:

@@ -1488,9 +1488,48 @@ def _doktor_hizli_yol(inp: dict) -> None:
         pass
 
 
+def _otomatik_ac(inp: dict) -> str | None:
+    """Orkestra kapalı projede durum klasörünü kendiliğinden kurar (`orkestra baslat` karşılığı); kullanıcı klasörü ve kök
+    dizinlerde kurmaz. Git deposunda çalışma zamanı klasörünü `.git/info/exclude`a yazar (.gitignore'a dokunmaz).
+    `ORKESTRA_OTOMATIK_ACIL=0` kapatır. Hata sessiz: None döner."""
+    try:
+        if os.environ.get("ORKESTRA_OTOMATIK_ACIL", "1") == "0":
+            return None
+        proje = os.path.abspath(inp.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+        if proje == os.path.abspath(os.path.expanduser("~")) or os.path.dirname(proje) == proje:
+            return None
+        sd = L.durum_dizini(proje, olustur=True)
+        if not sd:
+            return None
+        rd = os.path.join(sd, "README.md")
+        if not os.path.exists(rd):
+            from komutlar._ortak import README
+            L.atomik_yaz(rd, README)
+        r = L.git(["rev-parse", "--git-common-dir"], proje)
+        if r.returncode == 0 and r.stdout.strip():
+            ortak = r.stdout.strip()
+            ortak = ortak if os.path.isabs(ortak) else os.path.join(proje, ortak)
+            ex = os.path.join(ortak, "info", "exclude")
+            mevcut = open(ex, encoding="utf-8", errors="replace").read() if os.path.exists(ex) else ""
+            satirlar = [s for s in (".claude/orkestra/", ".claude/agent-memory-local/") if s not in mevcut.splitlines()]
+            if satirlar:
+                os.makedirs(os.path.dirname(ex), exist_ok=True)
+                with open(ex, "a", encoding="utf-8", newline="\n") as f:
+                    f.write(("" if not mevcut or mevcut.endswith("\n") else "\n") + "\n".join(satirlar) + "\n")
+        return sd
+    except Exception:
+        return None
+
+
+def _perspektif_oto() -> bool:
+    """Perspektif yalnız elle başlatılır (`orkestra perspektif baslat`, /orkestra:perspektif); oturum açılışı talimatı ve
+    kapanıştaki arka plan koşusu yalnız ORKESTRA_PERSPEKTIF_OTO=1 ile çalışır (I-054)."""
+    return os.environ.get("ORKESTRA_PERSPEKTIF_OTO") == "1"
+
+
 def session_start(inp: dict):
     _doktor_hizli_yol(inp)
-    sd = L.durum_dizini(inp.get("cwd"))
+    sd = L.durum_dizini(inp.get("cwd")) or _otomatik_ac(inp)
     if not sd:
         gec()
     import perspektif
@@ -1541,7 +1580,7 @@ def session_start(inp: dict):
     if r.get("okunmamis_rapor"):
         satirlar.append(f"Perspektif raporu hazır: {r['okunmamis_rapor']} — öneriler panelde Onaylar sayfasında; "
                         "kullanıcı orada onaylayabilir ya da /orkestra:perspektif ile sohbette ilerleyebilir.")
-    elif r.get("zamani_geldi") and not r.get("calisiyor"):
+    elif _perspektif_oto() and r.get("zamani_geldi") and not r.get("calisiyor"):
         hafiza = perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))
         satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
                         "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
@@ -1826,7 +1865,7 @@ def session_end(inp: dict):
         pass
     import perspektif
     proje_ = L.proje_dizini(inp.get("cwd"))
-    if perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))).get("zamani_geldi"):
+    if _perspektif_oto() and perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))).get("zamani_geldi"):
         perspektif.baslat(sd, proje_, transkript=inp.get("transcript_path"))
     gec()
 

@@ -403,12 +403,12 @@
     {
       "id": "P-011",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Panelde iki ayrı yerde durum satırı gösterilir. (1) Onaylar sayfasındaki perspektif şeridi yalnız onaylarla ilgili süren arka plan görevlerini (perspektif koşusu, onaylı kararların uygulanması) 'Arka plan görevleri · N sürüyor' satırıyla listeler; hiç yoksa satır gösterilmez. (2) İşler sayfasındaki durum şeridi, arka plan işi süren sohbetleri aynı satırla (yoksa gösterilmez) ve açık işlerin todo sayımını 'Todo: X yapıldı · Y kaldı' satırı ve iş başına kırılımla her zaman gösterir. Todo sayımı ve sohbet görevleri Onaylar sayfasında gösterilmez; sohbette perspektif durumu özetlenirken yalnız (1), iş durumu özetlenirken (2) verilir. Kaynak: panel.py _arka_plan, _sohbet_arka_plan, _todo_sayac; onaylar.js perspDurumCiz; isler.js durumSeridiCiz.",
-      "neden": "Kullanıcı 16.10.2026: perspektif panelinde devam eden arka plan görevleri ve todo sayımı görünsün. Kullanıcı 17.10.2026: Onaylar'daki 'Todo: 287 yapıldı · 176 kaldı' satırı onayla ilgisiz (tüm açık işleri sayıyor); todo sayımı ve sohbet görevleri İşler sayfasına taşındı.",
+      "metin": "ZORUNLU, istisnasız: Panelde iki ayrı yerde süren arka plan görevleri gösterilir. (1) Onaylar sayfasındaki perspektif şeridi yalnız onaylarla ilgili süren arka plan görevlerini (perspektif koşusu, onaylı kararların uygulanması) 'Arka plan görevleri · N sürüyor' satırıyla listeler; hiç yoksa satır gösterilmez. (2) İşler sayfasındaki durum şeridi arka plan işi süren sohbetleri aynı satırla listeler; yoksa gösterilmez. Panelde todo sayımı ('Todo: X yapıldı · Y kaldı') gösterilmez. Sohbet görevleri Onaylar sayfasında gösterilmez. Kaynak: panel.py _arka_plan, _sohbet_arka_plan; onaylar.js perspDurumCiz; isler.js durumSeridiCiz.",
+      "neden": "Kullanıcı 16.10.2026: perspektif panelinde devam eden arka plan görevleri görünsün. Kullanıcı 17.10.2026: sohbet görevleri İşler sayfasına taşındı. Kullanıcı 17.10.2026: 'Todo: 283 yapıldı · 169 kaldı' satırına gerek yok, kaldırıldı.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T21:12:12+03:00",
-      "guncelleme": "2026-10-17T18:19:41+03:00",
+      "guncelleme": "2026-10-17T20:33:43+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T21:12:12+03:00",
@@ -419,6 +419,11 @@
           "zaman": "2026-10-17T18:19:41+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Perspektif paneli (panelde Onaylar sayfasındaki perspektif şeridi) gösterildiğinde (1) o alanda süren arka plan görevi varsa (perspektif koşusu, onaylı kararların uygulanması, arka plan işi süren sohbet) 'Arka plan görevleri · N sürüyor' satırıyla listelenir; hiç yoksa satır gösterilmez; (2) açık işlerin todo sayımı 'Todo: X yapıldı · Y kaldı' satırı ve iş başına kırılımla her zaman gösterilir. Sohbette perspektif durumu özetlenirken de aynı iki bilgi verilir. Kaynak: panel.py _arka_plan ve _todo_sayac, onaylar.js perspDurumCiz."
+        },
+        {
+          "zaman": "2026-10-17T20:33:43+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Panelde iki ayrı yerde durum satırı gösterilir. (1) Onaylar sayfasındaki perspektif şeridi yalnız onaylarla ilgili süren arka plan görevlerini (perspektif koşusu, onaylı kararların uygulanması) 'Arka plan görevleri · N sürüyor' satırıyla listeler; hiç yoksa satır gösterilmez. (2) İşler sayfasındaki durum şeridi, arka plan işi süren sohbetleri aynı satırla (yoksa gösterilmez) ve açık işlerin todo sayımını 'Todo: X yapıldı · Y kaldı' satırı ve iş başına kırılımla her zaman gösterir. Todo sayımı ve sohbet görevleri Onaylar sayfasında gösterilmez; sohbette perspektif durumu özetlenirken yalnız (1), iş durumu özetlenirken (2) verilir. Kaynak: panel.py _arka_plan, _sohbet_arka_plan, _todo_sayac; onaylar.js perspDurumCiz; isler.js durumSeridiCiz."
         }
       ],
       "etkinlesme": "2026-10-16T21:12:12+03:00"

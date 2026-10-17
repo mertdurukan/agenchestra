@@ -1,10 +1,14 @@
 """Orkestrayı bir projeye kurar — çalışma alanına özgü, genel ayarlara dokunmadan.
 
 Kullanım:
+    python araclar/projeye_kur.py --kullanici [--ui-yok] [--kuru] [--kaldir]   (önerilen: bilgisayardaki TÜM projeler)
     python araclar/projeye_kur.py <proje klasörü> [--ui-yok] [--kuru] [--kaynak {yerel,github}] [--repo SAHIP/DEPO]
     python araclar/projeye_kur.py <proje klasörü> --kaldir
 
-Ne yapar (hepsi o projenin içinde):
+--kullanici: marketplace'i tanıtır, plugin'leri USER kapsamında kurar (~/.claude). Projeye hiçbir şey yazılmaz; orkestra her
+projede SessionStart hook'u ile kendiliğinden açılır (hook.py _otomatik_ac; kapatma ORKESTRA_OTOMATIK_ACIL=0).
+
+Ne yapar (proje klasörü verilirse, hepsi o projenin içinde):
   1. Marketplace'i yayın klonundan (--yayin > ORKESTRA_YAYIN > <depo>/../claude-orchestration-yayin)
      bu bilgisayarda tanıtır (--kaynak github ise GitHub deposundan) (claude plugin marketplace add; zaten varsa geçer). Klon yoksa önce araclar/yayin_kur.py.
      Bu, ayar değil, makinenin plugin kaydıdır (~/.claude/plugins/known_marketplaces.json).
@@ -173,20 +177,45 @@ def kur(proje, ui, kuru):
     print("Tamam. Bu projede YENİ bir Claude oturumu aç; /orkestra ile paneli, /orkestra:is ile ilk işi başlat.")
 
 
+def kur_kullanici(ui, kuru):
+    exe = claude_exe()
+    print("Orkestra kuruluyor → kullanıcı kapsamı (tüm projeler)")
+    kod, cikti = kos([exe, "plugin", "marketplace", "list"], os.path.expanduser("~"), False)
+    if MARKET not in cikti:
+        kos([exe, "plugin", "marketplace", "add", KAYNAK.get("repo") or KAYNAK["path"]], os.path.expanduser("~"), kuru)
+    for p in PLUGINLER if ui else PLUGINLER[:1]:
+        kos([exe, "plugin", "install", f"{p}@{MARKET}", "--scope", "user", "-y"], os.path.expanduser("~"), kuru)
+    print("Tamam. Herhangi bir projede YENİ bir Claude oturumu aç; orkestra o projede kendiliğinden açılır.")
+
+
+def kaldir_kullanici(kuru):
+    exe = claude_exe()
+    print("Orkestra kaldırılıyor → kullanıcı kapsamı (tüm projeler; durum klasörleri silinmez)")
+    for p in PLUGINLER:
+        kos([exe, "plugin", "uninstall", f"{p}@{MARKET}", "--scope", "user", "-y"], os.path.expanduser("~"), kuru)
+
+
 def kaldir(proje, kuru):
+    """Proje kapsamındaki kurulumu kaldırır ve plugin'leri bu projede `false` yapar: user kapsamında kurulu olsalar da
+    bu projede yüklenmezler, SessionStart otomatik açılışı (hook.py _otomatik_ac) da çalışmaz."""
     exe = claude_exe()
     print(f"Orkestra kaldırılıyor → {proje} (durum klasörü .claude/orkestra/ silinmez)")
     for p in PLUGINLER:
         kos([exe, "plugin", "uninstall", f"{p}@{MARKET}", "--scope", "project", "-y"], proje, kuru)
     yol = os.path.join(proje, ".claude", "settings.json")
-    if os.path.exists(yol) and not kuru:
-        with open(yol, encoding="utf-8") as f:
-            s = json.load(f)
+    print(f"  ayarlar → {yol} (enabledPlugins: false)")
+    if not kuru:
+        s = {}
+        if os.path.exists(yol):
+            with open(yol, encoding="utf-8") as f:
+                s = json.load(f)
+        ep = s.setdefault("enabledPlugins", {})
         for p in PLUGINLER:
-            s.get("enabledPlugins", {}).pop(f"{p}@{MARKET}", None)
+            ep[f"{p}@{MARKET}"] = False
         s.get("extraKnownMarketplaces", {}).pop(MARKET, None)
         if (s.get("statusLine") or {}).get("command") == KOTA_KOMUTU:
             s.pop("statusLine")
+        os.makedirs(os.path.dirname(yol), exist_ok=True)
         with open(yol, "w", encoding="utf-8") as f:
             json.dump(s, f, ensure_ascii=False, indent=2)
             f.write("\n")
@@ -204,7 +233,8 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("proje", help="orkestranın kurulacağı proje klasörü")
+    p.add_argument("proje", nargs="?", help="orkestranın kurulacağı proje klasörü (--kullanici ile verilmez)")
+    p.add_argument("--kullanici", action="store_true", help="user kapsamında kur: bilgisayardaki tüm projeler")
     p.add_argument("--ui-yok", action="store_true", help="arayüz modunu kurma")
     p.add_argument("--kuru", action="store_true", help="yalnız ne yapılacağını göster")
     p.add_argument("--kaldir", action="store_true", help="bu projeden kaldır")
@@ -221,6 +251,12 @@ def main():
         KAYNAK = {"source": "github", "repo": repo}
     else:
         KAYNAK = {"source": "directory", "path": YAYIN}
+    if a.kullanici:
+        if a.proje:
+            sys.exit("--kullanici ile proje klasörü verilmez.")
+        return kaldir_kullanici(a.kuru) if a.kaldir else kur_kullanici(not a.ui_yok, a.kuru)
+    if not a.proje:
+        sys.exit("proje klasörü ver ya da --kullanici kullan.")
     proje = os.path.abspath(a.proje)
     if not os.path.isdir(proje):
         sys.exit(f"klasör yok: {proje}")

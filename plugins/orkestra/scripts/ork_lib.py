@@ -670,7 +670,8 @@ def kart_yaz(sd: str, kart: dict) -> None:
 _KART_ONBELLEK: dict = {}  # dosya yolu -> ((mtime_ns, boyut), ayrıştırılmış kart | None)
 
 
-def kartlar(sd: str) -> list[dict]:
+def kartlar(sd: str, derin: bool = True) -> list[dict]:
+    """derin=False: yüzeysel kopya (hızlı); yalnız kartı DEĞİŞTİRMEYEN salt okur çağıranlar için."""
     d = os.path.join(sd, "gorevler")
     out = []
     if os.path.isdir(d):
@@ -693,7 +694,7 @@ def kartlar(sd: str) -> list[dict]:
                         k = None
                     _KART_ONBELLEK[yol] = (imza, k)  # bozuk kart da imzayla önbelleğe girer (her çağrıda yeniden denenmez)
                 if isinstance(k, dict) and k.get("id"):
-                    k = copy.deepcopy(k)  # tüketiciler kartı değiştirebilir; önbellek bozulmasın
+                    k = copy.deepcopy(k) if derin else dict(k)  # tüketiciler kartı değiştirebilir; önbellek bozulmasın
                     # eksik alanlı kart özet/panel tüketicilerini çökertmesin
                     k.setdefault("baslik", "")
                     k.setdefault("basamak", "-")

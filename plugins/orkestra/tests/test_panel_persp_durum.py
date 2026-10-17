@@ -1,4 +1,4 @@
-"""Panel durum satırları: /onaylar.json arka_plan (yalnız perspektif ve uygulama), /isler.json arka_plan (sohbet) ve todo (yapıldı/kaldı)."""
+"""Panel durum satırları: /onaylar.json arka_plan (yalnız perspektif ve uygulama), /isler.json arka_plan (sohbet). Todo sayımı panelde yok."""
 import os
 import sys
 import tempfile
@@ -8,7 +8,6 @@ from unittest import mock
 AD = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(AD, "..", "scripts"))
 import ork_lib as L  # noqa: E402
-import is_kaydi as IK  # noqa: E402
 import niyet  # noqa: E402
 import onay  # noqa: E402
 import panel  # noqa: E402
@@ -29,23 +28,9 @@ class PerspektifSeridi(unittest.TestCase):
         self.yama.stop()
         self.t.cleanup()
 
-    def todo_yaz(self, ad, metin):
-        i = IK.is_ac(self.sd, ad, os.path.join(self.t.name, ad.replace(" ", "_")))
-        with open(os.path.join(i["klasor"], "todo.md"), "w", encoding="utf-8") as f:
-            f.write(metin)
-        return i
-
-    def test_todo_sayaci_yapildi_ve_kaldi(self):
-        self.todo_yaz("Birinci iş", "- [x] a\n- [x] b\n- [ ] c\n")
-        self.todo_yaz("İkinci iş", "- [ ] d\n")
-        self.todo_yaz("Todosuz iş", "")
-        v = panel._isler_json("alan-x")["todo"]
-        self.assertEqual((v["biten"], v["kalan"], v["toplam"]), (2, 2, 4))
-        self.assertEqual(len(v["isler"]), 2)  # todo'su olmayan iş listelenmez
-
     def test_arka_plan_bos_iken_liste_bos(self):
         self.assertEqual(panel._onaylar_json("alan-x")["arka_plan"], [])
-        self.assertEqual(panel._isler_json("alan-x")["todo"]["toplam"], 0)
+        self.assertNotIn("todo", panel._isler_json("alan-x"))
         self.assertNotIn("todo", panel._onaylar_json("alan-x"))
 
     def test_perspektif_ve_uygulama_suruyorsa_listelenir(self):
@@ -75,7 +60,7 @@ class PerspektifSeridi(unittest.TestCase):
         with open(os.path.join(assets, "isler.js"), encoding="utf-8") as f:
             ijs = f.read()
         self.assertIn("durumSeridiCiz", ijs)
-        self.assertIn("yapıldı", ijs)
+        self.assertNotIn("Todo: ${", ijs)  # durum şeridinde todo sayımı yok
 
 
 if __name__ == "__main__":

@@ -312,22 +312,17 @@
     return gorunen.find(i => i.id === S.secili) || gorunen[0] || null;
   }
 
-  // Durum şeridi: süren arka plan sohbetleri (yalnız varsa) ve açık işlerin todo sayımı (yapılan / kalan).
+  // Durum şeridi: süren arka plan sohbetleri (yalnız varsa).
   function durumSeridiCiz() {
     const kap = $('#durumSeridi'); if (!kap) return;
     const v = S.veri;
     if (!v || v.acik === false || v.hata) { yerlestir(kap, ''); return; }
     const bp = dizi(v.arka_plan);
-    const t = v.todo || { biten: 0, kalan: 0, toplam: 0, isler: [] };
     let html = '';
     if (bp.length) {
       html += `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
         bp.map(x => `<li>Sohbet: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>';
     }
-    html += t.toplam
-      ? `<p class="persp-satir"><b>Todo: ${t.biten} yapıldı · ${t.kalan} kaldı</b> <span class="meta">(${t.toplam} madde, ${dizi(t.isler).length} açık iş)</span></p>` +
-        '<ul>' + dizi(t.isler).map(i => `<li>${esc(i.id)} ${esc(i.ad)}: ${i.biten} yapıldı · ${i.kalan} kaldı</li>`).join('') + '</ul>'
-      : '<p class="persp-satir meta">Todo: açık işte madde yok.</p>';
     yerlestir(kap, html);
   }
 
@@ -498,7 +493,7 @@
   O.kabuk({ sayfa: 'isler' });
   // Sohbetler: kendi kaynağı (/simdi.json, tüm çalışma alanları); alan değişiminden etkilenmez.
   KS = O.veri(() => '/simdi.json?alan=' + encodeURIComponent(O.alan), {
-    ad: 'Sohbet verisi', aralik: 5000,
+    ad: 'Sohbet verisi', aralik: 5000, tumDestek: true,
     gecerli: v => Array.isArray(v.oturumlar) && (!v.alan || !v.alan.id || v.alan.id === O.alan),
     cizici: v => { SS.simdi = v; sohbetCiz(); sohbetBayatCiz(); if (S.veri) sayfaCiz(); },
     durum: () => { sohbetBayatCiz(); if (!SS.simdi) sohbetCiz(); },

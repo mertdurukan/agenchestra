@@ -443,3 +443,13 @@ main { padding-left: max(var(--yan), var(--guvenli-sol)); padding-right: max(var
 @media (min-width: 1700px) { :root { --genislik: 1560px; } }
 /* düşük yükseklik (yatay telefon): yapışkan kabuk ekranın yarısını yemesin */
 @media (max-height: 520px) and (max-width: 900px) { .kabuk { position: static; } .g-sekmeler { top: 0 !important; } }
+
+/* "Tüm çalışma alanları" (O.alan === '*', ortak.js): tek alan sayfalarında içerik gizlenir, bilgi şeridi görünür.
+   Birleşik görünüm yalnız Dashboard'un Sohbetler bölümü ve Maliyet'in "Tüm projeler" bölümünde vardır. */
+.tum-uyari { display: none; margin: var(--a-12, 12px) 0; padding: var(--a-8, 8px) var(--a-12, 12px); border: 1px solid var(--line); border-radius: var(--k-6); background: var(--surface-1); color: var(--text-secondary); }
+html[data-tum-alan] .tum-uyari { display: block; }
+html[data-tum-alan] main > :not(.tum-uyari) { display: none !important; }
+html[data-tum-alan] .isler-sifirla { display: none; }
+html[data-sayfa="isler"][data-tum-alan] main > #sohbetler { display: block !important; }
+html[data-sayfa="maliyet"][data-tum-alan] main > .g-gorunum:has(#tum) { display: block !important; }
+html[data-sayfa="maliyet"][data-tum-alan] main > .g-gorunum:has(#tum) > :not(#tum) { display: none !important; }
