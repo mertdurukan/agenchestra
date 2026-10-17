@@ -38,6 +38,9 @@ class PanelTodo(unittest.TestCase):
         self.proje = os.path.join(self.t.name, "proje")
         self.sd = os.path.join(self.proje, ".claude", "orkestra")
         os.makedirs(self.sd)
+        # todo yazımı P-005 sıra kapısına takılmasın: bu test dosya yazımını sınar, kapıyı değil
+        self.ortam = mock.patch.dict(os.environ, {"ORKESTRA_SIRA_KAPISI": "0"})
+        self.ortam.start()
         self.alan = {"id": "alan-x", "ad": "proje", "yol": self.proje, "orkestra": True, "sohbet": 1, "son": "x"}
         yok = os.path.join(self.t.name, "orkestrasiz")
         os.makedirs(yok)
@@ -59,6 +62,7 @@ class PanelTodo(unittest.TestCase):
         self.sunucu.shutdown()
         self.sunucu.server_close()
         self.yama.stop()
+        self.ortam.stop()
         self.t.cleanup()
         sonra = os.path.getmtime(self.durum_yolu) if os.path.exists(self.durum_yolu) else None
         self.assertEqual(self.once, sonra, "panel.json değişmemeli")

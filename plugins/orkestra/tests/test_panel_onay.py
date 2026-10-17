@@ -260,7 +260,8 @@ class PanelOnay(unittest.TestCase):
         self.assertEqual(k, 200)
         kid = json.loads(b)["kayit"]["id"]
         kd = self.getj("/kurallar.json?alan=alan-x")
-        self.assertEqual([r["id"] for r in kd["etkin"]], [kid])
+        # eklenti kuralları da etkindir; testin eklediği yalnız proje katmanındadır
+        self.assertEqual([r["id"] for r in kd["etkin"] if r.get("katman") == "proje"], [kid])
         dosya = os.path.join(self.proje, ".claude", "rules", "orkestra_kurallari.md")
         self.assertIn("Testsiz commit yok", open(dosya, encoding="utf-8").read())
         k, _ = self.post("alan-x", {"islem": "kural-duzenle", "id": kid, "metin": "Testsiz commit atma"})
@@ -268,10 +269,11 @@ class PanelOnay(unittest.TestCase):
         self.assertIn("Testsiz commit atma", open(dosya, encoding="utf-8").read())
         k, _ = self.post("alan-x", {"islem": "kural-kaldir", "id": kid, "not": "gereksiz"})
         self.assertEqual(k, 200)
-        self.assertFalse(os.path.exists(dosya))
+        # dosya eklenti kurallarıyla durur; kaldırılan proje kuralının metni dosyada kalmaz
+        self.assertNotIn("Testsiz commit", open(dosya, encoding="utf-8").read() if os.path.exists(dosya) else "")
         kd = self.getj("/kurallar.json?alan=alan-x")
-        self.assertEqual(kd["etkin"], [])
-        self.assertEqual([r["id"] for r in kd["gecmis"]], [kid])
+        self.assertEqual([r["id"] for r in kd["etkin"] if r.get("katman") == "proje"], [])
+        self.assertIn(kid, [r["id"] for r in kd["gecmis"]])
         k, b = self.post("alan-x", {"islem": "kural-kaldir", "id": "K-999", "not": "x"})
         self.assertEqual(k, 400)
 
