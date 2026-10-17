@@ -27,7 +27,7 @@ def _kok_dizin():
 
 
 def _yol_duzelt(y):
-    """IDE workspace_roots'u '/C:/Users/..' verir; Windows yoluna çevirir."""
+    """IDE workspace_roots'u başında bölü işaretiyle ('/<sürücü>:/...') verir; Windows yoluna çevirir."""
     if isinstance(y, str) and len(y) > 3 and y[0] == "/" and y[2] == ":":
         y = y[1:]
     return y
