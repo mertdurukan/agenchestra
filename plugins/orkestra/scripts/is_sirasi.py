@@ -106,8 +106,13 @@ def _p_bloklari(metin: str) -> dict[int, str]:
     satirlar = _YORUM.sub("", metin).splitlines()  # şablonun yer tutucu yorumundaki örnek P satırı sayılmaz
     bloklar: dict[int, list[str]] = {}
     gecerli = None
+    # Başlık biçimli (`### P1`) madde varsa yalnız başlıklar madde başlatır; gövdedeki "- P1 testleri…" gibi madde işaretli
+    # satırlar bir önceki maddeyi bölmez (I-057). Başlık yoksa eski madde işaretli biçim geçerlidir.
+    baslik_var = any(re.match(r"^#{2,4}\s+P\d+", s) for s in satirlar)
     for s in satirlar:
         m = _P_SATIRI.match(s)
+        if m and baslik_var and not s.lstrip().startswith("#"):
+            m = None
         if m:
             gecerli = int(m.group(1))
             bloklar.setdefault(gecerli, []).append(s)

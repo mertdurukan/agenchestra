@@ -18,6 +18,7 @@ import time
 VARSAYILAN_ZAMAN_ASIMI = 900.0
 # Önceki koşuların dosya süreleri: en yavaş dosyalar havuza önce girer (LPT), kuyruk kısalır. Kayıt yoksa/bozuksa sıra korunur.
 SURE_KAYDI = os.path.join(tempfile.gettempdir(), "orkestra_test_sureleri.json")
+SON_GUNLUK = os.path.join(tempfile.gettempdir(), "orkestra_son_test.log")  # tam çıktı; düşen ad(lar)ı için takımı yeniden koşma
 # Tek dosya tüm koşuyu belirliyorsa (LPT sırası yetmez) önceki süresi bu eşiği aşan dosya test düğümlerine bölünüp
 # birden çok alt süreçte koşulur; her parça yaklaşık PARCA_HEDEF_SN sürecek kadar. Testler kendi geçici dizinini kurar.
 PARCALA_ESIK_SN = 40.0
@@ -167,7 +168,9 @@ def main(argv=None):
     sureleri_yaz([(d, k, c, toplam[d], asim) for d, k, c, _, asim in sonuclar])
 
     dus = asim = 0
+    dusenler = []
     for dosya, kod, cikti, sure, asimi in sonuclar:
+        dusenler += [x.strip() for x in (cikti or "").splitlines() if x.startswith(("FAILED ", "ERROR "))]
         print(f"===== {dosya} ({sure:.1f} s) =====")
         if cikti:
             print(cikti.rstrip("\n"))
@@ -177,6 +180,17 @@ def main(argv=None):
         elif kod != 0:
             dus += 1
     print(f"===== {len(dosyalar)} dosya, {dus} düşen, {asim} süre aşan, {time.time() - t0:.1f} s (-n {a.n}) =====")
+    if dusenler:
+        print("Düşenler:")
+        for d in dusenler:
+            print("  " + d[:200])
+    try:
+        with open(SON_GUNLUK, "w", encoding="utf-8") as f:
+            for dosya, _, cikti, sure, _ in sonuclar:
+                f.write(f"===== {dosya} ({sure:.1f} s) =====" + chr(10) + (cikti or "") + chr(10))
+        print(f"Tam çıktı: {SON_GUNLUK}")
+    except OSError:
+        pass
 
     if a.en_yavas > 0:
         print(f"En yavaş {a.en_yavas} dosya:")
