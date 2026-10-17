@@ -505,20 +505,19 @@
     durum: () => { yerlestir($('#iBayat'), O.bayatIsaret(K)); if (!S.veri) sayfaCiz(); },
   });
 
-  // Bugün şeridi: dağınık sayıları tek satırda toplar (sohbet, harcama, onay, todo, açık iş); her karo ilgili sayfaya bağlanır.
+  // Bugün şeridi: dağınık sayıları tek satırda toplar (sohbet, harcama, onay, açık iş); her karo ilgili sayfaya bağlanır.
   const BG = { analitik: null, onay: null };
   function bugunCiz() {
     const kap = $('#bugunKaro'); if (!kap) return;
     const sohbet = oturumlar().filter(buAlanda), sen = sohbet.filter(r => r.bekleyen === 'sen').length;
     const gun = BG.analitik && BG.analitik.trend ? dizi(BG.analitik.trend.gunluk) : [];
     const bugun = gun.length ? Number(gun[gun.length - 1].usd) || 0 : null;
-    const td = S.veri && S.veri.todo, bekl = BG.onay && BG.onay.sayac ? Number(BG.onay.sayac.bekliyor) || 0 : null;
+    const bekl = BG.onay && BG.onay.sayac ? Number(BG.onay.sayac.bekliyor) || 0 : null;
     const acik = S.veri && Array.isArray(S.veri.isler) ? S.veri.isler.filter(i => i.durum !== 'kapandi').length : null;
     const karolar = [
       G.karo({ etiket: 'Seni bekleyen sohbet', deger: String(sen), alt: sohbet.length + ' sohbet bu alanda', durum: sen ? 'uyari' : 'iyi', href: '#sohbetler' }),
       G.karo({ etiket: 'Bugünkü harcama', deger: bugun == null ? '–' : O.B.usd(bugun), alt: 'son 7 gün eğilimi', spark: { degerler: gun.slice(-7).map(x => x.usd), etiket: 'Son 7 günlük harcama' }, href: '/maliyet#g=ozet' }),
       G.karo({ etiket: 'Onay bekleyen', deger: bekl == null ? '–' : String(bekl), alt: 'öneri ve karar', durum: bekl ? 'uyari' : 'iyi', href: '/onaylar' }),
-      G.karo({ etiket: 'Todo kalan', deger: td ? String(td.kalan) : '–', alt: td ? td.biten + ' / ' + td.toplam + ' yapıldı' : '', href: '/yapilacaklar' }),
       G.karo({ etiket: 'Açık iş', deger: acik == null ? '–' : String(acik), alt: 'kapanmamış işler', href: '#liste' }),
     ];
     yerlestir(kap, G.karolar(karolar));

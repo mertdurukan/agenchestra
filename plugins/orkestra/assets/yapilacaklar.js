@@ -3,7 +3,7 @@
   const $ = s => document.querySelector(s);
   const { esc } = O;
   const SINIR = 2000;
-  let KK, TK, maddeler = [], ara = '', geri = null, geriZ = 0, todo = null;
+  let KK, maddeler = [], ara = '', geri = null, geriZ = 0;
 
   const kYol = () => '/api/kullanici-todo?alan=' + encodeURIComponent(O.alan);
 
@@ -118,30 +118,12 @@
   });
 
   window.addEventListener('orkestra:alan', () => { maddeler = []; ara = ''; $('#kAra').value = ''; $('#kGeri').hidden = true; geri = null; });
-  // İş todo durumu (isler.json todo alanı): özet karoları + iş başına ilerleme
   function ozetCiz() {
-    const t = todo || { biten: 0, kalan: 0, toplam: 0, isler: [] };
-    const oran = t.toplam ? t.biten / t.toplam : 0;
     $('#yOzet').innerHTML = G.karolar([
       G.karo({ etiket: 'Benim yapılacaklarım', deger: String(maddeler.length), alt: maddeler.length ? 'açık madde' : 'açık madde yok', vurgu: maddeler.length ? 'vurgu' : '' }),
-      G.karo({ etiket: 'İş todo: kalan', deger: O.B.sayi(t.kalan), alt: (t.isler || []).filter(i => i.kalan > 0).length + ' işte' }),
-      G.karo({ etiket: 'İş todo: yapılan', deger: O.B.sayi(t.biten), alt: 'toplam ' + O.B.sayi(t.toplam) + ' madde' }),
-      G.karo({ etiket: 'Tamamlanma', deger: O.B.yuzde(oran, 0), alt: '' }),
     ]);
   }
-  function todoCiz(v) {
-    todo = v && v.acik !== false ? v.todo || null : null;
-    ozetCiz();
-    const l = ((todo && todo.isler) || []).slice().sort((a, b) => b.kalan - a.kalan);
-    $('#itSayi').textContent = l.length ? l.length + ' iş' : '';
-    $('#itIcerik').innerHTML = l.length ? '<ul class="y-isler">' + l.map(i => {
-      const top = i.biten + i.kalan;
-      return `<li><span class="y-is-ad"><b>${esc(i.id)}</b> ${esc(i.ad)}</span>${G.ilerleme(i.biten, top, { etiket: i.id })}` +
-        `<span class="y-is-sayi"><b>${i.biten}</b> / ${top} <small>${i.kalan} kaldı</small></span></li>`;
-    }).join('') + '</ul>' : '<p class="bos">Açık işlerde todo maddesi yok.</p>';
-  }
   O.kabuk({ sayfa: 'yapilacaklar' });
-  TK = O.veri(() => '/isler.json?alan=' + encodeURIComponent(O.alan), { ad: 'isler', aralik: 10000, cizici: todoCiz });
   KK = O.veri(kYol, { ad: 'kullanici-todo', aralik: 5000, cizici: kCiz });
   boyutla();
 })();
