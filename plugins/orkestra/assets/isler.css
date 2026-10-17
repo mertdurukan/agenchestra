@@ -159,3 +159,6 @@
   .kap.ok { color: #1a7f37; font-weight: 600; }
   .kap.eksik { color: #9a6700; }
   a.teknik-bag { text-decoration: none; display: inline-block; }
+
+/* Bugün şeridi */
+.bugun { margin: 0 0 var(--a-16); }

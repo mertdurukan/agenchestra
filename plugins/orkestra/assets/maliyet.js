@@ -143,16 +143,7 @@
         }
       }
     }
-    // Kota: ölçüm varsa kalan % karoları; yoksa karo yok (ölçüm yok bilgisi Kota bölümünde)
-    const kota = kotaVerisi();
-    const olculen = kota && kota.kaynak ? KOTA_PENCERE.filter(([a]) => kota[a]) : [];
-    if (olculen.length) {
-      olculen.forEach(([a, ad]) => {
-        const p = kota[a];
-        const alt = p.eski ? (p.not || 'eski ölçüm') : (p.sifirlanma ? `sıfırlanma ${B.tarih(p.sifirlanma)}` : '');
-        karolar += karo(`%${B.sayi(p.kalan)} kaldı`, esc(ad), esc(alt), { sinif: 'vurgu', renk: SEVIYE_RENK[p.seviye] || 'var(--neutral)' });
-      });
-    }   // ölçüm yoksa KPI'de karo yok: 'Ölçüm yok' yalnız Kota bölümünde tek yerde gösterilir
+    // Kota (H5): kalan % karoları yalnız Kota bölümünde (#kota) durur; burada ikinci kez gösterilmez.
     const bugunYok = !sayiMi(m.bugun) || r2(m.bugun) === 0;
     const sonKayit = sohbetler().map(s => s.son).filter(Boolean).sort().pop();
     const tutarVar = [m.bugun, buAy, m.toplam].some(v => sayiMi(v) && r2(v) > 0);
@@ -180,10 +171,10 @@
   // ------------------------------------------------------------ 2. Sohbetler
   const SOHBET_ILK = 10;
   // Dönem süzmesi ve görünüm (grafik | liste) alan başına hatırlanır. Dönemli veri token defterindendir (ozet.sohbet_dokum).
-  const SD_ADLARI = { gun: 'Bugün', hafta: 'Son 7 gün', ay: 'Bu ay', tum: 'Tüm zaman' };
-  const SD_DUGME = [['gun', 'Gün'], ['hafta', 'Hafta'], ['ay', 'Ay'], ['tum', 'Tümü']];
+  const SD_ADLARI = { gun: 'Bugün', uc: 'Son 3 gün', hafta: 'Son 7 gün', ay: 'Bu ay', tum: 'Tüm zaman' };
+  const PENCERE_DONEM = { bugun: 'gun', son_3_gun: 'uc', son_7_gun: 'hafta', bu_ay: 'ay', tum_zaman: 'tum' };
   const SD_ANAHTAR = a => 'orkestra.maliyet.sohbet.' + a + '.' + O.alan;
-  const sDonem = () => { const v = O.depo.al(SD_ANAHTAR('donem')); return SD_ADLARI[v] ? v : 'tum'; };
+  const sDonem = () => PENCERE_DONEM[G.pencere.al()] || 'uc';
   const sGorunum = () => O.depo.al(SD_ANAHTAR('gorunum')) === 'liste' ? 'liste' : 'grafik';
   const dokum = () => (S.ozet && S.ozet.sohbet_dokum && Array.isArray(S.ozet.sohbet_dokum.sohbetler)) ? S.ozet.sohbet_dokum : null;
   // YYYY-MM-DD aritmetiği saat dilimi kaymadan (UTC) yapılır
@@ -191,10 +182,18 @@
   const haftaBasi = g => { const d = new Date(g + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); };
   const gunIcinde = (donem, bugun) => ({
     gun: g => g === bugun,
+    uc: g => g >= gunKaydir(bugun, -2) && g <= bugun,
     hafta: g => g >= gunKaydir(bugun, -6) && g <= bugun,
     ay: g => g.slice(0, 7) === bugun.slice(0, 7),
     tum: () => true,
   })[donem];
+  // Seçici yanındaki tarih aralığı ipucu (ör. «15–17 Eki»); gün bilinmiyorsa boş
+  const pencereAralik = id => {
+    const dk = dokum(); if (!dk || !dk.gun) return '';
+    const bg = dk.gun, ilk = { bugun: bg, son_3_gun: gunKaydir(bg, -2), son_7_gun: gunKaydir(bg, -6), bu_ay: bg.slice(0, 8) + '01' }[id];
+    if (!ilk) return 'ilk kayıttan bugüne';
+    return ilk === bg ? B.gun(bg) : B.gun(ilk) + ' – ' + B.gun(bg);
+  };
   const SOHBET_RENK_SAYISI = 6;
   const sohbetRenk = (k, i) => k === 'diger' ? 'var(--neutral)' : SERI[i];
 
@@ -214,7 +213,7 @@
     const ic = gunIcinde(donem, bugun);
     const gunler = sohbetler.flatMap(e => Object.keys(e.g || {})).filter(ic).sort();
     if (!gunler.length) return [];
-    const ilk = donem === 'hafta' ? gunKaydir(bugun, -6) : donem === 'ay' ? bugun.slice(0, 8) + '01' : gunler[0];
+    const ilk = donem === 'uc' ? gunKaydir(bugun, -2) : donem === 'hafta' ? gunKaydir(bugun, -6) : donem === 'ay' ? bugun.slice(0, 8) + '01' : gunler[0];
     const haftalik = donem === 'tum' && (new Date(bugun) - new Date(ilk)) / 864e5 > 45;
     const kovalar = [], goruldu = new Set();
     for (let g = ilk; g <= bugun; g = gunKaydir(g, 1)) {
@@ -249,7 +248,7 @@
     $('#sohbetSayi').textContent = satirlar.length ? `${B.sayi(satirlar.length)} sohbet` : '';
     const dugmeGrup = (ad, anahtar, secenekler, simdiki) => `<div class="cipler" role="group" aria-label="${esc(ad)}">${secenekler.map(([v, et]) =>
       `<button type="button" class="cip" data-${anahtar}="${v}" data-anahtar="${anahtar}:${v}" aria-pressed="${simdiki === v}">${et}</button>`).join('')}</div>`;
-    const arac = `<div class="arac">${dugmeGrup('Dönem', 'sdonem', SD_DUGME, donem)}${dugmeGrup('Görünüm', 'sgorunum', [['grafik', 'Grafik'], ['liste', 'Liste']], gorunum)}</div>`;
+    const arac = `<div class="arac">${dugmeGrup('Görünüm', 'sgorunum', [['grafik', 'Grafik'], ['liste', 'Liste']], gorunum)}</div>`;
     const ozet = `<p class="meta sohbet-ozet">${esc(SD_ADLARI[donem])}: <b>${B.usd(topUsd)}</b> · ${B.token(topTok)} token · ${B.sayi(satirlar.length)} sohbet</p>`;
     if (!satirlar.length) { yerlestir(kap, arac + ozet + '<p class="bos">Bu dönemde harcama yok.</p>'); return; }
 
@@ -297,7 +296,7 @@
       govde = `<h3 class="alt-baslik">${grafikAdi} harcama</h3>` +
         `<div class="grafik">${yiginSutun(genislikOlc(kap, $('#sohbetler')), grafikSat, anahtarlar, renk, adi)}</div>` +
         lejant(anahtarlar.map(k => [adi(k), renk(k)])) +
-        `<h3 class="alt-baslik">Sohbetler arası fark <span class="meta">tutar · sağda token</span></h3><div class="cubuklar">${liste.map(cubuk).join('')}</div>`;
+        `<h3 class="alt-baslik">Sohbetler</h3><div class="cubuklar">${liste.map(cubuk).join('')}</div>`;
     }
     if (satirlar.length > SOHBET_ILK) {
       govde += `<div class="daha"><button type="button" data-anahtar="daha" data-tumunu aria-expanded="${S.hepsiAcik}">${S.hepsiAcik ? 'İlk ' + SOHBET_ILK + ' sohbeti göster' : 'Bütün sohbetler · ' + satirlar.length}</button></div>`;
@@ -354,18 +353,16 @@
     });
     const satirlar = Object.entries(toplam).sort((a, b) => b[1].v - a[1].v);
     if (!satirlar.length) { yerlestir(kap, `<p class="bos">${bos}</p>`); return; }
-    const genel = satirlar.reduce((a, [, d]) => a + d.v, 0), enCok = satirlar[0][1].v;
-    yerlestir(kap, `<div class="cubuklar">${satirlar.map(([ad, d]) => {
-      const ip = `<b>${esc(ad)}</b>` + sat('Tutar', B.usd(d.v)) + sat('Pay', B.yuzde(d.v / genel));
-      return `<div class="cubuk pay" style="--renk:${renkle(d.k)}" tabindex="0" data-ipucu="${esc(ip)}">
-        <span class="etiket">${esc(ad)}</span><span class="yol"><span class="dolgu" style="width:${Math.max(0.4, 100 * d.v / enCok)}%"></span></span>
-        <span class="deger">${B.usd(d.v)}<span class="meta">${B.yuzde(d.v / genel)}</span></span></div>`;
-    }).join('')}</div>`);
+    const ogeler = satirlar.map(([ad, d], i) => ({ ad, deger: d.v, renk: renkle(d.k, i) }));
+    yerlestir(kap, G.pay(ogeler, { bicim: B.usd, toplamEtiket: 'Harcama payı' }));
   }
+  // Seçili pencerenin kırılımı: sunucu maliyet.pencere'de verir; eski sunucuda yalnız bugünkü kırılım vardır
+  const pencereVeri = () => { const p = mal().pencere && mal().pencere[G.pencere.al()]; return p || mal(); };
   const donemAdi = () => {
     const s = kapsamSohbet();
     if (s) return kisalt(s.baslik, 36) + ' · kayıtlı toplam';
-    return orkestrali() ? 'bugün' : 'kayıtlı toplam';
+    if (!orkestrali()) return 'kayıtlı toplam';
+    return mal().pencere ? G.pencere.ad(G.pencere.al()) : 'bugün';
   };
   const DOKUM_YOK = 'Bu sohbetin dökümü yok: Claude\'un kendi hesabı yalnız toplamı verir.';
   function ikiliCiz() {
@@ -387,7 +384,7 @@
         <p>Claude-Orchestration klasöründe: <code>python araclar/projeye_kur.py "&lt;proje klasörü&gt;"</code></p>
         <p>Sonra o projede Claude içinde <code>/orkestra:baslat</code>.</p></details>`);
     }
-    const kir = kapsamKirilim(), m = mal(), d = donemAdi();
+    const kir = kapsamKirilim(), m = pencereVeri(), d = donemAdi();
     // kırılım toplamı (kayıttan) sohbet toplamından (ör. Claude'un hesabı) farklıysa tek satır açıklama
     const ks = kapsamSohbet();
     const fark = kir && kir !== 'yok' && ks && sayiMi(kir.usd) && sayiMi(ks.usd) && Math.abs(kir.usd - ks.usd) >= 0.01;
@@ -396,8 +393,8 @@
     $('#surecDonem').textContent = d; $('#modelDonem').textContent = d;
     const surec = kir === 'yok' ? null : (kir ? kir.surec : m.surec);
     const model = kir === 'yok' ? null : (kir ? kir.model : m.model);
-    if (ork) paylar($('#surecIcerik'), surec, E.surec, () => 'var(--s1)', kir === 'yok' ? DOKUM_YOK : 'Kayıt yok.');
-    paylar($('#modelIcerik'), model, E.model, modelRenk, kir === 'yok' ? DOKUM_YOK : 'Kayıt yok.');
+    if (ork) paylar($('#surecIcerik'), surec, E.surec, (k, i) => SERI[i % SERI.length], kir === 'yok' ? DOKUM_YOK : 'Kayıt yok.');
+    paylar($('#modelIcerik'), model, E.model, k => modelRenk(k), kir === 'yok' ? DOKUM_YOK : 'Kayıt yok.');
   }
 
   // ------------------------------------------------------------ 4. Ajan × iş türü
@@ -406,16 +403,21 @@
     if (!S.ozet) { $('#ajanDonem').textContent = ''; yerlestir(kap, yuklemeSatiri(KO, 'Harcama verisi')); return; }
     if (!orkestrali()) return;
     $('#ajanDonem').textContent = donemAdi();
-    const kir = kapsamKirilim(), m = mal();
+    const kir = kapsamKirilim(), m = pencereVeri();
     if (kir === 'yok') { yerlestir(kap, `<p class="bos">${DOKUM_YOK}</p>`); return; }
     const satirlar = (kir ? kir.ajan_surec : m.ajan_surec) || [];
     if (!satirlar.length) { yerlestir(kap, '<p class="bos">Kayıt yok.</p>'); return; }
     const tokIp = (ad, v) => v == null ? '' : ` tabindex="0" data-ipucu="${esc('<b>' + ad + '</b>' + B.sayi(v) + ' token')}"`;
-    yerlestir(kap, `<div class="tablo-kap"><table class="tablo"><thead><tr><th>Ajan</th><th>İş türü</th><th class="sayi">Koşu</th>
+    // Isı haritası: ajan × iş türü maliyeti (koyu = pahalı); altta koşu ve token ayrıntısı aynı veriyle tablo
+    const ajanlar = [...new Set(satirlar.map(r => r.ajan))].map(k => ({ k, ad: E.ajan(k) }));
+    const surecler = [...new Set(satirlar.map(r => r.surec))].map(k => ({ k, ad: E.surec(k) }));
+    const isi = G.isi({ satirlar: ajanlar, sutunlar: surecler, satirBasi: 'Ajan', bicim: B.usd, renk: 'var(--s2)',
+      deger: (a, c) => satirlar.filter(r => r.ajan === a.k && r.surec === c.k).reduce((t, r) => t + (Number(r.usd) || 0), 0) });
+    yerlestir(kap, isi + `<details class="nasil" open><summary>Koşu ve token ayrıntısı</summary><div class="tablo-kap"><table class="tablo"><thead><tr><th>Ajan</th><th>İş türü</th><th class="sayi">Koşu</th>
       <th class="sayi">Giriş token</th><th class="sayi">Çıkış token</th><th class="sayi">Maliyet</th></tr></thead><tbody>` +
       satirlar.map(r => `<tr><td>${esc(E.ajan(r.ajan))}</td><td>${esc(E.surec(r.surec))}</td><td class="sayi">${B.sayi(r.kosu)}</td>
         <td class="sayi"${tokIp('Giriş', r.giris)}>${B.token(r.giris)}</td><td class="sayi"${tokIp('Çıkış', r.cikis)}>${B.token(r.cikis)}</td>
-        <td class="sayi">${B.usd(r.usd)}</td></tr>`).join('') + '</tbody></table></div>');
+        <td class="sayi">${B.usd(r.usd)}</td></tr>`).join('') + '</tbody></table></div></details>');
   }
 
   // ------------------------------------------------------------ grafik yardımcıları (düz SVG)
@@ -472,22 +474,29 @@
   const SINIR = { gunluk: 30, haftalik: 12, aylik: 24 };
   const genislikOlc = (kap, bolum) => kap.clientWidth || (bolum ? Math.max(bolum.clientWidth - 34, 0) : 0) || 600;
 
-  // ------------------------------------------------------------ 5. Zaman içinde harcama
+  // ------------------------------------------------------------ 5. Harcama
   function zamanCiz() {
     const kap = $('#zamanIcerik');
-    if (S.ozet && !orkestrali()) { yerlestir(kap, '<p class="bos">Zaman içinde harcama yalnız orkestralı çalışma alanlarında tutuluyor.</p>'); return; }
+    if (S.ozet && !orkestrali()) { yerlestir(kap, '<p class="bos">Harcama yalnız orkestralı çalışma alanlarında tutuluyor.</p>'); return; }
     if (!S.an) { yerlestir(kap, yuklemeSatiri(KA, 'Harcama geçmişi')); return; }
     const t = S.an.trend;
     if (!t || !Array.isArray(t[S.donem])) { yerlestir(kap, '<p class="bos">Harcama geçmişi yok.</p>'); return; }
-    let liste = t[S.donem];
-    if (S.donem === 'gunluk') liste = bastanKirp(liste, r => r.usd);
-    liste = liste.slice(-SINIR[S.donem]);
+    const pen = G.pencere.al(), tumu = pen === 'tum_zaman';
+    const donem = tumu ? S.donem : 'gunluk';
+    let liste = t[donem];
+    if (donem === 'gunluk') liste = bastanKirp(liste, r => r.usd);
+    if (tumu) liste = liste.slice(-SINIR[donem]);
+    else {
+      const bugun = liste.length ? liste[liste.length - 1].donem : '';
+      const ic = gunIcinde(PENCERE_DONEM[pen], bugun);
+      liste = liste.filter(r => ic(r.donem));
+    }
     const modeller = [...new Set(liste.flatMap(r => Object.keys(r.model || {})))]
       .sort((x, y) => (MODEL_SIRA.indexOf(x) + 1 || 99) - (MODEL_SIRA.indexOf(y) + 1 || 99));
-    const satirlar = liste.map(r => Object.assign(donemEtiket(r.donem, S.donem), { parca: r.model || {} }));
+    const satirlar = liste.map(r => Object.assign(donemEtiket(r.donem, donem), { parca: r.model || {} }));
     const cipGrup = (ad, anahtar, secenekler) => `<div class="cipler" role="group" aria-label="${esc(ad)}">${secenekler.map(([v, et]) =>
       `<button type="button" class="cip" data-${anahtar}="${v}" data-anahtar="${anahtar}:${v}" aria-pressed="${S[anahtar] === v}">${et}</button>`).join('')}</div>`;
-    const arac = `<div class="arac">${cipGrup('Dönem', 'donem', [['gunluk', 'Günlük'], ['haftalik', 'Haftalık'], ['aylik', 'Aylık']])}
+    const arac = `<div class="arac">${tumu ? cipGrup('Birim', 'donem', [['gunluk', 'Günlük'], ['haftalik', 'Haftalık'], ['aylik', 'Aylık']]) : ''}
       ${cipGrup('Ölçek', 'olcek', [['usd', 'Tutar'], ['pay', 'Model payı']])}</div>`;
     const not = kapsamId() ? '<p class="meta kpi-not">Günlük döküm sohbet bazında tutulmuyor; grafik seçili sohbeti değil çalışma alanının tamamını gösterir.</p>' : '';
     yerlestir(kap, arac + `<div class="grafik">${yiginSutun(genislikOlc(kap, $('#zaman')), satirlar, modeller, modelRenk, E.model, { pay: S.olcek === 'pay' })}</div>` +
@@ -606,8 +615,6 @@
     if (k) return kapsamSec(k.dataset.kapsam);
     if (e.target.closest('[data-kapsam-kaldir]')) { O.depo.koy(KAPSAM_ANAHTARI(), ''); kapsamBolumleri(); return; }
     if (e.target.closest('[data-tumunu]')) { S.hepsiAcik = !S.hepsiAcik; return sohbetCiz(); }
-    const sd = e.target.closest('[data-sdonem]');
-    if (sd) { O.depo.koy(SD_ANAHTAR('donem'), sd.dataset.sdonem); S.hepsiAcik = false; return sohbetCiz(); }
     const sg = e.target.closest('[data-sgorunum]');
     if (sg) { O.depo.koy(SD_ANAHTAR('gorunum'), sg.dataset.sgorunum); return sohbetCiz(); }
     const d = e.target.closest('[data-donem]');
@@ -615,6 +622,7 @@
     const o = e.target.closest('[data-olcek]');
     if (o) { S.olcek = o.dataset.olcek; return zamanCiz(); }
   });
+  window.addEventListener('orkestra:pencere', () => { S.hepsiAcik = false; ciz(sohbetCiz, ikiliCiz, ajanCiz, zamanCiz); });
   // yapışkan kapsam şeridi kabuğun altında durur: kabuk yüksekliği (dar ekranda sekme satırı) ölçülür
   const kabukYuksekligi = () => { const k = $('#kabuk'); if (k) document.documentElement.style.setProperty('--kabuk-h', (O.rayModu() ? 0 : k.offsetHeight) + 'px'); };
   if (window.ResizeObserver) new ResizeObserver(kabukYuksekligi).observe($('#kabuk'));
@@ -623,12 +631,17 @@
 
   // ------------------------------------------------------------ veri
   O.kabuk({ sayfa: 'maliyet' }).then(kabukYuksekligi);
+  G.pencere('#gPencere', { aralik: pencereAralik });
+  // Pencere yalnız harcama görünümlerinde anlamlı (Özet, Harcama dağılımı)
+  const pencereGoster = id => { $('#gPencere').hidden = !['ozet', 'dagilim'].includes(id); };
+  window.addEventListener('orkestra:gorunum', e => pencereGoster(e.detail.id));
+  G.sekmeler('#gNav', [['ozet', 'Özet'], ['dagilim', 'Harcama dağılımı'], ['verim', 'Verim ve kalite'], ['akis', 'Akış ve sağlık']]);
   // Yeni veri → ilgili bölümler çizilir. Durum değişimi (hata/toparlanma) → yalnız şerit ve başlık işaretleri;
   // son iyi veri yokken ilgili bölümler tam hata satırına geçer.
   KO = O.veri(() => '/ozet.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'Sohbet ve token verisi', aralik: 5000,
     gecerli: v => !v.alan || !v.alan.id || v.alan.id === O.alan,
-    cizici: v => { S.ozet = v; hepsi(); },
+    cizici: v => { S.ozet = v; hepsi(); G.pencere.yenile(); },
     durum: () => ciz(uyariCiz, bayatBolumu, ...(S.ozet ? [] : [kpiCiz, sohbetCiz, ikiliCiz, ajanCiz])),
   });
   // analitik.json orkestrasız alanda varsayılan alanın verisini döndürür: yalnız bu alanınsa kullanılır

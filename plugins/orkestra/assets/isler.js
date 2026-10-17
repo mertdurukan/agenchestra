@@ -169,10 +169,11 @@
         `<td class="kt-metin">${esc(metinKirp(o.metin, adim))}</td>` +
         `<td class="kt-bas">${esc(o.basamak || '')}</td>` +
         `<td class="kt-durum">${rozet(E.durum(o.durum))}</td>` +
-        `<td class="kt-usd">${o.usd > 0 ? esc(B.usd(o.usd)) : ''}</td></tr>`;
+        `<td class="kt-usd">${o.usd > 0 ? esc(B.usd(o.usd)) : ''}</td>` +
+        `<td class="kt-teknik"><a href="/teknik?is=${encodeURIComponent(is.id)}" title="Bu işin teknik ayrıntısı (H7)">Teknik ayrıntı</a></td></tr>`;
     }).join('');
     const tablo = gor.length
-      ? `<div class="kt-kap"><table><thead><tr><th>Kart</th><th>Görev</th><th>Basamak</th><th>Durum</th><th class="kt-usd">Maliyet</th></tr></thead><tbody>${satirlar}</tbody></table></div>`
+      ? `<div class="kt-kap"><table><thead><tr><th>Kart</th><th>Görev</th><th>Basamak</th><th>Durum</th><th class="kt-usd">Maliyet</th><th class="kt-teknik">Teknik</th></tr></thead><tbody>${satirlar}</tbody></table></div>`
       : '<p class="bos">Bu süzgeçte kart yok.</p>';
     return `<h3>Görev kartları <span class="n">${tum.length}</span></h3><div class="cipler filtre" role="group" aria-label="Kart durumuna göre süz">${cipler}</div>${tablo}`;
   }
@@ -311,7 +312,27 @@
     return gorunen.find(i => i.id === S.secili) || gorunen[0] || null;
   }
 
+  // Durum şeridi: süren arka plan sohbetleri (yalnız varsa) ve açık işlerin todo sayımı (yapılan / kalan).
+  function durumSeridiCiz() {
+    const kap = $('#durumSeridi'); if (!kap) return;
+    const v = S.veri;
+    if (!v || v.acik === false || v.hata) { yerlestir(kap, ''); return; }
+    const bp = dizi(v.arka_plan);
+    const t = v.todo || { biten: 0, kalan: 0, toplam: 0, isler: [] };
+    let html = '';
+    if (bp.length) {
+      html += `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
+        bp.map(x => `<li>Sohbet: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>';
+    }
+    html += t.toplam
+      ? `<p class="persp-satir"><b>Todo: ${t.biten} yapıldı · ${t.kalan} kaldı</b> <span class="meta">(${t.toplam} madde, ${dizi(t.isler).length} açık iş)</span></p>` +
+        '<ul>' + dizi(t.isler).map(i => `<li>${esc(i.id)} ${esc(i.ad)}: ${i.biten} yapıldı · ${i.kalan} kaldı</li>`).join('') + '</ul>'
+      : '<p class="persp-satir meta">Todo: açık işte madde yok.</p>';
+    yerlestir(kap, html);
+  }
+
   function sayfaCiz() {
+    durumSeridiCiz();
     const sayi = $('#iSayi');
     const bosDetay = metin => { yerlestir($('#dBas'), metin); $('#gecmis').classList.add('gizli'); $('#kartTablo').classList.add('gizli'); };
     if (!S.veri) {
@@ -485,8 +506,29 @@
   K = O.veri(() => '/isler.json?alan=' + encodeURIComponent(O.alan), {
     ad: 'İşler', aralik: 5000,
     gecerli: v => v.acik === false || (Array.isArray(v.isler) && (!v.alan || !v.alan.id || v.alan.id === O.alan)),
-    cizici: v => { S.veri = v; sayfaCiz(); },
+    cizici: v => { S.veri = v; sayfaCiz(); bugunCiz(); },
     durum: () => { yerlestir($('#iBayat'), O.bayatIsaret(K)); if (!S.veri) sayfaCiz(); },
   });
+
+  // Bugün şeridi: dağınık sayıları tek satırda toplar (sohbet, harcama, onay, todo, açık iş); her karo ilgili sayfaya bağlanır.
+  const BG = { analitik: null, onay: null };
+  function bugunCiz() {
+    const kap = $('#bugunKaro'); if (!kap) return;
+    const sohbet = oturumlar().filter(buAlanda), sen = sohbet.filter(r => r.bekleyen === 'sen').length;
+    const gun = BG.analitik && BG.analitik.trend ? dizi(BG.analitik.trend.gunluk) : [];
+    const bugun = gun.length ? Number(gun[gun.length - 1].usd) || 0 : null;
+    const td = BG.onay && BG.onay.todo, bekl = BG.onay && BG.onay.sayac ? Number(BG.onay.sayac.bekliyor) || 0 : null;
+    const acik = S.veri && Array.isArray(S.veri.isler) ? S.veri.isler.filter(i => i.durum !== 'kapandi').length : null;
+    const karolar = [
+      G.karo({ etiket: 'Seni bekleyen sohbet', deger: String(sen), alt: sohbet.length + ' sohbet bu alanda', durum: sen ? 'uyari' : 'iyi', href: '#sohbetler' }),
+      G.karo({ etiket: 'Bugünkü harcama', deger: bugun == null ? '–' : O.B.usd(bugun), alt: 'son 7 gün eğilimi', spark: { degerler: gun.slice(-7).map(x => x.usd), etiket: 'Son 7 günlük harcama' }, href: '/maliyet#g=ozet' }),
+      G.karo({ etiket: 'Onay bekleyen', deger: bekl == null ? '–' : String(bekl), alt: 'öneri ve karar', durum: bekl ? 'uyari' : 'iyi', href: '/onaylar' }),
+      G.karo({ etiket: 'Todo kalan', deger: td ? String(td.kalan) : '–', alt: td ? td.biten + ' / ' + td.toplam + ' yapıldı' : '', href: '/yapilacaklar' }),
+      G.karo({ etiket: 'Açık iş', deger: acik == null ? '–' : String(acik), alt: 'kapanmamış işler', href: '#liste' }),
+    ];
+    yerlestir(kap, G.karolar(karolar));
+  }
+  O.veri(() => '/analitik.json?alan=' + encodeURIComponent(O.alan), { ad: 'Günlük harcama', aralik: 30000, gecerli: v => !!v.trend, cizici: v => { BG.analitik = v; bugunCiz(); } });
+  O.veri(() => '/onaylar.json?alan=' + encodeURIComponent(O.alan), { ad: 'Onay ve todo sayımı', aralik: 15000, gecerli: v => !!v.sayac, cizici: v => { BG.onay = v; bugunCiz(); } });
   window.addEventListener('orkestra:alan', () => { SS.simdi = null; SS.eskilerAcik = false; sohbetCiz(); S.veri = null; S.secili = ''; S.ara = ''; $('#ara').value = ''; S.acik.clear(); sayfaCiz(); });
 })();

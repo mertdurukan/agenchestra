@@ -21,3 +21,13 @@
 .yap-geri { display: flex; gap: var(--a-8); align-items: center; padding: var(--a-8); margin-bottom: var(--a-8); border: 1px solid var(--line); border-radius: var(--k-6); }
 .yap-geri[hidden] { display: none; }
 @media (max-width: 540px) { .yap-ekle { flex-direction: column; } .yap-ekle button { align-self: flex-end; } }
+
+.y-ozet { margin-bottom: var(--a-16); }
+.y-iki { align-items: start; }
+.y-isler { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--a-12); }
+.y-isler li { display: grid; grid-template-columns: minmax(0, 1fr) 120px 96px; gap: var(--a-12); align-items: center; font-size: var(--t-13); }
+.y-is-ad { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.y-is-ad b { color: var(--text-primary); }
+.y-is-sayi { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.y-is-sayi small { color: var(--text-muted); margin-left: 4px; }
+@media (max-width: 540px) { .y-isler li { grid-template-columns: minmax(0, 1fr) 80px; } .y-is-sayi { grid-column: 1 / -1; text-align: left; } }

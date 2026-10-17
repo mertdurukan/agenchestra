@@ -47,7 +47,6 @@
     belirsiz: { ad: 'Sonuç yazılmadı', renk: 'var(--neutral)', simge: '' },
   };
   function isleriKur() {
-    const hal = Object.fromEntries(oturumlar().map(o => [o.oturum, o.bekleyen]));
     const isler = [], son = {};   // son[oturum] = o sohbetin en son işi
     akis().slice().sort((a, b) => zamanMs(a.zaman) - zamanMs(b.zaman)).forEach(a => {
       if (a.tur !== 'niyet' && a.tur !== 'sonuc') return;
@@ -64,7 +63,8 @@
       else is.sonuc = sonuc;
     });
     return isler.filter(x => x.sonuc || son[x.oturum] === x).map(x => {
-      const h = x.sonuc ? 'bitti' : (hal[x.oturum] === 'claude' || hal[x.oturum] === 'sen') ? hal[x.oturum] : 'belirsiz';
+      // Sohbetin canlı durumu (çalışıyor / seni bekliyor) H8: yalnız Dashboard Sohbetler'de; burada yalnız olay sonucu.
+      const h = x.sonuc ? 'bitti' : 'belirsiz';
       return { ...x, durum: DURUM_IS[h], h };
     }).sort((a, b) => zamanMs(b.zaman) - zamanMs(a.zaman));
   }
@@ -80,8 +80,7 @@
     }
     const tum = isleriKur();
     const say = (h, f = () => true) => tum.filter(x => x.h === h && f(x)).length;
-    const ozet = [['claude', 'çalışıyor', say('claude')], ['sen', 'seni bekliyor', say('sen')],
-      ['bitti', 'bugün bitti', say('bitti', x => gunEtiketi(x.zaman) === 'Bugün')]]
+    const ozet = [['bitti', 'bugün bitti', say('bitti', x => gunEtiketi(x.zaman) === 'Bugün')]]
       .filter(([, , n]) => n > 0)
       .map(([h, ad, n]) => `<span><i style="--renk:${DURUM_IS[h].renk}"></i><b>${n}</b> ${ad}</span>`).join('');
     yerlestir($('#olayOzet'), ozet);

@@ -74,7 +74,9 @@ SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simd
             "/teknik": "teknik.html", "/teknik.html": "teknik.html",
             "/etki": "onaylar.html", "/etki.html": "onaylar.html",
             "/yapilacaklar": "yapilacaklar.html", "/yapilacaklar.html": "yapilacaklar.html"}
-STATIK = {"/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
+STATIK = {"/gorsel.css": ("gorsel.css", "text/css; charset=utf-8"),
+          "/gorsel.js": ("gorsel.js", "application/javascript; charset=utf-8"),
+          "/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
 # sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
@@ -137,15 +139,21 @@ def _perspektif(sd: str) -> dict:
         return {"rapor": rapor, "durum": None}
 
 
-def _arka_plan(a: dict, perspektif_durum: dict | None, uygulama: dict | None) -> list[dict]:
-    """Şu an süren arka plan görevleri: perspektif koşusu, onaylı kararların uygulanması, arka plan işi süren sohbetler.
-    Yalnız süren olanlar döner; boş liste = arka planda iş yok (panel bu durumda satır göstermez)."""
+def _arka_plan(perspektif_durum: dict | None, uygulama: dict | None) -> list[dict]:
+    """Onaylarla ilgili süren arka plan görevleri: perspektif koşusu ve onaylı kararların uygulanması.
+    Boş liste = süren yok (Onaylar sayfası satır göstermez). Sohbet türü için _sohbet_arka_plan (İşler sayfası)."""
     out = []
     calisiyor = (perspektif_durum or {}).get("calisiyor")
     if calisiyor:
         out.append({"tur": "perspektif", "ad": "Perspektif koşusu", "baslangic": calisiyor})
     if uygulama:
         out.append({"tur": "uygulama", "ad": "Onaylı kararlar uygulanıyor", "baslangic": uygulama.get("baslangic")})
+    return out
+
+
+def _sohbet_arka_plan(a: dict) -> list[dict]:
+    """Arka plan işi süren sohbetler (İşler sayfası); yalnız Claude'un çalıştığı olanlar."""
+    out = []
     try:
         for r in niyet.gorunum(alan_yol=a["yol"]).get("oturumlar", []):
             if r.get("arka_plan") and r.get("bekleyen") == "claude":
@@ -187,7 +195,7 @@ def _onaylar_json(alan_id) -> dict:
     return {"acik": True, "alan": _alan_kisa(a), "sayac": onay.sayac(sd),
             "kayitlar": bekleyen + diger[:max(0, 200 - len(bekleyen))],
             "perspektif": persp, "uygulama": uygulama, "uretim": L.simdi(),
-            "arka_plan": _arka_plan(a, persp.get("durum"), uygulama), "todo": _todo_sayac(sd)}
+            "arka_plan": _arka_plan(persp.get("durum"), uygulama)}
 
 
 def _etki_kayit(k: dict, hepsi: list) -> dict:
@@ -302,7 +310,8 @@ def _isler_json(alan_id) -> dict:
              "basamak": k.get("basamak"), "usd": round(usd.get(k["id"], 0.0), 4)}
             for k in sorted(siz, key=IK._kart_no) if k.get("durum") not in ("teslim", "iptal")]
     return {"acik": True, "alan": _alan_kisa(a), "uretim": L.simdi(), "isler": isler,
-            "kartsiz": {"sayi": len(siz), "acik": acik}}
+            "kartsiz": {"sayi": len(siz), "acik": acik},
+            "arka_plan": _sohbet_arka_plan(a), "todo": _todo_sayac(sd)}
 
 
 _KART_KIMLIK = re.compile(r"^[A-Za-z]+-\d+$")

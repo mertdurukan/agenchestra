@@ -5,18 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orkestra · Dashboard</title>
 <link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="gorsel.css">
 <link rel="stylesheet" href="isler.css">
 </head>
 <body>
 <header id="kabuk"></header>
 <main>
   <h1 class="gorunmez">Dashboard</h1>
+  <section class="bugun" id="bugun" aria-label="Bugün"><div id="bugunKaro"></div></section>
+
   <section class="bolum" id="sohbetler" aria-labelledby="sohbetBaslik">
     <h2 id="sohbetBaslik">Sohbetler <span class="meta" id="sohbetSayi"></span><span id="sohbetBayat"></span></h2>
-    <p class="aciklama">Bütün çalışma alanlarındaki sohbetler; seni bekleyenler önce. Bir karta tıklayınca o sohbet Claude uygulamasında açılır.</p>
+    <p class="aciklama">Bekleyenler önce; karta tıkla, sohbet açılır.</p>
     <div class="cipler" id="sohbetCip" role="group" aria-label="Sohbet süzgeci"></div>
     <div id="sohbetListe"><p class="bos">Yükleniyor…</p></div>
   </section>
+
+  <section class="bolum" id="durumSeridi" aria-live="polite"></section>
 
   <div class="duzen">
     <nav class="liste-kap" aria-labelledby="lBaslik">
@@ -40,6 +45,7 @@
 <div id="ipucu"></div>
 <div id="bildirim" role="status" aria-live="polite"></div>
 <script src="ortak.js"></script>
+<script src="gorsel.js"></script>
 <script src="isler.js"></script>
 </body>
 </html>

@@ -147,24 +147,18 @@
     }
   }
 
-  // Perspektif şeridi: süren arka plan görevleri (yalnız varsa) ve açık işlerin todo sayımı (yapılan / kalan).
+  // Perspektif şeridi: yalnız onaylarla ilgili süren arka plan görevleri (perspektif koşusu, kararların uygulanması).
+  // Todo sayımı ve sohbet görevleri İşler sayfasındadır.
   function perspDurumCiz() {
     const kap = $('#perspDurum'); if (!kap) return;
     const v = S.veri;
     if (!v) { yerlestir(kap, ''); return; }
     const bp = Array.isArray(v.arka_plan) ? v.arka_plan : [];
-    const t = v.todo || { biten: 0, kalan: 0, toplam: 0, isler: [] };
-    const ADLAR = { perspektif: 'Perspektif', uygulama: 'Uygulama', sohbet: 'Sohbet' };
-    let html = '';
-    if (bp.length) {
-      html += `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
-        bp.map(x => `<li>${esc(ADLAR[x.tur] || x.tur)}: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>';
-    }
-    html += t.toplam
-      ? `<p class="persp-satir"><b>Todo: ${t.biten} yapıldı · ${t.kalan} kaldı</b> <span class="meta">(${t.toplam} madde, ${t.isler.length} açık iş)</span></p>` +
-        '<ul>' + t.isler.map(i => `<li>${esc(i.id)} ${esc(i.ad)}: ${i.biten} yapıldı · ${i.kalan} kaldı</li>`).join('') + '</ul>'
-      : '<p class="persp-satir meta">Todo: açık işte madde yok.</p>';
-    yerlestir(kap, html);
+    const ADLAR = { perspektif: 'Perspektif', uygulama: 'Uygulama' };
+    yerlestir(kap, bp.length
+      ? `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
+        bp.map(x => `<li>${esc(ADLAR[x.tur] || x.tur)}: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>'
+      : '');
   }
 
   function sayfaCiz() {

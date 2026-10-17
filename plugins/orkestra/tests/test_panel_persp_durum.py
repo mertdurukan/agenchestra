@@ -1,4 +1,4 @@
-"""Panel Onaylar sayfası perspektif şeridi: /onaylar.json arka_plan (yalnız süren görevler) ve todo (yapıldı/kaldı) alanları."""
+"""Panel durum satırları: /onaylar.json arka_plan (yalnız perspektif ve uygulama), /isler.json arka_plan (sohbet) ve todo (yapıldı/kaldı)."""
 import os
 import sys
 import tempfile
@@ -39,13 +39,14 @@ class PerspektifSeridi(unittest.TestCase):
         self.todo_yaz("Birinci iş", "- [x] a\n- [x] b\n- [ ] c\n")
         self.todo_yaz("İkinci iş", "- [ ] d\n")
         self.todo_yaz("Todosuz iş", "")
-        v = panel._onaylar_json("alan-x")["todo"]
+        v = panel._isler_json("alan-x")["todo"]
         self.assertEqual((v["biten"], v["kalan"], v["toplam"]), (2, 2, 4))
         self.assertEqual(len(v["isler"]), 2)  # todo'su olmayan iş listelenmez
 
     def test_arka_plan_bos_iken_liste_bos(self):
         self.assertEqual(panel._onaylar_json("alan-x")["arka_plan"], [])
-        self.assertEqual(panel._onaylar_json("alan-x")["todo"]["toplam"], 0)
+        self.assertEqual(panel._isler_json("alan-x")["todo"]["toplam"], 0)
+        self.assertNotIn("todo", panel._onaylar_json("alan-x"))
 
     def test_perspektif_ve_uygulama_suruyorsa_listelenir(self):
         with mock.patch.object(perspektif, "durum", return_value={"calisiyor": "2026-10-16T21:00:00+03:00"}), \
@@ -57,7 +58,8 @@ class PerspektifSeridi(unittest.TestCase):
         satir = {"arka_plan": True, "bekleyen": "claude", "ne": "Uzun tarama", "kisa": "abc"}
         diger = {"arka_plan": True, "bekleyen": "beklemede", "ne": "Ölü iş", "kisa": "def"}
         with mock.patch.object(niyet, "gorunum", return_value={"oturumlar": [satir, diger]}):
-            bp = panel._onaylar_json("alan-x")["arka_plan"]
+            self.assertEqual(panel._onaylar_json("alan-x")["arka_plan"], [])  # sohbet görevi Onaylar'da yok
+            bp = panel._isler_json("alan-x")["arka_plan"]
         self.assertEqual([x["ad"] for x in bp], ["Uzun tarama"])
 
     def test_sayfa_ogeleri_var(self):
@@ -67,7 +69,13 @@ class PerspektifSeridi(unittest.TestCase):
         with open(os.path.join(assets, "onaylar.js"), encoding="utf-8") as f:
             js = f.read()
         self.assertIn("perspDurumCiz", js)
-        self.assertIn("yapıldı", js)
+        self.assertNotIn("yapıldı", js)  # todo sayımı İşler sayfasında
+        with open(os.path.join(assets, "isler.html"), encoding="utf-8") as f:
+            self.assertIn('id="durumSeridi"', f.read())
+        with open(os.path.join(assets, "isler.js"), encoding="utf-8") as f:
+            ijs = f.read()
+        self.assertIn("durumSeridiCiz", ijs)
+        self.assertIn("yapıldı", ijs)
 
 
 if __name__ == "__main__":

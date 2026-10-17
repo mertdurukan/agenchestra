@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orkestra · Onaylar, etki ve kurallar</title>
 <link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="gorsel.css">
 <link rel="stylesheet" href="etki.css">
 <style>
   /* Onaylar sayfasına özgü küçük ekler; ortak bileşenler ortak.css'te. */
@@ -36,18 +37,22 @@
 <header id="kabuk"></header>
 <main>
   <h1 class="gorunmez">Onaylar, etki ve kurallar</h1>
+  <nav id="gNav" aria-label="Görünüm"></nav>
+  <div class="g-gorunum" data-g="onay">
   <section class="bolum" aria-labelledby="oBaslik">
     <h2 id="oBaslik">Onaylar <span class="meta" id="oSayi"></span><span id="oBayat"></span> <button type="button" class="cip" id="uygulaDugme" hidden></button> <button type="button" class="cip" id="perspektifCalistir" title="Claude Code'da yeni sohbet açıp perspektifi çalıştırır">Perspektif çalıştır</button></h2>
-    <p class="aciklama">Burada verdiğin kararları Claude bir sonraki mesajda ya da /orkestra:onay ile uygular; kural onayları hemen etkinleşir. Uygulananların etkisi aşağıdadır.</p>
+    <p class="aciklama">Kararlar sonraki mesajda uygulanır; kural onayı hemen etkinleşir.</p>
     <div id="perspDurum" class="persp-durum" aria-live="polite"></div>
     <div class="cipler" role="group" aria-label="Görünüm" id="gorunumCipler"></div>
     <div class="cipler" role="group" aria-label="Geçmiş durumu" id="durumCipler"></div>
     <div class="cipler" role="group" aria-label="Tür" id="turCipler"></div>
     <div id="liste" class="onay-liste"><p class="bos">Yükleniyor…</p></div>
   </section>
+  </div>
+  <div class="g-gorunum" data-g="etki" hidden>
   <section class="bolum" aria-labelledby="eOzetBaslik">
     <h2 id="eOzetBaslik">Etki <span class="meta" id="eSayi"></span><span id="eBayat"></span></h2>
-    <p class="aciklama">Uygulanan kararların vaadi uygulama gününden başlayarak günlük ölçülür; izleme kapatılana ya da geri alınana dek sürer.</p>
+    <p class="aciklama">Uygulama gününden itibaren günlük ölçülür.</p>
     <div class="karolar" id="eOzet"></div>
   </section>
   <section class="bolum" aria-labelledby="eListeBaslik">
@@ -61,22 +66,28 @@
     <div class="gosterge" id="eGosterge"></div>
   </section>
 
-
+  </div>
+  <div class="g-gorunum" data-g="kural" hidden>
   <section class="bolum" aria-labelledby="etkinBaslik">
     <h2 id="etkinBaslik">Etkin kurallar <span class="meta" id="etkinSayi"></span><span id="kBayat"></span></h2>
-    <p class="aciklama">İki katman vardır: <strong>eklenti</strong> kuralları orkestra eklentisinde saklanır ve eklentiyi kullanan her projede geçerlidir; <strong>proje</strong> kuralları yalnız bu projeye özgüdür. Çakışmada proje kuralı önce gelir. Etkin kurallar <code>.claude/rules/orkestra_kurallari.md</code> dosyasına yazılır ve her oturumda yüklenir.</p>
+    <p class="aciklama"><strong>Eklenti</strong>: her projede; <strong>proje</strong>: yalnız burada. Çakışmada proje önce gelir.</p>
     <div id="etkinIcerik"><p class="bos">Yükleniyor…</p></div>
   </section>
 
   <section class="bolum" aria-labelledby="oneriBaslik">
     <h2 id="oneriBaslik">Önerilen kurallar <span class="meta" id="oneriSayi"></span></h2>
-    <p class="aciklama">Ajanların önerdiği kurallar; onaylarsan hemen etkinleşir.</p>
+    <p class="aciklama">Onaylarsan hemen etkinleşir.</p>
     <div id="oneriIcerik"><p class="bos">Yükleniyor…</p></div>
   </section>
 
   <section class="bolum" aria-labelledby="yeniBaslik">
     <h2 id="yeniBaslik">Yeni kural</h2>
     <div id="yeniIcerik"></div>
+  </section>
+
+  <section class="g-hk" data-hedef="H9" aria-labelledby="hkH9Soru">
+    <h3 class="g-hk-soru" id="hkH9Soru"></h3>
+    <details class="g-hk-ayr" id="hkH9Ayr" hidden open><summary>Geçmiş ve kural dosyaları</summary><div class="g-hk-govde"></div></details>
   </section>
 
   <section class="bolum" aria-labelledby="gecmisBaslik">
@@ -86,15 +97,19 @@
 
   <section class="bolum" aria-labelledby="kaynakBaslik">
     <h2 id="kaynakBaslik">Kural dosyaları <span class="meta" id="kaynakSayi"></span></h2>
-    <p class="aciklama">Sistemin çalışmasını yöneten bütün dosyalar: CLAUDE.md, AGENTS.md, kural dosyaları, ajanlar, skill'ler, ayarlar, eklenti kuralları ve hafıza. Seç, oku, düzenle, kaydet. Kayıttan önce eski sürüm yedeklenir; dosya başka yerde değiştiyse kayıt reddedilir.</p>
+    <p class="aciklama">Seç, düzenle, kaydet; eski sürüm yedeklenir.</p>
     <div id="dosyaIcerik" class="dosya-duzen"><p class="bos">Yükleniyor…</p></div>
   </section>
+  </div>
 </main>
 <div id="ipucu"></div>
 <div id="bildirim" role="status" aria-live="polite"></div>
 <script src="ortak.js"></script>
+<script src="gorsel.js"></script>
 <script src="onaylar.js"></script>
 <script src="etki.js"></script>
 <script src="kurallar.js"></script>
+<script>G.hedefKarti({ hedef: 'H9', soru: 'Hangi kurallar geçerli ve nasıl değişti?', tasi: ['section[aria-labelledby="gecmisBaslik"]', 'section[aria-labelledby="kaynakBaslik"]'] });
+G.sekmeler('#gNav', [['onay', 'Onaylar'], ['etki', 'Etki ve gidişat'], ['kural', 'Kurallar']]);</script>
 </body>
 </html>

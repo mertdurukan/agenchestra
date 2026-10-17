@@ -289,6 +289,47 @@ def _sohbet_dokum(sd: str, proje: str, kayitlar: list, bugun: datetime.date) -> 
     return {"gun": bugun.isoformat(), "sohbetler": sorted(sohbet.values(), key=lambda x: x["son"] or "", reverse=True)}
 
 
+PENCERELER = ("bugun", "son_3_gun", "son_7_gun", "bu_ay", "tum_zaman")
+
+
+def _pencere_icinde(pencere: str, gun: datetime.date, bugun: datetime.date) -> bool:
+    """Son N gün: bugün dahil N takvim günü (Sohbetler dönem süzmesiyle aynı; hedef panosu kayan saat penceresi kullanır)."""
+    if pencere == "bugun":
+        return gun == bugun
+    if pencere == "son_3_gun":
+        return bugun - datetime.timedelta(days=2) <= gun <= bugun
+    if pencere == "son_7_gun":
+        return bugun - datetime.timedelta(days=6) <= gun <= bugun
+    if pencere == "bu_ay":
+        return (gun.year, gun.month) == (bugun.year, bugun.month)
+    return True
+
+
+def _pencere_kirilimlari(kayitlar: list, bugun: datetime.date) -> dict:
+    """Her pencere için iş türü, model ve ajan x iş türü harcaması (panel: Maliyet > Harcama dağılımı)."""
+    cikti = {}
+    for w in PENCERELER:
+        surec, model, ajan_surec, toplam = collections.Counter(), collections.Counter(), {}, 0.0
+        for r in kayitlar:
+            z = A._zaman(r.get("zaman"))
+            if not z or not _pencere_icinde(w, z.date(), bugun):
+                continue
+            usd = r.get("maliyet_usd", 0) or 0
+            toplam += usd
+            surec[r.get("surec", "-")] += usd
+            model[(r.get("model") or "-").replace("claude-", "")] += usd
+            a = ajan_surec.setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "cikis": 0, "giris": 0})
+            a["kosu"] += 1
+            a["usd"] += usd
+            a["cikis"] += r.get("cikis", 0) or 0
+            a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
+        cikti[w] = {"usd": round(toplam, 4), "surec": _yuvarla(dict(surec.most_common(10))),
+                    "model": _yuvarla(dict(model.most_common(6))),
+                    "ajan_surec": sorted([{"ajan": a, "surec": su, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}
+                                          for (a, su), d in ajan_surec.items()], key=lambda x: -x["usd"])[:20]}
+    return cikti
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     bugun = datetime.date.today()  # yerel gün sınırı; analitik.py ile aynı (UTC 'Z' damgaları yerel güne çevrilir)
@@ -323,6 +364,8 @@ def olustur(sd: str, proje: str) -> dict:
         a["usd"] += usd
         a["cikis"] += r.get("cikis", 0) or 0
         a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
+
+    pencereler = _pencere_kirilimlari(kayitlar, bugun)
 
     sohbet_listesi = L.sohbetler(sd, proje, limit=15, tahmin=True)
     oturum_ids = {s["oturum"] for s in sohbet_listesi}
@@ -394,6 +437,7 @@ def olustur(sd: str, proje: str) -> dict:
             "ajan_surec": sorted([{"ajan": a, "surec": s, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}
                                   for (a, s), d in ajan_surec.items()], key=lambda x: -x["usd"])[:20],
             "oturumlar": oturumlar,
+            "pencere": pencereler,
         },
         "sohbetler": sohbetler,
         "sohbet_dokum": _sohbet_dokum(sd, proje, kayitlar, bugun),

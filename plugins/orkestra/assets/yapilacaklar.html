@@ -5,15 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orkestra · Yapılacaklar</title>
 <link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="gorsel.css">
 <link rel="stylesheet" href="yapilacaklar.css">
 </head>
 <body>
 <header id="kabuk"></header>
 <main>
   <h1 class="gorunmez">Yapılacaklar</h1>
+  <div id="yOzet" class="y-ozet" aria-live="polite"></div>
+  <div class="g-iki y-iki">
   <section class="bolum" aria-labelledby="kBaslik">
     <h2 id="kBaslik">Benim yapılacaklarım <span class="meta" id="kSayi"></span></h2>
-    <p class="aciklama" id="kAlan">Yalnız bu bölümü sen düzenlersin: yaz, Enter ile ekle (Shift+Enter yeni satır), işin bitince tamamla.</p>
+    <p class="aciklama" id="kAlan">Yaz, Enter ile ekle.</p>
     <div class="yap-ekle">
       <textarea id="kYeni" rows="2" placeholder="Yeni madde… (Enter ile ekle, Shift+Enter yeni satır)" aria-label="Yeni madde" aria-describedby="kSayac" maxlength="2000"></textarea>
       <button type="button" id="kEkle">Ekle</button>
@@ -23,10 +26,17 @@
     <input type="search" id="kAra" placeholder="Maddelerde ara…" aria-label="Maddelerde ara" hidden>
     <ul id="kListe" class="yap-liste" aria-live="polite"><li class="bos">Yükleniyor…</li></ul>
   </section>
+  <section class="bolum" id="isTodo" aria-labelledby="itBaslik">
+    <h2 id="itBaslik">İş todo'ları <span class="meta" id="itSayi"></span><span id="itBayat"></span></h2>
+    <p class="aciklama">Çok kalanlar üstte.</p>
+    <div id="itIcerik"><p class="bos">Yükleniyor…</p></div>
+  </section>
+  </div>
 </main>
 <div id="ipucu"></div>
 <div id="bildirim" role="status" aria-live="polite"></div>
 <script src="ortak.js"></script>
+<script src="gorsel.js"></script>
 <script src="yapilacaklar.js"></script>
 </body>
 </html>

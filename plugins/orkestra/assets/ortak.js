@@ -439,6 +439,61 @@
     d.querySelector('#sifirlaVazgec').focus();
   }
 
+  // ------------------------------------------------------------ sayfa içi gezgin ("Bu sayfada")
+  // Geniş ekranda rayda sekmelerin altında, sayfadaki görünür h2 başlıklarını listeler; kaydırdıkça
+  // üstte kalan son başlık vurgulanır. Başlıklar JS ile geç çizilebildiği için main değişince liste imzayla yenilenir.
+  function sayfaIci(kabuk) {
+    const nav = document.createElement('nav');
+    nav.className = 'sayfa-ici'; nav.setAttribute('aria-label', 'Bu sayfada'); nav.hidden = true;
+    document.body.append(nav);   // rayla içerik arasındaki kendi grid sütunu (ortak.css)
+    let basliklar = [], imza = '', aktif = -1, kilit = -1;
+    ['wheel', 'touchmove', 'keydown'].forEach(o => addEventListener(o, () => { kilit = -1; }, { passive: true }));
+    const adi = h => { const k = h.cloneNode(true); k.querySelectorAll('.meta, button, [id$="Bayat"], .n').forEach(x => x.remove()); return k.textContent.replace(/\s+/g, ' ').trim(); };
+    const kur = () => {
+      const liste = [...document.querySelectorAll('main h2')].filter(h => h.getClientRects().length && adi(h));
+      const yeni = liste.map(h => adi(h)).join('|');
+      if (yeni === imza && liste.length === basliklar.length) { basliklar = liste; return; }
+      imza = yeni; basliklar = liste; aktif = -1;
+      liste.forEach((h, i) => { if (!h.id) h.id = 'sb-' + i; });
+      nav.hidden = liste.length < 2;
+      document.body.classList.toggle('rehberli', !nav.hidden);
+      nav.innerHTML = '<div class="sayfa-ici-liste">' + liste.map((h, i) =>
+        `<a href="#${O.esc(h.id)}" data-i="${i}">${O.esc(adi(h))}</a>`).join('') + '</div>';
+      izle();
+    };
+    const izle = () => {
+      if (!basliklar.length) return;
+      const alt = innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
+      let s = 0;
+      basliklar.forEach((h, i) => { if (h.getBoundingClientRect().top <= innerHeight * 0.3) s = i; });
+      if (alt) s = basliklar.length - 1;
+      if (kilit >= 0 && kilit < basliklar.length) s = kilit;   // tıklanan başlık: sayfa sonuna sıkışan bölümler yanlış vurgulanmasın
+      if (s === aktif) return;
+      aktif = s;
+      nav.querySelectorAll('a').forEach((a, i) => {
+        if (i === s) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current');
+      });
+    };
+    let bekle = 0;
+    const sonra = f => { if (!bekle) bekle = requestAnimationFrame(() => { bekle = 0; f(); }); };
+    addEventListener('scroll', () => sonra(izle), { passive: true });
+    addEventListener('resize', () => sonra(() => { kur(); izle(); }));
+    nav.addEventListener('click', e => {
+      const a = e.target.closest('a'); if (!a) return;
+      e.preventDefault();
+      const h = basliklar[Number(a.dataset.i)];
+      kilit = Number(a.dataset.i); izle();
+      if (h) { (h.closest('.bolum') || h).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }
+    });
+    const main = document.querySelector('main');
+    if (main) {
+      let t = 0;
+      new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { kur(); izle(); }, 150); })
+        .observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    }
+    kur(); izle();
+  }
+
   let hazirCoz;
   O.hazir = new Promise(c => { hazirCoz = c; });
   O.kabuk = ({ sayfa } = {}) => {
@@ -456,6 +511,7 @@
       ${sayfa === 'isler' ? '<button type="button" class="isler-sifirla" id="islerSifirla">Sıfırla</button>' : ''}
     </div>`;
     sekmeBagla();
+    sayfaIci(h);
     const sifirlaDugme = document.getElementById('islerSifirla');
     if (sifirlaDugme) sifirlaDugme.addEventListener('click', () => islerSifirlaSor(sifirlaDugme));
     // Yapışkan başlığın gerçek yüksekliği --kabuk-yuk'e yazılır: html{scroll-padding-top} Shift+Tab ile odaklanan öğeyi altında bırakmaz.

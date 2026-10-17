@@ -59,13 +59,13 @@
   };
   const hedefMetni = (tur, h, bicim) => tur === 'band' && Array.isArray(h) ? `hedef ${bicim(h[0])}–${bicim(h[1])}`
     : h == null ? 'hedef –' : `hedef ${tur === 'ust' ? '≤ ' : tur === 'alt' ? '= ' : ''}${bicim(h)}`;
-  // Tek pencere süzgeci: hedef panosu, israf ve ek ölçüler seçili pencereyi gösterir.
-  const pencereSecici = () => `<div class="cipler" role="group" aria-label="Pano penceresi">${PENCERE_SIRASI.map(w =>
-    `<button type="button" class="cip" data-ek-pencere="${w}" data-anahtar="pencere:${w}" aria-pressed="${S.pencere === w}">${esc(PENCERE_AD[w])}</button>`).join('')}</div>`;
+  // Pencere sayfadaki ortak seçiciden gelir (G.pencere); hedef panosu, israf ve ek ölçüler onu izler.
   function panoCiz() {
-    const v = veri(), kap = $('#panoIcerik');
+    S.pencere = G.pencere.al();
+    const v = veri(), durumKap = $('#panoDurum');
     const p = v && v.hedef_panosu && v.hedef_panosu.olculer ? v.hedef_panosu : null;
-    if (!p) { yerlestir(kap, `<p class="bos">${v ? 'Hedef panosu verisi yok.' : 'Yükleniyor…'}</p>`); return; }
+    if (!p) { durumKap.hidden = false; yerlestir(durumKap, `<p class="bos">${v ? 'Hedef panosu verisi yok.' : 'Yükleniyor…'}</p>`); return; }
+    durumKap.hidden = true;
     const kutu = ([anahtar, ad, tur, bicim, payTanim, paydaBicim, birim]) => {
       // hedef her pencerede aynı: kutu başlığında bir kez; satırda pencere, değer, sapma ve durum
       const hedef = ((p.olculer[anahtar] || {}).tum_zaman || {}).hedef;
@@ -81,50 +81,81 @@
           <span class="durum"><i aria-hidden="true">${d.simge}</i>${esc(d.ad)}</span>
           <span class="sapma">${esc(sapma)}</span></div>`;
       }).join('');
-      return `<div class="karo pano-kutu" data-olcu="${esc(anahtar)}"><span class="pano-ad">${esc(ad)}</span><small class="pano-hedef">${esc(hedefMetni(tur, hedef, bicim))}</small>${satirlar}</div>`;
+      // Hedef göstergesi (bullet): değer çubuğu hedef çizgisine ya da banda karşı; renk durumdan, sözcük ve simge satırda
+      const ew = (p.olculer[anahtar] || {})[S.pencere] || {};
+      const gd = ew.durum === 'iyi' ? 'iyi' : ew.durum === 'uyari' ? 'uyari' : ew.durum === 'kotu' ? 'kotu' : 'yok';
+      const bant = tur === 'band' && Array.isArray(hedef) ? hedef : null;
+      const hd = tur === 'band' ? null : (Array.isArray(hedef) ? null : hedef);
+      const gostergeMaks = Math.max(Number(ew.deger) || 0, Number(hd) || 0, bant ? bant[1] : 0) * 1.3 || 1;
+      const gosterge = G.hedef({ deger: ew.deger, hedef: hd, bant, durum: gd, maks: gostergeMaks, bicim, etiket: ad });
+      return `<div class="karo pano-kutu" data-olcu="${esc(anahtar)}"><span class="pano-ad">${esc(ad)}</span><small class="pano-hedef">${esc(hedefMetni(tur, hedef, bicim))}</small>${satirlar}${gosterge}</div>`;
     };
     const israf = p.israf || {};
-    const israfSatir = w => {
+    const israfKutu = w => {
       const i = israf[w];
       if (!i) return '';
       const ned = Object.entries(i.siniflar || {}).map(([k, e]) => `${esc(k)} ${B.sayi(e.ret)}`).join(' · ');
-      return `<div class="sat"><span>${esc(PENCERE_AD[w])}</span><span><b>${B.usd(i.onlenebilir_usd)}</b> <span class="meta" style="display:inline">${esc(ned || 'ret yok')}</span></span></div>`;
+      const ip = `<b>Önlenebilir israf · ${esc(PENCERE_AD[w])}</b><div class="meta">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${esc(B.sayi((israf.tum_zaman || {}).esik_surumu))}.</div>`;
+      return ekKutu('Önlenebilir israf', B.usd(i.onlenebilir_usd), `koşuyu yeniden yaptıran ret: ${ned || 'yok'}`, '', ip);
     };
-    yerlestir(kap, `${pencereSecici()}<div class="karolar pano">${OLCU_TANIM.map(kutu).join('')}</div>
-      <div class="pano-israf"><h3>Önlenebilir israf</h3>${israfSatir(S.pencere)}
-      <p class="aciklama">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${B.sayi((israf.tum_zaman || {}).esik_surumu)}.</p></div>
-      ${ekBolum(p.ek)}`);
+    // Hedef kartları: her kart tek soruya cevap veren ana ölçüyü ve ilgili ek ölçüleri taşır (yeri HEDEF_KART tanımında)
+    HEDEF_KART.forEach(h => {
+      const yuva = KARTLAR[h.hedef]; if (!yuva) return;
+      const ana = OLCU_TANIM.filter(o => h.olcu.includes(o[0])).map(kutu).join('');
+      const ek = (h.israf ? israfKutu(S.pencere) : '') + h.ek.map(a => ekKutular(p.ek, a)).join('');
+      yerlestir(yuva.ust, ana ? `<div class="karolar pano">${ana}</div>` : '');
+      const bag = h.baglanti ? `<p class="g-hk-baglanti"><a href="${esc(h.baglanti[0] + location.search)}">${esc(h.baglanti[1])} →</a></p>` : '';
+      yerlestir(yuva.ek, (ek ? `<div class="karolar pano pano-ek">${ek}</div>` : '') + bag);
+    });
   }
-
-  // Hedefsiz ek ölçüler (analitik.ek_olculer): ortalamanın gizlediği dağılım, ana ajan dahil toplam maliyet, kalite ve önbellek.
-  // Her ölçü seçili pencere (S.pencere) için tek satırdır; veri yoksa bölüm çizilmez.
-  const nz = (f, v, ...a) => (v == null ? '–' : f(v, ...a));
-  const EK_TANIM = [
-    ['ana_kirilim', 'Ana ajan harcaması kırılımı', 'ana ajan harcamasının işe bağlı, işe bağsız ve perspektif payı (USD)',
-      a => `işe bağlı <b>${B.usd(a.is_bagli_usd)}</b> · işe bağsız <b>${B.usd(a.is_bagsiz_usd)}</b> · perspektif ${B.usd(a.perspektif_usd)}`],
-    ['onayli_kart_toplam_usd', 'Onaylı kart başına toplam USD', 'pencere içindeki tüm harcama (ana ajan dahil) / onaylı kart',
-      a => `<b>${nz(B.usd, a.deger)}</b> <span class="meta" style="display:inline">${B.usd(a.pay)} / ${B.sayi(a.payda, 0)}</span>`],
-    ['isci_dagilim', 'İşçi ajanı / kart dağılımı', 'kart başına tekil işçi ajanı sayısı; denetçiler dahil değildir',
-      a => `medyan <b>${nz(B.sayi, a.medyan, 1)}</b> · P90 ${nz(B.sayi, a.p90, 0)} · en çok ${nz(B.sayi, a.en_cok, 0)} · 4 ve üzeri işçili ${B.sayi(a.kart_ge4, 0)} / ${B.sayi(a.adet, 0)} kart`],
-    ['onayli_usd_dagilim', 'Onaylı kart USD dağılımı', 'onaylı kartların kendi harcaması (USD)',
-      a => `medyan <b>${nz(B.usd, a.medyan)}</b> · P90 ${nz(B.usd, a.p90)} · en çok ${nz(B.usd, a.en_cok)}`],
-    ['ilk_gecis_onay', 'İlk geçişte onay', 'ilk denetim kararı onay olan kart / karar verilmiş kart; hedef yok',
-      a => `<b>${nz(B.yuzde, a.deger)}</b> <span class="meta" style="display:inline">${B.sayi(a.pay, 0)} / ${B.sayi(a.payda, 0)}</span>`],
-    ['onbellek_isabet', 'Önbellek isabeti', 'okunan önbellek tokenı / tüm giriş tokenı',
-      a => `ana ajan <b>${nz(B.yuzde, (a.ana || {}).deger)}</b> · karta bağlı <b>${nz(B.yuzde, (a.karta_bagli || {}).deger)}</b>`],
-    ['sinif_basina', 'İş sınıfı başına maliyet', 'kartın sınıfına göre kart sayısı ve karta bağlı harcama; en pahalı 5 sınıf',
-      a => Object.entries(a).slice(0, 5).map(([s, e]) => `${esc(s)} ${B.sayi(e.kart, 0)} kart <b>${B.usd(e.usd)}</b>`).join(' · ') || 'kart yok'],
+  // Hedef kartları (I-047): aynı soruya cevap veren ölçüler tek kartta. olcu = hedef panosu ölçüsü, ek = ilgili ek ölçü anahtarları,
+  // tasi = ayrıntıya taşınan mevcut bölümler (kimlikleriyle birlikte; betikler yazmaya devam eder).
+  const HEDEF_KART = [
+    { hedef: 'H1', soru: 'Bir kart bana kaça mal oluyor?', olcu: ['onayli_kart_usd'], ek: ['onayli_kart_toplam_usd', 'onayli_usd_dagilim', 'sinif_basina'], tasi: ['#onayli', '#birim'] },
+    { hedef: 'H2', soru: 'Reddedilen iş ne kadar ve neden?', olcu: ['ret_orani'], ek: ['ilk_gecis_onay'], israf: true, tasi: ['#ret'] },
+    { hedef: 'H3', soru: 'Bir kart kaç işçi harcıyor?', olcu: ['isci_cagrisi_kart'], ek: ['isci_dagilim'], tasi: [] },
+    { hedef: 'H4', soru: 'Ana ajan ne kadar harcıyor?', olcu: ['ana_ajan_payi'], ek: ['ana_kirilim', 'onbellek_isabet'], tasi: [] },
+    { hedef: 'H6', soru: 'Kartların teknik notu tam mı?', olcu: ['teknik_not_kapsama'], ek: [], tasi: [], baglanti: ['/teknik', 'Eksik kartlar: Teknik detay'] },
   ];
-  function ekBolum(ek) {
+  const KARTLAR = {};
+  HEDEF_KART.forEach(h => { const y = G.hedefKarti({ hedef: h.hedef, soru: h.soru, tasi: h.tasi }); if (y) KARTLAR[h.hedef] = y; });
+
+  // Hedefsiz ek ölçüler (analitik.ek_olculer): her ölçü hedef panosundaki gibi bir kart; seçili pencere (S.pencere) için tek değer.
+  // Veri yoksa kart çizilmez. Kart: başlık, ana değer, ayrıntı satırı, isteğe bağlı grafik; tanım ipucunda.
+  const nz = (f, v, ...a) => (v == null ? '–' : f(v, ...a));
+  const ekKutu = (ad, deger, alt, grafik, ip) => `<div class="karo pano-kutu ek-kutu" tabindex="0" data-ipucu="${esc(ip || '')}"><span class="pano-ad">${esc(ad)}</span><b class="ek-deger">${deger}</b><small class="pano-hedef">${alt}</small>${grafik || ''}</div>`;
+  const EK_TANIM = [
+    ['ana_kirilim', 'Ana ajan harcaması', 'ana ajan harcamasının işe bağlı, işe bağsız ve perspektif payı (USD)',
+      a => [B.usd((Number(a.is_bagli_usd) || 0) + (Number(a.is_bagsiz_usd) || 0) + (Number(a.perspektif_usd) || 0)),
+        `işe bağlı ${B.usd(a.is_bagli_usd)} · işe bağsız ${B.usd(a.is_bagsiz_usd)} · perspektif ${B.usd(a.perspektif_usd)}`,
+        G.pay([{ ad: 'İşe bağlı', deger: a.is_bagli_usd, renk: 'var(--s1)' }, { ad: 'İşe bağsız', deger: a.is_bagsiz_usd, renk: 'var(--s2)' }, { ad: 'Perspektif', deger: a.perspektif_usd, renk: 'var(--s3)' }], { bicim: B.usd, toplamEtiket: 'Ana ajan harcaması payları' })]],
+    ['onayli_kart_toplam_usd', 'Kart başına USD (ana ajan dahil)', 'pencere içindeki tüm harcama (ana ajan dahil) / onaylı kart',
+      a => [nz(B.usd, a.deger), `${B.usd(a.pay)} / ${B.sayi(a.payda, 0)} kart`, '']],
+    ['isci_dagilim', 'Kart başına işçi', 'kart başına tekil işçi ajanı sayısı; denetçiler dahil değildir',
+      a => [`${nz(B.sayi, a.medyan, 1)}`, `medyan · 4+ işçili ${B.sayi(a.kart_ge4, 0)} / ${B.sayi(a.adet, 0)} kart`,
+        G.dagilim({ medyan: a.medyan, p90: a.p90, maks: a.en_cok, bicim: x => B.sayi(x, 1), etiket: 'İşçi ajanı sayısı' })]],
+    ['onayli_usd_dagilim', 'Onaylı kart USD', 'onaylı kartların kendi harcaması (USD)',
+      a => [nz(B.usd, a.medyan), 'medyan',
+        G.dagilim({ medyan: a.medyan, p90: a.p90, maks: a.en_cok, bicim: B.usd, etiket: 'Kart harcaması' })]],
+    ['ilk_gecis_onay', 'İlk geçişte onay', 'ilk denetim kararı onay olan kart / karar verilmiş kart; hedef yok',
+      a => [nz(B.yuzde, a.deger), `${B.sayi(a.pay, 0)} / ${B.sayi(a.payda, 0)} kart`, G.ilerleme(a.pay, a.payda, { renk: 'var(--s1)', etiket: 'İlk geçişte onay' })]],
+    ['onbellek_isabet', 'Önbellek isabeti', 'okunan önbellek tokenı / tüm giriş tokenı',
+      a => [nz(B.yuzde, (a.ana || {}).deger), `ana ajan · karta bağlı ${nz(B.yuzde, (a.karta_bagli || {}).deger)}`, G.ilerleme(((a.ana || {}).deger || 0) * 100, 100, { renk: 'var(--s1)', etiket: 'Önbellek isabeti' })]],
+    ['sinif_basina', 'İş sınıfı maliyeti', 'kartın sınıfına göre kart sayısı ve karta bağlı harcama; en pahalı 5 sınıf',
+      a => {
+        const l = Object.entries(a).slice(0, 5);
+        return l.length ? [B.usd(l.reduce((t, [, e]) => t + (Number(e.usd) || 0), 0)), l.map(([k, e]) => `${esc(k)} ${B.sayi(e.kart, 0)}`).join(' · '),
+          G.pay(l.map(([k, e], i) => ({ ad: k, deger: e.usd, renk: `var(--s${i + 1})` })), { bicim: B.usd, toplamEtiket: 'İş sınıfı payları' })] : ['–', 'kart yok', ''];
+      }],
+  ];
+  function ekKutular(ek, yalniz) {
     if (!ek) return '';
-    const bloklar = EK_TANIM.map(([anahtar, ad, tanim, bicim]) => {
-      const satirlar = [S.pencere].map(w => {
-        const a = (ek[anahtar] || {})[w];
-        return a ? `<div class="sat" tabindex="0" data-ipucu="${esc(`<b>${ad} · ${PENCERE_AD[w]}</b><div class="meta">${tanim}</div>`)}"><span>${esc(PENCERE_AD[w])}</span><span>${bicim(a)}</span></div>` : '';
-      }).join('');
-      return satirlar ? `<h4>${esc(ad)}</h4>${satirlar}` : '';
+    return EK_TANIM.filter(t => !yalniz || t[0] === yalniz).map(([anahtar, ad, tanim, bicim]) => {
+      const a = (ek[anahtar] || {})[S.pencere];
+      if (!a) return '';
+      const [deger, alt, grafik] = bicim(a);
+      return ekKutu(ad, deger, alt, grafik, `<b>${ad} · ${PENCERE_AD[S.pencere]}</b><div class="meta">${tanim}</div>`);
     }).join('');
-    return bloklar ? `<div class="pano-israf pano-ek"><h3>Ek ölçüler</h3>${bloklar}<p class="aciklama">Hedefsiz bilgi ölçüleridir; hedef panosundaki 5 ölçünün yerine geçmez. Toplam ve ana ajan tutarları aynı defterden gelir.</p></div>` : '';
   }
 
   // ------------------------------------------------------------ 1. Basamak verimliliği
@@ -486,7 +517,7 @@
       saglikKaro(h.seviye, 'Hafıza okuma sınırı (MEMORY.md)', h.var ? `${B.sayi(h.satir)}/${B.sayi(h.satir_sinir)} satır` : 'MEMORY.md yok',
         h.var ? `MEMORY.md: ${B.sayi(h.bayt)} / ${B.sayi(h.bayt_sinir)} bayt · sınıra ${B.yuzde(1 - (h.doluluk || 0))} var · tüm hafıza: ${B.sayi(h.dosya)} dosya, ${B.sayi(h.toplam_bayt)} bayt` : 'hafıza dizini bulunamadı', hIp) +
       saglikKaro(r.seviye, 'Son perspektif', rGun,
-        [B.tarih(r.son), `${B.sayi(r.oturum_sayaci)} oturumdur bekliyor`, r.okunmamis_rapor ? 'okunmamış rapor var' : '', r.zamani_geldi ? 'zamanı geldi' : '', r.son_hata ? 'hata kaydı var' : ''].filter(x => x && x !== '–').join(' · '), rIp) +
+        [B.tarih(r.son), `${B.sayi(r.oturum_sayaci)} oturumdur bekliyor`, r.okunmamis_rapor ? 'okunmamış rapor var' : '', r.zamani_geldi ? 'zamanı geldi' : '', r.son_hata ? 'hata kaydı var' : ''].filter(x => x && x !== '–').join(' · ') + ` · <a href="${esc('/onaylar' + location.search)}">Onaylar'da gör</a>`, rIp) +
       saglikKaro(e.seviye, 'Etiketsiz koşu oranı (7 gün)', B.yuzde(e.oran), `${B.sayi(e.etiketsiz)}/${B.sayi(e.kosu)} alt ajan koşusunda etiket yok`, eIp) +
       saglikKaro(k.seviye, 'Hook hataları (7 gün)', B.sayi(k.son7), k.son ? `son: ${B.tarih(k.son.zaman)}` : `toplam ${B.sayi(k.toplam)}`, kIp) + '</div>';
     yerlestir($('#saglikIcerik'), html);
@@ -522,7 +553,8 @@
     if (veri()) return;
     const hata = S.veri && S.veri.hata ? O.hataMetni(S.veri.hata) : (K && K.durum === 'hata' ? K.hata : '');
     const m = S.veri && S.veri.acik === false ? `<p class="bos">${metin(S.veri.mesaj || 'Bu çalışma alanında orkestra açık değil.')}</p>` : hata ? `<p class="bos">Veri alınamadı: ${metin(kisalt(hata, 200))}. Birkaç saniyede bir yeniden deneniyor.</p>` : '<p class="bos">Yükleniyor…</p>';
-    KABUL.forEach(ad => yerlestir($('#' + ad + 'Icerik'), m));
+    // pano: kartlar sabit kabuktur, yalnız durum satırı yazılır (kartların içi veri gelince doldurulur)
+    KABUL.forEach(ad => { if (ad === 'pano') { const d = $('#panoDurum'); d.hidden = false; yerlestir(d, m); } else yerlestir($('#' + ad + 'Icerik'), m); });
     $('#ganttOzet').textContent = '';
     yerlestir($('#ganttAyrinti'), '');
     $('#ganttGun').innerHTML = ''; $('#ganttGun').__html = '';
@@ -532,6 +564,7 @@
 
   // ------------------------------------------------------------ etkileşim
   const ana = $('main');
+  window.addEventListener('orkestra:pencere', panoCiz);
   ana.addEventListener('click', e => {
     const c = e.target.closest('button.g-cubuk');
     if (c) { S.gSecili = S.gSecili === c.dataset.k ? null : c.dataset.k; ganttCiz(); return; }
@@ -542,8 +575,6 @@
       return;
     }
     if (e.target.closest('#tumKartDugme')) { S.tumKart = !S.tumKart; akisCiz(); return; }
-    const ep = e.target.closest('[data-ek-pencere]');
-    if (ep) { S.pencere = ep.dataset.ekPencere; panoCiz(); }
   });
   ana.addEventListener('keydown', e => {
     if (e.key === 'Escape' && S.gSecili && e.target.closest && e.target.closest('#gantt')) { S.gSecili = null; ganttCiz(); }
