@@ -118,7 +118,7 @@
   });
 
   window.addEventListener('orkestra:alan', () => { maddeler = []; ara = ''; $('#kAra').value = ''; $('#kGeri').hidden = true; geri = null; });
-  // İş todo durumu (onaylar.json todo alanı): özet karoları + iş başına ilerleme
+  // İş todo durumu (isler.json todo alanı): özet karoları + iş başına ilerleme
   function ozetCiz() {
     const t = todo || { biten: 0, kalan: 0, toplam: 0, isler: [] };
     const oran = t.toplam ? t.biten / t.toplam : 0;
@@ -141,7 +141,7 @@
     }).join('') + '</ul>' : '<p class="bos">Açık işlerde todo maddesi yok.</p>';
   }
   O.kabuk({ sayfa: 'yapilacaklar' });
-  TK = O.veri(() => '/onaylar.json?alan=' + encodeURIComponent(O.alan), { ad: 'onaylar', aralik: 10000, cizici: todoCiz });
+  TK = O.veri(() => '/isler.json?alan=' + encodeURIComponent(O.alan), { ad: 'isler', aralik: 10000, cizici: todoCiz });
   KK = O.veri(kYol, { ad: 'kullanici-todo', aralik: 5000, cizici: kCiz });
   boyutla();
 })();

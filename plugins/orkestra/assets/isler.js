@@ -517,7 +517,7 @@
     const sohbet = oturumlar().filter(buAlanda), sen = sohbet.filter(r => r.bekleyen === 'sen').length;
     const gun = BG.analitik && BG.analitik.trend ? dizi(BG.analitik.trend.gunluk) : [];
     const bugun = gun.length ? Number(gun[gun.length - 1].usd) || 0 : null;
-    const td = BG.onay && BG.onay.todo, bekl = BG.onay && BG.onay.sayac ? Number(BG.onay.sayac.bekliyor) || 0 : null;
+    const td = S.veri && S.veri.todo, bekl = BG.onay && BG.onay.sayac ? Number(BG.onay.sayac.bekliyor) || 0 : null;
     const acik = S.veri && Array.isArray(S.veri.isler) ? S.veri.isler.filter(i => i.durum !== 'kapandi').length : null;
     const karolar = [
       G.karo({ etiket: 'Seni bekleyen sohbet', deger: String(sen), alt: sohbet.length + ' sohbet bu alanda', durum: sen ? 'uyari' : 'iyi', href: '#sohbetler' }),
