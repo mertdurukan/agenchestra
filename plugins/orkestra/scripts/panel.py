@@ -270,19 +270,17 @@ def _isler_json(alan_id) -> dict:
     if a is None:
         return sd
     usd = collections.Counter()
-    is_usd = collections.Counter()   # iş toplamı: is_rapor ile aynı atama kuralı (L.satir_isi)
     kartlar = L.kartlar(sd)
-    kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
     for r in L.maliyet_kayitlari(sd):
         if r.get("gorev") not in (None, "-"):
             usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
-        is_usd[L.satir_isi(r, kart_is)] += r.get("maliyet_usd", 0) or 0
+    is_usd, is_harcama_son = IK.is_usd_ve_harcama_son(sd, kartlar)   # iş toplamı: is_rapor ile aynı atama kuralı
     adlar = ("yapildi", "simdi", "sirada", "planda_kart_yok", "iptal")
     kart_by = {k.get("id"): k for k in kartlar}
     isler = []
     for g in IK.is_liste(sd):
         ks = [k for k in kartlar if k.get("is") == g["id"]]
-        son = max([k.get("guncelleme") or "" for k in ks] + [""]) or g.get("olusturma") or ""
+        son = IK.is_son_etkinlik(g, [k.get("guncelleme") for k in ks], is_harcama_son.get(g["id"], ""))
         o = {"id": g["id"], "baslik": g.get("baslik", ""), "ad": IK.is_adi(g.get("baslik", "")),
              "durum": "kapandi" if g.get("durum") == "kapandi" else "acik", "klasor": g.get("klasor", ""),
              "ilerleme": {"biten": 0, "toplam": 0},
@@ -375,11 +373,12 @@ def _teknik_json(alan_id, is_id, kart_id) -> dict:
         return T._mask({"acik": True, "alan": _alan_kisa(a), "is": {"id": is_id, "ad": IK.is_adi(kayit.get("baslik", "")), "durum": kayit.get("durum")},
                         "kartlar": [_teknik_kart_ozet(sd, k, usd.get(k["id"], 0.0), kok) for k in ks], "uretim": L.simdi()})
     isler = []
+    is_usd, is_harcama_son = IK.is_usd_ve_harcama_son(sd, kartlar)
     for g in IK.is_liste(sd):
         ks = [k for k in kartlar if k.get("is") == g["id"]]
         isler.append({"id": g["id"], "ad": IK.is_adi(g.get("baslik", "")), "durum": "kapandi" if g.get("durum") == "kapandi" else "acik",
-                      "kart_sayisi": len(ks), "usd": round(sum(usd.get(k["id"], 0.0) for k in ks), 4),
-                      "son": max([k.get("guncelleme") or "" for k in ks] + [""]) or g.get("olusturma") or ""})
+                      "kart_sayisi": len(ks), "usd": round(is_usd.get(g["id"], 0.0), 4),
+                      "son": IK.is_son_etkinlik(g, [k.get("guncelleme") for k in ks], is_harcama_son.get(g["id"], ""))})
     isler.sort(key=lambda i: i["son"], reverse=True)
     isler.sort(key=lambda i: i["durum"] != "acik")
     return T._mask({"acik": True, "alan": _alan_kisa(a), "isler": isler, "uretim": L.simdi()})

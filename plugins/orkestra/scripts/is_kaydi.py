@@ -23,6 +23,9 @@ _ID = re.compile(r"^I-(\d+)$")
 _TODO_ACIK = re.compile(r"^\s*[-*]\s*\[ \]\s*(.*)$")
 _TODO_BOS = re.compile(r"^\s*[-*]\s*\[ \]\s*$")
 _TODO_BITEN =re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(.*)$")
+# Sayım kuralı (tek): yalnız üst düzey kutular; [ ] ve [~] açık, [x] biten (todo_maddeleri ile aynı).
+_TODO_UST_ACIK = re.compile(r"^[-*]\s*\[[ ~]\]\s*(.*)$")
+_TODO_UST_BITEN = re.compile(r"^[-*]\s*\[[xX]\]\s*(.*)$")
 _BOS = {"sayac": 0, "isler": {}}
 
 
@@ -272,14 +275,25 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
         if dogrulama:
             import plan_dogrulama as PD
             kayit["dogrulama"] = PD.DOGRULAMA_ADI
+    eski_id = None
     with L.kilit(_is_json_yolu(klasor)):
         if os.path.exists(_is_json_yolu(klasor)):  # klasörde önceki bir işin kaydı varsa ezilmez, yedeklenir
             import shutil
             shutil.copy2(_is_json_yolu(klasor), _is_json_yolu(klasor) + ".eski-" + re.sub(r"\D", "", an)[:14])
+            try:  # eski kimlik yeni işe devredilir: oturumlar taşınır, kartlar/harcama takma adla yeni kimliğe bağlanır
+                with open(_is_json_yolu(klasor), encoding="utf-8") as f:
+                    eski = json.load(f) or {}
+                eski_id = eski.get("id") if _ID.match(str(eski.get("id") or "")) else None
+                kayit["oturumlar"] = [o for o in eski.get("oturumlar") or [] if isinstance(o, dict)]
+                kayit["gecmis"].append({"zaman": an, "olay": "devralindi", "eski_id": eski_id})
+            except (OSError, ValueError, AttributeError):
+                pass
         _yaz(_is_json_yolu(klasor), kayit)
     yol = _merkez(sd)
     with L.kilit(yol):
         veri = _oku(yol, _BOS)
+        if eski_id and eski_id != is_id and eski_id not in veri.get("isler", {}):
+            veri.setdefault("takma", {})[eski_id] = is_id
         veri.setdefault("isler", {})[is_id] = {
             "klasor": klasor, "baslik": baslik, "durum": "acik", "olusturma": an}
         _yaz(yol, veri)
@@ -580,10 +594,11 @@ def todo_ozet(klasor: str) -> dict:
     if os.path.exists(yol):
         with open(yol, encoding="utf-8", errors="replace") as f:
             for satir in f:
-                if _TODO_BITEN.match(satir):
+                satir = satir.rstrip("\r\n")
+                if _TODO_UST_BITEN.match(satir):
                     biten += 1
                 else:
-                    m = _TODO_ACIK.match(satir)
+                    m = _TODO_UST_ACIK.match(satir)
                     if m and m.group(1).strip():
                         acik.append(m.group(1).strip())
     return {"toplam": biten + len(acik), "biten": biten, "acik_maddeler": acik}
@@ -794,12 +809,12 @@ def todo_liste(klasor: str) -> dict:
     acik, biten = [], []
     if os.path.exists(yol):
         for satir in _todo_oku(yol).splitlines():
-            m = _TODO_BITEN.match(satir)
+            m = _TODO_UST_BITEN.match(satir)
             if m:
                 if m.group(1).strip():
                     biten.append(m.group(1).strip())
                 continue
-            m = _TODO_ACIK.match(satir)
+            m = _TODO_UST_ACIK.match(satir)
             if m and m.group(1).strip():
                 acik.append(m.group(1).strip())
     return {"acik_maddeler": acik, "biten_maddeler": biten}
@@ -1001,3 +1016,50 @@ def onar(sd: str, ek_klasorler=None, uygula: bool = False) -> dict:
             _yaz(yol, {**mevcut, "sayac": sayac, "isler": isler})
             yazildi = True
     return {"farklar": farklar, "uyarilar": uyarilar, "yazildi": yazildi}
+
+
+def is_usd_ve_harcama_son(sd: str, kartlar: list[dict]) -> tuple[dict, dict]:
+    """({iş: usd}, {iş: son harcama zamanı}) — İşler ve Teknik sayfaları aynı atama kuralını (L.satir_isi) kullanır."""
+    kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
+    usd: dict = {}
+    son: dict = {}
+    for r in L.maliyet_kayitlari(sd):
+        i = L.satir_isi(r, kart_is)
+        usd[i] = usd.get(i, 0.0) + (r.get("maliyet_usd", 0) or 0)
+        z = r.get("zaman") or ""
+        if z > son.get(i, ""):
+            son[i] = z
+    return usd, son
+
+
+def is_son_etkinlik(g: dict, kart_guncellemeleri, harcama_son: str = "") -> str:
+    """İşin son etkinlik zamanı: kartların güncellemesi, işin is.json güncellemesi, son harcama ve todo.md değişikliğinin
+    en geçidir; hiçbiri yoksa oluşturma zamanı. Panelde sıralama ve 'x gün önce' etiketi bunu kullanır."""
+    adaylar = [z for z in kart_guncellemeleri if z]
+    if harcama_son:
+        adaylar.append(harcama_son)
+    klasor = g.get("klasor") or ""
+    if klasor and os.path.isdir(klasor):
+        try:
+            with open(_is_json_yolu(klasor), encoding="utf-8") as f:
+                z = (json.load(f) or {}).get("guncelleme")
+            if z:
+                adaylar.append(str(z))
+        except (OSError, ValueError, AttributeError):
+            pass
+        try:
+            mt = os.path.getmtime(os.path.join(klasor, "todo.md"))
+            adaylar.append(datetime.datetime.fromtimestamp(mt).astimezone().isoformat(timespec="seconds"))
+        except OSError:
+            pass
+    return max(adaylar) if adaylar else (g.get("olusturma") or "")
+
+
+def is_oturumlari(g: dict) -> list[str]:
+    """İşin is.json'unda bağlı oturum kimlikleri (kart açılmamış işlerde sohbet–iş bağının tek kaynağı)."""
+    klasor = g.get("klasor") or ""
+    try:
+        with open(_is_json_yolu(klasor), encoding="utf-8") as f:
+            return [o["oturum"] for o in (json.load(f) or {}).get("oturumlar") or [] if isinstance(o, dict) and o.get("oturum")]
+    except (OSError, ValueError, AttributeError):
+        return []

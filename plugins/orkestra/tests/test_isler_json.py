@@ -209,9 +209,14 @@ class PanelIsler(unittest.TestCase):
         c = self.is_ac("003-20261013-kartsiz-is")
         o = self.getj("/isler.json?alan=alan-x")
         s = {i["id"]: i for i in o["isler"]}
-        self.assertEqual(s[self.a]["son"], "2026-10-14T12:00:00Z")
-        self.assertEqual(s[self.b]["son"], "2026-10-13T08:00:00Z")
-        self.assertEqual(s[c]["son"], IK.is_al(self.sd, c)["olusturma"])
+        # son etkinlik = kartlar, is.json güncellemesi, son harcama ve todo.md değişikliğinin en geçidir (K2)
+        self.assertGreaterEqual(s[self.a]["son"], "2026-10-14T12:00:00Z")
+        self.assertGreaterEqual(s[self.b]["son"], "2026-10-13T08:00:00Z")
+        self.assertGreaterEqual(s[c]["son"], IK.is_al(self.sd, c)["olusturma"])
+        # kartsız işin son zamanı, harcama kartsız işe bağlıysa o harcamadan geride kalmaz
+        self.assertEqual(IK.is_son_etkinlik({"olusturma": "2026-10-01T00:00:00Z"}, [None], "2026-10-16T10:00:00Z"),
+                         "2026-10-16T10:00:00Z")
+        self.assertEqual(IK.is_son_etkinlik({"olusturma": "2026-10-01T00:00:00Z"}, []), "2026-10-01T00:00:00Z")
         self.assertEqual(s[c]["usd"], 0)
 
     # kriter 3

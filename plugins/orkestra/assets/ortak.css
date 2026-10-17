@@ -107,7 +107,6 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .sekmeler a[aria-current="page"] { color: var(--text-primary); background: var(--surface-2); font-weight: 600;
   box-shadow: inset 0 -2px 0 var(--focus); }
 .kabuk .bosluk { flex: 1; }
-.sayfa-ici { display: none; }   /* yalnız geniş ekrandaki rayda görünür (aşağıdaki min-width: 901px bloğu) */
 .kabuk .alan-sec { display: inline-flex; align-items: center; gap: var(--a-8); color: var(--text-muted); font-size: var(--t-12); }
 .kabuk .alan-sec select { max-width: 260px; }
 .kabuk .marka { flex: none; display: inline-flex; align-items: center; }
@@ -153,21 +152,6 @@ dialog.sifirla-onay .dugmeler { justify-content: flex-end; }
   .sekmeler a { display: flex; align-items: center; justify-content: space-between; gap: var(--a-8); padding: 8px var(--a-12); white-space: normal; }
   .sekmeler a[aria-current="page"] { box-shadow: inset 3px 0 0 var(--focus); }
   .sekmeler .sekme-rozet { margin-left: 0; flex: none; }
-  /* Sayfa içi gezgin: ray ile içerik arasında kendi sütunu; ekranın dikey ve yatay ortasında */
-  body.rehberli { grid-template-columns: var(--ray) 168px minmax(0, 1fr); }
-  body.rehberli main { grid-column: 3; }
-  .sayfa-ici {
-    grid-column: 2; grid-row: 1; position: sticky; top: 0; height: 100vh; min-width: 0;
-    display: flex; align-items: center; justify-content: center; padding: 0 var(--a-8);
-  }
-  .sayfa-ici[hidden] { display: none; }
-  .sayfa-ici-liste { display: flex; flex-direction: column; gap: 1px; max-height: 90vh; overflow-y: auto; max-width: 100%; }
-  .sayfa-ici a {
-    color: var(--text-secondary); text-decoration: none; font-size: var(--t-12); line-height: 1.35;
-    padding: 5px var(--a-12); border-radius: var(--k-6); border-left: 2px solid transparent;
-  }
-  .sayfa-ici a:hover { color: var(--text-primary); background: var(--surface-2); }
-  .sayfa-ici a[aria-current="location"] { color: var(--text-primary); font-weight: 600; background: var(--surface-2); border-left-color: var(--focus); }
   .kabuk .alan-sec { flex-direction: column; align-items: stretch; gap: var(--a-4); }
   .kabuk .alan-sec select { max-width: none; width: 100%; }
   .kabuk .canli { white-space: normal; }

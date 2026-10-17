@@ -62,3 +62,61 @@ Adımlar:
 - Karar mantığı `scripts/izin_politikasi.py`, desenler `ayarlar/izin_politikasi.json`; hook'a bağlantı `hook.py` içinde `_izin_karari` / `_kapi_uygula` / `gec()` (varsayılan allow). Eşleşme `hooks/hooks.json` PreToolUse `matcher`ındadır: yeni bir araç ailesi kapıya girecekse eşleşmeye de ekle (`orkestra doktor` MCP kapsamını denetler).
 - Karar sırası: kilitli test `deny` > yasak `deny` > kapı `ask` > `orkestra` CLI `allow` > geniş `allow`. Kabukta kapı, kilitli test denetiminden sonra uygulanır (kilidi onayla aşamasın).
 - Testler: `tests/test_izin_politikasi.py`. `tests/conftest.py` `ORKESTRA_IZIN=0` verir (eski hook testleri kapı kararlarını boş çıktıyla sınar); izin testleri modu kendileri seçer.
+
+## PostToolUse hook'ları
+- `hook.py` `post_tool_use`: Skill, Agent, Task ve Workflow çağrılarını `gunluk.jsonl`'a yazar. `mcp__ccd_session__start_session` sonrasında K-007 detach hatırlatmasını (`detach_hatirlatmasi`) ek bağlam olarak verir. Test: `tests/test_hook_detach.py`.
+- `scripts/oto_commit.py`: ayrı girdidir (`Edit|Write|MultiEdit|NotebookEdit`). Her düzenlemede çalıştığı için `hook.py`'yi yüklemez. `ORKESTRA_OTO_COMMIT` boş ya da `0` ise kabuk satırı Python'u hiç başlatmaz. Test: `tests/test_oto_commit.py`.
+
+## Denetim dersleri
+Orkestranın kendi kartları denetlenirken tekrar eden kusurlar. Denetçi ve işçi bu yollara önce bakar.
+
+**Test çıktısı ayrıştırıcıları gerçek çıktıyla sınanır.**
+
+Test kapısı ve ön kontrol ayrıştırıcıları el yazımı sahte çıktıyla geçti, gerçek pytest çıktısında delindi. Gözden kaçan biçimler:
+- `SUBFAILED(i=..)` satırları
+- traceback içinde geçen "during collection" metni
+- tek test kimliğine düşen çok satır (subTest döngüsü, FAILED ile teardown ERROR)
+- `-rN`
+
+Sınama: geçici klasörde küçük gerçek test dosyaları kur. Bunları `pytest -q` ile ve `-q`'suz, `-rN`, `-x` ve `--continue-on-collection-errors` ile koş. Çıktıyı ayrıştırıcıya doğrudan ver, sayıları özet satırıyla kıyasla.
+
+**Birleştirmede özellikler birbirinin bağlamında sınanır.**
+
+"Çatışma yok, semboller var, tam takım geçer" yetmez. Bir özellik yolları proje köküne göre hesaplarken öteki dosyaları başka bir çalışma ağacına taşıyorsa güvenlik kapısı sessizce atlanır. Bir örnekte tam takım geçti, ama kilitli test kart çalışma ağacında açık kaldı.
+
+Sınama: her güvenlik kapısını öteki özelliğin bağlamında (ör. ağaç yolu) geçici git deposunda, hook'a stdin JSON vererek sına.
+
+**Çelişen kart kriterleri işçi turlarını döngüye sokar.**
+
+"Tam takım geçer" ile "yalnız şu dosyalar değişir" birlikte istendiğinde, başka işin kırdığı test ya da yazma alanı dışındaki dosya iki kriteri aynı anda karşılanamaz kılar. Kart düzeltilmeden işçi yeniden çağrılınca ret ve tur sayısı artar.
+
+Sınama:
+- Ret vermeden önce `kart goster` ile kriterlerin ve yazma alanının son retten sonra değişip değişmediğine bak.
+- Grep kriterinde eşleşen dosyanın yazma alanı içinde olup olmadığını kontrol et. Değilse ilk retten kriter-belirsiz ver.
+- Eşitlik iddiasında (seri = paralel) iki tarafı da kendin koş. Yüke duyarlı test varsa kriter-belirsiz ver.
+- Gizlenmiş alan dışı değişikliği `git status` ile ara.
+
+**Kayıt sayılarında zaman alanının anlamına bakılır.**
+
+`test_kosulari.zaman` koşunun bitişini değil başlangıcını gösterir. Bitiş için `zaman + sure_s` kullan. `reddedildi` kalıcı bir kapanış değil, geçici bir açık durumdur. `kart-duzeltilmeli` yalnız workflow dönüş değeridir, karta yazılmaz.
+
+Sınama: kayıtlardan sayı veren belgede sayıları belgenin kesim kuralıyla yeniden say. Ret talimatında sayıyı değil kesim kuralını düzelttir.
+
+**Paylaşılan depoda commit git durumuyla denetlenir.**
+
+Paralel oturumların commit edilmemiş işi olan depoda görülen kalıplar:
+- Testler başkasının değiştirdiği dosyaya eklenip commit dışında kalıyor.
+- Geçici indeks ya da kısmi stage sonrası ana indeks o yolları eski hâliyle staged bırakıyor; sıradaki commit işi geri alıyor.
+- Test içindeki `git commit` geçici depo yerine gerçek depoda çalışıyor ve yabancı commit bırakıyor.
+
+Sınama: `git show <sha> --stat`, `git diff --cached --stat`, `git status --short` ve `git log --all -3 --name-only` ile bak. Testi `git archive <sha>` ağacında koş.
+
+**Panel UI kusurları gerçek tarayıcıyla sınanır.**
+
+Aynı kusur sınıfı tekrar etti:
+- Hata işleyicisi son iyi veriyi siliyor.
+- Alan değişiminde eski veri sızıyor.
+- Uçuştaki istek her yoklamada iptal ediliyor.
+- Sticky başlıkta `scroll-padding-top` unutuluyor; Shift+Tab ile odak başlığın altında kalıyor.
+
+Sınama: fetch'i belge yüklenmeden sar (CDP `Page.addScriptToEvaluateOnNewDocument`; POST `/ac` sahte yanıtla engellenir). Kalıcı hata, toparlanma ve alan değişimi senaryolarında DOM değişimlerini MutationObserver ile say. Odak örtmesini gerçek Tab ve Shift+Tab ile ölç.

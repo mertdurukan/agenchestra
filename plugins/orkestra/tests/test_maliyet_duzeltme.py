@@ -313,6 +313,21 @@ class IsAtifDuzeltme(unittest.TestCase):
         out = {r["oturum"]: r for r in L.maliyet_kayitlari(self.sd)}
         self.assertFalse(out["oB"].get("is"))
 
+    def test_k3_coklu_is_zaman_bazli_cozulur(self):
+        """Çok işli oturumda satır, kendi zamanındaki bağlanmayla çözülür; ilk bağlanmadan önceki satır çözülmez."""
+        os.makedirs(os.path.join(self.sd, "oturumlar"), exist_ok=True)
+        with open(os.path.join(self.sd, "oturumlar", "oZ.json"), "w", encoding="utf-8") as f:
+            json.dump({"is_gecmis": [{"is": "I-301", "zaman": "2026-10-15T08:00:00+03:00"},
+                                     {"is": "I-302", "zaman": "2026-10-15T09:00:00+03:00"}]}, f)
+        self.deftere_yaz([_duz_satir("oZ", "2026-10-15T07:00:00+03:00", 1.0),
+                          _duz_satir("oZ", "2026-10-15T08:30:00+03:00", 2.0),
+                          _duz_satir("oZ", "2026-10-15T09:30:00+03:00", 3.0)])
+        self.kos(uygula=True)
+        out = {r["maliyet_usd"]: r.get("is") for r in L.maliyet_kayitlari(self.sd)}
+        self.assertFalse(out[1.0])
+        self.assertEqual(out[2.0], "I-301")
+        self.assertEqual(out[3.0], "I-302")
+
     def test_k3_doldurulamayan_oturum_isiz_etiketi(self):
         self.senaryo()
         self.kos(uygula=True)

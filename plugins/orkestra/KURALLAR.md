@@ -79,6 +79,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - Orkestrasyon projeden bağımsızdır. Eklenti koduna ve belgelerine projeye özgü bilgi girmez.
 - Bir projeye orkestra kurulacaksa yalnız `araclar/projeye_kur.py <proje>` çalıştır; projenin alan işine geçme.
 - Orkestra işi istendiğinde görev yalnız çok ajanlı orkestrasyonu kurmaktır; kapsam dışına çıkma.
+- Otomatik commit (her Edit/Write sonrası yalnız o dosya, `scripts/oto_commit.py`) varsayılan kapalıdır. Projede açmak için `.claude/settings.json` `env` bloğuna `"ORKESTRA_OTO_COMMIT": "1"` yaz; atıf satırı `ORKESTRA_OTO_COMMIT_ATIF` ile değişir. Açıkken hook'u atlama, `--no-verify` kullanma.
 
 ## Yöntem seçimi
 - Birden çok yol varsa en az token harcayan, en verimli yolu öner ve seç.

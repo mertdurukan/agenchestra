@@ -479,6 +479,7 @@ def gorunum(gun: int = GORUNUM_GUN, alan_yol: str | None = None) -> dict:
     for p in {s["proje_yol"] for s in oturumlar.values() if s["proje_yol"]}:
         basliklar.update(_basliklar(p))
     kartlar: dict = collections.defaultdict(list)
+    is_oturum: dict = collections.defaultdict(list)  # oturum → işe bağlandığı iş kimlikleri (is.json oturumlar listesi; kart açılmamış işler de)
     is_adlari: dict = {}  # (proje_yol, iş kimliği) → okunur iş adı; sohbet kartı bağlı işi bununla gösterir
     for p in {s["proje_yol"] for s in oturumlar.values() if s["proje_yol"]}:
         sd = os.path.join(p, ".claude", "orkestra")
@@ -487,6 +488,8 @@ def gorunum(gun: int = GORUNUM_GUN, alan_yol: str | None = None) -> dict:
                 import is_kaydi as IK  # noqa: PLC0415
                 for g in IK.is_liste(sd):
                     is_adlari[(p, g["id"])] = IK.is_adi(g.get("baslik", ""))
+                    for o in IK.is_oturumlari(g):
+                        is_oturum[(p, o)].append(g["id"])
             except Exception:
                 pass
             for k in L.kartlar(sd):
@@ -565,7 +568,8 @@ def gorunum(gun: int = GORUNUM_GUN, alan_yol: str | None = None) -> dict:
             # sohbetin kartlarının bağlı olduğu işler (açık kartı olan iş önce); panel iş ↔ sohbet geçişinde kullanır
             "isler": [{"id": i, "ad": is_adlari.get((s["proje_yol"], i)) or i}
                       for i in dict.fromkeys([k["is"] for k in acik_kart if k.get("is")] +
-                                             [k["is"] for k in kartlar.get(s["oturum"], []) if k.get("is")])],
+                                             [k["is"] for k in kartlar.get(s["oturum"], []) if k.get("is")] +
+                                             is_oturum.get((s["proje_yol"], s["oturum"]), []))],
         })
     satirlar = [r for r in satirlar if not r["arsiv"]]
     for r in satirlar:

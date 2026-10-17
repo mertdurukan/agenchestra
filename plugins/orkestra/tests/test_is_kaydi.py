@@ -77,7 +77,12 @@ class IsKaydiTest(unittest.TestCase):
         os.makedirs(kl)
         with open(os.path.join(kl, "todo.md"), "w", encoding="utf-8") as f:
             f.write("# T\n- [x] bir\n- [X] iki\n- [ ] üç\n  - [ ] dört\nnot\n")
-        self.assertEqual(K.todo_ozet(kl), {"toplam": 4, "biten": 2, "acik_maddeler": ["üç", "dört"]})
+        # tek kural: yalnız üst düzey kutular sayılır (girintili alt madde sayılmaz); [~] açıktır
+        self.assertEqual(K.todo_ozet(kl), {"toplam": 3, "biten": 2, "acik_maddeler": ["üç"]})
+        with open(os.path.join(kl, "todo.md"), "a", encoding="utf-8") as f:
+            f.write("- [~] sürüyor\n")
+        self.assertEqual(K.todo_ozet(kl), {"toplam": 4, "biten": 2, "acik_maddeler": ["üç", "sürüyor"]})
+        self.assertEqual(K.todo_ozet(kl)["toplam"], len(K.todo_maddeleri(kl)))
         self.assertEqual(K.todo_ozet(os.path.join(self.kok, "yok"))["toplam"], 0)
 
     def test_replace_gecici_izin_hatasinda_yeniden_dener(self):

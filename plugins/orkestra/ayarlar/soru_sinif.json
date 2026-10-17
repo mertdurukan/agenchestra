@@ -39,6 +39,7 @@
     "\\bdevam\\b",
     "\\bönerinle\\b",
     "^\\s*(tamam|evet|olur|peki)\\b",
+    "^\\s*(merhaba|selam|g[üu]nayd[ıi]n|iyi (g[üu]nler|ak[şs]amlar|geceler)|hey|te[şs]ekk[üu]r\\w*|sa[ğg] ol\\w*|eyvallah|test)\\W*$",
     "\\b(bunu|şunu|buna|şuna)\\b",
     "\\bbunlar\\w*"
   ],

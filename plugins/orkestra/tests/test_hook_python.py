@@ -128,13 +128,18 @@ def _cikti(r) -> dict:
 
 # ------------------------------------------------------------------ K1: hooks.json
 
+# Ayrı ve kapı önekli girdiler (hook.py'ye gitmez): biçimleri kendi testlerinde sınanır.
+AYRI_BETIKLER = ("scripts/oto_commit.py",)  # tests/test_oto_commit.py
+
+
 def _tum_kancalar() -> list[tuple[str, dict]]:
     veri = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))
     out = []
     for olay, gruplar in veri["hooks"].items():
         for g in gruplar:
             for h in g["hooks"]:
-                out.append((olay, h))
+                if not any(b in h["command"] for b in AYRI_BETIKLER):
+                    out.append((olay, h))
     return out
 
 
@@ -156,18 +161,15 @@ def test_hooks_json_hicbir_kancada_args_yok():
 
 
 def test_hooks_json_komut_tam_bicimde_ve_olay_adi_dogru():
-    olaylar = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]
     sayi = 0
     hook = '"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py"'
-    for olay, gruplar in olaylar.items():
-        for g in gruplar:
-            for h in g["hooks"]:
-                sayi += 1
-                beklenen = (f'if command -v python >/dev/null 2>&1; then exec python {hook} {olay}; '
-                            f'elif command -v py >/dev/null 2>&1; then exec py -3 {hook} {olay}; '
-                            f'else exec python3 {hook} {olay}; fi')
-                assert h["command"] == beklenen, f"{olay}: beklenen {beklenen!r}, bulunan {h['command']!r}"
-                assert h["timeout"] in (10, 30)
+    for olay, h in _tum_kancalar():
+        sayi += 1
+        beklenen = (f'if command -v python >/dev/null 2>&1; then exec python {hook} {olay}; '
+                    f'elif command -v py >/dev/null 2>&1; then exec py -3 {hook} {olay}; '
+                    f'else exec python3 {hook} {olay}; fi')
+        assert h["command"] == beklenen, f"{olay}: beklenen {beklenen!r}, bulunan {h['command']!r}"
+        assert h["timeout"] in (10, 30)
     assert sayi >= 9
 
 

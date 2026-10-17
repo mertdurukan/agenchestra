@@ -698,7 +698,49 @@ def kartlar(sd: str) -> list[dict]:
                     k.setdefault("baslik", "")
                     k.setdefault("basamak", "-")
                     out.append(k)
+        takma = takma_haritasi(sd)
+        if takma:
+            for k in out:
+                if k.get("is") in takma:
+                    k["is"] = takma[k["is"]]
     return out
+
+
+_TAKMA_ONBELLEK: dict = {}
+
+
+def takma_imzasi(sd: str):
+    """isler.json (mtime_ns, size); dosya yoksa None (takma ad haritası ve maliyet önbelleği imzası)."""
+    try:
+        st = os.stat(os.path.join(sd, "isler.json"))
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def takma_haritasi(sd: str) -> dict:
+    """isler.json 'takma' alanı: {eski iş kimliği: yeni iş kimliği}. Kaybolan ya da birleştirilen işin kartları ve
+    harcaması yeni kimlik altında görünür; ham kart ve defter dosyaları değişmez. Zincirler çözülür."""
+    imza = takma_imzasi(sd)
+    if imza is None:
+        return {}
+    onb = _TAKMA_ONBELLEK.get(sd)
+    if onb and onb[0] == imza:
+        return onb[1]
+    try:
+        with open(os.path.join(sd, "isler.json"), encoding="utf-8") as f:
+            ham = (json.load(f) or {}).get("takma") or {}
+    except Exception:
+        ham = {}
+    harita = {}
+    for eski, yeni in ham.items():
+        if not (isinstance(eski, str) and isinstance(yeni, str)):
+            continue
+        for _ in range(5):  # zincir (I-002 → I-021 → …); döngüye karşı sınırlı
+            yeni = ham.get(yeni, yeni) if ham.get(yeni) != eski else yeni
+        harita[eski] = yeni
+    _TAKMA_ONBELLEK[sd] = (imza, harita)
+    return harita
 
 
 def yeni_kart_id(sd: str) -> str:
@@ -1735,12 +1777,17 @@ def maliyet_kayitlari(sd: str) -> list[dict]:
     yol = os.path.join(sd, "maliyet.jsonl")
     try:
         st = os.stat(yol)
-        imza = (yol, st.st_mtime_ns, st.st_size, _duzeltme_imzasi(sd))  # düzeltme dosyası da imzada
+        imza = (yol, st.st_mtime_ns, st.st_size, _duzeltme_imzasi(sd), takma_imzasi(sd))  # düzeltme ve takma ad dosyaları da imzada
     except OSError:
         imza = None
     if imza and _MALIYET_ONBELLEK.get("imza") == imza:
         return [dict(r) for r in _MALIYET_ONBELLEK["out"]]  # aynı süreçte dosya değişmediyse yeniden okuma (hook'ta 3-4 kez çağrılır)
     out = _maliyet_kayitlari_oku(yol)
+    takma = takma_haritasi(sd)
+    if takma:
+        for r in out:
+            if r.get("is") in takma:
+                r["is"] = takma[r["is"]]
     if imza:
         _MALIYET_ONBELLEK.update({"imza": imza, "out": out})
     return [dict(r) for r in out]
@@ -1980,8 +2027,8 @@ def calisma_alanlari() -> list[dict]:
             if yol:
                 onb[aid] = {"yol": yol}
                 degisti = True
-        if not yol or re.search(r"[\\/]AppData[\\/]Local[\\/]Temp[\\/]", yol, re.I):
-            continue
+        if not yol or re.search(r"[\\/]AppData[\\/]Local[\\/]Temp[\\/]|[\\/]ork_(?:tmp|canli)|[\\/]\.claude[\\/]worktrees[\\/]", yol, re.I):
+            continue  # geçici, test ve worktree kopyaları gerçek çalışma alanı değildir
         out.append({"id": aid, "ad": os.path.basename(yol.rstrip("\\/")) or yol, "yol": yol,
                     "orkestra": os.path.isdir(os.path.join(yol, ".claude", "orkestra")),
                     "sohbet": len(dosyalar),

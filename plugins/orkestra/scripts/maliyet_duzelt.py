@@ -48,8 +48,20 @@ def oturum_isleri(sd: str, oturum) -> set:
     return kume
 
 
+def oturum_gecmisi(sd: str, oturum) -> list:
+    """Oturumun işe bağlanma geçmişi: zamana göre sıralı [(zaman, iş)] (is_gecmis). Dosya yok/bozuksa boş."""
+    if not oturum or oturum == "-":
+        return []
+    durum, d = L._oturum_json_oku(L._oturum_json_yol(sd, oturum))
+    if durum != "ok":
+        return []
+    return sorted((str(g["zaman"]), str(g["is"])) for g in (d.get("is_gecmis") or [])
+                  if isinstance(g, dict) and g.get("is") and g.get("zaman"))
+
+
 def coz(sd: str, r: dict, onbellek: dict):
-    """(is, kaynak) ya da None. Kart oturumdan önce gelir; çoklu işli oturum çözülmez."""
+    """(is, kaynak) ya da None. Kart oturumdan önce gelir; çok işli oturumda satır, kendi zamanındaki bağlanmayla
+    (satırdan önceki son bağlanma) çözülür; ilk bağlanmadan önceki satır çözülmez."""
     gorev = r.get("gorev")
     if gorev and gorev != "-":
         if gorev not in onbellek["kart"]:
@@ -63,6 +75,13 @@ def coz(sd: str, r: dict, onbellek: dict):
     kume = onbellek["oturum"][oturum]
     if len(kume) == 1:
         return next(iter(kume)), "oturum"
+    if len(kume) > 1 and r.get("zaman"):
+        onceki = [(z, i) for z, i in onbellek.setdefault("gecmis", {}).setdefault(oturum, oturum_gecmisi(sd, oturum)) if z <= str(r["zaman"])]
+        if onceki:
+            son_z = onceki[-1][0]
+            isler = {i for z, i in onceki if z == son_z}
+            if len(isler) == 1:  # aynı anda birden çok işe bağlanma belirsizdir, çözülmez
+                return next(iter(isler)), "oturum-zaman"
     return None
 
 
@@ -70,7 +89,7 @@ def planla(sd: str) -> dict:
     """Ham (düzeltmesiz, tekilleştirilmiş) satırlardan düzeltilebilir / doldurulamayan dökümü. Dosya yazmaz."""
     rows = L._maliyet_kayitlari_oku(os.path.join(sd, "maliyet.jsonl"), duzeltme=False)
     var = duzeltme_haritasi(sd)
-    onb = {"kart": {}, "oturum": {}}
+    onb = {"kart": {}, "oturum": {}, "gecmis": {}}
     duzelt, doldurulamayan, zaten = [], [], 0
     gorulen = set()
     for r in rows:

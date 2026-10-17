@@ -1695,6 +1695,26 @@ def _son_arac_yaz(sd: str, aid) -> None:
         pass
 
 
+OTURUM_BASLAT = "mcp__ccd_session__start_session"
+
+
+def detach_hatirlatmasi(sonuc) -> str:
+    """K-007: açılan yan oturumu aynı turda detach_session ile ayrı sohbete almayı hatırlatır.
+
+    Kural metni tek başına işlemedi (oturum açılırken akla gelmiyordu); hatırlatma başlatma sonucuyla birlikte gelir.
+    Sonuçta `local_…` id varsa hazır çağrı verilir; teklif kartında (id yok) oturum kullanıcı seçene dek açılmaz."""
+    idler = sorted(set(re.findall(r"local_[0-9a-f-]{36}", json.dumps(sonuc or "", ensure_ascii=False))))
+    if idler:
+        hedef = "Açılan oturum: " + ", ".join(idler) + ". Bu turda, başka işten önce "
+        komut = f"mcp__ccd_session_mgmt__detach_session(session_id=\"{idler[0]}\")"
+    else:
+        hedef = ("Sonuçta oturum id'si yok (teklif kartı kullanıcı seçene dek oturum açmaz). "
+                 "Oturum gerçekten başlayınca, aynı turda, ")
+        komut = "mcp__ccd_session_mgmt__detach_session(session_id=\"<local_… id>\")"
+    return ("K-007: " + hedef + komut + " çağır; oturum kenar çubuğunda bu sohbetin altında iç içe değil, "
+            "ayrı sohbet olarak görünmeli. Detach edilmeden tur bitirilmez.")
+
+
 def post_tool_use(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -1702,6 +1722,9 @@ def post_tool_use(inp: dict):
     arac = inp.get("tool_name")
     g = inp.get("tool_input") or {}
     _son_arac_yaz(sd, inp.get("agent_id"))  # sessizlik saati: her araç çağrısı ajanın son-araç zamanını tazeler
+    if arac == OTURUM_BASLAT:
+        L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PostToolUse",
+                                             "additionalContext": detach_hatirlatmasi(inp.get("tool_response"))}})
     kayit = {"zaman": L.simdi(), "oturum": inp.get("session_id"), "ajan_baglami": inp.get("agent_type") or "ana"}
     if arac == "Skill":
         kayit.update(tur="skill", skill=g.get("skill") or g.get("name"))
