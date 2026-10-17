@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timedelta
 
 BAYAT_GUN = 14
-SATIR_SINIR = 500
+SATIR_SINIR = 700
 MAX_IS = 6
 BASLIK_SINIR = 28
 
@@ -105,13 +105,31 @@ def karar(puanlar, ayar=None):
     return ("sec", [p["id"] for p in liste[:2] if p["puan"] >= a["dusuk"]])
 
 
+def isle_ilgili_mi(mesaj, is_, ayar=None):
+    """Mesaj bağlı işe açıkça gönderme yapıyor mu (iş kimliği, klasör numarası/adı) ya da iş metniyle
+    yeterince örtüşüyor mu (eslestir puanı >= yuksek). 'plan'/'todo' sözcüğü tek başına sayılmaz."""
+    if not isinstance(mesaj, str) or not isinstance(is_, dict):
+        return False
+    m = _kucult(mesaj)
+    iid = _kucult(str(is_.get("id") or ""))
+    klasor = _kucult(str(is_.get("klasor") or ""))
+    if iid and re.search(r"(?<![\w-])" + re.escape(iid) + r"(?![\w-])", m):
+        return True
+    num = re.match(r"(\d{3})-", klasor)
+    if (num and (num.group(1) + "-") in m) or (len(klasor) >= 8 and klasor in m):
+        return True
+    p = eslestir(mesaj, [is_], ayar)
+    return bool(p) and p[0]["puan"] >= _ayar(ayar)["yuksek"]
+
+
 def _tek_satir(metin, sinir):
     s = " ".join(str(metin).split())
     return s if len(s) <= sinir else s[: sinir - 1].rstrip() + "…"
 
 
-def yonlendir(isler, bagli_id):
-    """Yeni görev için tek satır: bağlı iş, açık işler ve karar kuralı."""
+def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
+    """Yeni görev için tek satır: bağlı iş, açık işler ve karar kuralı. `zorunlu` (I-061): hook mesajı bağlı işle
+    ilgili bulmadı; satır hatırlatma değil, ilk mesajda uygulanacak yönergedir. `guncel_konu`: kayıtlı güncel niyet."""
     liste = []
     bagli_baslik = ""
     for is_ in isler if isinstance(isler, (list, tuple)) else []:
@@ -123,7 +141,13 @@ def yonlendir(isler, bagli_id):
         if len(liste) < MAX_IS:
             liste.append("%s %s" % (_tek_satir(is_["id"], 20), baslik))
     bagli = ("bağlı iş %s %s" % (bagli_id, bagli_baslik)).strip() if bagli_id is not None else "bağlı iş yok"
-    if bagli_id is not None:
+    if bagli_id is not None and zorunlu:
+        konu = (' Güncel konu: "%s".' % _tek_satir(guncel_konu, 80)) if guncel_konu else ""
+        kural = ("Yeni görev (%s): ZORUNLU (K-004): mesaj bağlı işe açıkça bağlı değil.%s Cevabından ÖNCE, ilk araçtan önce karar ver: "
+                 "farklı konuysa bu sohbette yapma, `start_session` (initiation offer, başlık) ile yeni oturum öner; "
+                 "kullanıcı 'burada yap' derse `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>` "
+                 "ve `orkestra niyet --ne ...` ile güncel konuyu yaz. Aynı işin devamıysa devam et." % (bagli, konu))
+    elif bagli_id is not None:
         # K-004: bağlı işten farklı konu bu sohbette yapılmaz; ilk mesajda yeni oturum önerilir.
         kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa bu sohbette yapma: "
                  "ilk mesajda `start_session` (initiation offer, başlık) ile yeni oturum öner. Kullanıcı 'burada yap' "

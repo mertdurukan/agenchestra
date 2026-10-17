@@ -178,6 +178,18 @@ class IstekIpucu(_Ortak):
         s = self._satir(self.istek(ISTEK_ALAKASIZ))
         self.assertIn("bağlı iş " + self.fatura["id"], s)
 
+    def test_bagli_oturumda_acik_devam_susar_zayif_kalip_belirsiz(self):
+        """I-061 P1: 'tamam devam' susar; 'bunu ... kural' belirsiz kalır ve satırı alır."""
+        self.baglan(self.fatura)
+        self.assertNotIn("Yeni görev (", self.istek("tamam, devam et"))
+        self.assertIn("Yeni görev (", self.istek("Bunu bir kural olarak ekle, her belgede alt alta yazılsın"))
+
+    def test_belirsiz_mesaj_zorunlu_yonerge_alir(self):
+        """I-061 P2: bağlı oturumda belirsiz mesaj ZORUNLU satırı alır; açık devam almaz."""
+        self.baglan(self.fatura)
+        self.assertIn("ZORUNLU", self.istek(ISTEK_ALAKASIZ))
+        self.assertNotIn("ZORUNLU", self.istek("tamam, devam et"))
+
     def test_kapali_is_listelenmez(self):
         is_kaydi.is_durum(self.sd, self.fatura["id"], "kapandi")
         self._sec([self.diger["id"]])

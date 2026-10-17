@@ -282,6 +282,22 @@ class TurSiniflama(unittest.TestCase):
         self.assertNotEqual(soru_sinif.tur(""), "soru")
 
 
+class BagliTur(unittest.TestCase):
+    """I-061 P1: bağlı oturumda 'açıkça devam' yalnız güçlü kalıp ya da çok kısa mesajdır; zayıf kalıp belirsizdir."""
+
+    def test_acik_devam_ve_soru(self):
+        self.assertEqual(soru_sinif.bagli_tur("tamam, devam et"), "devam")
+        self.assertEqual(soru_sinif.bagli_tur("commit et"), "devam")
+        self.assertEqual(soru_sinif.bagli_tur("bu ne demek?"), "soru")
+
+    def test_zayif_kalip_gecis_vermez(self):
+        self.assertEqual(soru_sinif.bagli_tur("Bunu bir kural olarak ekle. Kesinlikle yapılacak bir kural bu."), "belirsiz")
+        self.assertEqual(soru_sinif.bagli_tur("bunlara ayrı bir kural yazalım, hepsi alt alta olsun"), "belirsiz")
+
+    def test_uzun_konu_belirsiz(self):
+        self.assertEqual(soru_sinif.bagli_tur("o zaman main dışında bulunan tüm dalları silelim"), "belirsiz")
+
+
 class YanitIhlali(unittest.TestCase):
     def test_kalip_yakalanir_temiz_yanit_gecer(self):
         self.assertTrue(soru_sinif.yanit_ihlali("Bitti. Başka kartı da yapmamı ister misin?"))

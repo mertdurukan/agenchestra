@@ -1269,6 +1269,32 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None) ->
         return ""
 
 
+def _bagli_is_kaydi(g: dict) -> dict:
+    """Bağlı işin eşleştirme kaydı: kimlik, başlık, klasör adı ve todo.md/plan.md metni (ilk 6000 karakter)."""
+    klasor = str(g.get("klasor") or "")
+    metin = ""
+    for ad in ("todo.md", "plan.md"):
+        try:
+            with open(os.path.join(klasor, ad), encoding="utf-8") as f:
+                metin += " " + f.read(6000)
+        except Exception:
+            pass
+    return {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(klasor), "metin": metin}
+
+
+def _bagli_isle_ilgili(sd: str, bagli, istek: str) -> bool:
+    """Mesaj bağlı işin klasörüne/kimliğine gönderme yapıyor ya da iş metniyle örtüşüyor mu (I-061). Hatada False."""
+    try:
+        import is_kaydi
+        import is_yonlendirme
+        for g in is_kaydi.is_liste(sd, "acik"):
+            if str(g.get("id")) == str(bagli):
+                return is_yonlendirme.isle_ilgili_mi(istek, _bagli_is_kaydi(g), _esleme_ayari(sd))
+    except Exception:
+        pass
+    return False
+
+
 def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None) -> str:
     """Bağsız oturumda önce otomatik bağla/aç/seç (P2-P3); olmazsa ya da bağlı oturumda: yeni görev mesajında
     (soru/devam değil) açık işler + karar kuralı tek satır (K-004). Hatada boş."""
@@ -1277,12 +1303,22 @@ def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None) -> st
         return oto
     try:
         import soru_sinif
-        if soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yönlendirme tetiklemez
-            return ""
         import is_kaydi
         import is_yonlendirme
+        bagli = _oturum_isi(sd, oid)
+        if bagli:  # I-061 P1: bağlı oturumda açıkça devam / bağlı işle ilgili mesaj susar, geri kalanı belirsizdir
+            if soru_sinif.bagli_tur(istek, sd) != "belirsiz":
+                return ""
+            if _bagli_isle_ilgili(sd, bagli, istek):
+                return ""
+        elif soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yönlendirme tetiklemez
+            return ""
         isler = [{"id": g["id"], "baslik": g.get("baslik") or ""} for g in is_kaydi.is_liste(sd, "acik")]
-        return is_yonlendirme.yonlendir(isler, _oturum_isi(sd, oid))
+        if bagli:  # belirsiz: hatırlatma değil zorunlu yönerge; karşılaştırma güncel konuya (son kayıtlı niyet) yapılır
+            import niyet
+            k = niyet.son_niyet(oid) if oid else None
+            return is_yonlendirme.yonlendir(isler, bagli, zorunlu=True, guncel_konu=(k or {}).get("ne", ""))
+        return is_yonlendirme.yonlendir(isler, bagli)
     except Exception:
         return ""
 

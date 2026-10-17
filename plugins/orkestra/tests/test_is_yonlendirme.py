@@ -356,5 +356,43 @@ class EslestirTest(unittest.TestCase):
         self.assertEqual(r[0]["id"], "I-013")
 
 
+class IsleIlgiliTest(unittest.TestCase):
+    """I-061 P1: bağlı işle ilgili mi (gönderme ya da örtüşme); plan/todo sözcüğü tek başına sayılmaz."""
+    IS = {"id": "I-061", "baslik": "Konu değişiminde yeni oturum önerisi: mekanik kontrol",
+          "klasor": "043-20261018-konu-degisimi-mekanik-kontrol", "metin": ""}
+
+    def test_kimlik_ve_klasor_gondermesi(self):
+        self.assertTrue(iy.isle_ilgili_mi("I-061 için devam edelim", self.IS))
+        self.assertTrue(iy.isle_ilgili_mi("043- klasöründeki plana bak", self.IS))
+        self.assertFalse(iy.isle_ilgili_mi("I-0610 değil", self.IS))
+
+    def test_plan_todo_sozcugu_tek_basina_yetmez(self):
+        self.assertFalse(iy.isle_ilgili_mi("plan ve todo gibi her işte jira dosyası oluşsun", self.IS))
+
+    def test_baslik_ortusmesi(self):
+        self.assertTrue(iy.isle_ilgili_mi("yeni oturum önerisi için mekanik kontrol kuralı", self.IS))
+
+    def test_bozuk_girdi(self):
+        self.assertFalse(iy.isle_ilgili_mi(None, self.IS))
+        self.assertFalse(iy.isle_ilgili_mi("x", None))
+
+
+class ZorunluYonergeTest(unittest.TestCase):
+    """I-061 P2: belirsiz mesajda satır zorunlu yönergedir, güncel konuyu taşır ve sınırı aşmaz."""
+    ISLER = [{"id": "I-061", "baslik": "Konu değişiminde yeni oturum"}, {"id": "I-003", "baslik": "Ölçüm"}]
+
+    def test_zorunlu_metin_ve_guncel_konu(self):
+        s = iy.yonlendir(self.ISLER, "I-061", zorunlu=True, guncel_konu="dal temizliği")
+        self.assertTrue(s.startswith("Yeni görev ("), s)
+        self.assertIn("ZORUNLU", s)
+        self.assertIn("start_session", s)
+        self.assertIn("dal temizliği", s)
+        self.assertLessEqual(len(s), iy.SATIR_SINIR)
+
+    def test_varsayilan_hatirlatma_degismedi(self):
+        self.assertNotIn("ZORUNLU", iy.yonlendir(self.ISLER, "I-061"))
+        self.assertNotIn("ZORUNLU", iy.yonlendir(self.ISLER, None, zorunlu=True))
+
+
 if __name__ == "__main__":
     unittest.main()

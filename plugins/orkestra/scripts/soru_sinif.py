@@ -78,6 +78,23 @@ def tur(metin, sd=None) -> str:
     return "is"
 
 
+def bagli_tur(metin, sd=None) -> str:
+    """Bağlı oturum için sınıf (I-061 P1): 'soru' (muaf), 'devam' (açıkça devam: zayıf olmayan devam kalıbı ya da
+    çok kısa mesaj) ya da 'belirsiz' (iş metniyle karşılaştırılır). Zayıf kalıplar ('bunu', 'bunlar') tek başına
+    geçiş vermez: yeni konunun ilk mesajı da öyle başlar. Model çağrılmaz."""
+    ayar = ayar_oku(sd)
+    if bilgi_sorusu_mu(metin, ayar):
+        return "soru"
+    m = _normallestir((metin or "").strip())
+    if not m:
+        return "devam"
+    zayif = set(ayar.get("devam_zayif_kaliplari") or [])
+    guclu = [k for k in ayar.get("devam_kaliplari") or [] if k not in zayif]
+    if len(m) <= ayar.get("devam_kisa_max_karakter", 0) or _eslesir(guclu, m):
+        return "devam"
+    return "belirsiz"
+
+
 def yanit_ihlali(yanit, sd=None) -> bool:
     """Yanıtta konu dışı öneri/"ister misin" kalıbı var mı (regex; model yok, ek token yok)."""
     return _eslesir(ayar_oku(sd).get("yanit_yasak_kaliplari"), _normallestir(yanit or ""))
