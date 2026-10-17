@@ -54,10 +54,10 @@ araclar/yayin_kur.py                yayın klonunu açar, git hook'larını yaza
 python <depo>/araclar/projeye_kur.py --kullanici
 ```
 
-Eklentileri user kapsamında kurar. Herhangi bir projede yeni oturum açılınca SessionStart hook'u `.claude/orkestra/` durum klasörünü kendiliğinden kurar (`orkestra baslat` gerekmez); git deposunda çalışma zamanı klasörünü `.git/info/exclude`a yazar, `.gitignore`'a dokunmaz. Kullanıcı klasöründe ve kök dizinlerde açmaz. Kapatmak için `ORKESTRA_OTOMATIK_ACIL=0`.
+Eklentileri user kapsamında kurar. Herhangi bir projede yeni oturum açılınca SessionStart hook'u `.claude/orkestra/` durum klasörünü kendiliğinden kurar (`orkestra baslat` gerekmez); git deposunda çalışma zamanı klasörünü `.git/info/exclude`a yazar, `.gitignore`'a dokunmaz. Kullanıcı klasöründe ve kök dizinlerde açmaz. Kapatmak için `ORKESTRA_OTOMATIK_ACIL=0`. Kurulum ayrıca `~/.claude/settings.json` dosyasına eksikse kota durum satırını, `Bash(orkestra *)` iznini ve `PYTHONUTF8=1` değerini yazar; var olan değerlere (kendi durum satırın dahil) dokunmaz.
 
 - Tek projede kapatmak: `python <depo>/araclar/projeye_kur.py <proje klasörü> --kaldir`. Projenin `.claude/settings.json` dosyasına iki eklenti için `enabledPlugins: false` yazar; eklenti o projede yüklenmez, durum klasörü de kendiliğinden açılmaz.
-- Bütün projelerden kaldırmak: `python <depo>/araclar/projeye_kur.py --kullanici --kaldir`.
+- Bütün projelerden kaldırmak: `python <depo>/araclar/projeye_kur.py --kullanici --kaldir`. Kullanıcı ayarından yalnız orkestranın yazdığı kota satırı ve komut izni silinir.
 - Önizleme için iki komutta da `--kuru`.
 
 ## Yeni bir projeye kurmak (tek komut)

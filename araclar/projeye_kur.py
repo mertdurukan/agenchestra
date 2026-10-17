@@ -64,7 +64,7 @@ CLAUDE_MD_BOLUMU = """
 - Basamaklar: T0 betik · T1 Haiku · T2 Sonnet · T3 Opus medium · T4 Opus xhigh. İzin veren en düşük basamakla başla.
 - Her işçi çıktısını ayrı `orkestra:denetci` denetler; kimse kendi işini onaylamaz. Bağımsız işler paralel; yazma alanları kesişmez.
 - Ortak defter `.claude/orkestra/ortak_defter.md` (otomatik; `orkestra defter baglam <id>` ile ihtiyacın olanı oku). Token defteri: `/orkestra:maliyet`. Panel: `/orkestra` (Claude içi), `/orkestra-web` (HTML canlı).
-- Ayarlar bu çalışma alanına özgüdür (`.claude/settings.json`); genel ayar kullanılmaz.
+- Ayarlar `.claude/settings.json` dosyasındadır; user kapsamında kurulduysa eklentiler ve kota durum satırı kullanıcı ayarındadır (`~/.claude/settings.json`).
 """
 
 
@@ -99,6 +99,58 @@ def kos(argv, cwd, kuru):
     return r.returncode, cikti
 
 
+def orkestra_ayarlari(s):
+    """Orkestranın çalışması için gereken üç ayarı ekler (proje ve kullanıcı kurulumu ortak): PYTHONUTF8, `orkestra`
+    komut izni, kota durum satırı. Var olan değere dokunmaz; kullanıcının kendi durum satırı korunur."""
+    s.setdefault("env", {}).setdefault("PYTHONUTF8", "1")
+    izin = s.setdefault("permissions", {}).setdefault("allow", [])
+    if "Bash(orkestra *)" not in izin:
+        izin.append("Bash(orkestra *)")
+    if "statusLine" not in s:
+        s["statusLine"] = {"type": "command", "command": KOTA_KOMUTU}
+
+
+def kullanici_ayar_yolu():
+    return os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+
+
+def _ayar_oku(yol):
+    if not os.path.exists(yol):
+        return {}
+    with open(yol, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _ayar_yaz(yol, s):
+    os.makedirs(os.path.dirname(yol), exist_ok=True)
+    with open(yol, "w", encoding="utf-8") as f:
+        json.dump(s, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def kullanici_ayar_yaz(kuru):
+    yol = kullanici_ayar_yolu()
+    s = _ayar_oku(yol)
+    orkestra_ayarlari(s)
+    print(f"  ayarlar → {yol} (PYTHONUTF8, Bash(orkestra *), kota durum satırı; var olan değerler korunur)")
+    if not kuru:
+        _ayar_yaz(yol, s)
+
+
+def kullanici_ayar_geri(kuru):
+    """Yalnız orkestranın yazdığı kota durum satırını ve komut iznini siler; PYTHONUTF8 ve öteki ayarlara dokunmaz."""
+    yol = kullanici_ayar_yolu()
+    s = _ayar_oku(yol)
+    if (s.get("statusLine") or {}).get("command") == KOTA_KOMUTU:
+        s.pop("statusLine")
+    izin = (s.get("permissions") or {}).get("allow") or []
+    if "Bash(orkestra *)" in izin:
+        izin.remove("Bash(orkestra *)")
+    print(f"  ayarlar → {yol} (kota durum satırı ve Bash(orkestra *) kaldırıldı)")
+    if not kuru and os.path.exists(yol):
+        _ayar_yaz(yol, s)
+
+
 def ayar_birlestir(proje, ui, kuru):
     yol = os.path.join(proje, ".claude", "settings.json")
     s = {}
@@ -107,12 +159,7 @@ def ayar_birlestir(proje, ui, kuru):
             s = json.load(f)
     for k, v in VARSAYILAN.items():
         s.setdefault(k, v)
-    s.setdefault("env", {}).setdefault("PYTHONUTF8", "1")
-    izin = s.setdefault("permissions", {}).setdefault("allow", [])
-    if "Bash(orkestra *)" not in izin:
-        izin.append("Bash(orkestra *)")
-    if "statusLine" not in s:  # kullanıcının kendi durum satırı varsa dokunma
-        s["statusLine"] = {"type": "command", "command": KOTA_KOMUTU}
+    orkestra_ayarlari(s)
     girdi = s.setdefault("extraKnownMarketplaces", {}).setdefault(MARKET, {})
     girdi.setdefault("source", KAYNAK or {"source": "directory", "path": YAYIN})
     girdi["autoUpdate"] = True
@@ -185,6 +232,7 @@ def kur_kullanici(ui, kuru):
         kos([exe, "plugin", "marketplace", "add", KAYNAK.get("repo") or KAYNAK["path"]], os.path.expanduser("~"), kuru)
     for p in PLUGINLER if ui else PLUGINLER[:1]:
         kos([exe, "plugin", "install", f"{p}@{MARKET}", "--scope", "user", "-y"], os.path.expanduser("~"), kuru)
+    kullanici_ayar_yaz(kuru)
     print("Tamam. Herhangi bir projede YENİ bir Claude oturumu aç; orkestra o projede kendiliğinden açılır.")
 
 
@@ -193,6 +241,7 @@ def kaldir_kullanici(kuru):
     print("Orkestra kaldırılıyor → kullanıcı kapsamı (tüm projeler; durum klasörleri silinmez)")
     for p in PLUGINLER:
         kos([exe, "plugin", "uninstall", f"{p}@{MARKET}", "--scope", "user", "-y"], os.path.expanduser("~"), kuru)
+    kullanici_ayar_geri(kuru)
 
 
 def kaldir(proje, kuru):

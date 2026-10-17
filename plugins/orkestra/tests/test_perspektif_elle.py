@@ -157,6 +157,55 @@ class KaldirTest(unittest.TestCase):
         for argv in kurulum:
             self.assertEqual(argv[argv.index("--scope") + 1], "user")
 
+    # I-057 P1 K1-K3
+    def _ev(self):
+        ev = tempfile.mkdtemp(prefix="ork_ev_")
+        self.addCleanup(shutil.rmtree, ev, True)
+        self._p.append(mock.patch.object(self.m, "kullanici_ayar_yolu", return_value=os.path.join(ev, ".claude", "settings.json")))
+        self._p[-1].start()
+        return os.path.join(ev, ".claude", "settings.json")
+
+    def test_kullanici_kurulumu_uc_ayari_yazar_tekrarda_cogaltmaz(self):
+        yol = self._ev()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.m.kullanici_ayar_yaz(False)
+            self.m.kullanici_ayar_yaz(False)
+        s = json.load(open(yol, encoding="utf-8"))
+        self.assertEqual(s["env"]["PYTHONUTF8"], "1")
+        self.assertEqual(s["permissions"]["allow"], ["Bash(orkestra *)"])
+        self.assertEqual(s["statusLine"]["command"], self.m.KOTA_KOMUTU)
+
+    def test_kullanicinin_durum_satiri_korunur_geri_alma_ona_dokunmaz(self):
+        yol = self._ev()
+        os.makedirs(os.path.dirname(yol))
+        kendi = {"type": "command", "command": "benim"}
+        json.dump({"statusLine": kendi, "theme": "x"}, open(yol, "w", encoding="utf-8"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.m.kullanici_ayar_yaz(False)
+            self.m.kullanici_ayar_geri(False)
+        s = json.load(open(yol, encoding="utf-8"))
+        self.assertEqual(s["statusLine"], kendi)
+        self.assertEqual(s["theme"], "x")
+        self.assertEqual(s["permissions"]["allow"], [])
+
+    def test_geri_alma_kota_satirini_ve_izni_kaldirir(self):
+        yol = self._ev()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.m.kullanici_ayar_yaz(False)
+            self.m.kullanici_ayar_geri(False)
+        s = json.load(open(yol, encoding="utf-8"))
+        self.assertNotIn("statusLine", s)
+        self.assertEqual(s["permissions"]["allow"], [])
+
+    # I-057 P1 K4
+    def test_proje_kurulumu_ayni_uc_ayari_yazar(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.m.ayar_birlestir(self.proje, False, False)
+        s = self.ayar()
+        self.assertEqual(s["env"]["PYTHONUTF8"], "1")
+        self.assertIn("Bash(orkestra *)", s["permissions"]["allow"])
+        self.assertEqual(s["statusLine"]["command"], self.m.KOTA_KOMUTU)
+
 
 if __name__ == "__main__":
     unittest.main()

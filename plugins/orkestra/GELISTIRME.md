@@ -120,3 +120,34 @@ Aynı kusur sınıfı tekrar etti:
 - Sticky başlıkta `scroll-padding-top` unutuluyor; Shift+Tab ile odak başlığın altında kalıyor.
 
 Sınama: fetch'i belge yüklenmeden sar (CDP `Page.addScriptToEvaluateOnNewDocument`; POST `/ac` sahte yanıtla engellenir). Kalıcı hata, toparlanma ve alan değişimi senaryolarında DOM değişimlerini MutationObserver ile say. Odak örtmesini gerçek Tab ve Shift+Tab ile ölç.
+
+## Geliştirme geçmişi ve kararlar (McD hafızasından taşındı, 17.10.2026, I-057)
+
+Kaynak iş klasörleri McD deposundadır (`C:\Mert\McD\Claude_Orkestrasyon\NNN-…`); eklentiyi kuran başka bir kullanıcıda bulunmaz. Sayılar yazıldıkları günün ölçümüdür.
+
+### Kurulum ve ayar kapsamı
+- Eklentiler user kapsamında kurulur (`araclar/projeye_kur.py --kullanici`); `~/.claude/settings.json` içine `enabledPlugins`, kota durum satırı, `Bash(orkestra *)` izni ve `PYTHONUTF8` yazılır. Eski karar (13.10: genel ayar bilerek boş, proje kapsamı) 17.10'da değişti (I-054).
+- Marketplace kaynağı `Claude_Orkestrasyon\plugin_yayin` yayın klonudur; sürüm = commit SHA. Başka oturumların commitlenmemiş işi çalışan eklentiye sızmasın diye bilerek kullanılır.
+- Gömülü CLI PATH'te değil; `projeye_kur.py` `claude_exe()` yolunu kendisi bulur (`CLAUDE_CODE_EXECPATH`).
+- Kesin token: `hooks/sayac.ts` (turn.complete) yazar; alt ajan transkriptleri çıkış tokenını eksik tutar, hook kaydı yalnız yedektir.
+- Taşınabilirlik: ortam başka makineye taşınırken hafıza `~/.claude/projects/<proje>/memory`, hook'lar `python` çağırır (Mac'te `python3` sorunu), `hooks.json` platforma dayanıklıdır (16.10).
+- Eklentinin tek kaynağı `Desktop\Claude-Orchestration`. Yeni skill, ayar ve kayıt buraya yazılır (`skills\<ad>\SKILL.md`, betik skill klasöründe, test `tests\`, README satırı), projenin `.claude\skills\` klasörüne yazılmaz. `plugin_yayin`'e yazılan iş eşitlemede `koruma/klon-*` dalına alınır, main'e girmez. Skill adı `/orkestra:<ad>` olur; betikte projeye özgü yol kalmaz.
+- Push yalnız bu depo içindir (`origin/main`); McD deposunun uzak deposu yoktur.
+
+### Yetenekler (14-16.10.2026)
+- **İş/todo modeli:** her işin tek `todo.md`'si görev klasöründe; `orkestra is todo <id> --ekle/--bitti`.
+- **Kart worktree:** kart çalışması `.claude/worktrees` altında `kart/G-NNN` dalında; teslim `orkestra kart teslim G-NNN`, temizlik `kart agac-temizle`.
+- **Yönlendirme ipucu:** `is_yonlendirme.py` (ilk istekte yeni iş mi devam mı).
+- **Paralel test:** `scripts/test_paralel.py` (tam takım ~4 dk).
+- **Maliyet:** ana ajan toplam maliyetin %65'i (15.10), %71'i (16.10; 663,61 / 937,78 $). En büyük kaçak, 1 saati aşan aradan sonra büyük bağlama dönüşte önbelleğin yeniden yazılması. Önlemler: soğuk önbellek kapısı (UserPromptSubmit; ezme `.claude/orkestra/onbellek_kapisi.json`), T1–T3'te tek çağrıda denetim, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.
+- **Öneri sistemi (6926d8b):** `scripts/oner.py basamak` (geçmiş ilk-geçiş onayı Beta(1,1) × kart başı USD → en ucuz başlangıç basamağı; TF-IDF benzer kart; ret nedeninden kriter ipucu) ve `scripts/kural_aday.py rapor` (tekrarlayan ret → kural adayı, medyan+3·MAD anomali, p90×2 bütçe tavanı). Yalnız öneridir. Bandit ve embedding k-NN ≥200 karta ertelendi.
+- **Mimari kazanımlar (007):** Faz 0-1 ölçümü hiçbir paketin (K1, K2, K4, K5) koda geçişini desteklemedi; K4/K2 sınaması gölge veride n≥5 ret birikince.
+- **Bölme:** `orkestra.py` 8 modüle bölündü (`scripts/komutlar/`, 90a403c, main'de). Testte yama artık `komutlar.<modül>` üzerine yapılır. Sıradaki: `hook.py`, `ork_lib.py`, `kart.py` (iş 012).
+
+### Bilinen anomali: K2 kart-ajan-çok
+Eşik 8 ajan; 14 günde 32 kez çıktı. Kök neden: kartlar tek soruya bölünmüyor, denetçi ve yeniden deneme ajanları birikiyor (yeniden deneme çarpanı 4,02 → 3,89). Kart planlarken kriteri ≤5 tut. Açık kod işi: kart açılışında kriter sayısı >5 ya da beklenen dosya çoksa "kartı böl" uyarısı; `kural_aday.py` ajan tavanını 8'de sert uyarıya çevirmek. İzleme sayacı: `kart_ajan_cok_anomalisi`.
+
+### Cursor uyumu (019) ve belge kalitesi (021)
+- Karar: orkestra host sohbetinde çalışır (API yok); kural kapıları host hook'undan orkestra CLI'sine taşınır. Cursor CLI 2026.10.14; `.cursor/hooks.json` git kökünden okunur (iç klasördekiler yok sayılır), BOM'lu yazılırsa hook'lar sessizce yüklenmez. Aşama 0 CLI ve TUI'de ölçüldü, IDE sürülemedi (açık risk). Taşınabilirlik yaklaşık %83.
+- Belge kalitesi: Ö1+Ö2 uygulandı (şablonlar, `orkestra is belge`, `is baglanti`); Ö3/Ö4 gölge modda (`gunluk.jsonl`'a `kural_ihlal` düşer). Bekleyen karar: ihlal moduna geçiş.
+- K-006 kök neden ilkesi eklenti kuralıdır (`kurallar/eklenti_kurallari.json`).
