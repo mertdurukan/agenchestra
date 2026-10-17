@@ -170,7 +170,12 @@ def _yuzde(n: int, toplam_: int):
 def kapsama(sd: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     n = len(kayitlar)
-    is_bos = sum(1 for i in _satir_is(sd, kayitlar) if i == KOVA)
+    bos_mask = [i == KOVA for i in _satir_is(sd, kayitlar)]
+    is_bos = sum(bos_mask)
+    # Oturumu hiç olmayan satır (atif_nedeni=oturum-isiz) hiçbir yoldan işe bağlanamaz; eşik, düzeltilebilir
+    # boşluğu (bu satırlar paydadan ve paydaştan çıkarılarak) ölçer. Ham oran ayrıca raporlanır.
+    oturum_isiz = sum(1 for r in kayitlar if r.get("atif_nedeni") == "oturum-isiz")
+    oturum_isiz_bos = sum(1 for r, b in zip(kayitlar, bos_mask) if b and r.get("atif_nedeni") == "oturum-isiz")
     istek_bos = sum(1 for r in kayitlar if not r.get("istek_id"))
     nedenler: dict = {}
     for r in kayitlar:
@@ -180,25 +185,30 @@ def kapsama(sd: str) -> dict:
     ne_bos = sum(1 for g in istekler if not g.get("ne"))
     esik = _esik()
     is_y = _yuzde(is_bos, n)
+    atf_y = _yuzde(is_bos - oturum_isiz_bos, n - oturum_isiz)
     return {"olcum_saati": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
             "satir_sayisi": n, "is_bos_yuzde": is_y, "istek_id_bos_yuzde": _yuzde(istek_bos, n),
             "ne_bos_yuzde": _yuzde(ne_bos, len(istekler)), "atif_nedeni": nedenler,
-            "esik_yuzde": esik, "asildi": is_y > esik}
+            "oturum_isiz_satir": oturum_isiz, "is_bos_atfedilebilir_yuzde": atf_y,
+            "esik_yuzde": esik, "asildi": atf_y > esik}
 
 
 def kapsama_satiri(sd: str) -> str:
     k = kapsama(sd)
     if not k["asildi"]:
         return ""
-    return (f"İZ KAPSAMA: işe bağlanmamış defter satırı %{k['is_bos_yuzde']} (eşik %{k['esik_yuzde']}, "
-            f"{k['satir_sayisi']} satır, ölçüm {k['olcum_saati']}); ayrıntı `orkestra iz kapsama`.")
+    return (f"İZ KAPSAMA: işe bağlanabilir ama bağlanmamış defter satırı %{k['is_bos_atfedilebilir_yuzde']} "
+            f"(eşik %{k['esik_yuzde']}; ham işsiz oran %{k['is_bos_yuzde']}, oturumsuz {k['oturum_isiz_satir']} satır "
+            f"hariç; {k['satir_sayisi']} satır, ölçüm {k['olcum_saati']}); ayrıntı `orkestra iz kapsama`.")
 
 
 def kapsama_metni(k: dict) -> str:
     nedenler = ", ".join(f"{n}: {c}" for n, c in k["atif_nedeni"].items()) or "-"
     return "\n".join([
         f"ölçüm saati: {k['olcum_saati']}  (defter satırı: {k['satir_sayisi']})",
-        f"is boş: {k['is_bos_yuzde']:.1f}%  (eşik {k['esik_yuzde']}%, aşıldı: {'evet' if k['asildi'] else 'hayır'})",
+        f"is boş (atfedilebilir, oturum-isiz hariç): {k['is_bos_atfedilebilir_yuzde']:.1f}%  "
+        f"(eşik {k['esik_yuzde']}%, aşıldı: {'evet' if k['asildi'] else 'hayır'})",
+        f"is boş (ham): {k['is_bos_yuzde']:.1f}%  (oturum-isiz satır: {k['oturum_isiz_satir']})",
         f"istek_id boş: {k['istek_id_bos_yuzde']:.1f}%",
         f"ne boş: {k['ne_bos_yuzde']:.1f}%",
         f"atif_nedeni: {nedenler}",

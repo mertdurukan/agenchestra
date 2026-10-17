@@ -12,6 +12,7 @@ Bağımlılık yok: yalnız Python standart kütüphanesi.
 """
 from __future__ import annotations
 
+import copy
 import datetime
 import fnmatch
 import glob
@@ -119,8 +120,9 @@ def durum_dizini(cwd: str | None = None, olustur: bool = False) -> str | None:
 # ---------------------------------------------------------------- kilit ve yazım
 
 @contextmanager
-def kilit(yol: str, bekleme_s: float = 8.0):
-    """Süreçler arası basit dosya kilidi (Windows msvcrt / POSIX fcntl)."""
+def kilit(yol: str, bekleme_s: float = 3.0):
+    """Süreçler arası basit dosya kilidi (Windows msvcrt / POSIX fcntl). Beklemesi 3 sn: hook'u en çok bu kadar
+    bloklar (önce 8 sn); süre dolarsa TimeoutError; kilit dosyasının yanındaki '.zaman_asimi.log'a bir satır yazılır."""
     os.makedirs(os.path.dirname(yol), exist_ok=True)
     fd = os.open(yol + ".lock", os.O_RDWR | os.O_CREAT)
     try:
@@ -134,6 +136,11 @@ def kilit(yol: str, bekleme_s: float = 8.0):
                     break
                 except OSError:
                     if time.time() > bitis:
+                        try:
+                            with open(yol + ".zaman_asimi.log", "a", encoding="utf-8") as g:
+                                g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()}\n")
+                        except OSError:
+                            pass
                         raise TimeoutError(f"kilit alınamadı: {yol}")
                     time.sleep(0.02)
             try:
@@ -346,21 +353,45 @@ def jsonl_oku(yol: str) -> list[dict]:
 def atomik_yaz(yol: str, metin: str) -> None:
     os.makedirs(os.path.dirname(yol), exist_ok=True)
     fd, gecici = tempfile.mkstemp(dir=os.path.dirname(yol), prefix=".tmp_")
-    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-        f.write(metin)
-    for deneme in range(12):  # toplam bekleme ~1,3 sn: yük altında (AV/okuyucu) 0,2 sn yetmiyordu
-        try:
-            os.replace(gecici, yol)
-            return
-        except PermissionError:
-            # Windows: hedef başka bir okuyucuda açıkken kısa süre reddedilebilir.
-            if deneme == 11:
-                try:
-                    os.remove(gecici)  # başarısız yazım .tmp_* dosyası bırakmasın
-                except OSError:
-                    pass
-                raise
-            time.sleep(0.02 * (deneme + 1))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin)
+        for deneme in range(12):  # toplam bekleme ~1,3 sn: yük altında (AV/okuyucu) 0,2 sn yetmiyordu
+            try:
+                os.replace(gecici, yol)
+                return
+            except PermissionError:
+                # Windows: hedef başka bir okuyucuda açıkken kısa süre reddedilebilir.
+                if deneme == 11:
+                    raise
+                time.sleep(0.02 * (deneme + 1))
+    finally:
+        # başarısız yazım (disk dolu, izin, başka OSError) .tmp_* dosyası bırakmasın; başarıda dosya zaten taşındı
+        if os.path.exists(gecici):
+            try:
+                os.remove(gecici)
+            except OSError:
+                pass
+
+
+def tmp_temizle(dizin: str, yas_s: float = 3600.0) -> int:
+    """Çöken yazımlardan kalan '.tmp_*' dosyalarını (yas_s'den eski) siler; silinen sayısını döner."""
+    silinen = 0
+    esik = time.time() - yas_s
+    try:
+        for ad in os.listdir(dizin):
+            if not ad.startswith(".tmp_"):
+                continue
+            yol = os.path.join(dizin, ad)
+            try:
+                if os.path.isfile(yol) and os.path.getmtime(yol) < esik:
+                    os.remove(yol)
+                    silinen += 1
+            except OSError:
+                pass
+    except OSError:
+        pass
+    return silinen
 
 
 # ---------------------------------------------------------------- maskeleme
@@ -386,9 +417,24 @@ def maskele(metin: str) -> str:
 
 # ---------------------------------------------------------------- fiyat ve transkript
 
+_FIYAT_ONBELLEK: dict = {}
+
+
 def fiyat_tablosu() -> dict:
-    with open(os.path.join(PLUGIN_ROOT, "bin", "fiyat.json"), encoding="utf-8") as f:
-        return json.load(f)
+    """bin/fiyat.json; aynı süreçte dosya (yol, mtime_ns, boyut) değişmedikçe yeniden okunmaz (satır başına çağrılıyordu)."""
+    yol = os.path.join(PLUGIN_ROOT, "bin", "fiyat.json")
+    try:
+        st = os.stat(yol)
+        imza = (yol, st.st_mtime_ns, st.st_size)
+    except OSError:
+        imza = None
+    if imza and _FIYAT_ONBELLEK.get("imza") == imza:
+        return _FIYAT_ONBELLEK["tablo"]
+    with open(yol, encoding="utf-8") as f:
+        tablo = json.load(f)
+    if imza:
+        _FIYAT_ONBELLEK.update({"imza": imza, "tablo": tablo})
+    return tablo
 
 
 def model_fiyati(model: str, tablo: dict | None = None) -> dict:
@@ -621,18 +667,33 @@ def kart_yaz(sd: str, kart: dict) -> None:
     atomik_yaz(kart_yolu(sd, kart["id"]), json.dumps(kart, ensure_ascii=False, indent=2) + "\n")
 
 
+_KART_ONBELLEK: dict = {}  # dosya yolu -> ((mtime_ns, boyut), ayrıştırılmış kart | None)
+
+
 def kartlar(sd: str) -> list[dict]:
     d = os.path.join(sd, "gorevler")
     out = []
     if os.path.isdir(d):
         for ad in sorted(os.listdir(d)):
             if re.fullmatch(r"G-\d+\.json", ad):
+                yol = os.path.join(d, ad)
                 try:
-                    with open(os.path.join(d, ad), encoding="utf-8") as f:
-                        k = json.load(f)
-                except Exception:
+                    st = os.stat(yol)
+                    imza = (st.st_mtime_ns, st.st_size)
+                except OSError:
                     continue
+                kayit = _KART_ONBELLEK.get(yol)
+                if kayit and kayit[0] == imza:
+                    k = kayit[1]
+                else:
+                    try:
+                        with open(yol, encoding="utf-8") as f:
+                            k = json.load(f)
+                    except Exception:
+                        k = None
+                    _KART_ONBELLEK[yol] = (imza, k)  # bozuk kart da imzayla önbelleğe girer (her çağrıda yeniden denenmez)
                 if isinstance(k, dict) and k.get("id"):
+                    k = copy.deepcopy(k)  # tüketiciler kartı değiştirebilir; önbellek bozulmasın
                     # eksik alanlı kart özet/panel tüketicilerini çökertmesin
                     k.setdefault("baslik", "")
                     k.setdefault("basamak", "-")

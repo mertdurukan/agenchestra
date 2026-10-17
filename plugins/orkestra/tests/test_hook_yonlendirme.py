@@ -629,7 +629,7 @@ class OtomatikYonlendirme(_Ortak):
         import inspect
         self.assertTrue(hasattr(hook, "_otomatik_is_ac"), "hook._otomatik_is_ac yok")
         kaynak = inspect.getsource(hook._otomatik_is_ac)
-        for parca in ("L.kilit", "L.atomik_yaz", "esleme_oku", "sonraki_klasor_adi"):
+        for parca in ("L.kilit", "L.atomik_yaz", "esleme_oku", "klasor_ayir"):  # klasor_ayir = kilitli sonraki_klasor_adi
             self.assertIn(parca, kaynak)
 
 

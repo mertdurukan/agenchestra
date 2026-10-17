@@ -1,11 +1,15 @@
 """test_paralel: dosya başına alt süreç, N işçili havuz, zaman aşımı, FAILED satırı korunumu, çıkış kodları, --en-yavas."""
+import contextlib
+import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
 sys.path.insert(0, SCRIPTS)
@@ -182,6 +186,44 @@ class BaslatmaSirasi(unittest.TestCase):
         sureler = {ab("a.py"): 1.0, ab("b.py"): 9.0, ab("c.py"): 1.0}
         self.assertEqual(T.baslatma_sirasi(["a.py", "b.py", "c.py", "yeni.py"], sureler), ["yeni.py", "b.py", "a.py", "c.py"])
         self.assertEqual(T.baslatma_sirasi(["a.py", "b.py"], {}), ["a.py", "b.py"])
+
+
+class Parcalama(unittest.TestCase):
+    """Önceki süresi eşiği aşan dosya test düğümlerine bölünür; kısa ya da süresi bilinmeyen dosya bölünmez."""
+
+    def test_esik_alti_ve_bilinmeyen_bolunmez(self):
+        import test_paralel as T
+        self.assertIsNone(T.parcalara_bol("a.py", None, 8))
+        self.assertIsNone(T.parcalara_bol("a.py", T.PARCALA_ESIK_SN - 1, 8))
+        self.assertIsNone(T.parcalara_bol("a.py", 500.0, 1))
+
+    def test_dugumler_eksiksiz_ve_ayrik_dagilir(self):
+        import test_paralel as T
+        dugumler = [f"x.py::T::t{i}" for i in range(10)]
+        with mock.patch.object(T, "dugumleri_topla", return_value=dugumler):
+            g = T.parcalara_bol("x.py", 90.0, 8)  # 90 sn / 30 sn hedef = 3 parça
+        self.assertEqual(len(g), 3)
+        self.assertEqual(sorted(sum(g, [])), sorted(dugumler))
+
+    def test_parca_sayisi_dugum_sayisini_asmaz(self):
+        import test_paralel as T
+        with mock.patch.object(T, "dugumleri_topla", return_value=["x.py::t0"]):
+            self.assertIsNone(T.parcalara_bol("x.py", 500.0, 8))
+
+    def test_bolunmus_dosya_tum_testleri_kosar(self):
+        d = tempfile.mkdtemp(prefix="ork_parca_")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        with open(os.path.join(d, "test_b.py"), "w", encoding="utf-8") as f:
+            f.write("def test_a():\n    pass\n\ndef test_b():\n    pass\n\ndef test_c():\n    assert False\n")
+        import test_paralel as T
+        dosya = os.path.join(d, "test_b.py")
+        with mock.patch.object(T, "sureleri_oku", return_value={os.path.abspath(dosya): 100.0}), \
+                mock.patch.object(T, "sureleri_yaz"), contextlib.redirect_stdout(io.StringIO()) as buf:
+            kod = T.main(["-n", "3", dosya])
+        cikti = buf.getvalue()
+        self.assertEqual(kod, 1, cikti)
+        self.assertRegex(cikti, r"(?m)^FAILED \S*test_b\.py::test_c")
+        self.assertIn("1 dosya, 1 düşen", cikti)
 
 
 if __name__ == "__main__":

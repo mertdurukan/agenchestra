@@ -147,5 +147,53 @@ class IsKaydiTest(unittest.TestCase):
         self.assertEqual(self._agac(), once)
 
 
+class OtomatikIsAcmaTest(unittest.TestCase):
+    """C4: çöp başlık, yanlış kök, sözcük ortasında kesilen slug, çift NNN."""
+
+    def test_slug_sozcuk_ortasinda_kesmez(self):
+        s = K.slug("orkestra dosyalarina bakmani istiyorum claude md kontrol")
+        self.assertLessEqual(len(s), 40)
+        self.assertFalse(s.endswith("-"))
+        self.assertEqual(s, "orkestra-dosyalarina-bakmani-istiyorum")
+        s2 = K.slug("orkestra dosyalarina bakmani istiyorumsunuz claude")
+        self.assertEqual(s2, "orkestra-dosyalarina-bakmani")
+
+    def test_slug_tam_sozcukte_biter(self):
+        s = K.slug("aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj")
+        self.assertEqual(s, "aaaa-bbbb-cccc-dddd-eeee-ffff-gggg-hhhh")
+
+    def test_baslik_yan_oturum_onekini_atar(self):
+        b = K.baslik_uret("Background (from the session \"X\"): orkestra todo sayacını düzelt")
+        self.assertEqual(b, "orkestra todo sayacını düzelt")
+
+    def test_baslik_sozcuk_sinirindan_keser(self):
+        b = K.baslik_uret("kelime " * 30, azami=20)
+        self.assertEqual(b, "kelime kelime kelime")
+
+    def test_proje_sec_orkestra_istegi(self):
+        pr = ["RNV", "Claude_Orkestrasyon"]
+        self.assertEqual(K.proje_sec(pr, "orkestra hook hızını ölç"), 1)
+        self.assertEqual(K.proje_sec(pr, "klibre fiyat tablosu"), 0)
+        self.assertEqual(K.proje_sec(["RNV"], "orkestra hook"), 0)
+
+    def test_klasor_ayir_es_zamanli_benzersiz_numara(self):
+        with tempfile.TemporaryDirectory() as t:
+            sd, kok = os.path.join(t, "o"), os.path.join(t, "k")
+            os.makedirs(sd)
+            os.makedirs(kok)
+            sonuc = []
+
+            def is_():
+                sonuc.append(K.klasor_ayir(sd, kok, "es zamanli"))
+            th = [threading.Thread(target=is_) for _ in range(6)]
+            for x in th:
+                x.start()
+            for x in th:
+                x.join()
+            nolar = sorted(a[:3] for a in sonuc)
+            self.assertEqual(nolar, ["001", "002", "003", "004", "005", "006"])
+            self.assertEqual(len(os.listdir(kok)), 6)
+
+
 if __name__ == "__main__":
     unittest.main()

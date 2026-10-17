@@ -435,6 +435,9 @@ class Kapsama(_KapsamaOrtak):  # K4
         self.assertEqual(k["ne_bos_yuzde"], 25.0)   # yalnız tur='istek' satırları paydada
         self.assertEqual(k["atif_nedeni"], {"oturum-isiz": 2, "cursor": 1})
         self.assertEqual(k["esik_yuzde"], 10)
+        # oturum-isiz 2 satır paydadan ve paydaştan çıkar: (3-2)/(10-2) = 12.5
+        self.assertEqual(k["oturum_isiz_satir"], 2)
+        self.assertEqual(k["is_bos_atfedilebilir_yuzde"], 12.5)
         self.assertIs(k["asildi"], True)
 
     def test_olcum_saati_yazilir(self):
@@ -448,10 +451,22 @@ class Kapsama(_KapsamaOrtak):  # K4
 
     def test_esik_sinirinda_asilmaz(self):
         import iz
-        with self.esik(30):
+        with self.esik(12.5):
             self.assertIs(iz.kapsama(self.sd)["asildi"], False)
-        with self.esik(29.9):
+        with self.esik(12.4):
             self.assertIs(iz.kapsama(self.sd)["asildi"], True)
+
+    def test_yalniz_oturum_isiz_bosluk_esigi_asmaz(self):
+        # ham oran %20 (eşik üstü) ama tüm boşluk oturum-isiz: düzeltilebilir boşluk yok
+        import iz
+        satirlar = [mal(OT, None, None, "-" if n < 2 else "I-030", 0.01, 10, 1, 0, 0,
+                        **({"atif_nedeni": "oturum-isiz"} if n < 2 else {})) for n in range(10)]
+        jyaz(os.path.join(self.sd, "maliyet.jsonl"), satirlar)
+        with self.esik(10):
+            k = iz.kapsama(self.sd)
+        self.assertEqual(k["is_bos_yuzde"], 20.0)
+        self.assertEqual(k["is_bos_atfedilebilir_yuzde"], 0)
+        self.assertIs(k["asildi"], False)
 
     def test_bos_defter_sifira_bolmez(self):
         import iz
@@ -496,7 +511,7 @@ class Kapsama(_KapsamaOrtak):  # K4
     def test_cli_kapsama_metin_ve_json(self):
         r = cli(self.proje, "kapsama")
         self.assertEqual(r.returncode, 0, r.stderr)
-        for s in ("30.0", "50.0", "25.0", "oturum-isiz", "cursor", "2026-"):
+        for s in ("30.0", "12.5", "50.0", "25.0", "oturum-isiz", "cursor", "2026-"):
             self.assertIn(s, r.stdout)
         j = cli(self.proje, "kapsama", "--json")
         self.assertEqual(j.returncode, 0, j.stderr)

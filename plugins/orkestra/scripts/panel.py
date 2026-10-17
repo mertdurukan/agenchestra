@@ -40,6 +40,7 @@ import glob
 import json
 import os
 import re
+import select
 import socket
 import subprocess
 import sys
@@ -640,20 +641,42 @@ def _isleyici():
             return self._json(200, {"tamam": True, **sonuc})
 
         def do_POST(self):
+            # Erken ret (403/400) gövdeyi okumadan döner; okunmamış baytla kapanan bağlantıyı Windows RST ile keser ve
+            # istemci yanıtı alamaz (WinError 10053, yük altında aralıklı). Yanıt gittikten sonra kalan gövde boşaltılır.
+            try:
+                self._post_isle()
+            finally:
+                self._govdeyi_bosalt()
+
+        def _govdeyi_bosalt(self):
+            try:
+                if int(self.headers.get("Content-Length") or 0) <= 0:
+                    return
+                kalan = 1024 * 1024
+                while kalan > 0 and select.select([self.connection], [], [], 0.05)[0]:
+                    parca = self.connection.recv(min(65536, kalan))
+                    if not parca:
+                        break
+                    kalan -= len(parca)
+            except (OSError, ValueError):
+                pass
+
+        def _post_isle(self):
             # Sohbeti aç. Özel başlık zorunlu: başka bir sitenin sayfası bu isteği CORS ön denetimi olmadan gönderemez.
             u = urllib.parse.urlparse(self.path)
             if u.path == "/onay":
                 return self._post_onay(urllib.parse.parse_qs(u.query))
             if u.path == "/perspektif-calistir":
+                # Gövde okunmaz; yanıt sonrası temiz kapatılır (okunmamış baytla kapanan bağlantıyı Windows RST ile keser).
                 if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
-                    return self._gonder(403, "text/plain", b"yasak")
+                    return self._gonder(403, "text/plain", b"yasak", kapat=True)
                 a, sd = _alan_sd((urllib.parse.parse_qs(u.query).get("alan") or [None])[0], kesin=True)
                 if a is None:
-                    return self._json(400, {"tamam": False, "hata": sd["hata"]})
+                    return self._json(400, {"tamam": False, "hata": sd["hata"]}, kapat=True)
                 try:
-                    return self._json(200, niyet.perspektif_sohbeti_ac(a["yol"]))
+                    return self._json(200, niyet.perspektif_sohbeti_ac(a["yol"]), kapat=True)
                 except Exception as e:  # noqa: BLE001
-                    return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"})
+                    return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
             if u.path == "/api/isler-sifirla":
                 return self._post_isler_sifirla(urllib.parse.parse_qs(u.query))
             if u.path == "/api/todo":  # iş todo listeleri salt okunur

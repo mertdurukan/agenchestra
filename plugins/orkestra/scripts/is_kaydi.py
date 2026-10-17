@@ -298,8 +298,47 @@ def slug(baslik: str, azami: int = 40) -> str:
     s = s.encode("ascii", "ignore").decode("ascii").lower()
     s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
     if len(s) > azami:
-        s = s[:azami].rstrip("-")
+        kesik = s[:azami]
+        if s[azami] != "-" and "-" in kesik:  # sözcüğün ortasında kesme: son yarım sözcüğü at
+            kesik = kesik.rsplit("-", 1)[0]
+        s = kesik.rstrip("-")
     return s or "is"
+
+
+_YAN_OTURUM_ON = re.compile(r"^\s*Background \(from the session[^)]*\):\s*", re.I)
+_ORKESTRA_ANAHTAR = re.compile(r"orkestra|orchestr|eklenti|plugin|\bhook\b|\bskill\b|claude\.md", re.I)
+
+
+def baslik_uret(istek, azami: int = 70) -> str:
+    """İş başlığı: boşluklar sadeleşir, yan oturum devir öneki ('Background (from the session…):') atılır,
+    azami uzunlukta sözcük sınırından kesilir (önce 70 karakter ham kesiliyordu: 'Background (from the…' çöp başlık)."""
+    metin = _YAN_OTURUM_ON.sub("", " ".join(str(istek or "").split()))
+    if len(metin) <= azami:
+        return metin.rstrip() or "is"
+    kesik = metin[:azami]
+    if metin[azami] != " " and " " in kesik:
+        kesik = kesik.rsplit(" ", 1)[0]
+    return kesik.rstrip(" ,;:-") or "is"
+
+
+def proje_sec(projeler, istek: str) -> int:
+    """Eşlemedeki proje listesinde işin klasör köküne düşen proje dizini: orkestra konulu istek 'orkestra'/'orchestr'
+    adlı projeye gider (yoksa ilk proje). Böylece orkestra işleri iş klasörünü RNV altında açmaz."""
+    projeler = list(projeler or [])
+    if _ORKESTRA_ANAHTAR.search(str(istek or "")):
+        for i, p in enumerate(projeler):
+            if re.search(r"orkestra|orchestr", str(p), re.I):
+                return i
+    return 0
+
+
+def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None) -> str:
+    """sonraki_klasor_adi + klasörü kilit altında oluşturur: eşzamanlı iki oturum aynı NNN'i almaz
+    (005, 017, 029 ikişer klasör çıkmıştı). Klasör yazılamazsa OSError."""
+    with L.kilit(os.path.join(sd, "klasor_numara")):
+        ad = sonraki_klasor_adi(kok, baslik, tarih)
+        os.makedirs(os.path.join(kok, ad), exist_ok=True)
+    return ad
 
 
 def sonraki_klasor_adi(kok: str, baslik: str, tarih: str | None = None) -> str:

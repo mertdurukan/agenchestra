@@ -86,6 +86,21 @@ def _tirnaksiz(komut: str) -> str:
     return _TIRNAK.sub('""', komut)
 
 
+# İç içe çalıştırma: tırnak içi kod başka bir kabuğa/yorumlayıcıya veriliyorsa o kod gerçekten çalışır (veri değildir).
+_IC_ICE = re.compile(
+    r"\b(?:bash|sh|zsh|dash|ksh|pwsh|powershell|cmd|python[\d.]*|py|node|perl|ruby)(?:\.exe)?\b"
+    r"[^\n]*?(?:\s-[A-Za-z]*c\b|\s/[cCkK]\b|\s-[Cc]ommand\b|\s-e\b|<<)"
+    r"|\beval\b|\bInvoke-Expression\b|\biex\b|\bxargs\b")
+_KODLANMIS = re.compile(r"\b(?:powershell|pwsh)(?:\.exe)?\b[^\n]*?\s-(?:EncodedCommand|enc|ec)\b", re.I)
+
+
+def _ic_ice(komut: str) -> str | None:
+    """İç içe kod görülürse tırnaksız, noktalaması sadeleşmiş metin (kapı desenleri iç kodu da görsün); yoksa None."""
+    if not _IC_ICE.search(komut):
+        return None
+    return re.sub(r"[^\w\-./:+=@]+", " ", komut)
+
+
 def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None) -> tuple[str | None, str]:
     cfg = cfg or ayar_yukle(sd)
     mod = mod_bul(cfg)
@@ -95,14 +110,17 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
     if arac in KABUK_ARACLARI:
         komut = str(girdi.get("command") or "")
         kuru = _tirnaksiz(komut)
+        ic = _ic_ice(komut)  # bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
         for m in cfg.get("kabuk_yasak") or []:
             d = _derle(str(m.get("desen") or ""))
-            if d and d.search(kuru):
+            if d and (d.search(kuru) or (ic and d.search(ic))):
                 return "deny", f"{m.get('ad')}: halka açık ve geri alınamaz; zorla/silme/ayna push yapılmaz."
         for m in cfg.get("kabuk_kapi") or []:
             d = _derle(str(m.get("desen") or ""))
-            if d and d.search(kuru):
+            if d and (d.search(kuru) or (ic and d.search(ic))):
                 return "ask", f"{m.get('ad')}: halka açık eylem, onay gerekir."
+        if _KODLANMIS.search(komut):
+            return "ask", "kodlanmış PowerShell komutu: içeriği denetlenemez, onay gerekir."
         for m in cfg.get("rest_kapi") or []:
             a, h, y = (_derle(str(m.get(k) or "")) for k in ("arac", "adres", "yazma"))
             if a and h and y and a.search(komut) and h.search(komut) and y.search(komut):

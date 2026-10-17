@@ -47,6 +47,24 @@ class Kabuk(unittest.TestCase):
         self.assertEqual(karar("Bash", 'git commit -m "sonra git push yapılacak"'), "allow")
         self.assertEqual(karar("Bash", "echo 'gh pr create'"), "allow")
 
+    def test_ic_ice_kabuk_ve_betik_kapiyi_asamaz(self):
+        # tırnak içi kod başka bir kabuğa/yorumlayıcıya veriliyorsa gerçekten çalışır: veri sayılmaz
+        for k in ('bash -c "git push origin main"', 'sh -c "git push"', 'powershell -Command "git push"',
+                  "cmd /c git push", 'eval "git push"',
+                  "python -c \"import subprocess;subprocess.run(['git','push'])\"",
+                  "python -c \"import requests;requests.post('https://x.atlassian.net/a')\"",
+                  "python - <<'EOF'\nimport requests\nrequests.post('https://a.atlassian.net/x', data=1)\nEOF",
+                  "powershell -EncodedCommand ZQBjAGgA"):
+            self.assertEqual(karar("Bash", k), "ask", k)
+        for k in ("bash -c 'git push --force origin main'", 'sh -c "git push -f"'):
+            self.assertEqual(karar("Bash", k), "deny", k)
+
+    def test_ic_ice_zararsiz_komutlar_serbest(self):
+        for k in ('python -c "print(1)"', 'bash -c "ls -la"', "python -c \"print('git commit -m x')\"",
+                  "python -c \"import requests;requests.get('https://x.atlassian.net/a')\"",
+                  "pytest -x tests/test_a.py"):
+            self.assertEqual(karar("Bash", k), "allow", k)
+
     def test_gh_yazma_sorulur_okuma_serbest(self):
         for k in ("gh pr create --title x", "gh pr merge 3", "gh issue comment 4 -b x", "gh release create v1",
                   "gh api -X POST repos/a/b/issues", "gh api repos/a/b/issues -f title=x"):

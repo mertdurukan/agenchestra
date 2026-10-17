@@ -28,6 +28,12 @@
       "arac": "\\b(?:curl|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr)\\b",
       "adres": "atlassian\\.net|api\\.github\\.com|\\bjira\\b",
       "yazma": "(?:-X|--request)[\\s=]*[\"']?(?:POST|PUT|PATCH|DELETE)|(?:^|\\s)(?:-d|--data(?:-\\w+)?|--json|-F|--form)\\b|-Method\\s+[\"']?(?:Post|Put|Patch|Delete)|-Body\\b"
+    },
+    {
+      "ad": "GitHub ya da Jira REST'ine betik içinden yazma (python, node, .NET)",
+      "arac": "\\b(?:requests|urllib\\d?|httpx|aiohttp|http\\.client|urlopen|fetch|axios|WebClient|HttpClient)\\b",
+      "adres": "atlassian\\.net|api\\.github\\.com|\\bjira\\b",
+      "yazma": "\\.(?:post|put|patch|delete)\\(|\\bmethod\\s*[=:]\\s*[\"']?(?:POST|PUT|PATCH|DELETE)|\\bdata\\s*="
     }
   ],
   "mcp": [

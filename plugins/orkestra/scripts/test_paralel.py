@@ -18,6 +18,10 @@ import time
 VARSAYILAN_ZAMAN_ASIMI = 900.0
 # Önceki koşuların dosya süreleri: en yavaş dosyalar havuza önce girer (LPT), kuyruk kısalır. Kayıt yoksa/bozuksa sıra korunur.
 SURE_KAYDI = os.path.join(tempfile.gettempdir(), "orkestra_test_sureleri.json")
+# Tek dosya tüm koşuyu belirliyorsa (LPT sırası yetmez) önceki süresi bu eşiği aşan dosya test düğümlerine bölünüp
+# birden çok alt süreçte koşulur; her parça yaklaşık PARCA_HEDEF_SN sürecek kadar. Testler kendi geçici dizinini kurar.
+PARCALA_ESIK_SN = 40.0
+PARCA_HEDEF_SN = 30.0
 
 
 def sureleri_oku():
@@ -75,14 +79,41 @@ def calisma_dizini(dosya):
     return os.path.dirname(mutlak)
 
 
-def tek_dosya(dosya, zaman_asimi):
-    """-> (dosya, çıkış_kodu, çıktı, süre, zaman_asimi_mi)"""
+def dugumleri_topla(dosya):
+    """Dosyadaki test düğüm kimlikleri (`<mutlak dosya>::Sınıf::test`); toplanamazsa boş liste (bölünmez)."""
+    mutlak = os.path.abspath(dosya)
+    try:
+        p = subprocess.run([sys.executable, "-m", "pytest", mutlak, "--collect-only", "-q", "-p", "no:cacheprovider"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"),
+                           timeout=120, cwd=calisma_dizini(dosya))
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+    if p.returncode != 0:
+        return []
+    return [mutlak + "::" + l.split("::", 1)[1].strip() for l in p.stdout.splitlines() if "::" in l]
+
+
+def parcalara_bol(dosya, onceki_sure, en_cok):
+    """Önceki süresi eşiği aşan dosyayı en çok `en_cok` düğüm grubuna böler (döngüsel dağıtım); bölünmüyorsa None."""
+    if onceki_sure is None or onceki_sure < PARCALA_ESIK_SN or en_cok < 2:
+        return None
+    k = min(en_cok, int(-(-onceki_sure // PARCA_HEDEF_SN)))
+    dugumler = dugumleri_topla(dosya)
+    k = min(k, len(dugumler))
+    if k < 2:
+        return None
+    return [dugumler[i::k] for i in range(k)]
+
+
+def tek_dosya(dosya, zaman_asimi, dugumler=None):
+    """-> (dosya, çıkış_kodu, çıktı, süre, zaman_asimi_mi). `dugumler` verilirse yalnız o düğümler koşulur."""
     env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     env.setdefault("ORKESTRA_TEKNIK_KAPISI", "0")
     env.setdefault("ORKESTRA_MEVCUT_KAPISI", "0")
     env.setdefault("ORKESTRA_SIRA_KAPISI", "0")
     env.setdefault("ORKESTRA_DOGRULAMA_KAPISI", "0")
-    komut = [sys.executable, "-m", "pytest", os.path.abspath(dosya), "-q", "-p", "no:cacheprovider"]
+    komut = [sys.executable, "-m", "pytest"] + (list(dugumler) if dugumler else [os.path.abspath(dosya)]) + ["-q", "-p", "no:cacheprovider"]
     t = time.time()
     try:
         p = subprocess.run(komut, capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -122,10 +153,18 @@ def main(argv=None):
         return 2
 
     t0 = time.time()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(a.n, len(dosyalar))) as havuz:
-        isler = {f: havuz.submit(tek_dosya, f, a.zaman_asimi) for f in baslatma_sirasi(dosyalar, sureleri_oku())}
-        sonuclar = [isler[f].result() for f in dosyalar]  # çıktı yine dosya sırasıyla
-    sureleri_yaz(sonuclar)
+    sureler = sureleri_oku()
+    sira = baslatma_sirasi(dosyalar, sureler)
+    parcalar = {f: parcalara_bol(f, sureler.get(os.path.abspath(f)), a.n) for f in sira}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(a.n, len(dosyalar) + sum(len(v) for v in parcalar.values() if v))) as havuz:
+        isler = {f: ([havuz.submit(tek_dosya, f, a.zaman_asimi, g) for g in parcalar[f]] if parcalar[f]
+                     else [havuz.submit(tek_dosya, f, a.zaman_asimi)]) for f in sira}
+        sonuclar, toplam = [], {}
+        for f in dosyalar:  # çıktı yine dosya sırasıyla
+            r = [i.result() for i in isler[f]]
+            sonuclar.append((f, max(x[1] for x in r), chr(10).join(x[2] for x in r), max(x[3] for x in r), any(x[4] for x in r)))
+            toplam[f] = sum(x[3] for x in r)  # kayıt, bölünse de dosyanın ardışık süresidir (bir sonraki bölme kararı)
+    sureleri_yaz([(d, k, c, toplam[d], asim) for d, k, c, _, asim in sonuclar])
 
     dus = asim = 0
     for dosya, kod, cikti, sure, asimi in sonuclar:

@@ -100,12 +100,12 @@ def _oku(yol: str) -> dict:
 def _atomik_yaz(yol: str, veri: dict) -> None:
     os.makedirs(os.path.dirname(yol), exist_ok=True)
     fd, gecici = tempfile.mkstemp(dir=os.path.dirname(yol), prefix=".tmp_")
-    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(veri, f, ensure_ascii=False, indent=2)
-        f.write("\n")
     try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(veri, f, ensure_ascii=False, indent=2)
+            f.write("\n")
         os.replace(gecici, yol)
-    except OSError:
+    except BaseException:
         try:
             os.remove(gecici)
         except OSError:

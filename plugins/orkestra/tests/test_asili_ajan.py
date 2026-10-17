@@ -17,6 +17,7 @@ from unittest import mock
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 import hook  # noqa: E402
+import niyet  # noqa: E402
 import ozet  # noqa: E402
 
 
@@ -30,13 +31,22 @@ class AsiliAjan(unittest.TestCase):
         self.proje = tempfile.mkdtemp(prefix="ork_asili_")
         self.sd = os.path.join(self.proje, ".claude", "orkestra")
         os.makedirs(os.path.join(self.sd, "oturumlar"))
-        self._env = mock.patch.dict(os.environ, {}, clear=False)
-        self._env.start()
+        # Niyet defteri (ev dizininde, süreçler arası ortak) geçici dizine alınır: yoksa user_prompt_submit gerçek
+        # niyet.jsonl'a "t-oturum" kaydı sızdırır, asili_ajanlar da o kaydı okuyup oturumu sessiz/ölü sayar.
+        genel = os.path.join(self.proje, "genel")
+        os.makedirs(genel)
+        self._p = [mock.patch.object(niyet, "NIYET_YOLU", os.path.join(genel, "niyet.jsonl")),
+                   mock.patch.object(niyet, "GENEL_DIZIN", genel),
+                   mock.patch.dict(os.environ, {}, clear=False)]
+        for p in self._p:
+            p.start()
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
         os.environ.pop("ORKESTRA_RUYA", None)
+        os.environ.pop("ORKESTRA_PERSPEKTIF", None)
 
     def tearDown(self):
-        self._env.stop()
+        for p in reversed(self._p):
+            p.stop()
         shutil.rmtree(self.proje, ignore_errors=True)
 
     def calistir(self, fn, girdi):

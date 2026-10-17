@@ -9,7 +9,6 @@ import json
 import os
 import re
 import sys
-import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
@@ -1188,7 +1187,7 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
     try:
         import baglam
         import is_kaydi
-        baslik = " ".join(str(istek).split())[:70].rstrip()
+        baslik = is_kaydi.baslik_uret(istek)
         klasor = ""
         if is_id:
             kayit = is_kaydi.is_al(sd, is_id)
@@ -1197,8 +1196,15 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
         else:
             projeler = [str(p) for p in ((baglam.esleme_oku(sd) or {}).get("projeler") or []) if str(p).strip()]
             yedek_kok = os.path.join(sd, "isler")
-            kok = os.path.normpath(os.path.join(proje or L.proje_dizini(), projeler[0])) if projeler else yedek_kok
-            ad = is_kaydi.sonraki_klasor_adi(kok, baslik)
+            kok = (os.path.normpath(os.path.join(proje or L.proje_dizini(), projeler[is_kaydi.proje_sec(projeler, istek)]))
+                   if projeler else yedek_kok)
+            try:
+                ad = is_kaydi.klasor_ayir(sd, kok, baslik)
+            except OSError:
+                if os.path.normcase(os.path.normpath(kok)) == os.path.normcase(os.path.normpath(yedek_kok)):
+                    raise
+                kok = yedek_kok
+                ad = is_kaydi.klasor_ayir(sd, kok, baslik)
             klasor = os.path.join(kok, ad)
             try:
                 kayit = is_kaydi.is_ac(sd, baslik, klasor, etiketler)
@@ -1489,6 +1495,10 @@ def session_start(inp: dict):
         gec()
     import perspektif
     perspektif.oturum_say(sd, inp.get("source"))
+    try:  # çöken yazımlardan kalan eski .tmp_* dosyaları (1 saatten eski) silinir
+        L.tmp_temizle(sd)
+    except Exception:
+        pass
     ks = [k for k in L.kartlar(sd) if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",)]
     satirlar = ["Orkestra bu projede açık: planla → `orkestra kart` → işçi + AYRI denetçi (`/orkestra:is`) → "
                 "`orkestra kart teslim`. Defter: `orkestra defter baglam <id>`."]
@@ -1839,6 +1849,7 @@ def main():
         try:
             sd = L.durum_dizini(inp.get("cwd"))
             if sd:
+                import traceback  # yalnız hata yolunda gerekir; hızlı yolda yüklenmez
                 L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "tur": "hook-hatasi", "olay": olay,
                                                                  "hata": f"{type(e).__name__}: {e}"[:300],
                                                                  "iz": traceback.format_exc()[-800:]})
