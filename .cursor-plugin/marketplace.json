@@ -1,0 +1,11 @@
+{
+  "name": "agenchestra",
+  "owner": { "name": "Mert Durukan" },
+  "metadata": {
+    "description": "Orkestra: maliyet basamaklı, ayrı denetçili ajan orkestrasyonu (Cursor sürümü; Claude Code sürümü .claude-plugin altındadır).",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    { "name": "orkestra", "source": "orkestra", "description": "Maliyet basamaklı, ayrı denetçili, paralel ajan orkestrasyonu; ortak defter; token defteri." }
+  ]
+}
