@@ -24,7 +24,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
   - Doğrudan yapılan işte denetçi yoktur. "Onaylandı" deme; neyi nasıl doğruladığını (test, yeniden okuma) söyle.
 
 ## Maliyet basamakları
-- T0: hazır betik. T1: Haiku. T2: Sonnet. T3: Opus medium (planlama burada). T4: Opus xhigh.
+- T0: hazır betik; T1-T4 basamak→model/effort tablosu tek yerde: ayarlar/model_politikasi.json (`orkestra politika goster`). Planlama T3 basamağında yapılır.
 - Bir işe izin veren en düşük basamakla başla.
 - Yükseltmeyi denetçi reddi tetikler.
 - Kart başına ajan tavanı vardır (varsayılan 8; workflow `args.kart_ajan_tavani`). Tavan dolan kart `tavan` sonucuyla durur; ana ajan nedeni okuyup kartı `beklemede` yapar, yeniden koşturmaz.

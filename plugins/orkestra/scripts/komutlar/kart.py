@@ -15,6 +15,7 @@ import sys
 import time
 
 import ork_lib as L  # noqa: E402
+import plan_modeli_doldur as PM  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
 import soru_sinif as SS  # noqa: E402
 from komutlar._ortak import BASAMAKLAR, BETIK_DIZINI, hata, oturum_id, sd_gerekli  # noqa: E402
@@ -29,6 +30,17 @@ def _kart_al(sd, gid):
 
 
 RISKLER = ("dusuk", "orta", "yuksek")
+EFFORTLAR = ("low", "medium", "high", "xhigh")
+
+
+def _effort_dogrula(d: dict):
+    """I-058: verilmediyse None (alan yazılmaz); geçersizse hata."""
+    e = d.get("effort")
+    if e is None:
+        return None
+    if not isinstance(e, str) or e not in EFFORTLAR:
+        hata(f"effort {'|'.join(EFFORTLAR)} olmalı: {e!r} ({d.get('baslik') or '(başlıksız)'})")
+    return e
 
 
 def _risk_dogrula(d: dict):
@@ -93,6 +105,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     _soru_zorunlu(d, sd)
     test_alanlari = _test_alanlari_dogrula(d)
     risk = _risk_dogrula(d)
+    effort = _effort_dogrula(d)
     butce = _butce_dogrula(d)
     oto_teslim = _oto_teslim_dogrula(d)
     _merkez_saglamla(sd)  # K2: bozuk/eksik isler.json bağ çözümünü düşürmez
@@ -116,6 +129,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "oto_teslim": oto_teslim,
         "durum": "planlandi",
         "oturum": oturum_id(),
+        "plan_modeli": PM.plan_modeli_bul(sd, oturum_id()),
         "olusturma": L.simdi(),
         "isciler": [],
         "denetciler": [],
@@ -127,6 +141,8 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         k["genislet_onay"] = True
     if risk is not None:
         k["risk"] = risk
+    if effort is not None:
+        k["effort"] = effort
     if butce is not None:
         k["butce"] = butce
     if test_alanlari:
@@ -242,7 +258,7 @@ def cmd_kart_yeni(a):
                        "soru": a.soru, "genislet_onay": a.genislet_onay or None,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
-                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk, "madde": a.madde, "oto_teslim": a.oto_teslim,
+                       "tdd": a.tdd, "is": a.is_id, "risk": a.risk, "effort": a.effort, "madde": a.madde, "oto_teslim": a.oto_teslim,
                        "butce": ({"usd": a.butce_usd, "token": a.butce_token}
                                  if a.butce_usd is not None or a.butce_token is not None else None)})
     if not k["kabul_kriterleri"]:
@@ -281,6 +297,7 @@ def cmd_kart_toplu(a):
         _soru_zorunlu(d, sd)
         _test_alanlari_dogrula(d)
         _risk_dogrula(d)
+        _effort_dogrula(d)
         _butce_dogrula(d)
         _oto_teslim_dogrula(d)
         if d.get("madde") is not None and (not isinstance(d["madde"], str) or not d["madde"].strip()):
@@ -1544,6 +1561,7 @@ def kaydet(alt):
     ot.add_argument("--elle-teslim", dest="oto_teslim", action="store_const", const=False,
                     help="onaydan sonra teslimi ana ajan yapar (varsayılan: kod dışı kartta)")
     y.add_argument("--risk", help="dusuk|orta|yuksek (isteğe bağlı; ölçüm kaydı)")
+    y.add_argument("--effort", help="low|medium|high|xhigh (isteğe bağlı; kartın çalışma eforu kaydı)")
     y.add_argument("--madde", help="işin todo.md'sinde bu kartın bitireceği açık maddenin metin parçası; teslimde otomatik [x]")
     y.add_argument("--butce-usd", dest="butce_usd", help="isteğe bağlı bütçe (USD); yalnız kayıt")
     y.add_argument("--butce-token", dest="butce_token", help="isteğe bağlı bütçe (token); yalnız kayıt")
@@ -1570,6 +1588,7 @@ def kaydet(alt):
     ka.set_defaults(f=cmd_kart_test_kilit_ac)
     g = kart.add_parser("goster")
     g.add_argument("gid")
+    g.add_argument("--json", action="store_true", help="JSON çıktı (varsayılan zaten JSON; plan_modeli ve effort dahil)")
     g.set_defaults(f=cmd_kart_goster)
     li = kart.add_parser("liste")
     li.add_argument("--hepsi", action="store_true")

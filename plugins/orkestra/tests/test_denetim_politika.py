@@ -33,10 +33,11 @@ def cfg_ver(**kw):
 
 
 class K1Ayar(unittest.TestCase):
-    def test_dosya_gecerli_ve_tam_mod(self):
+    def test_dosya_gecerli_ve_golge_mod(self):
+        # Eklenti varsayılanı 17.10.2026 kullanıcı kararıyla gölge (I-058 P6): kararlar kaydedilir, uygulanmaz.
         with open(AYAR, encoding="utf-8") as f:
             v = json.load(f)
-        self.assertEqual(v["mod"], "tam")
+        self.assertEqual(v["mod"], "golge")
         for a in SEMA:
             self.assertIn(a, v)
         self.assertEqual(v["gecit"], {"min_denetim": 50, "min_kanit_kart": 20})
@@ -51,7 +52,7 @@ class K1Ayar(unittest.TestCase):
             with open(yol, "w", encoding="utf-8") as f:
                 f.write("{bozuk")
             self.assertEqual(D.ayar_yukle(sd), D.ayar_yukle())
-            self.assertEqual(D.ayar_yukle(sd)["mod"], "tam")
+            self.assertEqual(D.ayar_yukle(sd)["mod"], "golge")
 
 
 class K2Tablo(unittest.TestCase):
@@ -211,6 +212,8 @@ class K7Cli(unittest.TestCase):
 
     def test_tablo_json_dosya_yazmaz_ve_karar_kaydet(self):
         with tempfile.TemporaryDirectory() as sd:
+            with open(os.path.join(sd, "denetim_politikasi.json"), "w", encoding="utf-8") as f:
+                json.dump({"mod": "tam"}, f)  # tam modun karar kaydını sınar; eklenti varsayılanı gölge
             for i in range(12):
                 L.kart_yaz(sd, kart(i + 1, ilk="onay"))
             once = ozet(sd)

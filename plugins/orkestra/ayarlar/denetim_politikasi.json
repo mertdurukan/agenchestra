@@ -1,6 +1,6 @@
 {
   "surum": 1,
-  "mod": "tam",
+  "mod": "golge",
   "grup_anahtari": ["sinif", "basamak"],
   "min_ornek": 10,
   "max_ilk_ret_orani": 0.1,

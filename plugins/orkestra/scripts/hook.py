@@ -1461,7 +1461,26 @@ def _oturum_modeli(inp: dict) -> str:
 
 
 def _model_sapma_satiri(inp: dict) -> str:
-    """Ana ajan modeli ailesi proje ayarındaki (`.claude/settings.json` model) aileden farklıysa TEK uyarı satırı; aksi halde boş. Hata sessiz."""
+    """Ana ajan modeli politika (ayarlar/model_politikasi.json) dışındaysa TEK uyarı satırı; politika dosyası yoksa proje ayarındaki
+    (`.claude/settings.json` model) aileyle karşılaştırır; aksi halde boş. Hata sessiz."""
+    try:
+        import model_politika as MP
+        if os.path.isfile(MP.AYAR_DOSYASI):
+            pol = MP.yukle(None)
+            o_model = _oturum_modeli(inp)
+            o_aile = _model_ailesi(o_model)
+            if not o_model:
+                return ""
+            vars_ = str((pol.get("ana_ajan") or {}).get("varsayilan") or "")
+            yasak = [str(y).lower() for y in (pol.get("yasak") or [])]
+            if o_model.lower() in yasak:
+                return (f"UYARI: ana ajan modeli YASAK (politika): {o_model[:60]}. Uygulamada {vars_[:60]} seç.")[:250]
+            izinli = {_model_ailesi(vars_), _model_ailesi((pol.get("planlayici_yukseltme") or {}).get("model"))} - {""}
+            if o_aile and izinli and o_aile not in izinli:
+                return (f"UYARI: ana ajan modeli politika dışı: oturum {o_model[:60]}, politika varsayılanı {vars_[:60]}.")[:250]
+            return ""
+    except Exception:
+        pass
     try:
         yol = os.path.join(L.proje_dizini(inp.get("cwd")), ".claude", "settings.json")
         with open(yol, encoding="utf-8") as f:

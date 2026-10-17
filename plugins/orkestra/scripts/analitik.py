@@ -17,6 +17,7 @@ import collections
 import datetime
 import glob
 import json
+import math
 import os
 import re
 import statistics
@@ -963,6 +964,142 @@ def baglam_kirilim(kayitlar: list[dict]) -> dict:
     return {"toplam_usd": _r(toplam), "projeler": projeler}
 
 
+# ---------------------------------------------------------------- planlayıcı modeli x sınıf x basamak (I-058 P2)
+
+PLANLAYICI_MIN_N_VARSAYILAN = 20
+
+
+def planlayici_min_n() -> int:
+    """ayarlar/model_politikasi.json karar.min_n; dosya ya da alan yoksa 20."""
+    yol = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ayarlar", "model_politikasi.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            n = (json.load(f).get("karar") or {}).get("min_n")
+        return int(n) if isinstance(n, (int, float)) and n > 0 else PLANLAYICI_MIN_N_VARSAYILAN
+    except (OSError, ValueError, AttributeError):
+        return PLANLAYICI_MIN_N_VARSAYILAN
+
+
+def beta_alt_sinir(basari: int, n: int, q: float = 0.2) -> float | None:
+    """Beta(1+basari, 1+n-basari) dağılımının q (varsayılan %20) kuantili. Tam sayı parametrede CDF iki terimli toplamdır."""
+    if n <= 0:
+        return None
+    a, m = 1 + basari, n + 1          # CDF(x) = P(Binom(m, x) >= a)
+
+    def cdf(x):
+        return sum(math.comb(m, j) * x ** j * (1 - x) ** (m - j) for j in range(a, m + 1))
+    lo, hi = 0.0, 1.0
+    for _ in range(50):
+        mid = (lo + hi) / 2
+        if cdf(mid) < q:
+            lo = mid
+        else:
+            hi = mid
+    return round((lo + hi) / 2, 3)
+
+
+def _model_ailesi(m: str | None) -> str:
+    m = _kisa_model(m)
+    f = re.match(r"(opus|sonnet|haiku)", m)
+    return f.group(1) if f else m
+
+
+def _persentil(x: list, p: float) -> float | None:
+    x = sorted(v for v in x if v is not None)
+    if not x:
+        return None
+    i = (len(x) - 1) * p
+    lo = int(i)
+    hi = min(lo + 1, len(x) - 1)
+    return round(x[lo] + (x[hi] - x[lo]) * (i - lo), 1)
+
+
+def planlayici_modeli(kart: dict, ana_oturum: dict) -> str:
+    """kart.plan_modeli; yoksa/'-' ise kart.oturum'un ana ajan satırlarında maliyeti en yüksek model; o da yoksa 'bilinmiyor'."""
+    pm = kart.get("plan_modeli")
+    if pm and pm != "-":
+        return _model_ailesi(pm)
+    m = ana_oturum.get(kart.get("oturum"))
+    if m:
+        return _model_ailesi(max(m.items(), key=lambda kv: kv[1])[0])
+    return "bilinmiyor"
+
+
+def _planlayici_satir(ad, sinif, bas, ks, usd_isci, usd_den, min_n):
+    denetlenen = ilk = ret = onay = 0
+    sure = []
+    cagri = sum(len(k.get("isciler") or []) for k in ks)
+    for k in ks:
+        dnt = sorted(k.get("denetimler") or [], key=lambda d: (d.get("sira", 0), d.get("zaman", "")))
+        if dnt:
+            denetlenen += 1
+            ilk += int(dnt[0].get("karar") == "onay")
+        ret += sum(1 for d in dnt if d.get("karar") == "ret")
+        onay += int(k.get("durum") in ("onaylandi", "teslim") or L.kart_durumu_hesapla(k) in ("onaylandi", "teslim"))
+        g = sorted(k.get("gecmis") or [], key=lambda x: x.get("zaman", ""))
+        olus = _zaman(k.get("olusturma")) or (_zaman(g[0].get("zaman")) if g else None)
+        teslim = next((_zaman(x.get("zaman")) for x in g if x.get("olay") == "teslim"), None)
+        d = _dk(olus, teslim)
+        if d is not None:
+            sure.append(d)
+    n = len(ks)
+    yeterli = n >= min_n
+    return {"planlayici": ad, "sinif": sinif, "baslangic_basamak": bas, "n": n,
+            "ilk_gecis": _r(ilk / denetlenen, 3) if denetlenen else None,
+            "alt_sinir": beta_alt_sinir(ilk, denetlenen), "ret": ret, "denetlenen": denetlenen,
+            "onaylanan": onay, "isci_kart": _r(cagri / n, 2) if n else None,
+            "isci_usd_kart": _r(usd_isci / n) if n else None,
+            "kabul_usd": _r((usd_isci + usd_den) / onay) if onay else None,
+            "dk_medyan": _medyan(sure), "dk_p90": _persentil(sure, 0.9), "teslim": len(sure),
+            "yeterli": yeterli, "etiket": None if yeterli else "yetersiz veri", "karar_satiri": yeterli}
+
+
+def _planlayici(kartlar: list[dict], kayitlar: list[dict], min_n: int | None = None) -> dict:
+    """Planlayıcı modeli x sınıf x başlangıç basamağı: ilk geçiş (+Beta %20 alt sınır), ret, işçi/kart, kabul başına USD, süre.
+    Satırlar hücre bazlı; 'toplam' her planlayıcının bütün hücreleri. n < min_n hücre 'yetersiz veri' (yeterli=False,
+    karar_satiri=False) olarak kalır. İptal kartlar dışarıda."""
+    min_n = planlayici_min_n() if min_n is None else min_n
+    ana_oturum: dict = {}
+    isci, den = collections.Counter(), collections.Counter()
+    for r in kayitlar:
+        if L.ana_ajan_satiri_mi(r):
+            if r.get("oturum"):
+                ana_oturum.setdefault(r["oturum"], collections.Counter())[r.get("model")] += r.get("maliyet_usd") or 0.0
+            continue
+        if _rol(r.get("ajan")) == "denetci":
+            den[r["gorev"]] += r.get("maliyet_usd") or 0.0
+        elif r.get("surec") in ("is", "duzeltme") or _rol(r.get("ajan")) == "isci":
+            isci[r["gorev"]] += r.get("maliyet_usd") or 0.0
+    hucre: dict = collections.defaultdict(list)
+    pl: dict = collections.defaultdict(list)
+    for k in kartlar:
+        if k.get("durum") == "iptal":
+            continue
+        ad = planlayici_modeli(k, ana_oturum)
+        hucre[(ad, _sinif(k), k.get("baslangic_basamak") or k.get("basamak") or "-")].append(k)
+        pl[ad].append(k)
+
+    def usd(ks, c):
+        return sum(c.get(k["id"], 0.0) for k in ks)
+    satirlar = [_planlayici_satir(a, s, b, ks, usd(ks, isci), usd(ks, den), min_n) for (a, s, b), ks in sorted(hucre.items())]
+    toplam = [_planlayici_satir(a, "*", "*", ks, usd(ks, isci), usd(ks, den), min_n) for a, ks in sorted(pl.items())]
+    return {"olcum": L.simdi(), "min_n": min_n, "satirlar": satirlar, "toplam": toplam}
+
+
+def planlayici_md(p: dict) -> str:
+    """maliyet rapor için MD tablo (toplam satırları önce, sonra hücreler)."""
+    f = lambda v, n=2: "–" if v is None else f"{v:.{n}f}"  # noqa: E731
+    satir = [f"### Planlayıcı modeli × sınıf × basamak (ölçüm {p['olcum'][:16].replace('T', ' ')}, min_n {p['min_n']})", "",
+             "| planlayıcı | sınıf | basamak | n | ilk geçiş | alt sınır (Beta %20) | ret | denetlenen | işçi/kart | işçi $/kart | kabul başına $ | dk medyan | dk p90 | not |",
+             "|" + "---|" * 14]
+    for r in p["toplam"] + p["satirlar"]:
+        satir.append(f"| {'**' + r['planlayici'] + '**' if r['sinif'] == '*' else r['planlayici']} | "
+                     f"{'toplam' if r['sinif'] == '*' else r['sinif']} | {'–' if r['baslangic_basamak'] == '*' else r['baslangic_basamak']} | "
+                     f"{r['n']} | {f(r['ilk_gecis'])} | {f(r['alt_sinir'])} | {r['ret']} | {r['denetlenen']} | {f(r['isci_kart'])} | {f(r['isci_usd_kart'])} | "
+                     f"{f(r['kabul_usd'])} | {f(r['dk_medyan'], 1)} | {f(r['dk_p90'], 1)} | {r['etiket'] or ''} |")
+    return "\n".join(satir) + "\n"
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     kartlar = L.kartlar(sd)
@@ -979,7 +1116,7 @@ def olustur(sd: str, proje: str) -> dict:
         "trend": trend, "kota": _kota(), "basamak": _basamak(kartlar, kayitlar), "tasarruf": _tasarruf(kayitlar),
         "akis": _akis(kartlar, kayitlar), "birim": _birim(kartlar, kayitlar, sohbetler, trend),
         "skill": _skill(sd, kayitlar), "saglik": _saglik(sd, proje, kayitlar),
-        "ders": _ders(kartlar, kayitlar),
+        "ders": _ders(kartlar, kayitlar), "planlayici": _planlayici(kartlar, kayitlar),
         "baglam": baglam_kirilim(baglam_coz(sd, kayitlar)),
         "hedef_panosu": hedef_panosu(kartlar, kayitlar),
     }

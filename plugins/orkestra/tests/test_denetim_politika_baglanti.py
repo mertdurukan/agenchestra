@@ -90,16 +90,18 @@ class PolitikaBaglanti(unittest.TestCase):
         return k
 
     # K1
-    def test_k1_tam_mod_eskisiyle_ayni(self):
+    def test_k1_varsayilan_golge_kayit_var_uygulanmaz(self):
         self.gecmis_kartlar()
         gid = self.kart()
-        r = self.bitti(gid)  # proje ezmesi yok: eklenti varsayılanı mod=tam
+        r = self.bitti(gid)  # proje ezmesi yok: eklenti varsayılanı mod=golge (I-058 P6, 17.10.2026)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(r.stdout.strip(), f"{gid} → denetimde")
-        self.assertNotIn("politika", r.stderr)
         k = self.goster(gid)
-        self.assertNotIn("politika_kararlari", k)
         self.assertEqual(k["durum"], "denetimde")
+        pk = k.get("politika_kararlari") or []
+        self.assertEqual(len(pk), 1)
+        self.assertIs(pk[-1]["uygulanir"], False)
+        self.assertFalse([d for d in k["denetimler"] if d.get("denetim_turu") == "otomatik"])
 
     def test_k1_tam_mod_acik_ezmeyle_de_kayit_yok(self):
         self.gecmis_kartlar()

@@ -21,7 +21,7 @@ Basamak rehberi:
 - **T0**: hazır betik ya da deterministik iş, model gerekmez (betiği bir T1 işçisi çalıştırır).
 - **T1** Haiku: sınıflama, biçimleme, özet, günlük satırı, betik çalıştırıp raporlama.
 - **T2** Sonnet: muhakemeli mekanik iş; tarama, senkron, döküm, betik iskeleti.
-- **T3** Opus medium: sentez, iddia doğrulama kararı, içerik yazımı.
+- **T3** (model/effort: ayarlar/model_politikasi.json): sentez, iddia doğrulama kararı, içerik yazımı.
 - **T4** Opus 5.5 xhigh: yalnız açıkça çok zor iş.
 
 Plan yolu rehberi (`skills/is/plan_yolu.json` eşiklerine göre; sayıları sabit yazma):

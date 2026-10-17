@@ -1,0 +1,14 @@
+{
+  "surum": 1,
+  "ana_ajan": {"varsayilan": "claude-sonnet-5-5"},
+  "yasak": ["claude-fable-5-1"],
+  "planlayici_yukseltme": {"kosul": ["belirsiz", "cok-modul"], "model": "opus"},
+  "basamak": {
+    "T1": {"model": "haiku", "effort": "medium"},
+    "T2": {"model": "sonnet", "effort": "medium"},
+    "T3": {"model": "opus", "effort": "medium"},
+    "T4": {"model": "opus", "effort": "xhigh"}
+  },
+  "karar": {"min_n": 20, "ilk_gecis_fark": 0.05, "usd_fark": 0.10, "dk_fark": 0.10},
+  "yukseltme_sirasi": ["effort", "model"]
+}

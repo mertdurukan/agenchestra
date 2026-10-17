@@ -1,8 +1,8 @@
 """orkestra oner: veriye dayali baslangic basamagi onerisi ve benzer kart uyarisi (G-075).
 
-Yontem: 'en ucuz gecen model' (FrugalGPT/RouteLLM) + Beta(1,1) posterior ortalamasi + az veride k-NN (TF-IDF).
+Yontem: 'en ucuz gecen model' (FrugalGPT/RouteLLM) + Beta posterior %20 alt siniri (min_n ve usd_fark politikadan) + az veride k-NN (TF-IDF).
 Salt okuma: durum klasorunden kart ve (tekillestirilmis) maliyet okur, hicbir sey yazmaz.
-  basamak_oner(kartlar, kayitlar, sinif, metin='', min_n=5) -> {sinif, onerilen, gerekce, adaylar, benzer, uyarilar}
+  basamak_oner(kartlar, kayitlar, sinif, metin='', min_n=None, usd_fark=None) -> {sinif, onerilen, gerekce, adaylar, benzer, uyarilar}
   benzer(kartlar, metin, k=5) -> [{id, baslik, basamak, ret_sayisi, nedenler, skor}]
 CLI: oner.py basamak --sinif S [--metin M] [--json] [--min-n N] [--sd DIZIN]
 """
@@ -109,7 +109,103 @@ def benzer(kartlar, metin, k=5) -> list:
     return out[:k]
 
 
-def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=5) -> dict:
+VARSAYILAN_MIN_N = 20
+VARSAYILAN_USD_FARK = 0.10
+ALT_SINIR_KUANTIL = 0.20
+
+
+def politika() -> dict:
+    """karar.min_n / karar.usd_fark: model_politika.yukle() ya da ayarlar/model_politikasi.json; yoksa varsayilan."""
+    out = {"min_n": VARSAYILAN_MIN_N, "usd_fark": VARSAYILAN_USD_FARK}
+    karar = None
+    try:
+        import model_politika  # noqa: E402
+        p = model_politika.yukle()
+        karar = (p or {}).get("karar") if isinstance(p, dict) else None
+    except Exception:
+        karar = None
+    if not isinstance(karar, dict):
+        try:
+            yol = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ayarlar", "model_politikasi.json")
+            with open(yol, encoding="utf-8") as f:
+                karar = (json.load(f) or {}).get("karar")
+        except Exception:
+            karar = None
+    if isinstance(karar, dict):
+        try:
+            if int(karar.get("min_n")) > 0:
+                out["min_n"] = int(karar["min_n"])
+        except (TypeError, ValueError):
+            pass
+        try:
+            if float(karar.get("usd_fark")) >= 0:
+                out["usd_fark"] = float(karar["usd_fark"])
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def alt_sinir(a: int, r: int, q: float = ALT_SINIR_KUANTIL) -> float:
+    """Beta(a+1, r+1) posteriorunun q kuantili. Tamsayi parametrede CDF = P(Binom(a+r+1, x) >= a+1); ikili aramayla ters."""
+    ap, bp = a + 1, r + 1
+    m = ap + bp - 1
+
+    def cdf(x):
+        return sum(math.comb(m, j) * x ** j * (1 - x) ** (m - j) for j in range(ap, m + 1))
+
+    lo, hi = 0.0, 1.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if cdf(mid) > q:
+            hi = mid
+        else:
+            lo = mid
+    return (lo + hi) / 2
+
+
+def _t(s):
+    if not s:
+        return None
+    try:
+        import datetime
+        z = datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return (z if z.tzinfo else z.astimezone()).astimezone()
+    except Exception:
+        return None
+
+
+def _kart_dk(k):
+    """olusturma -> ilk teslim/onay olayi (dk); olay yoksa kart alanlari (teslim_zamani/onay_zamani)."""
+    bas = _t(k.get("olusturma"))
+    if not bas:
+        return None
+    bit = None
+    for x in sorted((x for x in (k.get("gecmis") or []) if isinstance(x, dict)), key=lambda x: str(x.get("zaman", ""))):
+        if x.get("olay") in ("teslim", "denetim:onay"):
+            bit = _t(x.get("zaman"))
+            if bit:
+                break
+    if not bit:
+        bit = _t(k.get("teslim_zamani")) or _t(k.get("onay_zamani"))
+    if not bit or bit < bas:
+        return None
+    return (bit - bas).total_seconds() / 60
+
+
+def _medyan(x):
+    x = sorted(v for v in x if v is not None)
+    if not x:
+        return None
+    h = len(x) // 2
+    return x[h] if len(x) % 2 else (x[h - 1] + x[h]) / 2
+
+
+def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=None, usd_fark=None) -> dict:
+    pol = politika()
+    if min_n is None:
+        min_n = pol["min_n"]
+    if usd_fark is None:
+        usd_fark = pol["usd_fark"]
     sn = sinif_normal(sinif)
     usd = _kart_usd(kayitlar)
     gruplar: dict = {}
@@ -122,22 +218,38 @@ def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=5) -> dict:
         b = c.get("baslangic_basamak") or c.get("basamak")
         if not b:
             continue
-        g = gruplar.setdefault(b, {"a": 0, "r": 0, "usd": 0.0})
+        g = gruplar.setdefault(b, {"a": 0, "r": 0, "usd": 0.0, "dk": []})
         g["a" if karar == "onay" else "r"] += 1
         g["usd"] += usd.get(c.get("id"), 0.0)
+        g["dk"].append(_kart_dk(c))
     adaylar = []
     for b in sorted(gruplar):
         g = gruplar[b]
         n = g["a"] + g["r"]
         p = (g["a"] + 1) / (n + 2)
+        al = alt_sinir(g["a"], g["r"])
         ort = g["usd"] / n
-        adaylar.append({"basamak": b, "n": n, "ilk_gecis_olasiligi": p, "ort_usd": ort, "beklenen_usd": ort / p})
+        med = _medyan(g["dk"])
+        adaylar.append({"basamak": b, "n": n, "ilk_gecis_olasiligi": p, "alt_sinir": al, "ort_usd": ort,
+                        "beklenen_usd": ort / al, "medyan_dk": med,
+                        "beklenen_dk": (med / al) if med is not None else None})
     yeterli = [x for x in adaylar if x["n"] >= min_n]
     if yeterli:
         en = min(yeterli, key=lambda x: (x["beklenen_usd"], x["basamak"]))
-        onerilen, gerekce = en["basamak"], "en-kucuk-beklenen-usd"
+        yakin = [x for x in yeterli if x["beklenen_usd"] <= en["beklenen_usd"] * (1 + usd_fark)]
+        gerekce = "en-kucuk-beklenen-usd"
+        if len(yakin) > 1:
+            en2 = min(yakin, key=lambda x: (x["beklenen_dk"] is None, x["beklenen_dk"] or 0.0,
+                                            x["beklenen_usd"], x["basamak"]))
+            if en2 is not en and en2["beklenen_dk"] is not None:
+                en, gerekce = en2, "usd-esit-en-kucuk-beklenen-dk"
+        onerilen = en["basamak"]
+        elenen = [x["basamak"] for x in adaylar if x["n"] < min_n]
+        if elenen:
+            gerekce = "yetersiz-veri"
     else:
         onerilen, gerekce = "T2", "yetersiz-veri"
+        elenen = [x["basamak"] for x in adaylar]
     bz = benzer(kartlar, metin) if (metin or "").strip() else []
     uyarilar = []
     for x in bz:
@@ -146,14 +258,15 @@ def basamak_oner(kartlar, kayitlar, sinif, metin="", min_n=5) -> dict:
             if ip and ip not in uyarilar:
                 uyarilar.append(ip)
     return {"sinif": sn, "onerilen": onerilen, "gerekce": gerekce, "adaylar": adaylar,
-            "benzer": bz, "uyarilar": uyarilar}
+            "elenen": elenen, "benzer": bz, "uyarilar": uyarilar}
 
 
 def _duz(s: dict) -> str:
     sat = [f"sinif={s['sinif']}  onerilen={s['onerilen']}  gerekce={s['gerekce']}"]
     for a in s["adaylar"][:6]:
-        sat.append(f"  {a['basamak']}: n={a['n']} P={a['ilk_gecis_olasiligi']:.2f} "
-                   f"ort=${a['ort_usd']:.4f} beklenen=${a['beklenen_usd']:.4f}")
+        sat.append(f"  {a['basamak']}: n={a['n']} alt={a['alt_sinir']:.2f} "
+                   f"ort=${a['ort_usd']:.4f} beklenen=${a['beklenen_usd']:.4f} "
+                   f"dk={'-' if a['beklenen_dk'] is None else format(a['beklenen_dk'], '.0f')}")
     for b in s["benzer"][:3]:
         sat.append(f"  benzer {b['id']} ({b['basamak']}, ret={b['ret_sayisi']}, skor={b['skor']:.2f}) {str(b['baslik'])[:50]}")
     for u in s["uyarilar"][:3]:
@@ -168,7 +281,7 @@ def main(argv=None) -> int:
     b.add_argument("--sinif", default="")
     b.add_argument("--metin", default="")
     b.add_argument("--json", action="store_true")
-    b.add_argument("--min-n", type=int, default=5)
+    b.add_argument("--min-n", type=int, default=None)
     b.add_argument("--sd", default=None)
     a = ap.parse_args(argv)
     sd = a.sd or L.durum_dizini()

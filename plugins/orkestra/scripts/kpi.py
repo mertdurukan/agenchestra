@@ -217,6 +217,9 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         if kz and ol:
             bekleme.append((kz - ol).total_seconds())
     out["genel"]["onay_bekleme_sn"] = {"medyan": _medyan(bekleme), "p95": _p95(bekleme)}
+    pl = A._planlayici(tum, [r for rs in mal_kart.values() for r in rs] + ana)
+    out["planlayici"] = [{"planlayici": r["planlayici"], "n": r["n"], "onaylanan": r["onaylanan"], "kabul_usd": r["kabul_usd"],
+                          "yeterli": r["yeterli"]} for r in pl["toplam"]]
     return out
 
 
@@ -234,6 +237,9 @@ def tablo(s: dict) -> str:
         satir.append(f"  {ad:<24} {_f(s['genel'].get(ad)):<28} = {TANIMLAR[ad]['pay']} / {TANIMLAR[ad]['payda']}")
     a = s["ana_ajan_payi"]
     satir.append(f"  ana_ajan_payi            maliyet_usd {a['maliyet_usd']:.4f}, token {a['token']} (kartlara dağıtılmaz)")
+    for r in s.get("planlayici") or []:
+        satir.append(f"  planlayici {r['planlayici']:<10} kabul_usd {_f(r['kabul_usd'])} (n={r['n']}, onaylı {r['onaylanan']})"
+                     + ("" if r["yeterli"] else " [yetersiz veri]"))
     for baslik, grup in (("sinif", s["sinif"]), ("basamak", s["basamak"])):
         for ad, v in grup.items():
             satir.append(f"\n{baslik}: {ad}")

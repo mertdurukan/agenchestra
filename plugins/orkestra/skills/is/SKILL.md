@@ -39,7 +39,7 @@ Sen ANA AJANSIN. Planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSI
     - Önce en ucuz kanıt: soruyu cevaplayan en dar ölçümle başla (ör. varlık kontrolü "kolon var mı", sayımdan önce).
     - Genişletme (tüm tablo, tüm şema, sayım, tam tarama) kullanıcıya sorularak yapılır; onaylanırsa karta `--genislet-onay` (JSON: `genislet_onay: true`) konur.
     - `analiz`, `analitik`, `arastirma` sınıfı kartta geniş tarama kalıbı (`genis_tarama_kaliplari`) çıkarsa CLI yalnız uyarır (stderr); onay varsa susar. Ayar: `ayarlar/kart_soru.json`; proje ezmesi `.claude/orkestra/kart_soru.json`.
-  - `basamak`: T0 betik (T1 işçi çalıştırır), T1 Haiku, T2 Sonnet, T3 Opus medium, T4 Opus xhigh. Kuşkudaysan DAHA DÜŞÜK basamağı seç; yükseltmeyi denetçi reddi tetikler.
+  - `basamak`: T0 betik (T1 işçi çalıştırır), T1-T4 için model/effort: ayarlar/model_politikasi.json. Kuşkudaysan DAHA DÜŞÜK basamağı seç; yükseltmeyi denetçi reddi tetikler.
     - Kartları yazmadan önce her alt iş için `py -3.13 <plugin>/scripts/oner.py basamak --sinif <sinif> --metin "<başlık + kriterler>"` çalıştır.
     - Öneri bağlayıcı değildir (K-3: otomatik uygulama yok); `yetersiz-veri` dönerse "kuşkuda düşük" kuralı geçerlidir.
     - Benzer kart uyarılarındaki kriter ipuçlarını kabul kriterlerine kat.

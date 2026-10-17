@@ -14,12 +14,16 @@ const SIRA = ['T1', 'T2', 'T3', 'T4']
 const ISCI = { T1: 'orkestra:isci-t1', T2: 'orkestra:isci-t2', T3: 'orkestra:isci-t3', T4: 'orkestra:isci-t4' }
 // Denetçi işçiyle AYNI basamak modelinde çalışır (maliyet: Opus denetim ~0,59$, Sonnet ~0,12$); asla altında değil.
 // İstisna: kartta toplam ret sayısı DENETCI_OPUS_RET_ESIGI'ne ulaştıktan sonraki denetimler opus (T4'te xhigh).
+// Asıl kaynak ayarlar/model_politikasi.json (+ proje ezmesi .claude/orkestra/model_politikasi.json); bu tablo yalnız
+// dosya okunamazsa kullanılan sabit yedektir (dosyadaki bugünkü değerlerin aynısı).
 const DENETCI = {
   T1: { model: 'haiku' },
   T2: { model: 'sonnet', effort: 'medium' },
-  T3: { model: 'opus', effort: 'high' },
+  T3: { model: 'opus', effort: 'medium' },
   T4: { model: 'opus', effort: 'xhigh' },
 }
+const YEDEK_YASAK = ['claude-fable-5-1']
+const GECERLI_EFFORT = ['low', 'medium', 'high', 'xhigh', 'max']
 const DENETCI_OPUS_RET_ESIGI = 2
 // Mercekler yalnız bu basamaklarda ayrı denetçi çağrılarına bölünür; diğerlerinde tek çağrıda birleşir.
 const MERCEK_AYRI_BASAMAKLAR = ['T4']
@@ -136,11 +140,73 @@ function kapiOzetiNormalize(m) {
     .replace(/\s+/g, ' ').trim()
 }
 
-// Denetçi modeli (saf): basamak modeli; toplam ret eşiğinden sonra opus (T4'te xhigh).
-function denetciModeli(basamak, toplamRet) {
-  const d = DENETCI[basamak]
-  if (toplamRet >= DENETCI_OPUS_RET_ESIGI && d.model !== 'opus') return { model: 'opus', effort: basamak === 'T4' ? 'xhigh' : 'high' }
+// ---- model politikası (saf yardımcılar; testler bu bölümü kaynak metninden çıkarıp çalıştırır)
+// Politika nesnesi: {basamak:{T1:{model,effort}...}, yasak:[...]}; null/eksikse sabit yedek (DENETCI, YEDEK_YASAK).
+let POLITIKA = null
+
+function politikaBirlestir(taban, ezme) {
+  const t = taban && typeof taban === 'object' ? taban : {}
+  if (!ezme || typeof ezme !== 'object') return t
+  const s = { ...t, ...ezme }
+  s.basamak = { ...(t.basamak || {}) }
+  for (const [b, v] of Object.entries(ezme.basamak || {})) s.basamak[b] = { ...(s.basamak[b] || {}), ...v }
+  return s
+}
+
+// Yasak listedeki ad (alt dize ya da aile adı, ör. 'fable') verilmiş model adında geçiyorsa true.
+function yasakMi(model, politika) {
+  const m = String(model || '').trim().toLowerCase()
+  if (!m) return false
+  const liste = politika && Array.isArray(politika.yasak) ? politika.yasak : YEDEK_YASAK
+  return liste.some(y => {
+    const ad = String(y || '').trim().toLowerCase()
+    if (!ad) return false
+    const aile = ad.replace('claude-', '').split('-')[0]
+    return m.includes(ad) || ad.includes(m) || (aile && m.includes(aile))
+  })
+}
+
+// Basamağın model/effort'u: model politikadan (yasaksa sabit yedek basamak modeli); effort: kartın 'effort' alanı > politika > yedek.
+function basamakModeli(basamak, kart, politika) {
+  const p = politika === undefined ? POLITIKA : politika
+  const yedek = DENETCI[basamak] || DENETCI.T2
+  const t = (p && p.basamak && p.basamak[basamak]) || yedek
+  let model = t.model || yedek.model
+  if (yasakMi(model, p)) model = yedek.model
+  if (yasakMi(model, p)) model = 'sonnet'
+  const kartEffort = kart && GECERLI_EFFORT.includes(kart.effort) ? kart.effort : null
+  const effort = kartEffort || t.effort || yedek.effort
+  return { model, ...(effort ? { effort } : {}) }
+}
+
+// Denetçi modeli (saf): basamak modeli; toplam ret eşiğinden sonra opus (T4'te xhigh). Kart effort'u geçerlidir.
+function denetciModeli(basamak, toplamRet, kart, politika) {
+  const d = basamakModeli(basamak, kart, politika)
+  const p = politika === undefined ? POLITIKA : politika
+  if (toplamRet >= DENETCI_OPUS_RET_ESIGI && d.model !== 'opus' && !yasakMi('opus', p)) {
+    const kartEffort = kart && GECERLI_EFFORT.includes(kart.effort) ? kart.effort : null
+    return { model: 'opus', effort: kartEffort || (basamak === 'T4' ? 'xhigh' : 'high') }
+  }
   return d
+}
+// ---- model politikası sonu
+
+// Politikayı dosyadan okur (eklenti kökü + proje ezmesi); hata/yoksa null → sabit yedek.
+async function politikaYukle(a) {
+  try {
+    if (a && a.politika && typeof a.politika === 'object') return a.politika
+    const env = (typeof process !== 'undefined' && process.env) || {}
+    const kok = (a && a.eklenti_koku) || env.CLAUDE_PLUGIN_ROOT
+    const fs = await import('node:fs')
+    const oku = yol => { try { const v = JSON.parse(fs.readFileSync(yol, 'utf8')); return v && typeof v === 'object' ? v : null } catch (e) { return null } }
+    const taban = kok ? oku(`${kok}/ayarlar/model_politikasi.json`) : null
+    const cwd = (typeof process !== 'undefined' && process.cwd) ? process.cwd() : null
+    const ezmeYol = (a && a.politika_ezmesi) || (cwd ? `${cwd}/.claude/orkestra/model_politikasi.json` : null)
+    const ezme = ezmeYol ? oku(ezmeYol) : null
+    return taban ? politikaBirlestir(taban, ezme) : null
+  } catch (e) {
+    return null
+  }
 }
 
 // İşçi ve test yazarı için ortak kapı protokolü: kapılar is-bitti içinde CLI'de koşar (ayrı kapı ajanı yok).
@@ -373,7 +439,7 @@ async function yurut(k, bagBekle, spek) {
       : ''
     yenidenSurec = false
     const is = await kartAjani(k, isciIstemi(k, surec, sonRet, not), {
-      agentType: ISCI[basamak], schema: ISCI_SEMA, label: `${k.id} işçi ${basamak}`, phase: 'İş',
+      agentType: ISCI[basamak], ...basamakModeli(basamak, k), schema: ISCI_SEMA, label: `${k.id} işçi ${basamak}`, phase: 'İş',
     })
     if (!is) return { id: k.id, durum: 'hata', basamak, gecmis, neden: 'işçi ajan sonuç döndürmedi' }
     if (is.kapi === 'kilitli') return kilitliSonucu(k, basamak, gecmis)
@@ -434,7 +500,7 @@ async function yurut(k, bagBekle, spek) {
         gecmis.push({ basamak, surec: 'denetim', karar: 'oto-onay' })
         return { id: k.id, durum: 'onaylandi', basamak, ozet: is.ozet, ciktilar: is.ciktilar, kanit: is.kanit, gecmis }
       }
-      const dm = denetciModeli(basamak, toplamRet)
+      const dm = denetciModeli(basamak, toplamRet, k)
       const mercekler = basamak === 'T3' || basamak === 'T4'
         ? ['doğruluk: iddialar ve sayılar kaynağıyla tutuyor mu', 'kanıt ve kapsam: her kriter kanıtlı ve eksiksiz mi']
         : ['doğruluk ve kapsam: her kriter kanıtla karşılanıyor mu']
@@ -500,6 +566,7 @@ async function yurut(k, bagBekle, spek) {
 }
 
 // ---------------------------------------------------------------- DAG yürütme
+POLITIKA = await politikaYukle(args)
 const kartlar = (args && args.gorevler) || []
 if (kartlar.length === 0) {
   return { hata: 'args.gorevler boş: önce `orkestra kart toplu` ile kartları oluştur ve JSON listesini ver.' }

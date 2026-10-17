@@ -90,6 +90,7 @@ def cmd_maliyet_rapor(a):
         metin += "\n" + _md_tablo("Süreç", ["surec"], _pivot(kayitlar, ["surec"]))
         metin += "\n" + _md_tablo("Gün", ["gun"], _pivot([dict(r, gun=(lambda z: z.date().isoformat() if z else "-")(__import__("analitik")._zaman(r.get("zaman")))) for r in kayitlar], ["gun"]))
         metin += "\n" + _baglam_md(kayitlar)
+        metin += "\n" + AN.planlayici_md(AN._planlayici(L.kartlar(sd), L.maliyet_kayitlari(sd)))
         sohbet = {s["oturum"]: s for s in L.sohbetler(sd, L.proje_dizini(), limit=500)}
         satirlar = ["", "### Sohbet (çalışma alanındaki oturumlar)", "",
                     "| sohbet | son etkinlik | defter ≈$ | motor $ (sohbet kapanınca yazılır) |", "|---|---|---|---|"]

@@ -188,6 +188,37 @@
     yerlestir($('#basamakIcerik'), html);
   }
 
+  // ------------------------------------------------------------ 1a. Planlayıcı modeli x sınıf x basamak ('planlayici' anahtarı)
+  function planlayiciCiz() {
+    const v = veri(), p = v && v.planlayici;
+    if (!p) return;
+    let kap = $('#planlayiciIcerik');
+    if (!kap) {   // maliyet.html'de yuva yoksa bölüm basamak bölümünün arkasına eklenir
+      const once = $('#basamak');
+      if (!once) return;
+      const sec = document.createElement('section');
+      sec.className = 'bolum'; sec.id = 'planlayici';
+      sec.innerHTML = '<h2>Planlayıcı modeli</h2><p class="aciklama">Kartı planlayan modele göre ilk geçiş, kabul başına maliyet ve süre. Örnek sayısı az olan hücreler karar vermez.</p><div id="planlayiciIcerik"></div>';
+      once.insertAdjacentElement('afterend', sec);
+      kap = $('#planlayiciIcerik');
+    }
+    const sat0 = [...(p.toplam || []), ...(p.satirlar || [])];
+    if (!sat0.length) { yerlestir(kap, '<p class="bos">Henüz kart yok.</p>'); return; }
+    const dk = x => x == null ? '–' : B.sayi(Math.round(x * 10) / 10);
+    const dolu = x => x == null ? '–' : B.sayi(x);
+    let html = `<div class="tablo-kap"><table class="tablo"><tr><th>Planlayıcı</th><th>Sınıf</th><th>Basamak</th><th class="sayi">Kart</th>
+      <th class="sayi">İlk geçiş</th><th class="sayi">Alt sınır (Beta %20)</th><th class="sayi">Ret/denetlenen</th><th class="sayi">İşçi/kart</th>
+      <th class="sayi">Kabul başına</th><th class="sayi">Süre medyan (dk)</th><th class="sayi">Süre p90 (dk)</th><th>Not</th></tr>` +
+      sat0.map(s => `<tr${s.sinif === '*' ? ' style="font-weight:600"' : ''}><td>${esc(s.planlayici)}</td><td>${s.sinif === '*' ? 'toplam' : esc(s.sinif)}</td>
+        <td>${s.baslangic_basamak === '*' ? '–' : esc(s.baslangic_basamak)}</td><td class="sayi">${B.sayi(s.n)}</td>
+        <td class="sayi">${s.ilk_gecis == null ? '–' : B.yuzde(s.ilk_gecis)}</td><td class="sayi">${s.alt_sinir == null ? '–' : B.yuzde(s.alt_sinir)}</td>
+        <td class="sayi">${B.sayi(s.ret)}/${B.sayi(s.denetlenen)}</td><td class="sayi">${dolu(s.isci_kart)}</td>
+        <td class="sayi">${s.kabul_usd == null ? '–' : B.usd(s.kabul_usd)}</td><td class="sayi">${dk(s.dk_medyan)}</td><td class="sayi">${dk(s.dk_p90)}</td>
+        <td>${s.yeterli ? '' : rozet('yetersiz veri', 'var(--neutral)')}</td></tr>`).join('') + '</table></div>' +
+      `<p class="meta">Ölçüm ${esc(String(p.olcum || '').slice(0, 16).replace('T', ' '))} · en az ${B.sayi(p.min_n)} kart</p>`;
+    yerlestir(kap, html);
+  }
+
   // ------------------------------------------------------------ 1b. Ret nedenleri ve onaylı iş başı maliyet ('ders' anahtarı)
   const dersVeri = () => { const v = veri(); return v && v.ders && typeof v.ders === 'object' ? v.ders : null; };
   const NEDEN_AD = { 'siniflanmamis': 'sınıflanmamış', 'kapsam-eksik': 'kapsam eksik', 'bicim': 'biçim', 'sayi-tutarsiz': 'sayı tutarsız', 'kanit-yok': 'kanıt yok', 'talimat-ihlali': 'talimat ihlali', 'kriter-belirsiz': 'kriter belirsiz', 'yetenek-yetersiz': 'yetenek yetersiz' };
@@ -560,7 +591,7 @@
     $('#ganttGun').innerHTML = ''; $('#ganttGun').__html = '';
   }
 
-  const hepsi = () => { if (durumCiz()) ciz(panoCiz, basamakCiz, retCiz, onayliCiz, birimCiz, akisCiz, ganttCiz, skillCiz, saglikCiz, bayatBolumu, uyariCiz); else ciz(bayatBolumu, uyariCiz); };
+  const hepsi = () => { if (durumCiz()) ciz(panoCiz, basamakCiz, planlayiciCiz, retCiz, onayliCiz, birimCiz, akisCiz, ganttCiz, skillCiz, saglikCiz, bayatBolumu, uyariCiz); else ciz(bayatBolumu, uyariCiz); };
 
   // ------------------------------------------------------------ etkileşim
   const ana = $('main');

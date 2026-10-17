@@ -21,7 +21,7 @@ import hook  # noqa: E402
 import ork_lib as L  # noqa: E402
 import perspektif  # noqa: E402
 
-ETIKET = "UYARI: ana ajan modeli ayar dışı"
+ETIKET = "UYARI: ana ajan modeli"  # ayar dışı (settings yedeği) ve politika dışı/YASAK satırlarını birlikte yakalar
 
 
 class ModelSapma(unittest.TestCase):
@@ -69,13 +69,16 @@ class ModelSapma(unittest.TestCase):
 
     # K1
     def test_k1_aile_farkli_tam_bir_satir(self):
+        # Politika dosyası (ayarlar/model_politikasi.json) varken karar politikadan gelir: opus planlayıcı yükseltme
+        # modeli olduğu için uyarısız; haiku varsayılan (sonnet) ve yükseltme ailesi dışında → tek satır (I-058 G-164).
         self.ayar("claude-sonnet-5-5")
-        s = self.sapma_satirlari(self.baglam(model="claude-opus-5"))
+        self.assertEqual(self.sapma_satirlari(self.baglam(model="claude-opus-5")), [])
+        s = self.sapma_satirlari(self.baglam(model="claude-haiku-5-5"))
         self.assertEqual(len(s), 1)
         self.assertLessEqual(len(s[0]), 250)
-        self.assertIn("claude-opus-5", s[0])
+        self.assertIn("claude-haiku-5-5", s[0])
         self.assertIn("claude-sonnet-5-5", s[0])
-        self.assertIn("model menüsünden ayar modelini seç", s[0])
+        self.assertIn("politika", s[0])
 
     # K2 negatifler
     def test_k2_aile_ayni_tam_kimlik_farkli(self):
@@ -104,10 +107,10 @@ class ModelSapma(unittest.TestCase):
     # K3 yedek kaynak
     def test_k3_yedek_transkript_son_assistant(self):
         self.ayar("claude-sonnet-5-5")
-        self.transkript("claude-sonnet-5-5", "claude-opus-5")
+        self.transkript("claude-sonnet-5-5", "claude-haiku-5-5")  # son assistant modeli politika dışı (haiku)
         s = self.sapma_satirlari(self.baglam())
         self.assertEqual(len(s), 1)
-        self.assertIn("claude-opus-5", s[0])
+        self.assertIn("claude-haiku-5-5", s[0])
 
     def test_k3_yedek_transkript_ayni_aile(self):
         self.ayar("claude-sonnet-5-5")
