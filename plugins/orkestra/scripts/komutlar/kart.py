@@ -360,9 +360,15 @@ def cmd_kart_goster(a):
 def cmd_kart_liste(a):
     sd = sd_gerekli()
     oid = oturum_id()
-    ks = [k for k in L.kartlar(sd) if a.hepsi or k.get("oturum") == oid or k.get("durum") in L.ACIK_DURUMLAR]
-    for k in ks:
+    tum = L.kartlar(sd)
+    for k in tum:
         k["durum"] = L.kart_durumu_hesapla(k)
+    sec = {x.strip() for x in (getattr(a, "durum", None) or "").split(",") if x.strip()}
+    if sec:
+        ks = [k for k in tum if k["durum"] in sec]
+    else:  # varsayılan: açık kartlar + beklemede olanlar (bekleyen kart gözden kaçmasın)
+        ks = [k for k in tum if a.hepsi or k.get("oturum") == oid
+              or k["durum"] in L.ACIK_DURUMLAR or k["durum"] == "beklemede"]
     if a.json:
         print(json.dumps(ks, ensure_ascii=False))
         return
@@ -963,6 +969,45 @@ def _yesil_kapi_engeli(k: dict) -> str | None:
     return None
 
 
+def _eski_surumde_kos(proje: str, ref: str, komut: str, dosyalar, zaman_asimi: float) -> tuple[int, str, float, str]:
+    """Kırmızı kapı (005): testler çalışma ağacındaki hâliyle, uygulama kodu `ref` sürümünde (HEAD varsayılan) koşar.
+
+    Çalışma ağacına dokunulmaz: `ref` geçici bir `git worktree` olarak ayrı klasöre açılır, test dosyaları ('/'li göreli
+    yollar) çalışma ağacından oraya kopyalanır, komut orada koşar; worktree her durumda silinir. → (kod, çıktı, süre, ref sha)."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    def git(*args, cwd=proje):
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    ust = git("rev-parse", "--show-toplevel")
+    if ust.returncode != 0:
+        hata("--eski-surumde için proje bir git deposunda olmalı.")
+    ust = os.path.abspath(ust.stdout.strip())
+    sha = git("rev-parse", "--verify", "--quiet", ref + "^{commit}")
+    if sha.returncode != 0:
+        hata(f"--surum-ref bulunamadı: {ref}")
+    sha = sha.stdout.strip()
+    gecici = tempfile.mkdtemp(prefix="ork_kirmizi_")
+    wt = os.path.join(gecici, "wt")
+    try:
+        ekle = git("worktree", "add", "--detach", "--quiet", wt, sha, cwd=ust)
+        if ekle.returncode != 0:
+            hata("geçici sürüm klasörü açılamadı: " + (ekle.stderr or ekle.stdout).strip()[:300])
+        rel = os.path.relpath(os.path.abspath(proje), ust)
+        kok = os.path.normpath(os.path.join(wt, rel))
+        for y in dosyalar:
+            hedef = os.path.join(kok, *y.split("/"))
+            os.makedirs(os.path.dirname(hedef), exist_ok=True)
+            shutil.copy2(os.path.join(os.path.abspath(proje), *y.split("/")), hedef)
+        kod, cikti, sure = L.kabuk_kos(komut, kok, zaman_asimi)
+        return kod, cikti, sure, sha
+    finally:
+        git("worktree", "remove", "--force", wt, cwd=ust)
+        shutil.rmtree(gecici, ignore_errors=True)
+        git("worktree", "prune", cwd=ust)
+
+
 def cmd_kart_test_kos(a):
     sd = sd_gerekli()
     ajan_id, ajan_tipi = _kim(a)
@@ -974,6 +1019,11 @@ def cmd_kart_test_kos(a):
         hata("kartta test_komutu/test_alani yok.")
     if a.asama == "kirmizi" and k.get("test_kilidi"):
         hata("test dosyaları zaten kilitli: kırmızı yeniden koşulamaz (kilidi yalnız ana ajan açar: `kart test-kilit-ac`).")
+    eski = bool(getattr(a, "eski_surumde", False))
+    if (eski or getattr(a, "surum_ref", None)) and a.asama != "kirmizi":
+        hata("--eski-surumde/--surum-ref yalnız --asama kirmizi ile kullanılır.")
+    if getattr(a, "surum_ref", None) and not eski:
+        hata("--surum-ref yalnız --eski-surumde ile birlikte verilir.")
     tdd = tdd_karti(k)
     if a.asama == "kirmizi" and not tdd:
         hata("kart TDD değil (tdd=false): kırmızı aşama yok; testler işçiyle birlikte yazılır, yeşilde kilitlenir.")
@@ -997,7 +1047,12 @@ def cmd_kart_test_kos(a):
         hata(f"{daralma}: test_alani ({', '.join(k['test_alani'])}) test_*.py dosyasına uymuyor.")
     if daralma:
         print(f"orkestra: {daralma} (tam paket iş sonunda bir kez koşar)", file=sys.stderr)
-    kod, cikti, sure = L.kabuk_kos(komut, proje, a.zaman_asimi)
+    eski_sha = None
+    if eski:
+        kod, cikti, sure, eski_sha = _eski_surumde_kos(proje, getattr(a, "surum_ref", None) or "HEAD", komut, sorted(once), a.zaman_asimi)
+        print(f"orkestra: kırmızı kapı {eski_sha[:10]} sürümünde koşuldu (çalışma ağacı değişmedi)", file=sys.stderr)
+    else:
+        kod, cikti, sure = L.kabuk_kos(komut, proje, a.zaman_asimi)
     sonra = L.test_dosyasi_ozetleri(proje, k["test_alani"])
     karar = _test_karari(sd, a.gid, k, proje, kod, cikti, once)
     with L.kilit(path):
@@ -1025,6 +1080,8 @@ def cmd_kart_test_kos(a):
                  "hash_tutarli": hash_tutarli, "gecti": gecti, "sure_s": sure,
                  "kok": os.path.abspath(proje).replace("\\", "/"),  # onay kapısı yalnız güncel kökteki koşuyu sayar
                  "dusenler": karar["dusenler"], "yabanci_dusenler": karar["yabanci_dusenler"]}
+        if eski_sha:
+            kayit["eski_surum"] = eski_sha
         if not karar["ayristirildi"]:
             kayit["ayristirilamadi"] = True
         if karar["toplama_nedeni"]:
@@ -1581,6 +1638,9 @@ def kaydet(alt):
     tk.add_argument("gid")
     tk.add_argument("--asama", required=True, choices=["kirmizi", "yesil"])
     tk.add_argument("--zaman-asimi", dest="zaman_asimi", type=float, default=600)
+    tk.add_argument("--eski-surumde", dest="eski_surumde", action="store_true",
+                    help="yalnız kırmızı: kod önceden yazılmışsa testi eski sürümde (varsayılan HEAD) geçici worktree'de koştur; çalışma ağacı değişmez")
+    tk.add_argument("--surum-ref", dest="surum_ref", help="--eski-surumde için git referansı (varsayılan HEAD)")
     tk.set_defaults(f=cmd_kart_test_kos)
     ka = kart.add_parser("test-kilit-ac")
     ka.add_argument("gid")
@@ -1592,6 +1652,7 @@ def kaydet(alt):
     g.set_defaults(f=cmd_kart_goster)
     li = kart.add_parser("liste")
     li.add_argument("--hepsi", action="store_true")
+    li.add_argument("--durum", help="virgülle ayrılmış durum süzgeci (ör. beklemede,reddedildi); hepsi bayrağını geçersiz kılar")
     li.add_argument("--json", action="store_true")
     li.set_defaults(f=cmd_kart_liste)
     du = kart.add_parser("durum")

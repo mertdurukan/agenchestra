@@ -1582,7 +1582,112 @@ def _perspektif_oto() -> bool:
     return os.environ.get("ORKESTRA_PERSPEKTIF_OTO") == "1"
 
 
+def _kisa(s: str, n: int) -> str:
+    """Tek satıra indirir, n karakterden uzunsa '…' ile keser."""
+    s = " ".join(str(s or "").split())
+    return s if len(s) <= n else s[:max(0, n - 1)].rstrip() + "…"
+
+
+def _ss_birinci_satir(sd: str, bagli: str | None, ks: list) -> tuple[str, str]:
+    """SessionStart 1. satır: bağlı iş (ya da açık iş kimlikleri) + kart özeti; ikinci değer yalnız kapanış/bayat notu olan işlerin satırı.
+    Ayrıntı `orkestra is liste` / `orkestra kart liste`."""
+    parcalar = []
+    not_satiri = ""
+    try:
+        import is_kaydi
+        acik = is_kaydi.is_liste(sd, "acik")
+        notlar = _kapanis_notlari(sd, acik[:5])  # kapanış/bayat notu; yan etki: todo'su biten işi otomatik kapatır
+        if notlar:
+            ps = []
+            for x in acik[:5]:
+                if x["id"] in notlar:
+                    try:
+                        t = is_kaydi.todo_ozet(x.get("klasor") or "")
+                        tt = f" todo {t['biten']}/{t['toplam']}"
+                    except Exception:
+                        tt = ""
+                    ps.append(f"{x['id']} {_kisa(x.get('baslik'), 24)}{tt}{notlar[x['id']]}")
+            not_satiri = "Açık işler: " + " ; ".join(ps)
+        g = next((x for x in acik if bagli and str(x.get("id")) == str(bagli)), None)
+        if g:
+            p = f"Bağlı iş: {g['id']} {str(g.get('baslik') or '')[:40]}"
+            try:
+                t = is_kaydi.todo_ozet(g.get("klasor") or "")
+                p += f" todo {t['biten']}/{t['toplam']}"
+            except Exception:
+                pass
+            if len(acik) > 1:
+                p += f" (+{len(acik) - 1} açık iş)"
+            parcalar.append(p)
+        elif acik:
+            parcalar.append(f"Açık iş {len(acik)}: " + ", ".join(str(x["id"]) for x in acik[:4]) + " (`orkestra is devam <id>`)")
+    except Exception:
+        pass
+    if ks:
+        aktif = [k for k in ks if L.kart_durumu_hesapla(k) != "beklemede"]
+        bekl = [k for k in ks if L.kart_durumu_hesapla(k) == "beklemede"]
+        p = "Kart: " + ", ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}]" for k in aktif[:3])
+        if len(aktif) > 3:
+            p += f" +{len(aktif) - 3}"
+        if bekl:
+            p += (" · " if aktif else "") + f"beklemede {len(bekl)}: " + ",".join(str(k["id"]) for k in bekl[:5])
+        parcalar.append(p + " (`orkestra kart liste`)")
+    ilk = "Orkestra bu projede açık. " + ". ".join(parcalar) if parcalar else "Orkestra bu projede açık (`orkestra is liste`)."
+    return ilk, not_satiri
+
+
+def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
+    """SessionStart 2. satır girdileri (yalnız koşul sağlanırsa, her biri kısa) ve ayrı satıra giden onay yönergesi. Hatada sessiz."""
+    u = []
+    onay_ek = ""
+    try:
+        import onay
+        m = onay.baglam_metni(sd, inp.get("session_id"), "SessionStart") or ""
+    except Exception:
+        m = ""
+    km = re.fullmatch(r"Kullanıcının panelde vereceği (\d+) karar bekliyor \(/onaylar\)\.", m.strip())
+    if km:
+        u.append(f"{km.group(1)} panel kararı bekliyor (/onaylar)")
+    elif m:
+        onay_ek = m  # onaylı karar uygulama yönergesi: ayrı satır
+    a = asili_uyari(sd, inp.get("session_id"))
+    if a:
+        km = re.search(r"ajan\(lar\): (.*?); takıldıysa", a)
+        u.append("bitmeyen ajan: " + _kisa(km.group(1) if km else a, 110) + " → TaskStop")
+    ms = _model_sapma_satiri(inp)
+    if ms:
+        u.append(_kisa(ms, 120))
+    try:
+        b = L.bayatlik()
+        if b:
+            u.append(f"UYARI: çalışan orkestra kopyası kaynaktan {b['farkli']} dosya farklı; `orkestra guncelle`")
+    except Exception:
+        pass
+    try:
+        import maliyet_anomali as MA
+        olay = [x for x in MA.calistir(sd, 1) if x["kural"] in ("K3", "K4", "K5")]
+        if olay:
+            u.append("MALİYET: " + ", ".join(f"{x['kural']} {x['kart']}" for x in olay[:3]) + " (`orkestra maliyet anomali --gun 1`)")
+    except Exception:
+        pass
+    try:
+        import iz as IZ
+        if IZ.kapsama_satiri(sd):
+            u.append("iz kapsama eşik aşımı (`orkestra iz kapsama`)")
+    except Exception:
+        pass
+    try:
+        import is_kaydi
+        if is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd"))):
+            u.append("işe bağlı olmayan todo dosyası var (`orkestra is todo-denetle`)")
+    except Exception:
+        pass
+    return u, onay_ek
+
+
 def session_start(inp: dict):
+    """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600 karakter.
+    Perspektif, panel açma, etki izleme ve onay yönergesi yalnız koşul sağlanınca ayrı satır olarak eklenir."""
     _doktor_hizli_yol(inp)
     sd = L.durum_dizini(inp.get("cwd")) or _otomatik_ac(inp)
     if not sd:
@@ -1594,66 +1699,25 @@ def session_start(inp: dict):
     except Exception:
         pass
     ks = [k for k in L.kartlar(sd) if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",)]
-    satirlar = ["Orkestra bu projede açık: planla → `orkestra kart` → işçi + AYRI denetçi (`/orkestra:is`) → "
-                "`orkestra kart teslim`. Defter: `orkestra defter baglam <id>`."]
-    if ks:
-        satirlar.append(_kart_satiri(ks))
-    try:  # açık işler: hata hook'u düşürmez
-        satirlar.extend(_acik_isler_satirlari(sd, _oturum_isi(sd, inp.get("session_id"))))
+    bagli = None
+    try:
+        bagli = _oturum_isi(sd, inp.get("session_id"))
     except Exception:
         pass
-    uyari = asili_uyari(sd, inp.get("session_id"))  # asılı ajan uyarısı düşük öncelikli satırlardan önce: 1800 kesiminde sona kalmasın
-    if uyari:
-        satirlar.append(uyari)
-    ms = _model_sapma_satiri(inp)
-    if ms:
-        satirlar.append(ms)
-    try:  # iz kapsama eşik aşımı: TEK satır, hatada sessiz
-        import iz as IZ
-        ik = IZ.kapsama_satiri(sd)
-        if ik:
-            satirlar.append(ik)
-    except Exception:
-        pass
-    try:  # bağlı olmayan todo dosyaları: TEK satır, hatada sessiz
-        import is_kaydi
-        tu = is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd")))
-        if tu:
-            satirlar.append(tu)
-    except Exception:
-        pass
-    try:  # önbellek bayatlığı: hızlı, hatada sessiz
-        b = L.bayatlik()
-        if b:
-            cs = {True: "kaynakta commitlenmemiş değişiklik var", False: "kaynakta commitlenmemiş değişiklik yok", None: "kaynak git durumu okunamadı"}[b["kaynakta_commitsiz"]]
-            satirlar.append(f"UYARI: çalışan orkestra kopyası kaynaktan {b['farkli']} dosya farklı ({cs}). "
-                            "Commitle → otomatik güncelleme; hemen için `orkestra guncelle`, sonra yeni oturum ya da /reload-plugins.")
-    except Exception:
-        pass
+    satir1, not_satiri = _ss_birinci_satir(sd, bagli, ks)
+    uyarilar, onay_ek = _ss_uyarilar(sd, inp)
+    satir2 = ("Uyarı: " + "; ".join(uyarilar))[:300] if uyarilar else ""
+    ek_satirlar = [not_satiri] if not_satiri else []
     proje_ = L.proje_dizini(inp.get("cwd"))
     r = perspektif.durum(sd, proje_, perspektif.hafiza_dizini(proje_, inp.get("transcript_path")))
     if r.get("okunmamis_rapor"):
-        satirlar.append(f"Perspektif raporu hazır: {r['okunmamis_rapor']} — öneriler panelde Onaylar sayfasında; "
-                        "kullanıcı orada onaylayabilir ya da /orkestra:perspektif ile sohbette ilerleyebilir.")
+        ek_satirlar.append(f"Perspektif raporu hazır: {r['okunmamis_rapor']} — öneriler panelde Onaylar sayfasında; "
+                           "kullanıcı orada onaylayabilir ya da /orkestra:perspektif ile sohbette ilerleyebilir.")
     elif _perspektif_oto() and r.get("zamani_geldi") and not r.get("calisiyor"):
         hafiza = perspektif.hafiza_dizini(proje_, inp.get("transcript_path"))
-        satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
-                        "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
-                        f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
-    try:  # olay güdümlü maliyet uyarısı: bugün (yerel 00:00'dan beri) israf örüntüsü (perspektifi beklemez); hata hook'u düşürmez
-        import maliyet_anomali as MA
-        olay = [x for x in MA.calistir(sd, 1) if x["kural"] in ("K3", "K4", "K5")]
-        if olay:
-            satirlar.append("MALİYET UYARISI (bugün): " + "; ".join(f"{x['kural']} {x['ad']} {x['kart']}" for x in olay[:4])
-                            + " — `orkestra maliyet anomali --gun 1`; kök nedeni işin todo'suna yaz.")
-    except Exception:
-        pass
-    om = ""
-    try:  # panel onay kararları: hata hook'u düşürmez
-        import onay
-        om = onay.baglam_metni(sd, inp.get("session_id"), "SessionStart") or ""
-    except Exception:
-        pass
+        ek_satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
+                           "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
+                           f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
     try:  # eklenti kural katmanı değiştiyse bu projenin kural dosyası yenilenir; hata hook'u düşürmez
         import onay
         onay.kural_dosyasi_esitle(sd)
@@ -1661,28 +1725,21 @@ def session_start(inp: dict):
         pass
     ei = _etki_ipucu(sd)
     if ei:
-        om = (om + "\n" + ei) if om else ei
-    try:  # izin politikası duyurusu (kesimden korunan kısım); hata hook'u düşürmez
+        ek_satirlar.append(ei)
+    im = ""
+    try:
         import izin_politikasi as IP
-        im = IP.mod_bul(IP.ayar_yukle(sd))
-        if im == "genis":
-            iz = ("İzin politikası: geniş yetki açık, onay istenmez. Kapıda (sorulur): git push, gh/GitHub/Jira yazma; zorla push reddedilir. "
-                  "Ayrıntı `orkestra izin goster`; kapatma ORKESTRA_IZIN=0.")
-        elif im == "kapi":
-            iz = "İzin politikası: yalnız kapı açık (git push, gh/GitHub/Jira yazma sorulur; zorla push reddedilir)."
-        else:
-            iz = ""
-        if iz:
-            om = (iz + "\n" + om) if om else iz
+        im = {"genis": "geniş", "kapi": "kapı"}.get(IP.mod_bul(IP.ayar_yukle(sd)), "")
     except Exception:
         pass
-    ky = _kurallar_satiri()
-    if ky:  # kural dosyası yolu kesimden korunan kısma girer
-        om = (ky + "\n" + om) if om else ky
-    pa ="" if os.environ.get("ORKESTRA_PERSPEKTIF") else _panel_ac_satiri(sd, inp.get("session_id"))
-    if pa:  # panel açma satırı da kesimden korunan kısma girer (oturumda bir kez)
-        om = (pa + "\n" + om) if om else pa
-    ek = "\n".join(satirlar)[:max(0, 1800 - len(om) - 1)] + "\n" + om if om else "\n".join(satirlar)[:1800]  # onay/panel yönlendirmesi kesilmesin
+    yol = L.kaynaga_cevir(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KURALLAR.md"))
+    satir3 = ((f"Kurallar: {yol}. " if os.path.isfile(yol) else "") + (f"İzin: {im}." if im else "")).strip()
+    pa = "" if os.environ.get("ORKESTRA_PERSPEKTIF") else _panel_ac_satiri(sd, inp.get("session_id"))
+    korunan = "\n".join(x for x in (pa, onay_ek) if x)  # panel açma (oturumda bir kez) ve onay yönergesi kesilmez
+    ek = "\n".join([x for x in (satir1, satir2, satir3) if x] + ek_satirlar)
+    if korunan:
+        ek = ek[:max(0, 1800 - len(korunan) - 1)] + "\n" + korunan
+    ek = ek[:1800]
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
 
 

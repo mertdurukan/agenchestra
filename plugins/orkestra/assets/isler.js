@@ -12,8 +12,12 @@
 
   // İş türü süzgeçleri (tek tıkla). "yuruyen": şu an yürüyen adımı olan, kapanmamış iş.
   const yuruyor = i => i.durum !== 'kapandi' && dizi(i.kovalar && i.kovalar.simdi).length > 0;
+  // "Açık" ile "Todo gerektirmeyen" açık işleri böler: todo maddesi hiç olmayan iş ikincisine girer.
+  const todoSuz = i => !(Number(i.ilerleme && i.ilerleme.toplam) > 0);
+  const acikIs = i => i.durum !== 'kapandi' && i.durum !== 'beklemede';
   const FILTRELER = [
-    { k: 'acik', ad: 'Açık', f: i => i.durum !== 'kapandi' && i.durum !== 'beklemede' },
+    { k: 'acik', ad: 'Açık', f: i => acikIs(i) && !todoSuz(i) },
+    { k: 'gerektirmeyen', ad: 'Todo gerektirmeyen', f: i => acikIs(i) && todoSuz(i) },
     { k: 'yuruyen', ad: 'Yürüyen', f: yuruyor },
     { k: 'beklemede', ad: 'Beklemede', f: i => i.durum === 'beklemede' },
     { k: 'kapandi', ad: 'Tamamlanan', f: i => i.durum === 'kapandi' },

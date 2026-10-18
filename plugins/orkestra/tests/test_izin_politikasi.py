@@ -222,10 +222,10 @@ class HookUcAdanUca(unittest.TestCase):
         g = {"session_id": OTURUM, "cwd": self.proje, "hook_event_name": "SessionStart", "source": "startup"}
         r = ic_kos.kos([HOOK, "SessionStart"], cwd=self.proje, env=self.env, input=json.dumps(g))
         ek = json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("İzin politikası: geniş yetki açık", ek)
+        self.assertIn("İzin: geniş.", ek)
         self.env["ORKESTRA_IZIN"] = "0"
         r = ic_kos.kos([HOOK, "SessionStart"], cwd=self.proje, env=self.env, input=json.dumps(g))
-        self.assertNotIn("İzin politikası", json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"])
+        self.assertNotIn("İzin:", json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"])
 
 
 class Cli(unittest.TestCase):

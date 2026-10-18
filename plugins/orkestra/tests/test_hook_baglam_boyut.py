@@ -161,29 +161,41 @@ class BaglamBoyutu(unittest.TestCase):
 
     def test_kriter3_korunanlar(self):
         ss = self.session_start()
-        kr = [x for x in ss.splitlines() if "KURALLAR.md" in x]  # G-092 satırı
+        kr = [x for x in ss.splitlines() if "KURALLAR.md" in x]  # G-092 satırı (3. satır)
         self.assertEqual(len(kr), 1)
-        self.assertTrue(os.path.isfile(kr[0].split("kuralları: ")[1].split(" (")[0]))
-        self.assertIn("karar bekliyor", ss)  # bekleyen karar uyarısı
-        # bağlı iş: uzun satır (todo, son satır), diğerleri kısa
-        parcalar = next(s for s in ss.splitlines() if s.startswith("Açık işler:"))[len("Açık işler:"):].split(" ; ")
-        bagli = next(p for p in parcalar if p.strip().startswith(self.bagli))
-        self.assertIn("todo 1/3", bagli)
-        self.assertIn("son: ", bagli)
-        self.assertIn("SON_0", bagli)
-        diger = [p for p in parcalar if p is not bagli]
-        self.assertEqual(len(diger), 4)
-        for p in diger:
-            self.assertIn("todo 1/3", p)
-            self.assertNotIn("son: ", p)
-        for k in self.kartlar[:3]:  # kart kimlik+durum kaybolmaz; beklemede olanlar sayı + kimlik
-            self.assertIn(f"{k['id']} [{k['_d']}]", ss)
-        self.assertIn("beklemede 5", ss)
-        self.assertIn("G-107", ss)
-        self.assertIn("orkestra kart liste", ss)
-        self.assertIn("orkestra is devam <id>", ss)
+        self.assertTrue(os.path.isfile(kr[0].split("Kurallar: ")[1].split(".md")[0] + ".md"))
+        self.assertIn("panel kararı bekliyor", ss)  # bekleyen karar uyarısı
+        ilk = ss.splitlines()[0]
+        # bağlı iş: başlık ve todo; kart kimlik+durum kaybolmaz, beklemede olanlar sayı + kimlik
+        self.assertIn(f"Bağlı iş: {self.bagli}", ilk)
+        self.assertIn("todo 1/3", ilk)
+        self.assertIn("(+4 açık iş)", ilk)
+        for k in self.kartlar[:3]:
+            self.assertIn(f"{k['id']} [{k['_d']}]", ilk)
+        self.assertIn("beklemede 5", ilk)
+        self.assertIn("G-107", ilk)
+        self.assertIn("orkestra kart liste", ilk)
         self.assertIn("orkestra:isci-t2 G-101 (45 dk)", ss)  # asılı ajan
         self.assertIn("TaskStop", ss)
+
+    def test_session_start_uc_satir_ve_en_cok_600_karakter(self):
+        """041 P1: SessionStart bağlamı üç satır (bağlı iş + kart; uyarılar; kurallar + izin) ve ≤600 karakter."""
+        ss = self.session_start()
+        self.assertEqual(len(ss.splitlines()), 3, ss)
+        self.assertLessEqual(len(ss), 600, f"{len(ss)} karakter: {ss!r}")
+
+    def test_model_sapmasi_uyarisi_uc_satirda_kaybolmaz(self):
+        with mock.patch.object(hook, "_model_sapma_satiri",
+                               return_value="UYARI: ana ajan modeli politika dışı: oturum claude-x, politika varsayılanı claude-y."):
+            ss = self.session_start()
+        self.assertIn("ana ajan modeli politika dışı", ss)
+        self.assertEqual(len(ss.splitlines()), 3, ss)
+        self.assertLessEqual(len(ss), 600, f"{len(ss)} karakter: {ss!r}")
+
+    def test_kosul_yoksa_perspektif_ve_panel_satiri_yok(self):
+        ss = self.session_start()
+        self.assertNotIn("Perspektif", ss)
+        self.assertNotIn("preview_start", ss)
 
     def test_kriter3_ups_niyet_ve_asili_korunur(self):
         up = self.ups()
@@ -193,11 +205,12 @@ class BaglamBoyutu(unittest.TestCase):
         self.assertIn("--sonuc", up)
         self.assertIn("orkestra:isci-t2 G-101 (45 dk)", up)
 
-    def test_bagsiz_oturumda_tum_isler_uzun_kalir(self):
+    def test_bagsiz_oturumda_acik_is_kimlikleri_listelenir(self):
         os.remove(os.path.join(self.sd, "oturumlar", OTURUM + ".json"))
-        satir = next(s for s in self.session_start().splitlines() if s.startswith("Açık işler:"))
-        for i in range(5):
-            self.assertIn(f"SON_{i}", satir)
+        ilk = self.session_start().splitlines()[0]
+        self.assertIn("Açık iş 5:", ilk)
+        self.assertNotIn("Bağlı iş:", ilk)
+        self.assertIn("orkestra is devam <id>", ilk)
 
 
 if __name__ == "__main__":

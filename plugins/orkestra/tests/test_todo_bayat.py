@@ -72,10 +72,9 @@ class TodoDenetle(_Temel, unittest.TestCase):
         yaz(os.path.join(self.proje, ".claude", "worktrees", "w", "todo.md"), "- [ ] x\n")
         c = self.hook("SessionStart", {"source": "startup"})
         ek = c["hookSpecificOutput"]["additionalContext"]
-        uyarilar = [s for s in ek.splitlines() if "todo dosyası işe bağlı değil" in s]
-        self.assertEqual(len(uyarilar), 1, ek)
-        self.assertIn("4 todo dosyası", uyarilar[0])
-        self.assertIn("1 worktree", uyarilar[0])
+        # 041 P1: SessionStart bağlamı kompakt; todo uyarısı tek ifade, ayrıntı komutta
+        self.assertEqual(ek.count("işe bağlı olmayan todo dosyası var"), 1, ek)
+        self.assertIn("orkestra is todo-denetle", ek)
         self.assertLessEqual(len(ek), 1800)
 
     def test_sessionstart_sorun_yoksa_uyari_yok(self):

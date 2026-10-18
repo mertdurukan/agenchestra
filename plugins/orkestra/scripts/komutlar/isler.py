@@ -728,6 +728,55 @@ def _kart_is_bagla(sd, k):
         _ik().is_kart_ekle(sd, k["is"], k["id"])
 
 
+def cmd_is_topla(a):
+    """Onaylı kartları teslim eder (`kart teslim-toplu` çekirdeği), todo durumunu ve işin kartlarındaki maliyet anomalisini basar."""
+    from komutlar import kart as KT
+    sd = sd_gerekli()
+    _, ajan_tipi = KT._kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("teslimi yalnız ana ajan yapar.", 3)
+    kayit = _is_gerekli(sd, a.is_id)
+    ozetler = {}
+    if a.json_dosya:
+        try:
+            with open(a.json_dosya, encoding="utf-8") as f:
+                for g in json.load(f):
+                    ozetler[g["id"]] = g.get("ozet")
+        except (OSError, ValueError, TypeError, KeyError) as e:
+            hata(f"json dosyası okunamadı: {e}")
+    kartlar = [k for k in L.kartlar(sd) if str(k.get("is")) == str(a.is_id)]
+    onayli = [k for k in kartlar if L.kart_durumu_hesapla(k) == "onaylandi"]
+    bekleyen = [k for k in kartlar if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",) and k not in onayli]
+    hatali = False
+    for k in onayli:
+        gid = k["id"]
+        ozet = ozetler.get(gid) or a.ozet or k.get("baslik") or gid
+        try:
+            for m in KT._teslim_et(sd, gid, ozet):
+                print(m)
+            print(f"{gid} → teslim")
+        except KT._TeslimHatasi as e:
+            print(f"{gid} → HATA: {e.mesaj}")
+            hatali = True
+        except Exception as e:  # bir kartın beklenmeyen hatası diğerlerini durdurmaz
+            print(f"{gid} → HATA: {type(e).__name__}: {e}")
+            hatali = True
+    if not onayli:
+        print(f"{a.is_id}: teslim edilecek onaylı kart yok")
+    if bekleyen:
+        print("bekleyen: " + ", ".join(f"{k['id']} [{L.kart_durumu_hesapla(k)}]" for k in bekleyen))
+    _, satir = _todo_satiri(kayit["klasor"])
+    print(f"{a.is_id} {satir}")
+    try:
+        import maliyet_anomali as MA
+        kimlikler = {k["id"] for k in kartlar}
+        an = [x for x in MA.calistir(sd, 1) if x.get("kart") in kimlikler]
+        print(MA.metin(an) if an else "Maliyet anomalisi yok (bu işin kartlarında, bugün).")
+    except Exception as e:
+        print(f"anomali kontrolü yapılamadı: {type(e).__name__}: {e}")
+    sys.exit(4 if hatali else 0)
+
+
 def kaydet(alt):
     """Bu modülün alt komutlarını ana ayrıştırıcıya ekler."""
     is_ = alt.add_parser("is", help="kalıcı iş katmanı (bir iş birden çok sohbete/karta yayılır)").add_subparsers(dest="alt", required=True)
@@ -779,6 +828,11 @@ def kaydet(alt):
     itd.add_argument("--kok", help="taranacak dizin (varsayılan: proje)")
     itd.add_argument("--json", action="store_true")
     itd.set_defaults(f=cmd_is_todo_denetle)
+    itp = is_.add_parser("topla", help="işin onaylı kartlarını teslim eder; todo durumunu ve maliyet anomalisini basar")
+    itp.add_argument("is_id")
+    itp.add_argument("--ozet", help="kart başına tek cümlelik teslim özeti (varsayılan: kart başlığı)")
+    itp.add_argument("--json-dosya", metavar="DOSYA", help='kart başına özet: [{"id": "G-001", "ozet": "..."}]')
+    itp.set_defaults(f=cmd_is_topla)
     isr = is_.add_parser("serit", help="iş şeridi: yapıldı/şimdi/sırada/planda kart yok")
     isr.add_argument("is_id")
     isr.add_argument("--json", action="store_true")

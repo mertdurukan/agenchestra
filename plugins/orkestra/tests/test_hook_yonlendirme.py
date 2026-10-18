@@ -140,9 +140,9 @@ class _Ortak(unittest.TestCase):
             return {}
 
     def parca(self, metin, is_id):
-        """'Açık işler:' satırında verilen işe ait parça."""
-        satir = next(s for s in metin.splitlines() if s.startswith("Açık işler:"))
-        return next(p for p in satir[len("Açık işler:"):].split(" ; ") if p.strip().startswith(is_id))
+        """'Açık işler:' (yalnız kapanış/bayat notu olan işleri sıralayan) satırında verilen işe ait parça; satır ya da parça yoksa ''."""
+        satir = next((s for s in metin.splitlines() if s.startswith("Açık işler:")), "")
+        return next((p for p in satir[len("Açık işler:"):].split(" ; ") if p.strip().startswith(is_id)), "")
 
 
 # ============================================================ kriter 1, 2: user_prompt_submit
@@ -272,8 +272,10 @@ class AcilisNotlari(_Ortak):
         b = self.is_ac("Sıradan devam eden iş", "002-siradan")
         self.todo_yaz(a, "# T\n\n- [x] bir\n")
         self.todo_yaz(b, "# T\n\n- [x] bir\n- [ ] iki\n")
-        p = self.parca(self.acilis(), b["id"])
-        self.assertIn("todo 1/2", p)
+        m = self.acilis()
+        p = self.parca(m, b["id"])
+        self.assertEqual(p, "", "notu olmayan iş 'Açık işler:' satırına girmez")
+        self.assertIn(b["id"], m.splitlines()[0])  # ilk satırda kimliğiyle kalır
         self.assertNotIn("kapat", p)
         self.assertNotIn("bayat", p)
 
@@ -285,8 +287,7 @@ class AcilisNotlari(_Ortak):
         m = self.acilis()
         p = self.parca(m, a["id"])
         self.assertIn("todo 1/1", p)
-        self.assertIn("son: - SONSATIR_X", p)
-        self.assertIn("Devam için `orkestra is devam <id>`", m)
+        self.assertIn("otomatik kapandı", p)
 
     def test_1800_kesimi_bozulmaz(self):
         for i in range(5):
@@ -356,9 +357,8 @@ class HataDayanikli(_Ortak):
         self.todo_yaz(a, "# T\n\n- [x] bir\n")
         with mock.patch.object(is_yonlendirme, "kapanis_adaylari", side_effect=RuntimeError("patladı")):
             m = self.acilis()
-        self.assertIn("Açık işler:", m)
-        self.assertIn(a["id"], m)
-        self.assertIn("todo 1/1", m)
+        self.assertIn("Orkestra bu projede açık", m)
+        self.assertIn(a["id"], m)  # not üretilemese de ilk satırda iş kimliği kalır
 
     def test_acilis_bozuk_is_json_ve_eksik_todo_cikis_0(self):
         a = self.is_ac("Fatura raporlama", "001-fatura")

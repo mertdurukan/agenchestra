@@ -38,8 +38,30 @@ def cmd_gunluk_ozet(a):
 def cmd_kpi(a):
     """Hazır 8 KPI, salt okuma (kpi.py)."""
     sd = sd_gerekli()
+    if getattr(a, "islem", None) == "planlayici-degerlendir":
+        import planlayici_degerlendir as PD
+        r = PD.degerlendir(sd, zorla=a.zorla, kuru=a.kuru)
+        if a.json:
+            print(json.dumps(r, ensure_ascii=False, indent=2))
+        else:
+            print(f"planlayıcı değerlendirmesi: {r['durum']} (model {r['model_surumu']})")
+            for x in r.get("planlayicilar") or []:
+                print(f"  {x['planlayici']:<10} n={x['n']}" + ("" if x["yeterli"] else " [yetersiz veri]"))
+            for x in r.get("farklar") or []:
+                print(f"  fark {x['referans']}~{x['aday']}: " + "; ".join(x["nedenler"]))
+            if r.get("oneri"):
+                print(f"  onay önerisi açıldı: {r['oneri']['onay_id']}")
+        return
     import kpi
-    s = kpi.olcum(sd, a.gun)
+    aralik = None
+    if getattr(a, "baslangic", None):
+        try:
+            bas = datetime.datetime.fromisoformat(a.baslangic).astimezone()                 if "T" in a.baslangic else datetime.datetime.strptime(a.baslangic, "%Y-%m-%d").astimezone()
+        except ValueError:
+            print("--baslangic YYYY-AA-GG biçiminde olmalı", file=sys.stderr)
+            sys.exit(2)
+        aralik = (bas, bas + datetime.timedelta(days=36500))
+    s = kpi.olcum(sd, a.gun, aralik)
     print(json.dumps(s, ensure_ascii=False, indent=2) if a.json else kpi.tablo(s))
 
 
@@ -85,6 +107,10 @@ def kaydet(alt):
     kp = alt.add_parser("kpi", help="8 KPI salt okuma ölçümü")
     kp.add_argument("--json", action="store_true", help="makine çıktısı")
     kp.add_argument("--gun", type=float, default=None, help="son N gün")
+    kp.add_argument("--baslangic", help="YYYY-AA-GG: bu tarihten (yerel 00:00) sonraki kartlar ve kayıtlar (kapı sonrası pencere)")
+    kp.add_argument("islem", nargs="?", choices=["planlayici-degerlendir"], help="planlayici-degerlendir: haftalık planlayıcı değerlendirmesi (eşik aşılırsa onay önerisi, model sürümü değişirse dönem sıfırlanır)")
+    kp.add_argument("--zorla", action="store_true", help="planlayici-degerlendir: 7 günlük bekleme süresini yoksay")
+    kp.add_argument("--kuru", action="store_true", help="planlayici-degerlendir: hiçbir şey yazma, onay açma")
     kp.set_defaults(f=cmd_kpi)
 
     gu = alt.add_parser("gunluk").add_subparsers(dest="alt", required=True)

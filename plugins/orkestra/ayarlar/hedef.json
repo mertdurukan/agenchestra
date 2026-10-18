@@ -5,9 +5,9 @@
   "uyari_carpani": 1.25,
   "teknik_uyari_alt": 0.8,
   "olculer": {
-    "ana_ajan_payi": {"tur": "ust", "hedef": 0.40},
-    "isci_cagrisi_kart": {"tur": "ust", "hedef": 2},
-    "onayli_kart_usd": {"tur": "ust", "hedef": 1.5},
+    "ana_ajan_payi": {"tur": "ust", "hedef": 0.55, "nihai_hedef": 0.40},
+    "isci_cagrisi_kart": {"tur": "ust", "hedef": 3, "nihai_hedef": 2},
+    "onayli_kart_usd": {"tur": "ust", "hedef": 1.7, "nihai_hedef": 1.5},
     "ret_orani": {"tur": "band", "alt": 0.10, "ust": 0.20},
     "teknik_not_kapsama": {"tur": "alt", "hedef": 1.0}
   }

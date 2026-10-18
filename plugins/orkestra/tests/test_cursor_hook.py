@@ -106,3 +106,17 @@ def test_komut_satiri_python_c_ile_calisir(tmp_path):
     p = subprocess.run(komut, shell=True, input=b"{\"workspace_roots\": []}", capture_output=True, env=env, cwd=str(tmp_path))
     assert p.returncode == 0, p.stderr
     assert json.loads(p.stdout.decode("utf-8") or "{}") == {} or "additional_context" in p.stdout.decode("utf-8")
+
+
+def test_user_email_hook_girdisine_gecmez():
+    c = ch.girdi_donustur("stop", {"user_email": "a@b.c", "status": "completed"})
+    assert "user_email" not in c
+
+
+def test_stop_alanlari_none_gelince_cokmez():
+    assert ch.cikti_donustur("stop", {"decision": "block", "reason": None}) == {"followup_message": ""}
+    assert ch.cikti_donustur("stop", {"hookSpecificOutput": None}) == {}
+    assert ch.cikti_donustur("stop", [1]) == {}
+    c = ch.girdi_donustur("stop", {"workspace_roots": None, "tool_input": None})
+    assert c["hook_event_name"] == "Stop"
+    assert ch.calistir("stop", b"null") == ("{}", 0, "")

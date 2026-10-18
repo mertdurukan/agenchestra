@@ -2,7 +2,8 @@
 
 Açma: projenin `.claude/settings.json` `env` bloğunda `ORKESTRA_OTO_COMMIT=1`. Varsayılan kapalıdır; kapalıyken
 hiçbir modül yüklemeden çıkar (her düzenlemede çalıştığı için hook.py'den ayrı ve hafif tutulur).
-Atıf satırı: `ORKESTRA_OTO_COMMIT_ATIF` (yoksa genel Claude satırı).
+Atıf satırı: `ORKESTRA_OTO_COMMIT_ATIF`; yoksa transcript'teki son assistant modelinden türetilir
+(claude-sonnet-5-5 → "Claude Sonnet 5.5"); transcript okunamazsa genel Claude satırı.
 
 Yalnız o dosya commit edilir (pathspec); başka oturumların değişiklikleri ve paylaşılan indeksteki diğer girdiler
 etkilenmez. Depo kökü dosyanın klasöründen bulunur (proje dışındaki depolarda da çalışır). .gitignore'daki
@@ -16,6 +17,32 @@ ATIF_VARSAYILAN = "Co-Authored-By: Claude <noreply@anthropic.com>"
 
 def acik() -> bool:
     return (os.environ.get("ORKESTRA_OTO_COMMIT") or "").strip().lower() in ("1", "true", "evet", "acik", "açık")
+
+
+def model_atfi(transcript_yolu):
+    """Transcript'in son assistant modelinden 'Co-Authored-By: Claude <Aile> <sürüm> <...>' satırı; bulunamazsa None."""
+    import json
+    import re
+    if not transcript_yolu or not os.path.isfile(transcript_yolu):
+        return None
+    son = ""
+    with open(transcript_yolu, "rb") as f:
+        f.seek(0, 2)
+        boy = f.tell()
+        f.seek(max(0, boy - 400000))
+        for ham in f.read().splitlines():
+            try:
+                o = json.loads(ham)
+            except Exception:
+                continue
+            ms = o.get("message") if isinstance(o, dict) else None
+            if isinstance(ms, dict) and ms.get("role") == "assistant" and isinstance(ms.get("model"), str):
+                son = ms["model"]
+    m = re.match(r"claude-([a-z]+)-(\d+)(?:-(\d+))?", son)
+    if not m:
+        return None
+    surum = ".".join(x for x in (m.group(2), m.group(3)) if x)
+    return f"Co-Authored-By: Claude {m.group(1).capitalize()} {surum} <noreply@anthropic.com>"
 
 
 def depo_koku(klasor):
@@ -55,7 +82,7 @@ def main():
             return
         yeni = durum.startswith("??")  # yalnız izlenmeyen dosya add ister; izlenen dosyada commit pathspec'i yeter
         rel = os.path.relpath(yol, repo).replace("\\", "/")
-        atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or ATIF_VARSAYILAN
+        atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip()             or model_atfi(veri.get("transcript_path")) or ATIF_VARSAYILAN
         msg = f"Otomatik commit: {rel}\n\n{atif}"
         for _ in range(5):  # paralel oturumlarda index.lock bekle
             a = git(repo, "add", "--", yol) if yeni else None

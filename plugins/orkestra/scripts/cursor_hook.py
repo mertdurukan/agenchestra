@@ -36,8 +36,10 @@ def _yol_duzelt(y):
 def girdi_donustur(cursor_olay, g):
     """Cursor payload'ını Claude hook girdisine çevirir."""
     c = dict(g)
+    c.pop("user_email", None)  # kişisel veri: hook.py'ye, kanıta ve günlüklere geçmez
     c["hook_event_name"] = OLAY_ESLEME.get(cursor_olay, cursor_olay)
-    kokler = g.get("workspace_roots") or []
+    kokler = g.get("workspace_roots")
+    kokler = kokler if isinstance(kokler, list) else []
     proje = os.environ.get("CURSOR_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or (
         _yol_duzelt(kokler[0]) if kokler else "")
     if proje and not c.get("cwd"):
@@ -68,9 +70,10 @@ def atla(cursor_olay, g):
 
 def cikti_donustur(cursor_olay, claude):
     """hook.py çıktısını (Claude JSON'u ya da None) Cursor çıktısına çevirir."""
-    if not claude:
+    if not claude or not isinstance(claude, dict):
         return {}
-    ho = claude.get("hookSpecificOutput") or {}
+    ho = claude.get("hookSpecificOutput")
+    ho = ho if isinstance(ho, dict) else {}
     ek = ho.get("additionalContext") or claude.get("additional_context")
     if cursor_olay == "sessionStart":
         return {"additional_context": ek} if ek else {}
@@ -101,7 +104,7 @@ def cikti_donustur(cursor_olay, claude):
         return {"additional_context": ek} if ek else {}
     if cursor_olay == "stop":
         if claude.get("decision") == "block" or ho.get("decision") == "block":
-            return {"followup_message": claude.get("reason") or ho.get("reason") or ""}
+            return {"followup_message": str(claude.get("reason") or ho.get("reason") or "")}
         return {}
     return {}
 
@@ -115,6 +118,8 @@ def calistir(cursor_olay, ham):
     try:
         g = json.loads(ham.decode("utf-8-sig") or "{}")
     except ValueError:
+        return "{}", 0, ""
+    if not isinstance(g, dict):  # stop aborted/error olaylarında gövde null/dizi gelebilir
         return "{}", 0, ""
     if atla(cursor_olay, g):
         return "{}", 0, ""

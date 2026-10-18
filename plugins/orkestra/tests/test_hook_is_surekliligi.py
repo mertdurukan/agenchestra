@@ -162,59 +162,52 @@ class SessionStartAcikIsler(_Ortak):
         is_kaydi.is_durum(self.sd, k["id"], "kapandi")
         return a, b, k
 
-    def test_iki_acik_is_id_todo_ve_son_satir_gorunur_kapali_yok(self):
+    def test_iki_acik_is_kimligi_gorunur_kapali_yok(self):
         a, b, k = self.kur_uc_is()
         m = self.session_start()
-        satir = next((s for s in m.splitlines() if s.startswith("Açık işler:")), None)
-        self.assertIsNotNone(satir, m)
+        satir = m.splitlines()[0]
+        self.assertIn("Açık iş 2:", satir)
         self.assertIn(a["id"], satir)
         self.assertIn(b["id"], satir)
-        self.assertIn("Birinci açık iş", satir)
-        self.assertIn("todo 1/3", satir)
-        self.assertIn("todo 2/5", satir)
-        self.assertIn("SONSATIR_A", satir)
-        self.assertIn("SONSATIR_B", satir)
-        self.assertNotIn("ESKISATIR_A", satir, "yalnız son dolu satır")
         self.assertNotIn("KAPALIISBASLIK", m)
         self.assertNotIn(k["id"], satir)
+
+    def test_bagli_is_baslik_ve_todo_gorunur(self):
+        a, b, _ = self.kur_uc_is()
+        self.baglan(a)
+        satir = self.session_start().splitlines()[0]
+        self.assertIn(f"Bağlı iş: {a['id']} Birinci açık iş", satir)
+        self.assertIn("todo 1/3", satir)
+        self.assertIn("(+1 açık iş)", satir)
 
     def test_devam_yonergesi_tek_satir(self):
         self.kur_uc_is()
         m = self.session_start()
         yon = [s for s in m.splitlines() if "orkestra is devam <id>" in s]
         self.assertEqual(len(yon), 1)
-        self.assertIn("orkestra is todo <id> --ekle", yon[0])
-        self.assertIn("todo.md", yon[0])
 
-    def test_kart_satirindan_sonra_gelir(self):
+    def test_kart_ayni_ilk_satirda_is_kimliklerinden_sonra(self):
         self.kur_uc_is()
         kart = {"id": "G-001", "baslik": "Bir kart"}
         with mock.patch.object(L, "kartlar", return_value=[kart]), mock.patch.object(L, "kart_durumu_hesapla", return_value="isleniyor"):
             m = self.session_start()
-        self.assertIn("Açık/bekleyen kartlar", m)
-        self.assertLess(m.index("Açık/bekleyen kartlar"), m.index("Açık işler:"))
-
-    def test_son_satir_ilk_80_karakter(self):
-        a = self.is_ac("Uzun satır işi")
-        uzun = "- " + "u" * 78 + "SONRASI_KESILMELI"
-        with open(self.oturumlar_md(a), "a", encoding="utf-8", newline="\n") as f:
-            f.write(uzun + "\n\n\n")
-        m = self.session_start()
-        self.assertIn(uzun[:80], m)
-        self.assertNotIn("SONRASI_KESILMELI", m)
+        satir = m.splitlines()[0]
+        self.assertIn("Kart: G-001 [isleniyor]", satir)
+        self.assertLess(satir.index("Açık iş"), satir.index("Kart:"))
 
     def test_baslik_ilk_40_karakter(self):
         a = self.is_ac("B" * 40 + "BASLIKSONU")
+        self.baglan(a)
         m = self.session_start()
         self.assertIn(a["id"] + " " + "B" * 40, m)
         self.assertNotIn("BASLIKSONU", m)
 
-    def test_en_cok_bes_is(self):
+    def test_en_cok_dort_is_kimligi(self):
         for i in range(7):
             self.is_ac(f"Is numarasi {i}")
-        m = self.session_start()
-        satir = next(s for s in m.splitlines() if s.startswith("Açık işler:"))
-        self.assertEqual(len(re.findall(r"I-\d+ ", satir)), 5)
+        satir = self.session_start().splitlines()[0]
+        self.assertIn("Açık iş 7:", satir)
+        self.assertEqual(len(re.findall(r"I-\d+", satir)), 4)
 
     def test_acik_is_yoksa_satir_yok(self):
         k = self.is_ac("Sadece kapalı")

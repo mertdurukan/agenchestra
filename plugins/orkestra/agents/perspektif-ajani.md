@@ -16,6 +16,7 @@ Sen orkestra PERSPEKTİF ajanısın. Kullanıcı yok. Hafızayı, kuralları ve 
    ölçümlerin hepsi oradadır: hafıza dosya boyutları ve MEMORY.md satır/bayt, ölü yollar, maliyet anomalileri (14 gün),
    KPI, günlük özeti (istekler, skill/ajan kullanımı), ortak defter özeti, skill listesi. Bunları yeniden hesaplama;
    defter/günlük/maliyet komutlarını ayrıca çalıştırma, yolları Glob ile tek tek denetleme.
+   Haftalık planlayıcı değerlendirmesi: `orkestra kpi planlayici-degerlendir` çalıştır (eşik aşılırsa onay önerisini kendisi açar; çıktısını rapora tek satır ekle).
 3. LLM yargısı gereken içerik için yalnız şunları oku: MEMORY.md ve konu dosyaları (kopya, çelişki, eskimiş iş),
    projenin `CLAUDE.md` dosyası ve `.claude/rules/` klasörü.
 4. Raporu `.claude/orkestra/perspektif/perspektif_<YYYYMMDD_HHMM>.md` dosyasına yaz. Başka hiçbir dosyaya yazma.

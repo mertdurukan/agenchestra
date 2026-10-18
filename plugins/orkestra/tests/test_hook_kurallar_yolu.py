@@ -44,7 +44,7 @@ class KurallarYoluTest(unittest.TestCase):
     def test_tek_satir_var_olan_mutlak_yol(self):
         satirlar = [x for x in self.baglam().splitlines() if "KURALLAR.md" in x]
         self.assertEqual(len(satirlar), 1)
-        m = re.search(r"kuralları: (.+KURALLAR\.md) \(", satirlar[0])
+        m = re.search(r"Kurallar: (.+KURALLAR\.md)\.", satirlar[0])
         self.assertTrue(m, satirlar[0])
         self.assertTrue(os.path.isabs(m.group(1)))
         self.assertTrue(os.path.isfile(m.group(1)))

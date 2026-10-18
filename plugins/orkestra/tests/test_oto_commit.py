@@ -102,3 +102,28 @@ class OtoCommit(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestModelAtfi(unittest.TestCase):
+    def _transcript(self, model):
+        d = tempfile.mkdtemp(prefix="ork_atif_")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        yol = os.path.join(d, "t.jsonl")
+        with open(yol, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"message": {"role": "assistant", "model": "claude-haiku-5-5"}}) + "\n")
+            f.write(json.dumps({"message": {"role": "assistant", "model": model}}) + "\n")
+        return yol
+
+    def test_son_modelden_atif(self):
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import oto_commit
+        self.assertEqual(oto_commit.model_atfi(self._transcript("claude-sonnet-5-5")),
+                         "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>")
+        self.assertEqual(oto_commit.model_atfi(self._transcript("claude-fable-5-1")),
+                         "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>")
+
+    def test_transcript_yoksa_none(self):
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import oto_commit
+        self.assertIsNone(oto_commit.model_atfi(None))
+        self.assertIsNone(oto_commit.model_atfi(self._transcript("model-degil")))
