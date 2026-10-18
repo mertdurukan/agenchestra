@@ -228,6 +228,20 @@ def _ozet_eksigi(klasor):
     return "calisma_ozeti dosyasında 'Ana bulgu' boş (şablon doldurulmamış)"
 
 
+ADR_ALANLARI = ("Durum", "Tarih", "Bağlam", "Karar", "Seçenekler", "Sonuçlar")
+
+
+def _adr_alan_eksigi(yol):
+    """ADR dosyasında P-015 (3) zorunlu alanlarından (kalın etiket + içerik) eksik ya da boş olanları döner; tamamsa None."""
+    try:
+        metin = open(yol, encoding="utf-8").read()
+    except OSError:
+        return "dosya okunamadı"
+    eksik = [a for a in ADR_ALANLARI
+             if not re.search(r"^[ \t>*_-]*\*\*" + a + r":?\*\*:?\s*(?!\*\*)\S", metin, re.I | re.M)]
+    return ", ".join(eksik) if eksik else None
+
+
 def _adr_eksigi(klasor, proje_koku):
     """ADR kapısı (P-015): plan.md'de 'ADR:' satırı olmalı; ya var olan ADR-nnnn dosyasına bağlanır ya da
     'ADR: gerekmez — neden' der. Eksik nedenini döner, tamamsa None."""
@@ -243,7 +257,13 @@ def _adr_eksigi(klasor, proje_koku):
     kimlikler = sorted(set(re.findall(r"ADR-\d{4}", satir)))
     if kimlikler:
         yok = [k for k in kimlikler if not glob.glob(os.path.join(proje_koku, "adr", k + "-*.md"))]
-        return f"adr/ klasöründe dosya yok: {', '.join(yok)}" if yok else None
+        if yok:
+            return f"adr/ klasöründe dosya yok: {', '.join(yok)}"
+        for k in kimlikler:
+            eksik = _adr_alan_eksigi(glob.glob(os.path.join(proje_koku, "adr", k + "-*.md"))[0])
+            if eksik:
+                return f"{k} zorunlu alanları eksik ya da boş: {eksik}"
+        return None
     if re.match(r"gerekmez(\s|$|[—:,.-])", satir, re.I) and len(satir) > len("gerekmez") + 8:
         return None
     return "'ADR:' satırı ne ADR-nnnn kimliği ne de 'gerekmez — neden' içeriyor"

@@ -21,10 +21,27 @@ class IsKapatAdr(unittest.TestCase):
                 f.write(plan)
         return r.stdout.strip().splitlines()[-1], klasor
 
-    def adr_yaz(self, ad="ADR-0001-deneme.md"):
+    GECERLI_ADR = ("# ADR-0001\n\n**Durum:** Kabul edildi\n\n**Tarih:** 2026-10-18\n\n**Bağlam:** neden gerekti\n\n"
+                   "**Karar:** şu yapıldı\n\n**Seçenekler:**\n- A: elendi, çünkü X\n\n**Sonuçlar:** olumlu, olumsuz, geri alma\n")
+
+    def adr_yaz(self, ad="ADR-0001-deneme.md", icerik=None):
         os.makedirs(os.path.join(self.proje, "adr"), exist_ok=True)
         with open(os.path.join(self.proje, "adr", ad), "w", encoding="utf-8") as f:
-            f.write("# ADR-0001\n")
+            f.write(self.GECERLI_ADR if icerik is None else icerik)
+
+    def test_adr_zorunlu_alan_eksikse_reddeder(self):
+        self.adr_yaz(icerik="# ADR-0001\n\n**Durum:** Kabul edildi\n\n**Karar:** x\n")
+        i, _ = self.ac("# Plan\n\n**ADR:** ADR-0001\n")
+        r = self.kapat(i)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("Tarih", r.stderr + r.stdout)
+
+    def test_adr_bos_alan_reddedilir(self):
+        self.adr_yaz(icerik=self.GECERLI_ADR.replace("**Karar:** şu yapıldı", "**Karar:**\n\n**Seçenekler:**", 1))
+        i, _ = self.ac("# Plan\n\n**ADR:** ADR-0001\n")
+        r = self.kapat(i)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("Karar", r.stderr + r.stdout)
 
     def kapat(self, i):
         return self.cli("is", "kapat", i, kapi="1")
