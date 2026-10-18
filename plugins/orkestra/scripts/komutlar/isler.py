@@ -228,9 +228,31 @@ def _ozet_eksigi(klasor):
     return "calisma_ozeti dosyasında 'Ana bulgu' boş (şablon doldurulmamış)"
 
 
+def _adr_eksigi(klasor, proje_koku):
+    """ADR kapısı (P-015): plan.md'de 'ADR:' satırı olmalı; ya var olan ADR-nnnn dosyasına bağlanır ya da
+    'ADR: gerekmez — neden' der. Eksik nedenini döner, tamamsa None."""
+    plan = os.path.join(klasor, "plan.md")
+    try:
+        metin = open(plan, encoding="utf-8").read()
+    except OSError:
+        return "işin klasöründe plan.md yok"
+    m = re.search(r"^[ 	>*_-]*\**ADR\**[ 	]*:\**[ 	]*(\S.*)$", metin, re.I | re.M)
+    if not m:
+        return "plan.md'de 'ADR:' satırı yok"
+    satir = m.group(1).strip()
+    kimlikler = sorted(set(re.findall(r"ADR-\d{4}", satir)))
+    if kimlikler:
+        yok = [k for k in kimlikler if not glob.glob(os.path.join(proje_koku, "adr", k + "-*.md"))]
+        return f"adr/ klasöründe dosya yok: {', '.join(yok)}" if yok else None
+    if re.match(r"gerekmez(\s|$|[—:,.-])", satir, re.I) and len(satir) > len("gerekmez") + 8:
+        return None
+    return "'ADR:' satırı ne ADR-nnnn kimliği ne de 'gerekmez — neden' içeriyor"
+
+
 def cmd_is_kapat(a):
-    """Kapanış kapısı (P-009): görev tamamen kapanırken görev bitiş raporu (çalışma özeti) zorunlu.
-    ORKESTRA_OZET_KAPISI=0 kapıyı kapatır; hiç iş yapılmadan kapanan iş için `--ozetsiz NEDEN`."""
+    """Kapanış kapıları: görev bitiş raporu (P-009) ve ADR kaydı (P-015) zorunlu.
+    ORKESTRA_OZET_KAPISI=0 / ORKESTRA_ADR_KAPISI=0 kapıyı kapatır; hiç iş yapılmadan kapanan iş için `--ozetsiz NEDEN`
+    ikisini de atlar."""
     sd = sd_gerekli()
     kayit = _is_gerekli(sd, a.is_id)
     ozetsiz = (getattr(a, "ozetsiz", None) or "").strip()
@@ -241,6 +263,12 @@ def cmd_is_kapat(a):
                  f"Önce `orkestra is belge {a.is_id} ozet` ile özeti yaz ve doldur; "
                  "mevcut durum, plan ve todo görev BAŞLANGICI belgeleridir, bitiş raporunun yerine geçmez (P-009). "
                  "İş hiç yapılmadan kapanıyorsa: --ozetsiz \"neden\".")
+    if os.environ.get("ORKESTRA_ADR_KAPISI") != "0" and not ozetsiz:
+        eksik = _adr_eksigi(kayit["klasor"], _proje_koku(sd))
+        if eksik:
+            hata(f"{a.is_id} kapatılamadı: ADR kaydı eksik ({eksik}). "
+                 "Karar gerektiren iş için adr/ADR-nnnn-<kisa-baslik>.md yaz ve plan.md'ye `**ADR:** ADR-nnnn` satırı ekle; "
+                 "gerekmiyorsa `**ADR:** gerekmez — <neden>` yaz (P-015). İş hiç yapılmadan kapanıyorsa: --ozetsiz \"neden\".")
     _ik().is_durum(sd, a.is_id, "kapandi")
     _teknik_detay_yaz(sd, a.is_id)
     print(f"{a.is_id} → kapandi")
