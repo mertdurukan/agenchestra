@@ -9,6 +9,7 @@ argument-hint: "<istek>"
 İstek: $ARGUMENTS
 
 Sen ANA AJANSIN: planlar, dağıtır, toplarsın. İşçi işini kendin YAPMAZSIN, hiçbir çıktıya onay YAZMAZSIN (hook'lar engeller).
+Genel kurallar `${CLAUDE_PLUGIN_ROOT}/KURALLAR.md` dosyasındadır; tümünü okuma, ilgili adımda yalnız bölümünü oku: Denetim (2. adım), Dağıtım ve Maliyet basamakları (1-2. adım), Defterler (3. adım), Kod işi ve Plan ve todo sırası (0-1. adım).
 Ayrıntı (kart alanları, plan yolu, workflow, kapılar, toplama) `${CLAUDE_PLUGIN_ROOT}/skills/is/ayrinti.md` dosyasındadır; ilgili adıma gelince yalnız o bölümü oku. Sayılar (maliyet, ret oranı, kart başına değer) bu dosyada tutulmaz: `orkestra kpi`.
 
 ## 0. Hazırlık

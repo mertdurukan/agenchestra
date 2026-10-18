@@ -45,22 +45,35 @@ class NiyetKayitHook(unittest.TestCase):
             hook.user_prompt_submit({"session_id": oturum, "cwd": PROJE, "prompt": "merhaba"})
         return "\n".join(c["hookSpecificOutput"]["additionalContext"] for c in cikti if c and "hookSpecificOutput" in c)
 
-    def test_niyet_kayitli_oturumda_yok_satiri_cikmaz(self):
-        self.yaz("o1", "niyet", ne="iş a", neden="hedef b")
+    def niyetler(self, oturum):
+        return [k for k in L.jsonl_oku(self.yol) if k.get("oturum") == oturum and k.get("tur") == "niyet"]
+
+    def test_hook_modele_niyet_talimati_vermez(self):
+        # P2: niyet hook içinde yazılır; bağlamda `orkestra niyet` yönergesi ve 'kayıtlı niyet' satırı yoktur
         b = self.hook_baglami("o1")
-        self.assertIn("Kayıtlı niyet:", b)
+        self.assertNotIn("orkestra niyet", b)
         self.assertNotIn(YOK, b)
+        self.assertNotIn("Kayıtlı niyet:", b)
+
+    def test_niyetsiz_oturumda_hook_niyet_yazar(self):
+        self.hook_baglami("o1")
+        k = self.niyetler("o1")
+        self.assertEqual(len(k), 1)
+        self.assertEqual(k[0]["ne"], "merhaba")
+        self.assertEqual(k[0]["neden"], "kullanıcı isteği")
+
+    def test_kayitli_oturumda_ikinci_niyet_yazilmaz(self):
+        self.yaz("o1", "niyet", ne="iş a", neden="hedef b")
+        self.hook_baglami("o1")
+        self.assertEqual(len(self.niyetler("o1")), 1)
 
     def test_sonuc_yazildiktan_sonra_da_niyet_gorunur(self):
-        # yeniden üretim: niyet → sonuc sırası (düzeltme öncesi 'kayıtlı niyet yok' çıkıyordu)
+        # G-091: niyet → sonuc sırası 'kayıtlı niyet yok' demez (niyet.son_baglam)
         self.yaz("o1", "niyet", ne="iş a", neden="hedef b", baglam="RNV/01_x")
         self.yaz("o1", "sonuc", sonuc="bitti")
-        self.assertNotIn(YOK, self.hook_baglami("o1"))
+        self.hook_baglami("o1")
+        self.assertEqual(len(self.niyetler("o1")), 1)
         self.assertEqual(niyet.son_baglam("o1"), "RNV/01_x")
-
-    def test_kaydi_olmayan_oturumda_yok_satiri_surer(self):
-        self.yaz("o1", "niyet", ne="iş a", neden="hedef b")
-        self.assertIn(YOK, self.hook_baglami("baska-oturum"))
 
     def test_yalniz_sonuc_olan_oturumda_yok_satiri_surer(self):
         self.yaz("o2", "sonuc", sonuc="bitti")

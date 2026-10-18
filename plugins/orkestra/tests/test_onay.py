@@ -249,7 +249,8 @@ class KuralTest(Temel):
         tarih = onay.kurallar(self.sd)[0]["olusturma"][:10]
         self.assertEqual(icerik.splitlines()[0], "# Orkestra kuralları (panelden yönetilir)")
         self.assertIn("Bu dosya Orkestra panelinden üretilir; elle düzenleme, panelde Kurallar sayfasını kullan.", icerik)
-        self.assertIn(f"- Sır yazma (K-001, {tarih})\n  - Neden: güvenlik\n", icerik)
+        self.assertIn(f"- Sır yazma (K-001, {tarih})\n", icerik)
+        self.assertNotIn("Neden:", icerik)  # Neden metni her oturumda yüklenen dosyaya girmez (panelde kalır)
         onay.kural_kaldir(self.sd, "K-001", "artık gerekmiyor")
         self.assertFalse(os.path.exists(self.kural_dosyasi))
         self.assertEqual(onay.kurallar(self.sd)[0]["durum"], "kaldirildi")
@@ -270,7 +271,7 @@ class KuralTest(Temel):
         with open(self.kural_dosyasi, encoding="utf-8") as f:
             icerik = f.read()
         self.assertIn("İkinci kural v2 (K-002", icerik)
-        self.assertIn("  - Neden: neden var", icerik)
+        self.assertNotIn("Neden:", icerik)
         self.assertNotIn("example.com", icerik)
         self.assertEqual(onay.kurallar(self.sd)[1]["gecmis"][-1]["metin"], "İkinci kural")
         onay.kural_kaldir(self.sd, "K-001", "x")

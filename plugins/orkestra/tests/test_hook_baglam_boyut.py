@@ -178,11 +178,11 @@ class BaglamBoyutu(unittest.TestCase):
         self.assertIn("orkestra:isci-t2 G-101 (45 dk)", ss)  # asılı ajan
         self.assertIn("TaskStop", ss)
 
-    def test_session_start_uc_satir_ve_en_cok_600_karakter(self):
-        """041 P1: SessionStart bağlamı üç satır (bağlı iş + kart; uyarılar; kurallar + izin) ve ≤600 karakter."""
+    def test_session_start_uc_satir_ve_en_cok_700_karakter(self):
+        """041 P1: SessionStart bağlamı üç satır (bağlı iş + kart; uyarılar; kurallar + izin) ve ≤700 karakter (en kötü durum; çekirdek satırı +~140 karakter, 32 KB KURALLAR.md'yi okutmamanın bedeli)."""
         ss = self.session_start()
         self.assertEqual(len(ss.splitlines()), 3, ss)
-        self.assertLessEqual(len(ss), 600, f"{len(ss)} karakter: {ss!r}")
+        self.assertLessEqual(len(ss), 700, f"{len(ss)} karakter: {ss!r}")
 
     def test_model_sapmasi_uyarisi_uc_satirda_kaybolmaz(self):
         with mock.patch.object(hook, "_model_sapma_satiri",
@@ -190,7 +190,7 @@ class BaglamBoyutu(unittest.TestCase):
             ss = self.session_start()
         self.assertIn("ana ajan modeli politika dışı", ss)
         self.assertEqual(len(ss.splitlines()), 3, ss)
-        self.assertLessEqual(len(ss), 600, f"{len(ss)} karakter: {ss!r}")
+        self.assertLessEqual(len(ss), 700, f"{len(ss)} karakter: {ss!r}")
 
     def test_kosul_yoksa_perspektif_ve_panel_satiri_yok(self):
         ss = self.session_start()
@@ -199,10 +199,9 @@ class BaglamBoyutu(unittest.TestCase):
 
     def test_kriter3_ups_niyet_ve_asili_korunur(self):
         up = self.ups()
-        self.assertIn('Kayıtlı niyet: ne="hook bağlamını ölç"', up)
-        self.assertIn("orkestra niyet --ne", up)
-        self.assertIn("--baglam", up)
-        self.assertIn("--sonuc", up)
+        # P2: niyet hook içinde yazılır; modele niyet talimatı verilmez
+        self.assertNotIn("orkestra niyet --ne", up)
+        self.assertNotIn("Kayıtlı niyet:", up)
         self.assertIn("orkestra:isci-t2 G-101 (45 dk)", up)
 
     def test_bagsiz_oturumda_acik_is_kimlikleri_listelenir(self):

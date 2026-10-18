@@ -250,7 +250,8 @@ def etkin_kurallar(sd: str) -> list[dict]:
 def _kural_dosya_metni(sd: str) -> str:
     plug = [r for r in _eklenti_oku() if r.get("durum") == "etkin"]
     kapali = _devre_disi(sd)
-    plug_acik = [r for r in plug if r.get("id") not in kapali]
+    # yukle=hook: kuralı bir hook zorluyor ve gereken anda söylüyor; her oturumda yüklenen dosyaya girmez (panelde ve KURALLAR.md'de kalır)
+    plug_acik = [r for r in plug if r.get("id") not in kapali and r.get("yukle") != "hook"]
     proje = [r for r in _kurallar_oku(sd) if r.get("durum") == "etkin"]
     if not plug_acik and not proje:
         return ""
@@ -261,8 +262,6 @@ def _kural_dosya_metni(sd: str) -> str:
         for r in liste_:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
             satirlar.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
-            if r.get("neden"):
-                satirlar.append(f"  - Neden: {_tek_satir(r['neden'])}")
 
     if plug_acik:  # tek katmanlıysa eski düzen (başlıksız) korunur
         satirlar += ["Çakışmada proje kuralı eklenti kuralından önce gelir.", "",

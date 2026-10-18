@@ -280,7 +280,8 @@
           "metin": "ZORUNLU, istisnasız: Plan ve todo gerektiren her konuda sıra şudur ve her adım bir öncekinden beslenir: (1) mevcut_durum_<YYYYMMDD>.md, (2) plan.md, (3) todo.md. Sonraki adım önceki yazılmadan başlamaz. (1) Mevcut durum, değişikliğin dokunacağı mevcut kodu, belgeyi ya da veriyi araştırır: istek ya da veri hangi yoldan geçiyor, bugün ne yapıyor ve hangi korumalar ya da bağlantılar çalışıyor, değişiklik hangi dosya, fonksiyon ve davranışa dokunuyor (etki haritası: yer, bugünkü davranış, dokunmanın riski), işin dalında zaten yapılmış olanlar (git durumu), bilinmeyenler. Her iddia dosya:satır, komut çıktısı ya da ölçüm saatiyle desteklenir; bakılmayan yer 'teyit gerekir' diye yazılır. (2) Plan, mevcut durumdan çıkan sonuçlara dayanır: her plan maddesi dayandığı mevcut durum bölümünü ve sonucunu gösterir, dokunacağı yeri mevcut durumdaki etki haritasından alır; mevcut durumda karşılığı olmayan plan maddesi yazılmaz, önce mevcut durum güncellenir. plan.md başında mevcut duruma bağlantı verilir. (3) Todo yalnız plan maddelerinden türetilir: her todo satırı plan maddesini (P1, P2…) gösterir; plan maddesi olmayan satır eklenmez, önce plan güncellenir. Planlama sırasında mevcut durumda eksik çıkan bilgi mevcut durum dosyasına eklenir, sonra plan ve todo güncellenir; ters yönde, yani todo'dan plana ya da plandan mevcut duruma boşluk yamanmaz. Sohbette teslimde belge bağlantıları K-003'e göre yalnız değişen ya da yeni belgeler için verilir; verilen belgeler arasında mevcut durum varsa onun satırı en başta yer alır. Kod kartındaki mevcut durum notu (orkestra kart mevcut) bu dosyanın kart düzeyindeki karşılığıdır, yerine geçmez. Dosyalar K-005 okunabilirlik düzenine uyar."
         }
       ],
-      "etkinlesme": "2026-10-16T15:50:10+03:00"
+      "etkinlesme": "2026-10-16T15:50:10+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-006",
@@ -390,7 +391,8 @@
           "metin": "ZORUNLU, istisnasız: Bir iş (görev) tamamen kapanıyorsa kapanıştan önce görev bitiş raporu yazılır: işin klasöründe doldurulmuş calisma_ozeti_<YYYYMMDD>.md (orkestra is belge <id> ozet; Ana bulgu boş olamaz, ölçülen sayılar komutla, doğrulanmayanlar ve açık işler dahil). Mevcut durum, plan ve todo görev BAŞLANGICI belgeleridir; kapanış teslimi sayılmaz, bitiş raporunun yerine geçmez. Kapanış yanıtında K-003 satırı olarak yalnız çalışma özeti verilir (başlangıç belgeleri bu turda değişmediyse tekrar verilmez). Zorlama: orkestra is kapat doldurulmuş özet yoksa reddeder; iş hiç yapılmadan kapanıyorsa --ozetsiz \"neden\" gerekir (ORKESTRA_OZET_KAPISI=0 kapıyı kapatır). Hook'un kapıyı hatırlatması yetmez: kapıyı atlayarak kapatmak yasaktır."
         }
       ],
-      "etkinlesme": "2026-10-16T18:28:51+03:00"
+      "etkinlesme": "2026-10-16T18:28:51+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-010",
@@ -408,7 +410,8 @@
           "metin": "ZORUNLU, istisnasız: Halka açık ve geri alınamaz eylemler her seferinde kullanıcıya sorulur: git push, gh ile yazma (PR, issue, release), GitHub MCP yazma araçları, Jira (Atlassian) yazma araçları ve bu adreslere yazan curl/Invoke-RestMethod. Zorla, silme ya da ayna push yapılmaz. Bunların dışındaki her iş (dosya, kabuk, yerel git, tarayıcı, okuma araçları) onay istenmeden yapılır; izin sistemi bir eylemi yine de sorarsa dolanılmaz. Politika ayarlar/izin_politikasi.json dosyasındadır, orkestra izin goster ile görülür; ORKESTRA_IZIN=0 kapatır. Betik içinden API çağrısı en iyi çabayla yakalanır; bu yüzden GitHub/Jira yazma işleri araç ya da gh ile yapılır, betikle değil."
         }
       ],
-      "etkinlesme": "2026-10-16T21:32:55+03:00"
+      "etkinlesme": "2026-10-16T21:32:55+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-011",

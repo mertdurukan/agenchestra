@@ -1451,15 +1451,32 @@ def _kart_satiri(ks: list) -> str:
     return s + " (`orkestra kart liste`)"
 
 
-def _niyet_metni(oturum: str | None) -> str:
-    """UserPromptSubmit niyet hatırlatması (niyet.baglam_metni'nin kısa eşi; aynı yönerge)."""
-    import niyet
-    k = niyet.son_niyet(oturum) if oturum else None
-    kayitli = (f"Kayıtlı niyet: ne=\"{k.get('ne', '')}\" · neden=\"{k.get('neden', '')}\"" if k and k.get("tur") == "niyet"
-               else "Bu sohbet için kayıtlı niyet yok.")
-    return ("Orkestra niyet: " + kayitli + " Yeni iş/iş değişimiyse ilk araç çağrınla bir kez: "
-            "`orkestra niyet --ne \"<≤12 kelime>\" --neden \"<hangi hedefe hizmet; ≤15 kelime>\" [--baglam \"<Proje/Süreç/Görev>\"]`; "
-            "devamıysa YAZMA; bitince `--sonuc \"<≤15 kelime>\"`. Kullanıcıya söz etme.")
+def _niyet_otomatik(sd: str, oturum: str | None, proje: str | None, metin: str) -> None:
+    """Niyeti model çağırmadan, hook içinde yazar (token maliyeti sıfır): oturumda niyet yoksa ya da bağlı iş değiştiyse
+    kural tabanlı kayıt eklenir. ne = isteğin ilk cümlesi (≤12 kelime), neden = bağlı iş başlığı (yoksa 'kullanıcı isteği').
+    Modele talimat verilmez; hata hook'u düşürmez."""
+    try:
+        if not oturum or not metin.strip():
+            return
+        import niyet
+        k = niyet.son_niyet(oturum)
+        bagli = _oturum_isi(sd, oturum)
+        if k and (not bagli or k.get("is") == bagli):
+            return
+        ne = " ".join(L.ne_ozeti(metin).split()[:12])
+        if not ne:
+            return
+        baslik, klasor = "", ""
+        if bagli:
+            import is_kaydi
+            g = is_kaydi.is_al(sd, bagli) or {}
+            baslik = str(g.get("baslik") or "")
+            klasor = str(g.get("klasor") or "")
+        neden = " ".join(f"{bagli} {baslik}".split()[:15]) if bagli else "kullanıcı isteği"
+        alan = {"ne": ne, "neden": neden, "baglam": os.path.basename(klasor.rstrip("/\\")), "is": bagli}
+        niyet.olay(oturum, proje, "niyet", **alan)
+    except Exception:
+        pass
 
 
 _MODEL_AILELERI = ("opus", "sonnet", "haiku", "fable")
@@ -1683,8 +1700,13 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
     return u, onay_ek
 
 
+# SessionStart'ta modele verilen kural çekirdeği: KURALLAR.md'nin (32 KB) tamamı okutulmaz; karar kuralı burada, ayrıntı ilgili bölümde.
+_CEKIRDEK = ("Çekirdek: çok adımlı, 3+ dosyalı ya da hatası pahalı iş → /orkestra:is; onayı ayrı denetçi verir; "
+             "dosyanın yalnız ilgili bölümünü oku.")
+
+
 def session_start(inp: dict):
-    """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600 karakter.
+    """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600, en kötü durumda ≤700 karakter.
     Perspektif, panel açma, etki izleme ve onay yönergesi yalnız koşul sağlanınca ayrı satır olarak eklenir."""
     _doktor_hizli_yol(inp)
     sd = L.durum_dizini(inp.get("cwd")) or _otomatik_ac(inp)
@@ -1731,7 +1753,7 @@ def session_start(inp: dict):
     except Exception:
         pass
     yol = L.kaynaga_cevir(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KURALLAR.md"))
-    satir3 = ((f"Kurallar: {yol}. " if os.path.isfile(yol) else "") + (f"İzin: {im}." if im else "")).strip()
+    satir3 = ((f"Kurallar: {yol}. {_CEKIRDEK} " if os.path.isfile(yol) else "") + (f"İzin: {im}." if im else "")).strip()
     pa = "" if os.environ.get("ORKESTRA_PERSPEKTIF") else _panel_ac_satiri(sd, inp.get("session_id"))
     korunan = "\n".join(x for x in (pa, onay_ek) if x)  # panel açma (oturumda bir kez) ve onay yönergesi kesilmez
     ek = "\n".join([x for x in (satir1, satir2, satir3) if x] + ek_satirlar)
@@ -1807,8 +1829,9 @@ def user_prompt_submit(inp: dict):
                 L.hook_cikti({"decision": "block", "reason": f"{neden}\nMesajın: {metin[:500]}"})
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
-            parcalar = [_niyet_metni(inp.get("session_id")), asili_uyari(sd, inp.get("session_id")),
+            parcalar = [asili_uyari(sd, inp.get("session_id")),
                         _yonlendirme_ipucu(sd, inp.get("session_id"), metin, L.proje_dizini(inp.get("cwd")))]
+            _niyet_otomatik(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), metin)  # iş açıldıktan sonra
             try:  # bilgi sorusu notu (G-120): listenin başına; hata hook'u düşürmez
                 import soru_sinif
                 sn = soru_sinif.not_metni(metin, sd)
@@ -1823,8 +1846,9 @@ def user_prompt_submit(inp: dict):
                     parcalar.append(om)
             except Exception:
                 pass
-            L.hook_cikti({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
-                                                 "additionalContext": "\n".join(p for p in parcalar if p)}})
+            ek = "\n".join(p for p in parcalar if p)
+            if ek:  # boş bağlam çıktısı yazılmaz
+                L.hook_cikti({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ek}})
     gec()
 
 
