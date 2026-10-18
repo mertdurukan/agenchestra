@@ -15,6 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import analitik as A  # noqa: E402
+import metrikler as M  # noqa: E402
 import ork_lib as L  # noqa: E402
 
 ONAYLI = ("onaylandi", "teslim")
@@ -185,9 +186,11 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
     idler = {k["id"] for k in kartlar}
     mal_kart: dict = {}
     ana = []
+    pencere_satir = []
     for r in L.maliyet_kayitlari(sd):
         if not icinde(r.get("zaman")):
             continue
+        pencere_satir.append(r)
         g = r.get("gorev")
         if L.ana_ajan_satiri_mi(r):
             ana.append(r)
@@ -222,6 +225,10 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         if kz and ol:
             bekleme.append((kz - ol).total_seconds())
     out["genel"]["onay_bekleme_sn"] = {"medyan": _medyan(bekleme), "p95": _p95(bekleme)}
+    zaman_satir = [z for z in L.zaman_kayitlari(sd) if icinde(z.get("zaman"))]
+    hedef = _json(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ayarlar", "hedef.json")) or {}
+    esik_sn = float(hedef.get("goodput_sure_sn") or M.GOODPUT_SURE_SN)
+    out["verim"] = M.hesapla(tum, pencere_satir, zaman_satir, bekleme, M.pencere_saat(tum, esik, aralik), esik_sn)
     pl = A._planlayici(tum, [r for rs in mal_kart.values() for r in rs] + ana)
     out["planlayici"] = [{"planlayici": r["planlayici"], "n": r["n"], "onaylanan": r["onaylanan"], "kabul_usd": r["kabul_usd"],
                           "yeterli": r["yeterli"]} for r in pl["toplam"]]
@@ -255,4 +262,6 @@ def tablo(s: dict) -> str:
             satir.append(f"\n{baslik}: {ad}")
             for k in KPILER:
                 satir.append(f"  {k:<24} {_f(v.get(k))}")
+    if s.get("verim"):
+        satir.extend(M.satirlar(s["verim"]))
     return "\n".join(satir)
