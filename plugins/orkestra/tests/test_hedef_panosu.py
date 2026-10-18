@@ -146,6 +146,15 @@ class K2Sinirlar(unittest.TestCase):
         self.assertEqual(A.olcu_durumu(0.10, sp), ("iyi", None))
         self.assertEqual(A.olcu_durumu(None, sp), ("veri-yok", None))
 
+    def test_ek_hedefler_durumu(self):
+        h = dict(HEDEF, ek_hedefler={"ilk_gecis_onay": {"tur": "alt", "hedef": 0.90}, "onbellek_isabet": {"tur": "alt", "hedef": 0.97}})
+        den = [{"karar": "ret", "sira": 1}, {"karar": "onay", "sira": 2}]
+        ek = A.hedef_panosu([kart("G-1", denetimler=den)], [], simdi=SIMDI, hedef=h, esik=ESIK)["ek"]
+        self.assertEqual(ek["ilk_gecis_onay"]["tum_zaman"]["hedef"], 0.90)
+        self.assertIn(ek["ilk_gecis_onay"]["tum_zaman"]["durum"], ("uyari", "kotu", "iyi", "veri-yok"))
+        self.assertEqual(ek["onbellek_isabet"]["tum_zaman"]["hedef"], 0.97)
+        self.assertEqual(ek["onbellek_isabet"]["tum_zaman"]["durum"], "veri-yok")
+
     def test_ret_orani_panoda_yorum(self):
         den = [{"karar": "ret", "sira": 3}] + [{"karar": "onay", "sira": 10 + i} for i in range(19)]
         e = pano([kart("G-1", denetimler=den)])["olculer"]["ret_orani"]["tum_zaman"]

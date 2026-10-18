@@ -12,12 +12,15 @@
 
   // İş türü süzgeçleri (tek tıkla). "yuruyen": şu an yürüyen adımı olan, kapanmamış iş.
   const yuruyor = i => i.durum !== 'kapandi' && dizi(i.kovalar && i.kovalar.simdi).length > 0;
-  // "Açık" ile "Todo gerektirmeyen" açık işleri böler: todo maddesi hiç olmayan iş ikincisine girer.
-  const todoSuz = i => !(Number(i.ilerleme && i.ilerleme.toplam) > 0);
+  // Kapanmamış, beklemede olmayan işleri todo durumuna göre üçe böler (üçü birbirini dışlar):
+  // Açık = todo'su kalan; Özet ve kapanış = todo'ları bitmiş, kapatılmayı bekleyen; Todo gerektirmeyen = hiç todo'su yok.
   const acikIs = i => i.durum !== 'kapandi' && i.durum !== 'beklemede';
+  const todoToplam = i => Number(i.ilerleme && i.ilerleme.toplam) || 0;
+  const todoKalan = i => todoToplam(i) - (Number(i.ilerleme && i.ilerleme.biten) || 0);
   const FILTRELER = [
-    { k: 'acik', ad: 'Açık', f: i => acikIs(i) && !todoSuz(i) },
-    { k: 'gerektirmeyen', ad: 'Todo gerektirmeyen', f: i => acikIs(i) && todoSuz(i) },
+    { k: 'acik', ad: 'Açık', f: i => acikIs(i) && todoToplam(i) > 0 && todoKalan(i) > 0 },
+    { k: 'ozet', ad: 'Özet ve kapanış', f: i => acikIs(i) && todoToplam(i) > 0 && todoKalan(i) <= 0 },
+    { k: 'gerektirmeyen', ad: 'Todo gerektirmeyen', f: i => acikIs(i) && todoToplam(i) === 0 },
     { k: 'yuruyen', ad: 'Yürüyen', f: yuruyor },
     { k: 'beklemede', ad: 'Beklemede', f: i => i.durum === 'beklemede' },
     { k: 'kapandi', ad: 'Tamamlanan', f: i => i.durum === 'kapandi' },

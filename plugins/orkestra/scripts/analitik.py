@@ -944,6 +944,11 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             out["olculer"][o][ad] = e
         out["israf"][ad] = onlenebilir_israf(ks, usd_ajan, esik)
         for a, v in ek_olculer(ks, rs, onayli).items():
+            spec = (hedef.get("ek_hedefler") or {}).get(a)
+            if spec and isinstance(v, dict):
+                d = v["ana"]["deger"] if a == "onbellek_isabet" else v.get("deger")
+                v["hedef"] = spec.get("hedef")
+                v["durum"] = olcu_durumu(d, spec, carpan, t_alt)[0]
             out["ek"][a][ad] = v
     return out
 

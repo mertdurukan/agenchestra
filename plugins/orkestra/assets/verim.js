@@ -38,7 +38,7 @@
     ['ana_ajan_payi', 'Ana ajan payı', 'ust', x => B.yuzde(x), 'ana ajan harcaması / toplam harcama (USD)', v => B.usd(v), 'puan'],
     ['isci_cagrisi_kart', 'İşçi çağrısı / kart', 'ust', x => B.sayi(x, 2), 'işçi çağrısı / kart', v => B.sayi(v), 'adet'],
     ['onayli_kart_usd', 'Onaylı kart başına USD', 'ust', x => B.usd(x), 'onaylı kartların harcaması (USD) / onaylı kart', v => B.sayi(v), 'usd'],
-    ['ret_orani', 'Ret oranı', 'band', x => B.yuzde(x), 'ret / (ret + onay) denetimi', v => B.sayi(v), 'puan'],
+    ['ret_orani', 'Ret oranı', 'ust', x => B.yuzde(x), 'ret / (ret + onay) denetimi', v => B.sayi(v), 'puan'],
     ['teknik_not_kapsama', 'Teknik not kapsaması', 'alt', x => B.yuzde(x), 'teknik notu dolu kart / kapı sonrası onaylı kart', v => B.sayi(v), 'puan'],
   ];
   const PENCERE_SIRASI = ['bugun', 'son_3_gun', 'son_7_gun', 'bu_ay', 'tum_zaman'];
@@ -112,7 +112,7 @@
   // Hedef kartları (I-047): aynı soruya cevap veren ölçüler tek kartta. olcu = hedef panosu ölçüsü, ek = ilgili ek ölçü anahtarları,
   // tasi = ayrıntıya taşınan mevcut bölümler (kimlikleriyle birlikte; betikler yazmaya devam eder).
   const HEDEF_KART = [
-    { hedef: 'H1', soru: 'Bir kart bana kaça mal oluyor?', olcu: ['onayli_kart_usd'], ek: ['onayli_kart_toplam_usd', 'onayli_kart_toplam_token', 'toplam_kalem', 'onayli_usd_dagilim', 'sinif_basina'], tasi: ['#onayli', '#birim'] },
+    { hedef: 'H1', soru: 'Bir kart bana kaça mal oluyor?', olcu: ['onayli_kart_usd'], ek: ['onayli_kart_toplam_usd', 'onayli_kart_toplam_token', 'toplam_kalem', 'onayli_usd_dagilim', 'sinif_basina'], tasi: ['#birim'] },
     { hedef: 'H2', soru: 'Reddedilen iş ne kadar ve neden?', olcu: ['ret_orani'], ek: ['ilk_gecis_onay'], israf: true, tasi: ['#ret'] },
     { hedef: 'H3', soru: 'Bir kart kaç işçi harcıyor?', olcu: ['isci_cagrisi_kart'], ek: ['isci_dagilim'], tasi: [] },
     { hedef: 'H4', soru: 'Ana ajan ne kadar harcıyor?', olcu: ['ana_ajan_payi'], ek: ['ana_kirilim', 'onbellek_isabet'], tasi: [] },
@@ -147,9 +147,9 @@
     ['onayli_usd_dagilim', 'Onaylı kart USD', 'onaylı kartların kendi harcaması (USD)',
       a => [nz(B.usd, a.medyan), 'medyan',
         G.dagilim({ medyan: a.medyan, p90: a.p90, maks: a.en_cok, bicim: B.usd, etiket: 'Kart harcaması' })]],
-    ['ilk_gecis_onay', 'İlk geçişte onay', 'ilk denetim kararı onay olan kart / karar verilmiş kart; hedef yok',
+    ['ilk_gecis_onay', 'İlk geçişte onay', 'ilk denetim kararı onay olan kart / karar verilmiş kart; hedef ≥ %90',
       a => [nz(B.yuzde, a.deger), `${B.sayi(a.pay, 0)} / ${B.sayi(a.payda, 0)} kart`, G.ilerleme(a.pay, a.payda, { renk: 'var(--s1)', etiket: 'İlk geçişte onay' })]],
-    ['onbellek_isabet', 'Önbellek isabeti', 'okunan önbellek tokenı / tüm giriş tokenı',
+    ['onbellek_isabet', 'Önbellek isabeti', 'okunan önbellek tokenı / tüm giriş tokenı; hedef ≥ %97',
       a => [nz(B.yuzde, (a.ana || {}).deger), `ana ajan · karta bağlı ${nz(B.yuzde, (a.karta_bagli || {}).deger)}`, G.ilerleme(((a.ana || {}).deger || 0) * 100, 100, { renk: 'var(--s1)', etiket: 'Önbellek isabeti' })]],
     ['sinif_basina', 'İş sınıfı maliyeti', 'kartın sınıfına göre kart sayısı ve karta bağlı harcama; en pahalı 5 sınıf',
       a => {
@@ -164,7 +164,8 @@
     return EK_TANIM.filter(t => !yalniz || t[0] === yalniz).map(([anahtar, ad, tanim, bicim]) => {
       const a = (ek[anahtar] || {})[S.pencere];
       if (!a) return '';
-      const [deger, alt, grafik] = bicim(a);
+      let [deger, alt, grafik] = bicim(a);
+      if (a.hedef != null) { const d = durumMetni(a.durum); alt = `${alt} · hedef ≥ ${B.yuzde(a.hedef)} · ${d.simge} ${d.ad}`; }
       return ekKutu(ad, deger, alt, grafik, `<b>${ad} · ${PENCERE_AD[S.pencere]}</b><div class="meta">${tanim}</div>`);
     }).join('');
   }
