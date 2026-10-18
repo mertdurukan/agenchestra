@@ -125,6 +125,15 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 ## Teknik not
 - İşçi is-bitti'si `--teknik <json_dosya>` (yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler) olmadan geçmez (çıkış 4; kapatma: `ORKESTRA_TEKNIK_KAPISI=0`). Denetçi teknik notun çıktıyla tutarlılığına bakar; tutarsızsa ret.
 
+## İyi uygulamalar: veri ve agentic ürünler
+Sorgu üreten, veriyle cevap veren ya da araç çağıran bir sistem (ajan, rapor, panel) tasarlanırken ya da incelenirken bu listeye bakılır. Kaynak: RNV agentic kod okuması (18.10.2026).
+- **Anlamsal katman:** metrik bir kez tanımlanır (ad, formül, kapsam; ör. ciro KDV dahil mi, hangi kanal, hangi tarih kolonu), sorgular oradan üretilir. Aynı metriği her istemde ya da sorguda yeniden yazmak tutarsız sayı üretir.
+- **Değerlendirme odaklı geliştirme:** altın soru seti (soru, beklenen cevap ya da sorgu) önce kurulur; her değişiklik bu sete karşı ölçülür. Set olmadan "iyileşti" denmez.
+- **Katmanlı güvenlik ve izleme:** girdi kapısı, üretilen SQL'in doğrulayıcısı (salt okuma, izinli tablo), kullanıcıya özgü veri sınırı ve çağrı izi (ör. Langfuse). Tek kapıya güvenilmez.
+- **Netleştirme sorusu:** soru birden çok biçimde okunabiliyorsa (dönem, metrik, kapsam) tahmin edilip cevaplanmaz, tek soruyla netleştirilir.
+- **Çoklu araç planlayıcı:** birden çok araç gerektiren soruda önce adım planı çıkarılır, araçlar sırayla ya da paralel çağrılır, sonuçlar birleştirilir.
+- **Sonuç önbelleği:** aynı soru, parametre ve veri sürümü için tekrar hesaplanmaz; anahtar bu üçlüdür, veri yenilenince geçersiz olur.
+
 ## İzin politikası
 - Kural P-010 (kayıtlı eklenti kuralları): halka açık ve geri alınamaz eylemler dışında onay istenmez. Orkestra açık her projede eklentinin PreToolUse hook'u kapı dışı çağrıya `allow` verir; kapı eylemlerinde `ask`, zorla/silme/ayna push'ta `deny` verir.
 - Kapı (sorulur): `git push`; `gh pr|issue|release|repo|gist|workflow|label|secret|variable` yazma komutları; `gh api` ile yazma; GitHub ve Jira/Atlassian adreslerine yazan `curl`/`Invoke-RestMethod`; `mcp__github__*` ve Atlassian/Jira MCP araçlarının okuma (`get_`, `list_`, `search_`, `fetch`, `lookup`) dışındakileri. Yeni eklenen bir yazma aracı otomatik kapıya düşer.
