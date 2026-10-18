@@ -715,9 +715,7 @@ def subagent_stop(inp: dict):
             baglam = _oturum_baglami(sd, inp.get("session_id"))
     except Exception:
         baglam = ""
-    if surec == "bilinmiyor":
-        surec = "denetim" if "denetci" in atip else ("arastirma" if atip in ("Explore", "orkestra:arastirmaci") else
-                                                      "perspektif" if ("perspektif" in atip or "ruya" in atip) else "is" if "isci" in atip else "bilinmiyor")
+    surec = L.surec_turet(atip, surec)
     # Sayaç modülünün (maliyet tur) aynı ajanı görev/süreç/tip ile eşleyebilmesi için önbellek.
     if gorev != "-":
         L.atomik_yaz(os.path.join(sd, "oturumlar", f"ajan_{aid}.json"), json.dumps({"gorev": gorev, "surec": surec, "ajan": atip, "baglam": baglam}))

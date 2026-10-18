@@ -11,6 +11,8 @@
   // ortak.js'te yok: yüzde değerini CSS genişliği için yuvarla
   const scale = (o, n) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, n ? v / n : null]));   // kalem toplamı → kart başına
   const yz = v => Math.round(Math.max(0, Math.min(100, v)) * 100) / 100;
+  const T = () => B.olcu() === 'token';
+  const F = v => B.bicim()(v);   // USD/token düğmesine göre biçim
 
   // V: SON İYİ analitik verisi; hata anında silinmez (yalnız alan değişince sıfırlanır). Durum: K (O.veri kontrol nesnesi).
   let K = null;
@@ -97,7 +99,7 @@
       if (!i) return '';
       const ned = Object.entries(i.siniflar || {}).map(([k, e]) => `${esc(k)} ${B.sayi(e.ret)}`).join(' · ');
       const ip = `<b>Önlenebilir israf · ${esc(PENCERE_AD[w])}</b><div class="meta">Ret alan işçi turunun defter maliyeti; yalnız önlenebilir sınıf (kapsam, biçim, sayı, kanıt, yetenek) toplanır. Sınıflanmamış ret ayrı sayılır, israfa eklenmez. Eşik sürümü ${esc(B.sayi((israf.tum_zaman || {}).esik_surumu))}.</div>`;
-      return ekKutu('Önlenebilir israf', B.usd(i.onlenebilir_usd), `koşuyu yeniden yaptıran ret: ${ned || 'yok'}`, '', ip);
+      return ekKutu('Önlenebilir israf', B.deger(i.onlenebilir_usd, i.onlenebilir_token), `koşuyu yeniden yaptıran ret: ${ned || 'yok'}`, '', ip);
     };
     // Hedef kartları: her kart tek soruya cevap veren ana ölçüyü ve ilgili ek ölçüleri taşır (yeri HEDEF_KART tanımında)
     HEDEF_KART.forEach(h => {
@@ -126,10 +128,13 @@
   const nz = (f, v, ...a) => (v == null ? '–' : f(v, ...a));
   const ekKutu = (ad, deger, alt, grafik, ip) => `<div class="karo pano-kutu ek-kutu" tabindex="0" data-ipucu="${esc(ip || '')}"><span class="pano-ad">${esc(ad)}</span><b class="ek-deger">${deger}</b><small class="pano-hedef">${alt}</small>${grafik || ''}</div>`;
   const EK_TANIM = [
-    ['ana_kirilim', 'Ana ajan harcaması', 'ana ajan harcamasının işe bağlı, işe bağsız ve perspektif payı (USD)',
-      a => [B.usd((Number(a.is_bagli_usd) || 0) + (Number(a.is_bagsiz_usd) || 0) + (Number(a.perspektif_usd) || 0)),
-        `işe bağlı ${B.usd(a.is_bagli_usd)} · işe bağsız ${B.usd(a.is_bagsiz_usd)} · perspektif ${B.usd(a.perspektif_usd)}`,
-        G.pay([{ ad: 'İşe bağlı', deger: a.is_bagli_usd, renk: 'var(--s1)' }, { ad: 'İşe bağsız', deger: a.is_bagsiz_usd, renk: 'var(--s2)' }, { ad: 'Perspektif', deger: a.perspektif_usd, renk: 'var(--s3)' }], { bicim: B.usd, toplamEtiket: 'Ana ajan harcaması payları' })]],
+    ['ana_kirilim', 'Ana ajan harcaması', 'ana ajan harcamasının işe bağlı, işe bağsız ve perspektif payı (üstteki düğme USD / token seçer)',
+      a => {
+        const sf = T() ? 'token' : 'usd', g = k => Number(a[k + '_' + sf]) || 0;
+        return [F(g('is_bagli') + g('is_bagsiz') + g('perspektif')),
+          `işe bağlı ${F(g('is_bagli'))} · işe bağsız ${F(g('is_bagsiz'))} · perspektif ${F(g('perspektif'))}`,
+          G.pay([{ ad: 'İşe bağlı', deger: g('is_bagli'), renk: 'var(--s1)' }, { ad: 'İşe bağsız', deger: g('is_bagsiz'), renk: 'var(--s2)' }, { ad: 'Perspektif', deger: g('perspektif'), renk: 'var(--s3)' }], { bicim: F, toplamEtiket: 'Ana ajan payları' })];
+      }],
     ['onayli_kart_toplam_usd', 'Kart başına USD (ana ajan dahil)', 'pencere içindeki tüm harcama (ana ajan dahil) / onaylı kart',
       a => [nz(B.usd, a.deger), `${B.usd(a.pay)} / ${B.sayi(a.payda, 0)} kart`, '']],
     ['onayli_kart_toplam_token', 'Kart başına token (ana ajan dahil)', 'pencere içindeki tüm token (giriş + çıkış + önbellek okuma + önbellek yazma) / onaylı kart',
@@ -144,9 +149,9 @@
     ['isci_dagilim', 'Kart başına işçi', 'kart başına tekil işçi ajanı sayısı; denetçiler dahil değildir',
       a => [`${nz(B.sayi, a.medyan, 1)}`, `medyan · 4+ işçili ${B.sayi(a.kart_ge4, 0)} / ${B.sayi(a.adet, 0)} kart`,
         G.dagilim({ medyan: a.medyan, p90: a.p90, maks: a.en_cok, bicim: x => B.sayi(x, 1), etiket: 'İşçi ajanı sayısı' })]],
-    ['onayli_usd_dagilim', 'Onaylı kart USD', 'onaylı kartların kendi harcaması (USD)',
-      a => [nz(B.usd, a.medyan), 'medyan',
-        G.dagilim({ medyan: a.medyan, p90: a.p90, maks: a.en_cok, bicim: B.usd, etiket: 'Kart harcaması' })]],
+    ['onayli_usd_dagilim', 'Onaylı kart harcaması dağılımı', 'onaylı kartların kendi harcaması (üstteki düğme USD / token seçer)',
+      a => { const d = T() ? (a.token || {}) : a; return [nz(F, d.medyan), 'medyan',
+        G.dagilim({ medyan: d.medyan, p90: d.p90, maks: d.en_cok, bicim: F, etiket: 'Kart harcaması' })]; }],
     ['ilk_gecis_onay', 'İlk geçişte onay', 'ilk denetim kararı onay olan kart / karar verilmiş kart; hedef ≥ %90',
       a => [nz(B.yuzde, a.deger), `${B.sayi(a.pay, 0)} / ${B.sayi(a.payda, 0)} kart`, G.ilerleme(a.pay, a.payda, { renk: 'var(--s1)', etiket: 'İlk geçişte onay' })]],
     ['onbellek_isabet', 'Önbellek isabeti', 'okunan önbellek tokenı / tüm giriş tokenı; hedef ≥ %97',
@@ -161,7 +166,8 @@
   ];
   function ekKutular(ek, yalniz) {
     if (!ek) return '';
-    return EK_TANIM.filter(t => !yalniz || t[0] === yalniz).map(([anahtar, ad, tanim, bicim]) => {
+    const BIRIM = { onayli_kart_toplam_usd: 'usd', onayli_kart_toplam_token: 'token' };   // çift kartlardan yalnız seçili birim çizilir
+    return EK_TANIM.filter(t => (!yalniz || t[0] === yalniz) && (!BIRIM[t[0]] || BIRIM[t[0]] === (T() ? 'token' : 'usd'))).map(([anahtar, ad, tanim, bicim]) => {
       const a = (ek[anahtar] || {})[S.pencere];
       if (!a) return '';
       let [deger, alt, grafik] = bicim(a);
@@ -193,7 +199,7 @@
           <td class="sayi">${s.denetlenen ? `${B.yuzde(s.ilk_gecis_orani)} <span class="meta" style="display:inline">(${B.sayi(s.ilk_gecis)}/${B.sayi(s.denetlenen)})</span>` : '–'}</td>
           <td class="sayi">${oran(s.ret_orani, s.ret, s.denetim)}</td>
           <td class="sayi">${s.yukseltilen ? B.sayi(s.yukseltilen) : '–'}</td>
-          <td class="sayi">${s.kart_basi_usd ? B.usd(s.kart_basi_usd) : '–'}</td></tr>`).join('') + '</table></div>';
+          <td class="sayi">${(T() ? s.kart_basi_token : s.kart_basi_usd) ? F(T() ? s.kart_basi_token : s.kart_basi_usd) : '–'}</td></tr>`).join('') + '</table></div>';
     }
     html += `<details class="nasil"><summary>Nasıl hesaplanır?</summary>
       <p>İlk seferde geçti: ilk denetimde onay alan kartların, denetlenen kartlara oranı. Ret oranı: o basamaktaki bütün denetimlerin reddedilen payı. Yükseltilen: daha üst basamağa taşınan kart sayısı. Gerçekleşmeyen durumlar "–" gösterilir.</p></details>`;
@@ -225,7 +231,7 @@
         <td>${s.baslangic_basamak === '*' ? '–' : esc(s.baslangic_basamak)}</td><td class="sayi">${B.sayi(s.n)}</td>
         <td class="sayi">${s.ilk_gecis == null ? '–' : B.yuzde(s.ilk_gecis)}</td><td class="sayi">${s.alt_sinir == null ? '–' : B.yuzde(s.alt_sinir)}</td>
         <td class="sayi">${B.sayi(s.ret)}/${B.sayi(s.denetlenen)}</td><td class="sayi">${dolu(s.isci_kart)}</td>
-        <td class="sayi">${s.kabul_usd == null ? '–' : B.usd(s.kabul_usd)}</td><td class="sayi">${dk(s.dk_medyan)}</td><td class="sayi">${dk(s.dk_p90)}</td>
+        <td class="sayi">${(T() ? s.kabul_token : s.kabul_usd) == null ? '–' : F(T() ? s.kabul_token : s.kabul_usd)}</td><td class="sayi">${dk(s.dk_medyan)}</td><td class="sayi">${dk(s.dk_p90)}</td>
         <td>${s.yeterli ? '' : rozet('yetersiz veri', 'var(--neutral)')}</td></tr>`).join('') + '</table></div>' +
       `<p class="meta">Ölçüm ${esc(String(p.olcum || '').slice(0, 16).replace('T', ' '))} · en az ${B.sayi(p.min_n)} kart</p>`;
     yerlestir(kap, html);
@@ -265,14 +271,15 @@
       yerlestir(kap, `<p class="bos">${d ? 'Henüz kart yok.' : 'Maliyet verimi verisi yok.'}</p>`);
       return;
     }
-    const usd = x => x == null ? '–' : B.usd(x);
+    const usd = x => x == null ? '–' : F(x);
+    const sf = T() ? 'token' : 'usd', toplamA = o => o['toplam_' + sf], basiA = o => o[T() ? 'onayli_is_basi_token' : 'onayli_is_basi_usd'];
     const t = d.toplam || {};
     const html = `<div class="tablo-kap"><table class="tablo"><tr><th>Sınıf</th><th>Başlangıç basamağı</th><th class="sayi">Kart</th><th class="sayi">Onaylanan</th>
       <th class="sayi">Ortalama tur</th><th class="sayi">Toplam</th><th class="sayi" title="Sınıfın tüm kart harcaması / onaylanan kart sayısı (red turları dahil)">Onaylanan kart başına (tüm turlar)</th></tr>` +
       satirlar.map(s => `<tr><td>${esc(s.sinif)}</td><td>${esc(s.baslangic_basamak ?? '–')}</td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.sayi(s.onaylanan)}</td>
-        <td class="sayi">${s.ort_tur != null ? B.sayi(s.ort_tur, 2) : '–'}</td><td class="sayi">${usd(s.toplam_usd)}</td><td class="sayi">${usd(s.onayli_is_basi_usd)}</td></tr>`).join('') +
+        <td class="sayi">${s.ort_tur != null ? B.sayi(s.ort_tur, 2) : '–'}</td><td class="sayi">${usd(toplamA(s))}</td><td class="sayi">${usd(basiA(s))}</td></tr>`).join('') +
       `<tr><td><b>Toplam</b></td><td></td><td class="sayi"><b>${B.sayi(t.kart)}</b></td><td class="sayi"><b>${B.sayi(t.onaylanan)}</b></td>
-        <td class="sayi"><b>${t.ort_tur != null ? B.sayi(t.ort_tur, 2) : '–'}</b></td><td class="sayi"><b>${usd(t.toplam_usd)}</b></td><td class="sayi"><b>${usd(t.onayli_is_basi_usd)}</b></td></tr></table></div>` +
+        <td class="sayi"><b>${t.ort_tur != null ? B.sayi(t.ort_tur, 2) : '–'}</b></td><td class="sayi"><b>${usd(toplamA(t))}</b></td><td class="sayi"><b>${usd(basiA(t))}</b></td></tr></table></div>` +
       '<p class="aciklama">Onaylı iş başı: kartlara bağlı toplam harcamanın onaylanan kart sayısına bölümü; onaylanan yoksa "–" gösterilir.</p>';
     yerlestir(kap, html);
   }
@@ -287,9 +294,17 @@
     const v = veri(), b = v && v.birim;
     if (!b) return;
     let html = '<div class="karolar">' +
-      `<div class="karo"><b>${B.usd(b.kart_basi)}</b><span>Teslim edilen kart başına (yalnız teslim kartlar)</span><small>medyan ${B.usd(b.kart_medyan)} · ${B.sayi(b.teslim_kart)} kart</small></div>` +
-      `<div class="karo"><b>${B.token(b.kart_basi_token)}</b><span>Teslim edilen kart başına token</span><small>medyan ${B.token(b.kart_medyan_token)} · ${esc(B.kalem(b.kart_kalem && { token: scale(b.kart_kalem.token, b.teslim_kart), usd: scale(b.kart_kalem.usd, b.teslim_kart) }))}</small></div>` +
-      `<div class="karo"><b>${B.usd(b.sohbet_basi)}</b><span>Sohbet başına</span><small>medyan ${B.usd(b.sohbet_medyan)} · ${B.sayi(b.sohbet_sayisi)} sohbet</small></div></div>`;
+      (() => {
+        const ib = B.isBasina(v.is_basina);
+        return ib ? `<div class="karo vurgu" tabindex="0" data-ipucu="${esc(ib.ip)}"><b>${ib.deger}</b><span>Tamamlanan iş başına (${B.birim()})</span><small>${ib.alt}</small></div>` : '';
+      })() +
+      `<div class="karo"><b>${F(T() ? b.kart_basi_token : b.kart_basi)}</b><span>Teslim edilen kart başına (${B.birim()})</span><small>medyan ${F(T() ? b.kart_medyan_token : b.kart_medyan)} · ${B.sayi(b.teslim_kart)} kart · ${esc(B.kalem(b.kart_kalem && { token: scale(b.kart_kalem.token, b.teslim_kart), usd: scale(b.kart_kalem.usd, b.teslim_kart) }))}</small></div>` +
+      `<div class="karo"><b>${B.usd(b.sohbet_basi)}</b><span>Sohbet başına (USD)</span><small>medyan ${B.usd(b.sohbet_medyan)} · ${B.sayi(b.sohbet_sayisi)} sohbet${T() ? ' · token dökümü yok' : ''}</small></div></div>`;
+    const isler = v.is_basina && Array.isArray(v.is_basina.isler) ? v.is_basina.isler : [];
+    if (isler.length) {
+      html += `<details class="nasil"><summary>Tamamlanan işlerin harcaması (en pahalı ${B.sayi(isler.length)})</summary><div class="tablo-kap"><table class="tablo"><tr><th>İş</th><th>Ad</th><th class="sayi">${B.birim() === 'USD' ? 'Tutar' : 'Token'}</th></tr>` +
+        isler.slice().sort((p, q) => (T() ? q.token - p.token : q.usd - p.usd)).map(x => `<tr><td>${esc(x.id)}</td><td class="ad">${metin(kisalt(x.ad, 80))}</td><td class="sayi">${F(T() ? x.token : x.usd)}</td></tr>`).join('') + '</table></div></details>';
+    }
     const uy = Array.isArray(b.uyarilar) ? b.uyarilar : [];
     if (!uy.length) html += `<p class="tek-satir">${rozet('iyi', 'var(--good)')} Son günlerde anormal sıçrama yok.</p>`;
     else {
@@ -298,16 +313,16 @@
         (kalan.length ? `<details class="nasil" id="uyariDetay"${S.uyariAcik ? ' open' : ''}><summary data-anahtar="uyari">${kalan.length} uyarı daha</summary>
           <div class="uyarilar">${kalan.map(uyariSerit).join('')}</div></details>` : '') + '</div>';
     }
-    const pahali = Array.isArray(b.en_pahali) ? b.en_pahali : [];
+    const pahali = (T() ? (Array.isArray(b.en_pahali_token) ? b.en_pahali_token : b.en_pahali) : b.en_pahali) || [];
     if (!pahali.length) html += '<p class="bos">Henüz alt ajan koşusu kaydı yok.</p>';
     else {
-      const maks = Math.max(...pahali.map(k => k.usd || 0), 0.0001);
-      html += '<h3>En pahalı 10 koşu</h3><div class="tablo-kap"><table class="tablo"><tr><th>Ajan</th><th>Model</th><th class="sayi">Tutar</th><th aria-hidden="true"></th></tr>' +
+      const dgr = k => (T() ? k.token : k.usd) || 0, maks = Math.max(...pahali.map(dgr), 0.0001);
+      html += '<h3>En pahalı 10 koşu</h3><div class="tablo-kap"><table class="tablo"><tr><th>Ajan</th><th>Model</th><th class="sayi">' + (T() ? 'Token' : 'Tutar') + '</th><th aria-hidden="true"></th></tr>' +
         pahali.map(k => {
           const ek = [k.gorev && k.gorev !== '-' ? k.gorev : '', E.surec(k.surec), B.tarih(k.zaman)].filter(Boolean).join(' · ');
           return `<tr><td class="ad">${esc(E.ajan(k.ajan))}<span class="meta">${esc(ek)}${k.aciklama ? ' · ' + metin(kisalt(O.temizMetin(k.aciklama), 90)) : ''}</span></td>
-            <td>${modelRozet(k.model)}</td><td class="sayi">${B.usd(k.usd)}</td>
-            <td><span class="mini" aria-hidden="true"><i style="width:${yz((k.usd || 0) / maks * 100)}%;--renk:${renkModel(k.model)}"></i></span></td></tr>`;
+            <td>${modelRozet(k.model)}</td><td class="sayi">${F(dgr(k))}</td>
+            <td><span class="mini" aria-hidden="true"><i style="width:${yz(dgr(k) / maks * 100)}%;--renk:${renkModel(k.model)}"></i></span></td></tr>`;
         }).join('') + '</table></div>';
     }
     html += `<details class="nasil"><summary>Nasıl hesaplanır?</summary>
@@ -442,7 +457,7 @@
     for (let i = 0; i < seg.length - 1; i++) {
       bosluklar.push({ sol: (seg[i].off + (seg[i].t1 - seg[i].t0)) / toplam * 100, genis: kesik / toplam * 100, ms: seg[i + 1].t0 - seg[i].t1 });
     }
-    return { k, seg, pos, gruplar, enCok, isaretler, bosluklar, toplam: k.reduce((t, o) => t + (o.x.usd || 0), 0) };
+    return { k, seg, pos, gruplar, enCok, isaretler, bosluklar, toplam: k.reduce((t, o) => t + ((T() ? o.x.token : o.x.usd) || 0), 0) };
   }
 
   function ganttCiz() {
@@ -464,7 +479,7 @@
       yerlestir(ayr, '');
       return;
     }
-    $('#ganttOzet').textContent = `${B.sayi(m.k.length)} koşu · en çok ${B.sayi(m.enCok)} ajan aynı anda · ${B.usd(m.toplam)}`;
+    $('#ganttOzet').textContent = `${B.sayi(m.k.length)} koşu · en çok ${B.sayi(m.enCok)} ajan aynı anda · ${F(m.toplam)}`;
     let secili = null;
     const satirSayisi = m.gruplar.length + 1;
     let h = `<div class="g-kaydir"><div class="g-izgara" role="group" aria-label="Paralel zaman çizelgesi">`;
@@ -481,9 +496,9 @@
           if (acik) secili = o;
           const etiket = x.gorev && x.gorev !== '-' && gen * 8 > 44 ? esc(x.gorev) : '';
           const sure = sureMetni((o.s - o.b) / 60000);
-          const ad = `${E.ajan(x.ajan)}, ${x.gorev && x.gorev !== '-' ? x.gorev + ', ' : ''}${sure}, ${B.usd(x.usd)}`;
+          const ad = `${E.ajan(x.ajan)}, ${x.gorev && x.gorev !== '-' ? x.gorev + ', ' : ''}${sure}, ${F(T() ? x.token : x.usd)}`;
           return `<button type="button" class="g-cubuk" style="left:min(${yz(sol)}%, calc(100% - 8px));width:${yz(gen)}%;--renk:${renkModel(x.model)}" data-k="${esc(anahtar)}" data-anahtar="g:${esc(anahtar)}"
-            aria-pressed="${acik}" aria-controls="ganttAyrinti" aria-label="${esc(ad)}" data-ipucu="${esc('<b>' + esc(E.ajan(x.ajan)) + '</b>' + sat('Süre', sure) + sat('Maliyet', B.usd(x.usd)) + '<div class="meta">Tıkla: ayrıntıyı aç</div>')}">${etiket}</button>`;
+            aria-pressed="${acik}" aria-controls="ganttAyrinti" aria-label="${esc(ad)}" data-ipucu="${esc('<b>' + esc(E.ajan(x.ajan)) + '</b>' + sat('Süre', sure) + sat('Maliyet', F(T() ? x.token : x.usd)) + '<div class="meta">Tıkla: ayrıntıyı aç</div>')}">${etiket}</button>`;
         }).join('') + '</div>';
       }
       h += '</div>';
@@ -500,7 +515,7 @@
     yerlestir(ayr, `<div class="g-ayrinti" style="--renk:${renkModel(x.model)}">
       <div class="ust"><b>${esc(E.ajan(x.ajan))}</b><button type="button" id="ganttKapat" data-anahtar="gkapat">Kapat</button></div>
       <dl class="alanlar">${alan('Görev', x.gorev && x.gorev !== '-' ? esc(x.gorev) : 'Kartsız')}${alan('İş türü', esc(E.surec(x.surec)))}${alan('Model', modelRozet(x.model))}
-      ${alan('Süre', esc(sureMetni((secili.s - secili.b) / 60000)))}${alan('Saat', `${B.saat(secili.b)} – ${B.saat(secili.s)}`)}${alan('Maliyet', B.usd(x.usd))}
+      ${alan('Süre', esc(sureMetni((secili.s - secili.b) / 60000)))}${alan('Saat', `${B.saat(secili.b)} – ${B.saat(secili.s)}`)}${alan('Maliyet', F(T() ? x.token : x.usd))}
       ${x.aciklama ? alan('Açıklama', metin(x.aciklama), true) : ''}</dl></div>`);
   }
 

@@ -8,6 +8,8 @@
   const sat = (ad, deger, renk) => `<div class="sat"><span>${renk ? `<i style="background:${renk}"></i>` : ''}${esc(ad)}</span><span>${deger}</span></div>`;
   const r2 = v => Math.round(Number(v) * 100) / 100;
   const sayiMi = v => v != null && isFinite(v);
+  const T = () => B.olcu() === 'token';
+  const F = v => B.bicim()(v);   // kipe göre USD ya da token
 
   // Kaynaklar: S.ozet (ozet.json), S.an (analitik.json; yalnız bu alanınsa), S.tum (analitik-tum.json).
   // Hata anında silinmez; yalnız alan değişince ozet ve analitik sıfırlanır. Kaynak durumu KO, KA, KT kontrol nesnelerinde.
@@ -59,7 +61,7 @@
       const g = gruplar.find(x => x.v === r2(v));
       if (g) { g.etiketler.push(et); if (alt && !g.alt) g.alt = alt; } else gruplar.push({ v: r2(v), etiketler: [et], alt });
     });
-    return gruplar.map(g => karo(B.usd(g.v), esc(g.etiketler.join(' · ')), esc(g.alt || ''))).join('');
+    return gruplar.map(g => karo(F(g.v), esc(g.etiketler.join(' · ')), esc(g.alt || ''))).join('');
   }
 
   // ------------------------------------------------------------ uyarı şeridi ve bayatlık
@@ -114,39 +116,44 @@
     let karolar = '';
     // Bugün + Bu ay: aynı değerde tek karo, sıfır olan gizli
     let buAy = null, buAyAlt = '';
-    if (ay && sayiMi(ay.simdiye)) {
-      buAy = ay.simdiye;
-      buAyAlt = [ay.veri_gun ? `${B.sayi(ay.veri_gun)} günlük veri` : '', ay.onceki_ay ? `geçen ay ${B.usd(ay.onceki_ay)}` : ''].filter(Boolean).join(' · ');
+    const ayD = k => (ay ? (T() ? (ay.token || {})[k] : ay[k]) : null);   // ay sonu alanı, kipe göre
+    const bugunD = T() ? m.bugun_token : m.bugun, toplamD = T() ? m.toplam_token : m.toplam;
+    if (ay && sayiMi(ayD('simdiye'))) {
+      buAy = ayD('simdiye');
+      buAyAlt = [ay.veri_gun ? `${B.sayi(ay.veri_gun)} günlük veri` : '', ayD('onceki_ay') ? `geçen ay ${F(ayD('onceki_ay'))}` : ''].filter(Boolean).join(' · ');
     } else if (!ork) {
       const a = alanTum();
-      if (a) buAy = a.ay;
+      if (a) buAy = T() ? (a.token || {}).ay : a.ay;
     }
-    const ogeler = [['Bugün', m.bugun, ''], ['Bu ay', buAy, buAyAlt]];
-    if (!ork) ogeler.push(['Kayıtlı toplam', m.toplam, `${B.sayi(sohbetler().length)} sohbet`]);
+    const ogeler = [['Bugün', bugunD, ''], ['Bu ay', buAy, buAyAlt]];
+    if (!ork) ogeler.push(['Kayıtlı toplam', toplamD, `${B.sayi(sohbetler().length)} sohbet`]);
     karolar += tutarKarolari(ogeler);
     // Ay sonu tahmini: iki yöntem %10'dan az farklıysa tek değer, değilse aralık
     if (ay && ork) {
-      const adaylar = [ay.tahmin_7g, ay.tahmin_ort].filter(sayiMi);
+      const adaylar = [ayD('tahmin_7g'), ayD('tahmin_ort')].filter(sayiMi);
       const bitti = ay.ay_gun && ay.gecen_gun >= ay.ay_gun;
       if (!adaylar.length && !bitti && ay.tahmin_yeterli === false) {
         karolar += karo('–', 'Ay sonu tahmini', esc(`en az 7 günlük veri gerekir (şimdi ${B.sayi(ay.veri_gun || 0)} gün)`));
       } else if (adaylar.length && !bitti) {
         const lo = Math.min(...adaylar), hi = Math.max(...adaylar);
-        const buAyIleAyni = r2(lo) === r2(ay.simdiye) && r2(hi) === r2(ay.simdiye);
+        const buAyIleAyni = r2(lo) === r2(ayD('simdiye')) && r2(hi) === r2(ayD('simdiye'));
         if (hi > 0 && !buAyIleAyni) {
           const tek = adaylar.length === 1 || (hi - lo) / hi < 0.10;
           const az = ay.veri_gun != null && ay.veri_gun < 3 ? `yalnız ${B.sayi(ay.veri_gun)} günlük veriye dayanıyor` : '';
           const alt = az || (tek ? 'son 7 günün hızı ve ay ortalaması aynı yönde' : 'son 7 günün hızı ile ay ortalaması arasında');
           karolar += tek
-            ? karo(B.usd((lo + hi) / 2), 'Ay sonu tahmini', esc(alt))
-            : karo(`${B.usd(lo)} – ${B.usd(hi)}`, 'Ay sonu tahmini', esc(alt), { sinif: 'aralik' });
+            ? karo(F((lo + hi) / 2), 'Ay sonu tahmini', esc(alt))
+            : karo(`${F(lo)} – ${F(hi)}`, 'Ay sonu tahmini', esc(alt), { sinif: 'aralik' });
         }
       }
     }
+    // Tamamlanan iş başına harcama (kapanan işler; USD/token düğmesi seçer)
+    const ibK = ork && S.an ? B.isBasina(S.an.is_basina) : null;
+    if (ibK) karolar += `<div class="karo" tabindex="0" data-ipucu="${esc(ibK.ip)}"><b>${ibK.deger}</b><span>Tamamlanan iş başına</span><small>${esc(ibK.alt)}</small></div>`;
     // Kota (H5): kalan % karoları yalnız Kota bölümünde (#kota) durur; burada ikinci kez gösterilmez.
-    const bugunYok = !sayiMi(m.bugun) || r2(m.bugun) === 0;
+    const bugunYok = !sayiMi(bugunD) || r2(bugunD) === 0;
     const sonKayit = sohbetler().map(s => s.son).filter(Boolean).sort().pop();
-    const tutarVar = [m.bugun, buAy, m.toplam].some(v => sayiMi(v) && r2(v) > 0);
+    const tutarVar = [bugunD, buAy, toplamD].some(v => sayiMi(v) && r2(v) > 0);
     let html;
     if (!tutarVar) {
       html = '<p class="bos">Henüz maliyet kaydı yok.</p>';
@@ -243,22 +250,23 @@
       Object.entries(e.g || {}).forEach(([g, v]) => { if (ic(g)) { t[0] += v[0]; t[1] += v[1]; } });
       return { e, oturum: e.oturum, baslik: e.baslik, usd: t[0], tok: t[1], son: e.son, eski: eski[e.oturum] };
     });
-    const satirlar = hepsi.filter(r => r2(r.usd) > 0 || r.oturum === secili).sort((a, b) => b.usd - a.usd);
-    const topUsd = satirlar.reduce((a, r) => a + r.usd, 0), topTok = satirlar.reduce((a, r) => a + r.tok, 0);
+    const D = r => T() ? r.tok : r.usd;   // düğmeye göre sıralama ve pay değeri
+    const satirlar = hepsi.filter(r => r2(r.usd) > 0 || r.oturum === secili).sort((a, b) => D(b) - D(a));
+    const topUsd = satirlar.reduce((a, r) => a + r.usd, 0), topTok = satirlar.reduce((a, r) => a + r.tok, 0), topD = T() ? topTok : topUsd;
     $('#sohbetSayi').textContent = satirlar.length ? `${B.sayi(satirlar.length)} sohbet` : '';
     const dugmeGrup = (ad, anahtar, secenekler, simdiki) => `<div class="cipler" role="group" aria-label="${esc(ad)}">${secenekler.map(([v, et]) =>
       `<button type="button" class="cip" data-${anahtar}="${v}" data-anahtar="${anahtar}:${v}" aria-pressed="${simdiki === v}">${et}</button>`).join('')}</div>`;
     const arac = `<div class="arac">${dugmeGrup('Görünüm', 'sgorunum', [['grafik', 'Grafik'], ['liste', 'Liste']], gorunum)}</div>`;
-    const ozet = `<p class="meta sohbet-ozet">${esc(SD_ADLARI[donem])}: <b>${B.usd(topUsd)}</b> · ${B.token(topTok)} token · ${B.sayi(satirlar.length)} sohbet</p>`;
+    const ozet = `<p class="meta sohbet-ozet">${esc(SD_ADLARI[donem])}: <b>${F(topD)}</b> · ${T() ? B.usd(topUsd) : B.token(topTok) + ' token'} · ${B.sayi(satirlar.length)} sohbet</p>`;
     if (!satirlar.length) { yerlestir(kap, arac + ozet + '<p class="bos">Bu dönemde harcama yok.</p>'); return; }
 
-    const enCok = Math.max(satirlar[0].usd, 0.0001);
+    const enCok = Math.max(D(satirlar[0]), 0.0001);
     let liste = S.hepsiAcik ? satirlar : satirlar.slice(0, SOHBET_ILK);
     if (secili && !liste.some(r => r.oturum === secili)) liste = liste.concat(satirlar.filter(r => r.oturum === secili));
     const ipucu = r => {
       const x = r.eski;
       return `<b>${esc(r.baslik)}</b>` + sat(SD_ADLARI[donem], B.usd(r.usd)) + sat('Token', B.token(r.tok) + ' · ' + B.sayi(r.tok)) +
-        sat('Pay', B.yuzde(topUsd ? r.usd / topUsd : 0)) + sat('Son etkinlik', B.tarih(r.son)) +
+        sat('Pay', B.yuzde(topD ? D(r) / topD : 0)) + sat('Son etkinlik', B.tarih(r.son)) +
         (donem === 'tum' && x && sayiMi(x.usd) && r2(x.usd) !== r2(r.usd) ? sat(x.kaynak === 'motor' ? "Claude'un hesabı" : 'Kayıtlı toplam', B.usd(x.usd)) : '') +
         (donem === 'tum' && x ? Object.entries(x.modeller || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => sat(E.model(k), B.usd(v), modelRenk(k))).join('') : '');
     };
@@ -269,10 +277,10 @@
         const ad = r.eski
           ? `<button type="button" class="sohbet-ad" aria-pressed="${r.oturum === secili}" data-kapsam="${esc(r.oturum)}" data-anahtar="s:${esc(r.oturum)}">${esc(r.baslik)}</button>`
           : `<span class="sohbet-ad">${esc(r.baslik)}</span>`;
-        return `<tr data-ipucu="${esc(ipucu(r))}"${r.oturum === secili ? ' class="secili"' : ''}><td class="ad">${ad}</td><td class="sayi">${B.usd(r.usd)}</td>
-          <td class="sayi">${B.token(r.tok)}</td><td class="sayi">${B.yuzde(topUsd ? r.usd / topUsd : 0, 1)}</td><td class="sayi">${B.tarih(r.son)}</td></tr>`;
+        return `<tr data-ipucu="${esc(ipucu(r))}"${r.oturum === secili ? ' class="secili"' : ''}><td class="ad">${ad}</td><td class="sayi">${F(D(r))}</td>
+          <td class="sayi">${T() ? B.usd(r.usd) : B.token(r.tok)}</td><td class="sayi">${B.yuzde(topD ? D(r) / topD : 0, 1)}</td><td class="sayi">${B.tarih(r.son)}</td></tr>`;
       };
-      govde = `<div class="tablo-kap"><table class="tablo"><thead><tr><th>Sohbet</th><th class="sayi">Tutar</th><th class="sayi">Token</th><th class="sayi">Pay</th><th class="sayi">Son etkinlik</th></tr></thead>
+      govde = `<div class="tablo-kap"><table class="tablo"><thead><tr><th>Sohbet</th><th class="sayi">${T() ? 'Token' : 'Tutar'}</th><th class="sayi">${T() ? 'Tutar' : 'Token'}</th><th class="sayi">Pay</th><th class="sayi">Son etkinlik</th></tr></thead>
         <tbody>${liste.map(satir).join('')}</tbody></table></div>`;
     } else {
       const ust = satirlar.slice(0, SOHBET_RENK_SAYISI).map(r => r.oturum);
@@ -284,14 +292,15 @@
         const parca = {};
         satirlar.forEach(r => {
           const v = kv.deger(r.e);
-          if (v && v[0] > 0) { const k = ust.includes(r.oturum) ? r.oturum : 'diger'; parca[k] = (parca[k] || 0) + v[0]; }
+          const dv = v && (T() ? v[1] : v[0]);
+          if (dv > 0) { const k = ust.includes(r.oturum) ? r.oturum : 'diger'; parca[k] = (parca[k] || 0) + dv; }
         });
         return { etiket: kv.etiket, baslik: kv.baslik, parca };
       });
       const cubuk = r => `<button type="button" class="cubuk sohbet-c" aria-pressed="${r.oturum === secili}"${r.eski ? ` data-kapsam="${esc(r.oturum)}"` : ' disabled'} data-anahtar="s:${esc(r.oturum)}" data-ipucu="${esc(ipucu(r))}">
         <span class="etiket"><span class="ad">${esc(r.baslik)}</span><span class="zaman">${B.tarih(r.son)}</span></span>
-        <span class="yol"><span class="dolgu" style="width:${Math.max(0.4, 100 * r.usd / enCok)}%"></span></span>
-        <span class="deger">${B.usd(r.usd)}</span><span class="kaynak">${B.token(r.tok)}</span></button>`;
+        <span class="yol"><span class="dolgu" style="width:${Math.max(0.4, 100 * D(r) / enCok)}%"></span></span>
+        <span class="deger">${F(D(r))}</span><span class="kaynak">${T() ? B.usd(r.usd) : B.token(r.tok)}</span></button>`;
       const grafikAdi = donem === 'gun' ? 'Saat saat' : (kovalar[0] && kovalar[0].haftalik) ? 'Hafta hafta' : 'Gün gün';
       govde = `<h3 class="alt-baslik">${grafikAdi} harcama</h3>` +
         `<div class="grafik">${yiginSutun(genislikOlc(kap, $('#sohbetler')), grafikSat, anahtarlar, renk, adi)}</div>` +
@@ -334,7 +343,8 @@
         <span class="yol"><span class="dolgu" style="width:${Math.max(0.4, 100 * s.usd / enCok)}%"></span></span>
         <span class="deger">${B.usd(s.usd)}</span><span class="kaynak">${esc(E.kaynak(s.kaynak, true))}</span></button>`;
     };
-    let html = `<div class="cubuklar">${liste.map(satir).join('')}</div>`;
+    let html = (T() ? '<p class="meta">Bu çalışma alanında token dökümü tutulmuyor (tutar Claude hesabından gelir); tutarlar USD gösteriliyor.</p>' : '') +
+      `<div class="cubuklar">${liste.map(satir).join('')}</div>`;
     if (tum.length > SOHBET_ILK) {
       html += `<div class="daha"><button type="button" data-anahtar="daha" data-tumunu aria-expanded="${S.hepsiAcik}">${S.hepsiAcik ? 'İlk ' + SOHBET_ILK + ' sohbeti göster' : 'Bütün sohbetler · ' + tum.length}</button></div>`;
     }
@@ -354,7 +364,7 @@
     const satirlar = Object.entries(toplam).sort((a, b) => b[1].v - a[1].v);
     if (!satirlar.length) { yerlestir(kap, `<p class="bos">${bos}</p>`); return; }
     const ogeler = satirlar.map(([ad, d], i) => ({ ad, deger: d.v, renk: renkle(d.k, i) }));
-    yerlestir(kap, G.pay(ogeler, { bicim: B.usd, toplamEtiket: 'Harcama payı' }));
+    yerlestir(kap, G.pay(ogeler, { bicim: B.bicim(), toplamEtiket: T() ? 'Token payı' : 'Harcama payı' }));
   }
   // Seçili pencerenin kırılımı: sunucu maliyet.pencere'de verir; eski sunucuda yalnız bugünkü kırılım vardır
   const pencereVeri = () => { const p = mal().pencere && mal().pencere[G.pencere.al()]; return p || mal(); };
@@ -387,12 +397,13 @@
     const kir = kapsamKirilim(), m = pencereVeri(), d = donemAdi();
     // kırılım toplamı (kayıttan) sohbet toplamından (ör. Claude'un hesabı) farklıysa tek satır açıklama
     const ks = kapsamSohbet();
-    const fark = kir && kir !== 'yok' && ks && sayiMi(kir.usd) && sayiMi(ks.usd) && Math.abs(kir.usd - ks.usd) >= 0.01;
+    const fark = !T() && kir && kir !== 'yok' && ks && sayiMi(kir.usd) && sayiMi(ks.usd) && Math.abs(kir.usd - ks.usd) >= 0.01;
     $('#kirilimNot').textContent = fark
       ? `Kırılım ${ork ? 'orkestra defterinden' : 'kayıtlı kullanımdan'} (${B.usd(kir.usd)}); sohbet toplamı ${ks.kaynak === 'motor' ? "Claude'un hesabı" : E.kaynak(ks.kaynak, true)}: ${B.usd(ks.usd)}.` : '';
     $('#surecDonem').textContent = d; $('#modelDonem').textContent = d;
-    const surec = kir === 'yok' ? null : (kir ? kir.surec : m.surec);
-    const model = kir === 'yok' ? null : (kir ? kir.model : m.model);
+    const kaynak = kir || m;
+    const surec = kir === 'yok' ? null : B.sec(kaynak, 'surec');
+    const model = kir === 'yok' ? null : B.sec(kaynak, 'model');
     if (ork) paylar($('#surecIcerik'), surec, E.surec, (k, i) => SERI[i % SERI.length], kir === 'yok' ? DOKUM_YOK : 'Kayıt yok.');
     paylar($('#modelIcerik'), model, E.model, k => modelRenk(k), kir === 'yok' ? DOKUM_YOK : 'Kayıt yok.');
   }
@@ -406,18 +417,19 @@
     const kir = kapsamKirilim(), m = pencereVeri();
     if (kir === 'yok') { yerlestir(kap, `<p class="bos">${DOKUM_YOK}</p>`); return; }
     const satirlar = (kir ? kir.ajan_surec : m.ajan_surec) || [];
+    const dg = r => T() ? Number(r.token) || 0 : Number(r.usd) || 0;   // düğmeye göre ısı değeri
     if (!satirlar.length) { yerlestir(kap, '<p class="bos">Kayıt yok.</p>'); return; }
     const tokIp = (ad, v) => v == null ? '' : ` tabindex="0" data-ipucu="${esc('<b>' + ad + '</b>' + B.sayi(v) + ' token')}"`;
     // Isı haritası: ajan × iş türü maliyeti (koyu = pahalı); altta koşu ve token ayrıntısı aynı veriyle tablo
     const ajanlar = [...new Set(satirlar.map(r => r.ajan))].map(k => ({ k, ad: E.ajan(k) }));
     const surecler = [...new Set(satirlar.map(r => r.surec))].map(k => ({ k, ad: E.surec(k) }));
-    const isi = G.isi({ satirlar: ajanlar, sutunlar: surecler, satirBasi: 'Ajan', bicim: B.usd, renk: 'var(--s2)',
-      deger: (a, c) => satirlar.filter(r => r.ajan === a.k && r.surec === c.k).reduce((t, r) => t + (Number(r.usd) || 0), 0) });
+    const isi = G.isi({ satirlar: ajanlar, sutunlar: surecler, satirBasi: 'Ajan', bicim: B.bicim(), renk: 'var(--s2)',
+      deger: (a, c) => satirlar.filter(r => r.ajan === a.k && r.surec === c.k).reduce((t, r) => t + dg(r), 0) });
     yerlestir(kap, isi + `<details class="nasil" open><summary>Koşu ve token ayrıntısı</summary><div class="tablo-kap"><table class="tablo"><thead><tr><th>Ajan</th><th>İş türü</th><th class="sayi">Koşu</th>
-      <th class="sayi">Giriş token</th><th class="sayi">Çıkış token</th><th class="sayi">Maliyet</th></tr></thead><tbody>` +
+      <th class="sayi">Giriş token</th><th class="sayi">Çıkış token</th><th class="sayi">${T() ? 'Toplam token' : 'Maliyet'}</th></tr></thead><tbody>` +
       satirlar.map(r => `<tr><td>${esc(E.ajan(r.ajan))}</td><td>${esc(E.surec(r.surec))}</td><td class="sayi">${B.sayi(r.kosu)}</td>
         <td class="sayi"${tokIp('Giriş', r.giris)}>${B.token(r.giris)}</td><td class="sayi"${tokIp('Çıkış', r.cikis)}>${B.token(r.cikis)}</td>
-        <td class="sayi">${B.usd(r.usd)}</td></tr>`).join('') + '</tbody></table></div></details>');
+        <td class="sayi">${F(dg(r))}</td></tr>`).join('') + '</tbody></table></div></details>');
   }
 
   // ------------------------------------------------------------ grafik yardımcıları (düz SVG)
@@ -438,7 +450,7 @@
     let s = `<svg viewBox="0 0 ${G} ${Y}" height="${Y}" role="img" aria-label="Harcama grafiği">`;
     for (let v = 0; v <= maks + 1e-9; v += adim) {
       s += `<line x1="${sol}" x2="${G}" y1="${yv(v)}" y2="${yv(v)}" stroke="var(--grid)"/>`;
-      s += `<text x="${sol - 6}" y="${yv(v) + 4}" text-anchor="end">${pay ? B.yuzde(v) : B.usd(v)}</text>`;
+      s += `<text x="${sol - 6}" y="${yv(v) + 4}" text-anchor="end">${pay ? B.yuzde(v) : F(v)}</text>`;
     }
     const etiketAdim = Math.max(1, Math.ceil(satirlar.length / Math.max(1, Math.floor((G - sol) / 56))));
     satirlar.forEach((r, i) => {
@@ -452,10 +464,10 @@
         s += `<rect x="${x}" y="${y0 - h}" width="${bw}" height="${h}" rx="${j === dolu.length - 1 ? 2 : 0}" fill="${renk(k)}"/>`;
         taban += v;
       });
-      const ip = `<b>${esc(r.baslik || r.etiket)}</b>` + sat('Toplam', B.usd(tp)) + (r.token != null ? sat('Token', B.token(r.token)) : '') +
+      const ip = `<b>${esc(r.baslik || r.etiket)}</b>` + sat('Toplam', F(tp)) + (T() ? (r.usd != null ? sat('Tutar', B.usd(r.usd)) : '') : (r.token != null ? sat('Token', B.token(r.token)) : '')) +
         (r.kalem ? ['giris', 'giriş', 'cikis', 'çıkış', 'onbellek_okuma', 'önbellek okuma', 'onbellek_yazma', 'önbellek yazma']
           .reduce((a, v, i, d) => i % 2 ? a : a + sat(d[i + 1], B.usd(r.kalem.usd[v]) + ' · ' + B.token(r.kalem.token[v])), '') : '') +
-        dolu.map(k => sat(ad(k), B.usd(r.parca[k]) + (tp ? ' · ' + B.yuzde(r.parca[k] / tp) : ''), renk(k))).join('');
+        dolu.map(k => sat(ad(k), F(r.parca[k]) + (tp ? ' · ' + B.yuzde(r.parca[k] / tp) : ''), renk(k))).join('');
       s += `<rect x="${sol + i * g}" y="${ust}" width="${g}" height="${Y - ust - alt}" fill="transparent" data-ipucu="${esc(ip)}"/>`;
       if (i % etiketAdim === 0) s += `<text x="${x + bw / 2}" y="${Y - 6}" text-anchor="middle">${esc(r.etiket)}</text>`;
     });
@@ -486,20 +498,22 @@
     const pen = G.pencere.al(), tumu = pen === 'tum_zaman';
     const donem = tumu ? S.donem : 'gunluk';
     let liste = t[donem];
-    if (donem === 'gunluk') liste = bastanKirp(liste, r => r.usd);
+    const dgr = r => T() ? r.token : r.usd;   // düğmeye göre değer
+    if (donem === 'gunluk') liste = bastanKirp(liste, dgr);
     if (tumu) liste = liste.slice(-SINIR[donem]);
     else {
       const bugun = liste.length ? liste[liste.length - 1].donem : '';
       const ic = gunIcinde(PENCERE_DONEM[pen], bugun);
       liste = liste.filter(r => ic(r.donem));
     }
-    const modeller = [...new Set(liste.flatMap(r => Object.keys(r.model || {})))]
+    const kirilim = r => (T() ? r.model_token : r.model) || {};
+    const modeller = [...new Set(liste.flatMap(r => Object.keys(kirilim(r))))]
       .sort((x, y) => (MODEL_SIRA.indexOf(x) + 1 || 99) - (MODEL_SIRA.indexOf(y) + 1 || 99));
-    const satirlar = liste.map(r => Object.assign(donemEtiket(r.donem, donem), { parca: r.model || {}, token: r.token, kalem: r.kalem }));
+    const satirlar = liste.map(r => Object.assign(donemEtiket(r.donem, donem), { parca: kirilim(r), token: r.token, usd: r.usd, kalem: r.kalem }));
     const cipGrup = (ad, anahtar, secenekler) => `<div class="cipler" role="group" aria-label="${esc(ad)}">${secenekler.map(([v, et]) =>
       `<button type="button" class="cip" data-${anahtar}="${v}" data-anahtar="${anahtar}:${v}" aria-pressed="${S[anahtar] === v}">${et}</button>`).join('')}</div>`;
     const arac = `<div class="arac">${tumu ? cipGrup('Birim', 'donem', [['gunluk', 'Günlük'], ['haftalik', 'Haftalık'], ['aylik', 'Aylık']]) : ''}
-      ${cipGrup('Ölçek', 'olcek', [['usd', 'Tutar'], ['pay', 'Model payı']])}</div>`;
+      ${cipGrup('Ölçek', 'olcek', [['usd', T() ? 'Token' : 'Tutar'], ['pay', 'Model payı']])}</div>`;
     const not = kapsamId() ? '<p class="meta kpi-not">Günlük döküm sohbet bazında tutulmuyor; grafik seçili sohbeti değil çalışma alanının tamamını gösterir.</p>' : '';
     yerlestir(kap, arac + `<div class="grafik">${yiginSutun(genislikOlc(kap, $('#zaman')), satirlar, modeller, modelRenk, E.model, { pay: S.olcek === 'pay' })}</div>` +
       lejant(modeller.map(k => [E.model(k), modelRenk(k)])) + not);
@@ -572,14 +586,15 @@
     bolum.classList.toggle('gizli', az);
     if (az) return;
     const top = t.toplam || {};
-    const karolar = tutarKarolari([['Bugün', top.bugun, ''], ['Son 7 gün', top.hafta, ''], ['Bu ay', top.ay, ''], ['Kayıtlı toplam', top.toplam, `${B.sayi(alanlar.length)} çalışma alanı`]]);
+    const tk = T() ? (t.toplam_token || {}) : top;   // token: yalnız orkestralı alanların defterinden
+    const karolar = tutarKarolari([['Bugün', tk.bugun, ''], ['Son 7 gün', tk.hafta, ''], ['Bu ay', tk.ay, ''], ['Kayıtlı toplam', tk.toplam, `${B.sayi(alanlar.length)} çalışma alanı`]]);
     const adlar = alanlar.map(a => a.ad);
     const renk = ad => SERI[Math.min(adlar.indexOf(ad), 7)];
     const ust = adlar.slice(0, 7);
-    const gun = bastanKirp(Array.isArray(t.gunluk) ? t.gunluk : [], g => Object.values(g.alan || {}).reduce((a, b) => a + b, 0)).slice(-SINIR.gunluk);
+    const gun = bastanKirp(Array.isArray(t.gunluk) ? t.gunluk : [], g => Object.values((T() ? g.alan_token : g.alan) || {}).reduce((a, b) => a + b, 0)).slice(-SINIR.gunluk);
     const satirlar = gun.map(g => {
       const parca = {}; let diger = 0;
-      Object.entries(g.alan || {}).forEach(([a, v]) => { if (ust.includes(a)) parca[a] = v; else diger += v; });
+      Object.entries((T() ? g.alan_token : g.alan) || {}).forEach(([a, v]) => { if (ust.includes(a)) parca[a] = v; else diger += v; });
       if (diger) parca['Diğer'] = diger;
       return { etiket: B.gun(g.donem), baslik: B.gun(g.donem), parca };
     });
@@ -588,12 +603,13 @@
     const tablo = `<div class="tablo-kap"><table class="tablo tum-tablo"><thead><tr><th>Çalışma alanı</th><th>Orkestra</th><th class="sayi">Bugün</th>
       <th class="sayi">7 gün</th><th class="sayi">Bu ay</th><th class="sayi">Toplam</th><th class="sayi">Kart</th><th>Model dağılımı</th></tr></thead><tbody>` +
       alanlar.map(a => {
+        const av = k => T() ? (a.token ? a.token[k] : null) : a[k];   // sohbet maliyetli alanlarda token dökümü yok → '–'
         const ip = `<b>${esc(a.ad)}</b><div class="meta">${esc(a.yol || '')}</div>`;
         return `<tr><td><span class="tab-ad" tabindex="0" data-ipucu="${esc(ip)}" data-anahtar="a:${esc(a.id)}">${esc(a.ad)}</span>${a.id === O.alan ? ' <span class="meta">· seçili</span>' : ''}${a.hata ? `<div class="meta" data-ipucu="${esc('<b>Ham hata</b><div>' + esc(O.yolGizle(a.hata)) + '</div>')}" tabindex="0">hata: ${metin(kisalt(O.hataMetni(a.hata), 80))}</div>` : ''}</td>
           <td>${a.orkestra ? '<span aria-label="kurulu" title="Orkestra kurulu">✓</span>' : '<span aria-label="kurulu değil" title="Orkestra kurulu değil: yalnız sohbet maliyeti">–</span>'}</td>
-          <td class="sayi">${B.usd(a.bugun)}</td><td class="sayi">${B.usd(a.hafta)}</td><td class="sayi">${B.usd(a.ay)}</td><td class="sayi"><b>${B.usd(a.toplam)}</b></td>
+          <td class="sayi">${F(av('bugun'))}</td><td class="sayi">${F(av('hafta'))}</td><td class="sayi">${F(av('ay'))}</td><td class="sayi"><b>${F(av('toplam'))}</b></td>
           <td class="sayi">${a.orkestra ? `${B.sayi(a.teslim)}/${B.sayi(a.kart)}` : '–'}</td>
-          <td class="model-dag">${Object.entries(a.model || {}).sort((x, y) => y[1] - x[1]).map(([m, v]) => `${esc(E.model(m))} ${B.usd(v)}`).join(' · ')}</td></tr>`;
+          <td class="model-dag">${Object.entries((T() ? a.model_token : a.model) || {}).sort((x, y) => y[1] - x[1]).map(([m, v]) => `${esc(E.model(m))} ${F(v)}`).join(' · ')}</td></tr>`;
       }).join('') + '</tbody></table></div>';
     const kap = $('#tumIcerik');
     yerlestir(kap, (karolar ? `<div class="karolar">${karolar}</div>` : '') +

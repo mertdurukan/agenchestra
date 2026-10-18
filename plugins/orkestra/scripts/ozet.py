@@ -43,6 +43,11 @@ _MD_ISARET = re.compile(r"(\*{1,3}|_{2,3}|`+)")
 _KART_KIMLIK = re.compile(r"\b[A-Z]{1,3}-\d+\b")
 
 
+def _tok(r: dict) -> int:
+    """Defter satırının token toplamı: giriş + çıkış + önbellek okuma + önbellek yazma (USD/token düğmesi için)."""
+    return sum(int(r.get(a) or 0) for a in ("giris", "cikis", "onbellek_okuma", "onbellek_yazma"))
+
+
 def temiz_metin(s, sinir: int = 160) -> str:
     """Markdown işaretlerini soyar (**, __, `, [a](b) -> a, satır başı #/-/>), boşlukları sadeleştirir, sınırlar."""
     s = _MD_BAGLANTI.sub(r"\1", str(s or ""))
@@ -310,21 +315,28 @@ def _pencere_kirilimlari(kayitlar: list, bugun: datetime.date) -> dict:
     cikti = {}
     for w in PENCERELER:
         surec, model, ajan_surec, toplam = collections.Counter(), collections.Counter(), {}, 0.0
+        surec_t, model_t, toplam_t = collections.Counter(), collections.Counter(), 0
         for r in kayitlar:
             z = A._zaman(r.get("zaman"))
             if not z or not _pencere_icinde(w, z.date(), bugun):
                 continue
             usd = r.get("maliyet_usd", 0) or 0
+            tok = _tok(r)
             toplam += usd
+            toplam_t += tok
             surec[r.get("surec", "-")] += usd
             model[(r.get("model") or "-").replace("claude-", "")] += usd
-            a = ajan_surec.setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "cikis": 0, "giris": 0})
+            surec_t[r.get("surec", "-")] += tok
+            model_t[(r.get("model") or "-").replace("claude-", "")] += tok
+            a = ajan_surec.setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "token": 0, "cikis": 0, "giris": 0})
             a["kosu"] += 1
             a["usd"] += usd
+            a["token"] += tok
             a["cikis"] += r.get("cikis", 0) or 0
             a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
-        cikti[w] = {"usd": round(toplam, 4), "surec": _yuvarla(dict(surec.most_common(10))),
+        cikti[w] = {"usd": round(toplam, 4), "token": toplam_t, "surec": _yuvarla(dict(surec.most_common(10))),
                     "model": _yuvarla(dict(model.most_common(6))),
+                    "surec_token": dict(surec_t.most_common(10)), "model_token": dict(model_t.most_common(6)),
                     "ajan_surec": sorted([{"ajan": a, "surec": su, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}
                                           for (a, su), d in ajan_surec.items()], key=lambda x: -x["usd"])[:20]}
     return cikti
@@ -354,14 +366,18 @@ def olustur(sd: str, proje: str) -> dict:
     # --- maliyet
     bugunku = [r for r in kayitlar if (z := A._zaman(r.get("zaman"))) and z.date() == bugun]
     surec, model = collections.Counter(), collections.Counter()
+    surec_t, model_t = collections.Counter(), collections.Counter()
     ajan_surec: dict = {}
     for r in bugunku:
         usd = r.get("maliyet_usd", 0) or 0
         surec[r.get("surec", "-")] += usd
         model[(r.get("model") or "-").replace("claude-", "")] += usd
-        a = ajan_surec.setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "cikis": 0, "giris": 0})
+        surec_t[r.get("surec", "-")] += _tok(r)
+        model_t[(r.get("model") or "-").replace("claude-", "")] += _tok(r)
+        a = ajan_surec.setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "token": 0, "cikis": 0, "giris": 0})
         a["kosu"] += 1
         a["usd"] += usd
+        a["token"] += _tok(r)
         a["cikis"] += r.get("cikis", 0) or 0
         a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
 
@@ -374,20 +390,27 @@ def olustur(sd: str, proje: str) -> dict:
         oid = r.get("oturum")
         if oid not in oturum_ids:
             continue
-        o = oturumlar.setdefault(oid, {"usd": 0.0, "surec": collections.Counter(), "model": collections.Counter(), "ajan_surec": {}})
+        o = oturumlar.setdefault(oid, {"usd": 0.0, "token": 0, "surec": collections.Counter(), "model": collections.Counter(),
+                                       "surec_token": collections.Counter(), "model_token": collections.Counter(), "ajan_surec": {}})
         usd = r.get("maliyet_usd", 0) or 0
         o["usd"] += usd
+        o["token"] += _tok(r)
         o["surec"][r.get("surec", "-")] += usd
         o["model"][(r.get("model") or "-").replace("claude-", "")] += usd
-        a = o["ajan_surec"].setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "cikis": 0, "giris": 0})
+        o["surec_token"][r.get("surec", "-")] += _tok(r)
+        o["model_token"][(r.get("model") or "-").replace("claude-", "")] += _tok(r)
+        a = o["ajan_surec"].setdefault((r.get("ajan", "-"), r.get("surec", "-")), {"kosu": 0, "usd": 0.0, "token": 0, "cikis": 0, "giris": 0})
         a["kosu"] += 1
         a["usd"] += usd
+        a["token"] += _tok(r)
         a["cikis"] += r.get("cikis", 0) or 0
         a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
     for o in oturumlar.values():
         o["usd"] = round(o["usd"], 4)
         o["surec"] = _yuvarla(dict(o["surec"].most_common(8)))
         o["model"] = _yuvarla(dict(o["model"].most_common(6)))
+        o["surec_token"] = dict(o["surec_token"].most_common(8))
+        o["model_token"] = dict(o["model_token"].most_common(6))
         o["ajan_surec"] = sorted([{"ajan": a, "surec": su, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}
                                   for (a, su), d in o["ajan_surec"].items()], key=lambda x: -x["usd"])[:15]
 
@@ -432,9 +455,12 @@ def olustur(sd: str, proje: str) -> dict:
         "maliyet": {
             "bugun": round(A.bugun_usd(kayitlar, bugun), 4),
             "toplam": round(sum(r.get("maliyet_usd", 0) or 0 for r in kayitlar), 4),
+            "bugun_token": sum(_tok(r) for r in bugunku),
+            "toplam_token": sum(_tok(r) for r in kayitlar),
             "kalem": L.kalemler(kayitlar),   # I-064: token ve USD, dört kalemle
             "surec": _yuvarla(dict(surec.most_common(10))),
             "model": _yuvarla(dict(model.most_common(6))),
+            "surec_token": dict(surec_t.most_common(10)), "model_token": dict(model_t.most_common(6)),
             "ajan_surec": sorted([{"ajan": a, "surec": s, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}
                                   for (a, s), d in ajan_surec.items()], key=lambda x: -x["usd"])[:20],
             "oturumlar": oturumlar,

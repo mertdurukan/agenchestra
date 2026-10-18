@@ -252,15 +252,15 @@ def cmd_maliyet_tur(a):
             with open(onb, encoding="utf-8") as f:
                 d = json.load(f)
             gorev, surec, ajan = d.get("gorev", "-"), d.get("surec", "bilinmiyor"), d.get("ajan", "?")
+            surec = L.surec_turet(ajan, surec)
         except Exception:
             tr = os.path.join(L.proje_oturum_dizini(L.proje_dizini()), a.oturum, "subagents", f"agent-{a.agent_id}.jsonl")
             o = L.transkript_oku(tr)
             gorev, surec = L.etiketler(o["ilk_kullanici"])
             ajan = L.alt_ajan_meta(tr).get("agentType") or "?"
-            if surec == "bilinmiyor":
-                surec = "denetim" if "denetci" in ajan else ("is" if "isci" in ajan else ("perspektif" if ("perspektif" in ajan or "ruya" in ajan) else
-                        "arastirma" if ajan in ("Explore", "orkestra:arastirmaci") else "bilinmiyor"))
-            L.atomik_yaz(onb, json.dumps({"gorev": gorev, "surec": surec, "ajan": ajan}))
+            surec = L.surec_turet(ajan, surec)
+            if ajan != "?":  # transkript henüz yoksa tipi okunamaz; "?" önbelleğe yazılırsa sonraki turlar da etiketsiz kalır
+                L.atomik_yaz(onb, json.dumps({"gorev": gorev, "surec": surec, "ajan": ajan}))
     elif os.environ.get("ORKESTRA_PERSPEKTIF"):
         surec, ajan = "perspektif", "perspektif-bakimcisi"
     u = {"input_tokens": a.giris, "output_tokens": a.cikis, "cache_read_input_tokens": a.onb_okuma,

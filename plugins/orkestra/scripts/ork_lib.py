@@ -623,6 +623,34 @@ def etiketler(metin: str | None) -> tuple[str, str]:
     return (g.group(1) if g else "-"), surec
 
 
+# Ajan tipi → süreç: "bilinmiyor" yazılmasın diye tek kaynak (I-071; hook.py ve komutlar/maliyet.py bunu çağırır).
+AJAN_SUREC = {
+    "orkestra:triyaj": "triyaj", "orkestra:arsivci": "arsiv", "orkestra:skill-avcisi": "skill-avi",
+    "orkestra:test-yazari": "test-yaz", "orkestra:hafiza-bakimcisi": "perspektif", "orkestra:perspektif-ajani": "perspektif",
+    "orkestra:arastirmaci": "arastirma", "Explore": "arastirma", "Plan": "plan",
+    "general-purpose": "genel-ajan", "claude": "genel-ajan", "claude-code-guide": "genel-ajan", "statusline-setup": "genel-ajan",
+}
+
+
+def surec_turet(ajan_tipi: str | None, surec: str = "bilinmiyor") -> str:
+    """Etiketten gelen süreç varsa onu korur; yoksa ajan tipinden türetir. Eşlenmemiş tip `diger:<tip>`,
+    tip hiç okunamadıysa `tip-okunamadi` yazar; "bilinmiyor" üretilmez."""
+    if surec and surec != "bilinmiyor":
+        return surec
+    a = (ajan_tipi or "").strip()
+    if not a or a == "?":
+        return "tip-okunamadi"
+    if a in AJAN_SUREC:
+        return AJAN_SUREC[a]
+    if "denetci" in a:
+        return "denetim"
+    if "isci" in a:
+        return "is"
+    if "perspektif" in a or "ruya" in a:
+        return "perspektif"
+    return "diger:" + re.sub(r"[^A-Za-z0-9:_.\-]", "", a)[:40]
+
+
 def sure_ms(ilk: str | None, son: str | None) -> int | None:
     try:
         a = datetime.datetime.fromisoformat(ilk.replace("Z", "+00:00"))

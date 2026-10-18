@@ -113,6 +113,25 @@
     olcu() { return O.depo.al('orkestra.olcu') === 'token' ? 'token' : 'usd'; },
     // Kipe göre tek değer: usd verilirse para, token verilirse token biçimi.
     deger(usd, token) { return O.B.olcu() === 'token' ? O.B.token(token) : O.B.usd(usd); },
+    // Kipe göre biçimleyici işlevi (grafik eksenleri, pay çubukları, ısı haritası): tüm sayfalar aynı düğmeyi izler.
+    bicim() { return O.B.olcu() === 'token' ? O.B.token : O.B.usd; },
+    // Kipe göre alan seçimi: o = {usd:…, token:…} ya da düz nesne + ek (ör. 'model' → 'model_token'). Eksik veri → undefined.
+    sec(o, alan) { if (!o) return undefined; return O.B.olcu() === 'token' ? o[alan + '_token'] : o[alan]; },
+    // Tamamlanan iş başına harcama (analitik.is_basina) kipe göre karo içeriği; veri yoksa null. Üç sayfa aynı tanımı kullanır.
+    isBasina(ib) {
+      if (!ib || !ib.tamamlanan) return null;
+      const tk = O.B.olcu() === 'token', d = (tk ? ib.token : ib.usd) || {}, f = O.B.bicim();
+      const isiz = ib.isiz ? (tk ? ib.isiz.token : ib.isiz.usd) : null;
+      if (!ib.harcamali) return { deger: '–', alt: `${O.B.sayi(ib.tamamlanan)} tamamlanan iş · harcama kaydı yok`, ip: '' };
+      return {
+        deger: f(d.ortalama),
+        alt: `medyan ${f(d.medyan)} · ${O.B.sayi(ib.harcamali)} tamamlanan iş`,
+        ip: `ortalama = tamamlanan işlerin harcaması (${f(d.toplam)}) / ${O.B.sayi(ib.harcamali)} harcamalı tamamlanan iş. ` +
+          `Hiçbir işe atanmayan harcama (${f(isiz)}) dahil değildir; ${O.B.sayi(ib.acik)} açık iş sayılmaz.`,
+      };
+    },
+    // Kipe göre birim adı (başlık, ipucu): "USD" | "token"
+    birim() { return O.B.olcu() === 'token' ? 'token' : 'USD'; },
     // Dört kalem (giriş, çıkış, önbellek okuma, önbellek yazma) kipe göre: kalem = {token:{...}, usd:{...}} (ork_lib.kalemler).
     kalem(k) {
       if (!k) return '–';

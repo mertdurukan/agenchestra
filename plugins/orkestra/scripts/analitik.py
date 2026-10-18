@@ -148,25 +148,30 @@ def _rol(ajan: str | None) -> str:
 # ---------------------------------------------------------------- 1. zaman içinde harcama
 
 def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
-    gun = collections.defaultdict(lambda: {"usd": 0.0, "model": collections.Counter(), "satir": []})
+    gun = collections.defaultdict(lambda: {"usd": 0.0, "tok": 0, "model": collections.Counter(), "model_t": collections.Counter(), "satir": []})
     for r in kayitlar:
         z = _zaman(r.get("zaman"))
         if not z:
             continue
         g = gun[z.date()]
         usd = r.get("maliyet_usd") or 0.0
+        tok = sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
         g["usd"] += usd
+        g["tok"] += tok
         g["model"][_kisa_model(r.get("model"))] += usd
+        g["model_t"][_kisa_model(r.get("model"))] += tok
         g["satir"].append(r)
 
     def kume(anahtar):
-        out = collections.defaultdict(lambda: {"usd": 0.0, "model": collections.Counter(), "satir": []})
+        out = collections.defaultdict(lambda: {"usd": 0.0, "model": collections.Counter(), "model_t": collections.Counter(), "satir": []})
         for d, g in gun.items():
             k = anahtar(d)
             out[k]["usd"] += g["usd"]
             out[k]["model"].update(g["model"])
+            out[k]["model_t"].update(g["model_t"])
             out[k]["satir"].extend(g["satir"])
-        return [{"donem": k, "usd": _r(v["usd"]), "model": {m: _r(u) for m, u in v["model"].items() if u}, **_ek(v["satir"])}
+        return [{"donem": k, "usd": _r(v["usd"]), "model": {m: _r(u) for m, u in v["model"].items() if u},
+                 "model_token": {m: u for m, u in v["model_t"].items() if u}, **_ek(v["satir"])}
                 for k, v in sorted(out.items())]
 
     ilk = min(gun) if gun else bugun
@@ -174,9 +179,9 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
     gunluk = []
     d = bas
     while d <= bugun:  # boş günler de görünsün
-        g = gun.get(d, {"usd": 0.0, "model": {}, "satir": []})
+        g = gun.get(d, {"usd": 0.0, "model": {}, "model_t": {}, "satir": []})
         gunluk.append({"donem": d.isoformat(), "usd": _r(g["usd"]), "model": {m: _r(u) for m, u in g["model"].items() if u},
-                       **_ek(g["satir"])})
+                       "model_token": {m: u for m, u in g["model_t"].items() if u}, **_ek(g["satir"])})
         d += datetime.timedelta(days=1)
     haftalik = kume(lambda d: f"{d.isocalendar()[0]}-H{d.isocalendar()[1]:02d}")[-12:]
     aylik = kume(lambda d: d.strftime("%Y-%m"))[-12:]
@@ -186,14 +191,18 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
     ay_gun = calendar.monthrange(bugun.year, bugun.month)[1]
     gecen = (bugun - ay_bas).days + 1
     simdiye = sum(g["usd"] for d, g in gun.items() if ay_bas <= d <= bugun)
+    simdiye_t = sum(g["tok"] for d, g in gun.items() if ay_bas <= d <= bugun)
     veri_bas = max(ay_bas, ilk)
     aktif_gun = (bugun - veri_bas).days + 1
     son7 = sum(g["usd"] for d, g in gun.items() if bugun - datetime.timedelta(days=6) <= d <= bugun)
+    son7_t = sum(g["tok"] for d, g in gun.items() if bugun - datetime.timedelta(days=6) <= d <= bugun)
     son7_gun = min(7, (bugun - ilk).days + 1) if gun else 7
     kalan = ay_gun - gecen
     yeterli = aktif_gun >= 7  # 7 günden az veriyle ay sonu tahmini yanıltıcı
     tahmin_ort = simdiye + (simdiye / aktif_gun) * kalan if aktif_gun else 0.0
     tahmin_7g = simdiye + (son7 / son7_gun) * kalan if son7_gun else 0.0
+    tahmin_ort_t = simdiye_t + (simdiye_t / aktif_gun) * kalan if aktif_gun else 0
+    tahmin_7g_t = simdiye_t + (son7_t / son7_gun) * kalan if son7_gun else 0
     onceki_ay = (ay_bas - datetime.timedelta(days=1)).strftime("%Y-%m")
     return {
         "gunluk": gunluk, "haftalik": haftalik, "aylik": aylik,
@@ -202,7 +211,10 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
                     "son7_gunluk": _r(son7 / son7_gun if son7_gun else 0, 2) if son7_gun >= 7 else None,
                     "tahmin_ort": _r(tahmin_ort, 2) if yeterli else None, "tahmin_7g": _r(tahmin_7g, 2) if yeterli and son7_gun >= 7 else None,
                     "tahmin_yeterli": yeterli,
-                    "onceki_ay": next((a["usd"] for a in aylik if a["donem"] == onceki_ay), None)},
+                    "onceki_ay": next((a["usd"] for a in aylik if a["donem"] == onceki_ay), None),
+                    "token": {"simdiye": int(simdiye_t), "tahmin_ort": int(tahmin_ort_t) if yeterli else None,
+                              "tahmin_7g": int(tahmin_7g_t) if yeterli and son7_gun >= 7 else None,
+                              "onceki_ay": next((a["token"] for a in aylik if a["donem"] == onceki_ay), None)}},
         "ilk_kayit": ilk.isoformat() if gun else None,
     }
 
@@ -473,7 +485,8 @@ def _akis(kartlar: list[dict], kayitlar: list[dict]) -> dict:
         kosular.append({"bas": bas.isoformat(timespec="seconds"), "bit": bit.isoformat(timespec="seconds"),
                         "gun": bas.date().isoformat(), "ajan": r.get("ajan"), "rol": _rol(r.get("ajan")),
                         "gorev": r.get("gorev"), "surec": r.get("surec"), "model": _kisa_model(r.get("model")),
-                        "usd": _r(r.get("maliyet_usd") or 0.0), "oturum": (r.get("oturum") or "")[:8],
+                        "usd": _r(r.get("maliyet_usd") or 0.0),
+                        "token": sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI), "oturum": (r.get("oturum") or "")[:8],
                         "aciklama": (r.get("aciklama") or "")[:60]})
     kosular.sort(key=lambda k: k["bas"])
     gunler = sorted({k["gun"] for k in kosular}, reverse=True)[:14]
@@ -507,6 +520,7 @@ def _birim(kartlar: list[dict], kayitlar: list[dict], sohbetler: list[dict], tre
                         "oturum": (r.get("oturum") or "")[:8], "aciklama": (r.get("aciklama") or "")[:60],
                         "kaynak": r.get("kaynak") or "hook"})
     en_pahali = sorted(kosular, key=lambda k: -k["usd"])[:10]
+    en_pahali_token = sorted(kosular, key=lambda k: -k["token"])[:10]
 
     # anormal sıçrama: aynı ajan türünün medyanının 3 katı ve en az 0,50 $; gün: önceki 7 gün ortalamasının 2 katı
     tur_usd = collections.defaultdict(list)
@@ -541,7 +555,7 @@ def _birim(kartlar: list[dict], kayitlar: list[dict], sohbetler: list[dict], tre
             "kart_medyan_token": _medyan(kart_tokenleri), "kart_kalem": L.kalemler(teslim_satir),
             "sohbet_basi": _r(sum(sohbet_usd) / len(sohbet_usd), 3) if sohbet_usd else None,
             "sohbet_medyan": _medyan(sohbet_usd), "sohbet_sayisi": len(sohbet_usd),
-            "en_pahali": en_pahali, "uyarilar": sorted(uyarilar, key=lambda u: u["zaman"] or "", reverse=True)[:12]}
+            "en_pahali": en_pahali, "en_pahali_token": en_pahali_token, "uyarilar": sorted(uyarilar, key=lambda u: u["zaman"] or "", reverse=True)[:12]}
 
 
 # ---------------------------------------------------------------- 7. skill getirisi
@@ -666,9 +680,11 @@ def _sinif(k: dict) -> str:
 def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
     """Ret nedenleri (sınıf x basamak) ve verim (sınıf x başlangıç basamağı)."""
     kart_usd = collections.Counter()
+    kart_tok = collections.Counter()
     for r in kayitlar:
         if r.get("gorev") not in (None, "-"):
             kart_usd[r["gorev"]] += r.get("maliyet_usd") or 0.0
+            kart_tok[r["gorev"]] += sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
     ned: dict = {}
     ver: dict = {}
     for k in kartlar:
@@ -684,10 +700,11 @@ def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
             e["ret"] += 1
             e["nedenler"][kod] += 1
             e["kok"][RN.kok(kod)] += 1
-        v = ver.setdefault((sinif, bas), {"kart": 0, "onaylanan": 0, "tur": 0, "usd": 0.0})
+        v = ver.setdefault((sinif, bas), {"kart": 0, "onaylanan": 0, "tur": 0, "usd": 0.0, "token": 0})
         v["kart"] += 1
         v["tur"] += sum(1 for g in k.get("gecmis") or [] if g.get("olay") == "is-bitti")
         v["usd"] += kart_usd.get(k.get("id"), 0.0)
+        v["token"] += kart_tok.get(k.get("id"), 0)
         v["onaylanan"] += int(k.get("durum") in ("onaylandi", "teslim")
                               or L.kart_durumu_hesapla(k) in ("onaylandi", "teslim"))
 
@@ -698,11 +715,13 @@ def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
                 for (s, b), e in sorted(ned.items(), key=_sira)]
     verim = [{"sinif": s, "baslangic_basamak": b, "kart": v["kart"], "onaylanan": v["onaylanan"],
               "ort_tur": round(v["tur"] / v["kart"], 2), "toplam_usd": _r(v["usd"]),
-              "onayli_is_basi_usd": _r(v["usd"] / v["onaylanan"]) if v["onaylanan"] else None}
+              "onayli_is_basi_usd": _r(v["usd"] / v["onaylanan"]) if v["onaylanan"] else None,
+              "toplam_token": v["token"], "onayli_is_basi_token": _r(v["token"] / v["onaylanan"], 1) if v["onaylanan"] else None}
              for (s, b), v in sorted(ver.items(), key=_sira)]
     kart_t = sum(v["kart"] for v in ver.values())
     onay_t = sum(v["onaylanan"] for v in ver.values())
     usd_t = sum(v["usd"] for v in ver.values())
+    tok_t = sum(v["token"] for v in ver.values())
     tur_t = sum(v["tur"] for v in ver.values())
     kod_t, kok_t = collections.Counter(), collections.Counter()
     for e in ned.values():
@@ -712,7 +731,8 @@ def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
         "nedenler": nedenler, "verim": verim,
         "toplam": {"ret": sum(e["ret"] for e in ned.values()), "nedenler": dict(kod_t), "kok": dict(kok_t),
                    "kart": kart_t, "onaylanan": onay_t, "ort_tur": round(tur_t / kart_t, 2) if kart_t else None,
-                   "toplam_usd": _r(usd_t), "onayli_is_basi_usd": _r(usd_t / onay_t) if onay_t else None},
+                   "toplam_usd": _r(usd_t), "onayli_is_basi_usd": _r(usd_t / onay_t) if onay_t else None,
+                   "toplam_token": tok_t, "onayli_is_basi_token": _r(tok_t / onay_t, 1) if onay_t else None},
     }
 
 
@@ -793,11 +813,12 @@ def _ret_tur_maliyeti(k: dict, d: dict, usd_ajan: dict):
     return usd_ajan.get(t["agent_id"], 0.0)
 
 
-def onlenebilir_israf(kartlar: list, usd_ajan: dict, esik: dict) -> dict:
+def onlenebilir_israf(kartlar: list, usd_ajan: dict, esik: dict, tok_ajan: dict | None = None) -> dict:
     siniflar: dict = {}
     esleme = esik.get("ret_sinifi") or {}
     israf_sinif = set(esik.get("israf_siniflari") or ["onlenebilir"])
     toplam = 0.0
+    toplam_t = 0
     for k in kartlar:
         for d in k.get("denetimler") or []:
             if d.get("karar") != "ret":
@@ -813,9 +834,10 @@ def onlenebilir_israf(kartlar: list, usd_ajan: dict, esik: dict) -> dict:
                 e["usd"] += usd
                 if sinif in israf_sinif:
                     toplam += usd
+                    toplam_t += int(_ret_tur_maliyeti(k, d, tok_ajan) or 0) if tok_ajan is not None else 0
     for e in siniflar.values():
         e["usd"] = _r(e["usd"])
-    return {"esik_surumu": esik.get("surum"), "onlenebilir_usd": _r(toplam), "siniflar": siniflar}
+    return {"esik_surumu": esik.get("surum"), "onlenebilir_usd": _r(toplam), "onlenebilir_token": toplam_t, "siniflar": siniflar}
 
 
 EK_SIRASI = ("ana_kirilim", "onayli_kart_toplam_usd", "onayli_kart_toplam_token", "toplam_kalem", "isci_dagilim", "onayli_usd_dagilim", "ilk_gecis_onay", "onbellek_isabet",
@@ -843,6 +865,7 @@ def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
     """Hedefsiz ek ölçüler (hedef.json'a dokunmaz): ana ajan kırılımı, toplam maliyet, dağılımlar, ilk geçiş onayı,
     önbellek isabeti, iş sınıfı başına maliyet. ks pencere içindeki iptal olmayan kartlar, rs pencere içindeki defter satırları."""
     usd = lambda xs: sum(r.get("maliyet_usd") or 0.0 for r in xs)  # noqa: E731
+    tok = lambda xs: sum(int(r.get(a) or 0) for r in xs for a in L._TOKEN_ALANLARI)  # noqa: E731
     ana = [r for r in rs if L.ana_ajan_satiri_mi(r)]
     karta = [r for r in rs if not L.ana_ajan_satiri_mi(r)]
     persp = [r for r in ana if r.get("perspektif") or r.get("ruya")]
@@ -864,12 +887,15 @@ def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
     isci = [len(k.get("isciler") or []) for k in ks]
     return {
         "ana_kirilim": {"is_bagli_usd": _r(usd([r for r in kalan if r.get("is")])), "is_bagsiz_usd": _r(usd([r for r in kalan if not r.get("is")])),
-                        "perspektif_usd": _r(usd(persp)), "ana_usd": _r(usd(ana)), "toplam_usd": _r(usd(rs))},
+                        "perspektif_usd": _r(usd(persp)), "ana_usd": _r(usd(ana)), "toplam_usd": _r(usd(rs)),
+                        "is_bagli_token": tok([r for r in kalan if r.get("is")]), "is_bagsiz_token": tok([r for r in kalan if not r.get("is")]),
+                        "perspektif_token": tok(persp), "ana_token": tok(ana), "toplam_token": tok(rs)},
         "onayli_kart_toplam_usd": {"deger": _r(usd(rs) / len(onayli)) if onayli else None, "pay": _r(usd(rs)), "payda": len(onayli)},
         "onayli_kart_toplam_token": {"deger": _r(toplam_tok / len(onayli), 1) if onayli else None, "pay": toplam_tok, "payda": len(onayli)},
         "toplam_kalem": L.kalemler(rs),
         "isci_dagilim": dict(_dagilim(isci), kart_ge4=sum(1 for x in isci if x >= 4)),
-        "onayli_usd_dagilim": _dagilim([kart_usd.get(k.get("id"), 0.0) for k in onayli]),
+        "onayli_usd_dagilim": dict(_dagilim([kart_usd.get(k.get("id"), 0.0) for k in onayli]),
+                                   token=_dagilim([kart_tok.get(k.get("id"), 0) for k in onayli])),   # token: USD/token düğmesi için
         "ilk_gecis_onay": {"deger": _r(ilk.count("onay") / len(ilk)) if ilk else None, "pay": ilk.count("onay"), "payda": len(ilk)},
         "onbellek_isabet": {"ana": _onbellek_isabet(ana), "karta_bagli": _onbellek_isabet(karta)},
         "sinif_basina": {s: {"kart": e["kart"], "usd": _r(e["usd"]), "token": e["token"]} for s, e in sorted(sinif.items(), key=lambda kv: -kv[1]["usd"])},
@@ -896,9 +922,11 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
                   "son_7_gun": simdi - datetime.timedelta(days=7), "bu_ay": gun_basi.replace(day=1), "tum_zaman": None}
 
     usd_ajan: dict = collections.defaultdict(float)
+    tok_ajan: dict = collections.defaultdict(int)
     for r in kayitlar:
         if r.get("agent_id"):
             usd_ajan[r["agent_id"]] += r.get("maliyet_usd") or 0.0
+            tok_ajan[r["agent_id"]] += sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
     out: dict = {"surum": 1, "uretim": L.simdi(), "pencere_gun": gun,
                  "teknik_kapi_baslangic": hedef.get("teknik_kapi_baslangic"),
                  "olculer": {a: {} for a in OLCU_SIRASI}, "israf": {}, "ek": {a: {} for a in EK_SIRASI}}
@@ -942,7 +970,7 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             if yorum:
                 e["yorum"] = yorum
             out["olculer"][o][ad] = e
-        out["israf"][ad] = onlenebilir_israf(ks, usd_ajan, esik)
+        out["israf"][ad] = onlenebilir_israf(ks, usd_ajan, esik, tok_ajan)
         for a, v in ek_olculer(ks, rs, onayli).items():
             spec = (hedef.get("ek_hedefler") or {}).get(a)
             if spec and isinstance(v, dict):
@@ -1160,6 +1188,42 @@ def planlayici_md(p: dict) -> str:
     return "\n".join(satir) + "\n"
 
 
+def _is_basina(sd: str, kartlar: list[dict]) -> dict:
+    """Tamamlanan (kapanan) iş başına harcama, USD ve token birlikte (panelde USD/token düğmesi seçer).
+
+    İş harcaması İşler sayfasıyla aynı atama kuralını kullanır (is_kaydi.is_usd_ve_harcama_son / is_kalem). Ortalama ve medyan
+    yalnız harcaması olan tamamlanmış işlerden alınır; 'tamamlanan' sayısı harcamasızları da kapsar. Hiçbir işe atanmayan
+    harcama 'isiz' altında ayrı verilir, böylece iş başına değer toplam harcamanın ne kadarını açıkladığı görülür."""
+    import is_kaydi as IK
+    usd_i, _ = IK.is_usd_ve_harcama_son(sd, kartlar)
+    kal_i = IK.is_kalem(sd, kartlar)
+    isler = IK.is_liste(sd)
+    kapali = [g for g in isler if g.get("durum") == "kapandi"]
+    satir = []
+    for g in kapali:
+        u = float(usd_i.get(g["id"], 0.0) or 0.0)
+        t = int(((kal_i.get(g["id"]) or {}).get("token") or {}).get("toplam", 0) or 0)
+        satir.append({"id": g["id"], "ad": IK.is_adi(g.get("baslik", "")), "usd": _r(u), "token": t,
+                      "kalem": kal_i.get(g["id"]) or L.kalemler([])})
+    dolu = [x for x in satir if x["usd"] > 0 or x["token"] > 0]
+    kimlik = {g["id"] for g in isler}
+    isiz_usd = sum(v for k, v in usd_i.items() if k not in kimlik)
+    isiz_tok = sum(int(((v.get("token") or {}).get("toplam", 0)) or 0) for k, v in kal_i.items() if k not in kimlik)
+    ort = lambda a: _r(sum(a) / len(a), 4) if a else None  # noqa: E731
+    return {
+        "tamamlanan": len(kapali), "harcamali": len(dolu), "acik": len(isler) - len(kapali),
+        "usd": {"toplam": _r(sum(x["usd"] for x in dolu)), "ortalama": ort([x["usd"] for x in dolu]),
+                "medyan": _medyan([x["usd"] for x in dolu])},
+        "token": {"toplam": sum(x["token"] for x in dolu), "ortalama": _r(sum(x["token"] for x in dolu) / len(dolu), 1) if dolu else None,
+                  "medyan": _medyan([x["token"] for x in dolu])},
+        "kalem": L.kalemler([r for r in L.maliyet_kayitlari(sd)
+                             if L.satir_isi(r, {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")})
+                             in {x["id"] for x in dolu}]),
+        "isiz": {"usd": _r(isiz_usd), "token": int(isiz_tok)},
+        "isler": sorted(dolu, key=lambda x: -x["usd"])[:10],
+    }
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     kartlar = L.kartlar(sd)
@@ -1179,6 +1243,7 @@ def olustur(sd: str, proje: str) -> dict:
         "ders": _ders(kartlar, kayitlar), "planlayici": _planlayici(kartlar, kayitlar),
         "baglam": baglam_kirilim(baglam_coz(sd, kayitlar)),
         "hedef_panosu": hedef_panosu(kartlar, kayitlar),
+        "is_basina": _is_basina(sd, kartlar),
     }
 
 
@@ -1196,10 +1261,12 @@ def tum_alanlar() -> dict:
     hafta_bas = bugun - datetime.timedelta(days=6)
     ay = bugun.strftime("%Y-%m")
     satirlar, gunluk = [], collections.defaultdict(lambda: collections.Counter())
+    gunluk_t = collections.defaultdict(lambda: collections.Counter())
     en_erken = [bugun]  # en erken kayıt günü (30 günlük pencereden önceki kayıtlar da sayılır)
     for a in _alan_listesi():
         s = {"id": a["id"], "ad": a["ad"], "yol": a.get("yol"), "orkestra": a.get("orkestra"), "son": a.get("son"),
              "bugun": 0.0, "hafta": 0.0, "ay": 0.0, "toplam": 0.0, "model": collections.Counter(),
+             "token": {"bugun": 0, "hafta": 0, "ay": 0, "toplam": 0}, "model_token": collections.Counter(),
              "kart": 0, "teslim": 0, "sohbet": a.get("sohbet"), "kaynak": "defter" if a.get("orkestra") else "sohbet"}
         try:
             if a.get("orkestra") and a.get("yol"):
@@ -1210,14 +1277,21 @@ def tum_alanlar() -> dict:
                     if not z:
                         continue
                     d = z.date()
+                    tok = sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
                     en_erken.append(d)
                     s["toplam"] += usd
                     s["model"][_kisa_model(r.get("model"))] += usd
                     s["bugun"] += usd if d == bugun else 0
                     s["hafta"] += usd if d >= hafta_bas else 0
                     s["ay"] += usd if d.strftime("%Y-%m") == ay else 0
+                    s["token"]["toplam"] += tok
+                    s["token"]["bugun"] += tok if d == bugun else 0
+                    s["token"]["hafta"] += tok if d >= hafta_bas else 0
+                    s["token"]["ay"] += tok if d.strftime("%Y-%m") == ay else 0
+                    s["model_token"][_kisa_model(r.get("model"))] += tok
                     if d >= bugun - datetime.timedelta(days=29):
                         gunluk[d.isoformat()][a["ad"]] += usd
+                        gunluk_t[d.isoformat()][a["ad"]] += tok
                 ks = L.kartlar(sd)
                 s["kart"] = len(ks)
                 s["teslim"] = sum(1 for k in ks if L.kart_durumu_hesapla(k) == "teslim")
@@ -1246,15 +1320,21 @@ def tum_alanlar() -> dict:
         for k in ("bugun", "hafta", "ay", "toplam"):
             s[k] = _r(s[k], 2)
         s["model"] = {m: _r(v, 2) for m, v in s["model"].most_common(5)}
+        if s["kaynak"] == "defter":
+            s["model_token"] = dict(s["model_token"].most_common(5))
+        else:   # sohbet maliyeti Claude'un hesabından gelir: token dökümü yok
+            s["token"], s["model_token"] = None, None
         satirlar.append(s)
     satirlar.sort(key=lambda s: -s["toplam"])
     gunler = []
     d = max(min(en_erken), bugun - datetime.timedelta(days=29))  # ilk kayıt gününden başlar, öncesi boş gün yok
     while d <= bugun:
-        gunler.append({"donem": d.isoformat(), "alan": {k: _r(v, 2) for k, v in gunluk.get(d.isoformat(), {}).items()}})
+        gunler.append({"donem": d.isoformat(), "alan": {k: _r(v, 2) for k, v in gunluk.get(d.isoformat(), {}).items()},
+                       "alan_token": dict(gunluk_t.get(d.isoformat(), {}))})
         d += datetime.timedelta(days=1)
     return {"uretim": L.simdi(), "alanlar": satirlar, "gunluk": gunler,
             "toplam": {k: _r(sum(s[k] for s in satirlar), 2) for k in ("bugun", "hafta", "ay", "toplam")},
+            "toplam_token": {k: sum((s["token"] or {}).get(k, 0) for s in satirlar) for k in ("bugun", "hafta", "ay", "toplam")},
             "kota": _kota(),
             "not": "Orkestralı alanlarda token defteri, diğerlerinde sohbet maliyeti (Claude'un hesabı ya da transkript tahmini). "
                    "Sohbet maliyeti son etkinlik gününe yazılır."}
