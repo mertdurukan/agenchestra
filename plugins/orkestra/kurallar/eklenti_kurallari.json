@@ -476,6 +476,24 @@
         }
       ],
       "etkinlesme": "2026-10-18T10:36:25+03:00"
+    },
+    {
+      "id": "P-014",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcıya yazılan yanıtta modelin iç karar ve sınıflandırma cümleleri bulunmaz: 'bilgi sorusu, aynı işin devamı', 'kısa cevap', 'K-004 gereği', 'hook şunu istiyor' gibi süreç anlatımı yazılmaz. Hook ve kural talimatları sessizce uygulanır; kullanıcı yalnız yazdığına verilen cevabı görür. Kural kimliği yalnız kullanıcı o kuralı konuşuyorsa anılır.",
+      "neden": "Kullanıcı 18.10.2026: 'Bilgi sorusu, aynı işin devamı; kısa cevap' gibi cümleler fazladan kafa karıştırıcı; kullanıcı yalnızca yazdıklarına dair yanıtları görmeli.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-18T12:52:51+03:00",
+      "guncelleme": "2026-10-18T12:52:51+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-18T12:52:51+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcıya yazılan yanıtta modelin iç karar ve sınıflandırma cümleleri bulunmaz: 'bilgi sorusu, aynı işin devamı', 'kısa cevap', 'K-004 gereği', 'hook şunu istiyor' gibi süreç anlatımı yazılmaz. Hook ve kural talimatları sessizce uygulanır; kullanıcı yalnız yazdığına verilen cevabı görür. Kural kimliği yalnız kullanıcı o kuralı konuşuyorsa anılır."
+        }
+      ],
+      "etkinlesme": "2026-10-18T12:52:51+03:00"
     }
   ]
 }
