@@ -1,0 +1,875 @@
+/* Orkestra paneli v2: karar odaklı kontrol odası.
+   Görünümler: Gelen kutusu (açılış) · İşler (liste + ayrıntı) · Koşular · Kart izi · Maliyet · Kurallar.
+   Veri: mevcut JSON uçları; canlı güncelleme /akis (SSE). Harici kitaplık yok.
+   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=… */
+(() => {
+  'use strict';
+
+  // ================================================================ 1. Araçlar
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const yaz = v => (v == null || v === false) ? '' : Array.isArray(v) ? v.map(yaz).join('') : (typeof v === 'object' && '__h' in v) ? v.__h : esc(v);
+  const H = (s, ...v) => ({ __h: s.reduce((a, p, i) => a + p + (i < v.length ? yaz(v[i]) : ''), '') });
+  const ham = s => ({ __h: String(s ?? '') });
+  const enc = encodeURIComponent;
+
+  const depo = {
+    al(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    koy(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* özel pencere */ } },
+  };
+
+  const sayiB = (n, ond = 0) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: ond, maximumFractionDigits: ond }).format(n);
+  const B = {
+    usd(v) {
+      if (v == null || isNaN(v)) return '–';
+      const a = Math.abs(v);
+      return (v < 0 ? '−' : '') + '$' + sayiB(a, a < 1000 ? 2 : 0);
+    },
+    token(n) {
+      if (n == null || isNaN(n)) return '–';
+      const a = Math.abs(n);
+      if (a >= 1e6) return sayiB(a / 1e6, a < 1e7 ? 1 : 0) + ' M';
+      if (a >= 1e3) return sayiB(a / 1e3, a < 1e4 ? 1 : 0) + ' K';
+      return sayiB(a);
+    },
+    olcu: () => depo.al('orkestra.olcu') === 'token' ? 'token' : 'usd',
+    deger: (usd, token) => B.olcu() === 'token' && token != null ? B.token(token) : B.usd(usd),
+    yuzde: (x, ond = 0) => x == null || isNaN(x) ? '–' : '%' + sayiB(x * 100, ond),
+    sayi: (x, ond = 0) => x == null || isNaN(x) ? '–' : sayiB(x, ond),
+    sure(sn) {
+      if (sn == null || isNaN(sn)) return '–';
+      sn = Math.round(sn);
+      if (sn < 60) return sn + ' sn';
+      const dk = Math.round(sn / 60);
+      if (dk < 60) return dk + ' dk';
+      const sa = Math.floor(dk / 60), kdk = dk % 60;
+      if (sa < 48) return sa + ' sa' + (kdk ? ' ' + kdk + ' dk' : '');
+      return Math.round(sa / 24) + ' gün';
+    },
+    goreli(z) {
+      if (!z) return '–';
+      const t = new Date(z).getTime();
+      if (isNaN(t)) return '–';
+      const sn = (Date.now() - t) / 1000;
+      if (sn < 45) return 'şimdi';
+      if (sn < 3600) return Math.round(sn / 60) + ' dk önce';
+      if (sn < 86400) return Math.round(sn / 3600) + ' sa önce';
+      const g = Math.round(sn / 86400);
+      return g === 1 ? 'dün' : g + ' gün önce';
+    },
+    tarih(z) {
+      const d = new Date(z);
+      return isNaN(d) ? '–' : d.toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    },
+  };
+  const kucult = s => String(s ?? '').toLocaleLowerCase('tr-TR');
+  const eslesir = (metin, q) => { const m = kucult(metin); return kucult(q).split(/\s+/).filter(Boolean).every(p => m.includes(p)); };
+  const kisalt = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+  const ilkCumle = s => { const m = String(s ?? '').replace(/^ZORUNLU, istisnasız:\s*/, '').match(/^(.{20,180}?[.!?])(\s|$)/); return m ? m[1] : kisalt(String(s ?? '').replace(/^ZORUNLU, istisnasız:\s*/, ''), 160); };
+  const yolKisa = p => String(p ?? '').replace(/\\/g, '/').split('/').slice(-2).join('/');
+  const medyan = a => { const s = a.filter(x => x != null).sort((x, y) => x - y); if (!s.length) return null; const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+  // Basit çizgi simgeler (16 px, currentColor)
+  const S = {
+    gelen: '<path d="M2 9h3.5l1.2 2h2.6l1.2-2H14"/><path d="M3.5 3.5h9L14 9v3.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9z"/>',
+    isler: '<path d="M8 2 14 5 8 8 2 5z"/><path d="m2 8 6 3 6-3"/><path d="m2 11 6 3 6-3"/>',
+    kosular: '<path d="M1.5 8h3l2-5 3 10 2-5h3"/>',
+    maliyet: '<path d="M2.5 13.5h11"/><path d="M4 11V8"/><path d="M7 11V4"/><path d="M10 11V6.5"/><path d="M13 11V2.5"/>',
+    kurallar: '<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 6.5h5M5.5 9h5M5.5 11.5h3"/>',
+    onay: '<path d="m3 8.5 3 3 7-7"/>',
+    sohbet: '<path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/>',
+    kart: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M5 6.5h6M5 9.5h3.5"/>',
+    uyari: '<path d="M8 2.5 14 13H2z"/><path d="M8 6.5v3M8 11.3v.2"/>',
+    hedef: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2"/>',
+    oynat: '<path d="M5 3.5v9l7-4.5z"/>',
+    saat: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/>',
+    kalkan: '<path d="M8 2 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/>',
+    test: '<path d="M6 2.5h4M7 2.5v4L3.5 12.5a.8.8 0 0 0 .7 1.2h7.6a.8.8 0 0 0 .7-1.2L9 6.5v-4"/>',
+    goz: '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>',
+    tamam: '<path d="m3 8.5 3 3 7-7"/>',
+    carpi: '<path d="m4 4 8 8M12 4l-8 8"/>',
+    ara: '<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>',
+  };
+  const simge = ad => ham(`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${S[ad] || ''}</svg>`);
+
+  // ================================================================ 2. Veri
+  const V = { alan: '', alanlar: [], onbellek: new Map(), sonBasari: 0 };
+  const urlAl = yol => yol + (yol.includes('?') ? '&' : '?') + 'alan=' + enc(V.alan);
+  const imzasi = v => { try { const k = { ...v }; delete k.uretim; return JSON.stringify(k); } catch (e) { return Math.random() + ''; } };
+
+  function kayit(yol) {
+    if (!V.onbellek.has(yol)) V.onbellek.set(yol, { veri: null, hata: null, zaman: 0, imza: '', istek: null });
+    return V.onbellek.get(yol);
+  }
+  async function getir(yol, { taze = false } = {}) {
+    const k = kayit(yol);
+    if (k.istek) return k.istek;
+    if (!taze && k.veri && Date.now() - k.zaman < 2000) return k.veri;
+    k.istek = (async () => {
+      const ctl = new AbortController();
+      const zs = setTimeout(() => ctl.abort(), 30000);
+      try {
+        const r = await fetch(urlAl(yol), { signal: ctl.signal });
+        const v = await r.json().catch(() => null);
+        if (!r.ok || !v) throw new Error((v && v.hata) || 'HTTP ' + r.status);
+        const imza = imzasi(v);
+        const degisti = imza !== k.imza;
+        Object.assign(k, { veri: v, hata: null, zaman: Date.now(), imza });
+        V.sonBasari = Date.now();
+        if (degisti) planla();
+        return v;
+      } catch (e) {
+        k.hata = e.name === 'AbortError' ? 'Zaman aşımı (30 sn)' : (e.message || String(e));
+        planla();
+        return null;
+      } finally { clearTimeout(zs); k.istek = null; }
+    })();
+    return k.istek;
+  }
+  const d = yol => kayit(yol);
+  const tazele = (taze = false) => gerekler(rota()).concat(TEMEL).forEach(y => getir(y, { taze }));
+  const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json'];
+
+  async function gonder(yol, govde) {
+    const r = await fetch(urlAl(yol), { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde || {}) });
+    const v = await r.json().catch(() => null);
+    if (!r.ok || !v || v.tamam === false) throw new Error((v && v.hata) || 'HTTP ' + r.status);
+    return v;
+  }
+
+  // ================================================================ 3. Yönlendirme
+  function rota() {
+    const h = location.hash.replace(/^#\/?/, '');
+    const [yolS, sorgu = ''] = h.split('?');
+    const p = yolS.split('/').filter(Boolean).map(decodeURIComponent);
+    const q = new URLSearchParams(sorgu);
+    if (!p.length || p[0] === 'gelen') return { ad: 'gelen', q };
+    if (p[0] === 'is' && p[1]) return { ad: 'isler', id: p[1], q };
+    if (p[0] === 'kart' && p[1]) return { ad: 'kart', id: p[1], q };
+    if (['isler', 'kosular', 'maliyet', 'kurallar'].includes(p[0])) return { ad: p[0], q };
+    return { ad: 'gelen', q };
+  }
+  const git = h => { if (location.hash !== h) location.hash = h; };
+  function sorguKoy(k, v) {
+    const r = rota();
+    if (v == null || v === '') r.q.delete(k); else r.q.set(k, v);
+    const temel = location.hash.split('?')[0] || '#/gelen';
+    const s = r.q.toString();
+    history.replaceState(null, '', temel + (s ? '?' + s : ''));
+    gorunumCiz();
+  }
+  const sorguEk = (q, haric = []) => { const c = new URLSearchParams(q); haric.forEach(k => c.delete(k)); const s = c.toString(); return s ? '?' + s : ''; };
+
+  function gerekler(r) {
+    switch (r.ad) {
+      case 'gelen': return ['/onaylar.json', '/simdi.json', '/ozet.json', '/analitik.json'];
+      case 'isler': return ['/isler.json'].concat(r.id ? [`/teknik.json?is=${enc(r.id)}`, `/api/todo?is=${enc(r.id)}`] : []);
+      case 'kosular': return ['/analitik.json', '/ozet.json'];
+      case 'kart': return [`/teknik.json?kart=${enc(r.id)}`, '/analitik.json', '/ozet.json'];
+      case 'maliyet': return ['/analitik.json', '/ozet.json'];
+      case 'kurallar': return ['/kurallar.json'];
+      default: return [];
+    }
+  }
+
+  // ================================================================ 4. Ortak parçalar
+  const DURUM = {
+    teslim: ['Teslim', 'r-iyi'], onay: ['Onay', 'r-iyi'], beklemede: ['Beklemede', 'r-uyari'], ret: ['Ret', 'r-kotu'],
+    iptal: ['İptal', 'r-notr'], suruyor: ['Sürüyor', 'r-bilgi'], calisiyor: ['Çalışıyor', 'r-bilgi'], denetimde: ['Denetimde', 'r-bilgi'],
+    acik: ['Açık', 'r-vurgu'], kapandi: ['Kapandı', 'r-notr'], bitti: ['Bitti', 'r-iyi'], bekliyor: ['Bekliyor', 'r-uyari'],
+    iyi: ['İyi', 'r-iyi'], uyari: ['Uyarı', 'r-uyari'], kotu: ['Hedef dışı', 'r-kotu'], 'veri-yok': ['Veri yok', 'r-notr'],
+  };
+  const rozet = (durum, metin) => { const [ad, sinif] = DURUM[durum] || [durum || '–', 'r-notr']; return H`<span class="rozet ${sinif}">${metin || ad}</span>`; };
+  const iskelet = (n = 4, y = 44) => H`<div class="yigin sik">${Array.from({ length: n }, () => H`<div class="iskelet" style="height:${y}px"></div>`)}</div>`;
+  const hataKutu = (metin, yol) => H`<div class="hata-kutu" role="alert">${simge('uyari')}<span>Veri alınamadı: ${metin}</span><button class="dugme kucuk" data-eylem="yenile" data-yol="${yol || ''}">Tekrar dene</button></div>`;
+  const bos = (baslik, metin, s = 'tamam') => H`<div class="bos-durum"><div class="buyuk">${simge(s)}</div><b>${baslik}</b><p>${metin || ''}</p></div>`;
+  // Veri hazır değilse iskelet ya da hata döner; hazırsa null
+  function bekle(...yollar) {
+    for (const y of yollar) {
+      const k = d(y);
+      if (!k.veri && k.hata) return hataKutu(k.hata, y);
+      if (!k.veri) return iskelet();
+      if (k.veri.acik === false) return bos('Bu çalışma alanında orkestra açık değil', k.veri.hata || '', 'uyari');
+    }
+    return null;
+  }
+  function spark(degerler, gen = 96, yuk = 24) {
+    const v = degerler.filter(x => x != null);
+    if (v.length < 2) return '';
+    const mx = Math.max(...v) || 1, adim = gen / (v.length - 1);
+    const n = v.map((x, i) => [i * adim, yuk - 2 - (x / mx) * (yuk - 4)]);
+    const cizgi = n.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    return ham(`<svg class="spark" width="${gen}" height="${yuk}" viewBox="0 0 ${gen} ${yuk}" aria-hidden="true"><path class="alan" d="${cizgi} L${gen} ${yuk} L0 ${yuk}Z"/><path d="${cizgi}"/></svg>`);
+  }
+  const ilerleme = (oran, renk) => H`<div class="ilerleme"><i style="width:${Math.max(0, Math.min(1, oran || 0)) * 100}%;${renk ? `--renk:${renk}` : ''}"></i></div>`;
+  const karo = (ad, deger, alt, href) => H`<div class="karo"><span class="ad">${ad}</span><span class="deger">${deger}</span>${alt ? (href ? H`<a class="alt" href="${href}">${alt}</a>` : H`<span class="alt">${alt}</span>`) : ''}</div>`;
+  const kartBilgi = id => {
+    const a = (d('/analitik.json').veri?.akis?.kartlar || []).find(k => k.id === id);
+    const o = (d('/ozet.json').veri?.kartlar || []).find(k => k.id === id);
+    return { ...(a || {}), ...(o || {}) };
+  };
+  const kartUsd = () => Object.fromEntries((d('/analitik.json').veri?.birim?.kart_maliyetleri || []));
+
+  // ================================================================ 5. Görünüm: Gelen kutusu
+  const OLCU_AD = {
+    ana_ajan_payi: ['Ana ajan payı', x => B.yuzde(x)], isci_cagrisi_kart: ['İşçi çağrısı / kart', x => B.sayi(x, 2)],
+    onayli_kart_usd: ['Onaylı kart başına USD', x => B.usd(x)], ret_orani: ['Ret oranı', x => B.yuzde(x, 1)],
+    teknik_not_kapsama: ['Teknik not kapsaması', x => B.yuzde(x)],
+  };
+  const PENCERE = [['bugun', 'Bugün'], ['son_3_gun', 'Son 3 gün'], ['son_7_gun', 'Son 7 gün'], ['bu_ay', 'Bu ay']];
+  const ertelenen = new Map();   // onay id → { zamanlayici }  (geri al süresi içindeki kararlar)
+
+  function gelenOgeleri() {
+    const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
+    const g = { karar: [], sohbet: [], kart: [], olcu: [] };
+    if (on && on.acik !== false) {
+      (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(k.id)).forEach(k => g.karar.push({ tur: 'onay', k }));
+      if (on.sayac?.uygulanacak > 0) g.karar.push({ tur: 'uygula', n: on.sayac.uygulanacak });
+      (on.kayitlar || []).filter(k => k.etki?.soru_bekliyor).forEach(k => g.karar.push({ tur: 'etki', k }));
+    }
+    if (sm) (sm.oturumlar || []).filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => g.sohbet.push({ tur: 'sohbet', o }));
+    if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => g.kart.push({ tur: 'kart', k }));
+    if (an?.hedef_panosu?.olculer) {
+      Object.entries(an.hedef_panosu.olculer).forEach(([ad, p]) => {
+        const sec = ['bugun', 'son_3_gun', 'son_7_gun'].find(x => p[x] && p[x].durum !== 'veri-yok');
+        if (sec && p[sec].durum === 'kotu') g.olcu.push({ tur: 'olcu', ad, e: p[sec], pencere: sec });
+      });
+    }
+    return g;
+  }
+  const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + g.sohbet.length + g.kart.length + g.olcu.length; };
+
+  function ogeHtml(o) {
+    if (o.tur === 'onay') {
+      const k = o.k, sec = Array.isArray(k.secenekler) ? k.secenekler : [];
+      return H`<article class="oge" data-gez data-onay="${k.id}" style="--renk:var(--vurgu)">
+        <div class="simge">${simge('onay')}</div>
+        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.tur}</span></div>
+          <div class="baslik">${k.baslik}</div>
+          ${k.metin && k.metin !== k.baslik ? H`<div class="metin">${k.metin}</div>` : ''}
+          ${k.vaat?.metin ? H`<div class="meta">Beklenen etki: ${k.vaat.metin}</div>` : ''}
+          <div class="meta">${B.goreli(k.olusturma)}</div></div>
+        <div class="eylemler">${sec.length
+          ? H`<div class="secenekler">${sec.map(s => H`<button class="dugme kucuk" data-eylem="karar" data-id="${k.id}" data-sonuc="onay" data-secim="${s}">${s}</button>`)}</div>`
+          : H`<button class="dugme ana-d kucuk" data-eylem="karar" data-id="${k.id}" data-sonuc="onay" title="Onayla (a)">Onayla</button>`}
+          <button class="dugme kucuk tehlike" data-eylem="karar" data-id="${k.id}" data-sonuc="ret" title="Reddet (r)">Reddet</button></div>
+      </article>`;
+    }
+    if (o.tur === 'uygula') return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
+        <div class="simge">${simge('oynat')}</div>
+        <div class="govde"><div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
+          <div class="metin">Uygulama Claude'da yeni bir sohbet açar ve kararları işler.</div></div>
+        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula">Şimdi uygula</button></div></article>`;
+    if (o.tur === 'etki') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
+        <div class="simge">${simge('goz')}</div>
+        <div class="govde"><div class="yatay"><span class="kimlik">${o.k.id}</span></div><div class="baslik">Etki ölçümü kararını bekliyor</div>
+          <div class="metin">${o.k.baslik}</div></div>
+        <div class="eylemler"><a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#etki">Yanıtla</a></div></article>`;
+    if (o.tur === 'sohbet') {
+      const s = o.o;
+      return H`<article class="oge" data-gez style="--renk:var(--uyari)">
+        <div class="simge">${simge('sohbet')}</div>
+        <div class="govde"><div class="baslik">${s.sohbet || s.kisa}</div>
+          ${s.bekleme ? H`<div class="metin">“${s.bekleme}”</div>` : ''}
+          <div class="meta"><span>${s.proje}</span><span>·</span><span>${B.goreli(s.son_zaman)}</span>${s.ne ? H`<span>·</span><span>${s.ne}</span>` : ''}</div></div>
+        <div class="eylemler">${s.link ? H`<a class="dugme ana-d kucuk" href="${s.link}" data-birincil>Claude'da aç</a>` : ''}</div></article>`;
+    }
+    if (o.tur === 'kart') {
+      const k = o.k, eski = (Date.now() - new Date(k.guncelleme).getTime()) / 864e5;
+      return H`<article class="oge" data-gez style="--renk:var(--uyari)">
+        <div class="simge">${simge('kart')}</div>
+        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.basamak || ''}</span>${rozet(k.durum)}</div>
+          <div class="baslik">${k.baslik}</div>
+          <div class="meta"><span>${eski >= 1 ? Math.round(eski) + ' gündür hareketsiz' : 'son hareket ' + B.goreli(k.guncelleme)}</span><span>·</span><span>${k.isci ?? 0} işçi çağrısı</span><span>·</span><span>${B.usd(k.usd)}</span></div></div>
+        <div class="eylemler"><a class="dugme kucuk" href="#/kart/${enc(k.id)}" data-birincil>İzi aç</a></div></article>`;
+    }
+    if (o.tur === 'olcu') {
+      const [ad, f] = OLCU_AD[o.ad] || [o.ad, x => B.sayi(x, 2)];
+      const pAd = (PENCERE.find(p => p[0] === o.pencere) || [])[1] || '';
+      return H`<article class="oge" data-gez style="--renk:var(--kotu)">
+        <div class="simge">${simge('hedef')}</div>
+        <div class="govde"><div class="baslik">${ad}: ${f(o.e.deger)}</div>
+          <div class="meta"><span>Hedef ${o.e.tur === 'ust' ? '≤' : '≥'} ${f(o.e.hedef)}</span><span>·</span><span>${pAd}</span><span>·</span><span>${B.sayi(o.e.ornek)} örnek</span></div></div>
+        <div class="eylemler"><a class="dugme kucuk" href="#/maliyet?p=${o.pencere}" data-birincil>İncele</a></div></article>`;
+    }
+    return '';
+  }
+
+  function gGelen() {
+    const yuk = bekle('/onaylar.json', '/simdi.json', '/ozet.json');
+    const g = gelenOgeleri();
+    const oz = d('/ozet.json').veri, sm = d('/simdi.json').veri, an = d('/analitik.json').veri, il = d('/isler.json').veri;
+    const gun = (an?.trend?.gunluk || []).slice(-14).map(x => x.usd);
+    const acikIs = (il?.isler || []).filter(i => i.durum === 'acik').length;
+    const ust = oz ? H`<div class="karolar">
+        ${karo('Bugünkü harcama', B.usd(oz.maliyet?.bugun), H`${spark(gun)}<span>son ${gun.length} gün</span>`, '#/maliyet')}
+        ${karo('Claude çalışıyor', B.sayi(sm?.sayac?.claude ?? 0), 'sohbet')}
+        ${karo('Açık iş', il ? B.sayi(acikIs) : '–', 'İşlere git →', '#/isler')}
+        ${karo('Karar bekleyen', B.sayi(g.karar.length), g.karar.length ? 'aşağıda' : 'yok')}
+      </div>` : '';
+    const toplam = g.karar.length + g.sohbet.length + g.kart.length + g.olcu.length;
+    const grup = (baslik, liste) => liste.length ? H`<section class="gelen-grup"><h2>${baslik} <span class="say">${liste.length}</span></h2>${liste.map(ogeHtml)}</section>` : '';
+    const govde = yuk || (toplam === 0
+      ? bos('Gelen kutusu boş', 'Senden beklenen bir karar, yanıt ya da müdahale yok.')
+      : H`${grup('Karar ver', g.karar)}${grup('Seni bekleyen sohbetler', g.sohbet)}${grup('Takılan kartlar', g.kart)}${grup('Hedef dışı ölçüler', g.olcu)}`);
+    return {
+      baslik: 'Gelen kutusu',
+      sag: H`<span class="soluk kucuk-y ipucu-kisayol"><kbd>j</kbd> <kbd>k</kbd> gez · <kbd>a</kbd> onayla · <kbd>r</kbd> reddet</span>`,
+      govde: H`<div class="icerik yigin" style="max-width:920px">${ust}${govde}</div>`,
+    };
+  }
+
+  // ================================================================ 6. Görünüm: İşler (liste + ayrıntı)
+  const KOVA = [['simdi', 'Şimdi', 'var(--bilgi)'], ['sirada', 'Sırada', 'var(--uyari)'], ['planda_kart_yok', 'Planda', 'var(--notr)'], ['yapildi', 'Yapıldı', 'var(--iyi)'], ['iptal', 'İptal', 'var(--notr)']];
+
+  function gIsler(r) {
+    const f = r.q.get('f') || 'acik', q = r.q.get('q') || '';
+    const yuk = bekle('/isler.json');
+    const tum = d('/isler.json').veri?.isler || [];
+    const say = { acik: tum.filter(i => i.durum === 'acik').length, kapandi: tum.filter(i => i.durum === 'kapandi').length, tum: tum.length };
+    const liste = tum.filter(i => (f === 'tum' || i.durum === f) && (!q || eslesir(i.id + ' ' + i.ad, q)));
+    const sorgu = sorguEk(r.q);
+    const satirlar = yuk || (liste.length ? H`<div class="liste" role="listbox" aria-label="İşler">${liste.map(i => {
+      const t = i.ilerleme?.toplam || 0, b = i.ilerleme?.biten || 0, surer = (i.kovalar?.simdi || []).length > 0;
+      return H`<a class="satir-l" role="option" data-gez href="#/is/${enc(i.id)}${sorgu}" aria-selected="${i.id === r.id}">
+        <span class="nokta" style="--renk:${i.durum === 'kapandi' ? 'var(--notr)' : surer ? 'var(--bilgi)' : 'var(--vurgu)'}"></span>
+        <span class="kimlik">${i.id}</span><span class="ad" title="${i.ad}">${i.ad}</span>
+        <span class="sag">${t ? H`<span class="mini-ilerleme">${ilerleme(b / t, i.durum === 'kapandi' ? 'var(--notr)' : '')}</span>` : ''}<span>${B.deger(i.usd, i.token)}</span><span style="min-width:62px;text-align:right">${B.goreli(i.son)}</span></span></a>`;
+    })}</div>` : bos('Eşleşen iş yok', q ? `“${q}” için sonuç yok.` : 'Bu süzgeçte iş yok.', 'ara'));
+    const sol = H`<div class="liste-yan" id="isListe" data-kaydir>
+      <div class="suzgec">${[['acik', 'Açık'], ['kapandi', 'Kapanan'], ['tum', 'Tümü']].map(([k, ad]) =>
+        H`<button class="cip" data-eylem="sorgu" data-k="f" data-v="${k}" aria-pressed="${f === k}">${ad}<span class="say">${say[k]}</span></button>`)}
+        <input class="arama" id="isAra" type="search" placeholder="İş ara…  /" value="${q}" data-sorgu="q" aria-label="İş ara"></div>
+      ${satirlar}</div>`;
+    const sag = H`<section class="ayrinti">${r.id ? isAyrinti(r.id, tum.find(i => i.id === r.id)) : bos('Bir iş seç', 'Soldan bir iş seç ya da <j>/<k> ile gez, Enter ile aç.', 'isler')}</section>`;
+    return {
+      baslik: 'İşler', yol: r.id ? H`<a href="#/isler${sorgu}">İşler</a> / <span class="kimlik">${r.id}</span>` : null,
+      govde: H`<div class="bolunmus${r.id ? ' secili' : ''}">${sol}${sag}</div>`, tam: true,
+    };
+  }
+
+  function isAyrinti(id, i) {
+    if (!i) return d('/isler.json').veri ? bos('İş bulunamadı', id + ' bu çalışma alanında yok.', 'uyari') : iskelet();
+    const t = i.ilerleme?.toplam || 0, b = i.ilerleme?.biten || 0;
+    const tk = d(`/teknik.json?is=${enc(id)}`), td = d(`/api/todo?is=${enc(id)}`);
+    const kartlar = tk.veri?.kartlar || [];
+    const kovalar = H`<div class="kovalar">${KOVA.filter(([k]) => (i.kovalar?.[k] || []).length).map(([k, ad, renk]) => {
+      const l = i.kovalar[k];
+      const oge = e => e.tur === 'kart'
+        ? H`<a class="k" href="#/kart/${enc(e.kart)}"><span class="yatay"><span class="kimlik">${e.kart}</span>${e.basamak ? H`<span class="etiket">${e.basamak}</span>` : ''}<span class="soluk kucuk-y" style="margin-left:auto">${B.deger(e.usd, e.token)}</span></span><span>${kisalt(e.metin, 120)}</span></a>`
+        : H`<div class="k"><span>${kisalt(e.metin, 160)}</span>${e.bolum ? H`<span class="soluk kucuk-y">${e.bolum}</span>` : ''}</div>`;
+      return H`<div class="kova"><h3><span class="nokta" style="--renk:${renk}"></span>${ad}<span class="soluk">${l.length}</span></h3>
+        ${l.slice(0, 6).map(oge)}${l.length > 6 ? H`<details class="ac"><summary>${l.length - 6} daha</summary><div class="yigin sik" style="margin-top:6px">${l.slice(6).map(oge)}</div></details>` : ''}</div>`;
+    })}</div>`;
+    const kartTablo = tk.hata && !tk.veri ? hataKutu(tk.hata, `/teknik.json?is=${enc(id)}`) : !tk.veri ? iskelet(3, 32) : kartlar.length ? H`<div class="tablo-kap"><table class="tablo">
+      <thead><tr><th>Kart</th><th>Başlık</th><th class="gizle-dar">Sınıf</th><th>Basamak</th><th>Durum</th><th class="gizle-dar">Denetim</th><th class="sayi gizle-dar">Süre</th><th class="sayi">${B.olcu() === 'token' ? 'Token' : 'USD'}</th></tr></thead>
+      <tbody>${kartlar.map(k => H`<tr class="tik" data-git="#/kart/${enc(k.id)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td>
+        <td class="gizle-dar soluk">${k.sinif || '–'}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
+        <td class="gizle-dar">${k.denetim ? rozet(k.denetim) : H`<span class="soluk">–</span>`}</td><td class="sayi gizle-dar">${B.sure(k.sure)}</td><td class="sayi">${B.deger(k.usd, k.token)}</td></tr>`)}</tbody></table></div>`
+      : H`<p class="soluk" style="padding:0 var(--a4) var(--a3)">Bu işte kart yok.</p>`;
+    const acikM = td.veri?.acik_maddeler || [], bitenM = td.veri?.biten_maddeler || [];
+    const todo = td.veri ? (acikM.length + bitenM.length ? H`<ul class="todo">${acikM.map(m => H`<li><span class="kutu"></span><span>${m}</span></li>`)}</ul>
+      ${bitenM.length ? H`<details class="ac" style="margin-top:8px"><summary>${bitenM.length} biten madde</summary><ul class="todo" style="margin-top:6px">${bitenM.map(m => H`<li class="bitti"><span class="kutu"></span><span>${m}</span></li>`)}</ul></details>` : ''}`
+      : H`<p class="soluk">Todo yok.</p>`) : td.hata ? hataKutu(td.hata) : iskelet(3, 18);
+    return H`<div class="yigin">
+      <div class="yigin sik"><div class="yatay"><span class="kimlik">${i.id}</span>${rozet(i.durum)}${(i.kovalar?.simdi || []).length ? rozet('suruyor') : ''}</div>
+        <h1>${i.ad}</h1>
+        ${i.klasor ? H`<div class="yatay soluk kucuk-y"><code title="${i.klasor}">${yolKisa(i.klasor)}</code><button class="dugme hayalet kucuk" data-eylem="kopyala" data-metin="${i.klasor}">Yolu kopyala</button></div>` : ''}</div>
+      <div class="karolar">${karo('İlerleme', t ? B.yuzde(b / t) : '–', t ? H`${b} / ${t} madde` : 'madde yok')}
+        ${karo('Harcama', B.deger(i.usd, i.token), B.olcu() === 'token' ? 'token' : 'USD')}
+        ${karo('Kart', B.sayi(kartlar.length || Object.values(i.kovalar || {}).flat().filter(e => e.tur === 'kart').length), 'oluşturma sırasıyla aşağıda')}
+        ${karo('Son etkinlik', B.goreli(i.son), B.tarih(i.son))}</div>
+      ${t ? ilerleme(b / t) : ''}
+      ${kovalar}
+      <section class="kart"><div class="kart-bas"><h2>Kartlar</h2><span class="soluk kucuk-y">satıra tıkla: koşu izi</span></div><div class="kart-ic" style="padding:0 0 4px">${kartTablo}</div></section>
+      <section class="kart"><div class="kart-bas"><h2>Yapılacaklar</h2><span class="soluk kucuk-y">todo.md</span></div><div class="kart-ic">${todo}</div></section>
+    </div>`;
+  }
+
+  // ================================================================ 7. Görünüm: Koşular
+  function gKosular(r) {
+    const yuk = bekle('/analitik.json');
+    const an = d('/analitik.json').veri, usd = kartUsd();
+    const ozD = Object.fromEntries((d('/ozet.json').veri?.kartlar || []).map(k => [k.id, k]));
+    const bs = r.q.get('b') || '', du = r.q.get('d') || '', s = r.q.get('s') || 'yeni', q = r.q.get('q') || '';
+    let l = (an?.akis?.kartlar || []).map(k => ({ ...k, usd: ozD[k.id]?.usd ?? usd[k.id] ?? null }));
+    const basamaklar = [...new Set(l.map(k => k.basamak).filter(Boolean))].sort();
+    const durumlar = [...new Set(l.map(k => k.durum).filter(Boolean))].sort();
+    l = l.filter(k => (!bs || k.basamak === bs) && (!du || k.durum === du) && (!q || eslesir(k.id + ' ' + k.baslik, q)));
+    const sirala = { yeni: (a, b) => String(b.olusturma).localeCompare(String(a.olusturma)), sure: (a, b) => (b.toplam_dk || 0) - (a.toplam_dk || 0), kuyruk: (a, b) => (b.kuyruk_dk || 0) - (a.kuyruk_dk || 0) };
+    l.sort(sirala[s] || sirala.yeni);
+    const mx = Math.max(1, ...l.map(k => k.toplam_dk || 0));
+    // toplam süre üç aşamadan uzunsa fark turlar arası beklemedir (ana ajanın yeniden çağırması, kullanıcı)
+    const ara = k => Math.max(0, (k.toplam_dk || 0) - (k.kuyruk_dk || 0) - (k.is_dk || 0) - (k.denetim_toplam_dk || 0));
+    const oz = an?.akis?.ozet || {};
+    const DARBOGAZ = { is: 'işçi çalışması', kuyruk: 'kuyruk', denetim: 'denetim' };
+    const cip = (k, v, ad) => H`<button class="cip" data-eylem="sorgu" data-k="${k}" data-v="${v}" aria-pressed="${(r.q.get(k) || '') === v}">${ad}</button>`;
+    const govde = yuk || H`
+      <div class="karolar">${karo('Kart', B.sayi(oz.kart), 'süre verisi olan')}${karo('Medyan toplam süre', B.sure((oz.toplam_medyan || 0) * 60), 'ortalama ' + B.sure((oz.toplam_ort || 0) * 60))}
+        ${karo('Medyan kuyruk', B.sure((oz.kuyruk_medyan || 0) * 60), `${oz.kuyruk_uzun ?? 0} kart ${oz.uzun_esik_dk ?? 30} dk üstü`)}
+        ${karo('Darboğaz', DARBOGAZ[oz.darbogaz] || oz.darbogaz || '–', 'ortalamada en uzun aşama')}</div>
+      <section class="kart">
+        <div class="suzgec">${cip('b', '', 'Tüm basamaklar')}${basamaklar.map(b => cip('b', b, b))}<span class="soluk">|</span>${cip('d', '', 'Tüm durumlar')}${durumlar.map(x => cip('d', x, (DURUM[x] || [x])[0]))}
+          <input class="arama" id="kosuAra" type="search" placeholder="Kart ara…  /" value="${q}" data-sorgu="q" aria-label="Kart ara"></div>
+        <div class="suzgec" style="border-bottom:0;padding-bottom:0"><span class="soluk kucuk-y">Sırala:</span>${cip('s', 'yeni', 'En yeni')}${cip('s', 'sure', 'En uzun')}${cip('s', 'kuyruk', 'En uzun kuyruk')}
+          <span class="lejant" style="margin-left:auto"><span><i style="--renk:var(--seri-5)"></i>Kuyruk</span><span><i style="--renk:var(--seri-1)"></i>İş</span><span><i style="--renk:var(--seri-3)"></i>Denetim</span><span><i style="--renk:var(--cizgi-guclu)"></i>Turlar arası</span></span></div>
+        <div class="tablo-kap"><table class="tablo"><thead><tr><th>Kart</th><th>Başlık</th><th>Basamak</th><th>Durum</th><th>Süre dağılımı</th><th class="sayi">Toplam</th><th class="sayi gizle-dar">USD</th><th class="gizle-dar gizle-orta">Oluşturma</th></tr></thead>
+        <tbody>${l.slice(0, 300).map(k => {
+          const w = x => ((x || 0) / mx * 120).toFixed(1);
+          return H`<tr class="tik" data-gez data-git="#/kart/${enc(k.id)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
+            <td><span class="mini-serit" title="Kuyruk ${B.sure(k.kuyruk_dk * 60)} · İş ${B.sure(k.is_dk * 60)} · Denetim ${B.sure(k.denetim_toplam_dk * 60)} · Turlar arası ${B.sure(ara(k) * 60)}"><i style="width:${w(k.kuyruk_dk)}px;background:var(--seri-5)"></i><i style="width:${w(k.is_dk)}px;background:var(--seri-1)"></i><i style="width:${w(k.denetim_toplam_dk)}px;background:var(--seri-3)"></i><i style="width:${w(ara(k))}px;background:var(--cizgi-guclu)"></i></span></td>
+            <td class="sayi">${B.sure((k.toplam_dk || 0) * 60)}</td><td class="sayi gizle-dar">${k.usd != null ? B.usd(k.usd) : H`<span class="soluk">–</span>`}</td><td class="gizle-dar gizle-orta soluk">${B.tarih(k.olusturma)}</td></tr>`;
+        })}</tbody></table></div>
+        ${l.length ? '' : bos('Eşleşen kart yok', 'Süzgeçleri gevşet.', 'ara')}
+      </section>`;
+    return { baslik: 'Koşular', sag: H`<span class="soluk kucuk-y">${l.length} kart</span>`, govde: H`<div class="icerik yigin">${govde}</div>` };
+  }
+
+  // ================================================================ 8. Görünüm: Kart koşu izi
+  const kSatirlari = l => (l || []).flatMap(s => String(s).split(/\s(?=K\d+:)/)).map(s => s.trim()).filter(Boolean);
+  const kriterler = l => (l || []).flatMap(x => { if (typeof x === 'string' && x.trim().startsWith('[')) { try { return JSON.parse(x); } catch (e) { /* düz metin */ } } return [x]; });
+
+  function gKart(r) {
+    const yol = `/teknik.json?kart=${enc(r.id)}`;
+    const yuk = bekle(yol);
+    const t = d(yol).veri || {};
+    const bilgi = kartBilgi(r.id);
+    const ms = t.maliyet_sure || {}, sr = ms.sureler || {};
+    const dg = t.dogrulama || {};
+    const denetimler = dg.denetimler || [], testler = dg.test_kosulari || [], onk = dg.onkontrol_kosulari || [];
+    const durum = bilgi.durum || (denetimler.length && denetimler[denetimler.length - 1].karar === 'onay' ? 'teslim' : null);
+    const isId = t.neden?.is;
+    const topSure = (sr.kuyruk_sn || 0) + (sr.is_sn || 0) + (sr.denetim_sn || 0);
+    const yuzde = x => topSure ? Math.max(0.5, (x || 0) / topSure * 100) : 0;
+    const retS = denetimler.filter(x => x.karar === 'ret').length;
+    const isciler = (ms.maliyet || []).filter(m => /isci|general/.test(m.ajan));
+    const denetciler = (ms.maliyet || []).filter(m => /denetci/.test(m.ajan));
+    const dosyalar = t.degisen?.dosyalar || [];
+    const fmx = Math.max(1, ...dosyalar.map(f => (f.ekle || 0) + (f.sil || 0)));
+    const adim = (renk, s, baslik, ek, govde) => H`<li><div class="dugum" style="--renk:${renk}">${simge(s)}</div><div class="adim"><div class="ust"><b>${baslik}</b>${ek || ''}</div>${govde || ''}</div></li>`;
+    const modelSat = l => l.map(m => H`<span class="soluk kucuk-y">${m.ajan.replace('orkestra:', '')} · ${String(m.model).replace('claude-', '')} · ${B.usd(m.usd)}</span>`);
+    const iz = H`<ol class="iz">
+      ${adim('var(--notr)', 'saat', 'Kuyruk', H`<span class="soluk kucuk-y">${B.sure(sr.kuyruk_sn)}</span>`, H`<span class="soluk kucuk-y">${bilgi.olusturma ? 'Oluşturma ' + B.tarih(bilgi.olusturma) : ''}</span>`)}
+      ${adim('var(--seri-1)', 'oynat', 'İşçi çalıştı', H`<span class="etiket">${t.ne?.basamak || bilgi.basamak || '–'}</span><span class="soluk kucuk-y">${B.sure(sr.is_sn)}</span>`, H`<div class="yigin sik">${modelSat(isciler)}</div>`)}
+      ${onk.length ? adim(onk.every(x => x.gecti) ? 'var(--iyi)' : 'var(--kotu)', 'kalkan', 'Ön kontrol', H`${onk.map(x => rozet(x.gecti ? 'iyi' : 'kotu', x.gecti ? 'Geçti' : 'Kaldı'))}`,
+        H`${onk.filter(x => (x.ihlal_turleri || []).length).map(x => H`<span class="soluk kucuk-y">İhlal: ${x.ihlal_turleri.join(', ')}</span>`)}`) : ''}
+      ${testler.length ? adim(testler[testler.length - 1].gecti ? 'var(--iyi)' : 'var(--kotu)', 'test', 'Test koşuları', H`<span class="soluk kucuk-y">${testler.length} koşu · ${testler.filter(x => x.gecti).length} geçti</span>`,
+        H`<div class="yatay">${testler.map(x => H`<span class="rozet ${x.gecti ? 'r-iyi' : 'r-kotu'}" title="${B.tarih(x.zaman)} · çıkış ${x.cikis_kodu}">${x.asama || 'test'}</span>`)}</div>`) : ''}
+      ${denetimler.map((x, i) => adim(x.karar === 'onay' ? 'var(--iyi)' : 'var(--kotu)', x.karar === 'onay' ? 'tamam' : 'carpi', `Denetim ${i + 1}`,
+        H`${rozet(x.karar)}${x.neden ? H`<span class="etiket">${x.neden}</span>` : ''}`,
+        kSatirlari(x.k_satirlari).length ? H`<details class="ac"><summary>${kSatirlari(x.k_satirlari).length} kriter satırı</summary><div class="yigin sik" style="margin-top:6px">${kSatirlari(x.k_satirlari).map(k => H`<div class="k-satir">${k}</div>`)}</div></details>` : ''))}
+      ${denetciler.length ? H`<li><div class="dugum" style="--renk:var(--seri-3)">${simge('goz')}</div><div class="adim"><div class="ust"><b>Denetçi maliyeti</b><span class="soluk kucuk-y">${B.sure(sr.denetim_sn)}</span></div><div class="yigin sik">${modelSat(denetciler)}</div></div></li>` : ''}
+      ${durum === 'teslim' ? adim('var(--iyi)', 'tamam', 'Teslim edildi', '', '') : durum ? adim('var(--uyari)', 'saat', (DURUM[durum] || [durum])[0], '', '') : ''}
+    </ol>`;
+    const ders = t.ogrenilen?.ret_dersleri || [], risk = t.ogrenilen?.riskler || [];
+    const govde = yuk || H`<div class="yigin">
+      <div class="yigin sik"><div class="yatay"><span class="kimlik">${r.id}</span>${t.ne?.sinif && t.ne.sinif !== '-' ? H`<span class="etiket">${t.ne.sinif}</span>` : ''}${durum ? rozet(durum) : ''}${isId ? H`<a class="baglanti kucuk-y" href="#/is/${enc(isId)}">${isId} işine git →</a>` : ''}</div>
+        <h1>${t.ne?.baslik || bilgi.baslik || r.id}</h1></div>
+      <div class="karolar">${karo('Toplam süre', B.sure(topSure), 'kuyruk + iş + denetim')}${karo('Maliyet', B.usd(ms.toplam_usd), `${(ms.maliyet || []).length} ajan koşusu`)}
+        ${karo('Denetim', `${denetimler.length}`, retS ? `${retS} ret` : 'ret yok')}${karo('Değişen dosya', B.sayi(dosyalar.length), dosyalar.length ? `+${dosyalar.reduce((a, f) => a + (f.ekle || 0), 0)} −${dosyalar.reduce((a, f) => a + (f.sil || 0), 0)} satır` : '–')}</div>
+      ${topSure ? H`<div class="serit" role="img" aria-label="Süre dağılımı"><div class="s-kuyruk" style="width:${yuzde(sr.kuyruk_sn)}%">Kuyruk ${B.sure(sr.kuyruk_sn)}</div><div class="s-is" style="width:${yuzde(sr.is_sn)}%">İş ${B.sure(sr.is_sn)}</div><div class="s-denetim" style="width:${yuzde(sr.denetim_sn)}%">Denetim ${B.sure(sr.denetim_sn)}</div></div>` : ''}
+      <div class="izgara iki" style="align-items:start">
+        <section class="kart"><div class="kart-bas"><h2>Koşu izi</h2></div><div class="kart-ic">${iz}</div></section>
+        <div class="yigin">
+          <section class="kart"><div class="kart-bas"><h2>Kabul kriterleri</h2></div><div class="kart-ic">${kriterler(t.ne?.kabul_kriterleri).length ? H`<ul class="todo">${kriterler(t.ne.kabul_kriterleri).map(k => H`<li><span class="kutu" style="${durum === 'teslim' ? 'background:var(--iyi);border-color:var(--iyi)' : ''}"></span><span>${k}</span></li>`)}</ul>` : H`<p class="soluk">Kriter kaydı yok.</p>`}</div></section>
+          <section class="kart"><div class="kart-bas"><h2>Maliyet</h2><span class="bosluk"></span><b class="sayi">${B.usd(ms.toplam_usd)}</b></div><div class="kart-ic">${(ms.maliyet || []).length ? (ms.maliyet || []).map(m => H`<div class="cubuk-l"><span title="${m.model}">${m.ajan.replace('orkestra:', '')}</span><span class="yol"><i style="width:${(m.usd / (ms.toplam_usd || 1) * 100).toFixed(1)}%;--renk:${/denetci/.test(m.ajan) ? 'var(--seri-3)' : 'var(--seri-1)'}"></i></span><span class="d">${B.usd(m.usd)}</span></div>`) : H`<p class="soluk">Maliyet kaydı yok.</p>`}</div></section>
+          <section class="kart"><div class="kart-bas"><h2>Değişen dosyalar</h2><span class="soluk kucuk-y">${t.degisen?.kaynak || ''}</span></div><div class="kart-ic">${dosyalar.length ? dosyalar.map(f => H`<div class="dosya-s"><code title="${f.dosya}">${yolKisa(f.dosya)}</code><span class="sayi kucuk-y"><span style="color:var(--iyi)">+${f.ekle ?? 0}</span> <span style="color:var(--kotu)">−${f.sil ?? 0}</span></span><span class="fark" style="width:${(((f.ekle || 0) + (f.sil || 0)) / fmx * 80).toFixed(0)}px"><i class="e" style="flex:${f.ekle || 0}"></i><i class="s" style="flex:${f.sil || 0}"></i></span></div>`) : (t.ne?.ciktilar || []).length ? H`<div class="yigin sik">${t.ne.ciktilar.map(c => H`<code class="kucuk-y" title="${c}">${yolKisa(c)}</code>`)}</div><p class="soluk kucuk-y" style="margin-top:6px">Git farkı yok; planlanan çıktılar gösteriliyor.</p>` : H`<p class="soluk">Dosya kaydı yok.</p>`}</div></section>
+          ${ders.length || risk.length ? H`<section class="kart"><div class="kart-bas"><h2>Öğrenilen</h2></div><div class="kart-ic yigin sik">${ders.map(x => H`<div class="k-satir"><b>${x.neden}</b> (denetim ${x.sira}): ${kisalt(x.talimat, 400)}</div>`)}${risk.map(x => H`<div class="k-satir">${typeof x === 'string' ? x : JSON.stringify(x)}</div>`)}</div></section>` : ''}
+          ${t.nasil?.teknik ? H`<section class="kart"><div class="kart-bas"><h2>Teknik not</h2></div><div class="kart-ic" style="white-space:pre-wrap;font-size:13px">${typeof t.nasil.teknik === 'string' ? t.nasil.teknik : JSON.stringify(t.nasil.teknik, null, 2)}</div></section>` : ''}
+        </div></div>
+      ${(t.eksik || []).length ? H`<p class="soluk kucuk-y">Kayıtta eksik bloklar: ${t.eksik.join(', ')}.</p>` : ''}
+    </div>`;
+    return {
+      baslik: r.id, yol: H`${isId ? H`<a href="#/is/${enc(isId)}">${isId}</a> / ` : H`<a href="#/kosular">Koşular</a> / `}<span class="kimlik">${r.id}</span>`,
+      sag: H`<a class="dugme hayalet kucuk" href="/teknik?alan=${enc(V.alan)}&is=${enc(isId || '')}&kart=${enc(r.id)}">Klasik teknik görünüm</a>`,
+      govde: H`<div class="icerik">${govde}</div>`,
+    };
+  }
+
+  // ================================================================ 9. Görünüm: Maliyet
+  const MODEL_RENK = ['var(--seri-1)', 'var(--seri-2)', 'var(--seri-3)', 'var(--seri-4)', 'var(--seri-5)'];
+  // model → renk: dönem toplamına göre sıralı, grafik ve çubuklarda aynı
+  function modelRenkleri(gunluk) {
+    const top = {};
+    gunluk.forEach(g => Object.entries(g.model || {}).forEach(([m, v]) => { top[m] = (top[m] || 0) + v; }));
+    const sirali = Object.entries(top).sort((a, b) => b[1] - a[1]);
+    return { sirali, renk: Object.fromEntries(sirali.map(([m], j) => [m, MODEL_RENK[j % MODEL_RENK.length]])) };
+  }
+  function gunlukGrafik(gunluk, renk) {
+    if (!gunluk.length) return bos('Harcama kaydı yok', '', 'maliyet');
+    const modeller = Object.keys(renk).filter(m => gunluk.some(g => (g.model || {})[m]));
+    const W = 720, Hh = 200, sol = 48, alt = 22, ust = 8;
+    const mx = Math.max(...gunluk.map(g => g.usd || 0)) || 1;
+    const adimY = Math.pow(10, Math.floor(Math.log10(mx))) * (mx / Math.pow(10, Math.floor(Math.log10(mx))) > 5 ? 2 : 1);
+    const tavan = Math.ceil(mx / adimY) * adimY;
+    const bw = (W - sol) / gunluk.length, cg = Math.min(36, bw * 0.7);
+    const y = v => ust + (Hh - ust - alt) * (1 - v / tavan);
+    let s = '';
+    for (let v = 0; v <= tavan + 1e-9; v += adimY) s += `<line class="eksen" x1="${sol}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${sol - 6}" y="${y(v) + 4}" text-anchor="end">$${sayiB(v)}</text>`;
+    gunluk.forEach((g, i) => {
+      const x = sol + i * bw + (bw - cg) / 2;
+      let taban = 0;
+      const ipucu = `${g.donem}: ${B.usd(g.usd)}\n` + modeller.map(m => `${m}: ${B.usd((g.model || {})[m] || 0)}`).join('\n');
+      s += `<g class="ipucu-alan"><title>${esc(ipucu)}</title>`;
+      modeller.forEach((m, j) => {
+        const v = (g.model || {})[m] || 0;
+        if (v <= 0) return;
+        s += `<rect class="c" x="${x.toFixed(1)}" y="${y(taban + v).toFixed(1)}" width="${cg.toFixed(1)}" height="${(y(taban) - y(taban + v)).toFixed(1)}" rx="2" fill="${renk[m]}"/>`;
+        taban += v;
+      });
+      s += `</g>`;
+      if (gunluk.length <= 16 || i % Math.ceil(gunluk.length / 12) === 0) s += `<text x="${(x + cg / 2).toFixed(1)}" y="${Hh - 6}" text-anchor="middle">${esc(String(g.donem).slice(5).replace('-', '.'))}</text>`;
+    });
+    return H`<svg class="grafik" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Günlük harcama, modele göre">${ham(s)}</svg>
+      <div class="lejant">${modeller.map(m => H`<span><i style="--renk:${renk[m]}"></i>${m}</span>`)}</div>`;
+  }
+  function gosterge(ad, e, f) {
+    if (!e || e.durum === 'veri-yok' || e.deger == null) return H`<div class="gosterge"><div class="ust"><span class="ad">${ad}</span><span class="d soluk">–</span></div><div class="ray-g"></div><div class="alt"><span>veri yok</span><span>hedef ${e?.tur === 'alt' ? '≥' : '≤'} ${f(e?.hedef)}</span></div></div>`;
+    const ust = Math.max(e.hedef * 2, e.deger * 1.1) || 1;
+    const p = v => Math.max(0, Math.min(100, v / ust * 100));
+    const bolge = e.tur === 'ust' ? `left:0;width:${p(e.hedef)}%` : `left:${p(e.hedef)}%;right:0`;
+    const renk = e.durum === 'iyi' ? 'var(--iyi)' : e.durum === 'uyari' ? 'var(--uyari)' : 'var(--kotu)';
+    return H`<div class="gosterge"><div class="ust"><span class="ad">${ad}</span>${rozet(e.durum)}<span class="d">${f(e.deger)}</span></div>
+      <div class="ray-g" role="img" aria-label="${ad}: ${f(e.deger)}, hedef ${f(e.hedef)}"><div class="bolge" style="${bolge}"></div><div class="hedef" style="left:${p(e.hedef)}%"></div><div class="isaret" style="left:${p(e.deger)}%;--renk:${renk}"></div></div>
+      <div class="alt"><span>${B.sayi(e.ornek)} örnek</span><span>hedef ${e.tur === 'ust' ? '≤' : '≥'} ${f(e.hedef)}</span></div></div>`;
+  }
+  function gMaliyet(r) {
+    const yuk = bekle('/analitik.json', '/ozet.json');
+    const an = d('/analitik.json').veri || {}, oz = d('/ozet.json').veri || {};
+    const p = r.q.get('p') || 'son_3_gun';
+    const hp = an.hedef_panosu || {}, olc = hp.olculer || {};
+    const gunluk = an.trend?.gunluk || [];
+    const son7 = gunluk.slice(-7).reduce((a, g) => a + (g.usd || 0), 0);
+    const { sirali: modelL, renk: modelRenk } = modelRenkleri(gunluk);
+    const modelMx = Math.max(1, ...modelL.map(x => x[1]));
+    const surec = Object.entries(oz.maliyet?.surec || {}).sort((a, b) => b[1] - a[1]);
+    const surecMx = Math.max(1, ...surec.map(x => x[1]));
+    const pahali = (an.birim?.kart_maliyetleri || []).slice(0, 10);
+    const pMx = Math.max(1, ...pahali.map(x => x[1]));
+    const israf = hp.israf?.[p];
+    const govde = yuk || H`
+      <div class="karolar">${karo('Bugün', B.usd(oz.maliyet?.bugun), H`${spark(gunluk.slice(-14).map(g => g.usd))}`)}${karo('Son 7 gün', B.usd(son7), `günlük ort. ${B.usd(son7 / Math.max(1, Math.min(7, gunluk.length)))}`)}
+        ${karo('Bu ay', B.usd(an.trend?.ay_sonu?.simdiye), an.trend?.ay_sonu?.tahmin_yeterli ? 'ay sonu tahmini ' + B.usd(an.trend.ay_sonu.tahmin_ort) : `${an.trend?.ay_sonu?.veri_gun ?? '–'} günlük veri`)}
+        ${karo('Kart başı (medyan)', B.usd(an.birim?.kart_medyan), `ortalama ${B.usd(an.birim?.kart_basi)} · ${B.sayi(an.birim?.teslim_kart)} teslim`)}
+        ${karo('Önlenebilir israf', B.usd(israf?.onlenebilir_usd), `${(PENCERE.find(x => x[0] === p) || [])[1] || ''} · ret kaynaklı`)}</div>
+      <section><div class="bolum-bas"><h2>Hedefler</h2><span class="aciklama">işaret = değer, kesik çizgi = hedef, yeşil bölge = kabul edilen aralık</span><span class="bosluk"></span>
+        ${PENCERE.map(([k, ad]) => H`<button class="cip" data-eylem="sorgu" data-k="p" data-v="${k}" aria-pressed="${p === k}">${ad}</button>`)}</div>
+        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [ad, f]]) => gosterge(ad, olc[k]?.[p], f))}</div></section>
+      <section class="kart"><div class="kart-bas"><h2>Günlük harcama</h2><span class="soluk kucuk-y">modele göre, USD</span></div><div class="kart-ic">${gunlukGrafik(gunluk.slice(-30), modelRenk)}</div></section>
+      <div class="izgara iki">
+        <section class="kart"><div class="kart-bas"><h2>Model</h2><span class="soluk kucuk-y">dönem toplamı</span></div><div class="kart-ic">${modelL.map(([m, v]) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / modelMx * 100).toFixed(1)}%;--renk:${modelRenk[m]}"></i></span><span class="d">${B.usd(v)}</span></div>`)}</div></section>
+        <section class="kart"><div class="kart-bas"><h2>Süreç (bugün)</h2></div><div class="kart-ic">${surec.length ? surec.map(([m, v]) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / surecMx * 100).toFixed(1)}%"></i></span><span class="d">${B.usd(v)}</span></div>`) : H`<p class="soluk">Bugün harcama yok.</p>`}</div></section>
+      </div>
+      <div class="izgara iki" style="align-items:start">
+        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">tıkla: koşu izi</span></div><div class="kart-ic">${pahali.map(([id, v]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}" data-gez><span class="kimlik">${id}</span><span class="yol"><i style="width:${(v / pMx * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.usd(v)}</span></a>`)}</div></section>
+        <section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
+          <tbody>${(an.basamak?.satirlar || []).map(s => H`<tr><td><span class="etiket">${s.basamak}</span></td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.yuzde(s.ilk_gecis_orani)}</td><td class="sayi" style="${s.ret_orani > 0.15 ? 'color:var(--kotu)' : ''}">${B.yuzde(s.ret_orani)}</td><td class="sayi">${B.usd(s.kart_basi_usd)}</td></tr>`)}</tbody></table></div></section>
+      </div>`;
+    return { baslik: 'Maliyet', sag: H`<a class="dugme hayalet kucuk" href="/maliyet?alan=${enc(V.alan)}">Ayrıntılı analiz</a>`, govde: H`<div class="icerik yigin">${govde}</div>` };
+  }
+
+  // ================================================================ 10. Görünüm: Kurallar
+  function gKurallar(r) {
+    const yuk = bekle('/kurallar.json');
+    const kv = d('/kurallar.json').veri || {};
+    const q = r.q.get('q') || '', kt = r.q.get('k') || '';
+    const etkin = (kv.etkin || []).filter(k => (!kt || k.katman === kt) && (!q || eslesir(k.id + ' ' + k.metin + ' ' + (k.neden || ''), q)));
+    const KATMAN = { plugin: 'Eklenti', proje: 'Proje' };
+    const kural = k => H`<article class="kart" data-gez><div class="kart-ic yigin sik">
+      <div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${KATMAN[k.katman] || k.katman || '–'}</span><span class="soluk kucuk-y" style="margin-left:auto">${B.goreli(k.guncelleme || k.olusturma)}</span></div>
+      <b>${ilkCumle(k.metin)}</b>
+      <details class="ac"><summary>Tam metin ve neden</summary><div class="yigin sik" style="margin-top:8px"><p class="ikincil">${k.metin}</p>${k.neden ? H`<p class="soluk kucuk-y"><b>Neden:</b> ${k.neden}</p>` : ''}</div></details>
+    </div></article>`;
+    const say = { '': (kv.etkin || []).length, plugin: (kv.etkin || []).filter(k => k.katman === 'plugin').length, proje: (kv.etkin || []).filter(k => k.katman === 'proje').length };
+    const govde = yuk || H`
+      ${(kv.oneriler || []).length ? H`<section class="gelen-grup"><h2>Önerilen kurallar <span class="say">${kv.oneriler.length}</span></h2>${kv.oneriler.map(kural)}<p class="soluk kucuk-y">Öneriler Gelen kutusunda onaylanır.</p></section>` : ''}
+      <div class="yatay">${[['', 'Tümü'], ['plugin', 'Eklenti'], ['proje', 'Proje']].map(([k, ad]) => H`<button class="cip" data-eylem="sorgu" data-k="k" data-v="${k}" aria-pressed="${kt === k}">${ad}<span class="say">${say[k]}</span></button>`)}
+        <input class="arama" id="kuralAra" type="search" placeholder="Kural ara…  /" value="${q}" data-sorgu="q" aria-label="Kural ara"></div>
+      <div class="yigin sik">${etkin.length ? etkin.map(kural) : bos('Eşleşen kural yok', '', 'ara')}</div>
+      ${(kv.gecmis || []).length ? H`<details class="ac"><summary>${kv.gecmis.length} kaldırılan ya da devre dışı kural</summary><div class="yigin sik" style="margin-top:8px">${kv.gecmis.map(k => H`<div class="k-satir"><span class="kimlik">${k.id}</span> ${rozet(k.durum === 'kaldirildi' ? 'iptal' : k.durum, k.durum)} ${ilkCumle(k.metin)}</div>`)}</div></details>` : ''}`;
+    return { baslik: 'Kurallar', sag: H`<a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#kurallar">Kural ekle ya da düzenle</a>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
+  }
+
+  // ================================================================ 11. Kabuk ve çizim
+  const SAYFALAR = [['gelen', 'Gelen kutusu', '#/gelen', 'gelen', 'g'], ['isler', 'İşler', '#/isler', 'isler', 'i'], ['kosular', 'Koşular', '#/kosular', 'kosular', 'k'],
+    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r']];
+  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar };
+
+  function rayCiz() {
+    const r = rota(), aktif = r.ad === 'kart' ? 'kosular' : r.ad;
+    const gs = gelenSayisi(), acik = (d('/isler.json').veri?.isler || []).filter(i => i.durum === 'acik').length;
+    const say = { gelen: gs ? H`<span class="say dikkat">${gs}</span>` : '', isler: acik ? H`<span class="say">${acik}</span>` : '' };
+    const orkAlan = V.alanlar.filter(a => a.orkestra);
+    const tema = document.documentElement.dataset.tema || 'sistem';
+    document.getElementById('ray').innerHTML = H`
+      <div class="ray-ust"><img src="/logo.png" alt=""><b>Orkestra</b></div>
+      <select class="alan-sec" id="alanSec" aria-label="Çalışma alanı">${orkAlan.map(a => H`<option value="${a.id}" ${a.id === V.alan ? 'selected' : ''}>${a.ad}</option>`)}</select>
+      <button class="ara-dugme" data-eylem="palet">${simge('ara')}<span>Ara ya da komut</span><kbd>Ctrl</kbd><kbd>K</kbd></button>
+      <div class="gezinti">${SAYFALAR.map(([k, ad, h, s]) => H`<a href="${h}" ${aktif === k ? 'aria-current="page"' : ''}>${simge(s)}<span>${ad}</span>${say[k] || ''}</a>`)}</div>
+      <div class="ray-alt">
+        <span class="satir canli" id="canli"><i></i><span id="canliMetin">bağlanıyor</span></span>
+        <span class="satir"><button class="dugme hayalet kucuk" data-eylem="tema" title="Tema: ${tema}">Tema: ${{ sistem: 'sistem', acik: 'açık', koyu: 'koyu' }[tema]}</button>
+          <button class="dugme hayalet kucuk" data-eylem="olcu" title="Ölçü birimi">${B.olcu() === 'token' ? 'Token' : 'USD'}</button></span>
+        <a href="/isler?alan=${enc(V.alan)}">Klasik görünüm</a>
+        <span class="satir"><kbd>?</kbd> kısayollar</span>
+      </div>`.__h;
+    canliYaz();
+  }
+
+  let cizPlan = 0;
+  function planla() { if (!cizPlan) cizPlan = requestAnimationFrame(() => { cizPlan = 0; gorunumCiz(); }); }
+
+  function gorunumCiz() {
+    const r = rota();
+    const g = (GORUNUM[r.ad] || gGelen)(r);
+    // odak, imleç ve kaydırma korunur (yeniden çizim yazmayı bölmesin)
+    const ae = document.activeElement, odakId = ae && ae.id, imlec = odakId && 'selectionStart' in ae ? [ae.selectionStart, ae.selectionEnd] : null;
+    const kaydir = [...document.querySelectorAll('[data-kaydir]')].map(e => [e.id, e.scrollTop]);
+    document.getElementById('bas').innerHTML = H`${g.yol ? H`<span class="yol">${g.yol}</span>` : H`<h1>${g.baslik}</h1>`}<span class="bosluk"></span>${g.sag || ''}`.__h;
+    const ana = document.getElementById('ana');
+    ana.innerHTML = g.govde.__h;
+    ana.className = g.tam ? '' : '';
+    document.title = 'Orkestra · ' + g.baslik;
+    if (odakId) { const e = document.getElementById(odakId); if (e) { e.focus(); if (imlec) try { e.setSelectionRange(...imlec); } catch (x) { /* arama türü */ } } }
+    kaydir.forEach(([id, t]) => { const e = id && document.getElementById(id); if (e) e.scrollTop = t; });
+    odakUygula();
+    rayCiz();
+  }
+
+  // ================================================================ 12. Canlı akış
+  let kaynak = null, yedekZam = null;
+  function canliBagla() {
+    if (kaynak) kaynak.close();
+    clearInterval(yedekZam);
+    yedekZam = setInterval(() => tazele(true), 30000);   // akış kopsa da veri bayatlamaz
+    if (!window.EventSource || !V.alan) return;
+    kaynak = new EventSource('/akis?alan=' + enc(V.alan));
+    kaynak.addEventListener('degisti', () => tazele(true));
+    kaynak.onopen = () => { V.canli = true; canliYaz(); };
+    kaynak.onerror = () => { V.canli = false; canliYaz(); };
+  }
+  function canliYaz() {
+    const e = document.getElementById('canli'), m = document.getElementById('canliMetin');
+    if (!e || !m) return;
+    const yas = V.sonBasari ? (Date.now() - V.sonBasari) / 1000 : null;
+    const bayat = yas != null && yas > 90;
+    e.className = 'satir canli' + (V.canli && !bayat ? ' acik' : bayat ? ' bayat' : '');
+    m.textContent = (V.canli ? 'Canlı' : 'Yeniden bağlanıyor') + (yas != null ? ' · ' + (yas < 10 ? 'şimdi güncellendi' : B.goreli(new Date(V.sonBasari).toISOString())) : '');
+  }
+  setInterval(canliYaz, 5000);
+
+  // ================================================================ 13. Etkileşim
+  function bildir(metin, { geriAl, hata, sure = 5000 } = {}) {
+    const kap = document.getElementById('bildirimler');
+    const e = document.createElement('div');
+    e.className = 'bildirim' + (hata ? ' hata' : '');
+    e.innerHTML = H`<span>${metin}</span>${geriAl ? H`<button class="dugme kucuk">Geri al</button>` : ''}`.__h;
+    kap.appendChild(e);
+    const kapat = () => e.remove();
+    if (geriAl) e.querySelector('button').addEventListener('click', () => { geriAl(); kapat(); });
+    setTimeout(kapat, sure);
+  }
+
+  function kararVer(id, sonuc, secim) {
+    if (ertelenen.has(id)) return;
+    const z = setTimeout(async () => {
+      try {
+        await gonder('/onay', { islem: 'karar', id, sonuc, secim: secim || null, not: '' });
+        ertelenen.delete(id);
+        getir('/onaylar.json', { taze: true });
+      } catch (e) {
+        ertelenen.delete(id);
+        bildir(`${id} kaydedilemedi: ${e.message}`, { hata: true, sure: 8000 });
+        planla();
+      }
+    }, 5000);
+    ertelenen.set(id, z);
+    planla();
+    bildir(`${id} ${sonuc === 'onay' ? 'onaylandı' + (secim ? ` (${secim})` : '') : 'reddedildi'}`, {
+      geriAl: () => { clearTimeout(z); ertelenen.delete(id); planla(); },
+    });
+  }
+
+  document.addEventListener('click', async e => {
+    const tr = e.target.closest('tr[data-git]');
+    if (tr && !e.target.closest('a,button')) { git(tr.dataset.git); return; }
+    const b = e.target.closest('[data-eylem]');
+    if (!b) return;
+    const ey = b.dataset.eylem;
+    if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
+    else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim);
+    else if (ey === 'uygula') {
+      b.disabled = true;
+      try { await gonder('/onay', { islem: 'simdi-uygula' }); bildir('Uygulama başlatıldı: Claude\'da yeni sohbet açılıyor.'); getir('/onaylar.json', { taze: true }); }
+      catch (x) { bildir('Başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
+    } else if (ey === 'yenile') { V.onbellek.delete(b.dataset.yol); tazele(true); }
+    else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
+    else if (ey === 'palet') paletAc();
+    else if (ey === 'tema') temaDegis();
+    else if (ey === 'olcu') { depo.koy('orkestra.olcu', B.olcu() === 'token' ? 'usd' : 'token'); gorunumCiz(); }
+  });
+  document.addEventListener('input', e => { const t = e.target; if (t.dataset && t.dataset.sorgu) sorguKoy(t.dataset.sorgu, t.value); });
+  document.addEventListener('change', e => {
+    if (e.target.id === 'alanSec') {
+      V.alan = e.target.value; depo.koy('orkestra.alan', V.alan); V.onbellek.clear();
+      canliBagla(); git('#/gelen'); gorunumCiz(); tazele(true);
+    }
+  });
+  function temaDegis() {
+    const sira = { sistem: 'acik', acik: 'koyu', koyu: 'sistem' };
+    const yeni = sira[document.documentElement.dataset.tema || 'sistem'];
+    if (yeni === 'sistem') delete document.documentElement.dataset.tema; else document.documentElement.dataset.tema = yeni;
+    depo.koy('orkestra.tema', yeni);
+    rayCiz();
+  }
+
+  // j / k ile gezinme: görünümdeki [data-gez] öğeleri
+  let odakSira = -1, odakRota = '';
+  function gezOgeleri() { return [...document.querySelectorAll('#ana [data-gez]')]; }
+  function odakUygula() {
+    const k = location.hash.split('?')[0];
+    if (k !== odakRota) { odakRota = k; odakSira = -1; }
+    const l = gezOgeleri();
+    l.forEach((e, i) => e.classList.toggle('odak', i === odakSira));
+  }
+  function odakTasi(n) {
+    const l = gezOgeleri();
+    if (!l.length) return;
+    odakSira = Math.max(0, Math.min(l.length - 1, odakSira + n));
+    odakUygula();
+    l[odakSira].scrollIntoView({ block: 'nearest' });
+  }
+  function odakAc() {
+    const e = gezOgeleri()[odakSira];
+    if (!e) return;
+    if (e.dataset.git) git(e.dataset.git);
+    else if (e.tagName === 'A') e.click();
+    else (e.querySelector('[data-birincil]') || e.querySelector('a'))?.click();
+  }
+
+  let gBekliyor = 0;
+  document.addEventListener('keydown', e => {
+    const yaziyor = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); paletAc(); return; }
+    if (document.querySelector('dialog[open]')) return;
+    if (yaziyor) { if (e.key === 'Escape') e.target.blur(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const r = rota();
+    if (gBekliyor && Date.now() - gBekliyor < 1200) {
+      gBekliyor = 0;
+      const s = SAYFALAR.find(x => x[4] === e.key);
+      if (s) { e.preventDefault(); git(s[2]); }
+      return;
+    }
+    if (e.key === 'g') { gBekliyor = Date.now(); return; }
+    if (/^[1-5]$/.test(e.key)) { git(SAYFALAR[+e.key - 1][2]); return; }
+    if (e.key === 'j' || e.key === 'ArrowDown' && !e.shiftKey && odakSira >= 0) { e.preventDefault(); odakTasi(1); return; }
+    if (e.key === 'k' || e.key === 'ArrowUp' && odakSira >= 0) { e.preventDefault(); odakTasi(-1); return; }
+    if (e.key === 'Enter' && odakSira >= 0) { e.preventDefault(); odakAc(); return; }
+    if (e.key === '/') { const a = document.querySelector('#ana .arama'); if (a) { e.preventDefault(); a.focus(); a.select(); } else { e.preventDefault(); paletAc(); } return; }
+    if (e.key === '?') { yardimAc(); return; }
+    if (e.key === 'Escape') {
+      if (r.ad === 'isler' && r.id) git('#/isler' + sorguEk(r.q));
+      else if (r.ad === 'kart') history.length > 1 ? history.back() : git('#/kosular');
+      return;
+    }
+    if (r.ad === 'gelen' && (e.key === 'a' || e.key === 'r')) {
+      const o = gezOgeleri()[odakSira];
+      if (o && o.dataset.onay) {
+        const b = o.querySelector(`[data-sonuc="${e.key === 'a' ? 'onay' : 'ret'}"]`);
+        if (b && !b.dataset.secim) b.click();
+        else if (b) bildir('Bu kararda bir seçenek seçilmeli; düğmeye tıkla.');
+      }
+    }
+  });
+
+  // ================================================================ 14. Komut paleti ve yardım
+  function paletOgeleri() {
+    const l = [];
+    SAYFALAR.forEach(([k, ad, h], i) => l.push({ grup: 'Sayfalar', ad, ek: String(i + 1), git: h }));
+    (d('/isler.json').veri?.isler || []).forEach(i => l.push({ grup: 'İşler', ad: i.ad, kimlik: i.id, ek: i.durum === 'acik' ? 'açık' : 'kapandı', git: '#/is/' + enc(i.id) }));
+    const kartlar = new Map();
+    (d('/analitik.json').veri?.akis?.kartlar || []).forEach(k => kartlar.set(k.id, k));
+    (d('/ozet.json').veri?.kartlar || []).forEach(k => kartlar.set(k.id, { ...kartlar.get(k.id), ...k }));
+    [...kartlar.values()].reverse().forEach(k => l.push({ grup: 'Kartlar', ad: k.baslik, kimlik: k.id, ek: k.basamak || '', git: '#/kart/' + enc(k.id) }));
+    l.push({ grup: 'Komutlar', ad: 'Temayı değiştir', calis: temaDegis });
+    l.push({ grup: 'Komutlar', ad: 'Ölçü birimini değiştir (USD / token)', calis: () => { depo.koy('orkestra.olcu', B.olcu() === 'token' ? 'usd' : 'token'); gorunumCiz(); } });
+    l.push({ grup: 'Komutlar', ad: 'Veriyi şimdi yenile', calis: () => tazele(true) });
+    [['Klasik: Dashboard', '/isler'], ['Klasik: Maliyet ve verim', '/maliyet'], ['Klasik: Onaylar, etki ve kurallar', '/onaylar'], ['Klasik: Yapılacaklar', '/yapilacaklar'], ['Klasik: Son olaylar', '/simdi'], ['Klasik: Teknik detay', '/teknik']]
+      .forEach(([ad, y]) => l.push({ grup: 'Klasik görünüm', ad, href: y + '?alan=' + enc(V.alan) }));
+    return l;
+  }
+  function paletAc() {
+    if (document.getElementById('palet')) return;
+    getir('/analitik.json');
+    const dl = document.createElement('dialog');
+    dl.className = 'palet'; dl.id = 'palet';
+    dl.innerHTML = H`<input type="text" placeholder="İş, kart, sayfa ya da komut ara…" aria-label="Komut paleti" autocomplete="off"><ul role="listbox"></ul>
+      <div class="ipucu-alt"><span><kbd>↑</kbd><kbd>↓</kbd> seç</span><span><kbd>Enter</kbd> aç</span><span><kbd>Esc</kbd> kapat</span></div>`.__h;
+    document.body.appendChild(dl);
+    const inp = dl.querySelector('input'), ul = dl.querySelector('ul');
+    let secili = 0, sonuc = [];
+    const calis = o => {
+      dl.close();
+      if (o.git) git(o.git); else if (o.href) location.href = o.href; else if (o.calis) o.calis();
+    };
+    const doldur = () => {
+      const q = inp.value.trim();
+      const tum = paletOgeleri();
+      sonuc = (q ? tum.filter(o => eslesir((o.kimlik || '') + ' ' + o.ad + ' ' + o.grup, q)) : tum.filter(o => o.grup !== 'Kartlar').slice(0, 30)).slice(0, 60);
+      secili = Math.min(secili, Math.max(0, sonuc.length - 1));
+      let son = '';
+      ul.innerHTML = sonuc.length ? sonuc.map((o, i) => {
+        const g = o.grup !== son ? H`<li class="grup" role="presentation">${o.grup}</li>`.__h : '';
+        son = o.grup;
+        return g + H`<li role="option" data-i="${i}" aria-selected="${i === secili}">${o.kimlik ? H`<span class="kimlik">${o.kimlik}</span>` : ''}<span>${kisalt(o.ad, 90)}</span><span class="tur">${o.ek || ''}</span></li>`.__h;
+      }).join('') : '<li class="grup">Sonuç yok</li>';
+      ul.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+    };
+    inp.addEventListener('input', () => { secili = 0; doldur(); });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); secili = Math.min(sonuc.length - 1, secili + 1); doldur(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); secili = Math.max(0, secili - 1); doldur(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (sonuc[secili]) calis(sonuc[secili]); }
+    });
+    ul.addEventListener('click', e => { const li = e.target.closest('li[data-i]'); if (li) calis(sonuc[+li.dataset.i]); });
+    dl.addEventListener('close', () => dl.remove());
+    dl.addEventListener('click', e => { if (e.target === dl) dl.close(); });
+    doldur();
+    dl.showModal();
+    inp.focus();
+  }
+  function yardimAc() {
+    const dl = document.createElement('dialog');
+    dl.className = 'palet';
+    const k = [['Ctrl K', 'Komut paleti'], ['/', 'Ara'], ['g g · 1', 'Gelen kutusu'], ['g i · 2', 'İşler'], ['g k · 3', 'Koşular'], ['g m · 4', 'Maliyet'], ['g r · 5', 'Kurallar'],
+      ['j  k', 'Sonraki / önceki öğe'], ['Enter', 'Öğeyi aç'], ['a', 'Onayla (Gelen kutusu)'], ['r', 'Reddet (Gelen kutusu)'], ['Esc', 'Ayrıntıyı kapat'], ['?', 'Bu yardım']];
+    dl.innerHTML = H`<div class="kart-bas"><h2>Klavye kısayolları</h2><span class="bosluk"></span><button class="dugme hayalet kucuk" value="kapat" onclick="this.closest('dialog').close()">Kapat</button></div>
+      <div class="kisayol-tablo">${k.map(([t, a]) => H`<span>${t.split(' ').map(x => x === '·' ? H`<span class="soluk"> ya da </span>` : H`<kbd>${x}</kbd> `)}</span><span>${a}</span>`)}</div>`.__h;
+    document.body.appendChild(dl);
+    dl.addEventListener('close', () => dl.remove());
+    dl.addEventListener('click', e => { if (e.target === dl) dl.close(); });
+    dl.showModal();
+  }
+
+  // ================================================================ 15. Başlangıç
+  window.addEventListener('hashchange', () => { gorunumCiz(); gerekler(rota()).forEach(y => getir(y)); document.getElementById('ana').focus({ preventScroll: true }); window.scrollTo(0, 0); });
+  async function basla() {
+    rayCiz();
+    try {
+      V.alanlar = await fetch('/alanlar.json').then(r => r.json());
+    } catch (e) { V.alanlar = []; }
+    const ork = V.alanlar.filter(a => a.orkestra);
+    const istenen = new URLSearchParams(location.search).get('alan') || depo.al('orkestra.alan');
+    V.alan = (ork.find(a => a.id === istenen) || ork[0] || {}).id || '';
+    if (!V.alan) {
+      document.getElementById('ana').innerHTML = bos('Orkestralı çalışma alanı yok', 'Bir projede orkestra kurulunca burada görünür.', 'uyari').__h;
+      rayCiz();
+      return;
+    }
+    depo.koy('orkestra.alan', V.alan);
+    gorunumCiz();
+    tazele();
+    canliBagla();
+  }
+  basla();
+})();

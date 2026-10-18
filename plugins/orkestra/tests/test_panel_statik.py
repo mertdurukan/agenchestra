@@ -43,8 +43,13 @@ def tanim_say(ad, metin):
     return sum(len(re.findall(k, metin)) for k in kaliplar)
 
 
-def html_dosyalari():
-    return sorted(glob.glob(os.path.join(ASSETS, "*.html")))
+UYGULAMA = "app.html"  # panel v2 tek sayfa uygulaması: ortak.js'i kullanmaz, kendi app.js/app.css'i vardır
+
+
+def html_dosyalari(uygulama_dahil=False):
+    """Klasik sayfalar (ortak.js tabanlı); uygulama_dahil=True ile panel v2 de."""
+    tum = sorted(glob.glob(os.path.join(ASSETS, "*.html")))
+    return tum if uygulama_dahil else [h for h in tum if os.path.basename(h) != UYGULAMA]
 
 
 def js_css_dosyalari():
@@ -92,10 +97,37 @@ class TanimlarYalnizOrtakta(unittest.TestCase):
             self.assertLess(h.index("ortak.js"), h.index(f"{ad}.js"), ad)  # ortak önce yüklenir
 
     def test_bagli_dosyalar_var_ve_sunulur(self):
-        for yol in html_dosyalari():
+        for yol in html_dosyalari(uygulama_dahil=True):
             for hedef in BAGLI.findall(oku(yol)):
                 self.assertTrue(os.path.isfile(os.path.join(ASSETS, hedef)), hedef)
                 self.assertIn("/" + hedef, panel.STATIK, hedef)
+
+
+class PanelV2(unittest.TestCase):
+    """Panel v2 (I-049): / adresinde tek sayfa uygulaması; klasik sayfalar yerinde kalır."""
+
+    def test_kok_uygulamaya_simdi_klasige(self):
+        self.assertEqual(panel.SAYFALAR["/"], UYGULAMA)
+        self.assertEqual(panel.SAYFALAR["/index.html"], UYGULAMA)
+        self.assertEqual(panel.SAYFALAR["/simdi"], "simdi.html")
+        for ad in ("isler", "maliyet", "onaylar", "yapilacaklar", "teknik"):
+            self.assertEqual(panel.SAYFALAR["/" + ad], ad + ".html" if ad != "onaylar" else "onaylar.html")
+
+    def test_uygulama_dosyalari_ve_yollari(self):
+        h = oku(os.path.join(ASSETS, UYGULAMA))
+        self.assertIn('<script src="app.js"></script>', h)
+        self.assertIn('href="app.css"', h)
+        js = oku(os.path.join(ASSETS, "app.js"))
+        for rota in ("#/gelen", "#/isler", "#/kosular", "#/maliyet", "#/kurallar", "#/kart/", "#/is/"):
+            self.assertIn(rota, js, rota)
+        self.assertIn("/akis?alan=", js)
+        self.assertIn("'X-Orkestra': '1'", js)
+
+    def test_tasarim_belirtecleri_iki_tema(self):
+        c = oku(os.path.join(ASSETS, "app.css"))
+        self.assertIn("prefers-color-scheme: dark", c)
+        self.assertIn('[data-tema="koyu"]', c)
+        self.assertIn('[data-tema="acik"]', c)
 
 
 class StatikSunum(unittest.TestCase):
@@ -130,6 +162,16 @@ class StatikSunum(unittest.TestCase):
                     "/%2e%2e/scripts/panel.py", "/assets/isler.js", "/isler.JS"):
             durum, _, _ = self.al(yol)
             self.assertEqual(durum, 404, yol)
+
+    def test_kok_uygulamayi_sunar(self):
+        durum, tur, govde = self.al("/")
+        self.assertEqual(durum, 200)
+        self.assertIn(b'src="app.js"', govde)
+
+    def test_akis_bilinmeyen_alan_400(self):
+        durum, tur, _ = self.al("/akis?alan=olmayan-alan-xyz")
+        self.assertEqual(durum, 400)
+        self.assertTrue(tur.startswith("application/json"))
 
     def test_statik_listesi_yalniz_beklenen_uzantilar(self):
         for yol, (dosya, tur) in panel.STATIK.items():

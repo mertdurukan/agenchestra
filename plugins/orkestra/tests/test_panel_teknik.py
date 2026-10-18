@@ -133,9 +133,9 @@ class TeknikPanel(unittest.TestCase):
             self.assertGreater(len(b), 100, yol)
 
     def test_k2_surum_ve_sekme(self):
-        self.assertEqual(panel.SURUM, "16")
+        self.assertEqual(panel.SURUM, "17")
         k, b, _ = self.get("/saglik")
-        self.assertEqual(b.decode(), "ok 16")
+        self.assertEqual(b.decode(), "ok 17")
         # Teknik sayfa menüden gizli (16.10.2026); adresle hâlâ açılır.
         self.assertNotIn("'/teknik'", oku("ortak.js"))
 

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="app.css">
+<script>try { const t = localStorage.getItem('orkestra.tema'); if (t === 'acik' || t === 'koyu') document.documentElement.dataset.tema = t; } catch (e) {}</script>
+</head>
+<body>
+<div class="uygulama">
+  <nav class="ray" id="ray" aria-label="Ana gezinti"></nav>
+  <div class="ana">
+    <header class="bas" id="bas"></header>
+    <main id="ana" tabindex="-1"></main>
+  </div>
+</div>
+<div class="bildirimler" id="bildirimler" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

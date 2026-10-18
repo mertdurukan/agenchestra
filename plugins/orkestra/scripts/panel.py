@@ -1,6 +1,9 @@
 """Orkestra HTML canlı paneli: bu bilgisayardaki TÜM Claude çalışma alanları için tek yerel sunucu (yalnız 127.0.0.1).
 
-GET /                          → Son olaylar sayfası (assets/simdi.html); /index.html aynı
+GET /                          → Panel v2 tek sayfa uygulaması (assets/app.html: gelen kutusu, işler, koşular, maliyet, kurallar); /index.html, /app aynı
+GET /app.js, /app.css          → panel v2 betiği ve tasarım sistemi
+GET /simdi                     → Son olaylar sayfası (assets/simdi.html; klasik görünüm)
+GET /akis?alan=<id>            → canlı akış (SSE): alanın durum dosyaları değişince "degisti" olayı; 10 sn'de bir ping, en çok 8 bağlantı, 10 dk ömür
 GET /maliyet                   → Maliyet sayfası (assets/maliyet.html; yoksa "hazırlanıyor")
 GET /verim                     → Maliyet ve verim sayfası (maliyet.html ile birleşik)
 GET /ortak.css, /ortak.js      → üç sayfanın ortak tasarım sistemi
@@ -65,7 +68,8 @@ POST_ATIM_MAX = 4 * 1024 * 1024  # bunun altındaki aşırı gövde okunup atıl
 
 ASSETS = os.path.join(L.PLUGIN_ROOT, "assets")
 # yol → (dosya, içerik türü); sayfa dosyası henüz yoksa "hazırlanıyor" sayfası döner
-SAYFALAR = {"/": "simdi.html", "/index.html": "simdi.html", "/simdi.html": "simdi.html",
+SAYFALAR = {"/": "app.html", "/index.html": "app.html", "/app": "app.html", "/app.html": "app.html",
+            "/simdi": "simdi.html", "/simdi.html": "simdi.html",
             "/maliyet": "maliyet.html", "/maliyet.html": "maliyet.html",
             "/verim": "maliyet.html", "/verim.html": "maliyet.html",
             "/onaylar": "onaylar.html", "/onaylar.html": "onaylar.html",
@@ -78,6 +82,8 @@ STATIK = {"/gorsel.css": ("gorsel.css", "text/css; charset=utf-8"),
           "/gorsel.js": ("gorsel.js", "application/javascript; charset=utf-8"),
           "/ortak.css": ("ortak.css", "text/css; charset=utf-8"),
           "/ortak.js": ("ortak.js", "application/javascript; charset=utf-8"),
+          "/app.css": ("app.css", "text/css; charset=utf-8"),
+          "/app.js": ("app.js", "application/javascript; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
 # sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
 SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar", "teknik")
@@ -86,7 +92,7 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "16"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "17"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -108,6 +114,36 @@ def _alan_sd(alan_id, kesin: bool = False):
 
 def _alan_kisa(a: dict) -> dict:
     return {"id": a["id"], "ad": a["ad"], "yol": a["yol"]}
+
+
+AKIS_MAKS = 8          # eşzamanlı canlı akış bağlantısı (her biri bir iş parçacığı tutar)
+AKIS_OMUR = 600        # sn; tarayıcı EventSource kendiliğinden yeniden bağlanır
+AKIS_ARALIK = 2.0      # sn; değişiklik yoklama aralığı
+_akis_sayi = 0
+_akis_kilit = threading.Lock()
+
+
+def _akis_imza(a: dict, sd: str) -> tuple:
+    """Alanın değişince panelin yenilenmesi gereken dosyalarının (yol, mtime, boyut) imzası; ucuz stat taraması."""
+    adaylar = []
+    for kok in (sd, *(os.path.join(sd, alt) for alt in ("onaylar", "kurallar", "gorevler"))):
+        try:
+            with os.scandir(kok) as it:
+                adaylar.extend(e.path for e in it if e.is_file())
+        except OSError:
+            pass
+    adaylar.append(os.path.join(L.GENEL_DIZIN, "niyet.jsonl"))
+    oturumlar = glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "projects", a["id"], "*.jsonl"))
+    if oturumlar:
+        adaylar.append(max(oturumlar, key=lambda y: os.path.getmtime(y) if os.path.exists(y) else 0))
+    imza = []
+    for y in adaylar:
+        try:
+            st = os.stat(y)
+            imza.append((y, st.st_mtime_ns, st.st_size))
+        except OSError:
+            pass
+    return tuple(sorted(imza))
 
 
 TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_ALAN_YOLLARI bunu kabul eder
@@ -570,6 +606,47 @@ def _isleyici():
                     f'<body><main class="hazirlaniyor"><h1>{baslik}</h1><p>Bu sayfa hazırlanıyor.</p>'
                     f'<p><a href="/">Son olaylar sayfasına dön</a></p></main></body></html>').encode("utf-8")
 
+        def _akis(self, q):
+            """SSE: alanın durum dosyaları değişince 'degisti' olayı gönderir; istemci veriyi kendi uçlarından yeniden okur."""
+            global _akis_sayi
+            a, sd = _alan_sd((q.get("alan") or [None])[0], kesin=True)
+            if a is None:
+                return self._json(400, {"hata": sd["hata"]})
+            with _akis_kilit:
+                if _akis_sayi >= AKIS_MAKS:
+                    return self._json(503, {"hata": "Çok fazla canlı bağlantı."}, kapat=True)
+                _akis_sayi += 1
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.close_connection = True
+                self.wfile.write(b"retry: 3000\n: bagli\n\n")
+                self.wfile.flush()
+                onceki = _akis_imza(a, sd)
+                bitis = time.time() + AKIS_OMUR
+                son_ping = time.time()
+                while time.time() < bitis:
+                    time.sleep(AKIS_ARALIK)
+                    imza = _akis_imza(a, sd)
+                    if imza != onceki:
+                        onceki = imza
+                        self.wfile.write(f"event: degisti\ndata: {int(time.time())}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                        son_ping = time.time()
+                    elif time.time() - son_ping >= 10:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                        son_ping = time.time()
+            except (OSError, ValueError):
+                pass  # istemci ayrıldı
+            finally:
+                with _akis_kilit:
+                    _akis_sayi -= 1
+            return None
+
         def _json(self, kod, veri, kapat=False):
             return self._gonder(kod, "application/json; charset=utf-8",
                                 json.dumps(veri, ensure_ascii=False).encode("utf-8"), kapat)
@@ -765,6 +842,8 @@ def _isleyici():
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return None
+            if u.path == "/akis":
+                return self._akis(q)
             if u.path == "/alanlar.json":
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli("alanlar", 5.0, L.calisma_alanlari))
