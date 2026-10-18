@@ -13,3 +13,4 @@ os.environ.setdefault("ORKESTRA_EKLENTI_KURALLARI",
 os.environ.setdefault("ORKESTRA_SIRA_KAPISI", "0")
 os.environ.setdefault("ORKESTRA_IZIN", "0")  # izin politikası (geniş allow): eski hook testleri kapı kararını sınar; izin testleri modu kendisi seçer
 os.environ.setdefault("ORKESTRA_OZET_KAPISI", "0")  # kapanış özet kapısı (P-009): eski testler özetsiz kapatır
+os.environ.setdefault("ORKESTRA_ADR_KAPISI", "0")  # kapanış ADR kapısı (P-015): eski testler ADR satırsız kapatır; ADR testleri '1' yapar
