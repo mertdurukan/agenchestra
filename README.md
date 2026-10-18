@@ -34,7 +34,7 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 .claude-plugin/marketplace.json     yerel klasör marketplace'i (claude-orchestration)
 plugins/orkestra/                   çekirdek plugin
   agents/      triyaj, isci-t1..t4, denetci, arastirmaci, hafiza-bakimcisi, skill-avcisi, arsivci
-  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, sade-excel, toplu-etiketle  →  /orkestra:<ad>
+  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, update, sade-excel, toplu-etiketle  →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
   scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: sekiz sayfa, /analitik → /verim; sunulan dosyalar STATIK),
@@ -150,7 +150,7 @@ Masaüstü uygulamasında `claude` PATH'te yoktur. Gömülü ikili `%APPDATA%\Cl
 Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. `plugin.json` ve `marketplace.json` içinde `version` alanı bilerek yoktur; git deposundaki göreli yol girdilerinde sürüm commit SHA'sı olur. Bu yüzden bir değişiklik commitlenmeden kopyaya geçmez (`claude plugin validate --strict` yalnız bu eksik sürüm uyarısı yüzünden hata verir; `--strict`siz geçer). Marketplace bu klasörden değil **yayın klonundan** okur (aşağıda). Akış: geliştir → commitle (push gerekmez) → yayın klonu otomatik ilerler → autoUpdate ya da `orkestra guncelle`.
 - Değişikliği bu klasörde commitle. Commitlenmemiş (başka oturumların yarım) işler plugin kopyasına girmez.
 - Otomatik: projenin `extraKnownMarketplaces.claude-orchestration.autoUpdate` değeri `true` (`projeye_kur.py` yazar). Claude Code ilk mesajdan sonra en çok 10 dakika içinde günceller, yeni kopya sonraki oturumda yüklenir.
-- Hemen için: proje klasöründe `orkestra guncelle` (`--kuru` yalnız komutları yazar). Marketplace'i ve projede kurulu her plugin'i günceller; ardından yeni oturum aç ya da `/reload-plugins`.
+- Hemen için: herhangi bir klasörde `orkestra update` ya da `/orkestra:update` (eski adı `orkestra guncelle`; `--kuru` yalnız komutları yazar). LLM çağırmaz: yayın klonunu GitHub'dan çeker, marketplace'i ve `installed_plugins.json`'daki her kurulu plugin'i kendi kapsamıyla (user ya da project) günceller; sonucu `GÜNCELLENDİ (eski → yeni)`, `ZATEN GÜNCEL` ya da `HATA: neden` diye yazar, hatada çıkış kodu 1 olur. Ardından yeni oturum aç ya da `/reload-plugins`.
 - Oturum açılışında çalışan kopya kaynaktan farklıysa bağlama tek satır uyarı düşer (kaç dosya farklı, kaynakta commitlenmemiş değişiklik var mı).
 
 ### Yayın klonu (plugin_yayin)
@@ -159,7 +159,7 @@ Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `
 - Kurulum (tek komut, tekrar güvenli): `python araclar\yayin_kur.py` (`--yayin <yol>` ya da `ORKESTRA_YAYIN` ile yol değişir). Klonu açar ve `.git/hooks/` altına `post-commit`, `post-rewrite` (amend/rebase) ve `orkestra-yayin-esitle.sh` yazar; hook şablonları `araclar/git_hooklar/` altında izlenir.
 - `plugin_yayin` elle düzenlenmez: hook klondaki yerel değişikliği `checkout -f` ile ezer; yalnız main'deki commit'ler yayına çıkar (başka dalda atılan commit klona dokunmaz).
 - Her commit sonrası hook klonu çalışma dalıyla eşitler. Hata commit'i bozmaz (her zaman 0 çıkar, mesaj stderr'e).
-- Yayın klonu elle düzenlenmez. `orkestra guncelle` önce klonu `fetch` + hızlı ileri sarar; klon kirliyse nedenini yazıp reddeder.
+- Yayın klonu elle düzenlenmez. `orkestra update` önce klonu `fetch` + hızlı ileri sarar; klon kirliyse nedenini yazıp reddeder.
 - `projeye_kur.py` marketplace kaynağını varsayılan olarak bu klondan alır.
 
 HTML panel bu kuralın dışındadır: `python <bu klasör>\plugins\orkestra\scripts\orkestra.py panel` doğrudan bu klasörden çalışır.
@@ -173,6 +173,7 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | `/orkestra:is <istek>` | Planla → kart → paralel işçi + ayrı denetçi → topla ve teslim et |
 | `/orkestra` | Claude içi özeti açar: dikkat isteyen kartlar, çalışanlar, tek satır maliyet, son olaylar, veri yaşı |
 | `/orkestra-web` | HTML panelini başlatır (Şimdi, Maliyet, Verim ve sağlık) ve adresini verir (Bash: `orkestra panel`) |
+| `/orkestra:update` | `orkestra update`: LLM'siz güncelleme. Yayın klonunu GitHub'dan çeker, kurulu plugin'leri kendi kapsamıyla günceller (`--kuru` yalnız komutları yazar) |
 | `/orkestra:maliyet [gün]` | Ajan × süreç × model token ve maliyet raporu |
 | `orkestra niyet --ne … --neden …` | Sohbetin şu an ne yaptığını ve neye yarayacağını "Şimdi" sayfasındaki Sohbetler bölümüne yazar (ana ajan; `--sonuc`, `--goster`) |
 | `/orkestra:defter [görev]` | Ortak defterin son kayıtları |

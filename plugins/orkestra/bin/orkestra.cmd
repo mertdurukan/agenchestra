@@ -5,7 +5,7 @@ setlocal
 set "CLI=%~dp0..\scripts\orkestra.py"
 if defined ORKESTRA_PYTHON if exist "%ORKESTRA_PYTHON%" (
   "%ORKESTRA_PYTHON%" "%CLI%" %*
-  exit /b
+  goto cik
 )
 set "PYEXE="
 for %%N in (python3 python) do if not defined PYEXE call :bul %%N
@@ -13,10 +13,13 @@ if defined PYEXE goto calistir
 where py >nul 2>nul
 if errorlevel 1 goto yok
 py -3 "%CLI%" %*
-exit /b
+goto cik
 :calistir
 "%PYEXE%" "%CLI%" %*
-exit /b
+goto cik
+:cik
+rem Cikis kodu aynen gecer: yalin "exit /b" onceki komutun kodunu 0'a ceviriyordu (orkestra update hata verince 0 donuyordu).
+exit /b %errorlevel%
 :yok
 echo orkestra: python3/python/py bulunamadi (ORKESTRA_PYTHON ile yorumlayici goster) 1>&2
 exit /b 127

@@ -1,4 +1,4 @@
-"""Yayın klonu: projeye_kur kaynağı, orkestra guncelle klon denetimi, git hook (python -m unittest)."""
+"""Yayın klonu: projeye_kur kaynağı, (klon denetimi artık test_guncelle.py'de), git hook (python -m unittest)."""
 import contextlib
 import io
 import json
@@ -69,24 +69,6 @@ class Yayin(unittest.TestCase):
             P.YAYIN = eski
         with open(os.path.join(proje, ".claude", "settings.json"), encoding="utf-8") as f:
             self.assertEqual(json.load(f)["extraKnownMarketplaces"][P.MARKET]["source"]["path"], "Z:/yayin")
-
-    def test_guncelle_kirli_yayin_klonunu_reddeder(self):
-        import orkestra as O
-        klon = os.path.join(self.t, "klon")
-        os.makedirs(klon)
-        git(klon, "init", "-q")
-        yaz(os.path.join(klon, "a.txt"), "1")
-        git(klon, "add", ".")
-        git(klon, "commit", "-q", "-m", "x")
-        yaz(os.path.join(klon, "a.txt"), "2")
-        a = type("A", (), {"kuru": False})()
-        with mock.patch.object(O.L, "pazar_kaynagi", return_value=klon), \
-                mock.patch.object(O.L, "claude_exe", return_value="claude-yok"), \
-                mock.patch.object(O.L, "proje_dizini", return_value=self.t), \
-                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as err:
-            with self.assertRaises(SystemExit):
-                O.cmd_guncelle(a)
-        self.assertIn("commitlenmemiş", err.getvalue())
 
     def test_hook_yalniz_klonun_dalinda_esitler_ve_hep_0_cikar(self):
         sh = _sh_yolu()
