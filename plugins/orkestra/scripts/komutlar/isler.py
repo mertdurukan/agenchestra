@@ -373,6 +373,23 @@ def cmd_is_todo(a):
         if yazildi and len(m) > TODO_KISA:  # yazma sonrası kısa liste: ana ajan bağlamına her seferinde tüm todo girmesin
             m = m[:TODO_KISA - 1] + "…"
         print(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
+    if bitti and t["toplam"] and not t["acik_maddeler"]:
+        _ozet_tetikle(kayit)
+
+
+def _ozet_tetikle(kayit):
+    """P-009 erken tetik: son todo maddesi bitince çalışma özeti iskeletini açar ve doldurulmasını ister.
+    Kapatmayı engellemez; kapı kapalıyken (ORKESTRA_OZET_KAPISI=0) sessizdir. Hata todo yazımını bozmaz."""
+    if os.environ.get("ORKESTRA_OZET_KAPISI") == "0":
+        return
+    try:
+        if _ozet_eksigi(kayit["klasor"]) is None:
+            return
+        _ik().belge_olustur(kayit["klasor"], kayit.get("baslik") or "", "ozet")
+        print(f"{kayit['id']} tüm todo maddeleri bitti: çalışma özetini doldur (`orkestra is belge {kayit['id']} ozet`), "
+              f"sonra `orkestra is kapat {kayit['id']}`.")
+    except Exception:
+        return
 
 
 def cmd_is_todo_denetle(a):
