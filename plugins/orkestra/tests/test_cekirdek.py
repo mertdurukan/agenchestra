@@ -187,6 +187,7 @@ class Cekirdek(unittest.TestCase):
         self.assertNotEqual(c.get("decision"), "block")
         c = self.hook("Stop", {"stop_hook_active": False, "background_tasks": [{"id": "x"}]})
         self.assertNotEqual(c.get("decision"), "block")
+        self.assertIn("Arka planda sürüyor (1)", c.get("systemMessage", ""))
         self.cli("kart", "durum", g, "beklemede", "--not", "kullanıcıyı bekliyor", ajan_id="ana", ajan_tipi="ana")
         c = self.hook("Stop", {"stop_hook_active": False})
         self.assertNotEqual(c.get("decision"), "block")

@@ -790,7 +790,7 @@ def _acik_arka_plan(yol, ofset, bitis, onceki) -> list:
             icerik = (o.get("message") or {}).get("content")
             if o.get("type") == "assistant" and isinstance(icerik, list):
                 for b in icerik:
-                    if (isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in ("Agent", "Bash")
+                    if (isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in ("Agent", "Bash", "Workflow")
                             and isinstance(b.get("input"), dict) and b["input"].get("run_in_background") is True
                             and b.get("id") and b["id"] not in acik):
                         acik.append(b["id"])
@@ -938,6 +938,41 @@ def _baglanti_kapisi(sd: str, oid, inp: dict, ozet: dict) -> None:
         return
 
 
+def arka_plan_satiri(sd: str, gorevler) -> str:
+    """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
+    Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
+    adlar = []
+    try:
+        for g in gorevler if isinstance(gorevler, list) else []:
+            ad = ""
+            if isinstance(g, dict):
+                for anahtar in ("description", "title", "name", "summary", "command"):
+                    if isinstance(g.get(anahtar), str) and g[anahtar].strip():
+                        ad = g[anahtar].strip()
+                        break
+            elif isinstance(g, str):
+                ad = g.strip()
+            adlar.append(" ".join(ad.split())[:40] or "görev")
+    except Exception:
+        pass
+    try:
+        import perspektif
+        if perspektif.durum(sd).get("calisiyor"):
+            adlar.append("Perspektif koşusu")
+    except Exception:
+        pass
+    try:
+        import onay
+        if onay.uygulama_durumu(sd):
+            adlar.append("Onaylı kararlar uygulanıyor")
+    except Exception:
+        pass
+    if not adlar:
+        return ""
+    gosterilen = ", ".join(adlar[:3]) + (f" +{len(adlar) - 3}" if len(adlar) > 3 else "")
+    return f"Arka planda sürüyor ({len(adlar)}): {gosterilen}"
+
+
 def stop(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
@@ -1040,7 +1075,12 @@ def stop(inp: dict):
     if not perspektif:
         _baglanti_kapisi(sd, oid, inp, ozet)
     # Bitiş kapısı: bu oturumun açık kartları
-    if perspektif or inp.get("background_tasks"):
+    if perspektif:
+        gec()
+    if inp.get("background_tasks"):
+        satir = arka_plan_satiri(sd, inp.get("background_tasks"))
+        if satir:
+            L.hook_cikti({"systemMessage": satir})
         gec()
     acik = []
     for k in L.kartlar(sd):
@@ -1055,8 +1095,10 @@ def stop(inp: dict):
             bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
         except Exception:
             pass
-        if hatirlatma:
-            L.hook_cikti({"systemMessage": hatirlatma})
+        satir = arka_plan_satiri(sd, None)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
+        mesaj = " ".join(x for x in (satir, hatirlatma) if x)
+        if mesaj:
+            L.hook_cikti({"systemMessage": mesaj})
         gec()
     liste = "; ".join(f"{g} [{d}] {b[:50]}" for g, d, b in acik)
     ek = f" {hatirlatma}" if hatirlatma else ""
