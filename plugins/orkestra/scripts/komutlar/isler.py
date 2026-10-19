@@ -333,6 +333,7 @@ def cmd_is_kapat(a):
             hata(f"{a.is_id} kapatılamadı: ADR kaydı eksik ({eksik}). "
                  "Karar gerektiren iş için adr/ADR-nnnn-<kisa-baslik>.md yaz ve plan.md'ye `**ADR:** ADR-nnnn` satırı ekle; "
                  "gerekmiyorsa `**ADR:** gerekmez — <neden>` yaz (P-015). İş hiç yapılmadan kapanıyorsa: --ozetsiz \"neden\".")
+    _harita_yenile(sd)
     _ik().is_durum(sd, a.is_id, "kapandi")
     _teknik_detay_yaz(sd, a.is_id)
     print(f"{a.is_id} → kapandi")
@@ -343,6 +344,19 @@ def cmd_is_kapat(a):
         for sat in _ik().belge_baglantilari(kayit["klasor"], _proje_koku(sd), tumu=True):
             if "çalışma özeti" in sat:
                 print(sat)
+
+
+def _harita_yenile(sd):
+    """Kapanışta sistem haritası eskimişse yeniler (ADR-0005; K7). Kapanışı hiçbir koşulda engellemez."""
+    if os.environ.get("ORKESTRA_HARITA_KAPISI") == "0":
+        return
+    try:
+        import harita as H
+        s = H.yenile(_proje_koku(sd), sd)
+        if s["yenilenen"]:
+            print(f"harita güncellendi: {', '.join(s['yenilenen'])}")
+    except Exception as e:  # noqa: BLE001 - kapanış hiçbir koşulda engellenmez
+        print(f"orkestra: uyarı: sistem haritası yenilenemedi ({type(e).__name__}: {L.maskele(str(e))})", file=sys.stderr)
 
 
 def _teknik_detay_yaz(sd, is_id):

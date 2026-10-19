@@ -56,6 +56,7 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 **Dayanak:** MD §n (mevcut durum bölümü)
 **Dokunulan yer:** MD §3 etki haritasındaki yer
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
+**Mevcut varlık:** harita kayıt kimliği (virgülle) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
 **İddialar:** C1, C2   (bu maddenin uygulanabilirliği hangi iddialara bağlı)
 **Kapatır:** C5   (yalnız spike maddesinde: bu madde C5'in ❌'sini kapatmak için koşulur)
 **Kabul:** ölçülebilir tek ölçüt (komut çıktısı, sayı, dosya:satır); "yapıldı" kabul değildir (kalite kapısında zorunlu)

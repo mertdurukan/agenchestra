@@ -12,6 +12,10 @@
 
 <!-- doldur: ölçüm tarihi ve saati, ölçülen kod/veri sürümü (dal, commit) -->
 
+**Harita:**
+
+<!-- doldur: `orkestra harita oku` çıktısından bu işe dokunan kayıt kimlikleri (sır yeri, süreç, altyapı, modül); haritada yoksa taranan yer. -->
+
 **Yöntem:**
 
 <!-- doldur: ne okundu/koşuldu (dosya okuma, komut, sorgu); "teyit gerekir" bakılmadı demektir -->

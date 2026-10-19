@@ -121,5 +121,7 @@ def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
                     VERILDI)
         return ("Orkestra (P-016): onay mesajı geldi ama belgeler hazır değil, onay kaydedilmedi. Eksik: "
                 + "; ".join(eksik[:4]) + ". Belgeleri tamamla, sırayla (mevcut durum → plan → todo) bağlantılarıyla göster.", None)
+    harita = (" Önce `orkestra harita oku` ile sistem haritasını oku (.claude/orkestra/sistem_haritasi/INDEX.md); "
+              "mevcut durumda dokunduğun yerdeki var olan kayıtları ve plan maddesinde `**Mevcut varlık:**` alanını yaz.") if kayit.get("harita") else ""
     return ("Orkestra (P-016): iş onay bekliyor; uygulama (kod/dosya, commit, bağımlılık) yok. Mevcut durum → plan → todo "
-            "sırasıyla hazırla ve bağlantılarıyla göster; kullanıcı onaylayınca iş başlar.", None)
+            "sırasıyla hazırla ve bağlantılarıyla göster; kullanıcı onaylayınca iş başlar." + harita, None)

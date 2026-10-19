@@ -66,6 +66,52 @@ def gapli_mi(klasor: str) -> bool:
         return False
 
 
+def harita_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_HARITA_KAPISI") != "0"
+
+
+def haritali_mi(klasor: str) -> bool:
+    """İş sıralı, is.json `harita: true` taşıyor ve harita kapısı açık mı (ADR-0005)."""
+    if not harita_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("harita") is True
+    except (OSError, ValueError):
+        return False
+
+
+_MEVCUT_VARLIK = re.compile(r"\*\*Mevcut varlık:\*\*[ \t]*(.*)$", re.M)
+VARLIK_GEREKCE_MIN = 8  # `yok — <aranan>` sonrası gerekçe en az bu kadar karakter
+
+
+def mevcut_varlik_eksikleri(klasor: str) -> list[str]:
+    """ADR-0005: haritalı işte her P maddesi `**Mevcut varlık:**` taşır: harita kayıt kimlikleri ya da `yok — <aranan>`."""
+    if not haritali_mi(klasor):
+        return []
+    import harita
+    metin = _oku(os.path.join(klasor, "plan.md")) or ""
+    sd = harita.sd_bul(klasor)
+    kimlikler = harita.kayit_kimlikleri(sd) if sd else None
+    eksik = []
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        m = _MEVCUT_VARLIK.search(blok)
+        deger = (m.group(1) if m else "").strip()
+        if not deger:
+            eksik.append(f"P{n}: `**Mevcut varlık:**` alanı yok ya da boş (`orkestra harita oku` kayıt kimliği ya da `yok — <aranan>`)")
+        elif re.match(r"^yok\b", deger, re.I):
+            gerekce = re.sub(r"^yok\s*[—:\-]*\s*", "", deger, flags=re.I)
+            if len(gerekce) < VARLIK_GEREKCE_MIN:
+                eksik.append(f"P{n}: `yok` için aranan şey yazılmalı (`yok — <aranan>`)")
+        elif kimlikler is None:
+            eksik.append(f"P{n}: sistem haritası yok; önce `orkestra harita oku` çalıştır")
+        else:
+            for kid in [x.strip(" `") for x in deger.split(",") if x.strip(" `")]:
+                if kid not in kimlikler:
+                    eksik.append(f"P{n}: `{kid}` haritada yok (`orkestra harita oku` ile kimliği doğrula)")
+    return eksik
+
+
 def kalite_kapisi_acik() -> bool:
     return os.environ.get("ORKESTRA_KALITE_KAPISI") != "0"
 
@@ -262,7 +308,7 @@ def plan_eksikleri(klasor: str) -> list[str]:
             for alan in ("Kabul", "Geri alma"):
                 if not alan_dolu(blok, alan):
                     eksik.append(f"P{n}: `**{alan}:**` alanı yok ya da boş (P-018)")
-    return eksik + gap_kapsama_eksikleri(klasor)
+    return eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor)
 
 
 def adim(klasor: str) -> tuple[str, list[str]]:

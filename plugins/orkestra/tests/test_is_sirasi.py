@@ -66,7 +66,7 @@ class IsSirasi(unittest.TestCase):
     tearDown = TC.Cekirdek.tearDown
 
     def cli(self, *args, kapi="1"):
-        return TC.kos([TC.CLI, *args], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi, "ORKESTRA_KALITE_KAPISI": "0"})
+        return TC.kos([TC.CLI, *args], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi, "ORKESTRA_KALITE_KAPISI": "0", "ORKESTRA_HARITA_KAPISI": "0"})
 
     def hook_pre(self, dosya, icerik=None, arac="Write", yeni=None, kapi="1", eski="x"):
         girdi = {"file_path": dosya}
@@ -77,7 +77,7 @@ class IsSirasi(unittest.TestCase):
             girdi["new_string"] = yeni or ""
         g = {"session_id": TC.OTURUM, "cwd": self.proje, "transcript_path": self.ana_tr, "hook_event_name": "PreToolUse",
              "tool_name": arac, "tool_input": girdi}
-        r = TC.kos([TC.HOOK, "PreToolUse"], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi, "ORKESTRA_KALITE_KAPISI": "0"}, stdin=json.dumps(g))
+        r = TC.kos([TC.HOOK, "PreToolUse"], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi, "ORKESTRA_KALITE_KAPISI": "0", "ORKESTRA_HARITA_KAPISI": "0"}, stdin=json.dumps(g))
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout) if r.stdout.strip() else {}
 

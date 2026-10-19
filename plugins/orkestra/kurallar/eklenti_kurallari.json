@@ -581,6 +581,24 @@
         }
       ],
       "etkinlesme": "2026-10-19T08:56:03+03:00"
+    },
+    {
+      "id": "P-019",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Her projede betikle üretilen kalıcı bir sistem haritası vardır (.claude/orkestra/sistem_haritasi/: sır ve yapılandırma yeri, dış bağlantılar, çalışan süreçler, giriş noktaları ve modüller, altyapı, veri modeli, bağımlılıklar, açık iş ve ADR). (1) Yeni sohbet ve yeni iş önce harita INDEX'ini okur; kayıt yoksa ya da kaynağı değişmişse 'orkestra harita oku' ilgili katmanı baştan tarayıp yeniden yazar, elle düzenlenmez. (2) Haritalı işte her plan maddesi '**Mevcut varlık:**' alanını taşır: dokunduğu yerde zaten var olan mekanizmanın harita kayıt kimliği ya da 'yok — <aranan>'; aynı sistemi ikinci kez kurmak ve mevcut düzeni (örn. Key Vault'taki sır) bypass etmek bu alanda görünür olur. (3) İş kapanışında eskimiş harita kendiliğinden yenilenir, kullanıcıya ek adım çıkmaz. (4) Harita sır değeri taşımaz; canlı kaynaklar (Azure, canlı veritabanı) taranmaz, kodda atıf varsa 'doğrulanamadı' işaretlenir. Zorlama: is.json 'harita' alanı (yeni sıralı iş harita:true doğar; bayraksız işler muaf); is_sirasi.mevcut_varlik_eksikleri plan kapısında, isler._harita_yenile kapanışta; ORKESTRA_HARITA_KAPISI=0 kapatır.",
+      "neden": "Kullanıcı 19.10.2026: mevcut durum yalnız geliştirmeyi değil altındaki her süreci kapsamalı; aynı sistem 2-3 yerde kurulmamalı, mevcut düzen (örn. Azure Key Vault) bypass edilmemeli. Kök neden (K-006): mevcut durum her işte elle ve yalnız değişecek koda göre yazılıyor, kalıcı bir sistem katmanı yoktu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-19T13:31:16+03:00",
+      "guncelleme": "2026-10-19T13:31:16+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-19T13:31:16+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Her projede betikle üretilen kalıcı bir sistem haritası vardır (.claude/orkestra/sistem_haritasi/: sır ve yapılandırma yeri, dış bağlantılar, çalışan süreçler, giriş noktaları ve modüller, altyapı, veri modeli, bağımlılıklar, açık iş ve ADR). (1) Yeni sohbet ve yeni iş önce harita INDEX'ini okur; kayıt yoksa ya da kaynağı değişmişse 'orkestra harita oku' ilgili katmanı baştan tarayıp yeniden yazar, elle düzenlenmez. (2) Haritalı işte her plan maddesi '**Mevcut varlık:**' alanını taşır: dokunduğu yerde zaten var olan mekanizmanın harita kayıt kimliği ya da 'yok — <aranan>'; aynı sistemi ikinci kez kurmak ve mevcut düzeni (örn. Key Vault'taki sır) bypass etmek bu alanda görünür olur. (3) İş kapanışında eskimiş harita kendiliğinden yenilenir, kullanıcıya ek adım çıkmaz. (4) Harita sır değeri taşımaz; canlı kaynaklar (Azure, canlı veritabanı) taranmaz, kodda atıf varsa 'doğrulanamadı' işaretlenir. Zorlama: is.json 'harita' alanı (yeni sıralı iş harita:true doğar; bayraksız işler muaf); is_sirasi.mevcut_varlik_eksikleri plan kapısında, isler._harita_yenile kapanışta; ORKESTRA_HARITA_KAPISI=0 kapatır."
+        }
+      ],
+      "etkinlesme": "2026-10-19T13:31:16+03:00"
     }
   ]
 }

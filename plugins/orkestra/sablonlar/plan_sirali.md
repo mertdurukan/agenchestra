@@ -39,6 +39,7 @@
 **Geri alma:** değişikliği geri almanın yolu (kalite kapısında zorunlu)
 **Önce:** bu maddeden önce bitmesi gereken P maddeleri (varsa)
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
+**Mevcut varlık:** harita kayıt kimliği (virgülle) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
 
 ## Gap kapsama
