@@ -109,6 +109,28 @@ def kabuk_engeli(tirnaksiz_komut: str) -> str:
     return ""
 
 
+TUR_BITIREN = ("wrap_up", "AskUserQuestion", "ExitPlanMode")  # çağrılınca tur kullanıcıya geçer; son metin bunlardan önce yazılmış olmalı
+
+
+def tur_bitiren_mi(arac: str) -> bool:
+    return bool(arac) and arac.split("__")[-1] in TUR_BITIREN
+
+
+def teslim_imzasi(klasor: str, proje: str) -> tuple[str, list[str]]:
+    """Kutudan önce yanıta yazılacak belge bağlantıları: (imza, satırlar). İmza belgelerin değişim zamanından türer;
+    satır yoksa imza boştur."""
+    import is_kaydi
+    satirlar = is_kaydi.belge_baglantilari(klasor, proje)
+    parca = []
+    for ad in sorted(os.listdir(klasor)) if os.path.isdir(klasor) else []:
+        if ad.endswith(".md"):
+            try:
+                parca.append(f"{ad}:{int(os.path.getmtime(os.path.join(klasor, ad)))}")
+            except OSError:
+                pass
+    return ("|".join(parca) if satirlar else ""), satirlar
+
+
 def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
     """UserPromptSubmit için (bağlam satırı, yeni durum). `bekliyor` değilse ('', None)."""
     if not bekliyor_mu(kayit):
@@ -124,4 +146,6 @@ def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
     harita = (" Önce `orkestra harita oku` ile sistem haritasını oku (.claude/orkestra/sistem_haritasi/INDEX.md); "
               "mevcut durumda dokunduğun yerdeki var olan kayıtları ve plan maddesinde `**Mevcut varlık:**` alanını yaz.") if kayit.get("harita") else ""
     return ("Orkestra (P-016): iş onay bekliyor; uygulama (kod/dosya, commit, bağımlılık) yok. Mevcut durum → plan → todo "
-            "sırasıyla hazırla ve bağlantılarıyla göster; kullanıcı onaylayınca iş başlar." + harita, None)
+            "sırasıyla hazırla ve bağlantılarıyla göster; kullanıcı onaylayınca iş başlar. SIRA (K-003): onay isteyen kutu/soru "
+            "aracı (wrap_up, AskUserQuestion) turu bitirir; bağlantı satırlarını (`orkestra is baglanti " + str(kayit.get("id", "<id>"))
+            + "` hazır verir) önce yanıt METNİNE yaz, kutuyu en son çağır." + harita, None)

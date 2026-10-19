@@ -471,6 +471,39 @@ def _onay_kapisi(sd: str, oid, proje: str, tam: str = "", tirnaksiz: str = "") -
         reddet(neden)
 
 
+def _bitis_baglanti_kapisi(sd: str, oid, proje: str) -> None:
+    """K-003 kaynakta: turu bitiren araç (wrap_up, AskUserQuestion, ExitPlanMode) çağrılmadan önce, işin belgeleri
+    son teslimden beri değiştiyse bir kez reddeder ve hazır bağlantı satırlarını verir; ajan satırları yanıt metnine
+    yazıp aracı yeniden çağırır (aynı imza ikinci kez reddedilmez). Hatada serbest."""
+    try:
+        import is_onay
+        if not oid or not is_onay.kapi_acik():
+            return
+        is_id = _bagli_is(sd, oid)
+        if not is_id:
+            return
+        import is_kaydi
+        kayit = is_kaydi.is_al(sd, is_id)
+        klasor = str((kayit or {}).get("klasor") or "")
+        imza, satirlar = is_onay.teslim_imzasi(klasor, proje)
+        if not imza:
+            return
+        yol = os.path.join(sd, "oturumlar", f"{oid}.baglanti.json")
+        try:
+            with open(yol, encoding="utf-8") as f:
+                onceki = json.load(f).get("imza")
+        except (OSError, ValueError):
+            onceki = None
+        if onceki == imza:
+            return
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump({"imza": imza}, f)
+    except Exception:
+        return
+    reddet("K-003: kutu/soru aracı turu bitirir; işin belgeleri değişti ve bağlantıları yanıtta yok. Bu satırları "
+           "yanıt METNİNE yaz (kutudan önce), sonra aracı yeniden çağır." + chr(10) + chr(10).join(satirlar))
+
+
 def _izin_karari(arac: str, girdi: dict, sd: str):
     """İzin politikası kararı (deny|ask|allow|None, neden). Hatada karar yok: Claude Code varsayılan istemine döner."""
     try:
@@ -510,6 +543,15 @@ def pre_tool_use(inp: dict):
         _VARSAYILAN_IZIN = kneden
     elif arac not in KABUK_ARACLARI:
         _kapi_uygula(kar, kneden)
+
+    try:
+        import is_onay as _io
+        if not aid and _io.tur_bitiren_mi(arac):
+            _bitis_baglanti_kapisi(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")))
+    except SystemExit:
+        raise
+    except Exception:
+        pass
 
     if arac in YAZAN_ARACLAR:
         yol = girdi.get("file_path") or girdi.get("notebook_path") or ""

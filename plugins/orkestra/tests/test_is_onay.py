@@ -207,6 +207,49 @@ class KullaniciOnayi(_Onay):
         self.assertTrue(is_onay.belge_eksikleri(self.klasor))
 
 
+class KutuOncesiBaglanti(_Onay):
+    """K-003 kaynakta: turu bitiren araçtan önce belge bağlantıları hazır verilir."""
+
+    def belgeler(self):
+        for ad in ("plan.md", "todo.md"):
+            with open(os.path.join(self.klasor, ad), "w", encoding="utf-8") as f:
+                f.write("# x\n")
+
+    def test_hatirlatma_sira_ve_komut_icerir(self):
+        m = self.mesaj("handle etmek istiyorum")
+        self.assertIn("wrap_up", m)
+        self.assertIn("is baglanti " + self.kayit["id"], m)
+
+    def test_ilk_kutu_cagrisi_reddedilir_ve_satir_verir(self):
+        self.belgeler()
+        deny, neden = self.pre("mcp__ccd_turn__wrap_up", komut="x")
+        self.assertTrue(deny)
+        self.assertIn("plan dosyası: [plan.md]", neden)
+        self.assertIn("to-do dosyası: [todo.md]", neden)
+
+    def test_ikinci_cagri_gecer(self):
+        self.belgeler()
+        self.pre("mcp__ccd_turn__wrap_up", komut="x")
+        self.assertFalse(self.pre("mcp__ccd_turn__wrap_up", komut="x")[0])
+
+    def test_belge_degisince_yeniden_reddedilir(self):
+        self.belgeler()
+        self.pre("AskUserQuestion", komut="x")
+        yol = os.path.join(self.klasor, "plan.md")
+        os.utime(yol, (os.path.getmtime(yol) + 10, os.path.getmtime(yol) + 10))
+        self.assertTrue(self.pre("AskUserQuestion", komut="x")[0])
+
+    def test_baska_arac_ve_alt_ajan_etkilenmez(self):
+        self.belgeler()
+        self.assertFalse(self.pre("Bash", komut="ls")[0])
+        self.assertFalse(self.pre("mcp__ccd_turn__wrap_up", komut="x", agent_id="a1")[0])
+
+    def test_kapi_kapaliyken_serbest(self):
+        self.belgeler()
+        os.environ["ORKESTRA_ONAY_KAPISI"] = "0"
+        self.assertFalse(self.pre("mcp__ccd_turn__wrap_up", komut="x")[0])
+
+
 class IsDevam(_Onay):
     def test_is_devam_alansiz_isi_isaretler(self):
         from komutlar import isler
