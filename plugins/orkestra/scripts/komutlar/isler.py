@@ -9,6 +9,7 @@ import datetime
 import io
 import json
 import hashlib
+import importlib
 import os
 import re
 import subprocess
@@ -79,6 +80,9 @@ def cmd_is_ac(a):
     kayit = _ik().is_ac(sd, a.baslik, a.klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None)
     _oturumu_bagla(sd, kayit["id"])
     print(kayit["id"])
+    if kayit.get("onay") == "bekliyor":
+        print("orkestra: iş ONAY BEKLİYOR (P-016): mevcut durum → plan → todo hazırlanıp bağlantılarıyla gösterilir; "
+              "kullanıcı onaylamadan uygulama (kod/dosya, commit, bağımlılık) yapılmaz.", file=sys.stderr)
     if kayit.get("sira"):  # stdout yalnız iş kimliği kalır; sıra yönlendirmesi stderr'e
         md = _ik().SIRA.mevcut_durum_yolu(kayit["klasor"])
         print(f"orkestra: sıra (P-005): önce {os.path.basename(md or 'mevcut_durum_<gün>.md')} doldurulur; "
@@ -92,6 +96,11 @@ def cmd_is_devam(a):
     klasor = kayit["klasor"]
     t, satir = _todo_satiri(klasor)
     print(f"{a.is_id} — {kayit['baslik']} [{kayit['durum']}]")
+    OY = importlib.import_module("is_onay")
+    if kayit.get("sira") and OY.durum(kayit) is None and OY.kapi_acik():  # P-016: alansız sıralı iş
+        kayit = OY.yaz(sd, a.is_id, OY.ilk_durum(klasor), "onay:devam")
+    if OY.durum(kayit):
+        print(f"onay: {OY.durum(kayit)}" + (" — kullanıcı onaylamadan uygulama yok (P-016)" if OY.durum(kayit) == OY.BEKLIYOR else ""))
     if kayit.get("sira") and _ik().SIRA.sirali_mi(klasor):
         adim, eksik = _ik().SIRA.adim(klasor)
         print(f"sıra: {adim}" + (f" — eksik: {'; '.join(eksik[:3])}" if eksik else " — mevcut durum ve plan tamam"))
@@ -150,6 +159,20 @@ def cmd_is_sira(a):
     print(f"todo: {'var' if os.path.exists(os.path.join(kayit['klasor'], 'todo.md')) else 'yok'}")
     for e in eksik:
         print(f"  eksik: {e}")
+
+
+def cmd_is_onayla(a):
+    """Kullanıcı terminalinden onay (ajanın kabuğunda hook reddeder). Belgeler hazır değilse yazmaz."""
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    OY = importlib.import_module("is_onay")
+    if OY.durum(kayit) is None:
+        hata(f"{a.is_id} onay alanı yok (eski iş)")
+    eksik = OY.belge_eksikleri(kayit["klasor"])
+    if eksik:
+        hata("belgeler hazır değil: " + "; ".join(eksik[:4]))
+    OY.yaz(sd, a.is_id, OY.VERILDI, "onay:cli")
+    print(f"{a.is_id} onay: verildi")
 
 
 def cmd_is_baglanti(a):
@@ -224,8 +247,29 @@ def _ozet_eksigi(klasor):
             continue
         m = re.search(r"\*\*Ana bulgu:\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+:\*\*|^#|\Z)", metin, re.S | re.M)
         if m and m.group(1).strip():
-            return None
+            return _ozet_kalite_eksigi(klasor, metin)
     return "calisma_ozeti dosyasında 'Ana bulgu' boş (şablon doldurulmamış)"
+
+
+def _ozet_kalite_eksigi(klasor, metin):
+    """P-018 (kalite bayraklı iş): özet `## Özet` taşır; `## Plana göre gerçekleşen` plandaki her P'yi ve mevcut durum
+    §6'daki her G'yi anar. Tamamsa ya da iş bayraksızsa None."""
+    import is_sirasi as SR
+    if not SR.kaliteli_mi(klasor):
+        return None
+    e = SR.ozet_eksigi(metin, "calisma_ozeti")
+    if e:
+        return e
+    m = re.search(r"^##[ 	]+Plana göre gerçekleşen[ 	]*$(.*?)(?=^##[ 	]|\Z)", metin, re.M | re.S)
+    govde = re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S) if m else ""
+    if not govde.strip():
+        return "calisma_ozeti: `## Plana göre gerçekleşen` bölümü yok ya da boş (P-018)"
+    anilmayan = [f"P{n}" for n in sorted(SR.plan_maddeleri(klasor)) if not re.search(rf"\bP{n}\b", govde)]
+    if SR.gapli_mi(klasor):
+        anilmayan += [f"G{n}" for n in sorted(SR.mevcut_durum_gapleri(klasor)) if not re.search(rf"\bG{n}\b", govde)]
+    if anilmayan:
+        return "calisma_ozeti: `Plana göre gerçekleşen` bölümünde anılmayan: " + ", ".join(anilmayan) + " (P-018)"
+    return None
 
 
 ADR_ALANLARI = ("Durum", "Tarih", "Bağlam", "Karar", "Seçenekler", "Sonuçlar")
@@ -862,6 +906,9 @@ def kaydet(alt):
     isa.add_argument("is_id")
     isa.add_argument("--ac", action="store_true", help="sıra bayrağını koyar, mevcut durum iskeletini açar")
     isa.set_defaults(f=cmd_is_sira)
+    ion = is_.add_parser("onayla", help="P-016: işi onaylar (kullanıcı komutu; belgeler hazır olmalı)")
+    ion.add_argument("is_id")
+    ion.set_defaults(f=cmd_is_onayla)
     ibl = is_.add_parser("baglanti", help="sohbet sonu bağlantı satırları: plan, todo ve son dakikalarda değişen okunacak belgeler (K-003)")
     ibl.add_argument("is_id")
     ibl.add_argument("--son", type=int, default=180, metavar="DK", help="bu kadar dakika içinde değişen belgeler (varsayılan 180)")

@@ -16,7 +16,7 @@ import plan_dogrulama as PD  # noqa: E402
 from test_is_sirasi import MD_AD  # noqa: E402
 
 TAMAM, YOK = PD.TAMAM, PD.YOK
-ORTAM = {"ORKESTRA_SIRA_KAPISI": "1", "ORKESTRA_DOGRULAMA_KAPISI": "1"}
+ORTAM = {"ORKESTRA_SIRA_KAPISI": "1", "ORKESTRA_DOGRULAMA_KAPISI": "1", "ORKESTRA_GAP_KAPISI": "0", "ORKESTRA_KALITE_KAPISI": "0"}  # gap: test_is_sirasi.GapAnalizi
 
 KAYNAK = "def a():\n    return 1\n\nDEGER = 42\n"
 

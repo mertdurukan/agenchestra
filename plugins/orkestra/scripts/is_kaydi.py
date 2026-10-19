@@ -112,6 +112,7 @@ SABLON_DIZINI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 BELGE_TURLERI = {
     "mevcut_durum": ("mevcut_durum.md", "mevcut_durum_{gun}.md", "mevcut durum"),
     "plan": ("plan.md", "plan.md", "plan dosyası"),
+    "todo": ("todo.md", "todo.md", "to-do dosyası"),
     "ozet": ("calisma_ozeti.md", "calisma_ozeti_{gun}.md", "çalışma özeti"),
     "bulgu": ("bulgu.md", "bulgu.md", "bulgu"),
     "jira": ("jira_onerisi.md", "jira_onerisi.md", "jira önerisi"),
@@ -243,6 +244,10 @@ def _dogrulama_varsayilan() -> bool:
         return False
 
 
+def ONAY_KAPISI_ACIK() -> bool:
+    return os.environ.get("ORKESTRA_ONAY_KAPISI") != "0"
+
+
 def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | None = None) -> dict:
     """Yeni iş. Kapı açıkken (P-005) iş sıralıdır: ilk dosya mevcut durum iskeletidir, plan.md ve todo.md
     önceki adım tamamlanınca açılır; kapı kapalıyken (ORKESTRA_SIRA_KAPISI=0) eski üç dosya yazılır.
@@ -270,6 +275,12 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
     }
     if sirali:
         kayit["sira"] = SIRA.SIRA_ADI
+        if SIRA.kalite_kapisi_acik():
+            kayit["kalite"] = True  # P-018: belge çıtası (özet, kabul/geri alma, kanıtlı todo, planla karşılaştıran özet)
+        if SIRA.gap_kapisi_acik():
+            kayit["gap"] = True  # P-017: gap analizi (mevcut durum §6) ve plan kapsama denetimi
+        if ONAY_KAPISI_ACIK():
+            kayit["onay"] = "bekliyor"  # P-016: kullanıcı onaylamadan uygulama yok
         if dogrulama is None:
             dogrulama = _dogrulama_varsayilan()
         if dogrulama:
@@ -661,6 +672,8 @@ def todo_bitir(klasor: str, secici: str, not_: str | None = None) -> str:
     yol = _todo_yol(klasor)
     if not os.path.exists(yol):
         raise ValueError("todo.md yok")
+    if SIRA.kaliteli_mi(klasor) and len((not_ or "").strip()) < SIRA.KANIT_MIN:
+        raise ValueError("bitti işareti kanıt notu ister (P-018): --not \"kanıt: komut çıktısı ya da dosya:satır\"")
     with L.kilit(yol):
         satirlar = _todo_oku(yol).splitlines(keepends=True)
         acik = []  # (satır indeksi, madde metni)

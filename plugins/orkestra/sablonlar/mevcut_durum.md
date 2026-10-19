@@ -1,5 +1,9 @@
 # {baslik}: mevcut durum
 
+## Özet
+
+<!-- doldur (ilk bakışta okunur, 3-4 cümle): bu belge neyi gösteriyor, ana sonuç ne, karar ya da onay gereken tek konu ne. Belgeyi bitirince yaz. -->
+
 **Amaç:**
 
 <!-- doldur: bu dosyanın neden yazıldığı; hangi değişikliğin dokunacağı mevcut durumu gösterir. Bu dosya işin ilk dosyasıdır; plan.md ve todo.md buna dayanır. -->
@@ -35,3 +39,11 @@
 ## 5. Bilinmeyenler
 
 <!-- doldur: teyit gerekir ve karar gerekir maddeleri; eksik bilgi bu dosyaya eklenir, plan ya da todo'da yamanmaz -->
+
+## 6. Gap analizi
+
+<!-- doldur (gap'li işlerde zorunlu; plan bu bölümden beslenir):
+önce "Hedef durum:" etiketli tek cümle (kalın);
+sonra her gap ayrı satır, şu biçimde:
+- **G1:** hedef → mevcut (MD §n) → fark
+Gap yoksa bile en az bir satır yaz; "fark yok" gerekçesiyle belirt. -->

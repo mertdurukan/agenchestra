@@ -34,6 +34,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
+import is_sirasi as _SIRA  # noqa: E402
 
 DOGRULAMA_ADI = "plan-iddia"
 TAMAM, YOK, BEKLEYEN = "\u2705", "\u274c", "\u2b1c"  # ✅ ❌ ⬜
@@ -431,6 +432,12 @@ def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = 
             engelli[n] = sebep
         else:
             engelsiz.append(n)
+    gap = None
+    klasor = os.path.dirname(os.path.abspath(plan_yolu))
+    if _SIRA.gapli_mi(klasor):  # P-017 ikinci geçiş: MD §6 gap'leri plan maddeleriyle kapsanıyor mu
+        gap_eksik = _SIRA.gap_kapsama_eksikleri(klasor)
+        eksik += [f"gap kapsaması: {e}" for e in gap_eksik]
+        gap = {"toplam": len(_SIRA.mevcut_durum_gapleri(klasor)), "eksik": len(gap_eksik)}
     bagli = {no for d in maddeler.values() for no in d["iddia"] + d["kapatir"]}
     yetim = [c for c in iddialar if c["hesap"] == YOK and c["no"] not in {no for d in maddeler.values() for no in d["iddia"]}]
     if eksik:
@@ -443,6 +450,7 @@ def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = 
         karar = KARAR_KOSULLU
     return {"plan": os.path.abspath(plan_yolu), "ozet": ozet(metin), "karar": karar, "eksik": eksik, "bayat": bayat, "iddialar": iddialar,
             "engelli": engelli, "engelsiz": engelsiz, "yetim": [c["no"] for c in yetim], "bagli": sorted(bagli),
+            "gap": gap,
             "tahmin_sayisi": len(re.findall(r"^\s*[-*]\s+\*\*T\d+\*\*", "\n".join(temiz_satirlar(blok_ayikla(metin))), re.M))}
 
 
@@ -482,6 +490,9 @@ def karar_blogu(sonuc: dict, ozet_degeri: str) -> str:
     s = [BLOK_BASLA, "## Uygulanabilirlik kararı", "", f"**Karar:** {sonuc['karar']}", "", f"**Gerekçe:** {gerekce}", "",
          f"**Ölçüm saati:** {_zaman()} (yerel)", "", f"**Plan özeti:** {ozet_degeri}", "",
          f"**İddialar:** {len(iddialar)} (✅ {t}, ❌ {y}); tahmin: {sonuc['tahmin_sayisi']}", ""]
+    if sonuc.get("gap"):
+        g = sonuc["gap"]
+        s += [f"**Gap kapsaması:** {'tam' if not g['eksik'] else str(g['eksik']) + ' eksik'} (MD §6: {g['toplam']} gap)", ""]
     if sonuc["eksik"]:
         s += ["**Yapısal eksikler:**", ""] + [f"- {e}" for e in sonuc["eksik"][:12]] + [""]
     s += ["**Engelsiz plan maddeleri:**", ""] + ([f"- Madde P{n}" for n in sonuc["engelsiz"]] or ["- (yok)"]) + [""]

@@ -444,16 +444,21 @@
     {
       "id": "P-012",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Kullanıcı 'yap' demeden iş başlatılmaz; engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır.",
+      "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır.",
       "neden": "Kullanıcı 13-15.10.2026: yan bulgular ve öneriler asıl görevi gölgeledi; bir ölçüm kartı 26 dk ve ~170 bin token harcadı, oysa kolon varlığı kontrolü yeterliydi. Kural yalnız bir projenin CLAUDE.md dosyasındaydı; eklentiyi kullanan her projede geçerli olmalı.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-18T10:36:24+03:00",
-      "guncelleme": "2026-10-18T10:36:24+03:00",
+      "guncelleme": "2026-10-18T17:35:00+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-18T10:36:24+03:00",
           "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Kullanıcı 'yap' demeden iş başlatılmaz; engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır."
+        },
+        {
+          "zaman": "2026-10-18T17:35:00+03:00",
+          "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Kullanıcı 'yap' demeden iş başlatılmaz; engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır."
         }
       ],
@@ -522,6 +527,60 @@
         }
       ],
       "etkinlesme": "2026-10-18T14:53:40+03:00"
+    },
+    {
+      "id": "P-016",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Bir işe başlanınca (orkestra is ac ya da is devam) kullanıcıdan açık onay gelmeden uygulamaya geçilmez: kod/dosya değişikliği, commit ve bağımlılık ekleme yapılmaz. Önce sırayla (1) mevcut durum, (2) plan, (3) todo hazırlanır ve ilk mesajlarda bu sırayla bağlantılarıyla kullanıcıya gösterilir (K-003 satırları, P-005 sırası); kullanıcı onaylayınca iş başlar. (4) Çalışma özeti işin kapanışında, bağlantı satırlarının en sonunda verilir. Kullanıcı 'yap', 'onaylıyorum' gibi bir onay vermeden iş başlatılmaz; engel varsa durum ve engel söylenir. Zorlama: is.json 'onay' alanı (yeni sıralı iş bekliyor doğar; is devam alansız işte todo'da biten madde yoksa bekliyor koyar); PreToolUse hook'u bekliyor iken işin belgeleri ve adr/ dışına yazmayı, git commit/add/merge/rebase/reset ve bağımlılık kurma komutlarını ana ve alt ajanda reddeder; durumu yalnız kullanıcının onay mesajı (UserPromptSubmit) ya da kullanıcı terminalinden 'orkestra is onayla' değiştirir ve ön koşulu üç belgenin tamam olmasıdır. ORKESTRA_ONAY_KAPISI=0 kapatır. Bu kural P-012 madde 1'in yerini alır.",
+      "neden": "Kullanıcı 18.10.2026: bir işte ana ajan mevcut durum, plan ve todo'yu göstermeden requirements.txt'e bağımlılık ekleyip commit etti; onay gelmeden işe başlanmamalı, gösterim sırası mevcut durum, plan, todo ve çalışma özeti en sonda olmalı. Kök neden (K-006): P-012 madde 1 yalnız metindi, araç çağrısı düzeyinde zorlanmıyordu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-18T17:34:59+03:00",
+      "guncelleme": "2026-10-18T17:34:59+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-18T17:34:59+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Bir işe başlanınca (orkestra is ac ya da is devam) kullanıcıdan açık onay gelmeden uygulamaya geçilmez: kod/dosya değişikliği, commit ve bağımlılık ekleme yapılmaz. Önce sırayla (1) mevcut durum, (2) plan, (3) todo hazırlanır ve ilk mesajlarda bu sırayla bağlantılarıyla kullanıcıya gösterilir (K-003 satırları, P-005 sırası); kullanıcı onaylayınca iş başlar. (4) Çalışma özeti işin kapanışında, bağlantı satırlarının en sonunda verilir. Kullanıcı 'yap', 'onaylıyorum' gibi bir onay vermeden iş başlatılmaz; engel varsa durum ve engel söylenir. Zorlama: is.json 'onay' alanı (yeni sıralı iş bekliyor doğar; is devam alansız işte todo'da biten madde yoksa bekliyor koyar); PreToolUse hook'u bekliyor iken işin belgeleri ve adr/ dışına yazmayı, git commit/add/merge/rebase/reset ve bağımlılık kurma komutlarını ana ve alt ajanda reddeder; durumu yalnız kullanıcının onay mesajı (UserPromptSubmit) ya da kullanıcı terminalinden 'orkestra is onayla' değiştirir ve ön koşulu üç belgenin tamam olmasıdır. ORKESTRA_ONAY_KAPISI=0 kapatır. Bu kural P-012 madde 1'in yerini alır."
+        }
+      ],
+      "etkinlesme": "2026-10-18T17:34:59+03:00"
+    },
+    {
+      "id": "P-017",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Orkestra'da gap analizi (hedef durum ile mevcut durum arasındaki fark) iki geçişlidir ve plan bunsuz tamam sayılmaz. (1) Plandan önce: mevcut durum belgesinin '## 6. Gap analizi' bölümünde hedef durum ve her gap bir satırla yazılır ('- **G1:** hedef → mevcut → fark'); gap satırı olmayan mevcut durum tamam sayılmaz, plan.md yazılamaz. (2) Plandan sonra: her gap bir plan maddesinin '**Gap:** G<n>' alanında anılır ya da plandaki '## Gap kapsama' bölümünde 'Kapsam dışı: <gerekçe>' ile gerekçelendirilir, her plan maddesi mevcut durumda var olan bir gap'i gösterir; sonuç plan doğrulama karar bloğuna 'Gap kapsaması' satırı olarak yazılır. Zorlama: is.json 'gap' alanı (yeni sıralı iş gap:true doğar; bayraksız işler muaf); is_sirasi.mevcut_durum_eksikleri birinci geçişi, plan_eksikleri ve plan_dogrulama ikinci geçişi denetler; ORKESTRA_GAP_KAPISI=0 kapatır.",
+      "neden": "Kullanıcı 19.10.2026: plan oluşturulurken gap analizi zorunlu olmalı, plandan önce yapılıp plandan sonra bir kez daha doğrulanmalı. Kök neden (K-006): plan hedef-mevcut farkını yazmadan tamam sayılıyordu; kapsanmayan gap ya da gap'siz madde görünmüyordu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-19T08:38:41+03:00",
+      "guncelleme": "2026-10-19T08:38:41+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-19T08:38:41+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Orkestra'da gap analizi (hedef durum ile mevcut durum arasındaki fark) iki geçişlidir ve plan bunsuz tamam sayılmaz. (1) Plandan önce: mevcut durum belgesinin '## 6. Gap analizi' bölümünde hedef durum ve her gap bir satırla yazılır ('- **G1:** hedef → mevcut → fark'); gap satırı olmayan mevcut durum tamam sayılmaz, plan.md yazılamaz. (2) Plandan sonra: her gap bir plan maddesinin '**Gap:** G<n>' alanında anılır ya da plandaki '## Gap kapsama' bölümünde 'Kapsam dışı: <gerekçe>' ile gerekçelendirilir, her plan maddesi mevcut durumda var olan bir gap'i gösterir; sonuç plan doğrulama karar bloğuna 'Gap kapsaması' satırı olarak yazılır. Zorlama: is.json 'gap' alanı (yeni sıralı iş gap:true doğar; bayraksız işler muaf); is_sirasi.mevcut_durum_eksikleri birinci geçişi, plan_eksikleri ve plan_dogrulama ikinci geçişi denetler; ORKESTRA_GAP_KAPISI=0 kapatır."
+        }
+      ],
+      "etkinlesme": "2026-10-19T08:38:41+03:00"
+    },
+    {
+      "id": "P-018",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Mevcut durum, plan, todo ve çalışma özeti belgeleri ortak bir kalite çıtasına uyar (best in class). (1) Mevcut durum, plan ve çalışma özeti en üstte '## Özet' bölümü taşır (3-4 cümle: sonuç ve karar bekleyen tek konu). (2) Plan maddesi '**Kabul:**' (ölçülebilir ölçüt) ve '**Geri alma:**' alanlarını taşır, gerekiyorsa '**Önce:**'. (3) Todo maddesi bitirilirken kanıt notu yazılır ('orkestra is todo <iş> --bitti <n> --not \"kanıt: komut çıktısı ya da dosya:satır\"'); kanıtsız [x] satırı reddedilir. (4) Çalışma özeti '## Plana göre gerçekleşen' bölümünde plandaki her P ve mevcut durum §6'daki her G için durum ve kanıt verir; anılmayan P ya da G varsa is kapat reddeder. Zorlama: is.json 'kalite' alanı (yeni sıralı iş kalite:true doğar; bayraksız işler muaf); is_sirasi.mevcut_durum_eksikleri, plan_eksikleri, todo_satir_ihlalleri, is_kaydi.todo_bitir ve isler._ozet_eksigi denetler; ORKESTRA_KALITE_KAPISI=0 kapatır.",
+      "neden": "Kullanıcı 19.10.2026: plan, todo, mevcut durum ve çalışma özeti belgeleri best in class yaklaşımla oluşturulmalı. Kök neden (K-006): çalışma özeti kapısı yalnız Ana bulgu dolu mu bakıyordu; kabul ölçütü, geri alma, kanıtlı kapanış ve planla karşılaştırma zorunlu değildi.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-19T08:56:03+03:00",
+      "guncelleme": "2026-10-19T08:56:03+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-19T08:56:03+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Mevcut durum, plan, todo ve çalışma özeti belgeleri ortak bir kalite çıtasına uyar (best in class). (1) Mevcut durum, plan ve çalışma özeti en üstte '## Özet' bölümü taşır (3-4 cümle: sonuç ve karar bekleyen tek konu). (2) Plan maddesi '**Kabul:**' (ölçülebilir ölçüt) ve '**Geri alma:**' alanlarını taşır, gerekiyorsa '**Önce:**'. (3) Todo maddesi bitirilirken kanıt notu yazılır ('orkestra is todo <iş> --bitti <n> --not \"kanıt: komut çıktısı ya da dosya:satır\"'); kanıtsız [x] satırı reddedilir. (4) Çalışma özeti '## Plana göre gerçekleşen' bölümünde plandaki her P ve mevcut durum §6'daki her G için durum ve kanıt verir; anılmayan P ya da G varsa is kapat reddeder. Zorlama: is.json 'kalite' alanı (yeni sıralı iş kalite:true doğar; bayraksız işler muaf); is_sirasi.mevcut_durum_eksikleri, plan_eksikleri, todo_satir_ihlalleri, is_kaydi.todo_bitir ve isler._ozet_eksigi denetler; ORKESTRA_KALITE_KAPISI=0 kapatır."
+        }
+      ],
+      "etkinlesme": "2026-10-19T08:56:03+03:00"
     }
   ]
 }

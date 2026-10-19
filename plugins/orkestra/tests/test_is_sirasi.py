@@ -45,12 +45,19 @@ Mevcut durumu göstermek.
 ## 5. Bilinmeyenler
 
 - Teyit gerekir: b.py.
+
+## 6. Gap analizi
+
+**Hedef durum:** Deneme hedefi.
+
+- **G1:** hedef → mevcut (MD §1) → fark.
+- **G2:** hedef → mevcut (MD §2) → fark.
 """
 
 
 def plan_metni(md_ad=MD_AD, dayanak="MD §3", ekstra=""):
     return (f"# Deneme: plan\n\n**Sıra:**\n\n[{md_ad}]({md_ad}) → bu plan → todo.md.\n\n## 4. Plan maddeleri\n\n"
-            f"### P1 İlk madde\n\n**Dayanak:**\n\n{dayanak}\n\n### P2 İkinci madde\n\n**Dayanak:**\n\nMD §1\n{ekstra}\n"
+            f"### P1 İlk madde\n\n**Dayanak:**\n\n{dayanak}\n\n**Gap:** G1\n\n### P2 İkinci madde\n\n**Dayanak:**\n\nMD §1\n\n**Gap:** G2\n{ekstra}\n"
             "## 5. Riskler\n\nYok.\n")
 
 
@@ -59,7 +66,7 @@ class IsSirasi(unittest.TestCase):
     tearDown = TC.Cekirdek.tearDown
 
     def cli(self, *args, kapi="1"):
-        return TC.kos([TC.CLI, *args], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi})
+        return TC.kos([TC.CLI, *args], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi, "ORKESTRA_KALITE_KAPISI": "0"})
 
     def hook_pre(self, dosya, icerik=None, arac="Write", yeni=None, kapi="1", eski="x"):
         girdi = {"file_path": dosya}
@@ -70,7 +77,7 @@ class IsSirasi(unittest.TestCase):
             girdi["new_string"] = yeni or ""
         g = {"session_id": TC.OTURUM, "cwd": self.proje, "transcript_path": self.ana_tr, "hook_event_name": "PreToolUse",
              "tool_name": arac, "tool_input": girdi}
-        r = TC.kos([TC.HOOK, "PreToolUse"], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi}, stdin=json.dumps(g))
+        r = TC.kos([TC.HOOK, "PreToolUse"], self.proje, ortam={"ORKESTRA_SIRA_KAPISI": kapi, "ORKESTRA_KALITE_KAPISI": "0"}, stdin=json.dumps(g))
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout) if r.stdout.strip() else {}
 
@@ -321,6 +328,216 @@ class IsSirasi(unittest.TestCase):
     def test_yonlendirme_yeni_isin_sirali_oldugunu_soyler(self):
         import is_yonlendirme as Y
         self.assertIn("P-005", Y.yonlendir([], None))
+
+
+class GapAnalizi(unittest.TestCase):
+    """P-017: gap analizi iki geçiş (MD §6 → plan kapsama). Doğrudan is_sirasi, geçici klasörde."""
+
+    def setUp(self):
+        import tempfile
+        self.k = tempfile.mkdtemp()
+        self.md = os.path.join(self.k, MD_AD)
+        self.yaz_is(gap=True)
+        with open(self.md, "w", encoding="utf-8", newline="\n") as f:
+            f.write(MD_TAMAM)
+        self._eski = {a: os.environ.pop(a, None) for a in ("ORKESTRA_GAP_KAPISI", "ORKESTRA_SIRA_KAPISI")}
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.k, ignore_errors=True)
+        for ad, v in self._eski.items():
+            os.environ.pop(ad, None)
+            if v is not None:
+                os.environ[ad] = v
+
+    def yaz_is(self, gap=True):
+        veri = {"sira": S.SIRA_ADI}
+        if gap:
+            veri["gap"] = True
+        with open(os.path.join(self.k, "is.json"), "w", encoding="utf-8") as f:
+            json.dump(veri, f)
+
+    def yaz_md(self, metin):
+        with open(self.md, "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin)
+
+    def plan(self, metin):
+        with open(os.path.join(self.k, "plan.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin)
+
+    def test_tam_plan_gecer(self):
+        self.plan(plan_metni())
+        self.assertEqual(S.mevcut_durum_eksikleri(self.k), [])
+        self.assertEqual(S.plan_eksikleri(self.k), [])
+
+    def test_birinci_gecis_gapsiz_mevcut_durum_eksik(self):
+        self.yaz_md(MD_TAMAM.split("## 6. Gap analizi")[0])
+        e = S.mevcut_durum_eksikleri(self.k)
+        self.assertTrue(any("Gap analizi" in x for x in e), e)
+
+    def test_birinci_gecis_bos_gap_bolumu_eksik(self):
+        self.yaz_md(MD_TAMAM.split("## 6. Gap analizi")[0] + "## 6. Gap analizi\n\n<!-- doldur -->\n")
+        self.assertTrue(any("G1" in x for x in S.mevcut_durum_eksikleri(self.k)))
+
+    def test_ikinci_gecis_kapatilmayan_gap(self):
+        self.plan(plan_metni().replace("**Gap:** G2", "**Gap:** G1"))
+        e = S.plan_eksikleri(self.k)
+        self.assertTrue(any(x.startswith("G2:") for x in e), e)
+
+    def test_ikinci_gecis_kapsam_disi_gerekceli_gecer(self):
+        self.plan(plan_metni(ekstra="\n## Gap kapsama\n\n- **G2** Kapsam dışı: bu işte yapılmayacak, ayrı iş.\n")
+                  .replace("**Gap:** G2", "**Gap:** G1"))
+        self.assertEqual(S.plan_eksikleri(self.k), [])
+
+    def test_ikinci_gecis_kapsam_disi_gerekcesiz_eksik(self):
+        self.plan(plan_metni(ekstra="\n## Gap kapsama\n\n- **G2** Kapsam dışı: -\n").replace("**Gap:** G2", "**Gap:** G1"))
+        self.assertTrue(any(x.startswith("G2:") for x in S.plan_eksikleri(self.k)))
+
+    def test_ikinci_gecis_hayalet_gap(self):
+        self.plan(plan_metni().replace("**Gap:** G2", "**Gap:** G9"))
+        e = S.plan_eksikleri(self.k)
+        self.assertTrue(any("G9" in x and "yok" in x for x in e), e)
+
+    def test_ikinci_gecis_gapsiz_madde(self):
+        self.plan(plan_metni().replace("**Gap:** G2", ""))
+        e = S.plan_eksikleri(self.k)
+        self.assertTrue(any(x.startswith("P2:") and "Gap" in x for x in e), e)
+
+    def test_bayraksiz_is_muaf(self):
+        self.yaz_is(gap=False)
+        self.yaz_md(MD_TAMAM.split("## 6. Gap analizi")[0])
+        self.plan(plan_metni().replace("**Gap:** G1", "").replace("**Gap:** G2", ""))
+        self.assertFalse(S.gapli_mi(self.k))
+        self.assertEqual(S.mevcut_durum_eksikleri(self.k), [])
+        self.assertEqual(S.plan_eksikleri(self.k), [])
+
+    def test_kapi_env_ile_kapanir(self):
+        os.environ["ORKESTRA_GAP_KAPISI"] = "0"
+        self.assertFalse(S.gapli_mi(self.k))
+        self.plan(plan_metni().replace("**Gap:** G2", ""))
+        self.assertEqual(S.plan_eksikleri(self.k), [])
+
+    def test_plan_dogrulama_karar_blogu_gap_kapsamasi_yazar(self):
+        import plan_dogrulama as PD
+        self.plan(plan_metni())
+        sonuc = PD.degerlendir(os.path.join(self.k, "plan.md"))
+        self.assertEqual(sonuc["gap"], {"toplam": 2, "eksik": 0})
+        self.assertIn("**Gap kapsaması:** tam", PD.karar_blogu(sonuc, "x"))
+        self.plan(plan_metni().replace("**Gap:** G2", "**Gap:** G1"))
+        sonuc = PD.degerlendir(os.path.join(self.k, "plan.md"))
+        self.assertEqual(sonuc["gap"]["eksik"], 1)
+        self.assertTrue(any(e.startswith("gap kapsaması:") for e in sonuc["eksik"]))
+
+    def test_is_ac_gap_bayragini_koyar(self):
+        import is_kaydi as K
+        with open(K.__file__, encoding="utf-8") as f:
+            self.assertIn('kayit["gap"] = True', f.read())
+
+
+class KaliteCitasi(unittest.TestCase):
+    """P-018: belge çıtası (Özet, Kabul/Geri alma, kanıtlı todo, planla karşılaştıran çalışma özeti)."""
+
+    def setUp(self):
+        import tempfile
+        self.k = tempfile.mkdtemp()
+        self.md = os.path.join(self.k, MD_AD)
+        self._eski = {a: os.environ.pop(a, None) for a in ("ORKESTRA_KALITE_KAPISI", "ORKESTRA_GAP_KAPISI", "ORKESTRA_SIRA_KAPISI")}
+        with open(os.path.join(self.k, "is.json"), "w", encoding="utf-8") as f:
+            json.dump({"sira": S.SIRA_ADI, "kalite": True, "gap": True}, f)
+        self.yaz(self.md, self.md_metni())
+        self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.k, ignore_errors=True)
+        for ad, v in self._eski.items():
+            os.environ.pop(ad, None)
+            if v is not None:
+                os.environ[ad] = v
+
+    @staticmethod
+    def yaz(yol, metin):
+        with open(yol, "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin)
+
+    @staticmethod
+    def md_metni(ozet="Özet cümlesi burada."):
+        return MD_TAMAM.replace("# Deneme: mevcut durum\n", f"# Deneme: mevcut durum\n\n## Özet\n\n{ozet}\n", 1)
+
+    @staticmethod
+    def plan_metni(ozet="Plan özeti burada.", kabul="**Kabul:** testler geçer\n\n**Geri alma:** git checkout\n"):
+        p = plan_metni().replace("# Deneme: plan\n", f"# Deneme: plan\n\n## Özet\n\n{ozet}\n", 1)
+        return p.replace("**Gap:** G1\n", f"**Gap:** G1\n\n{kabul}", 1).replace("**Gap:** G2\n", f"**Gap:** G2\n\n{kabul}", 1)
+
+    def test_tam_set_gecer(self):
+        self.assertEqual(S.mevcut_durum_eksikleri(self.k), [])
+        self.assertEqual(S.plan_eksikleri(self.k), [])
+
+    def test_mevcut_durumda_ozet_yok_ya_da_bos(self):
+        self.yaz(self.md, MD_TAMAM)
+        self.assertTrue(any("Özet" in e for e in S.mevcut_durum_eksikleri(self.k)))
+        self.yaz(self.md, self.md_metni("<!-- doldur -->"))
+        self.assertTrue(any("boş" in e for e in S.mevcut_durum_eksikleri(self.k)))
+
+    def test_planda_ozet_kabul_geri_alma_zorunlu(self):
+        self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(ozet="<!-- doldur -->"))
+        self.assertTrue(any("plan: `## Özet`" in e for e in S.plan_eksikleri(self.k)))
+        self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(kabul=""))
+        e = S.plan_eksikleri(self.k)
+        self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
+        self.assertTrue(any(x.startswith("P2:") and "Geri alma" in x for x in e), e)
+
+    def test_todo_bitti_satiri_kanit_ister(self):
+        planli = {1, 2}
+        self.assertTrue(S.todo_satir_ihlalleri("- [x] P1: iş\n", planli, kanit=True))
+        self.assertEqual(S.todo_satir_ihlalleri("- [x] P1: iş — 2026-10-19: kanıt: 98 test geçti\n", planli, kanit=True), [])
+        self.assertEqual(S.todo_satir_ihlalleri("- [ ] P1: iş\n", planli, kanit=True), [])
+        self.assertEqual(S.todo_satir_ihlalleri("- [x] P1: iş\n", planli, kanit=False), [])
+
+    def test_todo_bitir_notsuz_reddedilir(self):
+        import is_kaydi as K
+        self.yaz(os.path.join(self.k, "todo.md"), "# Yapılacaklar\n\n- [ ] P1: iş\n")
+        with self.assertRaises(ValueError):
+            K.todo_bitir(self.k, "1")
+        K.todo_bitir(self.k, "1", "kanıt: testler geçti")
+        with open(os.path.join(self.k, "todo.md"), encoding="utf-8") as f:
+            self.assertIn("[x] P1: iş — ", f.read())
+
+    def test_calisma_ozeti_planla_karsilastirir(self):
+        import importlib
+        I = importlib.import_module("komutlar.isler")
+        govde = ("# T: çalışma özeti\n\n## Özet\n\nBitti.\n\n**Ana bulgu:**\n\nBulgu var.\n\n"
+                 "## Plana göre gerçekleşen\n\n- P1: yapıldı. Kanıt: x.\n- P2: yapıldı. Kanıt: y.\n- G1: kapandı.\n- G2: kapandı.\n")
+        yol = os.path.join(self.k, "calisma_ozeti_20261019.md")
+        self.yaz(yol, govde)
+        self.assertIsNone(I._ozet_eksigi(self.k))
+        self.yaz(yol, govde.replace("- G2: kapandı.\n", ""))
+        self.assertIn("G2", I._ozet_eksigi(self.k))
+        self.yaz(yol, govde.replace("- P2: yapıldı. Kanıt: y.\n", ""))
+        self.assertIn("P2", I._ozet_eksigi(self.k))
+        self.yaz(yol, govde.replace("## Özet\n\nBitti.\n\n", ""))
+        self.assertIn("Özet", I._ozet_eksigi(self.k))
+
+    def test_bayraksiz_is_ve_env_muaf(self):
+        self.yaz(self.md, MD_TAMAM)
+        os.environ["ORKESTRA_KALITE_KAPISI"] = "0"
+        self.assertFalse(S.kaliteli_mi(self.k))
+        self.assertFalse(any("Özet" in e for e in S.mevcut_durum_eksikleri(self.k)))
+        del os.environ["ORKESTRA_KALITE_KAPISI"]
+        with open(os.path.join(self.k, "is.json"), "w", encoding="utf-8") as f:
+            json.dump({"sira": S.SIRA_ADI}, f)
+        self.assertFalse(S.kaliteli_mi(self.k))
+        self.assertEqual(S.mevcut_durum_eksikleri(self.k), [])
+
+    def test_is_ac_kalite_bayragini_koyar(self):
+        import is_kaydi as K
+        with open(K.__file__, encoding="utf-8") as f:
+            self.assertIn('kayit["kalite"] = True', f.read())
+
+    def test_todo_sablonu_bagli_ve_k005_duzeninde(self):
+        import is_kaydi as K
+        metin = K.sablon_metni(K.BELGE_TURLERI["todo"][0], "T")
+        self.assertTrue(metin.startswith("# T: yapılacaklar"))
 
 
 if __name__ == "__main__":

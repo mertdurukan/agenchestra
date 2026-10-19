@@ -379,7 +379,7 @@ def _sira_kapisi(arac: str, girdi: dict, tam: str) -> None:
             if eksik:
                 neden = SR.mesaj(eksik, "todo.md")
             else:
-                ihlal = SR.todo_satir_ihlalleri(_todo_yeni_metin(arac, girdi, tam), SR.plan_maddeleri(klasor))
+                ihlal = SR.todo_satir_ihlalleri(_todo_yeni_metin(arac, girdi, tam), SR.plan_maddeleri(klasor), SR.kaliteli_mi(klasor))
                 neden = "todo.md yazılamaz (P-005): " + "; ".join(ihlal[:3]) if ihlal else ""
             if not neden:  # plan doğrulama kapısı: plan ✅/❌ kapısı (CLI ile aynı işlevler; gölge modda boş döner)
                 import plan_dogrulama as PD
@@ -434,6 +434,37 @@ def _is_kapisi(sd: str, oid, proje: str, tam: str) -> None:
         neden = _bagsiz_secim_satiri(acik, puanlar, bas=(
             "bu oturum bir işe bağlı değil; bağsız oturumda dosya yazılmaz (plan.md/todo.md dahil). Önce bağlan: "
             "`orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`, sonra yazımı tekrarla."))
+    except Exception:
+        return
+    if neden:
+        reddet(neden)
+
+
+def _onay_kaydi(sd: str, oid):
+    """Oturumun bağlı işi `onay: bekliyor` ise iş kaydı, değilse None. Hatada None (fail-open)."""
+    try:
+        import is_onay
+        if not oid or not is_onay.kapi_acik():
+            return None
+        is_id = _bagli_is(sd, oid)
+        if not is_id:
+            return None
+        import is_kaydi
+        kayit = is_kaydi.is_al(sd, is_id)
+        return kayit if is_onay.bekliyor_mu(kayit) else None
+    except Exception:
+        return None
+
+
+def _onay_kapisi(sd: str, oid, proje: str, tam: str = "", tirnaksiz: str = "") -> None:
+    """P-016: iş onay beklerken (ana ve alt ajan) işin belgeleri dışında dosya yazılmaz; kabukta commit, bağımlılık
+    kurma ve onay komutu çalışmaz. Hatada serbest; ORKESTRA_ONAY_KAPISI=0 kapatır."""
+    kayit = _onay_kaydi(sd, oid)
+    if not kayit:
+        return
+    try:
+        import is_onay
+        neden = is_onay.yazma_engeli(kayit, proje, tam) if tam else is_onay.kabuk_engeli(tirnaksiz)
     except Exception:
         return
     if neden:
@@ -498,6 +529,7 @@ def pre_tool_use(inp: dict):
         oid = inp.get("session_id")
         if not aid:  # alt ajan çağrıları muaf; ana ajan bağsız oturumda yazamaz (plan.md/todo.md dahil)
             _is_kapisi(sd, oid, proje, tam)
+        _onay_kapisi(sd, oid, proje, tam=tam)
         trel = _rel(proje, tam)
         kb = kilitli_test_bul(sd, proje, tam)  # kilitli test: ana ajan dahil herkese kapalı (kart ağaçları dahil)
         if kb:
@@ -568,6 +600,7 @@ def pre_tool_use(inp: dict):
         # İstisna: tırnaklanmış program yolu "…/orkestra.py" korunur (tırnakları atılır).
         yol_acik = re.sub(r'["\']([^"\']*orkestra(?:\.py|\.cmd))["\']', lambda m: m.group(1).replace(" ", "_"), komut)
         tirnaksiz = re.sub(r'"(?:\\.|[^"\\])*"|\'[^\']*\'', '""', yol_acik)
+        _onay_kapisi(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), tirnaksiz=tirnaksiz)
         if ORK_KOMUT.search(tirnaksiz):
             yazan = bool(YAZAN_ALT_KOMUT.search(tirnaksiz))
             if COKLU_KOMUT.search(tirnaksiz):
@@ -1879,6 +1912,17 @@ def user_prompt_submit(inp: dict):
                 sn = soru_sinif.not_metni(metin, sd)
                 if sn:
                     parcalar.insert(0, " ".join(sn.split()))
+            except Exception:
+                pass
+            try:  # P-016: onay bekleyen işte kullanıcı mesajı onaysa durum yazılır; hata hook'u düşürmez
+                import is_onay
+                kayit = _onay_kaydi(sd, inp.get("session_id"))
+                if kayit:
+                    satir, yeni = is_onay.baglam_satiri(kayit, is_onay.onay_mesaji_mi(metin))
+                    if yeni:
+                        is_onay.yaz(sd, kayit["id"], yeni, "onay:kullanici")
+                    if satir:
+                        parcalar.append(satir)
             except Exception:
                 pass
             try:  # panel onay kararları: hata hook'u düşürmez

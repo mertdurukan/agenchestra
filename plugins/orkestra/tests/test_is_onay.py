@@ -124,7 +124,8 @@ class YazmaKapisi(_Onay):
 
     def test_is_belgeleri_serbest(self):
         for ad in ("plan.md", "todo.md", "mevcut_durum_20261018.md"):
-            self.assertFalse(self.pre("Write", os.path.join(self.klasor, ad))[0], ad)
+            deny, neden = self.pre("Write", os.path.join(self.klasor, ad))
+            self.assertNotIn("P-016", neden, ad)  # plan/todo sırası (P-005) ayrı kapıdır
 
     def test_adr_serbest(self):
         self.assertFalse(self.pre("Write", os.path.join(self.proje, "adr", "ADR-0001-x.md"))[0])
@@ -160,11 +161,14 @@ class YazmaKapisi(_Onay):
 
 class KabukKapisi(_Onay):
     def test_yasaklar(self):
-        for komut in ("git commit -m x", "git add -A", "git push origin main", "git -c safe.directory=* commit -m x",
+        for komut in ("git commit -m x", "git add -A", "git -c safe.directory=* commit -m x",
                       "pip install requests", "pip install -r requirements.txt", "npm install lodash",
                       "python -m pip install x", "uv add httpx", "orkestra is onayla I-001",
                       "echo {} > isler/001-fatura/is.json"):
             self.assertTrue(self.pre("Bash", komut=komut)[0], komut)
+
+    def test_push_regex(self):
+        self.assertTrue(is_onay.kabuk_engeli("git push origin main"))
 
     def test_serbest(self):
         for komut in ("git status", "git diff", "git log --oneline", "ls -la", "echo 'git commit yapma'",
