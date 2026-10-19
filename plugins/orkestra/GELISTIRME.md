@@ -151,3 +151,7 @@ Eşik 8 ajan; 14 günde 32 kez çıktı. Kök neden: kartlar tek soruya bölünm
 - Karar: orkestra host sohbetinde çalışır (API yok); kural kapıları host hook'undan orkestra CLI'sine taşınır. Cursor CLI 2026.10.14; `.cursor/hooks.json` git kökünden okunur (iç klasördekiler yok sayılır), BOM'lu yazılırsa hook'lar sessizce yüklenmez. Aşama 0 CLI ve TUI'de ölçüldü, IDE sürülemedi (açık risk). Taşınabilirlik yaklaşık %83.
 - Belge kalitesi: Ö1+Ö2 uygulandı (şablonlar, `orkestra is belge`, `is baglanti`); Ö3/Ö4 gölge modda (`gunluk.jsonl`'a `kural_ihlal` düşer). Bekleyen karar: ihlal moduna geçiş.
 - K-006 kök neden ilkesi eklenti kuralıdır (`kurallar/eklenti_kurallari.json`).
+
+## Standartlar
+
+PR, commit, dal, review ve Jira yorumu gibi yapı standartları kural değil dosyadır (ADR-0006): eklentide `standartlar/*.md` varsayılan kalıplar, projede `.claude/orkestra/standartlar/<ad>.md` varsa o önceliklidir. `orkestra standart liste|goster|yol|ekle` okur ve yazar, `orkestra:standart` skill'i PR/commit/Jira yazarken ve incelerken ilgili dosyayı okutur. Kod: `scripts/standart.py`, `scripts/komutlar/standart.py`; test: `tests/test_standart.py`. Hook denetimi bu sürümde yoktur.
