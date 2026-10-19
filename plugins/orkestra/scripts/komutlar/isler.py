@@ -464,8 +464,9 @@ def _ozet_tetikle(kayit):
         if _ozet_eksigi(kayit["klasor"]) is None:
             return
         _ik().belge_olustur(kayit["klasor"], kayit.get("baslik") or "", "ozet")
-        print(f"{kayit['id']} tüm todo maddeleri bitti: çalışma özetini doldur (`orkestra is belge {kayit['id']} ozet`), "
-              f"sonra `orkestra is kapat {kayit['id']}`.")
+        i = kayit["id"]
+        print(f"{i} ZORUNLU (P-009): tüm todo maddeleri bitti; bu turu bitirmeden önce (1) `orkestra is belge {i} ozet` ile çalışma "
+              f"özetini doldur, (2) `orkestra is kapat {i}`. İş sürecekse `orkestra is todo {i} --ekle` ile yeni madde yaz.")
     except Exception:
         return
 

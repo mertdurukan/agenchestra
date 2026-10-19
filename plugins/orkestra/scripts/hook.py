@@ -1013,6 +1013,35 @@ def _baglanti_kapisi(sd: str, oid, inp: dict, ozet: dict) -> None:
         return
 
 
+def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
+    """P-009 tetik anı: bağlı işin tüm todo maddeleri bitti ama iş hâlâ açıksa tur bitmeden özet ve kapatma istenir.
+    Tur başına bir kez block (`stop_hook_active` döngüyü keser); ORKESTRA_KAPANIS_KAPISI=0 kapatır. Hatada sessiz geçer."""
+    if os.environ.get("ORKESTRA_KAPANIS_KAPISI") == "0" or inp.get("stop_hook_active"):
+        return
+    try:
+        import is_kaydi
+        from komutlar import isler
+        is_id = _oturum_isi(sd, oid)
+        if not is_id:
+            return
+        g = next((x for x in is_kaydi.is_liste(sd) if x.get("id") == is_id), None)
+        if not g or g.get("durum") != "acik" or not g.get("klasor"):
+            return
+        t = is_kaydi.todo_ozet(g["klasor"])
+        if not t["toplam"] or t["acik_maddeler"]:
+            return
+        adim = (f"`orkestra is belge {is_id} ozet` ile çalışma özetini doldur, sonra " if isler._ozet_eksigi(g["klasor"]) else "")
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                         "kural": "kapanis_atlandi", "is": is_id})
+        L.hook_cikti({"decision": "block", "reason":
+                      f"Orkestra (P-009): {is_id} todo {t['biten']}/{t['toplam']} bitti ama iş açık. Turu bitirmeden önce: "
+                      f"{adim}`orkestra is kapat {is_id}`. İş sürecekse `orkestra is todo {is_id} --ekle \"madde\"` ile yeni madde yaz."})
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def arka_plan_satiri(sd: str, gorevler) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
     Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
@@ -1149,6 +1178,7 @@ def stop(inp: dict):
             pass
     if not perspektif:
         _baglanti_kapisi(sd, oid, inp, ozet)
+        _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif:
         gec()
