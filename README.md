@@ -1,5 +1,7 @@
 # Claude-Orchestration
 
+**Yeni kullanıcı mısın?** Önce [plugins/orkestra/readme-for-human.md](plugins/orkestra/readme-for-human.md) dosyasını oku.
+
 Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claude Code içinde çalışır: plugin, subagent, skill, hook, workflow, mod ve otomatik hafıza.
 
 - **Maliyet merdiveni:** Her iş, izin verilen en ucuz basamakta başlar. Basamaklar: betik → Haiku 5.5 → Sonnet 5.5 → Opus 5.5 medium → Opus 5.5 xhigh. Fable kullanılmaz: denetçi hiçbir basamakta işçinin altında kalmasın diye en üst basamak da Opus 5.5'tir.
