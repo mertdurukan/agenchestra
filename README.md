@@ -36,7 +36,7 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 .claude-plugin/marketplace.json     yerel klasör marketplace'i (claude-orchestration)
 plugins/orkestra/                   çekirdek plugin
   agents/      triyaj, isci-t1..t4, denetci, arastirmaci, hafiza-bakimcisi, skill-avcisi, arsivci
-  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, update, sade-excel, toplu-etiketle  →  /orkestra:<ad>
+  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, update, sade-excel, toplu-etiketle, auto  →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
   scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: sekiz sayfa, /analitik → /verim; sunulan dosyalar STATIK),
@@ -183,6 +183,7 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | `/orkestra:skill-avi` | Tekrar eden işlerden skill taslağı çıkarır |
 | `/orkestra:devir [konu]` | Sohbeti sıfır bağlamlı yeni sohbete kayıpsız devreden tek `.md` devir belgesi üretir |
 | `/orkestra:neredeyiz` | Konuşmanın durum özeti: hedef, adımlar, şu an, sıradaki adım |
+| `/orkestra:auto <iş>` | `/auto` modu: iş onay beklemeden çalışma özetine kadar yürür (ADR-0009); `/plan` varsayılandır |
 | `/orkestra:sade-excel` | CSV/JSON tabloyu sade Excel teslimatına çevirir (Özet + en çok 2 veri sayfası; Python `openpyxl` gerekir) |
 | `/orkestra:toplu-etiketle` | Yüzlerce satırı kurallara göre paralel Haiku işçileriyle etiketler, birleştirme ve örneklem denetimi betikle |
 | `/orkestra:onay` | Panelde onaylanan kararları (perspektif önerileri, skill taslakları, ajan soruları) uygular |

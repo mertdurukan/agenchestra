@@ -43,6 +43,20 @@ class ModYazimi(_Onay):
         self.assertEqual(self.mod(), "auto")
         self.assertIsNone(is_onay.bekleyen_mod_al(self.sd, "yeni-oturum"))
 
+    def test_eklenti_onekli_auto_mod_mesaji(self):
+        self.assertEqual(is_onay.mod_mesaji("/orkestra:auto x"), "auto")
+
+    def test_eklenti_onekli_plan_mod_mesaji(self):
+        self.assertEqual(is_onay.mod_mesaji("/orkestra:plan x"), "plan")
+
+    def test_eklenti_onekli_auto_mod_yazar(self):
+        self.mesaj("/orkestra:auto bu işi bitir")
+        self.assertEqual(self.mod(), "auto")
+
+    def test_baska_eklenti_ya_da_benzer_komut_mod_degil(self):
+        self.assertIsNone(is_onay.mod_mesaji("/orkestra:otoparka x"))
+        self.assertIsNone(is_onay.mod_mesaji("/baska:auto x"))
+
 
 class OtomatikOnay(_Onay):
     def auto_yap(self):

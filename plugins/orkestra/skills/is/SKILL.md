@@ -17,6 +17,7 @@ Ayrıntı (kart alanları, plan yolu, workflow, kapılar, toplama) `${CLAUDE_PLU
 - Bağlı iş: `orkestra is aktif`; yoksa `orkestra is liste`. Açık işin devamıysa `orkestra is devam <id>`, değilse `orkestra is ac <başlık> --klasor <görev klasörü>`. Belirsizse tek soru sor.
 - Sıralı iş (P-005): mevcut durum dosyasını doldur (her iddia dosya:satır ya da komut çıktısı) → `orkestra is belge <id> plan` → `orkestra is todo <id> --ekle "P<n>: …"`. Önceki adım tamam değilse CLI reddeder; durum `orkestra is sira <id>`.
 - Onay (P-016): yeni sıralı iş `onay: bekliyor` doğar; mevcut durum → plan → todo hazırlanır, yanıtta bu sırayla bağlantılarıyla gösterilir ve kullanıcı onaylamadan kod/dosya yazılmaz, commit ve bağımlılık eklenmez (hook reddeder). Onayı kullanıcı mesajı verir; çalışma özeti kapanışta en sonda verilir.
+- Mod (ADR-0009, ADR-0021): mesaj `/auto` ya da `/orkestra:auto` ile başladıysa hook modu `auto` yazar ve belgeler tamamlanınca onayı kendisi verir; `/plan` (varsayılan) onay bekler. `onay` ve `mod` alanlarını sen yazmazsın. Ayrıntı: `/orkestra:auto`.
 - İşi değiştirecek tek bir soru dışında soru sorma; makul varsayımı planda yaz.
 
 ## 1. Planla

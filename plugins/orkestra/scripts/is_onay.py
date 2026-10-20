@@ -19,7 +19,7 @@ AZAMI_MESAJ = 200
 MOD_ALANI = "mod"  # ADR-0009: iş başına çalışma modu
 MOD_PLAN = "plan"
 MOD_AUTO = "auto"
-_MOD = re.compile(r"^\s*/(plan|auto)\b", re.I)
+_MOD = re.compile(r"^\s*/(?:orkestra:)?(plan|auto)\b", re.I)  # ADR-0021: eklenti önekli komut da mod yazar
 
 _ONAY = re.compile(
     r"^\W*(?:/onay|onay\w*|onal\w*|tamam\w*|olur|evet|yap|yapal[ıi]m|yapabilirsin|ba[sş]la\w*|uygun|uygula\w*|kabul\w*|devam(?:\s+et\w*)?|ok|okay)\b",
@@ -48,7 +48,7 @@ def mod_kapisi_acik() -> bool:
 
 
 def mod_mesaji(metin: str) -> str | None:
-    """Kullanıcı mesajı `/plan` ya da `/auto` ile başlıyorsa mod adı, yoksa None (ADR-0009)."""
+    """Mesaj `/plan`, `/auto` ya da `/orkestra:` önekli biçimiyle başlıyorsa mod adı, yoksa None (ADR-0009, ADR-0021)."""
     m = _MOD.match(metin or "")
     return m.group(1).lower() if m and mod_kapisi_acik() else None
 
