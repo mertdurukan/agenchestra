@@ -1,0 +1,26 @@
+{
+  "_aciklama": "ADR-0020: sohbete yapıştırılan sırların serbest metin kalıpları. Kod bu dosyayı okur; kalıp eklemek için kodu değiştirme.",
+  "uri": {
+    "desen": "(?P<sema>[A-Za-z][A-Za-z0-9+.-]*)://(?P<kullanici>[^\\s:/@]+):(?P<parola>[^\\s@/]+)@[^\\s/?#]+\\S*",
+    "anahtar_son": "CONNECTION_STRING",
+    "yer_tutucu": "(?i)^(<[^>]*>|\\*+|\\$\\{[^}]*\\}|\\{[^}]*\\}|%[A-Za-z_]+%|x{3,}|\\.{3,}|parola|password|pass|sifre|şifre|changeme|secret|your[-_ ]?\\w*)$"
+  },
+  "belirecler": [
+    {"servis": "openrouter", "anahtar_son": "TOKEN", "desen": "sk-or-[A-Za-z0-9_-]{20,}"},
+    {"servis": "anthropic", "anahtar_son": "TOKEN", "desen": "sk-ant-[A-Za-z0-9_-]{20,}"},
+    {"servis": "openai", "anahtar_son": "TOKEN", "desen": "sk-[A-Za-z0-9_-]{20,}"},
+    {"servis": "github", "anahtar_son": "TOKEN", "desen": "gh[pousr]_[A-Za-z0-9]{20,}"},
+    {"servis": "slack", "anahtar_son": "TOKEN", "desen": "xox[abprs]-[A-Za-z0-9-]{10,}"},
+    {"servis": "jwt", "anahtar_son": "TOKEN", "desen": "eyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}"},
+    {"servis": "bearer", "anahtar_son": "TOKEN", "desen": "(?i)(?:authorization[ \\t]*:[ \\t]*)?bearer[ \\t]+(?P<deger>[A-Za-z0-9._~+/=-]{20,})"}
+  ],
+  "parola_satiri": {
+    "desen": "(?im)^[ \\t]*(?:parola|şifre|sifre|password|passwd|pwd)[ \\t]*[:=][ \\t]*(?P<deger>[^\\s\"']{6,})[ \\t]*$",
+    "anahtar_son": "PASSWORD"
+  },
+  "etiket": {
+    "en_cok_sozcuk": 3,
+    "en_cok_sozcuk_uzunlugu": 24,
+    "sozcuk_deseni": "^[^\\W_]+(?:-[^\\W_]+)*$"
+  }
+}

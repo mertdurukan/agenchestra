@@ -689,6 +689,24 @@
         }
       ],
       "etkinlesme": "2026-10-20T21:24:36+03:00"
+    },
+    {
+      "id": "P-025",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcı sohbete parola, belirteç ya da bağlantı dizesi yapıştırırsa hook değeri kimlik klasörüne alır; ajan o değeri yanıtta, belgede, hafızada, komut satırında ya da alt ajan kartında yinelemez ve alıntılamaz. Ajan yalnız kayıt adını söyler (örn. 'cosmos_yusuf kaydına alındı') ve parolayı yenilemenin iyi olacağını bir kez hatırlatır, çünkü değer sohbet kaydında kalır. Hook'un türettiği ad yanlışsa yeni adı kullanıcıya sorar; mevcut kaydı kendisi değiştirmez. Zorlama: UserPromptSubmit hook'u bağlama yalnız ad satırı ve bu uyarıyı koyar; ORKESTRA_SIR_YAKALA=0 yakalamayı kapatır.",
+      "neden": "I-127'de yapıştırılan bağlantı dizesi kimlik klasörüne girmedi ve değer sohbet kaydında kaldı; yakalama artık serbest metni de tanıyor, ajanın değeri yinelememesi kuralla yazılı olmalı.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-20T21:39:50+03:00",
+      "guncelleme": "2026-10-20T21:39:50+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-20T21:39:50+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcı sohbete parola, belirteç ya da bağlantı dizesi yapıştırırsa hook değeri kimlik klasörüne alır; ajan o değeri yanıtta, belgede, hafızada, komut satırında ya da alt ajan kartında yinelemez ve alıntılamaz. Ajan yalnız kayıt adını söyler (örn. 'cosmos_yusuf kaydına alındı') ve parolayı yenilemenin iyi olacağını bir kez hatırlatır, çünkü değer sohbet kaydında kalır. Hook'un türettiği ad yanlışsa yeni adı kullanıcıya sorar; mevcut kaydı kendisi değiştirmez. Zorlama: UserPromptSubmit hook'u bağlama yalnız ad satırı ve bu uyarıyı koyar; ORKESTRA_SIR_YAKALA=0 yakalamayı kapatır."
+        }
+      ],
+      "etkinlesme": "2026-10-20T21:39:50+03:00"
     }
   ]
 }
