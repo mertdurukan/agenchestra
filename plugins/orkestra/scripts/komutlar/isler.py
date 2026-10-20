@@ -269,6 +269,22 @@ def _ozet_kalite_eksigi(klasor, metin):
         anilmayan += [f"G{n}" for n in sorted(SR.mevcut_durum_gapleri(klasor)) if not re.search(rf"\bG{n}\b", govde)]
     if anilmayan:
         return "calisma_ozeti: `Plana göre gerçekleşen` bölümünde anılmayan: " + ", ".join(anilmayan) + " (P-018)"
+    return _auto_ozet_eksigi(klasor, metin)
+
+
+def _auto_ozet_eksigi(klasor, metin):
+    """ADR-0009: `mod: auto` işin özeti `## Plandan sapmalar` ve `## Kullanıcıya kalanlar` bölümlerini taşır."""
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            auto = json.load(f).get("mod") == "auto"
+    except (OSError, ValueError):
+        return None
+    if not auto:
+        return None
+    for ad in ("Plandan sapmalar", "Kullanıcıya kalanlar"):
+        m = re.search(rf"^##[ 	]+{ad}[ 	]*$(.*?)(?=^##[ 	]|\Z)", metin, re.M | re.S)
+        if not m or not re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip():
+            return f"calisma_ozeti: `## {ad}` bölümü yok ya da boş (/auto, ADR-0009); yoksa 'Yok' yaz"
     return None
 
 

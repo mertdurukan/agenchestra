@@ -36,3 +36,11 @@
 - P1: yapıldı | kısmen | yapılmadı. Kanıt: komut çıktısı ya da dosya:satır.
 - G1: kapandı | açık. Hangi P ile kapandığı.
 Planın dışına çıkılan işler ve kalan işler de ayrı satırlarla yazılır. -->
+
+## Plandan sapmalar
+
+<!-- yalnız /auto işlerinde zorunlu (ADR-0009): koşu sırasında plandan ayrılan her karar ayrı satır; yoksa "Yok". -->
+
+## Kullanıcıya kalanlar
+
+<!-- yalnız /auto işlerinde zorunlu (ADR-0009): yalnız kullanıcının yapabileceği işler, sıralı ve uygulanabilir; yoksa "Yok". -->

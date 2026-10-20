@@ -451,6 +451,8 @@ def _onay_kaydi(sd: str, oid):
             return None
         import is_kaydi
         kayit = is_kaydi.is_al(sd, is_id)
+        if is_onay.otomatik_onay(sd, kayit):  # ADR-0009: /auto işte belgeler tamamsa onay kendiliğinden verilir
+            return None
         return kayit if is_onay.bekliyor_mu(kayit) else None
     except Exception:
         return None
@@ -1984,6 +1986,18 @@ def user_prompt_submit(inp: dict):
                 sn = soru_sinif.not_metni(metin, sd)
                 if sn:
                     parcalar.insert(0, " ".join(sn.split()))
+            except Exception:
+                pass
+            try:  # ADR-0009: `/plan` ya da `/auto` mesajı bağlı işin modunu yazar; iş yoksa oturum bekleyen modu tutar
+                import is_onay
+                yeni_mod = is_onay.mod_mesaji(metin)
+                if yeni_mod:
+                    mis = _bagli_is(sd, inp.get("session_id"))
+                    if mis:
+                        is_onay.mod_yaz(sd, mis, yeni_mod)
+                    else:
+                        is_onay.bekleyen_mod_yaz(sd, inp.get("session_id"), yeni_mod)
+                    parcalar.append(f"Orkestra: çalışma modu {yeni_mod} (ADR-0009).")
             except Exception:
                 pass
             try:  # P-016: onay bekleyen işte kullanıcı mesajı onaysa durum yazılır; hata hook'u düşürmez

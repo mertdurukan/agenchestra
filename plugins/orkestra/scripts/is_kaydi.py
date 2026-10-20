@@ -606,7 +606,13 @@ def sira_ac(sd: str, is_id: str) -> dict:
 
 
 def is_oturum_bagla(sd: str, is_id: str, oturum: str) -> dict:
+    import is_onay
+    bekleyen = is_onay.bekleyen_mod_al(sd, oturum)  # ADR-0009: iş bağlanmadan önce yazılan /plan ya da /auto
+
     def islem(k):
+        if bekleyen:
+            k[is_onay.MOD_ALANI] = bekleyen
+            k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": f"mod:{bekleyen}"})
         if not any(o.get("oturum") == oturum for o in k.setdefault("oturumlar", [])):
             an = L.simdi()
             k["oturumlar"].append({"oturum": oturum, "baglanma": an})

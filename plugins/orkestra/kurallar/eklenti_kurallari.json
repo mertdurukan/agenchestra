@@ -599,6 +599,24 @@
         }
       ],
       "etkinlesme": "2026-10-19T13:31:16+03:00"
+    },
+    {
+      "id": "P-020",
+      "katman": "plugin",
+      "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto altında kesin sınırlar (push, sır, DB salt okunur), izin hook'u, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır.",
+      "neden": "Onay beklemeden koşu isteyen işler için iş bazında kayıtlı, denetlenebilir mod (adr klasöründeki 9 numaralı karar)",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-20T15:44:52+03:00",
+      "guncelleme": "2026-10-20T15:44:52+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-20T15:44:52+03:00",
+          "olay": "eklendi",
+          "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto altında kesin sınırlar (push, sır, DB salt okunur), izin hook'u, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır."
+        }
+      ],
+      "etkinlesme": "2026-10-20T15:44:52+03:00"
     }
   ]
 }

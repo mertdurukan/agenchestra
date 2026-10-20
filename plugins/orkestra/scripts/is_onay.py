@@ -16,6 +16,10 @@ ALAN = "onay"
 BEKLIYOR = "bekliyor"
 VERILDI = "verildi"
 AZAMI_MESAJ = 200
+MOD_ALANI = "mod"  # ADR-0009: iş başına çalışma modu
+MOD_PLAN = "plan"
+MOD_AUTO = "auto"
+_MOD = re.compile(r"^\s*/(plan|auto)\b", re.I)
 
 _ONAY = re.compile(
     r"^\W*(?:/onay|onay\w*|onal\w*|tamam\w*|olur|evet|yap|yapal[ıi]m|yapabilirsin|ba[sş]la\w*|uygun|uygula\w*|kabul\w*|devam(?:\s+et\w*)?|ok|okay)\b",
@@ -37,6 +41,68 @@ IS_JSON_YAZIMI = re.compile(r"(?:>|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\bdel\b|\brm
 
 def kapi_acik() -> bool:
     return os.environ.get("ORKESTRA_ONAY_KAPISI") != "0"
+
+
+def mod_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_MOD_KAPISI") != "0"
+
+
+def mod_mesaji(metin: str) -> str | None:
+    """Kullanıcı mesajı `/plan` ya da `/auto` ile başlıyorsa mod adı, yoksa None (ADR-0009)."""
+    m = _MOD.match(metin or "")
+    return m.group(1).lower() if m and mod_kapisi_acik() else None
+
+
+def mod(kayit: dict | None) -> str:
+    """İşin modu; alan yoksa ya da geçersizse `plan`."""
+    return MOD_AUTO if (kayit or {}).get(MOD_ALANI) == MOD_AUTO and mod_kapisi_acik() else MOD_PLAN
+
+
+def mod_yaz(sd: str, is_id: str, yeni: str) -> dict:
+    """Modu yalnız kullanıcı mesajını işleyen hook yazar (ajan is.json yazamaz)."""
+    import is_kaydi
+    import ork_lib as L
+
+    def islem(k):
+        k[MOD_ALANI] = yeni
+        k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": f"mod:{yeni}"})
+
+    return is_kaydi._degistir(sd, is_id, islem)
+
+
+def _bekleyen_yol(sd: str, oturum) -> str:
+    return os.path.join(sd, "oturumlar", f"mod_{oturum}.json")
+
+
+def bekleyen_mod_yaz(sd: str, oturum, yeni: str) -> None:
+    """İş bağlı değilken gelen `/plan` ya da `/auto`: mod oturumda tutulur, iş bağlanınca uygulanır."""
+    import json
+    os.makedirs(os.path.join(sd, "oturumlar"), exist_ok=True)
+    with open(_bekleyen_yol(sd, oturum), "w", encoding="utf-8") as f:
+        json.dump({MOD_ALANI: yeni}, f)
+
+
+def bekleyen_mod_al(sd: str, oturum) -> str | None:
+    """Bekleyen modu okur ve siler; yoksa None."""
+    import json
+    yol = _bekleyen_yol(sd, oturum)
+    try:
+        with open(yol, encoding="utf-8") as f:
+            v = (json.load(f) or {}).get(MOD_ALANI)
+        os.remove(yol)
+    except (OSError, ValueError):
+        return None
+    return v if v in (MOD_PLAN, MOD_AUTO) else None
+
+
+def otomatik_onay(sd: str, kayit: dict | None) -> bool:
+    """`auto` modda onay bekleyen işin belgeleri tamamsa onayı `verildi` yapar; yapıldıysa True."""
+    if not kayit or mod(kayit) != MOD_AUTO or durum(kayit) != BEKLIYOR or not kapi_acik():
+        return False
+    if belge_eksikleri(str(kayit.get("klasor") or "")):
+        return False
+    yaz(sd, kayit["id"], VERILDI, "onay:auto")
+    return True
 
 
 def durum(kayit: dict | None) -> str | None:
