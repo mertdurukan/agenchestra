@@ -107,12 +107,15 @@ class Durum(_Onay):
 
 class OnayKalibi(unittest.TestCase):
     def test_onaylar(self):
-        for m in ("onaylıyorum", "tamam", "Yap", "evet başla", "/onay", "olur, yapalım", "devam et", "Tamam, başla"):
+        for m in ("onaylıyorum", "tamam", "Yap", "evet başla", "/onay", "olur, yapalım", "devam et", "Tamam, başla",
+                  "y", "Y", "o", "e", "E.", "onay", "onalıyorum", "evet",
+                  "başla", "kabul", "uygula", "yap", "onaylıyorum"):
             self.assertTrue(is_onay.onay_mesaji_mi(m), m)
 
     def test_onay_degil(self):
         for m in ("handle etmek istiyorum", "tamam mı?", "hayır yapma", "evet ama bekle", "", "x" * 300,
-                  "<task-notification>tamam</task-notification>", "planın 2. maddesi neden böyle"):
+                  "<task-notification>tamam</task-notification>", "planın 2. maddesi neden böyle",
+                  "o bir sorun", "e-posta gönder", "yeni iş", "y?", "oo"):
             self.assertFalse(is_onay.onay_mesaji_mi(m), m)
 
 

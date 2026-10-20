@@ -248,12 +248,26 @@ def ONAY_KAPISI_ACIK() -> bool:
     return os.environ.get("ORKESTRA_ONAY_KAPISI") != "0"
 
 
+def _proje_koku_mu(sd: str, klasor: str) -> bool:
+    """Klasör, eşlemedeki (baglam.json) bir proje köküyle aynı mı. Eşleme okunamazsa False."""
+    try:
+        import baglam
+        taban = os.path.dirname(os.path.dirname(os.path.abspath(sd)))
+        n = lambda y: os.path.normcase(os.path.normpath(y))
+        return any(n(os.path.join(taban, str(p))) == n(klasor)
+                   for p in ((baglam.esleme_oku(sd) or {}).get("projeler") or []) if str(p).strip())
+    except Exception:
+        return False
+
+
 def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | None = None) -> dict:
     """Yeni iş. Kapı açıkken (P-005) iş sıralıdır: ilk dosya mevcut durum iskeletidir, plan.md ve todo.md
     önceki adım tamamlanınca açılır; kapı kapalıyken (ORKESTRA_SIRA_KAPISI=0) eski üç dosya yazılır.
     Sıralı işe ayrıca `dogrulama` bayrağı konur (plan ✅/❌ kapısı); `dogrulama=False` ya da
     ORKESTRA_DOGRULAMA_KAPISI=0 ile konmaz, None varsayılandır (kapı açıksa konur)."""
     klasor = os.path.abspath(klasor)
+    if _proje_koku_mu(sd, klasor):  # kök klasör iş klasörü sayılırsa kökteki başka işin kaydı ezilir (I-105)
+        raise ValueError(f"iş klasörü proje kökü olamaz: {klasor}; NNN-… biçiminde bir alt klasör ver")
     os.makedirs(klasor, exist_ok=True)
     sirali = SIRA.kapi_acik()
     for ad in (("oturumlar.md",) if sirali else _SABLON):

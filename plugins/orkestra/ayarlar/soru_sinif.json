@@ -44,6 +44,7 @@
     "\\bdevam\\b",
     "\\bönerinle\\b",
     "^\\s*(tamam|evet|olur|peki)\\b",
+    "^\\s*(ne gerekiyorsa\\s+|hepsini\\s+)?(yap|uygula|ba[şs]la|kabul|onay|onayl[ıi]yorum)\\W*$",
     "^\\s*(merhaba|selam|g[üu]nayd[ıi]n|iyi (g[üu]nler|ak[şs]amlar|geceler)|hey|te[şs]ekk[üu]r\\w*|sa[ğg] ol\\w*|eyvallah|test)\\W*$",
     "\\b(bunu|şunu|buna|şuna)\\b",
     "\\bbunlar\\w*"

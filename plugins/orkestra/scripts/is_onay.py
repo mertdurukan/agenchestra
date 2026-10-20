@@ -18,8 +18,10 @@ VERILDI = "verildi"
 AZAMI_MESAJ = 200
 
 _ONAY = re.compile(
-    r"^\W*(?:/onay|onay\w*|tamam\w*|olur|evet|yap|yapal[ıi]m|yapabilirsin|ba[sş]la\w*|uygun|kabul\w*|devam(?:\s+et\w*)?|ok|okay)\b",
+    r"^\W*(?:/onay|onay\w*|onal\w*|tamam\w*|olur|evet|yap|yapal[ıi]m|yapabilirsin|ba[sş]la\w*|uygun|uygula\w*|kabul\w*|devam(?:\s+et\w*)?|ok|okay)\b",
     re.I)
+# Tek harfli kısayol (y, o, e) yalnız mesajın tamamıysa onaydır; "o bir sorun" gibi cümleler eşleşmez.
+_ONAY_KISA = re.compile(r"^\W*[yoe]\W*$", re.I)
 _RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz)\b", re.I)
 
 # Onay beklerken ana ya da alt ajanın kabukta çalıştıramayacağı komutlar (tırnak içi metin atılmış komuta uygulanır)
@@ -52,7 +54,7 @@ def onay_mesaji_mi(metin: str) -> bool:
     if not m or len(m) > AZAMI_MESAJ or "?" in m or m.startswith("<"):
         return False
     m = m.replace("İ", "i").replace("I", "ı")
-    return bool(_ONAY.match(m)) and not _RED.search(m)
+    return bool(_ONAY.match(m) or _ONAY_KISA.match(m)) and not _RED.search(m)
 
 
 def belge_eksikleri(klasor: str) -> list[str]:
