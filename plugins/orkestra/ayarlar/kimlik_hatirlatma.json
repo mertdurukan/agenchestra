@@ -1,0 +1,27 @@
+{
+  "mod": "block",
+  "ipucu": "KİMLİK: bu iş kimlik, anahtar ya da bağlantı dizesi gerektiriyorsa 'yok' ya da 'kullanıcı eklesin' demeden önce `orkestra kimlik liste` ile kimlik klasörüne bak (P-023); değeri okuma, `orkestra kimlik calistir` ile kullan.",
+  "hatirlatma": "Orkestra (P-023): yanıtta kimlik/erişim 'yok, bekleniyor, kullanıcı eklemeli' deniyor ama kimlik klasörüne bakıldığı görünmüyor. Önce `orkestra kimlik liste` (gerekirse `orkestra kimlik var <servis> <anahtar>`) çalıştır; yalnız servis ve anahtar adlarını oku. Kayıt varsa `orkestra kimlik calistir <servis> -- <komut>` ile kullan; birden çok aday varsa ortamı değer açmadan doğrula. Karşılığı gerçekten yoksa yanıtta 'kimlik klasöründe karşılığı yok (liste bakıldı)' diye yaz.",
+  "servis_kaliplari": [
+    "\\bcosmos\\w*",
+    "\\blangfuse\\w*",
+    "\\bairflow\\w*",
+    "\\bposthog\\w*",
+    "\\bopenrouter\\w*",
+    "\\bbağlantı dizesi\\b",
+    "\\bconnection string\\b",
+    "\\bcredentials?\\b",
+    "\\bkimlik (bilgi|klasör)\\w*",
+    "\\bapi (key|anahtar)\\w*",
+    "\\bproduction (bağlantı|erişim)\\w*"
+  ],
+  "yanit_kaliplari": [
+    "(kimlik|anahtar|bağlantı|credential|connection string|erişim|parola|şifre|token)\\w*[^.\\n]{0,50}\\b(yok|bekleniyor|bekleyen|eksik|eklemeli|eklenmeli|eklesin|ekleyin|sağlamalı|verilmeli)\\b",
+    "\\bkullanıcı\\w*[^.\\n]{0,30}\\b(eklesin|eklemeli|girsin|girmeli)\\b[^.\\n]{0,40}(bağlantı|kimlik|anahtar|credential)",
+    "\\b(bağlantı|kimlik|anahtar|credential)\\w*[^.\\n]{0,40}\\bkullanıcı\\w*[^.\\n]{0,30}\\b(eklesin|eklemeli|girsin|girmeli)\\b"
+  ],
+  "yanit_muaf_kaliplari": [
+    "orkestra kimlik (liste|var|calistir)",
+    "kimlik klasöründe[^.\\n]{0,40}(karşılığı yok|kayıt yok|bulunmuyor)"
+  ]
+}

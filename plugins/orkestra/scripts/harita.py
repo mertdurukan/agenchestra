@@ -1,7 +1,8 @@
 """Sistem haritası: projenin mevcut durumunu betikle çıkaran kalıcı katman (ADR-0005; model çağırmaz).
 
 Depo: `<durum dizini>/sistem_haritasi/` altında katman başına `<katman>.json` ve üretilen `INDEX.md`.
-Katmanlar: sirlar, dis_baglantilar, surecler, moduller, altyapi, veri_modeli, bagimliliklar, isler_adr.
+Katmanlar: sirlar, dis_baglantilar, surecler, moduller, altyapi, veri_modeli, bagimliliklar, isler_adr, teknolojiler
+(teknolojiler: kategorili teknoloji envanteri ve `teknolojiler/` altında md; ADR-0017, harita_teknoloji.py).
 Kayıt: {id, ad, yer[], rol, ortam, durum}. durum: `dogrulandi` (kaynakta görüldü) | `dogrulanamadi` (kodda atıf var, canlı kaynak taranmadı).
 İmza: katmanın aday dosyalarının (yol, boyut, değişim zamanı) özeti. İmza değişmişse katman baştan taranır ve
 dosya yeniden yazılır (elle birleştirme ve sürüm biriktirme yok; eskimiş ya da yanlış kayıt kendiliğinden düşer).
@@ -16,7 +17,8 @@ import os
 import re
 
 SURUM = 1
-KATMANLAR = ("sirlar", "dis_baglantilar", "surecler", "moduller", "altyapi", "veri_modeli", "bagimliliklar", "isler_adr")
+KATMANLAR = ("sirlar", "dis_baglantilar", "surecler", "moduller", "altyapi", "veri_modeli", "bagimliliklar", "isler_adr",
+            "teknolojiler")
 KLASOR_ADI = "sistem_haritasi"
 HARIC_DIZIN = {".git", "node_modules", "__pycache__", ".venv", "venv", "_arsiv", ".mypy_cache", ".pytest_cache",
                "dist", "build", ".idea", ".vscode", "worktrees", "site-packages", KLASOR_ADI}
@@ -142,8 +144,13 @@ def _aday_bagimlilik(rel):
     return (ad.startswith("requirements") and ad.endswith(".txt")) or ad in ("pyproject.toml", "package.json")
 
 
+def _aday_teknoloji(rel):
+    """Manifestler, Dockerfile, Terraform, iş akışı ve çalışma ağacı işareti (`.git` dosyası; `.git` dizini yürünmez)."""
+    return os.path.basename(rel) == ".git" or _aday_bagimlilik(rel) or _aday_altyapi(rel)
+
+
 ADAY = {"sirlar": _aday_sirlar, "dis_baglantilar": _aday_dis, "surecler": _aday_surecler, "moduller": _aday_moduller,
-        "altyapi": _aday_altyapi, "veri_modeli": _aday_veri, "bagimliliklar": _aday_bagimlilik}
+        "altyapi": _aday_altyapi, "veri_modeli": _aday_veri, "bagimliliklar": _aday_bagimlilik, "teknolojiler": _aday_teknoloji}
 
 
 def _adaylar(katman, dosyalar, kok, sd):
@@ -162,6 +169,9 @@ def _imza(katman, adaylar, sd):
             h.update(f"isler.json|{st.st_size}|{st.st_mtime_ns}".encode())
         except OSError:
             h.update(b"isler.json|yok")
+    if katman == "teknolojiler":
+        import harita_teknoloji as T
+        h.update(T.ayar_imzasi().encode())
     return h.hexdigest()
 
 
@@ -333,8 +343,14 @@ def _tara_isler_adr(adaylar, kok, sd):
     return t.liste()
 
 
+def _tara_teknoloji(adaylar, kok, sd):
+    import harita_teknoloji as T
+    return T.tara(adaylar, kok, sd)
+
+
 TARAYICI = {"sirlar": _tara_sirlar, "dis_baglantilar": _tara_dis, "surecler": _tara_surecler, "moduller": _tara_moduller,
-            "altyapi": _tara_altyapi, "veri_modeli": _tara_veri, "bagimliliklar": _tara_bagimlilik, "isler_adr": _tara_isler_adr}
+            "altyapi": _tara_altyapi, "veri_modeli": _tara_veri, "bagimliliklar": _tara_bagimlilik, "isler_adr": _tara_isler_adr,
+            "teknolojiler": _tara_teknoloji}
 
 
 # --- Depo ---
@@ -384,6 +400,10 @@ def yenile(kok: str, sd: str, katmanlar=None, zorla: bool = False) -> dict:
             ensure_ascii=False, indent=1))
     if hedef or not os.path.exists(os.path.join(klasor_yolu(sd), "INDEX.md")):
         _indeks_yaz(sd)
+    if "teknolojiler" in hedef or (_katman_oku(sd, "teknolojiler") and not os.path.exists(
+            os.path.join(klasor_yolu(sd), "teknolojiler", "README.md"))):
+        import harita_teknoloji as T
+        T.md_yaz(sd, kok, _simdi())
     return {"yenilenen": hedef, "atlanan": [k for k in KATMANLAR if k not in hedef]}
 
 

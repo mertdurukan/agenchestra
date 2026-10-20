@@ -43,6 +43,13 @@ Adımlar:
 - Yasak terimler proje durum dizinindeki `terfi_yasak.json` dosyasından okunur (liste ya da `{"terimler": [...]}`); dosya yoksa yalnız kalıp denetimi çalışır.
 - Testler: `tests/test_terfi.py`.
 
+## Sistem haritası: teknolojiler katmanı
+- `scripts/harita.py` dokuzuncu katman `teknolojiler`i taşır; tarama ve md üretimi `scripts/harita_teknoloji.py`'dedir (ADR-0017, kural P-024).
+- Kategori eşlemesi `ayarlar/teknoloji_kategorileri.json`: önce tam ad, sonra en uzun önek; eşleşmeyen `diger`. Yeni paket buraya eklenir, koda dokunulmaz. Dosya imzaya girer: değişince katman eskir.
+- Çıktı `<durum>/sistem_haritasi/teknolojiler/`: `README.md` (kategoriye göre) ve proje başına md. Her yenilemede klasördeki md'ler silinip yeniden yazılır (elle düzenleme kalmaz).
+- Proje = en yakın manifest dizini; `.git` dosyası olan dizin (çalışma ağacı) ve manifestsiz klasör proje sayılmaz. Kapsamı genişletmek (içe aktarma taraması) ayrı karar ister.
+- Testler: `tests/test_harita_teknolojiler.py`.
+
 ## Test takımı
 - Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; yaklaşık 4 dk).
 - Değişiklikten sonra commit'ten önce koş.

@@ -1015,6 +1015,25 @@ def _baglanti_kapisi(sd: str, oid, inp: dict, ozet: dict) -> None:
         return
 
 
+def _kimlik_kapisi_yanit(sd: str, oid, inp: dict) -> None:
+    """P-023: yanıt 'kimlik/erişim yok, bekleniyor, kullanıcı eklemeli' diyorsa kimlik klasörüne bakılmadan tur bitmez.
+    Her kipte günlüğe `kural_ihlal / kimlik_once_bak` yazılır; `block` kipinde tur başına bir kez block (`stop_hook_active`
+    döngüyü keser). Kalıplar ayarda (`ayarlar/kimlik_hatirlatma.json`); hatada sessiz geçer."""
+    try:
+        import kimlik_hatirlatma as KH
+        if not KH.yanit_ihlali(inp.get("last_assistant_message"), sd):
+            return
+        kip = KH.mod(KH.ayar_oku(sd))
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                         "kural": "kimlik_once_bak", "mod": kip, "is": _oturum_isi(sd, oid)})
+        if kip == "block" and not inp.get("stop_hook_active"):
+            L.hook_cikti({"decision": "block", "reason": KH.hatirlatma_metni(sd)})
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
     """P-009 tetik anı: bağlı işin tüm todo maddeleri bitti ama iş hâlâ açıksa tur bitmeden özet ve kapatma istenir.
     Tur başına bir kez block (`stop_hook_active` döngüyü keser); ORKESTRA_KAPANIS_KAPISI=0 kapatır. Hatada sessiz geçer."""
@@ -1180,6 +1199,7 @@ def stop(inp: dict):
             pass
     if not perspektif:
         _baglanti_kapisi(sd, oid, inp, ozet)
+        _kimlik_kapisi_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif:
@@ -1998,6 +2018,13 @@ def user_prompt_submit(inp: dict):
                     else:
                         is_onay.bekleyen_mod_yaz(sd, inp.get("session_id"), yeni_mod)
                     parcalar.append(f"Orkestra: çalışma modu {yeni_mod} (ADR-0009).")
+            except Exception:
+                pass
+            try:  # P-023: kimlik gerektiren servis anılıyorsa 'yok' demeden önce klasöre bak ipucu
+                import kimlik_hatirlatma
+                ip = kimlik_hatirlatma.mesaj_ipucu(metin, sd)
+                if ip:
+                    parcalar.append(ip)
             except Exception:
                 pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez

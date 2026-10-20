@@ -653,6 +653,42 @@
         }
       ],
       "etkinlesme": "2026-10-20T19:53:26+03:00"
+    },
+    {
+      "id": "P-023",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Bir iş için kimlik, anahtar ya da bağlantı dizesi (ör. Cosmos, Langfuse, Airflow, veritabanı) gerektiğinde ajan 'yok', 'erişim bekleniyor' ya da 'kullanıcı eklemeli' demeden ve işi kullanıcıya bırakmadan önce `orkestra kimlik liste` (gerekirse `orkestra kimlik var <servis> <anahtar>`) ile kimlik klasörüne (`~\\.orkestra\\credentials\\<proje>\\`) bakar; yalnız servis ve anahtar adlarını okur, değeri okumaz ve yazmaz. Kayıt varsa `orkestra kimlik calistir <servis> -- <komut>` ile kullanır. Birden çok aday kayıt varsa (ör. cosmos ve cosmos_yusuf) hangisinin hangi ortamı gösterdiğini değeri açmadan doğrular (adres özeti, veritabanı listesi) ve 'production değil' gibi bir sonucu ancak bu doğrulamayla yazar. Kullanıcıya yalnız kimlik klasöründe gerçekten karşılığı yoksa sorulur. Zorlama: Stop hook'u yanıtta 'erişim yok' kalıbını görürse tur başına bir kez hatırlatır, UserPromptSubmit servis sözcüğünde ipucu verir (ayarlar/kimlik_hatirlatma.json; ORKESTRA_KIMLIK_HATIRLATMA=0 kapatır).",
+      "neden": "I-127: production Cosmos bağlantısı klasörde varken 'kullanıcı eklesin' denildi; kök neden K-006.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-20T21:18:55+03:00",
+      "guncelleme": "2026-10-20T21:18:55+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-20T21:18:55+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Bir iş için kimlik, anahtar ya da bağlantı dizesi (ör. Cosmos, Langfuse, Airflow, veritabanı) gerektiğinde ajan 'yok', 'erişim bekleniyor' ya da 'kullanıcı eklemeli' demeden ve işi kullanıcıya bırakmadan önce `orkestra kimlik liste` (gerekirse `orkestra kimlik var <servis> <anahtar>`) ile kimlik klasörüne (`~\\.orkestra\\credentials\\<proje>\\`) bakar; yalnız servis ve anahtar adlarını okur, değeri okumaz ve yazmaz. Kayıt varsa `orkestra kimlik calistir <servis> -- <komut>` ile kullanır. Birden çok aday kayıt varsa (ör. cosmos ve cosmos_yusuf) hangisinin hangi ortamı gösterdiğini değeri açmadan doğrular (adres özeti, veritabanı listesi) ve 'production değil' gibi bir sonucu ancak bu doğrulamayla yazar. Kullanıcıya yalnız kimlik klasöründe gerçekten karşılığı yoksa sorulur. Zorlama: Stop hook'u yanıtta 'erişim yok' kalıbını görürse tur başına bir kez hatırlatır, UserPromptSubmit servis sözcüğünde ipucu verir (ayarlar/kimlik_hatirlatma.json; ORKESTRA_KIMLIK_HATIRLATMA=0 kapatır)."
+        }
+      ],
+      "etkinlesme": "2026-10-20T21:18:55+03:00"
+    },
+    {
+      "id": "P-024",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Bir projedeki tüm teknolojilerin envanteri (ui, backend, ai, llm, veri, altyapı, gözlemlenebilirlik, test/araç) orkestra davranışıdır, elle yazılan md değildir. Sistem haritasının 'teknolojiler' katmanı manifest dosyalarından (requirements*.txt, pyproject.toml, package.json, Dockerfile, Terraform, iş akışı) model çağırmadan çıkarır, ayarlar/teknoloji_kategorileri.json ile kategoriler ve .claude/orkestra/sistem_haritasi/teknolojiler/ altında kategorik README ile proje başına bir md yazar; iş kapanışında ve 'orkestra harita yenile' ile yenilenir. 'Projelerde kullanılan teknolojiler' sorusu bu çıktıdan yanıtlanır; eskiyse önce harita yenilenir. Manifestsiz klasör ve .git dosyalı çalışma ağacı proje sayılmaz. Yeni paket kategoriye koda dokunmadan eşleme dosyasından eklenir. Zorlama: harita.py KATMANLAR 'teknolojiler', tests/test_harita_teknolojiler.py.",
+      "neden": "I-132: teknoloji envanteri proje klasörüne elle md olarak yazıldı; orkestranın açık olduğu diğer projelere taşınmıyordu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-20T21:24:36+03:00",
+      "guncelleme": "2026-10-20T21:24:36+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-20T21:24:36+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Bir projedeki tüm teknolojilerin envanteri (ui, backend, ai, llm, veri, altyapı, gözlemlenebilirlik, test/araç) orkestra davranışıdır, elle yazılan md değildir. Sistem haritasının 'teknolojiler' katmanı manifest dosyalarından (requirements*.txt, pyproject.toml, package.json, Dockerfile, Terraform, iş akışı) model çağırmadan çıkarır, ayarlar/teknoloji_kategorileri.json ile kategoriler ve .claude/orkestra/sistem_haritasi/teknolojiler/ altında kategorik README ile proje başına bir md yazar; iş kapanışında ve 'orkestra harita yenile' ile yenilenir. 'Projelerde kullanılan teknolojiler' sorusu bu çıktıdan yanıtlanır; eskiyse önce harita yenilenir. Manifestsiz klasör ve .git dosyalı çalışma ağacı proje sayılmaz. Yeni paket kategoriye koda dokunmadan eşleme dosyasından eklenir. Zorlama: harita.py KATMANLAR 'teknolojiler', tests/test_harita_teknolojiler.py."
+        }
+      ],
+      "etkinlesme": "2026-10-20T21:24:36+03:00"
     }
   ]
 }

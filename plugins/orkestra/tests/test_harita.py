@@ -53,10 +53,10 @@ class HaritaTemel(unittest.TestCase):
 
     def test_sir_degeri_hicbir_dosyaya_yazilmaz(self):
         H.yenile(self.kok, self.sd)
-        klasor = H.klasor_yolu(self.sd)
-        for ad in os.listdir(klasor):
-            with open(os.path.join(klasor, ad), encoding="utf-8") as f:
-                self.assertNotIn(DEGER, f.read(), ad)
+        for dizin, _, dosyalar in os.walk(H.klasor_yolu(self.sd)):  # teknolojiler/ alt klasörü de taranır
+            for ad in dosyalar:
+                with open(os.path.join(dizin, ad), encoding="utf-8") as f:
+                    self.assertNotIn(DEGER, f.read(), ad)
 
     def test_keys_dizini_icerigi_okunmaz(self):
         s = self.kayit("sirlar")
