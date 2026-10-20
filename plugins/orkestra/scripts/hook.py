@@ -1569,7 +1569,7 @@ def _panel_durumu() -> tuple[int | None, bool]:
 def _panel_ac_satiri(sd: str, oid) -> str:
     """launch.json'da 'orkestra-panel' girdisi varsa oturumda BİR KEZ: ana ajana paneli Claude masaüstü uygulamasının
     tarayıcı panelinde açtıran satır. Bir kez durumu <sd>/oturumlar/panel_ac_<oid>.json. Hatada boş metin.
-    preview_start localhost url'sinde yol kabul etmez: launch.json url'si yalnız origin, /isler'e navigate ile gidilir."""
+    preview_start localhost url'sinde yol kabul etmez: launch.json url'si yalnız origin, kök adrese (panel v2) navigate ile gidilir."""
     try:
         g = _panel_girdisi(sd)
         if not g:
@@ -1587,7 +1587,7 @@ def _panel_ac_satiri(sd: str, oid) -> str:
                 port = urllib.parse.urlsplit(str(g.get("url") or "")).port
             except ValueError:
                 port = None
-        adres = f"http://127.0.0.1:{port or cfg.panel_port()}/isler"
+        adres = f"http://127.0.0.1:{port or cfg.panel_port()}/"
         on = "" if acik else "sunucu kapalı, önce `orkestra panel` çalıştır (başka port verirse onu kullan); sonra "
         satir = (f"PANEL: ilk turda Claude masaüstü uygulamasının tarayıcı panelinde orkestra panelini aç: {on}"
                  f"preview_start (name: {PANEL_GIRDI}), ardından navigate ile {adres}. "

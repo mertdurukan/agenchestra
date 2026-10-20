@@ -117,8 +117,8 @@ class PanelAcTest(unittest.TestCase):
         ek = self.acilis()
         self.assertIn("preview_start", ek)
         self.assertIn("orkestra-panel", ek)
-        self.assertIn("/isler", ek)
-        self.assertIn(f"http://127.0.0.1:{port}/isler", ek)
+        self.assertNotIn("/isler", ek)
+        self.assertIn(f"http://127.0.0.1:{port}/", ek)
 
     def test_diger_girdilerle_birlikte_orkestra_panel_bulunur(self):
         self.launch_yaz([{"name": "baska", "url": "http://localhost:3000"},
@@ -203,7 +203,7 @@ class PanelAcTest(unittest.TestCase):
         self.sunucu_kapali()
         ek = self.acilis(rapor_tekrar=300)
         self.assertIn("preview_start", ek)
-        self.assertIn("/isler", ek)
+        self.assertNotIn("/isler", ek)
         self.assertIn("`orkestra panel`", ek)
 
     def test_uzun_baglamda_panel_satiri_ve_onay_birlikte(self):
