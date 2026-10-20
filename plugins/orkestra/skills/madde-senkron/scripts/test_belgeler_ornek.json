@@ -1,0 +1,56 @@
+{
+  "_aciklama": "Madde kimliği aileleri. 'zorunlu': kimlik bu belgede geçiyorsa plan ya bu belgeye işlem koymalı ya da 'atlanan'da gerekçe vermeli (kapsam kapısı). 'izle': tara listeler, kapsam yalnız uyarı. Yollar proje köküne göre.",
+  "oneriler_12": {
+    "kalip": "^(G|A|V|K|Y|E)[0-9]{1,2}$",
+    "zorunlu": [
+      "belgeler/agentic_degerlendirme_raporu_taslak.md",
+      "belgeler/firmaya_oneriler_dis_surum_20261011.md",
+      "belgeler/bulgu_sunumu_20261012.md",
+      "belgeler/dogrulama_plani_20261011.md"
+    ],
+    "izle": [
+      "belgeler/README.md",
+      "belgeler/ia6_karar_notu_20261012.md",
+      "belgeler/jira_acil_story_paketi_20261012.md",
+      "belgeler/00_FINAL_TESLIM_20261013.md"
+    ]
+  },
+  "celiski_C": {
+    "kalip": "^C[0-9]{1,2}$",
+    "zorunlu": [
+      "belgeler/kod_db_celiski_listesi_20261012.md"
+    ],
+    "izle": [
+      "belgeler/dogrulama_plani_20261011.md",
+      "belgeler/jira_sohbet_ajani_story_paketi_20261012.md"
+    ]
+  },
+  "eksiklik_K": {
+    "kalip": "^K[0-9]{1,2}$",
+    "zorunlu": [
+      "belgeler/eksiklik_dogrulama_prod_20261013.md"
+    ],
+    "izle": []
+  },
+  "jira_ST": {
+    "kalip": "^ST-[0-9]{3}$",
+    "zorunlu": [
+      "belgeler/jira_backlog_taslagi_20261012.md"
+    ],
+    "izle": [
+      "belgeler/jira_acil_story_paketi_20261012.md",
+      "belgeler/jira_sohbet_ajani_story_paketi_20261012.md",
+      "belgeler/jira_sohbet_ajani_derinlestirme_storyleri_20261013.md",
+      "belgeler/chatbot_agentic_imkan_listesi_20261013.md",
+      "belgeler/jira_backlog_import_20261012.csv"
+    ]
+  },
+  "referans": {
+    "kalip": "^[A-G][0-9]{0,2}[a-z]?$",
+    "zorunlu": [],
+    "izle": [
+      "belgeler/referans.md"
+    ],
+    "_not": "Referans belgesinde kimlikler Plan 1/2 kodlarıdır (A1…G6, I1…); kapsam kapısı yok, yeni bulgu <!-- X --> işaretçisinin önüne eklenir."
+  }
+}
