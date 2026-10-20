@@ -2000,6 +2000,11 @@ def user_prompt_submit(inp: dict):
                     parcalar.append(f"Orkestra: çalışma modu {yeni_mod} (ADR-0009).")
             except Exception:
                 pass
+            try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez
+                import sir_yakala
+                parcalar.extend(sir_yakala.kaydet(inp.get("prompt") or ""))
+            except Exception:
+                pass
             try:  # P-016: onay bekleyen işte kullanıcı mesajı onaysa durum yazılır; hata hook'u düşürmez
                 import is_onay
                 kayit = _onay_kaydi(sd, inp.get("session_id"))
