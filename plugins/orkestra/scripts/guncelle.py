@@ -51,6 +51,7 @@ def claude_bul(ortam: dict | None = None, which=shutil.which) -> str | None:
         kokler.append(os.path.join(ortam["APPDATA"], "Claude", "claude-code"))
     if ortam.get("LOCALAPPDATA"):
         kokler += glob.glob(os.path.join(ortam["LOCALAPPDATA"], "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code"))
+        kokler += glob.glob(os.path.join(ortam["LOCALAPPDATA"], "Claude-Data", "claude_*", "claude-code"))
     adaylar = []
     for k in kokler:
         adaylar += glob.glob(os.path.join(k, "*", "*", "claude.exe"))

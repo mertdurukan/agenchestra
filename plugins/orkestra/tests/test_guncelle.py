@@ -100,6 +100,12 @@ class ClaudeBulTest(unittest.TestCase):
             bulunan = G.claude_bul({"LOCALAPPDATA": t, "APPDATA": os.path.join(t, "yok")}, which=lambda _: None)
             self.assertIn(os.path.join("2.1.10", "win-x64"), bulunan)
 
+    def test_claude_data_koku(self):
+        with tempfile.TemporaryDirectory() as t:
+            yaz(os.path.join(t, "Claude-Data", "claude_abc", "claude-code", "2.1.304", "aed6", "claude.exe"), "x")
+            bulunan = G.claude_bul({"LOCALAPPDATA": t, "APPDATA": os.path.join(t, "yok")}, which=lambda _: None)
+            self.assertIn(os.path.join("2.1.304", "aed6"), bulunan)
+
     def test_appdata_ve_path_yedegi(self):
         with tempfile.TemporaryDirectory() as t:
             yaz(os.path.join(t, "Claude", "claude-code", "1.0.0", "win", "claude.exe"), "x")

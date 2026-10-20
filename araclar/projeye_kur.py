@@ -79,6 +79,7 @@ def claude_exe() -> str:
     for kok in (os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")):
         adaylar += glob.glob(os.path.join(kok, "Claude", "claude-code", "*", "*", "claude.exe"))
         adaylar += glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code", "*", "*", "claude.exe"))
+    adaylar += glob.glob(os.path.join(os.environ.get("LOCALAPPDATA", ""), "Claude-Data", "claude_*", "claude-code", "*", "*", "claude.exe"))
     adaylar = [a for a in adaylar if os.path.exists(a)]
     if adaylar:
         return max(adaylar, key=os.path.getmtime)
