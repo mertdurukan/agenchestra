@@ -228,6 +228,49 @@ class HookUcAdanUca(unittest.TestCase):
         self.assertNotIn("İzin:", json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"])
 
 
+class KimlikKapisi(unittest.TestCase):
+    """ADR-0014: kimlik klasörü okunabilir (Read/Grep/Glob, tüm projeler); yazma ve kabuk yasak."""
+    YOL = os.path.join(os.path.expanduser("~"), ".orkestra", "credentials")
+
+    def setUp(self):
+        self._ort = os.environ.pop("ORKESTRA_KIMLIK_OKUMA", None)
+
+    def tearDown(self):
+        os.environ.pop("ORKESTRA_KIMLIK_OKUMA", None)
+        if self._ort is not None:
+            os.environ["ORKESTRA_KIMLIK_OKUMA"] = self._ort
+
+    def _k(self, arac, girdi, **cfg):
+        return IP.karar(arac, girdi, cfg=dict({"mod": "kapi"}, **cfg))[0]
+
+    def test_okuma_her_proje_ve_ortak_icin_serbest(self):
+        for proje in ("McD", "BaskaProje", "_ortak"):
+            y = os.path.join(self.YOL, proje, "db.env")
+            self.assertNotEqual(self._k("Read", {"file_path": y}), "deny", y)
+            self.assertNotEqual(self._k("Grep", {"pattern": "KEY", "path": os.path.dirname(y)}), "deny", y)
+            self.assertNotEqual(self._k("Glob", {"pattern": "*.env", "path": os.path.dirname(y)}), "deny", y)
+
+    def test_yazma_ve_kabuk_yasak(self):
+        y = os.path.join(self.YOL, "McD", "db.env")
+        for arac in ("Write", "Edit", "NotebookEdit"):
+            self.assertEqual(self._k(arac, {"file_path": y}), "deny", arac)
+        for arac in ("Bash", "PowerShell"):
+            self.assertEqual(self._k(arac, {"command": f"cat {y}"}), "deny", arac)
+            self.assertEqual(self._k(arac, {"command": "type ~/.orkestra/credentials/McD/db.env"}), "deny", arac)
+
+    def test_ayar_kapaliyken_okuma_yasak(self):
+        y = os.path.join(self.YOL, "McD", "db.env")
+        self.assertEqual(self._k("Read", {"file_path": y}, kimlik_okuma=False), "deny")
+
+    def test_ortam_degiskeni_okumayi_kapatir(self):
+        y = os.path.join(self.YOL, "McD", "db.env")
+        os.environ["ORKESTRA_KIMLIK_OKUMA"] = "0"
+        self.assertEqual(self._k("Read", {"file_path": y}), "deny")
+
+    def test_okuyucu_komutu_serbest_kalir(self):
+        self.assertNotEqual(self._k("Bash", {"command": "orkestra kimlik liste"}), "deny")
+
+
 class Cli(unittest.TestCase):
     def test_goster_ve_sina(self):
         env = dict(os.environ, PYTHONUTF8="1")

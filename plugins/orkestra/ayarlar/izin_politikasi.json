@@ -1,6 +1,7 @@
 {
   "surum": 1,
   "mod": "genis",
+  "kimlik_okuma": true,
   "aciklama": "genis: kapı dışındaki her araç çağrısı onaysız (hook allow; kullanıcının settings deny/ask kuralları yine geçerli). kapi: yalnız kapı ve yasaklar, gerisi Claude Code varsayılanında. kapali: politika yok. ORKESTRA_IZIN=0|kapi|genis ortam değişkeni modu ezer.",
   "kabuk_yasak": [
     {

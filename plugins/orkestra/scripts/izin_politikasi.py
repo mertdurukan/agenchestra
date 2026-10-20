@@ -105,8 +105,19 @@ _DOSYA_ARACLARI = ("Read", "Edit", "Write", "NotebookEdit", "Grep", "Glob")
 _KIMLIK_YOLU = re.compile(r"\.orkestra[\/]+credentials", re.I)
 
 
-def _kimlik_kapisi(arac: str, girdi: dict) -> str | None:
-    """Kimlik klasörüne (ADR-0008) ajan erişimi: değer yalnız `orkestra kimlik` okuyucusundan alınır."""
+_OKUMA_ARACLARI = ("Read", "Grep", "Glob")
+
+
+def _kimlik_okuma_acik(cfg: dict) -> bool:
+    """ADR-0014: kimlik klasörünü okuma varsayılan açık; ORKESTRA_KIMLIK_OKUMA=0 ya da ayarda kimlik_okuma=false kapatır."""
+    if (os.environ.get("ORKESTRA_KIMLIK_OKUMA") or "").strip().lower() in ("0", "kapali", "off", "false"):
+        return False
+    return cfg.get("kimlik_okuma", True) is not False
+
+
+def _kimlik_kapisi(arac: str, girdi: dict, okuma_acik: bool = False) -> str | None:
+    """Kimlik klasörüne ajan erişimi (ADR-0008, ADR-0014): okuma (Read/Grep/Glob) ayarla serbest; yazma ve kabuk her zaman yasak.
+    Okunan değer yanıta, belgeye, hafızaya ya da komut satırına yazılmaz; betiğe `orkestra kimlik calistir` ile verilir."""
     try:
         import kimlik as K
         kok = os.path.normcase(K.kok())
@@ -120,15 +131,17 @@ def _kimlik_kapisi(arac: str, girdi: dict) -> str | None:
     if not metin:
         return None
     if _KIMLIK_YOLU.search(metin) or (kok and kok in os.path.normcase(metin.replace("/", os.sep))):
-        return "kimlik klasörü (ADR-0008): ajan değeri okuyamaz ya da yazamaz; `orkestra kimlik liste|var|calistir` kullan, değeri kullanıcı `orkestra kimlik ekle` ile girer."
+        if okuma_acik and arac in _OKUMA_ARACLARI:
+            return None
+        return "kimlik klasörü (ADR-0014): ajan yalnız Read/Grep/Glob ile okuyabilir (ayar kimlik_okuma); yazma ve kabuk yasak; değeri kullanıcı `orkestra kimlik ekle` ile girer, betiğe `orkestra kimlik calistir` verir."
     return None
 
 
 def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None) -> tuple[str | None, str]:
-    ned = _kimlik_kapisi(arac, girdi or {})
+    cfg = cfg or ayar_yukle(sd)
+    ned = _kimlik_kapisi(arac, girdi or {}, _kimlik_okuma_acik(cfg))
     if ned:
         return "deny", ned  # mod ne olursa olsun
-    cfg = cfg or ayar_yukle(sd)
     mod = mod_bul(cfg)
     if mod == "kapali":
         return None, ""

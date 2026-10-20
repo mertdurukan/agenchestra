@@ -100,10 +100,11 @@ class Yapi(Temel):
 class AjanEngeli(unittest.TestCase):
     def test_dosya_ve_kabuk_engeli(self):
         yol = os.path.join(os.path.expanduser("~"), ".orkestra", "credentials", "McD", "db.env")
-        self.assertEqual(IP.karar("Read", {"file_path": yol})[0], "deny")
+        # ADR-0014: okuma (Read/Grep/Glob) serbest, yazma ve kabuk yasak; ayrıntı test_izin_politikasi.KimlikKapisi
+        self.assertNotEqual(IP.karar("Read", {"file_path": yol})[0], "deny")
         self.assertEqual(IP.karar("Edit", {"file_path": yol})[0], "deny")
         self.assertEqual(IP.karar("Bash", {"command": f"cat {yol}"})[0], "deny")
-        self.assertEqual(IP.karar("Grep", {"path": os.path.dirname(yol), "pattern": "x"})[0], "deny")
+        self.assertNotEqual(IP.karar("Grep", {"path": os.path.dirname(yol), "pattern": "x"})[0], "deny")
 
     def test_okuyucu_komutu_serbest(self):
         self.assertNotEqual(IP.karar("Bash", {"command": "orkestra kimlik liste"})[0], "deny")
