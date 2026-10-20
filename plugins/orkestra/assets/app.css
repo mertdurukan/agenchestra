@@ -7,7 +7,7 @@
   /* aralık: 4 px ızgarası */
   --a1: 4px; --a2: 8px; --a3: 12px; --a4: 16px; --a5: 20px; --a6: 24px; --a8: 32px; --a10: 40px;
   /* yazı ölçeği */
-  --y11: 11px; --y12: 12px; --y13: 13px; --y14: 14px; --y16: 16px; --y20: 20px; --y24: 24px; --y32: 32px;
+  --y11: 12px; --y12: 12px; --y13: 13px; --y14: 14px; --y16: 16px; --y20: 20px; --y24: 24px; --y32: 32px;
   --yazi: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "JetBrains Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
   --r1: 4px; --r2: 6px; --r3: 10px; --r4: 14px;
@@ -251,7 +251,7 @@ table.tablo { width: 100%; border-collapse: collapse; font-size: var(--y13); }
 
 /* grafik */
 .grafik { width: 100%; height: auto; display: block; overflow: visible; }
-.grafik text { fill: var(--metin-3); font-size: 11px; font-family: var(--yazi); }
+.grafik text { fill: var(--metin-3); font-size: 12px; font-family: var(--yazi); }
 .grafik .eksen { stroke: var(--cizgi); }
 .grafik .ipucu-alan:hover rect.c { opacity: .85; }
 .spark { display: inline-block; vertical-align: middle; }
@@ -388,3 +388,9 @@ dialog.palet::backdrop { background: rgb(0 0 0 / .35); }
 }
 .tablo td.sayi, .tablo th.sayi { white-space: nowrap; }
 @media (max-width: 1200px) { .tablo .gizle-orta { display: none; } }
+
+/* dokunmatik: hedef boyutu (en az 44 px) */
+@media (pointer: coarse) {
+  .alan-sec, .ara-dugme, .gezinti a, button, .dugme, select, summary, input:not([type=checkbox]):not([type=radio]) { min-height: 44px; }
+  select, input[type=search], input[type=text], textarea { font-size: 16px; }
+}

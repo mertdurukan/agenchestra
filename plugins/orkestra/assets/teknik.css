@@ -47,7 +47,7 @@ mark { background: color-mix(in srgb, var(--warning) 35%, transparent); color: i
 .t-blok code { white-space: normal; }
 .t-hata { color: var(--critical); font-size: var(--t-13); }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .t-duzen { grid-template-columns: minmax(0, 1fr); }
   .t-liste-kap { position: static; }
   .t-sag { padding: var(--a-12); }

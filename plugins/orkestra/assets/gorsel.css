@@ -60,12 +60,14 @@ a.g-karo:hover { border-color: var(--text-muted); }
 .g-gorunum > .bolum { margin: 0; }
 .g-iki { display: grid; gap: var(--a-16); grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); align-items: start; }
 .g-iki > .bolum { margin: 0; }
-@media (max-width: 540px) { .g-karo-d { font-size: var(--t-20); } .g-pay-liste li { grid-template-columns: 10px minmax(0, 1fr) auto; } .g-pay-pay { display: none; } }
+@media (max-width: 600px) { .g-karo-d { font-size: var(--t-20); } .g-pay-liste li { grid-template-columns: 10px minmax(0, 1fr) auto; } .g-pay-pay { display: none; } }
 
 /* ---------------------------------------------------------------- duyarlılık (I-046) */
 /* karolar: dar ekranda iki sütun; kutu genişliğine göre iç düzen (container query) */
 .g-karolar { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
 .g-karo { container-type: inline-size; }
+/* dar ekran: 2 sütun; tek kalan son kart sütunu doldurur */
+@media (max-width: 600px) { .g-karolar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g-karolar > .g-karo:last-child:nth-child(odd) { grid-column: 1 / -1; } }
 @container (max-width: 190px) { .g-karo-d { font-size: var(--t-20); } .g-karo-s { display: none; } .g-karo { grid-template-columns: 1fr; grid-template-areas: "e" "d" "a"; } }
 .g-karo-e { overflow-wrap: anywhere; }
 /* sayfa içi sekmeler: tek satır, yatay kayar, seçili sekme görünür kalır */
@@ -80,7 +82,7 @@ a.g-karo:hover { border-color: var(--text-muted); }
 .g-pay-liste li { grid-template-columns: 10px minmax(0, 1fr) 44px minmax(max-content, auto); }
 /* ısı haritası: ilk sütun yapışkan, sayfa değil tablo kayar */
 .g-isi th[scope=row] { position: sticky; left: 0; background: var(--surface-1); z-index: 1; }
-@media (max-width: 540px) { .g-isi th[scope=row] { max-width: 9em; white-space: normal; } .g-iki { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .g-isi th[scope=row] { max-width: 9em; white-space: normal; } .g-iki { grid-template-columns: minmax(0, 1fr); } }
 
 /* Pencere seçici: parça düğmeli (segmented) tek seçim */
 .g-ust { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--a-4) var(--a-16); position: sticky; top: var(--kabuk-yuk); z-index: 3; background: var(--surface-0); margin: 0 0 var(--a-16); border-bottom: 1px solid var(--line); padding-top: var(--a-8); }
@@ -92,7 +94,7 @@ a.g-karo:hover { border-color: var(--text-muted); }
 .g-pencere button[aria-checked=true] { background: var(--focus); color: var(--surface-0); font-weight: 650; }
 .g-pencere button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .g-pencere-aralik { color: var(--text-muted); font-size: var(--t-12); padding: 0 var(--a-8) 0 var(--a-8); white-space: nowrap; font-variant-numeric: tabular-nums; }
-@media (max-width: 700px) { .g-pencere { width: 100%; justify-content: space-between; } .g-pencere button { flex: 1; padding: 8px 4px; } .g-pencere-aralik { display: none; } }
+@media (max-width: 600px) { .g-pencere { width: 100%; justify-content: space-between; } .g-pencere button { flex: 1; padding: 8px 4px; } .g-pencere-aralik { display: none; } }
 @media (pointer: coarse) { .g-pencere button { min-height: 40px; } }
 
 /* Hedef kartı: soru başlığı, ana ölçü, ilgili ölçüler, açılır ayrıntı */

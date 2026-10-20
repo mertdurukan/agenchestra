@@ -147,15 +147,15 @@
   mark { background: color-mix(in srgb, var(--warning) 35%, transparent); color: inherit; border-radius: 2px; }
 
   /* Sol ray 232px yer tuttuğu için orta genişlikte iş listesi daralır. */
-  @media (max-width: 1180px) { .duzen { grid-template-columns: 250px minmax(0, 1fr); } }
+  @media (max-width: 1200px) { .duzen { grid-template-columns: 250px minmax(0, 1fr); } }
   @media (max-width: 900px) { .detay { padding: var(--a-16); } }
-  @media (max-width: 860px) {
+  @media (max-width: 900px) {
     .duzen { grid-template-columns: minmax(0, 1fr); }
     .liste-kap { position: static; }
     .arac input[type="search"] { max-width: none; margin-left: 0; }
   }
   .kapanis { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 2px; }
-  .kap { font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid currentColor; }
+  .kap { font-size: var(--t-12); padding: 1px 7px; border-radius: 9px; border: 1px solid currentColor; }
   .kap.ok { color: #1a7f37; font-weight: 600; }
   .kap.eksik { color: #9a6700; }
   a.teknik-bag { text-decoration: none; display: inline-block; }

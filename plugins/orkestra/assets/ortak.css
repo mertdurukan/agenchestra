@@ -308,15 +308,18 @@ main.hazirlaniyor h1 { font-size: var(--t-20); color: var(--text-primary); }
   .kabuk .marka img { height: 40px; }
   /* Kabuk en çok 2 satır: [marka · çalışma alanı (kısaltılmış) · canlı] + [sekmeler, yatay kaydırmalı tek satır] */
   .kabuk .kabuk-ic { gap: var(--a-4) var(--a-12); padding-top: var(--a-8); padding-bottom: var(--a-8); min-height: 0; flex-wrap: wrap; }
+  /* Satırlar: [logo · USD/Token · Sıfırla · canlı] / [çalışma alanı, tam genişlik] / [sekmeler] */
   .kabuk .marka { order: 1; }
   .kabuk .bosluk { display: none; }
-  .kabuk .alan-sec { order: 2; flex: 1 1 0; min-width: 0; }
+  .kabuk .olcu-sec { order: 2; }
+  .kabuk .isler-sifirla { order: 3; }
+  .kabuk .alan-sec { order: 5; flex: 1 1 100%; min-width: 0; }
   .kabuk .alan-sec .alan-etiket {
     position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
   .kabuk .alan-sec select { max-width: none; width: 100%; min-width: 0; text-overflow: ellipsis; }
-  .canli { order: 3; flex: none; }
-  .sekmeler { order: 4; flex: 1 0 100%; overflow-x: auto; scrollbar-width: none; }
+  .canli { order: 4; flex: none; margin-left: auto; }
+  .sekmeler { order: 6; flex: 1 0 100%; overflow-x: auto; scrollbar-width: none; }
   .sekmeler::-webkit-scrollbar { display: none; }
   main { padding-top: var(--a-16); }
   .bolum { padding: var(--a-12); }
@@ -324,6 +327,9 @@ main.hazirlaniyor h1 { font-size: var(--t-20); color: var(--text-primary); }
   button.cubuk, .cubuk { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--a-4); }
   .cubuk .yol { grid-column: 1 / -1; grid-row: 2; }
   .karo b { font-size: var(--t-20); }
+  /* tek kalan son kart sütunu doldurur */
+  .karolar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .karolar > .karo:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 
 /* Onaylar ve Kurallar */
@@ -415,7 +421,8 @@ details.kaynak pre {
 main { padding-left: max(var(--yan), var(--guvenli-sol)); padding-right: max(var(--yan), var(--guvenli-sag)); padding-bottom: max(64px, calc(var(--guvenli-alt) + 32px)); }
 .kabuk .kabuk-ic { padding-left: max(var(--yan), var(--guvenli-sol)); padding-right: max(var(--yan), var(--guvenli-sag)); }
 /* uzun kimlik, yol ve adlar kutuyu genişletmez */
-.bolum, .onay-kart, .karo, .g-karo, .g-hedef, td, th, li, summary { overflow-wrap: anywhere; }
+.bolum, .onay-kart, .karo, .g-karo, .g-hedef, td, th, li, summary, h1, h2, h3 { overflow-wrap: anywhere; }
+.detay { min-width: 0; }
 .bolum > h2, .bolum h3 { text-wrap: balance; }
 /* sığmayan tablo kendi içinde kayar; sayfa kaymaz; kaydırma ipucu kenarda belirir */
 .tablo-kap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
@@ -430,16 +437,17 @@ main { padding-left: max(var(--yan), var(--guvenli-sol)); padding-right: max(var
   img, svg, canvas, video { max-width: 100%; }
   select, input, textarea { max-width: 100%; }
 }
-/* dokunmatik: hedef boyutu */
+/* dokunmatik: hedef boyutu (en az 44 px) */
 @media (pointer: coarse) {
-  button, .cip, button.cip, select, summary { min-height: 40px; }
-  .sekmeler a { padding-top: 10px; padding-bottom: 10px; }
+  button, .cip, button.cip, select, summary, input:not([type=checkbox]):not([type=radio]) { min-height: 44px; }
+  .sekmeler a { display: inline-flex; align-items: center; min-height: 44px; padding-top: 0; padding-bottom: 0; }
+  .bolum .aciklama a, .karo a, td a, .g-hk-baglanti a { display: inline-block; padding-block: 12px; margin-block: -12px; }
+  .kabuk .marka { min-height: 44px; }
   input[type=search], input[type=text], textarea, select { font-size: 16px; } /* iOS odaklanınca yakınlaştırmasın */
 }
 /* çok dar (<= 360): kabuk sıkışmasın */
 @media (max-width: 380px) {
   :root { --yan: 12px; }
-  .kabuk .canli { font-size: 11px; }
   .bolum { padding: var(--a-8) var(--a-12); }
 }
 /* geniş ekran: satır uzunluğu ve ray */
@@ -456,3 +464,6 @@ html[data-tum-alan] .isler-sifirla { display: none; }
 html[data-sayfa="isler"][data-tum-alan] main > #sohbetler { display: block !important; }
 html[data-sayfa="maliyet"][data-tum-alan] main > .g-gorunum:has(#tum) { display: block !important; }
 html[data-sayfa="maliyet"][data-tum-alan] main > .g-gorunum:has(#tum) > :not(#tum) { display: none !important; }
+
+/* içeriksiz bölüm yer tutmasın */
+.bolum:empty { display: none; }

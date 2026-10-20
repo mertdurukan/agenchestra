@@ -183,7 +183,7 @@ class TeknikPanel(unittest.TestCase):
         self.assertNotRegex(govde, r"#[0-9a-fA-F]{3,8}\b")
         self.assertNotRegex(govde, r"\brgba?\(|\bhsla?\(")
         self.assertIn("var(--", govde)
-        self.assertIn("@media (max-width: 860px)", govde)
+        self.assertIn("@media (max-width: 900px)", govde)
         self.assertRegex(govde, r"grid-template-columns:\s*minmax\(0, 1fr\)")
         self.assertIn("overflow-wrap: anywhere", govde)
 

@@ -9,7 +9,7 @@
   .etki-not.soru { color: var(--warning); }
   .grafik-kap { overflow-x: auto; max-width: 100%; }
   svg.etki-grafik { width: 100%; height: auto; min-width: 520px; display: block; }
-  svg.etki-grafik text { fill: var(--text-muted); font-size: 11px; }
+  svg.etki-grafik text { fill: var(--text-muted); font-size: 12px; }
   svg.etki-grafik .eksen { stroke: var(--line); stroke-width: 1; }
   svg.etki-grafik .izgara { stroke: var(--grid); stroke-width: 1; }
   svg.etki-grafik .cizgi-taban { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 6 4; fill: none; }
