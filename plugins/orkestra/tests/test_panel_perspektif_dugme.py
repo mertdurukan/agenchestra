@@ -50,14 +50,21 @@ class PerspektifDugme(unittest.TestCase):
         return r.status, b
 
     def test_yeni_sohbet_istemle_acilir(self):
-        with mock.patch.object(perspektif, "claude_exe", return_value="claude.exe"), \
-                mock.patch("subprocess.Popen") as p:
+        with mock.patch("os.startfile", create=True) as sf, mock.patch("subprocess.Popen") as p:
             k, b = self.post()
         self.assertEqual(k, 200)
         self.assertTrue(json.loads(b)["tamam"])
-        args, kw = p.call_args
-        self.assertEqual(args[0], ["claude.exe", "--desktop", "/orkestra:perspektif şimdi"])
-        self.assertEqual(kw["cwd"], self.proje)
+        link = (sf.call_args or p.call_args)[0][0]
+        link = link if isinstance(link, str) else link[-1]
+        self.assertTrue(link.startswith("claude://code/new?q="))
+        self.assertIn("%2Forkestra%3Aperspektif", link)
+        self.assertIn("folder=", link)
+
+    def test_baglanti_acilamazsa_hata(self):
+        with mock.patch("os.startfile", create=True, side_effect=OSError("yok")),                 mock.patch("subprocess.Popen", side_effect=OSError("yok")):
+            k, b = self.post()
+        self.assertEqual(k, 200)
+        self.assertFalse(json.loads(b)["tamam"])
 
     def test_basliksiz_ve_yabanci_host_403(self):
         with mock.patch("subprocess.Popen") as p:
@@ -65,15 +72,10 @@ class PerspektifDugme(unittest.TestCase):
             self.assertEqual(self.post(host="evil.example:80")[0], 403)
         p.assert_not_called()
 
-    def test_bilinmeyen_alan_400_ve_claude_yok_hatasi(self):
+    def test_bilinmeyen_alan_400(self):
         with mock.patch("subprocess.Popen") as p:
             self.assertEqual(self.post(alan="yok")[0], 400)
         p.assert_not_called()
-        with mock.patch.object(perspektif, "claude_exe", return_value=None):
-            k, b = self.post()
-        self.assertEqual(k, 200)
-        self.assertFalse(json.loads(b)["tamam"])
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -256,7 +256,7 @@
     perspektifYolda = true; b.disabled = true;
     try {
       await O.gonder('/perspektif-calistir?alan=' + encodeURIComponent(O.alan), {});
-      O.bildirim('Perspektif için yeni sohbet açılıyor.');
+      O.bildirim("Yeni sohbet açıldı; istem hazır, Enter'a bas.");
     } catch (e) {
       O.bildirim('Perspektif başlatılamadı: ' + O.yolGizle(e && e.message ? e.message : String(e)));
     } finally { perspektifYolda = false; b.disabled = false; }

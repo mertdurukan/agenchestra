@@ -200,17 +200,23 @@ def ac(oturum: str) -> dict:
 
 
 def perspektif_sohbeti_ac(proje_yol: str) -> dict:
-    """Claude masaüstü uygulamasında YENİ sohbet açar ve `/orkestra:perspektif şimdi` istemini verir (panel düğmesi)."""
-    import subprocess
-    import perspektif
+    """Claude masaüstünde YENİ sohbet açar, `/orkestra:perspektif şimdi` istemi kutuda hazır gelir (panel düğmesi).
+
+    `claude --desktop` terminal ister (panelde yok); derin bağlantı istemi yazar ama göndermez, kullanıcı Enter'a basar.
+    """
+    import urllib.parse
     if not proje_yol or not os.path.isdir(proje_yol):
         return {"tamam": False, "hata": "çalışma alanı klasörü bulunamadı"}
-    exe = perspektif.claude_exe()
-    if not exe:
-        return {"tamam": False, "hata": "claude bulunamadı; yeni sohbette elle: /orkestra:perspektif şimdi"}
-    bayrak = 0x08000000 if os.name == "nt" else 0  # pencere açma
-    subprocess.Popen([exe, "--desktop", "/orkestra:perspektif şimdi"], cwd=proje_yol, stdin=subprocess.DEVNULL,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=bayrak, close_fds=True)
+    link = "claude://code/new?" + urllib.parse.urlencode(
+        {"q": "/orkestra:perspektif şimdi", "folder": proje_yol}, quote_via=urllib.parse.quote)
+    try:
+        if os.name == "nt":
+            os.startfile(link)  # noqa: S606 — sabit claude:// şeması
+        else:
+            import subprocess
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", link])
+    except OSError as e:
+        return {"tamam": False, "hata": f"bağlantı açılamadı ({e}); yeni sohbette elle: /orkestra:perspektif şimdi"}
     return {"tamam": True}
 
 
