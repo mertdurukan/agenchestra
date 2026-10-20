@@ -101,7 +101,33 @@ def _ic_ice(komut: str) -> str | None:
     return re.sub(r"[^\w\-./:+=@]+", " ", komut)
 
 
+_DOSYA_ARACLARI = ("Read", "Edit", "Write", "NotebookEdit", "Grep", "Glob")
+_KIMLIK_YOLU = re.compile(r"\.orkestra[\/]+credentials", re.I)
+
+
+def _kimlik_kapisi(arac: str, girdi: dict) -> str | None:
+    """Kimlik klasörüne (ADR-0008) ajan erişimi: değer yalnız `orkestra kimlik` okuyucusundan alınır."""
+    try:
+        import kimlik as K
+        kok = os.path.normcase(K.kok())
+    except Exception:
+        kok = ""
+    metin = ""
+    if arac in _DOSYA_ARACLARI:
+        metin = " ".join(str(girdi.get(k) or "") for k in ("file_path", "notebook_path", "path", "pattern"))
+    elif arac in KABUK_ARACLARI:
+        metin = str(girdi.get("command") or "")
+    if not metin:
+        return None
+    if _KIMLIK_YOLU.search(metin) or (kok and kok in os.path.normcase(metin.replace("/", os.sep))):
+        return "kimlik klasörü (ADR-0008): ajan değeri okuyamaz ya da yazamaz; `orkestra kimlik liste|var|calistir` kullan, değeri kullanıcı `orkestra kimlik ekle` ile girer."
+    return None
+
+
 def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None) -> tuple[str | None, str]:
+    ned = _kimlik_kapisi(arac, girdi or {})
+    if ned:
+        return "deny", ned  # mod ne olursa olsun
     cfg = cfg or ayar_yukle(sd)
     mod = mod_bul(cfg)
     if mod == "kapali":
