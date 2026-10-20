@@ -108,7 +108,7 @@ class Durum(_Onay):
 class OnayKalibi(unittest.TestCase):
     def test_onaylar(self):
         for m in ("onaylıyorum", "tamam", "Yap", "evet başla", "/onay", "olur, yapalım", "devam et", "Tamam, başla",
-                  "y", "Y", "o", "e", "E.", "onay", "onalıyorum", "evet",
+                  "y", "Y", "o", "e", "q", "Q", "E.", "onay", "onalıyorum", "evet",
                   "başla", "kabul", "uygula", "yap", "onaylıyorum"):
             self.assertTrue(is_onay.onay_mesaji_mi(m), m)
 

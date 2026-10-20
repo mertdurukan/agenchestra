@@ -20,8 +20,8 @@ AZAMI_MESAJ = 200
 _ONAY = re.compile(
     r"^\W*(?:/onay|onay\w*|onal\w*|tamam\w*|olur|evet|yap|yapal[ıi]m|yapabilirsin|ba[sş]la\w*|uygun|uygula\w*|kabul\w*|devam(?:\s+et\w*)?|ok|okay)\b",
     re.I)
-# Tek harfli kısayol (y, o, e) yalnız mesajın tamamıysa onaydır; "o bir sorun" gibi cümleler eşleşmez.
-_ONAY_KISA = re.compile(r"^\W*[yoe]\W*$", re.I)
+# Tek harfli kısayol (y, o, e, q) yalnız mesajın tamamıysa onaydır; "o bir sorun" gibi cümleler eşleşmez.
+_ONAY_KISA = re.compile(r"^\W*[yoeq]\W*$", re.I)
 _RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz)\b", re.I)
 
 # Onay beklerken ana ya da alt ajanın kabukta çalıştıramayacağı komutlar (tırnak içi metin atılmış komuta uygulanır)
