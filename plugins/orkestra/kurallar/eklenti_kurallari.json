@@ -635,6 +635,24 @@
         }
       ],
       "etkinlesme": "2026-10-20T16:06:14+03:00"
+    },
+    {
+      "id": "P-022",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Her projede geçerli olabilecek davranış (skill, hook, betik, kural, komut) önce orkestra eklentisinin asıl kaynağında genel biçimde yazılır: yollar ve adlar ayardan gelir, projeye özgü ad (müşteri, klasör, tablo) kodda bulunmaz. Projede yalnız yapılandırma ve projeye özgü içerik kalır. Projede kurulup sonradan eklentiye taşınan çözüm yerine ilk yazımda eklentiye yazılır; yeni iş mevcut durum aşamasında 'başka projede de geçerli mi?' sorusunu yanıtlar, evetse eklenti kaynağında yapılır. Zorlama: yalnız bu kural; mekanik kapı yoktur.",
+      "neden": "Arşivleme, madde senkronu ve yol bazlı push kapısı bir projede kurulup sonradan eklentiye taşındı; eklenti geride kaldı.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-20T19:53:26+03:00",
+      "guncelleme": "2026-10-20T19:53:26+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-20T19:53:26+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Her projede geçerli olabilecek davranış (skill, hook, betik, kural, komut) önce orkestra eklentisinin asıl kaynağında genel biçimde yazılır: yollar ve adlar ayardan gelir, projeye özgü ad (müşteri, klasör, tablo) kodda bulunmaz. Projede yalnız yapılandırma ve projeye özgü içerik kalır. Projede kurulup sonradan eklentiye taşınan çözüm yerine ilk yazımda eklentiye yazılır; yeni iş mevcut durum aşamasında 'başka projede de geçerli mi?' sorusunu yanıtlar, evetse eklenti kaynağında yapılır. Zorlama: yalnız bu kural; mekanik kapı yoktur."
+        }
+      ],
+      "etkinlesme": "2026-10-20T19:53:26+03:00"
     }
   ]
 }
