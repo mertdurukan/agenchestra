@@ -53,12 +53,28 @@ class TestK1Dosyalar(unittest.TestCase):
         self.assertTrue(os.path.isfile(MODUL))
         self.assertTrue(os.path.isfile(AYAR))
 
+    def test_p021_kural_kaynakta(self):
+        """P-021: yanıttan önce doğrulama kuralı eklenti kaynağında ve KURALLAR.md'de, P-001 ile birlikte durur."""
+        with open(os.path.join(KOK, "kurallar", "eklenti_kurallari.json"), encoding="utf-8") as f:
+            kayit = {k["id"]: k for k in json.load(f)["kurallar"]}
+        self.assertIn("P-001", kayit)
+        self.assertIn("P-021", kayit)
+        self.assertEqual(kayit["P-021"]["katman"], "plugin")
+        self.assertIn("kod tabanına göre doğrulan", kayit["P-021"]["metin"])
+        self.assertIn("P-001", kayit["P-021"]["metin"])
+        with open(os.path.join(KOK, "KURALLAR.md"), encoding="utf-8") as f:
+            self.assertIn("P-021", f.read())
+
     def test_ayar_anahtarlari(self):
         with open(AYAR, encoding="utf-8") as f:
             a = json.load(f)
         for k in ("not", "kisa_max_karakter", "uzun_max_karakter", "soru_kaliplari", "soru_eki_regex", "eylem_kaliplari"):
             self.assertIn(k, a)
-        self.assertEqual(a["not"], "BİLGİ SORUSU: en çok 5 cümle; iş durumu, tablo, kaynak taraması yok; ayrıntı ancak istenirse.")
+        # P-021: not, yanıttan önce hedefli doğrulamayı ister; P-001 sınırı (5 cümle, geniş tarama yok) korunur
+        self.assertIn("P-021", a["not"])
+        self.assertIn("doğrula", a["not"])
+        self.assertIn("en çok 5 cümle", a["not"])
+        self.assertNotIn("kaynak taraması yok", a["not"].replace("geniş kaynak taraması yok", ""))
         self.assertLess(a["kisa_max_karakter"], a["uzun_max_karakter"])
         self.assertTrue(a["soru_kaliplari"] and a["eylem_kaliplari"])
         self.assertNotIn("\n", a["not"])

@@ -617,6 +617,24 @@
         }
       ],
       "etkinlesme": "2026-10-20T15:44:52+03:00"
+    },
+    {
+      "id": "P-021",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcının sorusuna yanıt vermeden önce yanıt mevcut duruma ve kod tabanına göre doğrulanır. 'Var', 'yok', 'yapılabilir', 'yapılmadı', 'şöyle çalışıyor' türü her iddia yazılmadan önce ilgili dosyaya, kurala, koda ya da canlı kayda bakılır; hafızadan ya da varsayımdan yanıt verilmez. Bakma hedefli ve kısadır (yalnız soruyla ilgili dosya, kod ya da kayıt; geniş tarama yok) ve yanıt P-001 kadar kısa kalır: P-001 yanıt boyunu sınırlar, bakmayı değil. Bakılamadıysa yanıt bunu açıkça söyler ('doğrulanmadı'). Zorlama: bu kural ve bilgi sorusu anındaki hatırlatma (soru_sinif ayarı); bakıldığı yanıt metninden mekanik ölçülemediği için sonradan denetleyen bir kapı yoktur.",
+      "neden": "Kural katmanında yazılı olan bir şey koda bakılmadan 'yapılabilir' diye önerilip kullanıcı yanlış çerçeveyle onaya götürüldü",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-20T16:06:14+03:00",
+      "guncelleme": "2026-10-20T16:06:14+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-20T16:06:14+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcının sorusuna yanıt vermeden önce yanıt mevcut duruma ve kod tabanına göre doğrulanır. 'Var', 'yok', 'yapılabilir', 'yapılmadı', 'şöyle çalışıyor' türü her iddia yazılmadan önce ilgili dosyaya, kurala, koda ya da canlı kayda bakılır; hafızadan ya da varsayımdan yanıt verilmez. Bakma hedefli ve kısadır (yalnız soruyla ilgili dosya, kod ya da kayıt; geniş tarama yok) ve yanıt P-001 kadar kısa kalır: P-001 yanıt boyunu sınırlar, bakmayı değil. Bakılamadıysa yanıt bunu açıkça söyler ('doğrulanmadı'). Zorlama: bu kural ve bilgi sorusu anındaki hatırlatma (soru_sinif ayarı); bakıldığı yanıt metninden mekanik ölçülemediği için sonradan denetleyen bir kapı yoktur."
+        }
+      ],
+      "etkinlesme": "2026-10-20T16:06:14+03:00"
     }
   ]
 }
