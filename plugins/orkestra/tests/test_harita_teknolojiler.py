@@ -1,4 +1,4 @@
-"""Sistem haritası `teknolojiler` katmanı (ADR-0017): proje bulma, kategori, md üretimi, sır, çalışma ağacı, eskime. Geçici projede koşar."""
+"""Sistem haritası `teknolojiler` katmanı (ADR-0019): proje bulma, kategori, md üretimi, sır, çalışma ağacı, eskime. Geçici projede koşar."""
 import json
 import os
 import shutil

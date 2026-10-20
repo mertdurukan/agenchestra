@@ -2,7 +2,7 @@
 
 Depo: `<durum dizini>/sistem_haritasi/` altında katman başına `<katman>.json` ve üretilen `INDEX.md`.
 Katmanlar: sirlar, dis_baglantilar, surecler, moduller, altyapi, veri_modeli, bagimliliklar, isler_adr, teknolojiler
-(teknolojiler: kategorili teknoloji envanteri ve `teknolojiler/` altında md; ADR-0017, harita_teknoloji.py).
+(teknolojiler: kategorili teknoloji envanteri ve `teknolojiler/` altında md; ADR-0019, harita_teknoloji.py).
 Kayıt: {id, ad, yer[], rol, ortam, durum}. durum: `dogrulandi` (kaynakta görüldü) | `dogrulanamadi` (kodda atıf var, canlı kaynak taranmadı).
 İmza: katmanın aday dosyalarının (yol, boyut, değişim zamanı) özeti. İmza değişmişse katman baştan taranır ve
 dosya yeniden yazılır (elle birleştirme ve sürüm biriktirme yok; eskimiş ya da yanlış kayıt kendiliğinden düşer).

@@ -1,5 +1,5 @@
 {
- "_aciklama": "Sistem haritası `teknolojiler` katmanının paket → kategori eşlemesi (ADR-0017). Ad küçük harf, '_' yerine '-'. Önce tam ad, sonra en uzun önek eşleşir; eşleşmeyen 'diger' olur. Yeni paket buraya eklenir, koda dokunulmaz.",
+ "_aciklama": "Sistem haritası `teknolojiler` katmanının paket → kategori eşlemesi (ADR-0019). Ad küçük harf, '_' yerine '-'. Önce tam ad, sonra en uzun önek eşleşir; eşleşmeyen 'diger' olur. Yeni paket buraya eklenir, koda dokunulmaz.",
  "kategoriler": [
   {"kod": "ui", "ad": "UI (arayüz)"},
   {"kod": "backend", "ad": "Backend (çalışma zamanı ve web)"},

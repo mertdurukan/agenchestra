@@ -1,4 +1,4 @@
-"""Sistem haritası `teknolojiler` katmanı (ADR-0017; model çağırmaz).
+"""Sistem haritası `teknolojiler` katmanı (ADR-0019; model çağırmaz).
 
 Projeleri manifest dosyalarından bulur (requirements*.txt, pyproject.toml, package.json, Dockerfile, Terraform, iş akışı),
 her teknolojiyi `ayarlar/teknoloji_kategorileri.json` ile kategoriler ve `<durum>/sistem_haritasi/teknolojiler/` altına

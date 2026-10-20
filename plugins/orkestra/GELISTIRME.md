@@ -44,7 +44,7 @@ Adımlar:
 - Testler: `tests/test_terfi.py`.
 
 ## Sistem haritası: teknolojiler katmanı
-- `scripts/harita.py` dokuzuncu katman `teknolojiler`i taşır; tarama ve md üretimi `scripts/harita_teknoloji.py`'dedir (ADR-0017, kural P-024).
+- `scripts/harita.py` dokuzuncu katman `teknolojiler`i taşır; tarama ve md üretimi `scripts/harita_teknoloji.py`'dedir (ADR-0019, kural P-024).
 - Kategori eşlemesi `ayarlar/teknoloji_kategorileri.json`: önce tam ad, sonra en uzun önek; eşleşmeyen `diger`. Yeni paket buraya eklenir, koda dokunulmaz. Dosya imzaya girer: değişince katman eskir.
 - Çıktı `<durum>/sistem_haritasi/teknolojiler/`: `README.md` (kategoriye göre) ve proje başına md. Her yenilemede klasördeki md'ler silinip yeniden yazılır (elle düzenleme kalmaz).
 - Proje = en yakın manifest dizini; `.git` dosyası olan dizin (çalışma ağacı) ve manifestsiz klasör proje sayılmaz. Kapsamı genişletmek (içe aktarma taraması) ayrı karar ister.
