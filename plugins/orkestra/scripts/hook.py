@@ -1429,8 +1429,9 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None) ->
         if k == "bagla" and deger is not None and str(deger) in acik_idler:
             return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger))
         if k == "ac":
-            etiket = [is_yonlendirme._ayar(ayar)["soru_etiketi"]] if tur == "soru" else None
-            return _otomatik_is_ac(sd, oid, istek, proje, etiketler=etiket)
+            if tur == "soru":  # I-138 P2: bilgi sorusu iş açmaz
+                return ""
+            return _otomatik_is_ac(sd, oid, istek, proje)
         return _bagsiz_secim_satiri(acik, puanlar, deger if isinstance(deger, (list, tuple)) else None)
     except Exception:
         return ""
@@ -1772,6 +1773,52 @@ def _kisa(s: str, n: int) -> str:
     return s if len(s) <= n else s[:max(0, n - 1)].rstrip() + "…"
 
 
+def _kart_yasi(k: dict, simdi=None) -> str:
+    """Beklemedeki kartın yaşı ('6 gün' / '5 sa'): beklemede olayından, yoksa oluşturmadan; okunamazsa boş."""
+    import datetime as _dt
+    simdi = simdi or _dt.datetime.now().astimezone()
+    try:
+        z = L._beklemede_konumu(k)[1] or k.get("olusturma") or ""
+        t = _dt.datetime.fromisoformat(str(z))
+        if t.tzinfo is None:
+            t = t.astimezone()
+        sa = max(0.0, (simdi - t).total_seconds() / 3600)
+    except Exception:
+        return ""
+    return f"{int(sa // 24)} gün" if sa >= 24 else f"{int(sa)} sa"
+
+
+def _bekleyen_notu(k: dict, tum: dict) -> str:
+    """P7: beklemedeki kart için 'G-107(engeli G-101 teslim)' ya da 'G-107(6 gün; G-101 bekliyor)'.
+    Tüm bağımlılıkları teslim olan kart engelsizdir; yoksa yaş ve henüz teslim olmayan bağımlılıklar yazılır."""
+    kid = str(k.get("id"))
+    bag = [str(b) for b in k.get("bagimliliklar") or []]
+    acik = [b for b in bag if (tum.get(b) is None or L.kart_durumu_hesapla(tum[b]) != "teslim")]
+    if bag and not acik:
+        return f"{kid}(engeli {','.join(bag[:2])} teslim)"
+    yas = _kart_yasi(k)
+    ek = f"; {','.join(acik[:2])} bekliyor" if acik else ""
+    return f"{kid}({yas}{ek})" if (yas or ek) else kid
+
+
+def _bos_is_satiri(sd: str) -> str:
+    """P6: bakim.bos_isler ölçütüne uyan, bos_is_saat (is_esleme.json, varsayılan 48) saatten eski işleri tek satırda listeler.
+    Yalnız listeler, hiçbir işin durumunu değiştirmez; hatada boş."""
+    try:
+        from komutlar import bakim
+        try:
+            saat = float(_esleme_ayari(sd).get("bos_is_saat", 48))
+        except (TypeError, ValueError):
+            saat = 48.0
+        bos = bakim.bos_isler(sd, saat)
+        if not bos:
+            return ""
+        return (f"boş iş {len(bos)} ({saat:g} saatten eski): " + ", ".join(str(g["id"]) for g in bos[:6])
+                + "; kapatmak için orkestra bakim --kapat --uygula")
+    except Exception:
+        return ""
+
+
 def _ss_birinci_satir(sd: str, bagli: str | None, ks: list) -> tuple[str, str]:
     """SessionStart 1. satır: bağlı iş (ya da açık iş kimlikleri) + kart özeti; ikinci değer yalnız kapanış/bayat notu olan işlerin satırı.
     Ayrıntı `orkestra is liste` / `orkestra kart liste`."""
@@ -1814,7 +1861,8 @@ def _ss_birinci_satir(sd: str, bagli: str | None, ks: list) -> tuple[str, str]:
         if len(aktif) > 3:
             p += f" +{len(aktif) - 3}"
         if bekl:
-            p += (" · " if aktif else "") + f"beklemede {len(bekl)}: " + ",".join(str(k["id"]) for k in bekl[:5])
+            tum = {str(k.get("id")): k for k in L.kartlar(sd)}
+            p += (" · " if aktif else "") + f"beklemede {len(bekl)}: " + ",".join(_bekleyen_notu(k, tum) for k in bekl[:5])
         parcalar.append(p + " (`orkestra kart liste`)")
     ilk = "Orkestra bu projede açık. " + ". ".join(parcalar) if parcalar else "Orkestra bu projede açık (`orkestra is liste`)."
     return ilk, not_satiri
@@ -1912,6 +1960,9 @@ def session_start(inp: dict):
         onay.kural_dosyasi_esitle(sd)
     except Exception:
         pass
+    bs = _bos_is_satiri(sd)
+    if bs:
+        ek_satirlar.append(bs)
     ei = _etki_ipucu(sd)
     if ei:
         ek_satirlar.append(ei)
@@ -1929,6 +1980,8 @@ def session_start(inp: dict):
     if korunan:
         ek = ek[:max(0, 1800 - len(korunan) - 1)] + "\n" + korunan
     ek = ek[:1800]
+    import baglam_kaydi
+    baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
 
 
@@ -1967,6 +2020,28 @@ def _etki_ipucu(sd: str) -> str:
         return (f"ETKİ İZLEME: {izlenen} onaylı değişiklik izleniyor; gidişatı kötü/soru bekleyen: {', '.join(kotu[:5])}. "
                 "Kullanıcıya tek soru sor: değişikliği geri al mı, sürdür mü? "
                 "(geri al: `orkestra onay etki-geri-al <id> --neden …`; sürdür/kapat: `orkestra onay etki-kapat <id> --sonuc …`)")[:420]
+    except Exception:
+        return ""
+
+
+def _is_degisimi_uyarisi(sd: str, oid, transkript, istek: str) -> str:
+    """G-125: bağlı oturumda istek başka bir açık işe belirgin yakınsa (eslestir+karar 'bagla') ve bağlam büyükse
+    engellemeyen uyarı metni (soguk_onbellek.is_degisimi_uyarisi). Hatada ''."""
+    try:
+        bagli = _oturum_isi(sd, oid)
+        if not bagli or not str(istek or "").strip():
+            return ""
+        import soguk_onbellek
+        if not soguk_onbellek.ayarlar(sd).get("is_degisimi"):
+            return ""
+        import is_kaydi
+        import is_yonlendirme
+        isler = [{"id": g["id"], "baslik": g.get("baslik") or "", "klasor": os.path.basename(str(g.get("klasor") or ""))}
+                 for g in is_kaydi.is_liste(sd, "acik")]
+        ayar = _esleme_ayari(sd)
+        k, deger = is_yonlendirme.karar(is_yonlendirme.eslestir(istek, isler, ayar), ayar)
+        onerilen = deger if k == "bagla" else None
+        return soguk_onbellek.is_degisimi_uyarisi(sd, oid, transkript, bagli, onerilen) or ""
     except Exception:
         return ""
 
@@ -2043,6 +2118,13 @@ def user_prompt_submit(inp: dict):
                         parcalar.append(satir)
             except Exception:
                 pass
+            try:  # ADR-0024: göreve özgü ön bağlam; varsayılan kapalı, hata hook'u düşürmez
+                import on_baglam
+                ob = on_baglam.uret(metin, [L.proje_dizini(inp.get("cwd"))], sd)
+                if ob:
+                    parcalar.append(ob)
+            except Exception:
+                pass
             try:  # panel onay kararları: hata hook'u düşürmez
                 import onay
                 om = onay.baglam_metni(sd, inp.get("session_id"), "UserPromptSubmit")
@@ -2051,8 +2133,17 @@ def user_prompt_submit(inp: dict):
             except Exception:
                 pass
             ek = "\n".join(p for p in parcalar if p)
+            try:  # G-125: iş değişimi uyarısı systemMessage olur, isteği engellemez
+                uyari = _is_degisimi_uyarisi(sd, inp.get("session_id"), inp.get("transcript_path"), metin)
+            except Exception:
+                uyari = ""
+            cikti = {"systemMessage": uyari} if uyari else {}
             if ek:  # boş bağlam çıktısı yazılmaz
-                L.hook_cikti({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ek}})
+                import baglam_kaydi
+                baglam_kaydi.kaydet(sd, "UserPromptSubmit", inp.get("session_id"), ek)
+                cikti["hookSpecificOutput"] = {"hookEventName": "UserPromptSubmit", "additionalContext": ek}
+            if cikti:
+                L.hook_cikti(cikti)
     gec()
 
 
@@ -2235,8 +2326,11 @@ OLAYLAR = {
 def main():
     olay = sys.argv[1] if len(sys.argv) > 1 else ""
     inp = L.stdin_json()
+    isleyici = OLAYLAR.get(olay)
+    if isleyici is None:  # P12: bilinmeyen olay hook'u düşürmez (çıkış 0, hook-hatasi yazılmaz)
+        sys.exit(0)
     try:
-        OLAYLAR[olay](inp)
+        isleyici(inp)
     except SystemExit:
         if olay in ("SessionStart", "SubagentStop", "Stop") or (
                 olay == "PostToolUse" and inp.get("tool_name") in ("Skill", "Agent", "Task", "Workflow")):

@@ -1,7 +1,7 @@
 /* Orkestra paneli v2: karar odaklı kontrol odası.
    Görünümler: Gelen kutusu (açılış) · İşler (liste + ayrıntı) · Koşular · Kart izi · Maliyet · Kurallar.
    Veri: mevcut JSON uçları; canlı güncelleme /akis (SSE). Harici kitaplık yok.
-   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=… */
+   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=…  #/yapilacaklar */
 (() => {
   'use strict';
 
@@ -18,6 +18,10 @@
   };
 
   const sayiB = (n, ond = 0) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: ond, maximumFractionDigits: ond }).format(n);
+  const PENCERE = [['bugun', 'Bugün'], ['son_3_gun', 'Son 3 gün'], ['son_7_gun', 'Son 7 gün'], ['bu_ay', 'Bu ay'], ['tum_zaman', 'Tümü']];
+  const pencereAd = k => (PENCERE.find(p => p[0] === k) || [])[1] || '';
+  // Her para/token değeri B.para ya da B.paraP'den geçer: pencere ve birim seçimi tek yerde uygulanır (I-137).
+  // Ham B.usd / B.token yalnız B içinde çağrılır; tests/test_panel_pencere_birim.py bunu denetler.
   const B = {
     usd(v) {
       if (v == null || isNaN(v)) return '–';
@@ -31,8 +35,15 @@
       if (a >= 1e3) return sayiB(a / 1e3, a < 1e4 ? 1 : 0) + ' K';
       return sayiB(a);
     },
-    olcu: () => depo.al('orkestra.olcu') === 'token' ? 'token' : 'usd',
-    deger: (usd, token) => B.olcu() === 'token' && token != null ? B.token(token) : B.usd(usd),
+    olcu: () => depo.al('orkestra.olcu') === 'token' ? 'token' : 'usd',   // klasik sayfalarla ortak anahtar
+    birim: () => B.olcu() === 'token' ? 'Token' : 'USD',
+    pencere() { const v = depo.al('orkestra.v2.pencere'); return PENCERE.some(p => p[0] === v) ? v : 'son_3_gun'; },
+    // seçili birimde değer; token verisi yoksa '–' (USD'ye düşmek aynı sütunda iki birimi karıştırır)
+    para: (usd, token) => B.olcu() === 'token' ? B.token(token) : B.usd(usd),
+    // { pencere: { <pencere>: { usd, token } } } taşıyan kayıt için seçili pencerenin değeri; pencerede harcama yoksa '–'
+    paraP(o) { const x = o?.pencere?.[B.pencere()]; return !x || (!x.usd && !x.token) ? '–' : B.para(x.usd, x.token); },
+    // pencereden ve birimden bağımsız USD ölçüsü (ör. onaylı kart başına USD): token modunda '$' yerine 'USD' eki
+    usdSabit: x => B.olcu() !== 'token' ? B.usd(x) : x == null || isNaN(x) ? '–' : sayiB(x, 2) + ' USD',
     yuzde: (x, ond = 0) => x == null || isNaN(x) ? '–' : '%' + sayiB(x * 100, ond),
     sayi: (x, ond = 0) => x == null || isNaN(x) ? '–' : sayiB(x, ond),
     sure(sn) {
@@ -75,6 +86,7 @@
     kosular: '<path d="M1.5 8h3l2-5 3 10 2-5h3"/>',
     maliyet: '<path d="M2.5 13.5h11"/><path d="M4 11V8"/><path d="M7 11V4"/><path d="M10 11V6.5"/><path d="M13 11V2.5"/>',
     kurallar: '<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 6.5h5M5.5 9h5M5.5 11.5h3"/>',
+    yapilacaklar: '<path d="M6.5 4.5h7M6.5 8h7M6.5 11.5h7"/><path d="m2 4.5 1 1 1.6-2M2 8l1 1 1.6-2M2 11.5l1 1 1.6-2"/>',
     onay: '<path d="m3 8.5 3 3 7-7"/>',
     sohbet: '<path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/>',
     kart: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M5 6.5h6M5 9.5h3.5"/>',
@@ -128,12 +140,42 @@
   const d = yol => kayit(yol);
   const tazele = (taze = false) => gerekler(rota()).concat(TEMEL).forEach(y => getir(y, { taze }));
   const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json'];
+  const YAP_YOL = '/api/kullanici-todo';
 
   async function gonder(yol, govde) {
     const r = await fetch(urlAl(yol), { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde || {}) });
     const v = await r.json().catch(() => null);
     if (!r.ok || !v || v.tamam === false) throw new Error((v && v.hata) || 'HTTP ' + r.status);
     return v;
+  }
+
+  // Sohbeti Claude masaüstünde açar (isler.js sohbetAc ile aynı yol): uygulama bağlantısı varsa tıklama anında tarayıcı
+  // açar (Windows yalnız öndeki sürecin başlattığı uygulamayı öne getirir); bağlantıyı iletmeyen gömülü görünümde
+  // sayfa odağı kaybetmez → sunucu yolu (POST /ac). Hangi yolun çalıştığı ilk tıklamada öğrenilir.
+  async function sohbetAc(oturum, ad) {
+    if (!oturum) return;
+    const r0 = ((d('/simdi.json').veri || {}).oturumlar || []).find(x => x.oturum === oturum);
+    const link = r0 && typeof r0.link === 'string' && /^claude:\/\/claude\.ai\/epitaxy\/[\w-]+$/.test(r0.link) ? r0.link : '';
+    const yol = depo.al('orkestra.acYolu');
+    if (link && yol === 'link') { location.href = link; return bildir('Açılıyor: ' + (ad || 'sohbet')); }
+    if (link && yol !== 'sunucu') {
+      let gitti = false;
+      const kayip = () => { gitti = true; };
+      window.addEventListener('blur', kayip, { once: true });
+      document.addEventListener('visibilitychange', kayip, { once: true });
+      location.href = link;
+      bildir('Açılıyor: ' + (ad || 'sohbet'));
+      await new Promise(c => setTimeout(c, 1500));
+      window.removeEventListener('blur', kayip);
+      document.removeEventListener('visibilitychange', kayip);
+      depo.koy('orkestra.acYolu', gitti ? 'link' : 'sunucu');
+      if (gitti) return;
+    }
+    bildir('Sohbet açılıyor…');
+    try {
+      const r = await gonder('/ac?oturum=' + enc(oturum));
+      bildir(r.yol === 'cli' ? 'Sohbet Claude uygulamasında sürdürülüyor' : 'Açıldı: ' + (r.baslik || ad || 'sohbet'));
+    } catch (x) { bildir('Açılamadı: ' + x.message, { hata: true }); }
   }
 
   // ================================================================ 3. Yönlendirme
@@ -145,7 +187,7 @@
     if (!p.length || p[0] === 'gelen') return { ad: 'gelen', q };
     if (p[0] === 'is' && p[1]) return { ad: 'isler', id: p[1], q };
     if (p[0] === 'kart' && p[1]) return { ad: 'kart', id: p[1], q };
-    if (['isler', 'kosular', 'maliyet', 'kurallar'].includes(p[0])) return { ad: p[0], q };
+    if (['isler', 'kosular', 'maliyet', 'kurallar', 'yapilacaklar'].includes(p[0])) return { ad: p[0], q };
     return { ad: 'gelen', q };
   }
   const git = h => { if (location.hash !== h) location.hash = h; };
@@ -159,6 +201,37 @@
   }
   const sorguEk = (q, haric = []) => { const c = new URLSearchParams(q); haric.forEach(k => c.delete(k)); const s = c.toString(); return s ? '?' + s : ''; };
 
+  // Pencere ve birim seçimi (I-137): üst çubuktan, p / u kısayolundan ve komut paletinden değişir; tüm sayfalar B.pencere() / B.olcu() ile okur.
+  const KONTROL_ROTA = ['gelen', 'isler', 'kosular', 'maliyet', 'kart'];
+  const kontrolVar = () => KONTROL_ROTA.includes(rota().ad);
+  function pencereKoy(v) {
+    if (!PENCERE.some(p => p[0] === v)) return;
+    depo.koy('orkestra.v2.pencere', v);
+    gorunumCiz();
+  }
+  const pencereSonraki = () => { const i = PENCERE.findIndex(p => p[0] === B.pencere()); pencereKoy(PENCERE[(i + 1) % PENCERE.length][0]); };
+  function olcuKoy(v) {
+    depo.koy('orkestra.olcu', v === 'usd' || v === 'token' ? v : B.olcu() === 'token' ? 'usd' : 'token');   // klasik sayfalarla ortak anahtar
+    gorunumCiz();
+  }
+  // #/…?p=son_7_gun derin bağlantısı seçimi uygular ve saklar, adresten çıkarır
+  function derinBaglanti() {
+    const r = rota(), p = r.q.get('p');
+    if (p == null) return;
+    if (PENCERE.some(x => x[0] === p)) depo.koy('orkestra.v2.pencere', p);
+    r.q.delete('p');
+    const s = r.q.toString();
+    history.replaceState(null, '', (location.hash.split('?')[0] || '#/gelen') + (s ? '?' + s : ''));
+  }
+  function kontroller(r) {
+    if (!KONTROL_ROTA.includes(r.ad)) return '';
+    const p = B.pencere(), o = B.olcu(), kart = r.ad === 'kart';
+    return H`<div class="kontrol-grup">
+      <div class="kontrol" role="group" aria-label="Zaman penceresi">${kart ? H`<span class="soluk kucuk-y">kartın tüm ömrü</span>` : ''}${PENCERE.map(([k, ad]) => H`<button class="cip" data-eylem="pencere" data-v="${k}" aria-pressed="${!kart && p === k ? 'true' : 'false'}" ${kart ? ham('disabled title="Kart izi kartın tüm ömrünü gösterir"') : ''}>${ad}</button>`)}</div>
+      <div class="kontrol" role="group" aria-label="Ölçü birimi">${[['usd', 'USD'], ['token', 'Token']].map(([k, ad]) => H`<button class="cip" data-eylem="olcu" data-v="${k}" aria-pressed="${o === k ? 'true' : 'false'}">${ad}</button>`)}</div>
+    </div>`;
+  }
+
   function gerekler(r) {
     switch (r.ad) {
       case 'gelen': return ['/onaylar.json', '/simdi.json', '/ozet.json', '/analitik.json'];
@@ -167,6 +240,7 @@
       case 'kart': return [`/teknik.json?kart=${enc(r.id)}`, '/analitik.json', '/ozet.json'];
       case 'maliyet': return ['/analitik.json', '/ozet.json'];
       case 'kurallar': return ['/kurallar.json'];
+      case 'yapilacaklar': return [YAP_YOL];
       default: return [];
     }
   }
@@ -207,15 +281,13 @@
     const o = (d('/ozet.json').veri?.kartlar || []).find(k => k.id === id);
     return { ...(a || {}), ...(o || {}) };
   };
-  const kartUsd = () => Object.fromEntries((d('/analitik.json').veri?.birim?.kart_maliyetleri || []));
 
   // ================================================================ 5. Görünüm: Gelen kutusu
   const OLCU_AD = {
     ana_ajan_payi: ['Ana ajan payı', x => B.yuzde(x)], isci_cagrisi_kart: ['İşçi çağrısı / kart', x => B.sayi(x, 2)],
-    onayli_kart_usd: ['Onaylı kart başına USD', x => B.usd(x)], ret_orani: ['Ret oranı', x => B.yuzde(x, 1)],
+    onayli_kart_usd: ['Onaylı kart başına USD', x => B.usdSabit(x)], ret_orani: ['Ret oranı', x => B.yuzde(x, 1)],
     teknik_not_kapsama: ['Teknik not kapsaması', x => B.yuzde(x)],
   };
-  const PENCERE = [['bugun', 'Bugün'], ['son_3_gun', 'Son 3 gün'], ['son_7_gun', 'Son 7 gün'], ['bu_ay', 'Bu ay']];
   const ertelenen = new Map();   // onay id → { zamanlayici }  (geri al süresi içindeki kararlar)
 
   function gelenOgeleri() {
@@ -228,11 +300,9 @@
     }
     if (sm) (sm.oturumlar || []).filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => g.sohbet.push({ tur: 'sohbet', o }));
     if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => g.kart.push({ tur: 'kart', k }));
-    if (an?.hedef_panosu?.olculer) {
-      Object.entries(an.hedef_panosu.olculer).forEach(([ad, p]) => {
-        const sec = ['bugun', 'son_3_gun', 'son_7_gun'].find(x => p[x] && p[x].durum !== 'veri-yok');
-        if (sec && p[sec].durum === 'kotu') g.olcu.push({ tur: 'olcu', ad, e: p[sec], pencere: sec });
-      });
+    if (an?.hedef_panosu?.olculer) {   // seçili pencerenin hedef dışı ölçüleri
+      const w = B.pencere();
+      Object.entries(an.hedef_panosu.olculer).forEach(([ad, p]) => { if (p[w]?.durum === 'kotu') g.olcu.push({ tur: 'olcu', ad, e: p[w], pencere: w }); });
     }
     return g;
   }
@@ -275,21 +345,21 @@
     }
     if (o.tur === 'kart') {
       const k = o.k, eski = (Date.now() - new Date(k.guncelleme).getTime()) / 864e5;
-      return H`<article class="oge" data-gez style="--renk:var(--uyari)">
+      return H`<article class="oge" data-gez${k.oturum ? H` data-oturum="${k.oturum}" data-ad="${k.baslik}" style="--renk:var(--uyari);cursor:pointer" title="Tıkla: kartı başlatan sohbeti aç"` : H` style="--renk:var(--uyari)"`}>
         <div class="simge">${simge('kart')}</div>
         <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.basamak || ''}</span>${rozet(k.durum)}</div>
           <div class="baslik">${k.baslik}</div>
-          <div class="meta"><span>${eski >= 1 ? Math.round(eski) + ' gündür hareketsiz' : 'son hareket ' + B.goreli(k.guncelleme)}</span><span>·</span><span>${k.isci ?? 0} işçi çağrısı</span><span>·</span><span>${B.usd(k.usd)}</span></div></div>
-        <div class="eylemler"><a class="dugme kucuk" href="#/kart/${enc(k.id)}" data-birincil>İzi aç</a></div></article>`;
+          <div class="meta"><span>${eski >= 1 ? Math.round(eski) + ' gündür hareketsiz' : 'son hareket ' + B.goreli(k.guncelleme)}</span><span>·</span><span>${k.isci ?? 0} işçi çağrısı</span><span>·</span><span>${B.paraP(k)}</span></div></div>
+        <div class="eylemler">${k.oturum ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${k.oturum}" data-ad="${k.baslik}" data-birincil>Sohbeti aç</button>` : ''}<a class="dugme kucuk" href="#/kart/${enc(k.id)}"${k.oturum ? '' : ' data-birincil'}>İzi aç</a></div></article>`;
     }
     if (o.tur === 'olcu') {
       const [ad, f] = OLCU_AD[o.ad] || [o.ad, x => B.sayi(x, 2)];
-      const pAd = (PENCERE.find(p => p[0] === o.pencere) || [])[1] || '';
+      const pAd = pencereAd(o.pencere);
       return H`<article class="oge" data-gez style="--renk:var(--kotu)">
         <div class="simge">${simge('hedef')}</div>
         <div class="govde"><div class="baslik">${ad}: ${f(o.e.deger)}</div>
           <div class="meta"><span>Hedef ${o.e.tur === 'ust' ? '≤' : '≥'} ${f(o.e.hedef)}</span><span>·</span><span>${pAd}</span><span>·</span><span>${B.sayi(o.e.ornek)} örnek</span></div></div>
-        <div class="eylemler"><a class="dugme kucuk" href="#/maliyet?p=${o.pencere}" data-birincil>İncele</a></div></article>`;
+        <div class="eylemler"><a class="dugme kucuk" href="#/maliyet" data-birincil>İncele</a></div></article>`;
     }
     return '';
   }
@@ -298,10 +368,11 @@
     const yuk = bekle('/onaylar.json', '/simdi.json', '/ozet.json');
     const g = gelenOgeleri();
     const oz = d('/ozet.json').veri, sm = d('/simdi.json').veri, an = d('/analitik.json').veri, il = d('/isler.json').veri;
-    const gun = (an?.trend?.gunluk || []).slice(-14).map(x => x.usd);
+    const p = B.pencere(), pw = oz?.maliyet?.pencere?.[p];
+    const gun = (an?.trend?.gunluk || []).slice(-14).map(x => B.olcu() === 'token' ? x.token : x.usd);
     const acikIs = (il?.isler || []).filter(i => i.durum === 'acik').length;
     const ust = oz ? H`<div class="karolar">
-        ${karo('Bugünkü harcama', B.usd(oz.maliyet?.bugun), H`${spark(gun)}<span>son ${gun.length} gün</span>`, '#/maliyet')}
+        ${karo('Harcama · ' + pencereAd(p), pw ? B.para(pw.usd, pw.token) : '–', H`${spark(gun)}<span>son ${gun.length} gün</span>`, '#/maliyet')}
         ${karo('Claude çalışıyor', B.sayi(sm?.sayac?.claude ?? 0), 'sohbet')}
         ${karo('Açık iş', il ? B.sayi(acikIs) : '–', 'İşlere git →', '#/isler')}
         ${karo('Karar bekleyen', B.sayi(g.karar.length), g.karar.length ? 'aşağıda' : 'yok')}
@@ -333,7 +404,7 @@
       return H`<a class="satir-l" role="option" data-gez href="#/is/${enc(i.id)}${sorgu}" aria-selected="${i.id === r.id}">
         <span class="nokta" style="--renk:${i.durum === 'kapandi' ? 'var(--notr)' : surer ? 'var(--bilgi)' : 'var(--vurgu)'}"></span>
         <span class="kimlik">${i.id}</span><span class="ad" title="${i.ad}">${i.ad}</span>
-        <span class="sag">${t ? H`<span class="mini-ilerleme">${ilerleme(b / t, i.durum === 'kapandi' ? 'var(--notr)' : '')}</span>` : ''}<span>${B.deger(i.usd, i.token)}</span><span style="min-width:62px;text-align:right">${B.goreli(i.son)}</span></span></a>`;
+        <span class="sag">${t ? H`<span class="mini-ilerleme">${ilerleme(b / t, i.durum === 'kapandi' ? 'var(--notr)' : '')}</span>` : ''}<span>${B.paraP(i)}</span><span style="min-width:62px;text-align:right">${B.goreli(i.son)}</span></span></a>`;
     })}</div>` : bos('Eşleşen iş yok', q ? `“${q}” için sonuç yok.` : 'Bu süzgeçte iş yok.', 'ara'));
     const sol = H`<div class="liste-yan" id="isListe" data-kaydir>
       <div class="suzgec">${[['acik', 'Açık'], ['kapandi', 'Kapanan'], ['tum', 'Tümü']].map(([k, ad]) =>
@@ -355,16 +426,16 @@
     const kovalar = H`<div class="kovalar">${KOVA.filter(([k]) => (i.kovalar?.[k] || []).length).map(([k, ad, renk]) => {
       const l = i.kovalar[k];
       const oge = e => e.tur === 'kart'
-        ? H`<a class="k" href="#/kart/${enc(e.kart)}"><span class="yatay"><span class="kimlik">${e.kart}</span>${e.basamak ? H`<span class="etiket">${e.basamak}</span>` : ''}<span class="soluk kucuk-y" style="margin-left:auto">${B.deger(e.usd, e.token)}</span></span><span>${kisalt(e.metin, 120)}</span></a>`
+        ? H`<a class="k" href="#/kart/${enc(e.kart)}"><span class="yatay"><span class="kimlik">${e.kart}</span>${e.basamak ? H`<span class="etiket">${e.basamak}</span>` : ''}<span class="soluk kucuk-y" style="margin-left:auto">${B.paraP(e)}</span></span><span>${kisalt(e.metin, 120)}</span></a>`
         : H`<div class="k"><span>${kisalt(e.metin, 160)}</span>${e.bolum ? H`<span class="soluk kucuk-y">${e.bolum}</span>` : ''}</div>`;
       return H`<div class="kova"><h3><span class="nokta" style="--renk:${renk}"></span>${ad}<span class="soluk">${l.length}</span></h3>
         ${l.slice(0, 6).map(oge)}${l.length > 6 ? H`<details class="ac"><summary>${l.length - 6} daha</summary><div class="yigin sik" style="margin-top:6px">${l.slice(6).map(oge)}</div></details>` : ''}</div>`;
     })}</div>`;
     const kartTablo = tk.hata && !tk.veri ? hataKutu(tk.hata, `/teknik.json?is=${enc(id)}`) : !tk.veri ? iskelet(3, 32) : kartlar.length ? H`<div class="tablo-kap"><table class="tablo">
-      <thead><tr><th>Kart</th><th>Başlık</th><th class="gizle-dar">Sınıf</th><th>Basamak</th><th>Durum</th><th class="gizle-dar">Denetim</th><th class="sayi gizle-dar">Süre</th><th class="sayi">${B.olcu() === 'token' ? 'Token' : 'USD'}</th></tr></thead>
+      <thead><tr><th>Kart</th><th>Başlık</th><th class="gizle-dar">Sınıf</th><th>Basamak</th><th>Durum</th><th class="gizle-dar">Denetim</th><th class="sayi gizle-dar">Süre</th><th class="sayi">${B.birim()}</th></tr></thead>
       <tbody>${kartlar.map(k => H`<tr class="tik" data-git="#/kart/${enc(k.id)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td>
         <td class="gizle-dar soluk">${k.sinif || '–'}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
-        <td class="gizle-dar">${k.denetim ? rozet(k.denetim) : H`<span class="soluk">–</span>`}</td><td class="sayi gizle-dar">${B.sure(k.sure)}</td><td class="sayi">${B.deger(k.usd, k.token)}</td></tr>`)}</tbody></table></div>`
+        <td class="gizle-dar">${k.denetim ? rozet(k.denetim) : H`<span class="soluk">–</span>`}</td><td class="sayi gizle-dar">${B.sure(k.sure)}</td><td class="sayi">${B.paraP(k)}</td></tr>`)}</tbody></table></div>`
       : H`<p class="soluk" style="padding:0 var(--a4) var(--a3)">Bu işte kart yok.</p>`;
     const acikM = td.veri?.acik_maddeler || [], bitenM = td.veri?.biten_maddeler || [];
     const todo = td.veri ? (acikM.length + bitenM.length ? H`<ul class="todo">${acikM.map(m => H`<li><span class="kutu"></span><span>${m}</span></li>`)}</ul>
@@ -375,7 +446,7 @@
         <h1>${i.ad}</h1>
         ${i.klasor ? H`<div class="yatay soluk kucuk-y"><code title="${i.klasor}">${yolKisa(i.klasor)}</code><button class="dugme hayalet kucuk" data-eylem="kopyala" data-metin="${i.klasor}">Yolu kopyala</button></div>` : ''}</div>
       <div class="karolar">${karo('İlerleme', t ? B.yuzde(b / t) : '–', t ? H`${b} / ${t} madde` : 'madde yok')}
-        ${karo('Harcama', B.deger(i.usd, i.token), B.olcu() === 'token' ? 'token' : 'USD')}
+        ${karo('Harcama', B.paraP(i), pencereAd(B.pencere()) + ' · ' + B.birim())}
         ${karo('Kart', B.sayi(kartlar.length || Object.values(i.kovalar || {}).flat().filter(e => e.tur === 'kart').length), 'oluşturma sırasıyla aşağıda')}
         ${karo('Son etkinlik', B.goreli(i.son), B.tarih(i.son))}</div>
       ${t ? ilerleme(b / t) : ''}
@@ -388,10 +459,10 @@
   // ================================================================ 7. Görünüm: Koşular
   function gKosular(r) {
     const yuk = bekle('/analitik.json');
-    const an = d('/analitik.json').veri, usd = kartUsd();
-    const ozD = Object.fromEntries((d('/ozet.json').veri?.kartlar || []).map(k => [k.id, k]));
+    const an = d('/analitik.json').veri, p = B.pencere();
     const bs = r.q.get('b') || '', du = r.q.get('d') || '', s = r.q.get('s') || 'yeni', q = r.q.get('q') || '';
-    let l = (an?.akis?.kartlar || []).map(k => ({ ...k, usd: ozD[k.id]?.usd ?? usd[k.id] ?? null }));
+    // pencere: kartın oluşturma günü seçili pencerede (sunucu 'penceresi' listesini verir); maliyet de pencerede kalan harcama
+    let l = (an?.akis?.kartlar || []).filter(k => (k.penceresi || []).includes(p));
     const basamaklar = [...new Set(l.map(k => k.basamak).filter(Boolean))].sort();
     const durumlar = [...new Set(l.map(k => k.durum).filter(Boolean))].sort();
     l = l.filter(k => (!bs || k.basamak === bs) && (!du || k.durum === du) && (!q || eslesir(k.id + ' ' + k.baslik, q)));
@@ -400,7 +471,7 @@
     const mx = Math.max(1, ...l.map(k => k.toplam_dk || 0));
     // toplam süre üç aşamadan uzunsa fark turlar arası beklemedir (ana ajanın yeniden çağırması, kullanıcı)
     const ara = k => Math.max(0, (k.toplam_dk || 0) - (k.kuyruk_dk || 0) - (k.is_dk || 0) - (k.denetim_toplam_dk || 0));
-    const oz = an?.akis?.ozet || {};
+    const oz = an?.pencere?.[p]?.akis_ozet || {};
     const DARBOGAZ = { is: 'işçi çalışması', kuyruk: 'kuyruk', denetim: 'denetim' };
     const cip = (k, v, ad) => H`<button class="cip" data-eylem="sorgu" data-k="${k}" data-v="${v}" aria-pressed="${(r.q.get(k) || '') === v}">${ad}</button>`;
     const govde = yuk || H`
@@ -412,19 +483,20 @@
           <input class="arama" id="kosuAra" type="search" placeholder="Kart ara…  /" value="${q}" data-sorgu="q" aria-label="Kart ara"></div>
         <div class="suzgec" style="border-bottom:0;padding-bottom:0"><span class="soluk kucuk-y">Sırala:</span>${cip('s', 'yeni', 'En yeni')}${cip('s', 'sure', 'En uzun')}${cip('s', 'kuyruk', 'En uzun kuyruk')}
           <span class="lejant" style="margin-left:auto"><span><i style="--renk:var(--seri-5)"></i>Kuyruk</span><span><i style="--renk:var(--seri-1)"></i>İş</span><span><i style="--renk:var(--seri-3)"></i>Denetim</span><span><i style="--renk:var(--cizgi-guclu)"></i>Turlar arası</span></span></div>
-        <div class="tablo-kap"><table class="tablo"><thead><tr><th>Kart</th><th>Başlık</th><th>Basamak</th><th>Durum</th><th>Süre dağılımı</th><th class="sayi">Toplam</th><th class="sayi gizle-dar">USD</th><th class="gizle-dar gizle-orta">Oluşturma</th></tr></thead>
+        <div class="tablo-kap"><table class="tablo"><thead><tr><th>Kart</th><th>Başlık</th><th>Basamak</th><th>Durum</th><th>Süre dağılımı</th><th class="sayi">Toplam</th><th class="sayi gizle-dar">${B.birim()}</th><th class="gizle-dar gizle-orta">Oluşturma</th></tr></thead>
         <tbody>${l.slice(0, 300).map(k => {
           const w = x => ((x || 0) / mx * 120).toFixed(1);
           return H`<tr class="tik" data-gez data-git="#/kart/${enc(k.id)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
             <td><span class="mini-serit" title="Kuyruk ${B.sure(k.kuyruk_dk * 60)} · İş ${B.sure(k.is_dk * 60)} · Denetim ${B.sure(k.denetim_toplam_dk * 60)} · Turlar arası ${B.sure(ara(k) * 60)}"><i style="width:${w(k.kuyruk_dk)}px;background:var(--seri-5)"></i><i style="width:${w(k.is_dk)}px;background:var(--seri-1)"></i><i style="width:${w(k.denetim_toplam_dk)}px;background:var(--seri-3)"></i><i style="width:${w(ara(k))}px;background:var(--cizgi-guclu)"></i></span></td>
-            <td class="sayi">${B.sure((k.toplam_dk || 0) * 60)}</td><td class="sayi gizle-dar">${k.usd != null ? B.usd(k.usd) : H`<span class="soluk">–</span>`}</td><td class="gizle-dar gizle-orta soluk">${B.tarih(k.olusturma)}</td></tr>`;
+            <td class="sayi">${B.sure((k.toplam_dk || 0) * 60)}</td><td class="sayi gizle-dar">${B.paraP(k)}</td><td class="gizle-dar gizle-orta soluk">${B.tarih(k.olusturma)}</td></tr>`;
         })}</tbody></table></div>
-        ${l.length ? '' : bos('Eşleşen kart yok', 'Süzgeçleri gevşet.', 'ara')}
+        ${l.length ? '' : bos(q || bs || du ? 'Eşleşen kart yok' : 'Bu pencerede kart yok', q || bs || du ? 'Süzgeçleri gevşet.' : pencereAd(p) + ' içinde oluşturulan kart yok; üstten pencereyi genişlet.', 'ara')}
       </section>`;
-    return { baslik: 'Koşular', sag: H`<span class="soluk kucuk-y">${l.length} kart</span>`, govde: H`<div class="icerik yigin">${govde}</div>` };
+    return { baslik: 'Koşular', sag: H`<span class="soluk kucuk-y">${l.length} kart · ${pencereAd(p)}</span>`, govde: H`<div class="icerik yigin">${govde}</div>` };
   }
 
   // ================================================================ 8. Görünüm: Kart koşu izi
+  const birimDeger = o => (B.olcu() === 'token' ? o.token : o.usd) || 0;   // seçili birimin ham sayısı (çubuk genişliği, sıralama)
   const kSatirlari = l => (l || []).flatMap(s => String(s).split(/\s(?=K\d+:)/)).map(s => s.trim()).filter(Boolean);
   const kriterler = l => (l || []).flatMap(x => { if (typeof x === 'string' && x.trim().startsWith('[')) { try { return JSON.parse(x); } catch (e) { /* düz metin */ } } return [x]; });
 
@@ -446,7 +518,7 @@
     const dosyalar = t.degisen?.dosyalar || [];
     const fmx = Math.max(1, ...dosyalar.map(f => (f.ekle || 0) + (f.sil || 0)));
     const adim = (renk, s, baslik, ek, govde) => H`<li><div class="dugum" style="--renk:${renk}">${simge(s)}</div><div class="adim"><div class="ust"><b>${baslik}</b>${ek || ''}</div>${govde || ''}</div></li>`;
-    const modelSat = l => l.map(m => H`<span class="soluk kucuk-y">${m.ajan.replace('orkestra:', '')} · ${String(m.model).replace('claude-', '')} · ${B.usd(m.usd)}</span>`);
+    const modelSat = l => l.map(m => H`<span class="soluk kucuk-y">${m.ajan.replace('orkestra:', '')} · ${String(m.model).replace('claude-', '')} · ${B.para(m.usd, m.token)}</span>`);
     const iz = H`<ol class="iz">
       ${adim('var(--notr)', 'saat', 'Kuyruk', H`<span class="soluk kucuk-y">${B.sure(sr.kuyruk_sn)}</span>`, H`<span class="soluk kucuk-y">${bilgi.olusturma ? 'Oluşturma ' + B.tarih(bilgi.olusturma) : ''}</span>`)}
       ${adim('var(--seri-1)', 'oynat', 'İşçi çalıştı', H`<span class="etiket">${t.ne?.basamak || bilgi.basamak || '–'}</span><span class="soluk kucuk-y">${B.sure(sr.is_sn)}</span>`, H`<div class="yigin sik">${modelSat(isciler)}</div>`)}
@@ -464,14 +536,14 @@
     const govde = yuk || H`<div class="yigin">
       <div class="yigin sik"><div class="yatay"><span class="kimlik">${r.id}</span>${t.ne?.sinif && t.ne.sinif !== '-' ? H`<span class="etiket">${t.ne.sinif}</span>` : ''}${durum ? rozet(durum) : ''}${isId ? H`<a class="baglanti kucuk-y" href="#/is/${enc(isId)}">${isId} işine git →</a>` : ''}</div>
         <h1>${t.ne?.baslik || bilgi.baslik || r.id}</h1></div>
-      <div class="karolar">${karo('Toplam süre', B.sure(topSure), 'kuyruk + iş + denetim')}${karo('Maliyet', B.usd(ms.toplam_usd), `${(ms.maliyet || []).length} ajan koşusu`)}
+      <div class="karolar">${karo('Toplam süre', B.sure(topSure), 'kuyruk + iş + denetim')}${karo('Maliyet', B.para(ms.toplam_usd, ms.toplam_token), `${(ms.maliyet || []).length} ajan koşusu`)}
         ${karo('Denetim', `${denetimler.length}`, retS ? `${retS} ret` : 'ret yok')}${karo('Değişen dosya', B.sayi(dosyalar.length), dosyalar.length ? `+${dosyalar.reduce((a, f) => a + (f.ekle || 0), 0)} −${dosyalar.reduce((a, f) => a + (f.sil || 0), 0)} satır` : '–')}</div>
       ${topSure ? H`<div class="serit" role="img" aria-label="Süre dağılımı"><div class="s-kuyruk" style="width:${yuzde(sr.kuyruk_sn)}%">Kuyruk ${B.sure(sr.kuyruk_sn)}</div><div class="s-is" style="width:${yuzde(sr.is_sn)}%">İş ${B.sure(sr.is_sn)}</div><div class="s-denetim" style="width:${yuzde(sr.denetim_sn)}%">Denetim ${B.sure(sr.denetim_sn)}</div></div>` : ''}
       <div class="izgara iki" style="align-items:start">
         <section class="kart"><div class="kart-bas"><h2>Koşu izi</h2></div><div class="kart-ic">${iz}</div></section>
         <div class="yigin">
           <section class="kart"><div class="kart-bas"><h2>Kabul kriterleri</h2></div><div class="kart-ic">${kriterler(t.ne?.kabul_kriterleri).length ? H`<ul class="todo">${kriterler(t.ne.kabul_kriterleri).map(k => H`<li><span class="kutu" style="${durum === 'teslim' ? 'background:var(--iyi);border-color:var(--iyi)' : ''}"></span><span>${k}</span></li>`)}</ul>` : H`<p class="soluk">Kriter kaydı yok.</p>`}</div></section>
-          <section class="kart"><div class="kart-bas"><h2>Maliyet</h2><span class="bosluk"></span><b class="sayi">${B.usd(ms.toplam_usd)}</b></div><div class="kart-ic">${(ms.maliyet || []).length ? (ms.maliyet || []).map(m => H`<div class="cubuk-l"><span title="${m.model}">${m.ajan.replace('orkestra:', '')}</span><span class="yol"><i style="width:${(m.usd / (ms.toplam_usd || 1) * 100).toFixed(1)}%;--renk:${/denetci/.test(m.ajan) ? 'var(--seri-3)' : 'var(--seri-1)'}"></i></span><span class="d">${B.usd(m.usd)}</span></div>`) : H`<p class="soluk">Maliyet kaydı yok.</p>`}</div></section>
+          <section class="kart"><div class="kart-bas"><h2>Maliyet</h2><span class="bosluk"></span><b class="sayi">${B.para(ms.toplam_usd, ms.toplam_token)}</b></div><div class="kart-ic">${(ms.maliyet || []).length ? (ms.maliyet || []).map(m => H`<div class="cubuk-l"><span title="${m.model}">${m.ajan.replace('orkestra:', '')}</span><span class="yol"><i style="width:${(birimDeger(m) / (birimDeger({ usd: ms.toplam_usd, token: ms.toplam_token }) || 1) * 100).toFixed(1)}%;--renk:${/denetci/.test(m.ajan) ? 'var(--seri-3)' : 'var(--seri-1)'}"></i></span><span class="d">${B.para(m.usd, m.token)}</span></div>`) : H`<p class="soluk">Maliyet kaydı yok.</p>`}</div></section>
           <section class="kart"><div class="kart-bas"><h2>Değişen dosyalar</h2><span class="soluk kucuk-y">${t.degisen?.kaynak || ''}</span></div><div class="kart-ic">${dosyalar.length ? dosyalar.map(f => H`<div class="dosya-s"><code title="${f.dosya}">${yolKisa(f.dosya)}</code><span class="sayi kucuk-y"><span style="color:var(--iyi)">+${f.ekle ?? 0}</span> <span style="color:var(--kotu)">−${f.sil ?? 0}</span></span><span class="fark" style="width:${(((f.ekle || 0) + (f.sil || 0)) / fmx * 80).toFixed(0)}px"><i class="e" style="flex:${f.ekle || 0}"></i><i class="s" style="flex:${f.sil || 0}"></i></span></div>`) : (t.ne?.ciktilar || []).length ? H`<div class="yigin sik">${t.ne.ciktilar.map(c => H`<code class="kucuk-y" title="${c}">${yolKisa(c)}</code>`)}</div><p class="soluk kucuk-y" style="margin-top:6px">Git farkı yok; planlanan çıktılar gösteriliyor.</p>` : H`<p class="soluk">Dosya kaydı yok.</p>`}</div></section>
           ${ders.length || risk.length ? H`<section class="kart"><div class="kart-bas"><h2>Öğrenilen</h2></div><div class="kart-ic yigin sik">${ders.map(x => H`<div class="k-satir"><b>${x.neden}</b> (denetim ${x.sira}): ${kisalt(x.talimat, 400)}</div>`)}${risk.map(x => H`<div class="k-satir">${typeof x === 'string' ? x : JSON.stringify(x)}</div>`)}</div></section>` : ''}
           ${t.nasil?.teknik ? H`<section class="kart"><div class="kart-bas"><h2>Teknik not</h2></div><div class="kart-ic" style="white-space:pre-wrap;font-size:13px">${typeof t.nasil.teknik === 'string' ? t.nasil.teknik : JSON.stringify(t.nasil.teknik, null, 2)}</div></section>` : ''}
@@ -480,46 +552,51 @@
     </div>`;
     return {
       baslik: r.id, yol: H`${isId ? H`<a href="#/is/${enc(isId)}">${isId}</a> / ` : H`<a href="#/kosular">Koşular</a> / `}<span class="kimlik">${r.id}</span>`,
-      sag: H`<a class="dugme hayalet kucuk" href="/teknik?alan=${enc(V.alan)}&is=${enc(isId || '')}&kart=${enc(r.id)}">Klasik teknik görünüm</a>`,
+      sag: H`${bilgi.oturum ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${bilgi.oturum}" data-ad="${bilgi.baslik || r.id}">Sohbeti aç</button> ` : ''}<a class="dugme hayalet kucuk" href="/teknik?alan=${enc(V.alan)}&is=${enc(isId || '')}&kart=${enc(r.id)}">Klasik teknik görünüm</a>`,
       govde: H`<div class="icerik">${govde}</div>`,
     };
   }
 
   // ================================================================ 9. Görünüm: Maliyet
   const MODEL_RENK = ['var(--seri-1)', 'var(--seri-2)', 'var(--seri-3)', 'var(--seri-4)', 'var(--seri-5)'];
-  // model → renk: dönem toplamına göre sıralı, grafik ve çubuklarda aynı
-  function modelRenkleri(gunluk) {
+  const modelDegerleri = g => (B.olcu() === 'token' ? g.model_token : g.model) || {};
+  // model → renk: dilim toplamına göre sıralı, grafik ve çubuklarda aynı
+  function modelRenkleri(dilim) {
     const top = {};
-    gunluk.forEach(g => Object.entries(g.model || {}).forEach(([m, v]) => { top[m] = (top[m] || 0) + v; }));
+    dilim.forEach(g => Object.entries(modelDegerleri(g)).forEach(([m, v]) => { top[m] = (top[m] || 0) + v; }));
     const sirali = Object.entries(top).sort((a, b) => b[1] - a[1]);
-    return { sirali, renk: Object.fromEntries(sirali.map(([m], j) => [m, MODEL_RENK[j % MODEL_RENK.length]])) };
+    return Object.fromEntries(sirali.map(([m], j) => [m, MODEL_RENK[j % MODEL_RENK.length]]));
   }
-  function gunlukGrafik(gunluk, renk) {
-    if (!gunluk.length) return bos('Harcama kaydı yok', '', 'maliyet');
-    const modeller = Object.keys(renk).filter(m => gunluk.some(g => (g.model || {})[m]));
+  // dilim: Bugün için 24 saatlik, diğer pencereler için günlük kayıtlar; değerler seçili birimdedir
+  function dilimGrafik(dilim, renk, saatlik, pAd) {
+    if (!dilim.length) return bos('Harcama kaydı yok', '', 'maliyet');
+    const modeller = Object.keys(renk).filter(m => dilim.some(g => modelDegerleri(g)[m]));
     const W = 720, Hh = 200, sol = 48, alt = 22, ust = 8;
-    const mx = Math.max(...gunluk.map(g => g.usd || 0)) || 1;
-    const adimY = Math.pow(10, Math.floor(Math.log10(mx))) * (mx / Math.pow(10, Math.floor(Math.log10(mx))) > 5 ? 2 : 1);
+    const mx = Math.max(...dilim.map(birimDeger)) || 1;
+    const us = Math.pow(10, Math.floor(Math.log10(mx)));
+    const adimY = us * (mx / us > 5 ? 2 : 1);
     const tavan = Math.ceil(mx / adimY) * adimY;
-    const bw = (W - sol) / gunluk.length, cg = Math.min(36, bw * 0.7);
+    const bw = (W - sol) / dilim.length, cg = Math.min(36, bw * 0.7);
     const y = v => ust + (Hh - ust - alt) * (1 - v / tavan);
     let s = '';
-    for (let v = 0; v <= tavan + 1e-9; v += adimY) s += `<line class="eksen" x1="${sol}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${sol - 6}" y="${y(v) + 4}" text-anchor="end">$${sayiB(v)}</text>`;
-    gunluk.forEach((g, i) => {
+    for (let v = 0; v <= tavan + 1e-9; v += adimY) s += `<line class="eksen" x1="${sol}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${sol - 6}" y="${y(v) + 4}" text-anchor="end">${esc(B.para(v, v))}</text>`;
+    dilim.forEach((g, i) => {
       const x = sol + i * bw + (bw - cg) / 2;
       let taban = 0;
-      const ipucu = `${g.donem}: ${B.usd(g.usd)}\n` + modeller.map(m => `${m}: ${B.usd((g.model || {})[m] || 0)}`).join('\n');
+      const etiket = saatlik ? g.donem + ':00' : g.donem;
+      const ipucu = `${etiket}: ${B.para(g.usd, g.token)}\n` + modeller.map(m => `${m}: ${B.para(modelDegerleri(g)[m] || 0, modelDegerleri(g)[m] || 0)}`).join('\n');
       s += `<g class="ipucu-alan"><title>${esc(ipucu)}</title>`;
-      modeller.forEach((m, j) => {
-        const v = (g.model || {})[m] || 0;
+      modeller.forEach(m => {
+        const v = modelDegerleri(g)[m] || 0;
         if (v <= 0) return;
         s += `<rect class="c" x="${x.toFixed(1)}" y="${y(taban + v).toFixed(1)}" width="${cg.toFixed(1)}" height="${(y(taban) - y(taban + v)).toFixed(1)}" rx="2" fill="${renk[m]}"/>`;
         taban += v;
       });
       s += `</g>`;
-      if (gunluk.length <= 16 || i % Math.ceil(gunluk.length / 12) === 0) s += `<text x="${(x + cg / 2).toFixed(1)}" y="${Hh - 6}" text-anchor="middle">${esc(String(g.donem).slice(5).replace('-', '.'))}</text>`;
+      const goster = saatlik ? i % 3 === 0 : dilim.length <= 16 || i % Math.ceil(dilim.length / 12) === 0;
+      if (goster) s += `<text x="${(x + cg / 2).toFixed(1)}" y="${Hh - 6}" text-anchor="middle">${esc(saatlik ? g.donem : String(g.donem).slice(5).replace('-', '.'))}</text>`;
     });
-    return H`<svg class="grafik" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Günlük harcama, modele göre">${ham(s)}</svg>
+    return H`<svg class="grafik" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${pAd}: ${saatlik ? 'saatlik' : 'günlük'} harcama, modele göre, ${B.birim()}">${ham(s)}</svg>
       <div class="lejant">${modeller.map(m => H`<span><i style="--renk:${renk[m]}"></i>${m}</span>`)}</div>`;
   }
   function gosterge(ad, e, f) {
@@ -532,37 +609,39 @@
       <div class="ray-g" role="img" aria-label="${ad}: ${f(e.deger)}, hedef ${f(e.hedef)}"><div class="bolge" style="${bolge}"></div><div class="hedef" style="left:${p(e.hedef)}%"></div><div class="isaret" style="left:${p(e.deger)}%;--renk:${renk}"></div></div>
       <div class="alt"><span>${B.sayi(e.ornek)} örnek</span><span>hedef ${e.tur === 'ust' ? '≤' : '≥'} ${f(e.hedef)}</span></div></div>`;
   }
-  function gMaliyet(r) {
+  // Sayfadaki her değer üstteki pencere ve birim seçimini izler; yalnız "ay sonu tahmini" pencereden bağımsızdır ve öyle etiketlenir.
+  function gMaliyet() {
     const yuk = bekle('/analitik.json', '/ozet.json');
     const an = d('/analitik.json').veri || {}, oz = d('/ozet.json').veri || {};
-    const p = r.q.get('p') || 'son_3_gun';
-    const hp = an.hedef_panosu || {}, olc = hp.olculer || {};
-    const gunluk = an.trend?.gunluk || [];
-    const son7 = gunluk.slice(-7).reduce((a, g) => a + (g.usd || 0), 0);
-    const { sirali: modelL, renk: modelRenk } = modelRenkleri(gunluk);
-    const modelMx = Math.max(1, ...modelL.map(x => x[1]));
-    const surec = Object.entries(oz.maliyet?.surec || {}).sort((a, b) => b[1] - a[1]);
-    const surecMx = Math.max(1, ...surec.map(x => x[1]));
-    const pahali = (an.birim?.kart_maliyetleri || []).slice(0, 10);
-    const pMx = Math.max(1, ...pahali.map(x => x[1]));
-    const israf = hp.israf?.[p];
+    const p = B.pencere(), tok = B.olcu() === 'token', ad = pencereAd(p);
+    const pw = oz.maliyet?.pencere?.[p] || {}, ap = an.pencere?.[p] || {}, hp = an.hedef_panosu || {}, olc = hp.olculer || {}, israf = hp.israf?.[p];
+    const tr = an.trend || {}, ay = tr.ay_sonu || {}, gun = tr.gunluk || [];
+    const dilim = { bugun: tr.saatlik || [], son_3_gun: gun.slice(-3), son_7_gun: gun.slice(-7), bu_ay: gun.slice(-(ay.gecen_gun || gun.length)), tum_zaman: gun }[p] || [];
+    const modelRenk = modelRenkleri(dilim);
+    const modelL = Object.entries((tok ? pw.model_token : pw.model) || {}).sort((a, b) => b[1] - a[1]);
+    const surec = Object.entries((tok ? pw.surec_token : pw.surec) || {}).sort((a, b) => b[1] - a[1]);
+    const pahali = (tok ? ap.en_pahali_token : ap.en_pahali) || [];
+    const mx = l => Math.max(1, ...l.map(x => x[1]));
+    const onc = pw.onceki, fark = onc && birimDeger(onc) ? birimDeger(pw) / birimDeger(onc) - 1 : null;
+    const bu = ap.birim || {};
+    const bos0 = `${ad} içinde harcama yok.`;
     const govde = yuk || H`
-      <div class="karolar">${karo('Bugün', B.usd(oz.maliyet?.bugun), H`${spark(gunluk.slice(-14).map(g => g.usd))}`)}${karo('Son 7 gün', B.usd(son7), `günlük ort. ${B.usd(son7 / Math.max(1, Math.min(7, gunluk.length)))}`)}
-        ${karo('Bu ay', B.usd(an.trend?.ay_sonu?.simdiye), an.trend?.ay_sonu?.tahmin_yeterli ? 'ay sonu tahmini ' + B.usd(an.trend.ay_sonu.tahmin_ort) : `${an.trend?.ay_sonu?.veri_gun ?? '–'} günlük veri`)}
-        ${karo('Kart başı (medyan)', B.usd(an.birim?.kart_medyan), `ortalama ${B.usd(an.birim?.kart_basi)} · ${B.sayi(an.birim?.teslim_kart)} teslim`)}
-        ${karo('Önlenebilir israf', B.usd(israf?.onlenebilir_usd), `${(PENCERE.find(x => x[0] === p) || [])[1] || ''} · ret kaynaklı`)}</div>
-      <section><div class="bolum-bas"><h2>Hedefler</h2><span class="aciklama">işaret = değer, kesik çizgi = hedef, yeşil bölge = kabul edilen aralık</span><span class="bosluk"></span>
-        ${PENCERE.map(([k, ad]) => H`<button class="cip" data-eylem="sorgu" data-k="p" data-v="${k}" aria-pressed="${p === k}">${ad}</button>`)}</div>
-        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [ad, f]]) => gosterge(ad, olc[k]?.[p], f))}</div></section>
-      <section class="kart"><div class="kart-bas"><h2>Günlük harcama</h2><span class="soluk kucuk-y">modele göre, USD</span></div><div class="kart-ic">${gunlukGrafik(gunluk.slice(-30), modelRenk)}</div></section>
+      <div class="karolar">${karo('Harcama · ' + ad, B.para(pw.usd, pw.token), fark == null ? 'önceki dönem verisi yok' : `${fark >= 0 ? '↑' : '↓'} ${B.yuzde(Math.abs(fark))} önceki döneme göre`)}
+        ${karo('Günlük ortalama', pw.gun ? B.para(pw.usd / pw.gun, pw.token / pw.gun) : '–', pw.gun ? `${B.sayi(pw.gun)} günlük veri` : '')}
+        ${karo('Ay sonu tahmini', ay.tahmin_yeterli ? B.para(ay.tahmin_ort, ay.token?.tahmin_ort) : '–', ay.tahmin_yeterli ? 'pencereden bağımsız' : `${ay.veri_gun ?? '–'} günlük veri`)}
+        ${karo('Kart başı (medyan)', B.para(bu.kart_medyan, bu.kart_medyan_token), `ortalama ${B.para(bu.kart_basi, bu.kart_basi_token)} · ${B.sayi(bu.teslim_kart)} teslim`)}
+        ${karo('Önlenebilir israf', B.para(israf?.onlenebilir_usd, israf?.onlenebilir_token), `${ad} · ret kaynaklı`)}</div>
+      <section><div class="bolum-bas"><h2>Hedefler</h2><span class="aciklama">işaret = değer, kesik çizgi = hedef, yeşil bölge = kabul edilen aralık</span><span class="bosluk"></span><span class="soluk kucuk-y">${ad}</span></div>
+        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [adi, f]]) => gosterge(adi, olc[k]?.[p], f))}</div></section>
+      <section class="kart"><div class="kart-bas"><h2>${p === 'bugun' ? 'Saatlik' : 'Günlük'} harcama</h2><span class="soluk kucuk-y">${ad} · modele göre, ${B.birim()}</span></div><div class="kart-ic">${dilimGrafik(dilim, modelRenk, p === 'bugun', ad)}</div></section>
       <div class="izgara iki">
-        <section class="kart"><div class="kart-bas"><h2>Model</h2><span class="soluk kucuk-y">dönem toplamı</span></div><div class="kart-ic">${modelL.map(([m, v]) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / modelMx * 100).toFixed(1)}%;--renk:${modelRenk[m]}"></i></span><span class="d">${B.usd(v)}</span></div>`)}</div></section>
-        <section class="kart"><div class="kart-bas"><h2>Süreç (bugün)</h2></div><div class="kart-ic">${surec.length ? surec.map(([m, v]) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / surecMx * 100).toFixed(1)}%"></i></span><span class="d">${B.usd(v)}</span></div>`) : H`<p class="soluk">Bugün harcama yok.</p>`}</div></section>
+        <section class="kart"><div class="kart-bas"><h2>Model</h2><span class="soluk kucuk-y">${ad}</span></div><div class="kart-ic">${modelL.length ? modelL.map(([m, v], j) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / mx(modelL) * 100).toFixed(1)}%;--renk:${modelRenk[m] || MODEL_RENK[j % MODEL_RENK.length]}"></i></span><span class="d">${B.para(v, v)}</span></div>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
+        <section class="kart"><div class="kart-bas"><h2>Süreç</h2><span class="soluk kucuk-y">${ad}</span></div><div class="kart-ic">${surec.length ? surec.map(([m, v]) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / mx(surec) * 100).toFixed(1)}%"></i></span><span class="d">${B.para(v, v)}</span></div>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
       </div>
       <div class="izgara iki" style="align-items:start">
-        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">tıkla: koşu izi</span></div><div class="kart-ic">${pahali.map(([id, v]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}" data-gez><span class="kimlik">${id}</span><span class="yol"><i style="width:${(v / pMx * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.usd(v)}</span></a>`)}</div></section>
-        <section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
-          <tbody>${(an.basamak?.satirlar || []).map(s => H`<tr><td><span class="etiket">${s.basamak}</span></td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.yuzde(s.ilk_gecis_orani)}</td><td class="sayi" style="${s.ret_orani > 0.15 ? 'color:var(--kotu)' : ''}">${B.yuzde(s.ret_orani)}</td><td class="sayi">${B.usd(s.kart_basi_usd)}</td></tr>`)}</tbody></table></div></section>
+        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">${ad} · tıkla: koşu izi</span></div><div class="kart-ic">${pahali.length ? pahali.map(([id, v]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}" data-gez><span class="kimlik">${id}</span><span class="yol"><i style="width:${(v / mx(pahali) * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.para(v, v)}</span></a>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
+        <section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2><span class="soluk kucuk-y">${ad} içinde oluşan kartlar</span></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
+          <tbody>${(ap.basamak || []).map(s => H`<tr><td><span class="etiket">${s.basamak}</span></td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.yuzde(s.ilk_gecis_orani)}</td><td class="sayi" style="${s.ret_orani > 0.15 ? 'color:var(--kotu)' : ''}">${B.yuzde(s.ret_orani)}</td><td class="sayi">${B.para(s.kart_basi_usd, s.kart_basi_token)}</td></tr>`)}</tbody></table></div></section>
       </div>`;
     return { baslik: 'Maliyet', sag: H`<a class="dugme hayalet kucuk" href="/maliyet?alan=${enc(V.alan)}">Ayrıntılı analiz</a>`, govde: H`<div class="icerik yigin">${govde}</div>` };
   }
@@ -589,10 +668,60 @@
     return { baslik: 'Kurallar', sag: H`<a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#kurallar">Kural ekle ya da düzenle</a>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
   }
 
+  // ================================================================ 10b. Görünüm: Yapılacaklar (kullanıcının kendi listesi)
+  // Taslak ve bekleyen tamamlamalar yeniden çizimde kaybolmasın diye görünümün dışında tutulur.
+  const YAP = { taslak: '', bekleyen: new Set() };
+  const YAP_SINIR = 2000;
+  const yapZaman = z => B.goreli(String(z || '').replace(' ', 'T'));
+
+  function gYapilacaklar(r) {
+    const yuk = bekle(YAP_YOL);
+    const maddeler = d(YAP_YOL).veri?.maddeler || [];
+    const q = r.q.get('q') || '';
+    const g = q ? maddeler.filter(m => eslesir(m.metin, q)) : maddeler;
+    const satir = m => H`<li class="${YAP.bekleyen.has(m.id) ? 'bitti' : ''}">
+      <button class="dugme kucuk" data-eylem="yap-tamam" data-id="${m.id}" ${YAP.bekleyen.has(m.id) ? 'disabled' : ''} aria-label="Tamamla: ${m.metin}">${simge('tamam')}Tamamla</button>
+      <div class="yap-metin"><span>${m.metin}</span><small class="soluk" title="${m.zaman || ''}">${yapZaman(m.zaman)}</small></div>
+      <button class="dugme kucuk hayalet" data-eylem="yap-kopya" data-id="${m.id}" aria-label="Kopyala: ${m.metin}">Kopyala</button></li>`;
+    const govde = yuk || H`
+      <div class="karolar">${karo('Benim yapılacaklarım', maddeler.length, maddeler.length ? 'açık madde' : 'açık madde yok')}</div>
+      <section class="kart"><div class="kart-ic yigin sik">
+        <textarea class="yap-yeni" id="yapYeni" rows="2" maxlength="${YAP_SINIR}" placeholder="Yeni madde yaz, Enter ile ekle (Shift+Enter: yeni satır)" aria-label="Yeni yapılacak madde" data-yap="taslak">${YAP.taslak}</textarea>
+        <div class="yatay"><span class="soluk kucuk-y" id="yapSayac">${YAP.taslak.length} / ${YAP_SINIR}</span><button class="dugme ana-d kucuk" style="margin-left:auto" data-eylem="yap-ekle">Ekle</button></div>
+      </div></section>
+      ${maddeler.length >= 8 ? H`<input class="arama" id="yapAra" type="search" placeholder="Madde ara…" value="${q}" data-sorgu="q" aria-label="Madde ara">` : ''}
+      <section class="kart"><div class="kart-ic">${g.length ? H`<ul class="todo yap-liste">${g.map(satir)}</ul>` : bos(q ? 'Aramaya uyan madde yok' : 'Henüz madde yok', q ? '' : 'Yukarıya yaz, Enter ile ekle.', q ? 'ara' : 'tamam')}</div></section>`;
+    return { baslik: 'Yapılacaklar', sag: H`<span class="soluk kucuk-y">yalnız sen düzenlersin</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
+  }
+
+  async function yapYaz(govde) {
+    try { await gonder(YAP_YOL, govde); await getir(YAP_YOL, { taze: true }); return true; }
+    catch (e) { bildir('Kaydedilemedi: ' + e.message, { hata: true, sure: 8000 }); return false; }
+  }
+  async function yapEkle() {
+    const metin = YAP.taslak.trim();
+    if (!metin) return;
+    if (await yapYaz({ eylem: 'ekle', metin })) { YAP.taslak = ''; planla(); }
+    document.getElementById('yapYeni')?.focus();
+  }
+  async function yapTamam(id) {
+    const m = (d(YAP_YOL).veri?.maddeler || []).find(x => x.id === id);
+    if (!m) return;
+    YAP.bekleyen.add(id); planla();
+    const ok = await yapYaz({ eylem: 'sil', id });
+    YAP.bekleyen.delete(id); planla();
+    if (ok) bildir('Tamamlandı: ' + kisalt(m.metin, 60), { sure: 10000, geriAl: () => yapYaz({ eylem: 'ekle', metin: m.metin }).then(planla) });
+  }
+  async function yapKopya(id) {
+    const m = (d(YAP_YOL).veri?.maddeler || []).find(x => x.id === id);
+    try { await navigator.clipboard.writeText(m ? m.metin : ''); bildir('Kopyalandı.'); }
+    catch (x) { bildir('Kopyalanamadı.', { hata: true }); }
+  }
+
   // ================================================================ 11. Kabuk ve çizim
   const SAYFALAR = [['gelen', 'Gelen kutusu', '#/gelen', 'gelen', 'g'], ['isler', 'İşler', '#/isler', 'isler', 'i'], ['kosular', 'Koşular', '#/kosular', 'kosular', 'k'],
-    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r']];
-  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar };
+    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r'], ['yapilacaklar', 'Yapılacaklar', '#/yapilacaklar', 'yapilacaklar', 'y']];
+  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar, yapilacaklar: gYapilacaklar };
 
   function rayCiz() {
     const r = rota(), aktif = r.ad === 'kart' ? 'kosular' : r.ad;
@@ -607,8 +736,7 @@
       <div class="gezinti">${SAYFALAR.map(([k, ad, h, s]) => H`<a href="${h}" ${aktif === k ? 'aria-current="page"' : ''}>${simge(s)}<span>${ad}</span>${say[k] || ''}</a>`)}</div>
       <div class="ray-alt">
         <span class="satir canli" id="canli"><i></i><span id="canliMetin">bağlanıyor</span></span>
-        <span class="satir"><button class="dugme hayalet kucuk" data-eylem="tema" title="Tema: ${tema}">Tema: ${{ sistem: 'sistem', acik: 'açık', koyu: 'koyu' }[tema]}</button>
-          <button class="dugme hayalet kucuk" data-eylem="olcu" title="Ölçü birimi">${B.olcu() === 'token' ? 'Token' : 'USD'}</button></span>
+        <span class="satir"><button class="dugme hayalet kucuk" data-eylem="tema" title="Tema: ${tema}">Tema: ${{ sistem: 'sistem', acik: 'açık', koyu: 'koyu' }[tema]}</button></span>
         <a href="/isler?alan=${enc(V.alan)}">Klasik görünüm</a>
         <span class="satir"><kbd>?</kbd> kısayollar</span>
       </div>`.__h;
@@ -624,7 +752,7 @@
     // odak, imleç ve kaydırma korunur (yeniden çizim yazmayı bölmesin)
     const ae = document.activeElement, odakId = ae && ae.id, imlec = odakId && 'selectionStart' in ae ? [ae.selectionStart, ae.selectionEnd] : null;
     const kaydir = [...document.querySelectorAll('[data-kaydir]')].map(e => [e.id, e.scrollTop]);
-    document.getElementById('bas').innerHTML = H`${g.yol ? H`<span class="yol">${g.yol}</span>` : H`<h1>${g.baslik}</h1>`}<span class="bosluk"></span>${g.sag || ''}`.__h;
+    document.getElementById('bas').innerHTML = H`${g.yol ? H`<span class="yol">${g.yol}</span>` : H`<h1>${g.baslik}</h1>`}<span class="bosluk"></span>${g.sag || ''}${kontroller(r)}`.__h;
     const ana = document.getElementById('ana');
     ana.innerHTML = g.govde.__h;
     ana.className = g.tam ? '' : '';
@@ -692,6 +820,8 @@
   document.addEventListener('click', async e => {
     const tr = e.target.closest('tr[data-git]');
     if (tr && !e.target.closest('a,button')) { git(tr.dataset.git); return; }
+    const oge = e.target.closest('article[data-oturum]');   // kart öğesinin gövdesi: bağlantı ve düğmeler kendi işini yapar
+    if (oge && !e.target.closest('a,button')) { sohbetAc(oge.dataset.oturum, oge.dataset.ad); return; }
     const b = e.target.closest('[data-eylem]');
     if (!b) return;
     const ey = b.dataset.eylem;
@@ -703,11 +833,23 @@
       catch (x) { bildir('Başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
     } else if (ey === 'yenile') { V.onbellek.delete(b.dataset.yol); tazele(true); }
     else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
+    else if (ey === 'yap-ekle') yapEkle();
+    else if (ey === 'yap-tamam') yapTamam(b.dataset.id);
+    else if (ey === 'yap-kopya') yapKopya(b.dataset.id);
+    else if (ey === 'sohbet-ac') sohbetAc(b.dataset.oturum, b.dataset.ad);
     else if (ey === 'palet') paletAc();
     else if (ey === 'tema') temaDegis();
-    else if (ey === 'olcu') { depo.koy('orkestra.olcu', B.olcu() === 'token' ? 'usd' : 'token'); gorunumCiz(); }
+    else if (ey === 'olcu') olcuKoy(b.dataset.v);
+    else if (ey === 'pencere') pencereKoy(b.dataset.v);
   });
-  document.addEventListener('input', e => { const t = e.target; if (t.dataset && t.dataset.sorgu) sorguKoy(t.dataset.sorgu, t.value); });
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.sorgu) sorguKoy(t.dataset.sorgu, t.value);
+    else if (t.dataset && t.dataset.yap === 'taslak') {   // yazılan metin yeniden çizimde kaybolmaz; sayaç yerinde güncellenir
+      YAP.taslak = t.value;
+      const s = document.getElementById('yapSayac'); if (s) s.textContent = t.value.length + ' / ' + YAP_SINIR;
+    }
+  });
   document.addEventListener('change', e => {
     if (e.target.id === 'alanSec') {
       V.alan = e.target.value; depo.koy('orkestra.alan', V.alan); V.onbellek.clear();
@@ -748,6 +890,7 @@
 
   let gBekliyor = 0;
   document.addEventListener('keydown', e => {
+    if (e.target.id === 'yapYeni' && e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); yapEkle(); return; }
     const yaziyor = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); paletAc(); return; }
     if (document.querySelector('dialog[open]')) return;
@@ -761,7 +904,8 @@
       return;
     }
     if (e.key === 'g') { gBekliyor = Date.now(); return; }
-    if (/^[1-5]$/.test(e.key)) { git(SAYFALAR[+e.key - 1][2]); return; }
+    if ((e.key === 'p' || e.key === 'u') && kontrolVar()) { e.preventDefault(); if (e.key === 'u') olcuKoy(); else if (r.ad !== 'kart') pencereSonraki(); return; }
+    if (/^[1-6]$/.test(e.key)) { git(SAYFALAR[+e.key - 1][2]); return; }
     if (e.key === 'j' || e.key === 'ArrowDown' && !e.shiftKey && odakSira >= 0) { e.preventDefault(); odakTasi(1); return; }
     if (e.key === 'k' || e.key === 'ArrowUp' && odakSira >= 0) { e.preventDefault(); odakTasi(-1); return; }
     if (e.key === 'Enter' && odakSira >= 0) { e.preventDefault(); odakAc(); return; }
@@ -792,9 +936,10 @@
     (d('/ozet.json').veri?.kartlar || []).forEach(k => kartlar.set(k.id, { ...kartlar.get(k.id), ...k }));
     [...kartlar.values()].reverse().forEach(k => l.push({ grup: 'Kartlar', ad: k.baslik, kimlik: k.id, ek: k.basamak || '', git: '#/kart/' + enc(k.id) }));
     l.push({ grup: 'Komutlar', ad: 'Temayı değiştir', calis: temaDegis });
-    l.push({ grup: 'Komutlar', ad: 'Ölçü birimini değiştir (USD / token)', calis: () => { depo.koy('orkestra.olcu', B.olcu() === 'token' ? 'usd' : 'token'); gorunumCiz(); } });
+    l.push({ grup: 'Komutlar', ad: 'Ölçü birimini değiştir (USD / token)', ek: 'u', calis: () => olcuKoy() });
+    PENCERE.forEach(([k, ad]) => l.push({ grup: 'Komutlar', ad: 'Zaman penceresi: ' + ad, ek: B.pencere() === k ? 'seçili' : 'p', calis: () => pencereKoy(k) }));
     l.push({ grup: 'Komutlar', ad: 'Veriyi şimdi yenile', calis: () => tazele(true) });
-    [['Klasik: Dashboard', '/isler'], ['Klasik: Maliyet ve verim', '/maliyet'], ['Klasik: Onaylar, etki ve kurallar', '/onaylar'], ['Klasik: Yapılacaklar', '/yapilacaklar'], ['Klasik: Son olaylar', '/simdi'], ['Klasik: Teknik detay', '/teknik']]
+    [['Klasik: Dashboard', '/isler'], ['Klasik: Maliyet ve verim', '/maliyet'], ['Klasik: Onaylar, etki ve kurallar', '/onaylar'], ['Klasik: Son olaylar', '/simdi'], ['Klasik: Teknik detay', '/teknik']]
       .forEach(([ad, y]) => l.push({ grup: 'Klasik görünüm', ad, href: y + '?alan=' + enc(V.alan) }));
     return l;
   }
@@ -841,8 +986,8 @@
   function yardimAc() {
     const dl = document.createElement('dialog');
     dl.className = 'palet';
-    const k = [['Ctrl K', 'Komut paleti'], ['/', 'Ara'], ['g g · 1', 'Gelen kutusu'], ['g i · 2', 'İşler'], ['g k · 3', 'Koşular'], ['g m · 4', 'Maliyet'], ['g r · 5', 'Kurallar'],
-      ['j  k', 'Sonraki / önceki öğe'], ['Enter', 'Öğeyi aç'], ['a', 'Onayla (Gelen kutusu)'], ['r', 'Reddet (Gelen kutusu)'], ['Esc', 'Ayrıntıyı kapat'], ['?', 'Bu yardım']];
+    const k = [['Ctrl K', 'Komut paleti'], ['/', 'Ara'], ['g g · 1', 'Gelen kutusu'], ['g i · 2', 'İşler'], ['g k · 3', 'Koşular'], ['g m · 4', 'Maliyet'], ['g r · 5', 'Kurallar'], ['g y · 6', 'Yapılacaklar'],
+      ['p', 'Zaman penceresi (Bugün → Son 3 gün → Son 7 gün → Bu ay → Tümü)'], ['u', 'Ölçü birimi (USD / token)'], ['j  k', 'Sonraki / önceki öğe'], ['Enter', 'Öğeyi aç'], ['a', 'Onayla (Gelen kutusu)'], ['r', 'Reddet (Gelen kutusu)'], ['Esc', 'Ayrıntıyı kapat'], ['?', 'Bu yardım']];
     dl.innerHTML = H`<div class="kart-bas"><h2>Klavye kısayolları</h2><span class="bosluk"></span><button class="dugme hayalet kucuk" value="kapat" onclick="this.closest('dialog').close()">Kapat</button></div>
       <div class="kisayol-tablo">${k.map(([t, a]) => H`<span>${t.split(' ').map(x => x === '·' ? H`<span class="soluk"> ya da </span>` : H`<kbd>${x}</kbd> `)}</span><span>${a}</span>`)}</div>`.__h;
     document.body.appendChild(dl);
@@ -852,7 +997,7 @@
   }
 
   // ================================================================ 15. Başlangıç
-  window.addEventListener('hashchange', () => { gorunumCiz(); gerekler(rota()).forEach(y => getir(y)); document.getElementById('ana').focus({ preventScroll: true }); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => { derinBaglanti(); gorunumCiz(); gerekler(rota()).forEach(y => getir(y)); document.getElementById('ana').focus({ preventScroll: true }); window.scrollTo(0, 0); });
   async function basla() {
     rayCiz();
     try {
@@ -867,6 +1012,7 @@
       return;
     }
     depo.koy('orkestra.alan', V.alan);
+    derinBaglanti();
     gorunumCiz();
     tazele();
     canliBagla();

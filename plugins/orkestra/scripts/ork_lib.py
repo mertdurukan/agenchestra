@@ -1481,7 +1481,7 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
     Zaman aşımında süreç ağacı öldürülür ve çıkış kodu -1 döner."""
     import subprocess
     bas = time.monotonic()
-    ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
     env = dict(os.environ)
     env.setdefault("ORKESTRA_PYTHON", python_yorumlayici())  # test komutunun alt süreçleri aynı yorumlayıcıyı görsün
     p = subprocess.Popen(komut, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -1895,6 +1895,76 @@ def kalemler(satirlar: list[dict]) -> dict:
     usd = {a: round(v, 6) for a, v in usd.items()}
     usd["toplam"] = round(sum(usd[a] for a in _TOKEN_ALANLARI), 6)
     return {"token": token, "usd": usd}
+
+
+# ---------------------------------------------------------------- panel pencereleri (tek takvim günü tanımı, I-137)
+
+PENCERELER = ("bugun", "son_3_gun", "son_7_gun", "bu_ay", "tum_zaman")
+
+
+def yerel_zaman(s) -> "datetime.datetime | None":
+    """ISO zaman damgasını yerel saat dilimine çevirir; çözülemezse None (damgasız değer yerel kabul edilir)."""
+    if not s:
+        return None
+    try:
+        z = datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return (z if z.tzinfo else z.astimezone()).astimezone()
+    except Exception:
+        return None
+
+
+def pencere_icinde(pencere: str, gun: "datetime.date", bugun: "datetime.date") -> bool:
+    """Panelin tek pencere tanımı: bugün dahil takvim günü (son_3_gun = bugün ve önceki 2 gün). Bütün panel alanları bunu kullanır."""
+    if pencere == "bugun":
+        return gun == bugun
+    if pencere == "son_3_gun":
+        return bugun - datetime.timedelta(days=2) <= gun <= bugun
+    if pencere == "son_7_gun":
+        return bugun - datetime.timedelta(days=6) <= gun <= bugun
+    if pencere == "bu_ay":
+        return (gun.year, gun.month) == (bugun.year, bugun.month)
+    return True
+
+
+def pencere_gun_sayisi(pencere: str, bugun: "datetime.date") -> "int | None":
+    """Pencerenin takvim günü sayısı (bugüne kadar); tum_zaman için None."""
+    return {"bugun": 1, "son_3_gun": 3, "son_7_gun": 7, "bu_ay": bugun.day}.get(pencere)
+
+
+def onceki_aralik(pencere: str, bugun: "datetime.date") -> "tuple | None":
+    """Aynı uzunluktaki önceki dönemin (ilk gün, son gün) aralığı; bu_ay için önceki ayın aynı gün sayısı. tum_zaman için None."""
+    n = pencere_gun_sayisi(pencere, bugun)
+    if n is None:
+        return None
+    if pencere == "bu_ay":
+        gecen_ay_sonu = bugun.replace(day=1) - datetime.timedelta(days=1)
+        return gecen_ay_sonu.replace(day=1), gecen_ay_sonu.replace(day=min(n, gecen_ay_sonu.day))
+    bit = bugun - datetime.timedelta(days=n)
+    return bit - datetime.timedelta(days=n - 1), bit
+
+
+def _satir_tok(r: dict) -> int:
+    return sum(int(r.get(a) or 0) for a in _TOKEN_ALANLARI)
+
+
+def pencere_toplamlari(satirlar, bugun: "datetime.date", anahtar=None) -> dict:
+    """Defter satırlarının pencere başına {usd, token} toplamı. anahtar verilirse {anahtar(satır): {pencere: {...}}}
+    (anahtar None dönerse satır atlanır); verilmezse {pencere: {...}}. Tüm paneldeki pencereli maliyet bu işlevden gelir."""
+    cikti: dict = {}
+    for r in satirlar:
+        k = anahtar(r) if anahtar else ""
+        if k is None:
+            continue
+        z = yerel_zaman(r.get("zaman"))
+        usd = r.get("maliyet_usd") or 0.0
+        tok = _satir_tok(r)
+        t = cikti.setdefault(k, {w: [0.0, 0] for w in PENCERELER})
+        for w in PENCERELER:
+            if w == "tum_zaman" or (z and pencere_icinde(w, z.date(), bugun)):
+                t[w][0] += usd
+                t[w][1] += tok
+    son = {k: {w: {"usd": round(v[0], 4), "token": v[1]} for w, v in t.items()} for k, t in cikti.items()}
+    return son if anahtar else son.get("", {w: {"usd": 0.0, "token": 0} for w in PENCERELER})
 
 
 def _maliyet_kayitlari_oku(yol: str, duzeltme: bool = True) -> list[dict]:

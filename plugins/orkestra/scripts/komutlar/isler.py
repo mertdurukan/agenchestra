@@ -77,7 +77,18 @@ def _todo_satiri(klasor):
 
 def cmd_is_ac(a):
     sd = sd_gerekli()
-    kayit = _ik().is_ac(sd, a.baslik, a.klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None)
+    klasor = a.klasor
+    if klasor:  # I-138 P5: NNN- öneki kilit altında denetlenir; dolu ya da önek yoksa sıradaki numara alınır
+        yol = os.path.abspath(klasor)
+        kok, ad = os.path.split(yol)
+        try:
+            yeni = _ik().klasor_ayir(sd, kok, a.baslik, tercih=ad)
+        except OSError:
+            yeni = ad  # kök yazılamıyorsa is_ac kendi hatasını verir
+        if yeni != ad:
+            klasor = os.path.join(kok, yeni)
+            print(f"orkestra: klasör numarası dolu ya da eksik ({ad}); yeni klasör: {klasor}", file=sys.stderr)
+    kayit = _ik().is_ac(sd, a.baslik, klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None)
     _oturumu_bagla(sd, kayit["id"])
     print(kayit["id"])
     if kayit.get("onay") == "bekliyor":
@@ -645,7 +656,7 @@ def _yeni_is(sd, baslik, klasor, uygula):
         return {"is": ik.is_ac(sd, baslik, klasor)["id"], "klasor": klasor, "yeni": True}
     except OSError as e:
         kok = os.path.join(sd, "isler")
-        yedek = os.path.join(kok, ik.sonraki_klasor_adi(kok, baslik))
+        yedek = os.path.join(kok, ik.klasor_ayir(sd, kok, baslik))
         print(f"orkestra: uyarı: {_goreli(klasor)} açılamadı ({e}); {_goreli(yedek)} kullanılıyor", file=sys.stderr)
         return {"is": ik.is_ac(sd, baslik, yedek)["id"], "klasor": yedek, "yeni": True}
 
@@ -708,7 +719,7 @@ def _is_coz(sd, baslik, yazma, onbellek, uygula=True):
     r = onbellekten(anahtar)
     if r:
         return r
-    r = _yeni_is(sd, baslik or "is", os.path.join(kok, ik.sonraki_klasor_adi(kok, baslik)), uygula)
+    r = _yeni_is(sd, baslik or "is", os.path.join(kok, ik.klasor_ayir(sd, kok, baslik, olustur=uygula)), uygula)
     onbellek[anahtar] = r
     return dict(r, kaynak=kaynak, notlar=notlar)
 

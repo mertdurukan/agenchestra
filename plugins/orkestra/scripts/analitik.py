@@ -39,13 +39,7 @@ BASAMAK_SIRASI = ("T0", "T1", "T2", "T3", "T4")
 # ---------------------------------------------------------------- yardımcılar
 
 def _zaman(s: str | None) -> datetime.datetime | None:
-    if not s:
-        return None
-    try:
-        z = datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
-        return (z if z.tzinfo else z.astimezone()).astimezone()
-    except Exception:
-        return None
+    return L.yerel_zaman(s)
 
 
 def _dk(a: datetime.datetime | None, b: datetime.datetime | None) -> float | None:
@@ -183,6 +177,20 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
         gunluk.append({"donem": d.isoformat(), "usd": _r(g["usd"]), "model": {m: _r(u) for m, u in g["model"].items() if u},
                        "model_token": {m: u for m, u in g["model_t"].items() if u}, **_ek(g["satir"])})
         d += datetime.timedelta(days=1)
+    saat_satir: dict = {h: [] for h in range(24)}   # Bugün penceresinin grafiği: bugünün 24 saati
+    for r in (gun[bugun]["satir"] if bugun in gun else []):
+        saat_satir[_zaman(r.get("zaman")).hour].append(r)
+    saatlik = []
+    for h, sat in saat_satir.items():
+        usd_h, model_h, model_ht = 0.0, collections.Counter(), collections.Counter()
+        for r in sat:
+            u = r.get("maliyet_usd") or 0.0
+            tk = sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
+            usd_h += u
+            model_h[_kisa_model(r.get("model"))] += u
+            model_ht[_kisa_model(r.get("model"))] += tk
+        saatlik.append({"donem": f"{h:02d}", "usd": _r(usd_h), "model": {m: _r(u) for m, u in model_h.items() if u},
+                        "model_token": {m: u for m, u in model_ht.items() if u}, **_ek(sat)})
     haftalik = kume(lambda d: f"{d.isocalendar()[0]}-H{d.isocalendar()[1]:02d}")[-12:]
     aylik = kume(lambda d: d.strftime("%Y-%m"))[-12:]
 
@@ -205,7 +213,7 @@ def _trend(kayitlar: list[dict], bugun: datetime.date) -> dict:
     tahmin_7g_t = simdiye_t + (son7_t / son7_gun) * kalan if son7_gun else 0
     onceki_ay = (ay_bas - datetime.timedelta(days=1)).strftime("%Y-%m")
     return {
-        "gunluk": gunluk, "haftalik": haftalik, "aylik": aylik,
+        "gunluk": gunluk, "saatlik": saatlik, "haftalik": haftalik, "aylik": aylik,
         "ay_sonu": {"ay": bugun.strftime("%Y-%m"), "simdiye": _r(simdiye, 2), "gecen_gun": gecen, "ay_gun": ay_gun,
                     "veri_gun": aktif_gun, "gunluk_ort": _r(simdiye / aktif_gun if aktif_gun else 0, 2),
                     "son7_gunluk": _r(son7 / son7_gun if son7_gun else 0, 2) if son7_gun >= 7 else None,
@@ -410,7 +418,7 @@ def _denetci_basi(kart_id: str, kayitlar: list[dict], bitis, karar) -> datetime.
     return min(adaylar) if adaylar else None
 
 
-def _akis(kartlar: list[dict], kayitlar: list[dict]) -> dict:
+def _akis_kartlari(kartlar: list[dict], kayitlar: list[dict]) -> list[dict]:
     out = []
     for k in kartlar:
         g = sorted(k.get("gecmis") or [], key=lambda x: x.get("zaman", ""))
@@ -454,6 +462,11 @@ def _akis(kartlar: list[dict], kayitlar: list[dict]) -> dict:
                     "denetim_basladi": any(y.get("olay") == "denetim-basladi" for y in g[son_bitti:]) if son_bitti is not None else False,
                     "tur": len([x for x in g if x.get("olay") == "is-bitti"]),
                     "toplam_dk": _dk(olus, teslim)})
+    return out
+
+
+def _akis_ozet(out: list[dict]) -> dict:
+    """Kart süre satırlarından özet (medyan, ortalama, darboğaz); panel bunu pencere başına da üretir."""
     teslimler = [k for k in out if k["toplam_dk"] is not None]
     ozet = {"kart": len(teslimler),
             "toplam_ort": _ort([k["toplam_dk"] for k in teslimler]), "toplam_medyan": _medyan([k["toplam_dk"] for k in teslimler]),
@@ -472,6 +485,12 @@ def _akis(kartlar: list[dict], kayitlar: list[dict]) -> dict:
     asamalar = {"kuyruk": ozet["kuyruk_medyan"] or 0, "is": ozet["is_medyan"] or 0,
                 "denetim bekleme": ozet["denetim_bekleme_medyan"] or 0, "denetim calisma": ozet["denetim_calisma_medyan"] or 0}
     ozet["darbogaz"] = max(asamalar, key=asamalar.get) if any(asamalar.values()) else None
+    return ozet
+
+
+def _akis(kartlar: list[dict], kayitlar: list[dict]) -> dict:
+    out = _akis_kartlari(kartlar, kayitlar)
+    ozet = _akis_ozet(out)
 
     # paralel çalışan ajanların zaman çizelgesi (alt ajan koşuları)
     kosular = []
@@ -556,6 +575,46 @@ def _birim(kartlar: list[dict], kayitlar: list[dict], sohbetler: list[dict], tre
             "sohbet_basi": _r(sum(sohbet_usd) / len(sohbet_usd), 3) if sohbet_usd else None,
             "sohbet_medyan": _medyan(sohbet_usd), "sohbet_sayisi": len(sohbet_usd),
             "en_pahali": en_pahali, "en_pahali_token": en_pahali_token, "uyarilar": sorted(uyarilar, key=lambda u: u["zaman"] or "", reverse=True)[:12]}
+
+
+# ---------------------------------------------------------------- 6b. pencereli kıyaslar (panel: üst çubuktaki pencere)
+
+def _kart_anahtari(r: dict):
+    return r.get("gorev") if r.get("gorev") not in (None, "-") else None
+
+
+def _pencereli(kartlar: list[dict], kayitlar: list[dict], akis_kartlari: list[dict], bugun: datetime.date) -> dict:
+    """I-137: panelin pencere seçimine göre kart başı maliyet, en pahalı kartlar, basamak verimi ve akış özeti.
+    Tanım hedef_panosu ile aynı: kart = oluşturma zamanı pencerede, maliyet = pencerede kalan defter satırları (iptal kart hariç,
+    basamak tablosu iptal dahil). Pencere L.pencere_icinde (takvim günü); 'tum_zaman' tüm kayıttır."""
+    cikti = {}
+    for w in L.PENCERELER:
+        def icinde(z, w=w):
+            zz = _zaman(z)
+            return w == "tum_zaman" or bool(zz and L.pencere_icinde(w, zz.date(), bugun))
+        tum_kartlar = [k for k in kartlar if icinde(k.get("olusturma"))]
+        ks = [k for k in tum_kartlar if k.get("durum") != "iptal"]
+        rs = [r for r in kayitlar if icinde(r.get("zaman"))]
+        kart_usd, kart_tok = collections.Counter(), collections.Counter()
+        for r in rs:
+            g = _kart_anahtari(r)
+            if g is not None:
+                kart_usd[g] += r.get("maliyet_usd") or 0.0
+                kart_tok[g] += sum(int(r.get(a) or 0) for a in L._TOKEN_ALANLARI)
+        teslim = [k for k in ks if L.kart_durumu_hesapla(k) == "teslim"]
+        usd_l = [_r(kart_usd.get(k["id"], 0.0)) for k in teslim]
+        tok_l = [kart_tok.get(k["id"], 0) for k in teslim]
+        cikti[w] = {
+            "kart_sayisi": len(ks),
+            "birim": {"kart_basi": _r(sum(usd_l) / len(usd_l), 3) if usd_l else None, "kart_medyan": _medyan(usd_l),
+                      "teslim_kart": len(usd_l),
+                      "kart_basi_token": _r(sum(tok_l) / len(tok_l), 1) if tok_l else None, "kart_medyan_token": _medyan(tok_l)},
+            "en_pahali": [[g, _r(v)] for g, v in kart_usd.most_common(10)],
+            "en_pahali_token": [[g, v] for g, v in kart_tok.most_common(10)],
+            "basamak": _basamak(tum_kartlar, rs)["satirlar"],
+            "akis_ozet": _akis_ozet([a for a in akis_kartlari if icinde(a.get("olusturma"))]),
+        }
+    return cikti
 
 
 # ---------------------------------------------------------------- 7. skill getirisi
@@ -905,21 +964,22 @@ def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
 def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None = None, esik: dict | None = None) -> dict:
     """5 hedef ölçüsü x PENCERE_SIRASI (bugun, son_3_gun, son_7_gun, bu_ay, tum_zaman) ve önlenebilir israf.
     Her ölçü {deger, hedef, durum, sapma, ornek, pay, payda}. Pencere: kart olusturma / defter satırı zamanı >= pencere başı
-    (bugun: yerel gün başı, son_3_gun: simdi - pencere_gun, son_7_gun: simdi - 7 gün, bu_ay: ayın 1'i 00:00).
+    (takvim günü, ozet._pencere_icinde ile aynı: bugun: yerel gün başı, son_3_gun: bugün dahil 3 gün, son_7_gun: 7 gün, bu_ay: ayın 1'i 00:00).
     Payda 0 -> deger None, durum veri-yok."""
     hedef = hedef if hedef is not None else _ayar("hedef.json")
     esik = esik if esik is not None else _ayar("kpi_esikleri.json")
     simdi = simdi or datetime.datetime.now().astimezone()
-    gun = hedef.get("pencere_gun", 3)
     carpan = hedef.get("uyari_carpani", 1.25)
     t_alt = hedef.get("teknik_uyari_alt", 0.8)
     olculer = hedef.get("olculer") or {}
-    kapi = _zaman(hedef["teknik_kapi_baslangic"] + "T00:00:00") if hedef.get("teknik_kapi_baslangic") else None
+    kapi_ham = hedef.get("teknik_kapi_baslangic")
+    # tam zaman damgası (ofsetli) olduğu gibi; yalnız gün verilirse o günün 00:00'ı (eski davranış)
+    kapi = _zaman(kapi_ham if "T" in kapi_ham else kapi_ham + "T00:00:00") if kapi_ham else None
     if kapi is not None and kapi.tzinfo is None:
         kapi = kapi.replace(tzinfo=simdi.tzinfo)
     gun_basi = simdi.replace(hour=0, minute=0, second=0, microsecond=0)
-    pencereler = {"bugun": gun_basi, "son_3_gun": simdi - datetime.timedelta(days=gun),
-                  "son_7_gun": simdi - datetime.timedelta(days=7), "bu_ay": gun_basi.replace(day=1), "tum_zaman": None}
+    pencereler = {"bugun": gun_basi, "son_3_gun": gun_basi - datetime.timedelta(days=2),
+                  "son_7_gun": gun_basi - datetime.timedelta(days=6), "bu_ay": gun_basi.replace(day=1), "tum_zaman": None}
 
     usd_ajan: dict = collections.defaultdict(float)
     tok_ajan: dict = collections.defaultdict(int)
@@ -927,7 +987,7 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
         if r.get("agent_id"):
             usd_ajan[r["agent_id"]] += r.get("maliyet_usd") or 0.0
             tok_ajan[r["agent_id"]] += sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
-    out: dict = {"surum": 1, "uretim": L.simdi(), "pencere_gun": gun,
+    out: dict = {"surum": 1, "uretim": L.simdi(),
                  "teknik_kapi_baslangic": hedef.get("teknik_kapi_baslangic"),
                  "olculer": {a: {} for a in OLCU_SIRASI}, "israf": {}, "ek": {a: {} for a in EK_SIRASI}}
 
@@ -951,8 +1011,11 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             z = _zaman(k.get("olusturma"))
             if kapi is not None and z is not None and z >= kapi:
                 tk.append(k)
+        # P10: onaylı ya da işlenen (işçi çağrılmış / isleniyor) kart yoksa ana ajan payı veri-yok (payda 0)
+        islenen = [k for k in ks if k.get("isciler") or _kart_durum(k) == "isleniyor"]
+        kart_var = bool(onayli) or bool(islenen)
         ham = {
-            "ana_ajan_payi": (usd_ana, usd_tum, len(rs)),
+            "ana_ajan_payi": (usd_ana, usd_tum, len(rs)) if kart_var else (0.0, 0.0, len(rs)),
             "isci_cagrisi_kart": (cagri, len(ks), len(ks)),
             "onayli_kart_usd": (usd_onayli, len(onayli), len(onayli)),
             "ret_orani": (kararlar.count("ret"), len(kararlar), len(kararlar)),
@@ -1235,14 +1298,22 @@ def olustur(sd: str, proje: str) -> dict:
     sohbetler = [{"oturum": s["oturum"], "baslik": s["baslik"],
                   "usd": s.get("motor_usd") or s.get("defter_usd") or s.get("tahmin_usd") or 0.0} for s in sohbet_ham]
     trend = _trend(kayitlar, bugun)
+    akis = _akis(kartlar, kayitlar)
+    kart_pencere = L.pencere_toplamlari(kayitlar, bugun, _kart_anahtari)
+    sifir = {w: {"usd": 0.0, "token": 0} for w in L.PENCERELER}
+    for a in akis["kartlar"]:
+        a["pencere"] = kart_pencere.get(a["id"], sifir)
+        z = _zaman(a.get("olusturma"))
+        a["penceresi"] = [w for w in L.PENCERELER if w == "tum_zaman" or bool(z and L.pencere_icinde(w, z.date(), bugun))]
     return {
         "surum": 1, "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)), "yol": os.path.abspath(proje),
         "trend": trend, "kota": _kota(), "basamak": _basamak(kartlar, kayitlar), "tasarruf": _tasarruf(kayitlar),
-        "akis": _akis(kartlar, kayitlar), "birim": _birim(kartlar, kayitlar, sohbetler, trend),
+        "akis": akis, "birim": _birim(kartlar, kayitlar, sohbetler, trend),
         "skill": _skill(sd, kayitlar), "saglik": _saglik(sd, proje, kayitlar),
         "ders": _ders(kartlar, kayitlar), "planlayici": _planlayici(kartlar, kayitlar),
         "baglam": baglam_kirilim(baglam_coz(sd, kayitlar)),
         "hedef_panosu": hedef_panosu(kartlar, kayitlar),
+        "pencere": _pencereli(kartlar, kayitlar, akis["kartlar"], bugun),
         "is_basina": _is_basina(sd, kartlar),
     }
 

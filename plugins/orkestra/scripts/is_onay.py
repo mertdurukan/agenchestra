@@ -115,12 +115,13 @@ def bekliyor_mu(kayit: dict | None) -> bool:
 
 
 def onay_mesaji_mi(metin: str) -> bool:
-    """Kısa, soru olmayan, olumsuzlama içermeyen ve onay sözcüğüyle başlayan kullanıcı mesajı."""
+    """Kısa, soru olmayan, ilk cümleciğinde (ilk ; . , öncesi) olumsuzlama içermeyen, onay sözcüğüyle başlayan mesaj."""
     m = (metin or "").strip()
     if not m or len(m) > AZAMI_MESAJ or "?" in m or m.startswith("<"):
         return False
     m = m.replace("İ", "i").replace("I", "ı")
-    return bool(_ONAY.match(m) or _ONAY_KISA.match(m)) and not _RED.search(m)
+    ilk = re.split(r"[;.,]", m, maxsplit=1)[0]  # I-138 P15: ret kalıbı yalnız ilk cümlecikte aranır
+    return bool(_ONAY.match(m) or _ONAY_KISA.match(m)) and not _RED.search(ilk)
 
 
 def belge_eksikleri(klasor: str) -> list[str]:

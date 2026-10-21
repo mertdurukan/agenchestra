@@ -462,16 +462,14 @@ class OtomatikYonlendirme(_Ortak):
         self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], [])
         self.assertIn(OTURUM, [o["oturum"] for o in is_kaydi.is_al(self.sd, yid)["oturumlar"]])
 
-    def test_ac_soru_turu_soru_etiketiyle_acar(self):
+    def test_ac_soru_turu_is_acmaz(self):
+        # I-138 P2: ac kararında bilgi sorusu iş açmaz, oturum bağlanmaz
         once = set(self._is_idleri())
         self.karar_yama(("ac", None), [])
         m = self.istek(self.SORU)
-        yeni = set(self._is_idleri()) - once
-        self.assertEqual(len(yeni), 1, m)
-        yid = yeni.pop()
-        self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], ["soru"])
-        self.assertEqual(self.oturum_json().get("is"), yid)
-        self.assertIn("Yeni iş otomatik açıldı", m)
+        self.assertEqual(set(self._is_idleri()), once, m)
+        self.assertFalse(self.oturum_json().get("is"))
+        self.assertNotIn("Yeni iş otomatik açıldı", m)
 
     def test_soru_bagla_kararinda_etiketli_is_acilmaz(self):
         fid = self.fatura["id"]
@@ -481,15 +479,17 @@ class OtomatikYonlendirme(_Ortak):
         self.assertEqual(self._is_idleri(), once)
         self.assertEqual(self.oturum_json().get("is"), fid)
 
-    def test_soru_etiketi_ayardan_okunur(self):
-        # proje durum dizinindeki is_esleme.json soru_etiketi'ni ezer (G-151 ayar dosyası)
+    def test_soru_etiketi_ayari_is_turu_yolunda_etiket_koymaz(self):
+        # proje is_esleme.json soru_etiketi'ni ezse de bilgi sorusu iş açmaz; iş türü mesaj etiketsiz iş açar
         with open(os.path.join(self.sd, "is_esleme.json"), "w", encoding="utf-8") as f:
             json.dump({"soru_etiketi": "bilgi-sorusu"}, f)
         once = set(self._is_idleri())
         self.karar_yama(("ac", None), [])
         self.istek(self.SORU)
+        self.assertEqual(set(self._is_idleri()), once)
+        self.istek(ISTEK_ALAKASIZ)
         yid = (set(self._is_idleri()) - once).pop()
-        self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], ["bilgi-sorusu"])
+        self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], [])
 
     # --- K1 sec
     def test_sec_en_yakin_iki_isi_ve_secim_satirini_verir(self):

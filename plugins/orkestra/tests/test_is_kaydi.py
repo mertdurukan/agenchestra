@@ -175,6 +175,10 @@ class OtomatikIsAcmaTest(unittest.TestCase):
         b = K.baslik_uret("kelime " * 30, azami=20)
         self.assertEqual(b, "kelime kelime kelime")
 
+    def test_baslik_task_ve_background_onekleri_art_arda_atilir(self):
+        b = K.baslik_uret("Task (from the session that started this one): Background (from the session x): Panel düğmesini düzelt")
+        self.assertEqual(b, "Panel düğmesini düzelt")
+
     def test_proje_sec_orkestra_istegi(self):
         pr = ["RNV", "Claude_Orkestrasyon"]
         self.assertEqual(K.proje_sec(pr, "orkestra hook hızını ölç"), 1)

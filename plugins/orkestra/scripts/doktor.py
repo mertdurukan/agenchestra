@@ -363,6 +363,37 @@ def o_izin_politikasi(b, s):
                   komut="orkestra izin goster")
 
 
+_CURSOR_SINIRI = ("Cursor: hook'lar cursor_hook.py adaptörüyle çalışır; .cursor/hooks.json git kökünden okunur (iç klasördekiler yok sayılır), "
+                  "IDE sürümü sınanmadı (yalnız CLI), taşınabilirlik yaklaşık %83")
+
+
+def _cursor_izleri(b: Baglam) -> list[str]:
+    """Cursor kullanıldığına işaret eden yollar: projede .cursor klasörü, kullanıcı dizininde .cursor."""
+    adaylar = [os.path.join(b.proje, ".cursor")] if b.proje else []
+    adaylar.append(os.path.join(os.path.expanduser("~"), ".cursor"))
+    return [a for a in adaylar if os.path.isdir(a)]
+
+
+def k_cursor_siniri(b: Baglam) -> Sonuc:
+    """Cursor izi varsa kısıtı tek satırda söyler; hooks.json BOM'luysa hook'lar sessizce yüklenmez (uyarı)."""
+    izler = _cursor_izleri(b)
+    if not izler:
+        return Sonuc("atlandi", "Cursor izi yok")
+    for iz in izler:
+        yol = os.path.join(iz, "hooks.json")
+        try:
+            with open(yol, "rb") as f:
+                if f.read(3) == b"\xef\xbb\xbf":
+                    return _uyari(f"{yol} BOM'lu: Cursor hook'ları sessizce yüklemez. " + _CURSOR_SINIRI, yol=yol)
+        except OSError:
+            pass
+    return _ok(_CURSOR_SINIRI, izler=izler)
+
+
+def o_cursor_siniri(b, s):
+    return Onarim("C", ".cursor/hooks.json dosyasını BOM'suz UTF-8 olarak yeniden yaz", komut="orkestra doktor")
+
+
 KONTROLLER: list[Kontrol] = [
     Kontrol("python", "Python yorumlayıcı", "zorunlu", k_python, o_python),
     Kontrol("hook_yorumlayici", "hook yorumlayıcısı (PATH)", "zorunlu", k_hook_yorumlayici, o_hook_yorumlayici),
@@ -378,6 +409,7 @@ KONTROLLER: list[Kontrol] = [
     Kontrol("bash", "bash", "opsiyonel", k_bash, o_bash),
     Kontrol("panel_port", "panel portu", "opsiyonel", k_panel_port, o_panel_port),
     Kontrol("pazar_klonu", "pazar (yayın) klonu", "opsiyonel", k_pazar_klonu, o_pazar_klonu),
+    Kontrol("cursor_siniri", "Cursor hook sınırları", "opsiyonel", k_cursor_siniri, o_cursor_siniri),
 ]
 
 

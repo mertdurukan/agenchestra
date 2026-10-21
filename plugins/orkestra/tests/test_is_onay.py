@@ -267,5 +267,17 @@ class IsDevam(_Onay):
         self.assertEqual(self.durum(), "verildi")
 
 
+class OnayIlkCumlecik(unittest.TestCase):
+    """I-138 P15: ret kalıbı yalnız ilk cümlecikte aranır."""
+
+    def test_ornek_onay_true(self):
+        self.assertTrue(is_onay.onay_mesaji_mi(
+            "Onaylıyorum, yap; ama boş işler otomatik kapanmasın, yalnız listelensin. G-125 yeniden dağıtılsın, G-020 iptal edilsin."))
+
+    def test_ret_ilk_cumlecikte_false(self):
+        for m in ("Onaylamıyorum", "Hayır", "evet ama dur"):
+            self.assertFalse(is_onay.onay_mesaji_mi(m), m)
+
+
 if __name__ == "__main__":
     unittest.main()

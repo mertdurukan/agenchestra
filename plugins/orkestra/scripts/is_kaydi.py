@@ -346,14 +346,19 @@ def slug(baslik: str, azami: int = 40) -> str:
     return s or "is"
 
 
-_YAN_OTURUM_ON = re.compile(r"^\s*Background \(from the session[^)]*\):\s*", re.I)
+_YAN_OTURUM_ON = re.compile(r"^\s*(?:Background|Task) \(from the session[^)]*\):\s*", re.I)
 _ORKESTRA_ANAHTAR = re.compile(r"orkestra|orchestr|eklenti|plugin|\bhook\b|\bskill\b|claude\.md", re.I)
 
 
 def baslik_uret(istek, azami: int = 70) -> str:
-    """İş başlığı: boşluklar sadeleşir, yan oturum devir öneki ('Background (from the session…):') atılır,
+    """İş başlığı: boşluklar sadeleşir, yan oturum devir önekleri ('Background|Task (from the session…):', art arda) atılır,
     azami uzunlukta sözcük sınırından kesilir (önce 70 karakter ham kesiliyordu: 'Background (from the…' çöp başlık)."""
-    metin = _YAN_OTURUM_ON.sub("", " ".join(str(istek or "").split()))
+    metin = " ".join(str(istek or "").split())
+    while True:  # 'Task (…): Background (…): başlık' gibi art arda önekler hepsi atılır
+        yeni = _YAN_OTURUM_ON.sub("", metin)
+        if yeni == metin:
+            break
+        metin = yeni
     if len(metin) <= azami:
         return metin.rstrip() or "is"
     kesik = metin[:azami]
@@ -373,12 +378,45 @@ def proje_sec(projeler, istek: str) -> int:
     return 0
 
 
-def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None) -> str:
+def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None, olustur: bool = True,
+                tercih: str | None = None) -> str:
     """sonraki_klasor_adi + klasörü kilit altında oluşturur: eşzamanlı iki oturum aynı NNN'i almaz
-    (005, 017, 029 ikişer klasör çıkmıştı). Klasör yazılamazsa OSError."""
+    (005, 017, 029 ikişer klasör çıkmıştı). Klasör yazılamazsa OSError. olustur=False: yalnız adı hesaplar (kuru koşu).
+
+    tercih (istenen klasör adı, I-138 P5): 'NNN-…' öneki kilit altında denetlenir; numara kökte başka bir klasörde
+    ya da bu adla açık bir işin klasöründe kullanılıyorsa (kapalı iş ya da işsiz klasör yeniden kullanılır), ya da önek yok ve kökte numaralı klasör varsa
+    sıradaki numara alınır; aksi halde tercih aynen döner. Ayrılan klasöre oturumlar.md yazılır (yer tutucu: eşzamanlı
+    ikinci çağrı dolu görür; is_ac aynı dosyayı zaten var olanı ezmeden yazar)."""
     with L.kilit(os.path.join(sd, "klasor_numara")):
-        ad = sonraki_klasor_adi(kok, baslik, tarih)
-        os.makedirs(os.path.join(kok, ad), exist_ok=True)
+        ad = None
+        if tercih:
+            m = _NNN.match(tercih)
+            try:
+                kardesler = os.listdir(kok)
+            except OSError:
+                kardesler = []
+            if m:
+                dolu = any(k.startswith(m.group(1) + "-") and k != tercih
+                           for k in kardesler if os.path.isdir(os.path.join(kok, k)))
+                if not dolu and tercih in kardesler:  # aynı ad: yalnız açık bir iş orada çalışıyorsa dolu
+                    dolu = is_klasorle_bul(sd, os.path.join(kok, tercih)) is not None
+            else:
+                dolu = any(_NNN.match(k) for k in kardesler)  # numarasız ad: kök numaralıysa tekil numara al
+            if not dolu and m:
+                ad = tercih
+            elif not dolu:
+                return tercih
+        if ad is None:
+            ad = sonraki_klasor_adi(kok, baslik, tarih)
+        if olustur:
+            yol = os.path.join(kok, ad)
+            os.makedirs(yol, exist_ok=True)
+            if tercih:
+                try:
+                    with open(os.path.join(yol, "oturumlar.md"), "x", encoding="utf-8", newline="\n") as f:
+                        f.write(sablon_metni("oturumlar.md", baslik))
+                except FileExistsError:
+                    pass
     return ad
 
 
@@ -1066,6 +1104,18 @@ def is_usd_ve_harcama_son(sd: str, kartlar: list[dict]) -> tuple[dict, dict]:
         if z > son.get(i, ""):
             son[i] = z
     return usd, son
+
+
+def is_pencere_toplamlari(sd: str, kartlar: list[dict], bugun: datetime.date | None = None) -> dict:
+    """{iş: {pencere: {usd, token}}} — is_usd_ve_harcama_son ile aynı atama kuralı, L.pencere_icinde ile aynı pencere (I-137)."""
+    kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
+    return L.pencere_toplamlari(L.maliyet_kayitlari(sd), bugun or datetime.date.today(), lambda r: L.satir_isi(r, kart_is))
+
+
+def kart_pencere_toplamlari(sd: str, bugun: datetime.date | None = None) -> dict:
+    """{kart: {pencere: {usd, token}}} — kartın defter satırlarından (gorev alanı)."""
+    return L.pencere_toplamlari(L.maliyet_kayitlari(sd), bugun or datetime.date.today(),
+                                lambda r: r.get("gorev") if r.get("gorev") not in (None, "-") else None)
 
 
 def is_kalem(sd: str, kartlar: list[dict]) -> dict:

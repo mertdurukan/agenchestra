@@ -46,13 +46,26 @@ def _eslesir(kaliplar, metin: str) -> bool:
     return False
 
 
+def _onay_mesaji(metin) -> bool:
+    try:
+        import is_onay
+        return is_onay.onay_mesaji_mi(metin or "")
+    except Exception:
+        return False
+
+
+def _is_fiil(ayar: dict, m: str) -> bool:
+    """İş fiili (emir/istek kipi) kalıbı; '?' taşıyan mesajda geçersiz (soru cümlesi, I-138 P1)."""
+    return "?" not in m and _eslesir(ayar.get("is_fiil_kaliplari"), m)
+
+
 def bilgi_sorusu_mu(metin, ayar: dict) -> bool:
     m = _normallestir((metin or "").strip())
     if not m:
         return False
     if len(m) > ayar.get("uzun_max_karakter", 0):
         return False
-    if _eslesir(ayar.get("eylem_kaliplari"), m):
+    if _eslesir(ayar.get("eylem_kaliplari"), m) or _is_fiil(ayar, m):
         return False
     if m.endswith("?") and len(m) <= ayar.get("kisa_max_karakter", 0):
         return True
@@ -70,9 +83,11 @@ def not_metni(metin, sd=None) -> str:
 def tur(metin, sd=None) -> str:
     """Hız için model yok: 'soru' (bilgi sorusu), 'devam' (kısa/atıflı mesaj) ya da 'is'. Kararsızsa 'devam'."""
     ayar = ayar_oku(sd)
+    m = _normallestir((metin or "").strip())
+    if _is_fiil(ayar, m):  # I-138 P1: iş fiili soru kalıbından önce ("neden" geçse de iştir)
+        return "is"
     if bilgi_sorusu_mu(metin, ayar):
         return "soru"
-    m = _normallestir((metin or "").strip())
     if len(m) <= ayar.get("devam_max_karakter", 0) or _eslesir(ayar.get("devam_kaliplari"), m):
         return "devam"
     return "is"
@@ -87,6 +102,8 @@ def bagli_tur(metin, sd=None) -> str:
         return "soru"
     m = _normallestir((metin or "").strip())
     if not m:
+        return "devam"
+    if _onay_mesaji(metin):  # I-138 P16: onay sözcüğüyle başlayan mesaj (P15 ölçütü) açıkça devamdır
         return "devam"
     zayif = set(ayar.get("devam_zayif_kaliplari") or [])
     guclu = [k for k in ayar.get("devam_kaliplari") or [] if k not in zayif]

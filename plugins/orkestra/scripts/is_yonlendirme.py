@@ -19,6 +19,7 @@ VARSAYILAN_AYAR = {
     "durak_sozcukler": ["ile", "için", "icin", "ama", "fakat", "gibi", "daha", "çok", "cok",
                         "bir", "bu", "şu", "su", "ve", "veya", "yeni", "olan", "olarak"],
     "soru_etiketi": "soru",
+    "baslik_kapsama_min_sozcuk": 5,
 }
 MIN_SOZCUK = 3
 ONEK_MIN = 5
@@ -46,6 +47,9 @@ def _ayar(ayar):
         a["durak_sozcukler"] = [str(x) for x in ayar["durak_sozcukler"]]
     if isinstance(ayar.get("soru_etiketi"), str) and ayar["soru_etiketi"].strip():
         a["soru_etiketi"] = ayar["soru_etiketi"].strip()
+    m = ayar.get("baslik_kapsama_min_sozcuk")
+    if isinstance(m, int) and not isinstance(m, bool) and m >= 1:
+        a["baslik_kapsama_min_sozcuk"] = m
     return a
 
 
@@ -84,7 +88,13 @@ def eslestir(istek, isler, ayar=None):
         metin = " ".join(str(is_.get(k) or "") for k in ("baslik", "klasor", "metin"))
         is_s = set(_sozcukler(metin, durak_ham))
         say = sum(1 for s in istek_s if any(_eslesir(s, t) for t in is_s))
-        sonuc.append({"id": is_["id"], "puan": min(1.0, say / len(istek_s))})
+        puan = say / len(istek_s)
+        # I-138 P3: yeterince uzun başlıkta başlık kapsaması da sayılır (başlığı üreten mesaj o işe bağlanır)
+        baslik_s = set(_sozcukler(str(is_.get("baslik") or ""), durak_ham))
+        if len(baslik_s) >= a["baslik_kapsama_min_sozcuk"]:
+            bsay = sum(1 for t in baslik_s if any(_eslesir(s, t) for s in istek_s))
+            puan = max(puan, bsay / len(baslik_s))
+        sonuc.append({"id": is_["id"], "puan": min(1.0, puan)})
     sonuc.sort(key=lambda x: -x["puan"])
     return sonuc
 

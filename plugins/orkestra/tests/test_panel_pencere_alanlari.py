@@ -72,7 +72,7 @@ class OzetPencere(unittest.TestCase):
             self.assertEqual(k[w]["token"], t[w]["token"])
         self.assertEqual(k["son_3_gun"]["gun"], 3)
         self.assertEqual(k["bugun"]["onceki"]["usd"], 2.0)   # dün
-        self.assertEqual(k["son_3_gun"]["onceki"]["usd"], 0.0)   # 3-5 gün önce: yalnız 5 gün önceki 8 $ ... bkz. aşağı
+        self.assertEqual(k["son_3_gun"]["onceki"]["usd"], 8.0)   # önceki 3 gün = bugün-5..bugün-3: yalnız 5 gün önceki satır
         self.assertIsNone(k["tum_zaman"]["onceki"])
 
 
@@ -93,11 +93,21 @@ class AnalitikPencere(unittest.TestCase):
         self.assertEqual(p["bugun"]["kart_sayisi"], 1)
         self.assertEqual(p["tum_zaman"]["kart_sayisi"], 2)
         self.assertEqual(p["bugun"]["en_pahali"], [["G-1", 1.0]])
-        self.assertEqual(p["son_3_gun"]["en_pahali"][0], ["G-1", 3.0])
-        self.assertEqual(p["tum_zaman"]["en_pahali_token"][0][0], "G-1" if 100 + 200 + 800 + 3200 > 400 + 1600 else "G-2")
+        self.assertEqual(p["son_3_gun"]["en_pahali"], [["G-2", 4.0], ["G-1", 3.0]])   # sıra pencerede kalan harcamaya göre
+        self.assertEqual(p["tum_zaman"]["en_pahali_token"][0], ["G-1", 4300])
         self.assertEqual(p["bugun"]["birim"]["teslim_kart"], 1)
         self.assertEqual(p["bugun"]["akis_ozet"]["kart"], 1)
         self.assertEqual(p["son_3_gun"]["akis_ozet"]["kart"], 1)
+
+    def test_akis_satirinda_penceresi_listesi(self):
+        kartlar = [{"id": "G-1", "durum": "teslim", "olusturma": zaman(0), "basamak": "T2", "denetimler": [], "gecmis": []},
+                   {"id": "G-2", "durum": "teslim", "olusturma": zaman(25), "basamak": "T2", "denetimler": [], "gecmis": []}]
+        with mock.patch.object(L, "maliyet_kayitlari", lambda sd: KAYITLAR), mock.patch.object(L, "kartlar", lambda sd, derin=True: kartlar), \
+                mock.patch.object(L, "sohbetler", lambda *a, **k: []), mock.patch.object(L, "kart_durumu_hesapla", lambda k: k["durum"]):
+            a = A.olustur("x", "x")
+        satirlar = {r["id"]: r for r in a["akis"]["kartlar"]}
+        self.assertEqual(satirlar["G-1"]["penceresi"], list(PENCERELER))
+        self.assertEqual(satirlar["G-2"]["penceresi"], ["bu_ay", "tum_zaman"] if ay_icinde(25) else ["tum_zaman"])
 
 
 class IsKaydiPencere(unittest.TestCase):

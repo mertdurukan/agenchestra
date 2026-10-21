@@ -227,6 +227,14 @@ table.tablo { width: 100%; border-collapse: collapse; font-size: var(--y13); }
 .cip { white-space: nowrap; height: 26px; padding: 0 var(--a3); border: 1px solid var(--cizgi); border-radius: 999px; background: transparent; font-size: var(--y12); color: var(--metin-2); cursor: pointer; }
 .cip[aria-pressed="true"] { background: var(--metin); color: var(--zemin); border-color: var(--metin); }
 .cip .say { opacity: .65; margin-left: 4px; }
+.cip:disabled { opacity: .45; cursor: default; }
+.cip:focus-visible { outline: 2px solid var(--vurgu, currentColor); outline-offset: 2px; }
+/* üst çubuk: zaman penceresi ve ölçü birimi (I-137) */
+.kontrol-grup { display: flex; align-items: center; gap: var(--a3); flex-wrap: wrap; }
+.kontrol { display: inline-flex; align-items: center; gap: 4px; padding: 2px; border: 1px solid var(--cizgi); border-radius: 999px; }
+.kontrol .cip { border-color: transparent; }
+.kontrol .cip[aria-pressed="true"] { border-color: var(--metin); }
+.kontrol > .soluk { padding: 0 var(--a2); white-space: nowrap; }
 .arama { flex: 1; min-width: 140px; height: 28px; padding: 0 var(--a3); border: 1px solid var(--cizgi); border-radius: var(--r2); background: var(--yuzey); color: var(--metin); font: inherit; font-size: var(--y13); }
 
 /* ilerleme ve çubuklar */
@@ -320,6 +328,15 @@ details.ac[open] > summary::before { content: "▾ "; }
 .todo li.bitti { color: var(--metin-3); text-decoration: line-through; }
 .todo li.bitti .kutu { background: var(--iyi); border-color: var(--iyi); }
 
+/* yapılacaklar (kullanıcının kendi listesi) */
+.yap-yeni { width: 100%; min-height: 56px; max-height: 50vh; resize: vertical; padding: var(--a2) var(--a3); border: 1px solid var(--cizgi); border-radius: var(--r2); background: var(--yuzey); color: var(--metin); font: inherit; font-size: var(--y13); }
+.yap-liste { gap: var(--a2); }
+.yap-liste li { align-items: center; padding: var(--a2) 0; border-bottom: 1px solid var(--cizgi); }
+.yap-liste li:last-child { border-bottom: 0; }
+.yap-liste .dugme { flex: none; }
+.yap-liste .yap-metin { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.yap-liste li.bitti .yap-metin span { text-decoration: line-through; color: var(--metin-3); }
+
 /* durumlar */
 .bos-durum { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2); padding: var(--a10) var(--a4); color: var(--metin-2); }
 .bos-durum .buyuk { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--iyi) 14%, transparent); color: var(--iyi); }
@@ -372,7 +389,8 @@ dialog.palet::backdrop { background: rgb(0 0 0 / .35); }
   .gezinti { flex-direction: row; overflow-x: auto; width: 100%; order: 5; }
   .gezinti a { white-space: nowrap; }
   .gezinti a .ad-uzun { display: none; }
-  .bas { top: 0; position: static; padding: var(--a2) var(--a4); }
+  .bas { top: 0; position: static; padding: var(--a2) var(--a4); flex-wrap: wrap; }
+  .kontrol-grup { width: 100%; }
   .icerik, .bolunmus > .ayrinti { padding: var(--a4); }
   .bolunmus { grid-template-columns: 1fr; }
   .bolunmus > .liste-yan { position: static; max-height: none; border-right: 0; }

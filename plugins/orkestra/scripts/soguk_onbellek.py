@@ -15,7 +15,8 @@ import os
 
 import ork_lib as L
 
-VARSAYILAN = {"acik": True, "esik_token": 150_000, "esik_dk": 60, "tekrar_dk": 15}
+VARSAYILAN = {"acik": True, "esik_token": 150_000, "esik_dk": 60, "tekrar_dk": 15, "is_degisimi": True}
+YENI_SOHBET_BAGLAMI = 30_000  # yeni sohbetin tipik açılış bağlamı (tasarruf tahmini için)
 OKUMA_KUYRUGU = 4_000_000  # transkriptin son bu kadar baytı okunur (büyük dosyada hızlı kalsın)
 
 
@@ -102,3 +103,37 @@ def karar(sd: str, oid: str | None, transkript: str | None, simdi: D.datetime | 
             f"Bu sohbetin bağlamı ~{s['baglam'] // 1000}k token; devam etmek bağlamın tamamını yeniden yazar (~{usd:.2f} USD). "
             "Ucuz yol: yeni sohbet aç ve `orkestra is devam <iş id>` de (sıradaki adımlar işin todo.md'sinde). "
             f"Yine de burada sürdürmek için mesajını {a['tekrar_dk']} dk içinde yeniden gönder.")
+
+
+def is_degisimi_uyarisi(sd: str, oid: str | None, transkript: str | None, bagli_is, onerilen_is) -> str | None:
+    """G-125: bağlam büyükken oturum başka bir açık işe kayıyorsa ENGELLEMEYEN uyarı metni, yoksa None.
+
+    Koşul: ayar `is_degisimi` açık, son çağrı bağlamı >= `esik_token`, bağlı iş var, önerilen iş var ve farklı.
+    Aynı oturum + hedef iş için yalnız bir kez (işaret dosyası `<oid>.isdeg`). Hata her zaman None (hook düşmez)."""
+    try:
+        a = ayarlar(sd)
+        if not a.get("is_degisimi") or not oid or not bagli_is or not onerilen_is:
+            return None
+        if str(bagli_is) == str(onerilen_is):
+            return None
+        s = son_cagri(transkript)
+        if not s or s["baglam"] < a["esik_token"]:
+            return None
+        isaret = os.path.join(sd, "oturumlar", f"{oid}.isdeg")
+        goruldu = set()
+        try:
+            with open(isaret, encoding="utf-8") as f:
+                goruldu = {x.strip() for x in f.read().splitlines() if x.strip()}
+        except OSError:
+            pass
+        if str(onerilen_is) in goruldu:
+            return None
+        os.makedirs(os.path.dirname(isaret), exist_ok=True)
+        with open(isaret, "a", encoding="utf-8") as f:
+            f.write(f"{onerilen_is}\n")
+        tasarruf = max(0, s["baglam"] - YENI_SOHBET_BAGLAMI)
+        return (f"Orkestra: bu sohbetin bağlamı ~{s['baglam'] // 1000}k token ve istek {bagli_is} yerine farklı bir işe "
+                f"({onerilen_is}) daha yakın. Ucuz yol: yeni sohbet aç ve `orkestra is devam {onerilen_is}` de; "
+                f"çağrı başına yaklaşık {tasarruf // 1000}k token tasarruf (bir iş bir oturum). Burada sürdürmek de mümkün.")
+    except Exception:
+        return None

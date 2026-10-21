@@ -320,5 +320,48 @@ class YanitIhlali(unittest.TestCase):
         self.assertFalse(soru_sinif.yanit_ihlali("Bitti. 3 dosya değişti."))
 
 
+
+
+class IsFiiliOnce(unittest.TestCase):
+    """I-138 P1: iş fiili soru kalıbından önce değerlendirilir."""
+
+    def test_is_mesaji_soru_kalibi_icerse_de_is(self):
+        self.assertEqual(soru_sinif.tur("Sorunları kök neden analizi yaparak kalıcı çözelim!"), "is")
+
+    def test_bilgi_sorulari_soru_kalir(self):
+        for m in ("Bu ne demek?", "Neden çalışmıyor?", "Bu kural gerekir mi?"):
+            self.assertEqual(soru_sinif.tur(m), "soru", m)
+
+    def test_yanlis_pozitifler_soru_kalir(self):
+        for m in ("Çözüm ne demek?", "Çözünürlük nedir?", "Bu çözüm neden çalışmıyor?", "Bunu nasıl çözerim?",
+                  "Hangi dosyayı bilelim?", "Çözüldü mü?"):
+            self.assertEqual(soru_sinif.tur(m), "soru", m)
+
+    def test_is_mesajlari_is_kalir(self):
+        for m in ("Sorunları kök neden analizi yaparak kalıcı çözelim!", "Şunu düzeltelim"):
+            self.assertEqual(soru_sinif.tur(m), "is", m)
+
+    def test_is_fiil_kaliplari_ayarda(self):
+        self.assertTrue(soru_sinif.ayar_oku().get("is_fiil_kaliplari"))
+
+
+class BagliOnayDevam(unittest.TestCase):
+    """I-138 P16: onay sözcüğüyle başlayan mesaj bağlı oturumda devamdır."""
+
+    ONAY = "Onaylıyorum, yap; ama boş işler otomatik kapanmasın, yalnız listelensin. G-125 yeniden dağıtılsın, G-020 iptal edilsin."
+
+    def test_onay_mesaji_devam(self):
+        self.assertEqual(soru_sinif.bagli_tur(self.ONAY), "devam")
+
+    def test_onaylamiyorum_devam_degil(self):
+        self.assertEqual(soru_sinif.bagli_tur("Onaylamıyorum, bu kural tamamen başka bir konuya taşınsın bence"), "belirsiz")
+
+    def test_yonlendirme_ipucu_bagli_oturumda_bos(self):
+        import tempfile
+        sd = tempfile.mkdtemp(prefix="ork_p16_")
+        with mock.patch.object(hook, "_otomatik_yonlendirme", return_value=""),                 mock.patch.object(hook, "_oturum_isi", return_value="I-001"):
+            self.assertEqual(hook._yonlendirme_ipucu(sd, OTURUM, self.ONAY), "")
+
+
 if __name__ == "__main__":
     unittest.main()

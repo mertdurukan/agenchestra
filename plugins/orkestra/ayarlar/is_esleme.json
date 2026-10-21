@@ -3,5 +3,7 @@
   "yuksek": 0.6,
   "dusuk": 0.2,
   "durak_sozcukler": ["ile", "için", "icin", "ama", "fakat", "gibi", "daha", "çok", "cok", "bir", "bu", "şu", "su", "ve", "veya", "yeni", "olan", "olarak"],
-  "soru_etiketi": "soru"
+  "soru_etiketi": "soru",
+  "baslik_kapsama_min_sozcuk": 5,
+  "bos_is_saat": 48
 }

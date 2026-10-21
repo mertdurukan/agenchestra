@@ -123,6 +123,17 @@ class PanelV2(unittest.TestCase):
         self.assertIn("/akis?alan=", js)
         self.assertIn("'X-Orkestra': '1'", js)
 
+    def test_kart_sohbeti_acar(self):
+        """Gelen kutusu kartı ve kart ayrıntısı, kartı başlatan sohbeti açar; "İzi aç" koşu izine gider."""
+        js = oku(os.path.join(ASSETS, "app.js"))
+        self.assertIn("async function sohbetAc(", js)
+        self.assertIn("gonder('/ac?oturum='", js)  # sunucu yolu: gonder() X-Orkestra başlığını ekler
+        self.assertIn("data-eylem=\"sohbet-ac\" data-oturum=\"${k.oturum}\"", js)  # Gelen kutusu kartı
+        self.assertIn("data-eylem=\"sohbet-ac\" data-oturum=\"${bilgi.oturum}\"", js)  # kart ayrıntısı
+        self.assertIn("ey === 'sohbet-ac'", js)
+        self.assertIn("article[data-oturum]", js)  # kart gövdesine tıklama
+        self.assertIn("href=\"#/kart/${enc(k.id)}\"", js)  # İzi aç korunur
+
     def test_tasarim_belirtecleri_iki_tema(self):
         c = oku(os.path.join(ASSETS, "app.css"))
         self.assertIn("prefers-color-scheme: dark", c)

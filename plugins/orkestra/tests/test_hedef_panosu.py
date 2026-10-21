@@ -188,7 +188,7 @@ class K3TeknikKapsama(unittest.TestCase):
         self.assertEqual((e["deger"], e["durum"]), (1.0, "iyi"))
 
     def test_ayar_dosyasinda_varsayilan_tarih(self):
-        self.assertEqual(A._ayar("hedef.json")["teknik_kapi_baslangic"], "2026-10-16")
+        self.assertEqual(A._ayar("hedef.json")["teknik_kapi_baslangic"], "2026-10-16T02:49:52+03:00")
 
 
 class K4Israf(unittest.TestCase):
@@ -396,6 +396,69 @@ class K7EkOlculer(unittest.TestCase):
         p = pano([k], [satir("G-1", 1.0), satir("-", 0.5)])
         self.assertEqual(set(p["olculer"]), set(OLCULER))
         self.assertAlmostEqual(p["olculer"]["ana_ajan_payi"]["tum_zaman"]["deger"], 0.5 / 1.5, places=3)
+
+
+class TekPencereTanimi(unittest.TestCase):
+    """I-137 P1: hedef panosu pencereleri ozet._pencere_icinde ile aynı takvim günü kümesini seçer."""
+
+    def test_sinir_anlari_iki_kaynakta_ayni(self):
+        import ozet as O
+        gun_basi = SIMDI.replace(hour=0, minute=0, second=0, microsecond=0)
+        bugun = SIMDI.date()
+        for dk in (-1, 0, 1):
+            for gun_once in (0, 1, 2, 3, 6, 7, 20):
+                an = gun_basi - datetime.timedelta(days=gun_once) + datetime.timedelta(minutes=dk)
+                p = pano([kart("G-1", olus=an.isoformat(timespec="seconds"), isciler=1)])
+                for w in PENCERELER:
+                    beklenen = O._pencere_icinde(w, an.date(), bugun)
+                    gercek = p["olculer"]["isci_cagrisi_kart"][w]["payda"] == 1
+                    self.assertEqual(gercek, beklenen, (w, gun_once, dk))
+
+
+class K8TeknikKapiSaati(unittest.TestCase):
+    """G-168 P9: teknik_kapi_baslangic tam zaman damgası (ofsetli) olarak kapı saatini verir; yalnız gün verilirse 00:00 korunur."""
+
+    def test_tam_zaman_damgasi_kapi_saatinden_sayar(self):
+        h = dict(HEDEF, teknik_kapi_baslangic="2026-10-16T02:49:52+03:00")
+        kartlar = [
+            kart("G-1", olus="2026-10-16T02:49:51+03:00", teknik=""),   # kapıdan 1 sn önce: paydada değil
+            kart("G-2", olus="2026-10-16T01:00:00+03:00", teknik=""),   # kapıdan önce: paydada değil
+            kart("G-3", olus="2026-10-16T02:49:52+03:00", teknik="n"),  # tam sınır: paydada, dolu
+            kart("G-4", olus="2026-10-16T03:00:00+03:00", teknik=""),   # paydada, boş
+        ]
+        e = A.hedef_panosu(kartlar, [], simdi=SIMDI, hedef=h, esik=ESIK)["olculer"]["teknik_not_kapsama"]["tum_zaman"]
+        self.assertEqual((e["payda"], e["pay"], e["deger"]), (2, 1, 0.5))
+        self.assertEqual(e["durum"], "kotu")
+
+    def test_yalniz_gun_verilirse_gun_basi_kapisi(self):
+        h = dict(HEDEF, teknik_kapi_baslangic="2026-10-16")
+        kartlar = [
+            kart("G-1", olus="2026-10-15T23:59:00+03:00", teknik=""),   # önceki gün: paydada değil
+            kart("G-2", olus="2026-10-16T00:30:00+03:00", teknik="n"),  # gün başı sonrası: paydada, dolu
+        ]
+        e = A.hedef_panosu(kartlar, [], simdi=SIMDI, hedef=h, esik=ESIK)["olculer"]["teknik_not_kapsama"]["tum_zaman"]
+        self.assertEqual((e["payda"], e["pay"], e["deger"]), (1, 1, 1.0))
+
+
+class K9AnaAjanKartsizPencere(unittest.TestCase):
+    """G-168 P10: pencerede onaylı ya da işlenen kart yoksa ana_ajan_payi veri-yok; kartlı pencerede değer değişmez."""
+
+    def test_kartsiz_pencerede_veri_yok(self):
+        r = [satir("-", 2.0), satir("-", 1.0)]
+        p = pano([kart("G-1", durum="planlandi", isciler=0)], r)["olculer"]["ana_ajan_payi"]
+        for w in ("bugun", "son_3_gun", "tum_zaman"):
+            self.assertEqual(p[w]["durum"], "veri-yok", w)
+            self.assertIsNone(p[w]["deger"], w)
+
+    def test_isleniyor_kart_pencereyi_kartli_yapar(self):
+        k = kart("G-1", durum="isleniyor", isciler=1)
+        e = pano([k], [satir("-", 2.0), satir("G-1", 1.0)])["olculer"]["ana_ajan_payi"]["bugun"]
+        self.assertAlmostEqual(e["deger"], 2.0 / 3.0, places=3)
+
+    def test_onayli_kartli_pencerede_deger_ayni(self):
+        k = kart("G-1", denetimler=[{"karar": "onay", "sira": 2}])
+        e = pano([k], [satir("G-1", 1.0), satir("-", 0.5)])["olculer"]["ana_ajan_payi"]["tum_zaman"]
+        self.assertAlmostEqual(e["deger"], 0.5 / 1.5, places=3)
 
 
 if __name__ == "__main__":

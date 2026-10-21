@@ -395,6 +395,15 @@ def iddia_degerlendir(c: dict, kokler, proje, kos=True, zaman_asimi=VARSAYILAN_Z
     return c
 
 
+def _yol_sonucu(metin: str, plan_yolu: str, kokler: list[str]) -> list[dict]:
+    """Serbest yol anmalarının varlık denetimi (uyarı; karara girmez)."""
+    import yol_denetimi as YD
+    sonuc = [dict(k, dosya=os.path.basename(plan_yolu)) for k in YD.denetle_metin(blok_ayikla(metin), kokler)]
+    klasor = os.path.dirname(os.path.abspath(plan_yolu))
+    sonuc += YD.denetle_dosyalar(sorted(_glob.glob(os.path.join(klasor, "mevcut_durum_*.md"))), kokler)
+    return sonuc
+
+
 def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = True, zaman_asimi: int | None = None) -> dict:
     """Planı baştan sona değerlendirir; dosyaya yazmaz. Dönüş sözlüğü karar_blogu() ve CLI için yeterlidir."""
     metin = _oku(plan_yolu)
@@ -450,7 +459,7 @@ def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = 
         karar = KARAR_KOSULLU
     return {"plan": os.path.abspath(plan_yolu), "ozet": ozet(metin), "karar": karar, "eksik": eksik, "bayat": bayat, "iddialar": iddialar,
             "engelli": engelli, "engelsiz": engelsiz, "yetim": [c["no"] for c in yetim], "bagli": sorted(bagli),
-            "gap": gap,
+            "gap": gap, "yol": _yol_sonucu(metin, plan_yolu, kokler),
             "tahmin_sayisi": len(re.findall(r"^\s*[-*]\s+\*\*T\d+\*\*", "\n".join(temiz_satirlar(blok_ayikla(metin))), re.M))}
 
 
@@ -495,6 +504,9 @@ def karar_blogu(sonuc: dict, ozet_degeri: str) -> str:
         s += [f"**Gap kapsaması:** {'tam' if not g['eksik'] else str(g['eksik']) + ' eksik'} (MD §6: {g['toplam']} gap)", ""]
     if sonuc["eksik"]:
         s += ["**Yapısal eksikler:**", ""] + [f"- {e}" for e in sonuc["eksik"][:12]] + [""]
+    kayip = [f"{k['dosya']}:{k['satir']} {k['yol']}" for k in sonuc.get("yol", []) if not k["var"]]
+    if kayip:
+        s += ["**Bulunamayan yollar (uyarı):**", ""] + [f"- {e}" for e in kayip[:12]] + [""]
     s += ["**Engelsiz plan maddeleri:**", ""] + ([f"- Madde P{n}" for n in sonuc["engelsiz"]] or ["- (yok)"]) + [""]
     s += ["**Engelli plan maddeleri:**", ""]
     kim = {c["no"]: c for c in iddialar}

@@ -5,6 +5,7 @@ Tüm veri sentetiktir; dosya/ağ yok. Yalnız modül kaynağı statik olarak oku
 """
 import ast
 import importlib.util
+import json
 import os
 import sys
 import unittest
@@ -392,6 +393,26 @@ class ZorunluYonergeTest(unittest.TestCase):
     def test_varsayilan_hatirlatma_degismedi(self):
         self.assertNotIn("ZORUNLU", iy.yonlendir(self.ISLER, "I-061"))
         self.assertNotIn("ZORUNLU", iy.yonlendir(self.ISLER, None, zorunlu=True))
+
+
+class BaslikKapsama(unittest.TestCase):
+    """I-138 P3: yeterince uzun başlıkta başlık kapsaması da sayılır."""
+
+    MESAJ = "fatura raporlama ekranında kolon sırası bozuk geliyor düzeltelim lütfen şimdi"
+    BASLIK = "fatura raporlama ekranında kolon sırası bozuk"
+
+    def test_ayar_varsayilani_5(self):
+        self.assertEqual(iy._ayar({})["baslik_kapsama_min_sozcuk"], 5)
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ayarlar", "is_esleme.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["baslik_kapsama_min_sozcuk"], 5)
+
+    def test_basligi_ureten_mesaj_baglanir(self):
+        p = iy.eslestir(self.MESAJ, [{"id": "I-1", "baslik": self.BASLIK}], {"durak_sozcukler": []})
+        self.assertGreaterEqual(p[0]["puan"], 0.6)
+
+    def test_tek_sozcuklu_baslik_uzun_mesaja_baglanmaz(self):
+        p = iy.eslestir(self.MESAJ + " panel", [{"id": "I-2", "baslik": "panel"}], {"durak_sozcukler": []})
+        self.assertLess(p[0]["puan"], 0.6)
 
 
 if __name__ == "__main__":

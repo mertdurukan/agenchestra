@@ -34,6 +34,11 @@
     "\\bkontrol\\s+e(?:t|din|delim|der\\s+mis(?:in|iniz)|debilir\\w*)\\b",
     "\\bbak(?:ın|alım|ar\\s+m[ıi]s[ıi]n\\w*|abilir\\w*|sana)?\\b"
   ],
+  "is_fiil_kaliplari": [
+    "\\b\\w+(?:elim|alım)\\b",
+    "\\bçöz(?:elim|ün|sün|ülsün)\\b",
+    "\\byaparak\\b"
+  ],
   "devam_max_karakter": 0,
   "devam_kisa_max_karakter": 24,
   "devam_zayif_kaliplari": [

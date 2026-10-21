@@ -294,25 +294,14 @@ def _sohbet_dokum(sd: str, proje: str, kayitlar: list, bugun: datetime.date) -> 
     return {"gun": bugun.isoformat(), "sohbetler": sorted(sohbet.values(), key=lambda x: x["son"] or "", reverse=True)}
 
 
-PENCERELER = ("bugun", "son_3_gun", "son_7_gun", "bu_ay", "tum_zaman")
-
-
-def _pencere_icinde(pencere: str, gun: datetime.date, bugun: datetime.date) -> bool:
-    """Son N gün: bugün dahil N takvim günü (Sohbetler dönem süzmesiyle aynı; hedef panosu kayan saat penceresi kullanır)."""
-    if pencere == "bugun":
-        return gun == bugun
-    if pencere == "son_3_gun":
-        return bugun - datetime.timedelta(days=2) <= gun <= bugun
-    if pencere == "son_7_gun":
-        return bugun - datetime.timedelta(days=6) <= gun <= bugun
-    if pencere == "bu_ay":
-        return (gun.year, gun.month) == (bugun.year, bugun.month)
-    return True
+PENCERELER = L.PENCERELER
+_pencere_icinde = L.pencere_icinde   # tek takvim günü tanımı ork_lib'de (hedef panosu ve panel aynı tanımı kullanır)
 
 
 def _pencere_kirilimlari(kayitlar: list, bugun: datetime.date) -> dict:
     """Her pencere için iş türü, model ve ajan x iş türü harcaması (panel: Maliyet > Harcama dağılımı)."""
     cikti = {}
+    ilk = min((z.date() for r in kayitlar if (z := A._zaman(r.get("zaman")))), default=bugun)
     for w in PENCERELER:
         surec, model, ajan_surec, toplam = collections.Counter(), collections.Counter(), {}, 0.0
         surec_t, model_t, toplam_t = collections.Counter(), collections.Counter(), 0
@@ -334,7 +323,14 @@ def _pencere_kirilimlari(kayitlar: list, bugun: datetime.date) -> dict:
             a["token"] += tok
             a["cikis"] += r.get("cikis", 0) or 0
             a["giris"] += (r.get("giris", 0) or 0) + (r.get("onbellek_okuma", 0) or 0) + (r.get("onbellek_yazma", 0) or 0)
-        cikti[w] = {"usd": round(toplam, 4), "token": toplam_t, "surec": _yuvarla(dict(surec.most_common(10))),
+        n = L.pencere_gun_sayisi(w, bugun)
+        gun = (bugun - ilk).days + 1 if n is None else max(1, min(n, (bugun - ilk).days + 1))   # veri başlamadan önceki günler ortalamaya girmez
+        onc = L.onceki_aralik(w, bugun)
+        onceki = None
+        if onc:
+            satir_o = [r for r in kayitlar if (z := A._zaman(r.get("zaman"))) and onc[0] <= z.date() <= onc[1]]
+            onceki = {"usd": round(sum(r.get("maliyet_usd", 0) or 0 for r in satir_o), 4), "token": sum(_tok(r) for r in satir_o)}
+        cikti[w] = {"usd": round(toplam, 4), "token": toplam_t, "gun": gun, "onceki": onceki, "surec": _yuvarla(dict(surec.most_common(10))),
                     "model": _yuvarla(dict(model.most_common(6))),
                     "surec_token": dict(surec_t.most_common(10)), "model_token": dict(model_t.most_common(6)),
                     "ajan_surec": sorted([{"ajan": a, "surec": su, **{k: (round(v, 4) if k == "usd" else v) for k, v in d.items()}}
@@ -351,6 +347,8 @@ def olustur(sd: str, proje: str) -> dict:
     for r in kayitlar:
         if r.get("gorev") not in (None, "-"):
             kart_usd[r["gorev"]] += r.get("maliyet_usd", 0) or 0
+    kart_pencere = L.pencere_toplamlari(kayitlar, bugun, lambda r: r.get("gorev") if r.get("gorev") not in (None, "-") else None)
+    sifir = {w: {"usd": 0.0, "token": 0} for w in PENCERELER}
     ks = []
     for k in L.kartlar(sd):
         d = L.kart_durumu_hesapla(k)
@@ -358,7 +356,7 @@ def olustur(sd: str, proje: str) -> dict:
         ks.append({"id": k["id"], "baslik": kisalt_baslik(k["baslik"]), "durum": d, "basamak": k["basamak"],
                    "oturum": k.get("oturum"), "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
                    "bagimli": k.get("bagimliliklar", []), "usd": round(kart_usd.get(k["id"], 0.0), 4),
-                   "guncelleme": k.get("guncelleme")})
+                   "pencere": kart_pencere.get(k["id"], sifir), "guncelleme": k.get("guncelleme")})
     acik = [k for k in ks if k["durum"] in L.ACIK_DURUMLAR or k["durum"] in ("beklemede", "planlandi")]
     kapali = sorted([k for k in ks if k not in acik], key=lambda x: x.get("guncelleme") or "", reverse=True)[:10]
     kartlar = sorted(acik, key=lambda x: x["id"]) + kapali
@@ -485,7 +483,19 @@ def yaz(sd: str, proje: str) -> dict | None:
         with L.kilit(yol, bekleme_s=20.0):   # soğuk olustur ~4 sn sürer; 5 sn, dört paralel bitişte zaman aşımı veriyordu
             o = olustur(sd, proje)
             L.atomik_yaz(yol, json.dumps(o, ensure_ascii=False))
+        try:
+            os.remove(yol + ".bekliyor")   # önceki çakışmadan kalan işaret: bu yazım onu karşıladı
+        except OSError:
+            pass
         return o
+    except PermissionError:
+        # Hedef başka bir okuyucuda kilitli (Windows): hata sayılmaz, işaret bırakılır; sonraki tetikte yeniden yazılır.
+        try:
+            with open(os.path.join(sd, "ozet.json.bekliyor"), "w", encoding="utf-8") as f:
+                f.write(L.simdi() + "\n")
+        except OSError:
+            pass
+        return None
     except Exception as e:  # noqa: BLE001
         try:
             hata_yolu = os.path.join(sd, "ozet_hata.txt")   # son 20 hata kalır (yalnız sonuncusu değil)
