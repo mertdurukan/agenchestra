@@ -123,6 +123,91 @@ class TeknikPanel(unittest.TestCase):
             self.assertTrue(v["hata"], yol)
             self.assertNotIn("kod", v)
 
+    # ------------------------------------------------------------------ ret kipi (I-143)
+    def ret_kartlari(self):
+        self.kart("G-020", "2026-10-16T04:00:00+03:00", baslik="Reddedilen kod", sinif="kod", basamak="T2", denetimler=[
+            {"sira": 1, "karar": "ret", "neden": "kanit-yok", "kok": "dikkat", "zaman": "2026-10-16T04:10:00+03:00",
+             "gerekce": "K1: kanıt yok\n<b>kalın</b> değil", "talimat": "kanıt ekle", "basamak": "T2"},
+            {"sira": 2, "karar": "ret", "neden": "bicim", "kok": "dikkat", "zaman": "2026-10-16T04:20:00+03:00",
+             "gerekce": "biçim bozuk", "talimat": "", "basamak": "T2"}])
+        self.kart("G-021", "2026-10-16T05:00:00+03:00", baslik="Reddedilen belge", sinif="belge", basamak="T1", denetimler=[
+            {"sira": 1, "karar": "ret", "neden": "uydurma", "zaman": "2026-10-16T05:10:00+03:00", "gerekce": "kodsuz ret"}])
+        self.kart("G-022", "2026-10-16T06:00:00+03:00", baslik="İptal kart", sinif="kod", basamak="T2", durum="iptal", denetimler=[
+            {"sira": 1, "karar": "ret", "neden": "bicim", "zaman": "2026-10-16T06:10:00+03:00", "gerekce": "iptal kartın reti"}])
+        for g in ("G-020", "G-021", "G-022"):
+            IK.is_kart_ekle(self.sd, self.is_id, g)
+
+    def test_ret_kipi_liste_gerekce_ve_siralama(self):
+        self.ret_kartlari()
+        v = self.getj("/teknik.json?alan=alan-x&ret=1")
+        r = v["ret"]
+        self.assertEqual((r["toplam"], r["gosterilen"]), (3, 3))   # iptal kartın reti hariç
+        self.assertEqual([x["kart"] for x in r["kayitlar"]], ["G-021", "G-020", "G-020"])   # en yeni önce
+        ilk = r["kayitlar"][2]
+        self.assertEqual((ilk["neden"], ilk["kok"], ilk["sira"]), ("kanit-yok", "dikkat", 1))
+        self.assertEqual(ilk["gerekce"], "K1: kanıt yok\n<b>kalın</b> değil")
+        self.assertEqual(ilk["talimat"], "kanıt ekle")
+        self.assertEqual(r["kayitlar"][0]["neden"], "siniflanmamis")
+        self.assertTrue(ilk["is_ad"])
+
+    def test_ret_kipi_toplam_ders_ile_esit(self):
+        import analitik
+        self.ret_kartlari()
+        r = self.getj("/teknik.json?alan=alan-x&ret=1")["ret"]
+        self.assertEqual(r["toplam"], sum(n["ret"] for n in analitik._ders(L.kartlar(self.sd), [])["nedenler"]))
+
+    def test_ret_kipi_suzgecler(self):
+        self.ret_kartlari()
+        f = lambda q: self.getj("/teknik.json?alan=alan-x&ret=1" + q)["ret"]   # noqa: E731
+        self.assertEqual([x["neden"] for x in f("&neden=bicim")["kayitlar"]], ["bicim"])
+        self.assertEqual(f("&sinif=belge")["toplam"], 1)
+        self.assertEqual(f("&sinif=kod&basamak=T2")["toplam"], 2)
+        self.assertEqual(f("&kok=siniflanmamis")["toplam"], 1)
+        self.assertEqual(f("&neden=siniflanmamis")["toplam"], 1)
+        self.assertEqual(f("&neden=bicim")["suzgec"], {"neden": "bicim"})
+
+    def test_ret_kipi_basamaksiz_kart_tire_suzgeci(self):   # kart yükleyici eksik basamağa "-" yazar; Verim satırı aynı değeri bağlar
+        self.ret_kartlari()
+        self.kart("G-031", "2026-10-16T08:00:00+03:00", baslik="Basamaksız", sinif="kod", denetimler=[
+            {"sira": 1, "karar": "ret", "neden": "bicim", "zaman": "2026-10-16T08:10:00+03:00", "gerekce": "basamak yok"}])
+        IK.is_kart_ekle(self.sd, self.is_id, "G-031")
+        v = self.getj("/teknik.json?alan=alan-x&ret=1&sinif=kod&basamak=-")["ret"]
+        self.assertEqual([x["kart"] for x in v["kayitlar"]], ["G-031"])
+        self.assertEqual(v["toplam"], 1)
+
+    def test_ret_kipi_gecersiz_suzgec_400(self):
+        self.ret_kartlari()
+        for q in ("&neden=uydurma", "&kok=x", "&sinif=" + "a" * 61, "&sinif=olmayan", "&basamak=T9"):
+            v = self.getj("/teknik.json?alan=alan-x&ret=1" + q, 400)
+            self.assertFalse(v["acik"], q)
+            self.assertTrue(v["hata"], q)
+
+    def test_ret_kipi_sinir_ve_ret_olmadan_eski_kip(self):
+        import panel as P
+        self.ret_kartlari()
+        with mock.patch.object(P, "_RET_SINIR", 2):
+            r = self.getj("/teknik.json?alan=alan-x&ret=1")["ret"]
+        self.assertEqual((r["toplam"], r["gosterilen"], len(r["kayitlar"])), (3, 2, 2))
+        self.assertIn("isler", self.getj("/teknik.json?alan=alan-x"))   # ret parametresi yok: iş listesi
+        self.assertIn("isler", self.getj("/teknik.json?alan=alan-x&ret=0"))
+
+    def test_ret_kipi_arayuz_sozlesmesi(self):
+        js, html, verim = oku("teknik.js"), oku("teknik.html"), oku("verim.js")
+        self.assertIn('id="tRetGiris"', html)
+        for parca in ("&ret=1", "t-ret-giris", "t-cip", "t-git", "gerekceHtml"):
+            self.assertIn(parca, js, parca)
+        self.assertIn("white-space: pre-wrap", oku("teknik.css"))
+        self.assertIn("/teknik?", verim)       # ret hücreleri Teknik sayfasına gider; yeni sayfa yok
+        self.assertEqual(len([n for n in os.listdir(VARLIK) if n.startswith("ret") and n.endswith(".html")]), 0)
+
+    def test_ret_kipi_sir_maskelenir(self):
+        self.kart("G-030", "2026-10-16T07:00:00+03:00", baslik="Sırlı", sinif="kod", basamak="T2", denetimler=[
+            {"sira": 1, "karar": "ret", "neden": "bicim", "zaman": "2026-10-16T07:10:00+03:00",
+             "gerekce": "anahtar sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 sızdı"}])
+        IK.is_kart_ekle(self.sd, self.is_id, "G-030")
+        g = self.getj("/teknik.json?alan=alan-x&ret=1")["ret"]["kayitlar"][0]["gerekce"]
+        self.assertNotIn("sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", g)
+
     # ------------------------------------------------------------------ K2
     def test_k2_sayfa_ve_statik_200(self):
         for yol, tip in (("/teknik", "text/html"), ("/teknik.html", "text/html"),
@@ -133,9 +218,9 @@ class TeknikPanel(unittest.TestCase):
             self.assertGreater(len(b), 100, yol)
 
     def test_k2_surum_ve_sekme(self):
-        self.assertEqual(panel.SURUM, "17")
+        self.assertEqual(panel.SURUM, "18")
         k, b, _ = self.get("/saglik")
-        self.assertEqual(b.decode(), "ok 17")
+        self.assertEqual(b.decode(), "ok 18")
         # Teknik sayfa menüden gizli (16.10.2026); adresle hâlâ açılır.
         self.assertNotIn("'/teknik'", oku("ortak.js"))
 

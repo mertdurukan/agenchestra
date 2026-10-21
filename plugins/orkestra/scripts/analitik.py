@@ -1287,6 +1287,28 @@ def _is_basina(sd: str, kartlar: list[dict]) -> dict:
     }
 
 
+ONBELLEK_GUN = 7
+ONBELLEK_OLAY_ENCOK = 8
+
+
+def _onbellek(sd: str, proje: str) -> dict | None:
+    """Önbellek kaçakları (onbellek_kacak): son 7 takvim günü sınıf dökümü, model/duraksama olaylarının en pahalıları ve
+    son 24 saatteki 5 dakikalık katman çağrı sayısı. Hesap `orkestra onbellek kacak --gun 7` ile aynı işlevden gelir."""
+    try:
+        import onbellek_kacak as OK
+        o = OK.ozet(sd, ONBELLEK_GUN, proje=proje)
+    except Exception:  # noqa: BLE001 — transkript yoksa ya da okunamıyorsa panel düşmesin
+        return None
+
+    def en_pahali(sinif):
+        ol = sorted((e for e in o["olaylar"] if e["sinif"] == sinif), key=lambda e: -e["usd"])[:ONBELLEK_OLAY_ENCOK]
+        return [{"zaman": e["zaman"], "oturum": e["oturum"][:8], "bosluk_dk": e["bosluk_dk"], "onceki_baglam": e["onceki_baglam"],
+                 "usd": e["usd"], "model_once": e["model_once"], "model": e["model"]} for e in ol]
+    return {"gun": ONBELLEK_GUN, "olay_sayisi": o["olay_sayisi"], "usd": o["usd"], "siniflar": o["siniflar"],
+            "model_olaylari": en_pahali("model"), "bosluk_olaylari": en_pahali("bosluk"),
+            "katman_5dk_son_24s": o["katman_5dk_son_24s"]}
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     kartlar = L.kartlar(sd)
@@ -1315,6 +1337,7 @@ def olustur(sd: str, proje: str) -> dict:
         "hedef_panosu": hedef_panosu(kartlar, kayitlar),
         "pencere": _pencereli(kartlar, kayitlar, akis["kartlar"], bugun),
         "is_basina": _is_basina(sd, kartlar),
+        "onbellek": _onbellek(sd, proje),
     }
 
 

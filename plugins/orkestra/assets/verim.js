@@ -54,7 +54,7 @@
     return isaret + (birim === 'puan' ? B.sayi(a * 100, 1) + ' puan' : birim === 'usd' ? B.usd(a) : B.sayi(a, 2)) + ' sapma';
   };
   // durum metni renge bağlı değil: her zaman sözcük ve simge de yazılır
-  const DURUM_METNI = { iyi: ['✓', 'hedefte', 'var(--good)'], uyari: ['!', 'dikkat', 'var(--warning)'], kotu: ['✕', 'hedef dışı', 'var(--critical)'], 'veri-yok': ['–', 'veri yok', 'var(--neutral)'] };
+  const DURUM_METNI = { iyi: ['✓', 'hedefte', 'var(--good)'], uyari: ['!', 'dikkat', 'var(--warning)'], kotu: ['✕', 'hedef dışı', 'var(--critical)'], 'veri-yok': ['–', 'veri yok', 'var(--neutral)'], 'yetersiz-ornek': ['–', 'az örnek', 'var(--neutral)'] };
   const YORUM_METNI = { 'gevsek-riski': 'gevşeklik riski (bant altı)', 'plan-kusuru': 'plan kusuru (bant üstü)' };
   const durumMetni = (d, yorum) => {
     const t = DURUM_METNI[d] || DURUM_METNI['veri-yok'];
@@ -239,8 +239,14 @@
 
   // ------------------------------------------------------------ 1b. Ret nedenleri ve onaylı iş başı maliyet ('ders' anahtarı)
   const dersVeri = () => { const v = veri(); return v && v.ders && typeof v.ders === 'object' ? v.ders : null; };
-  const NEDEN_AD = { 'siniflanmamis': 'sınıflanmamış', 'kapsam-eksik': 'kapsam eksik', 'bicim': 'biçim', 'sayi-tutarsiz': 'sayı tutarsız', 'kanit-yok': 'kanıt yok', 'talimat-ihlali': 'talimat ihlali', 'kriter-belirsiz': 'kriter belirsiz', 'yetenek-yetersiz': 'yetenek yetersiz' };
-  const nedenAd = k => NEDEN_AD[k] || String(k);
+  const nedenAd = k => E.neden(k);
+  // Ret sayısından reddedilenlere: Teknik sayfanın "Reddedilenler" görünümü (süzgeç değerleri boşsa eklenmez).
+  const retBag = (metin, suz) => {
+    const q = ['ret=1'];
+    if (O.alan) q.unshift('alan=' + encodeURIComponent(O.alan));
+    Object.entries(suz || {}).forEach(([a, d]) => { if (d != null && d !== '' && d !== '–') q.push(a + '=' + encodeURIComponent(d)); });
+    return `<a class="ret-bag" href="/teknik?${q.join('&')}" title="Reddedilenleri nedenleriyle göster">${metin}</a>`;
+  };
   const KOK_SIRA = ['kart', 'basamak', 'dikkat', 'siniflanmamis'];
   function retCiz() {
     const d = dersVeri(), kap = $('#retIcerik');
@@ -249,18 +255,19 @@
       yerlestir(kap, `<p class="bos">${d ? 'Henüz reddedilen denetim yok.' : 'Ret nedeni verisi yok.'}</p>`);
       return;
     }
-    const kokSay = (s, k) => (s.kok && s.kok[k]) ? B.sayi(s.kok[k]) : '–';
+    const bas = s => s.basamak == null || s.basamak === '' ? 'yok' : s.basamak;   // basamağı kayıtsız ret: sunucuda "yok"
+    const kokSay = (s, k) => (s.kok && s.kok[k]) ? retBag(B.sayi(s.kok[k]), { sinif: s.sinif, basamak: bas(s), kok: k }) : '–';
     const enSik = s => {
       const g = Object.entries(s.nedenler || {}).sort((p, q) => q[1] - p[1] || String(p[0]).localeCompare(String(q[0])))[0];
-      return g ? `${esc(nedenAd(g[0]))} <span class="meta" style="display:inline">(${B.sayi(g[1])}/${B.sayi(s.ret)})</span>` : '–';
+      return g ? retBag(`${esc(nedenAd(g[0]))} <span class="meta" style="display:inline">(${B.sayi(g[1])}/${B.sayi(s.ret)})</span>`, { sinif: s.sinif, basamak: bas(s), neden: g[0] }) : '–';
     };
     const toplam = d.toplam && d.toplam.ret != null ? d.toplam.ret : satirlar.reduce((t, s) => t + (s.ret || 0), 0);
     const html = `<div class="tablo-kap"><table class="tablo"><tr><th>Sınıf</th><th>Basamak</th><th class="sayi">Ret</th><th>En sık neden</th>
       <th class="sayi">Kart</th><th class="sayi">Basamak</th><th class="sayi">Dikkat</th><th class="sayi">Sınıflanmamış</th></tr>` +
-      satirlar.map(s => `<tr><td>${esc(s.sinif)}</td><td>${esc(s.basamak ?? '–')}</td><td class="sayi">${B.sayi(s.ret)}</td><td>${enSik(s)}</td>` +
+      satirlar.map(s => `<tr><td>${esc(s.sinif)}</td><td>${esc(s.basamak ?? '–')}</td><td class="sayi">${retBag(B.sayi(s.ret), { sinif: s.sinif, basamak: bas(s) })}</td><td>${enSik(s)}</td>` +
         KOK_SIRA.map(k => `<td class="sayi">${kokSay(s, k)}</td>`).join('') + '</tr>').join('') +
-      `<tr><td><b>Toplam</b></td><td></td><td class="sayi"><b>${B.sayi(toplam)}</b></td><td></td>` +
-        KOK_SIRA.map(k => `<td class="sayi"><b>${(d.toplam && d.toplam.kok && d.toplam.kok[k]) ? B.sayi(d.toplam.kok[k]) : '–'}</b></td>`).join('') + '</tr></table></div>' +
+      `<tr><td><b>Toplam</b></td><td></td><td class="sayi"><b>${retBag(B.sayi(toplam))}</b></td><td></td>` +
+        KOK_SIRA.map(k => `<td class="sayi"><b>${(d.toplam && d.toplam.kok && d.toplam.kok[k]) ? retBag(B.sayi(d.toplam.kok[k]), { kok: k }) : '–'}</b></td>`).join('') + '</tr></table></div>' +
       '<p class="aciklama">Reddedilen denetimler sınıf ve basamağa göre; kök kart (kriter belirsiz), basamak (yetenek yetersiz) ya da dikkat (işçi hatası) olarak sayılır, nedensiz retler sınıflanmamış görünür.</p>';
     yerlestir(kap, html);
   }

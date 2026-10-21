@@ -22,6 +22,7 @@ GET /isler, /isler.html        → Dashboard sayfası (sohbetler + işler; asset
 GET /isler.json?alan=<id>      → işler: kovalar (yapıldı/şimdi/sırada/planda kart yok/iptal), maliyet, kartsız açık kartlar
 GET /teknik, /teknik.html      → Teknik detay sayfası (iş seç, kartlar yapılma sırasıyla, tıklayınca 7 blok; assets/teknik.html)
 GET /teknik.json?alan=<id>[&is=<I-NNN>[&kart=<G-NNN>]] → iş listesi | işin kart özetleri (oluşturma sırası) | tek kartın 7 bloğu (teknik.derle); salt okunur; bilinmeyen alan/iş/kart → 404 + hata JSON'u
+                               &ret=1[&sinif=][&basamak=][&neden=|&kok=] → reddedilenler (en yeni önce, en çok 100) gerekçeleriyle; süzgeç değeri geçersizse 400
 GET /etki, /etki.html          → Etki sayfası (uygulanan kararların etkisi; assets/etki.html)
 GET /api/etki?alan=<id>        → etki listesi + gün gün seri + doğru karar oranı (yalnız kapatılmış izlemeler); salt okuma
 GET /onay-sayac.json           → {alan_id: onay sayacı} (sekme rozeti)
@@ -92,7 +93,7 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "17"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "18"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 
 
 def _alan(alan_id, kesin: bool):
@@ -184,7 +185,9 @@ def _perspektif(sd: str) -> dict:
         d = perspektif.durum(sd)
         son = d.get("son_perspektif")
         return {"rapor": rapor, "durum": {"son_perspektif": son, "son_ruya": son,  # son_ruya: eski anahtar (geriye uyum)
-                                          "calisiyor": d.get("calisiyor"), "okunmamis_rapor": d.get("okunmamis_rapor")}}
+                                          "calisiyor": d.get("calisiyor"), "okunmamis_rapor": d.get("okunmamis_rapor"),
+                                          "gun_once": d.get("gun_once"), "oturum_sayaci": d.get("oturum_sayaci", 0),
+                                          "zamani_geldi": bool(d.get("zamani_geldi"))}}
     except Exception:  # noqa: BLE001
         return {"rapor": rapor, "durum": None}
 
@@ -391,8 +394,48 @@ def _teknik_kart_ozet(sd: str, k: dict, usd: float, proje_kok: str, kalem: dict 
             "kutuphaneler": list(dict.fromkeys(kut)), "denetim": son}
 
 
-def _teknik_json(alan_id, is_id, kart_id) -> dict:
-    """Üç kip: yalnız alan → iş listesi; +is → işin kartları (artan oluşturma); +kart → 7 blok (teknik.derle).
+_RET_SINIR = 100
+_RET_SUZGEC = ("sinif", "basamak", "neden", "kok")
+
+
+def _teknik_ret(a: dict, sd: str, kartlar: list[dict], suzgec: dict) -> dict:
+    """Reddedilenler görünümü: Verim sayfasındaki ret sayısıyla aynı kural (analitik.ret_kayitlari), gerekçeleriyle."""
+    import is_kaydi as IK  # noqa: PLC0415
+    import ret_nedeni as RN  # noqa: PLC0415
+    import teknik as T  # noqa: PLC0415
+    neden, kok = suzgec.get("neden"), suzgec.get("kok")
+    if neden and neden not in RN.NEDENLER and neden != RN.SINIFLANMAMIS:
+        return _teknik_hata(400, f"Geçersiz neden: {neden[:40]}")
+    if kok and kok not in set(RN.KOK.values()) | {RN.SINIFLANMAMIS}:
+        return _teknik_hata(400, f"Geçersiz kök: {kok[:40]}")
+    kayitlar = list(analitik.ret_kayitlari(kartlar))
+    bilinen = {"sinif": {r[2] for r in kayitlar}, "basamak": {str(r[3] or "yok") for r in kayitlar}}   # "yok": basamağı kayıtsız ret
+    for ad in ("sinif", "basamak"):
+        if suzgec.get(ad) and suzgec[ad] not in bilinen[ad]:
+            return _teknik_hata(400, f"Geçersiz {ad}: {suzgec[ad][:40]}")
+    is_ad = {g["id"]: IK.is_adi(g.get("baslik", "")) for g in IK.is_liste(sd)}
+    satirlar = []
+    for k, d, sinif, bas, kod, kk in kayitlar:
+        if suzgec.get("sinif") and sinif != suzgec["sinif"]:
+            continue
+        if suzgec.get("basamak") and str(bas or "yok") != suzgec["basamak"]:
+            continue
+        if neden and kod != neden:
+            continue
+        if kok and kk != kok:
+            continue
+        satirlar.append({"is": k.get("is"), "is_ad": is_ad.get(k.get("is")) or "", "kart": k.get("id"), "baslik": k.get("baslik"),
+                         "sira": d.get("sira"), "zaman": d.get("zaman"), "sinif": sinif, "basamak": bas, "neden": kod, "kok": kk,
+                         "gerekce": d.get("gerekce") or "", "talimat": d.get("talimat") or ""})
+    satirlar.sort(key=lambda r: (r["zaman"] or "", r["sira"] if isinstance(r["sira"], int) else -1), reverse=True)
+    return T._mask({"acik": True, "alan": _alan_kisa(a), "uretim": L.simdi(),
+                    "ret": {"toplam": len(satirlar), "gosterilen": min(len(satirlar), _RET_SINIR), "sinir": _RET_SINIR,
+                            "suzgec": {ad: suzgec[ad] for ad in _RET_SUZGEC if suzgec.get(ad)}, "kayitlar": satirlar[:_RET_SINIR]}})
+
+
+def _teknik_json(alan_id, is_id, kart_id, ret=None) -> dict:
+    """Üç kip: yalnız alan → iş listesi; +is → işin kartları (artan oluşturma); +kart → 7 blok (teknik.derle);
+    ret süzgeç sözlüğü verilirse dördüncü kip: reddedilenler (_teknik_ret).
     Hata: {"acik": False, "hata", "kod"} (kod 404/400)."""
     import collections  # noqa: PLC0415
     import is_kaydi as IK  # noqa: PLC0415
@@ -400,6 +443,8 @@ def _teknik_json(alan_id, is_id, kart_id) -> dict:
     a, sd = _alan_sd(alan_id, True)
     if a is None:
         return _teknik_hata(404, "Bilinmeyen çalışma alanı ya da orkestra açık değil.")
+    if ret is not None:
+        return _teknik_ret(a, sd, L.kartlar(sd), ret)
     usd = collections.Counter()
     kart_satir = collections.defaultdict(list)
     for r in L.maliyet_kayitlari(sd):
@@ -884,7 +929,9 @@ def _isleyici():
                                     onbellekli(("isler", alan), 2.0, lambda: _isler_json(alan)))
             if u.path == "/teknik.json":
                 alan, is_id, kart = ((q.get(x) or [None])[0] for x in ("alan", "is", "kart"))
-                v = json.loads(onbellekli(("teknik", alan, is_id, kart), 30.0 if kart else 3.0, lambda: _teknik_json(alan, is_id, kart)))
+                ret = {x: (q.get(x) or [""])[0] for x in _RET_SUZGEC} if (q.get("ret") or [None])[0] == "1" else None
+                anahtar = ("teknik", alan, is_id, kart, tuple(sorted(ret.items())) if ret is not None else None)
+                v = json.loads(onbellekli(anahtar, 30.0 if kart else 3.0, lambda: _teknik_json(alan, is_id, kart, ret)))
                 kod = 200 if v.get("acik") else (v.get("kod") or 500)
                 v.pop("kod", None)
                 return self._json(kod, v)

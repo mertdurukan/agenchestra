@@ -300,6 +300,7 @@
     }
     if (sm) (sm.oturumlar || []).filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => g.sohbet.push({ tur: 'sohbet', o }));
     if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => g.kart.push({ tur: 'kart', k }));
+    if (an?.onbellek?.katman_5dk_son_24s > 0) g.karar.push({ tur: 'katman5', n: an.onbellek.katman_5dk_son_24s });   // 5 dk önbellek katmanı nöbeti (I-144)
     if (an?.hedef_panosu?.olculer) {   // seçili pencerenin hedef dışı ölçüleri
       const w = B.pencere();
       Object.entries(an.hedef_panosu.olculer).forEach(([ad, p]) => { if (p[w]?.durum === 'kotu') g.olcu.push({ tur: 'olcu', ad, e: p[w], pencere: w }); });
@@ -329,6 +330,10 @@
         <div class="govde"><div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
           <div class="metin">Uygulama Claude'da yeni bir sohbet açar ve kararları işler.</div></div>
         <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula">Şimdi uygula</button></div></article>`;
+    if (o.tur === 'katman5') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
+        <div class="simge">${simge('goz')}</div>
+        <div class="govde"><div class="baslik">5 dakikalık önbellek katmanı</div>
+          <div class="metin">Son 24 saatte ${B.sayi(o.n)} ana ajan çağrısı 5 dakikalık katmana yazdı. 5 dakikayı aşan her duraksama bağlamı yeniden yazdırır; 1 saatlik katman beklenir.</div></div></article>`;
     if (o.tur === 'etki') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
         <div class="simge">${simge('goz')}</div>
         <div class="govde"><div class="yatay"><span class="kimlik">${o.k.id}</span></div><div class="baslik">Etki ölçümü kararını bekliyor</div>
@@ -609,6 +614,19 @@
       <div class="ray-g" role="img" aria-label="${ad}: ${f(e.deger)}, hedef ${f(e.hedef)}"><div class="bolge" style="${bolge}"></div><div class="hedef" style="left:${p(e.hedef)}%"></div><div class="isaret" style="left:${p(e.deger)}%;--renk:${renk}"></div></div>
       <div class="alt"><span>${B.sayi(e.ornek)} örnek</span><span>hedef ${e.tur === 'ust' ? '≤' : '≥'} ${f(e.hedef)}</span></div></div>`;
   }
+  // Önbellek kaçakları (I-144): önceki bağlamın okunmayıp yeniden yazıldığı çağrılar; yalnız gösterir. Pencereden bağımsız, son 7 gün.
+  const KACAK_AD = { katman_5dk: '5 dakikalık katman', model: 'Model değişimi', bosluk: '60 dakika ve üstü duraksama', sikistirma: 'Bağlam sıkıştırma', diger: 'Diğer' };
+  function onbellekKarti(ob) {
+    if (!ob) return '';
+    const sat = Object.entries(ob.siniflar || {}).filter(([, v]) => v.olay > 0);
+    const olay = (l, ad) => l.length ? H`<details class="ac"><summary>${ad}: en pahalı ${B.sayi(l.length)} olay</summary><div class="tablo-kap"><table class="tablo"><thead><tr><th>Zaman</th><th class="sayi">Boşluk dk</th><th class="sayi">Önceki bağlam</th><th class="sayi">Yazma</th><th>Model</th></tr></thead>
+      <tbody>${l.map(e => H`<tr><td>${B.goreli(e.zaman)}</td><td class="sayi">${B.sayi(e.bosluk_dk)}</td><td class="sayi">${B.sayi(Math.round(e.onceki_baglam / 1000))} bin</td><td class="sayi">${B.usdSabit(e.usd)}</td><td>${e.model_once === e.model ? e.model : e.model_once + ' → ' + e.model}</td></tr>`)}</tbody></table></div></details>` : '';
+    return H`<section class="kart"><div class="kart-bas"><h2>Önbellek kaçakları</h2><span class="soluk kucuk-y">son ${B.sayi(ob.gun)} gün · pencereden bağımsız · ${B.sayi(ob.olay_sayisi)} olay, ${B.usdSabit(ob.usd)} yazma maliyeti</span></div>
+      <div class="kart-ic yigin">${sat.length ? H`<div class="tablo-kap"><table class="tablo"><thead><tr><th>Sınıf</th><th class="sayi">Olay</th><th class="sayi">Yazma maliyeti</th></tr></thead>
+        <tbody>${sat.map(([k, v]) => H`<tr><td>${KACAK_AD[k] || k}</td><td class="sayi">${B.sayi(v.olay)}</td><td class="sayi">${B.usdSabit(v.usd)}</td></tr>`)}</tbody></table></div>` : H`<p class="soluk">Son ${B.sayi(ob.gun)} günde kaçak yok.</p>`}
+        ${olay(ob.model_olaylari || [], KACAK_AD.model)}${olay(ob.bosluk_olaylari || [], KACAK_AD.bosluk)}
+        <p class="soluk kucuk-y">Kaçak: önceki bağlamın yarısından azı okunup 40 bin tokenden fazlası yazılan çağrı. Aynı sayılar: <code>orkestra onbellek kacak --gun 7</code>.</p></div></section>`;
+  }
   // Sayfadaki her değer üstteki pencere ve birim seçimini izler; yalnız "ay sonu tahmini" pencereden bağımsızdır ve öyle etiketlenir.
   function gMaliyet() {
     const yuk = bekle('/analitik.json', '/ozet.json');
@@ -638,6 +656,7 @@
         <section class="kart"><div class="kart-bas"><h2>Model</h2><span class="soluk kucuk-y">${ad}</span></div><div class="kart-ic">${modelL.length ? modelL.map(([m, v], j) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / mx(modelL) * 100).toFixed(1)}%;--renk:${modelRenk[m] || MODEL_RENK[j % MODEL_RENK.length]}"></i></span><span class="d">${B.para(v, v)}</span></div>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
         <section class="kart"><div class="kart-bas"><h2>Süreç</h2><span class="soluk kucuk-y">${ad}</span></div><div class="kart-ic">${surec.length ? surec.map(([m, v]) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / mx(surec) * 100).toFixed(1)}%"></i></span><span class="d">${B.para(v, v)}</span></div>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
       </div>
+      ${onbellekKarti(an.onbellek)}
       <div class="izgara iki" style="align-items:start">
         <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">${ad} · tıkla: koşu izi</span></div><div class="kart-ic">${pahali.length ? pahali.map(([id, v]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}" data-gez><span class="kimlik">${id}</span><span class="yol"><i style="width:${(v / mx(pahali) * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.para(v, v)}</span></a>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
         <section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2><span class="soluk kucuk-y">${ad} içinde oluşan kartlar</span></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
