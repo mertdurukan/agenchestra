@@ -228,6 +228,8 @@ def _trend(ok) -> dict:
     ilk = [t.get("ay_sonu") for t in ts if t.get("ay_sonu")]
     if ilk:
         ay["ay"] = ilk[0].get("ay")
+        # tahmin yalnız yeterli verisi olan alanların toplamıdır; eksik kalan alanlar adıyla bildirilir (sessiz eksik toplam olmaz)
+        ay["tahmin_eksik_alanlar"] = [a["ad"] for (a, v) in ok if (v.get("trend") or {}).get("ay_sonu") and not v["trend"]["ay_sonu"].get("tahmin_yeterli")]
     out["ay_sonu"] = ay
     out["ilk_kayit"] = min((str(t.get("ilk_kayit")) for t in ts if t.get("ilk_kayit")), default=None)
     return out
