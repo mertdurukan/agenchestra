@@ -330,12 +330,17 @@ def kesif_python() -> str:
 
 
 def kesif_claude_exe() -> str | None:
-    """%APPDATA%/%LOCALAPPDATA% altındaki en yeni claude.exe, sonra PATH'teki claude."""
+    """%APPDATA%/%LOCALAPPDATA% altındaki en yeni claude.exe, sonra PATH'teki claude.
+    Masaüstü uygulaması iki yerleşim kullanır: `Claude\\claude-code\\<sürüm>\\<özet>` ve
+    `Claude-Data\\<kurulum>\\claude-code\\<sürüm>\\<özet>` (22.10.2026'da bu makinede). Paneli başlatan süreçte
+    CLAUDE_CODE_EXECPATH olmadığından 'Şimdi uygula' yalnız keşfe güvenir; yeni yerleşim bilinmezse düğme
+    'oturum açmamış' diye yanlış hata veriyordu."""
     adaylar: list[str] = []
     for kok in (os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")):
         if not kok:
             continue
         adaylar += glob.glob(os.path.join(kok, "Claude", "claude-code", "*", "*", "claude.exe"))
+        adaylar += glob.glob(os.path.join(kok, "Claude-Data", "*", "claude-code", "*", "*", "claude.exe"))
         adaylar += glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code", "*", "*", "claude.exe"))
     adaylar = [a for a in adaylar if os.path.exists(a)]
     if adaylar:
