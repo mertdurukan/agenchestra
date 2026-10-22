@@ -212,6 +212,10 @@ def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bo
         if os.path.isfile(yol):
             gorulen.add(os.path.normcase(os.path.abspath(yol)))
             satirlar.append(baglanti_satiri(etiket, yol, proje_koku))
+    sz = SIRA.sozlesme_yolu(klasor)  # ADR-0035: ilk satır mevcut durum olarak kalır (K-003), sözleşme planın ardından gelir
+    if sz:
+        gorulen.add(os.path.normcase(os.path.abspath(sz)))
+        satirlar.append(baglanti_satiri("görev sözleşmesi", sz, proje_koku))
     adaylar = []
     try:
         adlar = sorted(os.listdir(klasor))
