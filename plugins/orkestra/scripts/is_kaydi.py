@@ -824,11 +824,63 @@ def _worktree_mi(yol: str, kok: str) -> bool:
     return False
 
 
+def _agac_koku_bul(yol: str, kok: str) -> str | None:
+    """Yolun bulunduğu git çalışma ağacının kökü (üst dizinlerde `.git` DOSYASI olan; `kok`a kadar); yoksa None."""
+    d = os.path.dirname(os.path.abspath(yol))
+    kok = _norm(kok)
+    while d and _norm(d) != kok:
+        if os.path.isfile(os.path.join(d, ".git")):
+            return d
+        ust = os.path.dirname(d)
+        if ust == d:
+            break
+        d = ust
+    return None
+
+
+def _worktree_kopyasi_gecerli_mi(yol: str, kok: str) -> bool:
+    """Worktree içindeki todo kopyası bayat sayılmaz: ağacın durum kopyası devralınmış (`.devralindi`) ya da dosya
+    ana ağaçtaki aynı göreli yolla bayt bayt aynı (yalnız dal çıkışı, taşınacak bir şey yok). ADR-0032."""
+    agac = _agac_koku_bul(yol, kok)
+    if not agac:
+        return False
+    if os.path.isfile(os.path.join(agac, ".claude", "orkestra", "devralindi_yok_say")):
+        return True
+    if os.path.isfile(os.path.join(agac, ".claude", "orkestra", ".devralindi")):
+        return True
+    ana = os.path.join(kok, os.path.relpath(yol, agac))
+    try:
+        with open(yol, "rb") as f1, open(ana, "rb") as f2:
+            return f1.read() == f2.read()
+    except OSError:
+        return False
+
+
+def devral_ipucu(sd: str, cwd: str | None = None) -> str:
+    """Oturum ağacındaki durum kopyasında ana durum klasöründe olmayan kayıt varsa TEK satır öneri, yoksa boş metin."""
+    try:
+        agac = L.git_koku(cwd or os.getcwd())
+        if not agac:
+            return ""
+        kaynak = os.path.join(agac, ".claude", "orkestra")
+        if not os.path.isdir(kaynak) or os.path.normcase(os.path.realpath(kaynak)) == os.path.normcase(os.path.realpath(sd)):
+            return ""
+        import durum_devral
+        n = durum_devral.devralinmamis_sayisi(kaynak, sd)
+        if not n:
+            return ""
+        return (f"Orkestra: bu worktree'nin durum kopyasında ana klasörde olmayan {n} kayıt var; "
+                "`orkestra durum devral --uygula` ile ana klasöre al.")
+    except Exception:
+        return ""
+
+
 def todo_denetle(sd: str, kok: str | None = None) -> list[dict]:
     """isler.json'a bağlı olmayan todo dosyaları: [{'yol', 'tur': 'bagsiz'|'worktree'}].
 
     Bağlı sayılan: bir işin klasöründeki `todo.md`. Diğer `todo.md` / `todo*.md` kopyaları (iş klasörü dışında ya da
-    farklı adla) ve worktree içindekiler listelenir. `kok` varsayılanı projedir; derinlik ve süre sınırlıdır (hatada sessiz)."""
+    farklı adla) ve worktree içindekiler listelenir; ana ağaçla aynı olan ya da durumu devralınmış worktree kopyaları
+    listelenmez. `kok` varsayılanı projedir; derinlik ve süre sınırlıdır (hatada sessiz)."""
     kok = os.path.abspath(kok or L.proje_dizini())
     bagli = {_norm(os.path.join(g.get("klasor") or "", "todo.md")) for g in is_liste(sd) if g.get("klasor")}
     atla_sd = _norm(sd)
