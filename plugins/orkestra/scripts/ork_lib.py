@@ -99,6 +99,30 @@ def proje_dizini(cwd: str | None = None) -> str:
         d = ust
 
 
+def oturum_koku(cwd: str | None = None) -> str:
+    """Oturumun klasörü: CLAUDE_PROJECT_DIR > cwd'den yukarı ilk `.git` içeren klasör bağlı bir git worktree'siyse o
+    klasör (uygulama göreli bağlantıyı buna göre çözer); değilse `proje_dizini` (ana ağaçta ikisi aynıdır). ADR-0035."""
+    baslangic = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
+    d = os.path.abspath(baslangic)
+    while True:
+        if os.path.exists(os.path.join(d, ".git")):  # klasör: ana ağaç; dosya: bağlı worktree
+            return d if ana_agac_koku(d) else proje_dizini(cwd)
+        ust = os.path.dirname(d)
+        if ust == d:
+            return proje_dizini(cwd)
+        d = ust
+
+
+def baglanti_koku(proje: str, cwd: str | None = None) -> str:
+    """Belge bağlantılarının göreli yazılacağı taban. Oturum, `proje` (ana ağaç) deposunun bağlı worktree'sindeyse
+    worktree kökü; aksi halde `proje`. İş klasörleri de bu kökte açılır (ADR-0035)."""
+    kok = oturum_koku(cwd)
+    ana = ana_agac_koku(kok)
+    if ana and os.path.normcase(os.path.realpath(ana)) == os.path.normcase(os.path.realpath(proje)):
+        return kok
+    return proje
+
+
 ESKI_AD = "ruya"  # geriye uyum: perspektifin eski adı (durum klasörü, rapor öneki, süreç etiketi, ajan adı)
 
 
