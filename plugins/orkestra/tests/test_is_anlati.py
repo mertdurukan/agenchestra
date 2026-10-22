@@ -206,6 +206,25 @@ class DurumTest(unittest.TestCase):
         m = self.madde("- [x] P1: bir — 2026-10-22: kanıt: yapıldı bitti\n- [x] P2: iki\n")
         self.assertEqual(m["durum"], "Tamamlandı")
 
+    def test_cok_satir_hepsi_x_biri_sinyalsiz_tamamlandi(self):
+        m = self.madde("- [x] P1: bir — 2026-10-22: kanıt: pytest => 3 passed\n"
+                       "- [x] P1: bir daha — 2026-10-22: kanıt: elle baktım\n- [x] P2: iki\n")
+        self.assertEqual((m["durum"], m["kanit"]), ("Tamamlandı", "Beyan/kayıt"))
+
+    def test_cok_satir_hepsi_sinyalli_dogrulandi(self):
+        m = self.madde("- [x] P1: bir — 2026-10-22: kanıt: pytest => 3 passed\n"
+                       "- [x] P1: bir daha — 2026-10-22: kanıt: git diff ortak.js\n- [x] P2: iki\n")
+        self.assertEqual(m["durum"], "Doğrulandı")
+
+    def test_hepsi_x_ozet_kismen_baslandi(self):
+        m = self.madde(TODO_TAM, ozet=OZET.replace("P1: yapıldı", "P1: kısmen"))
+        self.assertEqual(m["durum"], "Başlandı")
+
+    def test_dosya_sayisi_sinyal_degil(self):
+        self.assertFalse(IA._sinyal("dosya sayısı arttı"))
+        m = self.madde("- [x] P1: bir — 2026-10-22: kanıt: dosya sayısı arttı\n- [x] P2: iki\n")
+        self.assertEqual(m["durum"], "Tamamlandı")
+
     def test_kismi_x_baslandi(self):
         m = self.madde("- [x] P1: bir — 2026-10-22: kanıt: test\n- [ ] P1: bir daha\n- [x] P2: iki\n",
                        ozet=OZET.replace("P1: yapıldı", "P1: kısmen"))
