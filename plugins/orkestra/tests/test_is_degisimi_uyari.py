@@ -52,7 +52,7 @@ class Saf(_Ortak):
         self.assertIsNotNone(m)
         self.assertIn("orkestra is devam I-2", m)
         self.assertIn("200k", m)
-        self.assertIn("170k", m)  # 200K - 30K tahmini tasarruf
+        self.assertIn("109k", m)  # 200K - 91K (ölçülen yeni sohbet tabanı) tahmini tasarruf
 
     def test_uyarmayan_durumlar(self):
         self.assertIsNone(S.is_degisimi_uyarisi(self.sd, "o1", self.tr, "I-1", "I-1"))  # öneri aynı
@@ -125,6 +125,16 @@ class HookCikti(_Ortak):
         cikti, kod = self.kos()
         self.assertEqual(kod, 0)
         self.assertNotIn("systemMessage", json.loads(cikti) if cikti.strip() else {})
+
+    def test_devir_uyarisi_hookta_200k_ustunde_bir_kez_engellemez(self):
+        self.baglam(250_000)
+        cikti, kod = self.kos("aynı konuya devam edelim")
+        self.assertEqual(kod, 0)
+        d = json.loads(cikti)
+        self.assertIn("/orkestra:devir", d["systemMessage"])
+        self.assertNotIn("decision", d)
+        cikti2, _ = self.kos("aynı konuya devam edelim")
+        self.assertNotIn("systemMessage", json.loads(cikti2) if cikti2.strip() else {})  # oturum başına bir kez
 
     def test_islev_istisna_atarsa_hook_0_doner(self):
         with mock.patch.object(S, "is_degisimi_uyarisi", side_effect=RuntimeError("patladi")):

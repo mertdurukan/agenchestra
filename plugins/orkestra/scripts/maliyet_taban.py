@@ -58,9 +58,24 @@ def _satirlar(yol: str):
                 continue
 
 
-def dosyalar(dizin: str, gun: float) -> list[str]:
+def _ilk_zaman(yol: str):
+    for o in _satirlar(yol):
+        z = o.get("timestamp")
+        if z:
+            try:
+                return datetime.datetime.fromisoformat(str(z).replace("Z", "+00:00")).astimezone()
+            except ValueError:
+                return None
+    return None
+
+
+def dosyalar(dizin: str, gun: float, sonra: datetime.datetime | None = None) -> list[str]:
+    """Son `gun` günde değişen oturum dosyaları; `sonra` verilirse yalnız ilk kaydı o andan sonra olanlar (değişiklik sonrası oturumlar)."""
     esik = time.time() - gun * 86400
-    return sorted(f for f in glob.glob(os.path.join(dizin, "*.jsonl")) if os.path.getmtime(f) >= esik)
+    d = sorted(f for f in glob.glob(os.path.join(dizin, "*.jsonl")) if os.path.getmtime(f) >= esik)
+    if sonra is None:
+        return d
+    return [f for f in d if (z := _ilk_zaman(f)) and z >= sonra]
 
 
 _SINIF = {"prompt_snapshot": ("sistem istemi", "systemPrompt"), "skill_listing": ("skill listesi", "content"),
@@ -123,9 +138,9 @@ def cagrilar(yol: str, tablo: dict) -> list[tuple]:
     return out
 
 
-def taban_bolumu(dizin: str, gun: float) -> dict:
+def taban_bolumu(dizin: str, gun: float, sonra=None) -> dict:
     satir = []
-    for f in dosyalar(dizin, gun):
+    for f in dosyalar(dizin, gun, sonra):
         kalem, ilk = oturum_taban(f)
         if ilk:
             satir.append((kalem, ilk))
@@ -145,10 +160,10 @@ def taban_bolumu(dizin: str, gun: float) -> dict:
     return {"oturum": len(satir), "ilk_medyan": int(med), "ilk_p90": ilkler[int(len(ilkler) * .9)], "kalemler": kalemler}
 
 
-def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER) -> dict:
+def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None) -> dict:
     tablo = L.fiyat_tablosu()
     cag, oturum_max = [], []
-    for f in dosyalar(dizin, gun):
+    for f in dosyalar(dizin, gun, sonra):
         c = cagrilar(f, tablo)
         cag += c
         if c:
@@ -223,13 +238,13 @@ def is_basina_bolumu(sd: str, basla: str) -> dict:
     return sonuc
 
 
-def hesapla(sd: str, dizin: str, gun: float, basla: str) -> dict:
-    return {"olcum": datetime.datetime.now().isoformat(timespec="minutes"), "gun": gun,
-            "taban": taban_bolumu(dizin, gun), "esik": esik_bolumu(dizin, gun), "is_basina": is_basina_bolumu(sd, basla)}
+def hesapla(sd: str, dizin: str, gun: float, basla: str, sonra=None) -> dict:
+    return {"olcum": datetime.datetime.now().isoformat(timespec="minutes"), "gun": gun, "sonra": sonra.isoformat(timespec="minutes") if sonra else None,
+            "taban": taban_bolumu(dizin, gun, sonra), "esik": esik_bolumu(dizin, gun, sonra=sonra), "is_basina": is_basina_bolumu(sd, basla)}
 
 
 def metin(r: dict) -> str:
-    s = [f"ölçüm {r['olcum']}; pencere son {r['gun']:g} gün (transkript), liste fiyatı", ""]
+    s = [f"ölçüm {r['olcum']}; pencere son {r['gun']:g} gün (transkript)" + (f", yalnız {r['sonra']} sonrası başlayan oturumlar" if r.get("sonra") else "") + ", liste fiyatı", ""]
     t = r["taban"]
     if not t.get("oturum"):
         s.append("taban: oturum yok")

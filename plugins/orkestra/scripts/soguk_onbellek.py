@@ -15,8 +15,11 @@ import os
 
 import ork_lib as L
 
-VARSAYILAN = {"acik": True, "esik_token": 150_000, "esik_dk": 60, "tekrar_dk": 15, "is_degisimi": True}
-YENI_SOHBET_BAGLAMI = 30_000  # yeni sohbetin tipik açılış bağlamı (tasarruf tahmini için)
+VARSAYILAN = {"acik": True, "esik_token": 150_000, "esik_dk": 60, "tekrar_dk": 15, "is_degisimi": True,
+              "devir_uyarisi": True, "devir_esik_token": 200_000}
+# Yeni sohbetin ölçülen açılış bağlamı (tasarruf tahmini için): ilk çağrı medyanı 91.223 token, 205 oturum, 22.10.2026
+# (`orkestra maliyet taban`; I-159 P4). Eski 30.000 sabiti tasarrufu 1,6-2 kat şişiriyordu.
+YENI_SOHBET_BAGLAMI = 91_000
 OKUMA_KUYRUGU = 4_000_000  # transkriptin son bu kadar baytı okunur (büyük dosyada hızlı kalsın)
 
 
@@ -135,5 +138,33 @@ def is_degisimi_uyarisi(sd: str, oid: str | None, transkript: str | None, bagli_
         return (f"Orkestra: bu sohbetin bağlamı ~{s['baglam'] // 1000}k token ve istek {bagli_is} yerine farklı bir işe "
                 f"({onerilen_is}) daha yakın. Ucuz yol: yeni sohbet aç ve `orkestra is devam {onerilen_is}` de; "
                 f"çağrı başına yaklaşık {tasarruf // 1000}k token tasarruf (bir iş bir oturum). Burada sürdürmek de mümkün.")
+    except Exception:
+        return None
+
+
+def devir_uyarisi(sd: str, oid: str | None, transkript: str | None) -> str | None:
+    """I-159 P5: son ana ajan çağrısının bağlamı `devir_esik_token` üstündeyse ENGELLEMEYEN devir uyarısı, yoksa None.
+
+    Ölçüm (22.10.2026, 7 gün, I-159 P4): 200 bin üstünde devir (yeni sohbet + devir belgesi) net kazançlı.
+    Oturum başına bir kez (işaret `<oid>.devir`); ayar `devir_uyarisi: false` kapatır. Hata her zaman None."""
+    try:
+        a = ayarlar(sd)
+        if not a.get("devir_uyarisi") or not oid:
+            return None
+        s = son_cagri(transkript)
+        if not s or s["baglam"] <= a["devir_esik_token"]:
+            return None
+        isaret = os.path.join(sd, "oturumlar", f"{oid}.devir")
+        if os.path.exists(isaret):
+            return None
+        os.makedirs(os.path.dirname(isaret), exist_ok=True)
+        with open(isaret, "w", encoding="utf-8") as f:
+            f.write(D.datetime.now(D.timezone.utc).isoformat())
+        azalan = max(0, s["baglam"] - YENI_SOHBET_BAGLAMI)
+        usd = azalan / 1e6 * L.model_fiyati(s["model"]).get("onbellek_okuma", 0)
+        return (f"Orkestra: bu sohbetin bağlamı ~{s['baglam'] // 1000}k token. Ucuz yol: `/orkestra:devir` ile devir belgesi üret, "
+                f"yeni sohbet aç; çağrı başına ~{azalan // 1000}k token (~{usd:.2f} USD) daha az okunur "
+                "(ölçüm: 200k üstünde devir net kazançlı). Burada sürdürmek de mümkün; uyarıyı kapatmak için "
+                "`onbellek_kapisi.json` içinde `devir_uyarisi: false`.")
     except Exception:
         return None

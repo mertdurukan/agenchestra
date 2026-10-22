@@ -295,6 +295,23 @@ def cmd_maliyet_etki(a):
     print(json.dumps(r, ensure_ascii=False, indent=1) if a.json else ME.metin(r))
 
 
+def cmd_maliyet_taban(a):
+    import maliyet_taban as MT
+    sd = sd_gerekli()
+    dizin = a.transkript_dizini or L.proje_oturum_dizini(os.path.dirname(os.path.dirname(sd)))
+    basla = a.basla or (datetime.date.today() - datetime.timedelta(days=int(a.gun))).isoformat()
+    sonra = None
+    if a.sonra:
+        try:
+            sonra = datetime.datetime.fromisoformat(a.sonra)
+        except ValueError:
+            hata(f"--sonra ISO zaman olmalı: {a.sonra!r}")
+        if sonra.tzinfo is None:
+            sonra = sonra.astimezone()
+    r = MT.hesapla(sd, dizin, a.gun, basla, sonra)
+    print(json.dumps(r, ensure_ascii=False, indent=1) if a.json else MT.metin(r))
+
+
 def cmd_maliyet_ozet(a):
     sd = sd_gerekli()
     kayitlar = L.maliyet_kayitlari(sd)
@@ -341,6 +358,13 @@ def kaydet(alt):
     et.add_argument("--gun", type=float, default=7, help="her iki pencerenin gün sayısı")
     et.add_argument("--json", action="store_true")
     et.set_defaults(f=cmd_maliyet_etki)
+    ta = mal.add_parser("taban", help="açılış bağlamı tabanı: kalem dökümü, eşik tablosu, kapanan iş başına $ (salt okuma)")
+    ta.add_argument("--gun", type=float, default=7, help="transkript penceresi (gün)")
+    ta.add_argument("--basla", help="iş başına $ penceresi başlangıcı (YYYY-AA-GG; varsayılan: bugün - gün)")
+    ta.add_argument("--sonra", help="yalnız bu andan (ISO) sonra başlayan oturumlar (ör. skill kapatma sonrası ölçüm)")
+    ta.add_argument("--transkript-dizini", help=argparse.SUPPRESS)
+    ta.add_argument("--json", action="store_true")
+    ta.set_defaults(f=cmd_maliyet_taban)
     ge = mal.add_parser("gecmis")
     ge.add_argument("--bu-oturum-dahil", action="store_true")
     ge.set_defaults(f=cmd_maliyet_gecmis)

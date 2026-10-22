@@ -63,6 +63,28 @@ class SogukOnbellek(unittest.TestCase):
             json.dump({"esik_token": 400_000}, f)
         self.assertIsNone(S.karar(self.sd, "o1", self.tp, SIMDI))
 
+    def test_devir_uyarisi_200k_ustunde_bir_kez_ayarla_kapanir(self):
+        self.yaz(asistan(1, 150_000))
+        self.assertIsNone(S.devir_uyarisi(self.sd, "o1", self.tp))  # eşik altı: uyarı yok
+        self.yaz(asistan(1, 250_000))
+        m = S.devir_uyarisi(self.sd, "o1", self.tp)
+        self.assertIsNotNone(m)
+        self.assertIn("250k", m)
+        self.assertIn("159k", m)  # 250k - 91k ölçülen taban
+        self.assertIn("/orkestra:devir", m)
+        self.assertIsNone(S.devir_uyarisi(self.sd, "o1", self.tp))  # oturum başına bir kez
+        self.assertIsNotNone(S.devir_uyarisi(self.sd, "o2", self.tp))  # başka oturum
+        with open(os.path.join(self.sd, "onbellek_kapisi.json"), "w", encoding="utf-8") as f:
+            json.dump({"devir_uyarisi": False}, f)
+        self.assertIsNone(S.devir_uyarisi(self.sd, "o3", self.tp))  # ayarla kapalı
+
+    def test_devir_uyarisi_hatada_ve_transkript_yokken_sessiz(self):
+        self.assertIsNone(S.devir_uyarisi(self.sd, "o1", None))
+        self.assertIsNone(S.devir_uyarisi(self.sd, None, self.tp))
+
+    def test_yeni_sohbet_tabani_olculen(self):
+        self.assertEqual(S.YENI_SOHBET_BAGLAMI, 91_000)
+
     def test_transkript_yok_ya_da_bozuk_gecer(self):
         self.assertIsNone(S.karar(self.sd, "o1", None, SIMDI))
         with open(self.tp, "w", encoding="utf-8") as f:
