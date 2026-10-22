@@ -62,7 +62,7 @@ def _git(repo, *args):
 
 
 def klasorleri_commit(repo, onekler, atif_kaynagi, git=None, etiket="kabuk"):
-    """Depo köküne göre `onekler` altındaki değişmiş .md/.json dosyalarını tek commit'te kaydeder; commit edilen yolları döndürür."""
+    """Depo köküne göre `onekler` altındaki değişmiş .md/.json (ve .json.eski-* yedek) dosyalarını tek commit'te kaydeder; commit edilen yolları döndürür."""
     import time
     git = git or _git
     onekler = [o.replace("\\", "/").strip("/") + "/" for o in onekler if o]
