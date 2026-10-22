@@ -13,6 +13,8 @@ TUM_AD = "Tüm çalışma alanları"
 ETIKET = {"id": "*", "ad": TUM_AD}
 _MAKS = frozenset({"gun", "gecen_gun", "ay_gun", "veri_gun"})   # toplanınca anlamını yitiren gün sayaçları: en büyüğü alınır
 ONAY_AZAMI = 200
+EN_PAHALI_ENCOK = 10   # analitik.alan_analitigi pencere.en_pahali sınırıyla aynı
+ONBELLEK_OLAY_ENCOK = 8   # analitik.ONBELLEK_OLAY_ENCOK ile aynı
 
 
 def alan_etiketi(a: dict) -> dict:
@@ -107,6 +109,9 @@ def onaylar(ok, atlanan) -> dict:
                  kayitlar=bekleyen + diger[:max(0, ONAY_AZAMI - len(bekleyen))],
                  perspektif={"rapor": None, "durum": None}, uygulama=None,   # alan başına koşu durumu toplanmaz
                  arka_plan=_hepsi(ok, "arka_plan"),
+                 # alan başına sayaç, perspektif ve uygulama durumu: "Şimdi uygula" ve "Perspektifi başlat" eylemleri alanına gider
+                 alan_ozetleri=[{"alan": alan_etiketi(a), "sayac": v.get("sayac"), "perspektif": v.get("perspektif"),
+                                 "uygulama": v.get("uygulama")} for a, v in ok],
                  birlesmeyen=["perspektif", "uygulama"])
 
 
@@ -237,13 +242,12 @@ def _trend(ok) -> dict:
 
 def _en_pahali(ok, pencere: str, anahtar: str) -> list:
     """[kart_id, tutar] satırlarına alan kimliği eklenir ([id, tutar, alan_id]); kimlikler alanlar arasında çakışabilir."""
-    satirlar, sinir = [], 0
+    satirlar = []
     for a, v in ok:
         l = ((v.get("pencere") or {}).get(pencere) or {}).get(anahtar) or []
-        sinir = max(sinir, len(l))
         satirlar += [[s[0], s[1], a["id"]] for s in l if isinstance(s, (list, tuple)) and len(s) >= 2]
     satirlar.sort(key=lambda s: -(s[1] or 0))
-    return satirlar[:sinir or 10]
+    return satirlar[:EN_PAHALI_ENCOK]
 
 
 def _pencere(ok, kartlar: list) -> dict:
@@ -270,7 +274,7 @@ def _onbellek(ok) -> dict:
     for ad in ("model_olaylari", "bosluk_olaylari"):
         l = _hepsi([(a, v.get("onbellek") or {}) for a, v in ok], ad)
         l.sort(key=lambda e: -(e.get("usd") or 0))
-        out[ad] = l[:max(len((o.get(ad) or [])) for o in os_) or 8]
+        out[ad] = l[:ONBELLEK_OLAY_ENCOK]
     return out
 
 

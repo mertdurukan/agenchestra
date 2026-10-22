@@ -412,3 +412,7 @@ dialog.palet::backdrop { background: rgb(0 0 0 / .35); }
   .alan-sec, .ara-dugme, .gezinti a, button, .dugme, select, summary, input:not([type=checkbox]):not([type=radio]) { min-height: 44px; }
   select, input[type=search], input[type=text], textarea { font-size: 16px; }
 }
+
+/* Tüm çalışma alanları kipi (ADR-0030): kaydın çalışma alanı rozeti ve birleşik kip notları */
+.alan-rozet { background: var(--vurgu-zemin, var(--yuzey-2)); color: var(--vurgu, var(--metin-2)); max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.birlesik-not { color: var(--metin-3, var(--metin-2)); font-size: var(--y12, 12px); }

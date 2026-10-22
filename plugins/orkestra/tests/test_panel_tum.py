@@ -34,6 +34,7 @@ class Kayitlar(unittest.TestCase):
         self.assertEqual([(k["durum"], k["alan"]["id"]) for k in v["kayitlar"]], [("bekliyor", "alan-b"), ("onaylandi", "alan-a")])
         self.assertEqual(v["sayac"]["bekliyor"], 3)
         self.assertEqual(v["perspektif"], {"rapor": None, "durum": None})
+        self.assertEqual([(o["alan"]["id"], o["sayac"]["bekliyor"]) for o in v["alan_ozetleri"]], [("alan-a", 1), ("alan-b", 2)])
 
     def test_ayni_kimlikli_kayitlar_birbirini_ezmez(self):
         ok = [(A, {"isler": [{"id": "I-001", "son": "2026-10-01", "durum": "acik"}], "kartsiz": {"sayi": 1, "acik": [{"kart": "G-1"}]}}),

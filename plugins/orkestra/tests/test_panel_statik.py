@@ -132,7 +132,21 @@ class PanelV2(unittest.TestCase):
         self.assertIn("data-eylem=\"sohbet-ac\" data-oturum=\"${bilgi.oturum}\"", js)  # kart ayrıntısı
         self.assertIn("ey === 'sohbet-ac'", js)
         self.assertIn("article[data-oturum]", js)  # kart gövdesine tıklama
-        self.assertIn("href=\"#/kart/${enc(k.id)}\"", js)  # İzi aç korunur
+        self.assertIn("href=\"#/kart/${enc(k.id)}${ek('', k)}\"", js)  # İzi aç korunur (birleşik kipte kartın alanı eklenir)
+
+    def test_tum_calisma_alanlari_istemci_sozlesmesi(self):
+        """ADR-0030: seçicide 'Tüm çalışma alanları', seçim yenilemede kalır, yazma kaydın kendi alanına gider, Klasik/Kısayollar yok."""
+        js = oku(os.path.join(ASSETS, "app.js"))
+        self.assertIn("Tüm çalışma alanları", js)
+        self.assertIn("orkestra.tumAlan", js)          # seçim saklanır; 'orkestra.alan' son gerçek alanı korur
+        self.assertIn("kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan)", js)   # karar kaydın alanına
+        self.assertIn("gonder('/onay', { islem: 'simdi-uygula' }, b.dataset.alan || undefined)", js)
+        self.assertIn("yapYaz({ eylem: 'sil', id }, an)", js)
+        self.assertIn("TEK_ALAN_YOL", js)              # iş/kart ayrıntısı ve /api/todo tek alanla gider
+        self.assertIn("new EventSource('/akis?alan=' + enc(id))", js)   # sunucu '*' akışı vermez; alan başına akış
+        self.assertNotIn("Klasik görünüm</a>", js)
+        self.assertNotIn("yardimAc", js)
+        self.assertNotIn("kisayol-tablo", js)
 
     def test_tasarim_belirtecleri_iki_tema(self):
         c = oku(os.path.join(ASSETS, "app.css"))

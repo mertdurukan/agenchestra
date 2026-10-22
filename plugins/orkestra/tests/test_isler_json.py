@@ -294,7 +294,7 @@ class PanelIsler(unittest.TestCase):
     def test_sayfalar_kaydi_ve_surum(self):
         self.assertEqual(panel.SAYFALAR.get("/isler"), "isler.html")
         self.assertEqual(panel.SAYFALAR.get("/isler.html"), "isler.html")
-        self.assertEqual(panel.SURUM, "17")
+        self.assertEqual(panel.SURUM, "19")
 
     def test_onbellek_2sn(self):
         self.kur_iki_is()
