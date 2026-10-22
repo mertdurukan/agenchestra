@@ -33,6 +33,14 @@ Adımlar:
 9. Doğrula: `git diff --stat $OLD $NEW` çıktısında yalnız kendi dosyaların olmalı.
 10. Ana indeksi eşitle: `git reset -q HEAD -- <yollar>`. Yapmazsan sonraki commit işini geri alır.
 
+## Oturum worktree'si ve durum kaynağı (ADR-0033)
+Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/worktrees/<ad>-<hex>`, dal `claude/<ad>-<hex>`) ve git dışı `.claude/orkestra` klasörünü ona kopyalar. Durum tek kaynaktan çözülür:
+- `ork_lib.proje_dizini`: cwd (ya da `CLAUDE_PROJECT_DIR`) bir worktree ise (`.git` bir DOSYA) ve ana ağaçta `.claude/orkestra` varsa ana ağaç kökünü döndürür. Hook, `orkestra` komutu ve panel aynı kaydı görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (testler ve kaçış kapısı). Belgeler (`Claude_Orkestrasyon/NNN-…`, `adr/`) git izli olduğu için worktree dalında kalır.
+- Numara: `is_kaydi.sonraki_klasor_adi` ve `klasor_ayir` `git worktree list` ağaçlarındaki NNN'leri de sayar. ADR numarasının ağaçlar arası tekilliği kodla sağlanmadı: yeni ADR'de ana klasörün `adr/` dizinindeki en büyük numaraya bak.
+- Eski kopyalar: `orkestra durum devral` (kuru koşu) ve `--uygula` hedefte olmayan jsonl satırı, iş, onay ve görev dosyalarını ana duruma ekler; yedek `yedek/devral_<zaman>/`, kaynakta `.devralindi` damgası, kaynak silinmez, kimlik çakışması yazılmaz raporlanır. `--tum` deponun bütün ağaçlarını tarar.
+- `orkestra kart agac-temizle`: `claude/<ad>-<hex>` ağaçları `oturum` sınıfında listelenir, kaldırılmaz; devralınmamış kayıt varsa uyarır. `todo-denetle` ana ağaçla aynı ya da devralınmış worktree todo kopyasını bayat saymaz.
+- Bilinen sınır: iki ağaçta aynı anda açılan iki iş aynı NNN'yi alabilir (klasör diske yazılmadan önceki pencere). Testler: `tests/test_oturum_agaci_durum.py`, `tests/test_durum_devral.py`.
+
 ## Kural katmanları (kod)
 - Kütüphane `scripts/onay.py` (kurallar bölümü), CLI `scripts/komutlar/onay.py` (`kural ...`), panel `assets/kurallar.js` + `panel.py` `_onay_islemi`. Kullanım ve öncelik: `KURALLAR.md` "Kural katmanları".
 - Eklenti katmanının deposu `kurallar/eklenti_kurallari.json`. `onay.eklenti_kural_yolu()` yolu çözer: önbellekten (`plugins/cache`) çalışırken yazım önbelleğe değil kaynak depoya (`known_marketplaces.json` installLocation) gider, çünkü önbellek güncellemede silinir. Eklenti kuralı eklemek eklenti kodunu değiştirmektir: commit, `orkestra guncelle`, yayın akışı bu dosyadaki gibi işler.
