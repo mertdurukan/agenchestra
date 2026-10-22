@@ -93,7 +93,7 @@ class BelgeBaglantiWorktree(unittest.TestCase):
         is_id = r.stdout.strip().splitlines()[-1]
         b = self.kos(["is", "baglanti", is_id], self.wt)
         self.assertEqual(b.returncode, 0, b.stderr)
-        self.assertIn("](Claude_Orkestrasyon/001-20261022-deneme/mevcut_durum_", b.stdout)
+        self.assertIn("](Claude_Orkestrasyon/001-20261022-deneme/plan.md)", b.stdout)
         self.assertNotIn(".claude/worktrees", b.stdout)
 
     def test_kok_disi_klasor_worktree_oturumunda_reddedilir(self):

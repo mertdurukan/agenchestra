@@ -488,7 +488,7 @@ def _bitis_baglanti_kapisi(sd: str, oid, proje: str) -> None:
         import is_kaydi
         kayit = is_kaydi.is_al(sd, is_id)
         klasor = str((kayit or {}).get("klasor") or "")
-        imza, satirlar = is_onay.teslim_imzasi(klasor, proje)
+        imza, satirlar = is_onay.teslim_imzasi(klasor, L.baglanti_koku(proje))
         if not imza:
             return
         yol = os.path.join(sd, "oturumlar", f"{oid}.baglanti.json")
@@ -1038,7 +1038,8 @@ def _baglanti_kapisi(sd: str, oid, inp: dict, ozet: dict) -> None:
         if kip == "ihlal" and not inp.get("stop_hook_active"):
             import is_kaydi
             satirlar = "\n".join(is_kaydi.baglanti_satiri(
-                "belge", os.path.abspath(os.path.join(inp.get("cwd") or os.getcwd(), y)), proje) for y in eksik[:6])
+                "belge", os.path.abspath(os.path.join(inp.get("cwd") or os.getcwd(), y)),
+                L.baglanti_koku(proje, inp.get("cwd"))) for y in eksik[:6])
             L.hook_cikti({"decision": "block", "reason":
                           "Orkestra (K-003): bu turda okunacak belge yazıldı, yanıtta bağlantısı yok. Yanıtın sonuna ekle "
                           "(etiketi plan dosyası / to-do dosyası / çalışma özeti / rapor yap; `orkestra is baglanti <id>` hazır verir):\n" + satirlar})
@@ -1396,7 +1397,7 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
         else:
             projeler = [str(p) for p in ((baglam.esleme_oku(sd) or {}).get("projeler") or []) if str(p).strip()]
             yedek_kok = os.path.join(sd, "isler")
-            kok = (os.path.normpath(os.path.join(proje or L.proje_dizini(), projeler[is_kaydi.proje_sec(projeler, istek)]))
+            kok = (os.path.normpath(os.path.join(L.baglanti_koku(proje or L.proje_dizini()), projeler[is_kaydi.proje_sec(projeler, istek)]))
                    if projeler else yedek_kok)
             try:
                 ad = is_kaydi.klasor_ayir(sd, kok, baslik)

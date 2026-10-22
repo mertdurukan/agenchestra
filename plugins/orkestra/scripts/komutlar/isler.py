@@ -75,11 +75,31 @@ def _todo_satiri(klasor):
     return t, f"todo {t['biten']}/{t['toplam']}"
 
 
+def _klasor_kok_disi(sd, yol):
+    """Bağlı worktree oturumunda iş klasörü oturum kökü dışındaysa hata metni, değilse ''. Uygulama göreli bağlantıyı
+    oturum klasörüne göre çözdüğü için kök dışı belge açılmaz (ADR-0035). ORKESTRA_IS_KLASOR_KOK=0 kapatır."""
+    if os.environ.get("ORKESTRA_IS_KLASOR_KOK") == "0":
+        return ""
+    proje = os.path.dirname(os.path.dirname(sd))
+    kok = L.baglanti_koku(proje)
+    n = lambda x: os.path.normcase(os.path.abspath(x))  # noqa: E731
+    if n(kok) == n(proje) or (n(yol) + os.sep).startswith(n(kok) + os.sep):
+        return ""
+    oneri = ""
+    if (n(yol) + os.sep).startswith(n(proje) + os.sep):
+        oneri = f" Önerilen yol: {os.path.join(kok, os.path.relpath(os.path.abspath(yol), proje))}"
+    return (f"iş klasörü oturum kökü dışında: {yol} (oturum kökü: {kok}). Belge bağlantıları oturum köküne göre çözülür; "
+            f"klasörü oturum kökü altında aç.{oneri} Kapatma: ORKESTRA_IS_KLASOR_KOK=0.")
+
+
 def cmd_is_ac(a):
     sd = sd_gerekli()
     klasor = a.klasor
     if klasor:  # I-138 P5: NNN- öneki kilit altında denetlenir; dolu ya da önek yoksa sıradaki numara alınır
         yol = os.path.abspath(klasor)
+        neden = _klasor_kok_disi(sd, yol)
+        if neden:
+            hata(neden)
         kok, ad = os.path.split(yol)
         try:
             yeni = _ik().klasor_ayir(sd, kok, a.baslik, tercih=ad)
@@ -132,7 +152,8 @@ def cmd_is_devam(a):
 
 
 def _proje_koku(sd):
-    return os.path.dirname(os.path.dirname(sd))
+    """Bağlantı tabanı: oturum bağlı bir worktree'deyse worktree kökü, değilse proje kökü (ADR-0035)."""
+    return L.baglanti_koku(os.path.dirname(os.path.dirname(sd)))
 
 
 def cmd_is_belge(a):

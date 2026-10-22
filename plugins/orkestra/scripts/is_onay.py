@@ -11,6 +11,7 @@ import os
 import re
 
 import is_sirasi as SIRA
+import ork_lib as L
 
 ALAN = "onay"
 BEKLIYOR = "bekliyor"
@@ -167,9 +168,10 @@ def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
     tam = os.path.normcase(os.path.abspath(tam))
     if os.path.basename(tam) == "is.json":
         return "is.json elle yazılmaz; onayı yalnız kullanıcı mesajı verir."
-    adr = os.path.normcase(os.path.abspath(os.path.join(proje, "adr")))
-    if tam.startswith(adr + os.sep):
-        return ""
+    for kok in {proje, L.baglanti_koku(proje)}:  # oturum bağlı worktree'deyse onun adr/ klasörü de (ADR-0035)
+        adr = os.path.normcase(os.path.abspath(os.path.join(kok, "adr")))
+        if tam.startswith(adr + os.sep):
+            return ""
     klasor = os.path.normcase(os.path.abspath(str(kayit.get("klasor") or "")))
     if klasor and tam.startswith(klasor + os.sep):
         proje_n = os.path.normcase(os.path.abspath(proje))
