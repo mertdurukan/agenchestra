@@ -1220,6 +1220,9 @@ def simdi_uygula(sd: str, tur: str = "perspektif") -> dict:
     if uygulama_durumu(sd):
         raise ValueError("Uygulama zaten sürüyor.")
     exe = P.claude_exe()
+    if not exe:
+        raise ValueError("claude.exe bulunamadı (CLAUDE_CODE_EXECPATH ya da keşif); arka planda uygulanamaz. "
+                         "Sohbette /orkestra:onay ile uygula.")
     if not P.headless_mumkun(sd, exe):
         raise ValueError("Komut satırı Claude oturum açmamış; arka planda uygulanamaz. Bir kez `claude auth login` çalıştır "
                          "ya da sohbette /orkestra:onay ile uygula.")
