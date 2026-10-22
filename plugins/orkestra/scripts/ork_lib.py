@@ -60,12 +60,38 @@ def gun_baslangici(gun, simdi: datetime.datetime | None = None) -> datetime.date
     return datetime.datetime.combine(ilk, datetime.time.min, tzinfo=simdi.tzinfo)
 
 
+DURUM_YEREL_ORTAM = "ORKESTRA_DURUM_YEREL"  # "1": worktree kendi durum kopyasını kullanır (test ve izolasyon)
+
+
+def ana_agac_koku(d: str) -> str | None:
+    """`d` bağlı (ek) bir git worktree'sinin kökü ise ana ağacın kökü, değilse None. Süreç başlatmaz: `d/.git` dosyasındaki
+    `gitdir: <ortak>/worktrees/<ad>` satırından ortak `.git` dizinini, onun üst klasöründen ana ağacı bulur."""
+    try:
+        with open(os.path.join(d, ".git"), encoding="utf-8") as f:
+            ilk = f.readline().strip()
+    except OSError:
+        return None  # .git yok ya da klasör: ana ağaç (ya da git dışı)
+    if not ilk.startswith("gitdir:"):
+        return None
+    gitdir = os.path.normpath(os.path.join(d, ilk[len("gitdir:"):].strip()))
+    ortak = os.path.dirname(os.path.dirname(gitdir))  # <ortak .git>/worktrees/<ad> -> <ortak .git>
+    if os.path.basename(os.path.dirname(gitdir)) != "worktrees" or os.path.basename(ortak) != ".git":
+        return None  # alt modül ya da çıplak depo: ana ağaç belirsiz
+    return os.path.dirname(ortak)
+
+
 def proje_dizini(cwd: str | None = None) -> str:
-    """CLAUDE_PROJECT_DIR > cwd'den yukarı .claude/orkestra arayışı > cwd."""
+    """CLAUDE_PROJECT_DIR > cwd'den yukarı .claude/orkestra arayışı > cwd. Bulunan klasör bağlı bir git worktree'siyse
+    (oturum worktree'si: durum kopyası git dışı olduğundan ayrışır) ve ana ağaçta durum klasörü varsa ana ağaç döner;
+    hook, komut ve panel böylece tek durum kaynağını görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (ADR-0032)."""
     baslangic = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
     d = os.path.abspath(baslangic)
     while True:
         if os.path.isdir(os.path.join(d, ".claude", "orkestra")):
+            if os.environ.get(DURUM_YEREL_ORTAM) != "1":
+                ana = ana_agac_koku(d)
+                if ana and os.path.isdir(os.path.join(ana, ".claude", "orkestra")):
+                    return os.path.abspath(ana)
             return d
         ust = os.path.dirname(d)
         if ust == d:
