@@ -108,7 +108,7 @@
   // V.alan: seçili çalışma alanı kimliği ya da TUM ('Tüm çalışma alanları', ADR-0030). Birleşik kipte sunucu orkestralı alanları
   // birleştirir ve her kayda alan:{id,ad} ekler; iş/kart ayrıntısı ve yazma kaydın kendi alanıyla gider.
   const TUM = '*';
-  const V = { alan: '', alanlar: [], onbellek: new Map(), sonBasari: 0 };
+  const V = { alan: '', alanlar: [], onbellek: new Map(), sonBasari: 0, gIzle: 0 };
   const tumMu = () => V.alan === TUM;
   const TEK_ALAN_YOL = /^\/(teknik\.json\?(?:.*&)?(?:is|kart|ret)=|api\/todo)/;   // sunucuda tek alan ister (liste kipi birleşir)
   const orkAlanlar = () => V.alanlar.filter(a => a.orkestra);
