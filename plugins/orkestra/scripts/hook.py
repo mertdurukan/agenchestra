@@ -791,6 +791,11 @@ def _hata_yaz(sd: str, yer: str, e: Exception) -> None:
                                                          "hata": f"{type(e).__name__}: {e}"[:300]})
     except Exception:
         pass
+    try:   # ADR-0035: imzalı hata defteri; kayıt hatası kancayı düşürmez
+        import hata_kayit as HK
+        HK.kaydet(sd, "hook", type(e).__name__, str(e), {"yer": yer})
+    except Exception:
+        pass
 
 
 def _zaman_ekle(sd: str, kayit: dict) -> None:
