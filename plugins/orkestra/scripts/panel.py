@@ -57,6 +57,7 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
 import ork_lib as L  # noqa: E402
+import panel_servis  # noqa: E402
 import ozet  # noqa: E402
 import analitik  # noqa: E402
 import niyet  # noqa: E402
