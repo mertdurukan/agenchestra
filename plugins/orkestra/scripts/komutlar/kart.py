@@ -1535,7 +1535,7 @@ def cmd_kart_agac_temizle(a):
         if a.uygula:
             L.git(["worktree", "prune"], depo)  # klasörü elle silinmiş kayıtlar
         s = L.agac_temizle_siniflandir(depo, ks)
-        if not s["aday"] and not s["kalip_disi"]:
+        if not s["aday"] and not s["kalip_disi"] and not s["oturum"]:
             continue
         bulundu = True
         if len(depolar) > 1:
