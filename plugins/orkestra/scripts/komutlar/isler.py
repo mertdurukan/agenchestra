@@ -327,11 +327,25 @@ def _adr_eksigi(klasor, proje_koku):
     satir = m.group(1).strip()
     kimlikler = sorted(set(re.findall(r"ADR-\d{4}", satir)))
     if kimlikler:
-        yok = [k for k in kimlikler if not glob.glob(os.path.join(proje_koku, "adr", k + "-*.md"))]
+        # Durum ana klasörden çözülür ama belgeler worktree dalında kalır (ADR-0033): işin klasörünün bulunduğu
+        # git ağacının adr/ dizini de aranır.
+        kokler = [proje_koku]
+        agac = L.git_koku(klasor) if os.path.isdir(klasor) else None
+        if agac and os.path.normcase(os.path.abspath(agac)) != os.path.normcase(os.path.abspath(proje_koku)):
+            kokler.append(agac)
+
+        def _bul(k):
+            for kok in kokler:
+                g = glob.glob(os.path.join(kok, "adr", k + "-*.md"))
+                if g:
+                    return g[0]
+            return None
+
+        yok = [k for k in kimlikler if not _bul(k)]
         if yok:
             return f"adr/ klasöründe dosya yok: {', '.join(yok)}"
         for k in kimlikler:
-            eksik = _adr_alan_eksigi(glob.glob(os.path.join(proje_koku, "adr", k + "-*.md"))[0])
+            eksik = _adr_alan_eksigi(_bul(k))
             if eksik:
                 return f"{k} zorunlu alanları eksik ya da boş: {eksik}"
         return None

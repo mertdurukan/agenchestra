@@ -60,12 +60,38 @@ def gun_baslangici(gun, simdi: datetime.datetime | None = None) -> datetime.date
     return datetime.datetime.combine(ilk, datetime.time.min, tzinfo=simdi.tzinfo)
 
 
+DURUM_YEREL_ORTAM = "ORKESTRA_DURUM_YEREL"  # "1": worktree kendi durum kopyasını kullanır (test ve izolasyon)
+
+
+def ana_agac_koku(d: str) -> str | None:
+    """`d` bağlı (ek) bir git worktree'sinin kökü ise ana ağacın kökü, değilse None. Süreç başlatmaz: `d/.git` dosyasındaki
+    `gitdir: <ortak>/worktrees/<ad>` satırından ortak `.git` dizinini, onun üst klasöründen ana ağacı bulur."""
+    try:
+        with open(os.path.join(d, ".git"), encoding="utf-8") as f:
+            ilk = f.readline().strip()
+    except OSError:
+        return None  # .git yok ya da klasör: ana ağaç (ya da git dışı)
+    if not ilk.startswith("gitdir:"):
+        return None
+    gitdir = os.path.normpath(os.path.join(d, ilk[len("gitdir:"):].strip()))
+    ortak = os.path.dirname(os.path.dirname(gitdir))  # <ortak .git>/worktrees/<ad> -> <ortak .git>
+    if os.path.basename(os.path.dirname(gitdir)) != "worktrees" or os.path.basename(ortak) != ".git":
+        return None  # alt modül ya da çıplak depo: ana ağaç belirsiz
+    return os.path.dirname(ortak)
+
+
 def proje_dizini(cwd: str | None = None) -> str:
-    """CLAUDE_PROJECT_DIR > cwd'den yukarı .claude/orkestra arayışı > cwd."""
+    """CLAUDE_PROJECT_DIR > cwd'den yukarı .claude/orkestra arayışı > cwd. Bulunan klasör bağlı bir git worktree'siyse
+    (oturum worktree'si: durum kopyası git dışı olduğundan ayrışır) ve ana ağaçta durum klasörü varsa ana ağaç döner;
+    hook, komut ve panel böylece tek durum kaynağını görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (ADR-0033)."""
     baslangic = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
     d = os.path.abspath(baslangic)
     while True:
         if os.path.isdir(os.path.join(d, ".claude", "orkestra")):
+            if os.environ.get(DURUM_YEREL_ORTAM) != "1":
+                ana = ana_agac_koku(d)
+                if ana and os.path.isdir(os.path.join(ana, ".claude", "orkestra")):
+                    return os.path.abspath(ana)
             return d
         ust = os.path.dirname(d)
         if ust == d:
@@ -119,30 +145,96 @@ def durum_dizini(cwd: str | None = None, olustur: bool = False) -> str | None:
 
 # ---------------------------------------------------------------- kilit ve yazım
 
-@contextmanager
-def kilit(yol: str, bekleme_s: float = 3.0):
-    """Süreçler arası basit dosya kilidi (Windows msvcrt / POSIX fcntl). Beklemesi 3 sn: hook'u en çok bu kadar
-    bloklar (önce 8 sn); süre dolarsa TimeoutError; kilit dosyasının yanındaki '.zaman_asimi.log'a bir satır yazılır."""
-    os.makedirs(os.path.dirname(yol), exist_ok=True)
-    fd = os.open(yol + ".lock", os.O_RDWR | os.O_CREAT)
+_SIRA_OMUR_S = 2.0   # bilet bu süreden uzun yenilenmediyse sahibi ölü sayılır (süreç çökmüş)
+
+
+def _sira_canli(sira: str) -> list[str]:
+    """Kuyruktaki canlı bilet adları, eskiden yeniye (ad = zaman damgası-pid)."""
+    simdi = time.time()
+    canli = []
     try:
-        bitis = time.time() + bekleme_s
-        if os.name == "nt":
-            import msvcrt
-            while True:
+        adlar = os.listdir(sira)
+    except OSError:
+        return canli
+    for a in adlar:
+        try:
+            if simdi - os.path.getmtime(os.path.join(sira, a)) <= _SIRA_OMUR_S:
+                canli.append(a)
+        except OSError:
+            pass  # bilet o an silindi
+    return sorted(canli)
+
+
+def _nt_kilit_al(fd: int, yol: str, bekleme_s: float) -> None:
+    """Windows: msvcrt kilidi FIFO bilet sırasıyla alır. LK_NBLCK yoklaması adil değil (bırakan süreç hemen yeniden alır;
+    I-157: 8 süreçte bekleme 2,6 sn, zaman aşımı); bu yüzden kilit doluysa '<yol>.sira/<ns>-<pid>' bileti açılır ve yalnız
+    en eski canlı bilet sahibi kilidi dener. Kuyruk boşken doğrudan denenir (ek maliyet bir stat)."""
+    import msvcrt
+    sira = yol + ".sira"
+    basla = time.time()
+    bitis = basla + bekleme_s
+    bilet = None          # None: henüz açılmadı; False: açılamadı (eski yoklamaya dön); yol: açık bilet
+    yenilendi = basla
+    try:
+        while True:
+            if bilet is None:
+                sirada = os.path.isdir(sira) and bool(_sira_canli(sira))
+                dene = not sirada
+            elif bilet is False:
+                dene = True
+            else:
+                canli = _sira_canli(sira)
+                dene = not canli or canli[0] == os.path.basename(bilet)
+            if dene:
                 try:
                     os.lseek(fd, 0, 0)
                     msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-                    break
+                    return
                 except OSError:
-                    if time.time() > bitis:
-                        try:
-                            with open(yol + ".zaman_asimi.log", "a", encoding="utf-8") as g:
-                                g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()}\n")
-                        except OSError:
-                            pass
-                        raise TimeoutError(f"kilit alınamadı: {yol}")
-                    time.sleep(0.02)
+                    pass
+            simdi = time.time()
+            if simdi > bitis:
+                try:  # süreç adı: zaman aşımının panel mi hook mu CLI mı olduğunu günlükten okutur
+                    surec = os.path.basename(sys.argv[0] or "-") or "-"
+                    with open(yol + ".zaman_asimi.log", "a", encoding="utf-8") as g:
+                        g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()} "
+                                f"surec={surec} bekleme_ms={int((simdi - basla) * 1000)}\n")
+                except OSError:
+                    pass
+                raise TimeoutError(f"kilit alınamadı: {yol}")
+            if bilet is None:
+                try:
+                    os.makedirs(sira, exist_ok=True)
+                    bilet = os.path.join(sira, f"{time.time_ns():020d}-{os.getpid()}")
+                    open(bilet, "w").close()
+                except OSError:
+                    bilet = False
+            elif bilet and simdi - yenilendi > _SIRA_OMUR_S / 4:
+                try:
+                    os.utime(bilet)
+                    yenilendi = simdi
+                except OSError:
+                    pass
+            time.sleep(0.02 if bilet is False else 0.002)
+    finally:
+        if bilet:
+            try:
+                os.remove(bilet)
+            except OSError:
+                pass
+
+
+@contextmanager
+def kilit(yol: str, bekleme_s: float = 3.0):
+    """Süreçler arası basit dosya kilidi (Windows msvcrt / POSIX fcntl). Beklemesi 3 sn: hook'u en çok bu kadar
+    bloklar (önce 8 sn); süre dolarsa TimeoutError; kilit dosyasının yanındaki '.zaman_asimi.log'a bir satır yazılır.
+    Windows'ta bekleyenler FIFO sırayla kilidi alır (bkz. _nt_kilit_al)."""
+    os.makedirs(os.path.dirname(yol), exist_ok=True)
+    fd = os.open(yol + ".lock", os.O_RDWR | os.O_CREAT)
+    try:
+        if os.name == "nt":
+            import msvcrt
+            _nt_kilit_al(fd, yol, bekleme_s)
             try:
                 yield
             finally:
@@ -1412,9 +1504,24 @@ def _agac_kayitlari(depo: str) -> list[dict]:
     return [x for x in out[1:]]
 
 
+def oturum_devralinmamis(depo: str, agac: str) -> int:
+    """Oturum ağacındaki durum kopyasında, ana durum klasöründe olmayan öğe sayısı (ADR-0033).
+    Kopya yoksa, damgalı ve eklenecek yoksa ya da ana klasör yoksa 0."""
+    kaynak = os.path.join(agac, ".claude", "orkestra")
+    hedef = os.path.join(depo, ".claude", "orkestra")
+    if not os.path.isdir(kaynak) or not os.path.isdir(hedef):
+        return 0
+    try:
+        import durum_devral
+        return durum_devral.devralinmamis_sayisi(kaynak, hedef)
+    except Exception:
+        return 0
+
+
 def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
     """Deponun worktree'lerini sınıflar: aday (kartı teslim/iptal ya da kartsız kart ağacı), acik (kart açık),
-    kalip_disi (kart düzenine uymayan). Her öğe {yol, dal, kart, neden}."""
+    oturum (Claude'un oturum başına açtığı `claude/<ad>-<hex>` ağacı; orkestra kaldırmaz, devralınmamış kayıt sayısını
+    `devralinmamis` ile bildirir), kalip_disi (kart düzenine uymayan). Her öğe {yol, dal, kart, neden}."""
     depo_n = os.path.abspath(depo).replace("\\", "/").rstrip("/")
     kartlar_ = {k.get("id"): k for k in ks}
     kok = (os.environ.get(AGAC_KOKU_ORTAM) or "").strip()
@@ -1422,7 +1529,7 @@ def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
     if kok:
         ebeveynler.add(_kiyas(os.path.abspath(os.path.join(kok, os.path.basename(depo_n)))))
     eski = re.compile(re.escape(_kiyas(depo_n)) + r"-kart-(.+)$")
-    sonuc = {"aday": [], "acik": [], "kalip_disi": []}
+    sonuc = {"aday": [], "acik": [], "oturum": [], "kalip_disi": []}
     for w in _agac_kayitlari(depo):
         y = w["yol"]
         ad = y.rstrip("/").rsplit("/", 1)[-1]
@@ -1434,6 +1541,10 @@ def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
             m = eski.match(_kiyas(y))
             if m:
                 gid = y[len(y) - len(m.group(1)):]
+        if not gid and ust in ebeveynler and (w["dal"] or "").startswith("claude/"):
+            sonuc["oturum"].append({**w, "kart": None, "neden": "Claude oturum ağacı",
+                                    "devralinmamis": oturum_devralinmamis(depo, y)})
+            continue
         if not gid:
             sonuc["kalip_disi"].append({**w, "kart": None, "neden": "kart düzenine uymuyor"})
             continue

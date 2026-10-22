@@ -393,6 +393,7 @@ def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None, olustu
             if m:
                 dolu = any(k.startswith(m.group(1) + "-") and k != tercih
                            for k in kardesler if os.path.isdir(os.path.join(kok, k)))
+                dolu = dolu or any(k.startswith(m.group(1) + "-") and k != tercih for k in kardes_agac_klasorleri(kok))
                 if not dolu and tercih in kardesler:  # aynı ad: yalnız açık bir iş orada çalışıyorsa dolu
                     dolu = is_klasorle_bul(sd, os.path.join(kok, tercih)) is not None
             else:
@@ -415,8 +416,39 @@ def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None, olustu
     return ad
 
 
+def kardes_agac_klasorleri(kok: str) -> list[str]:
+    """`kok` bir git çalışma ağacındaysa, aynı deponun ÖTEKİ ağaçlarında (oturum ve kart worktree'leri, ana ağaç) aynı göreli
+    klasörün alt klasör adları. Ağaçlar arası numara tekilliği için (ADR-0033): birleşmemiş dallarda aynı NNN iki işe verilmesin.
+    Git yoksa ya da herhangi bir hatada boş liste."""
+    try:
+        ust = L.git_koku(kok)
+        if not ust:
+            return []
+        rel = os.path.relpath(os.path.abspath(kok), ust)
+        r = L.git(["worktree", "list", "--porcelain"], ust)
+        if r.returncode != 0:
+            return []
+        kendi = os.path.normcase(os.path.realpath(ust))
+        adlar: list[str] = []
+        for satir in r.stdout.splitlines():
+            if not satir.startswith("worktree "):
+                continue
+            w = satir[len("worktree "):].strip()
+            if os.path.normcase(os.path.realpath(w)) == kendi:
+                continue
+            hedef = os.path.join(w, rel)
+            try:
+                adlar += [a for a in os.listdir(hedef) if os.path.isdir(os.path.join(hedef, a))]
+            except OSError:
+                continue
+        return adlar
+    except Exception:
+        return []
+
+
 def sonraki_klasor_adi(kok: str, baslik: str, tarih: str | None = None) -> str:
-    """kök altında sıradaki 'NNN-YYYYMMDD-<slug>' adı: NNN = en büyük ^\\d{3}- numarası + 1 (3 hane)."""
+    """kök altında sıradaki 'NNN-YYYYMMDD-<slug>' adı: NNN = en büyük ^\\d{3}- numarası + 1 (3 hane); öteki git
+    çalışma ağaçlarındaki aynı klasör de sayılır (`kardes_agac_klasorleri`)."""
     import datetime
     en_buyuk = 0
     try:
@@ -426,6 +458,10 @@ def sonraki_klasor_adi(kok: str, baslik: str, tarih: str | None = None) -> str:
                 en_buyuk = max(en_buyuk, int(m.group(1)))
     except OSError:
         pass
+    for ad in kardes_agac_klasorleri(kok):
+        m = _NNN.match(ad)
+        if m:
+            en_buyuk = max(en_buyuk, int(m.group(1)))
     tarih = tarih or datetime.date.today().strftime("%Y%m%d")
     return f"{en_buyuk + 1:03d}-{tarih}-{slug(baslik)}"
 
@@ -788,11 +824,61 @@ def _worktree_mi(yol: str, kok: str) -> bool:
     return False
 
 
+def _agac_koku_bul(yol: str, kok: str) -> str | None:
+    """Yolun bulunduğu git çalışma ağacının kökü (üst dizinlerde `.git` DOSYASI olan; `kok`a kadar); yoksa None."""
+    d = os.path.dirname(os.path.abspath(yol))
+    kok = _norm(kok)
+    while d and _norm(d) != kok:
+        if os.path.isfile(os.path.join(d, ".git")):
+            return d
+        ust = os.path.dirname(d)
+        if ust == d:
+            break
+        d = ust
+    return None
+
+
+def _worktree_kopyasi_gecerli_mi(yol: str, kok: str) -> bool:
+    """Worktree içindeki todo kopyası bayat sayılmaz: ağacın durum kopyası devralınmış (`.devralindi`) ya da dosya
+    ana ağaçtaki aynı göreli yolla bayt bayt aynı (yalnız dal çıkışı, taşınacak bir şey yok). ADR-0033."""
+    agac = _agac_koku_bul(yol, kok)
+    if not agac:
+        return False
+    if os.path.isfile(os.path.join(agac, ".claude", "orkestra", ".devralindi")):
+        return True
+    ana = os.path.join(kok, os.path.relpath(yol, agac))
+    try:
+        with open(yol, "rb") as f1, open(ana, "rb") as f2:
+            return f1.read() == f2.read()
+    except OSError:
+        return False
+
+
+def devral_ipucu(sd: str, cwd: str | None = None) -> str:
+    """Oturum ağacındaki durum kopyasında ana durum klasöründe olmayan kayıt varsa TEK satır öneri, yoksa boş metin."""
+    try:
+        agac = L.git_koku(cwd or os.getcwd())
+        if not agac:
+            return ""
+        kaynak = os.path.join(agac, ".claude", "orkestra")
+        if not os.path.isdir(kaynak) or os.path.normcase(os.path.realpath(kaynak)) == os.path.normcase(os.path.realpath(sd)):
+            return ""
+        import durum_devral
+        n = durum_devral.devralinmamis_sayisi(kaynak, sd)
+        if not n:
+            return ""
+        return (f"Orkestra: bu worktree'nin durum kopyasında ana klasörde olmayan {n} kayıt var; "
+                "`orkestra durum devral --uygula` ile ana klasöre al.")
+    except Exception:
+        return ""
+
+
 def todo_denetle(sd: str, kok: str | None = None) -> list[dict]:
     """isler.json'a bağlı olmayan todo dosyaları: [{'yol', 'tur': 'bagsiz'|'worktree'}].
 
     Bağlı sayılan: bir işin klasöründeki `todo.md`. Diğer `todo.md` / `todo*.md` kopyaları (iş klasörü dışında ya da
-    farklı adla) ve worktree içindekiler listelenir. `kok` varsayılanı projedir; derinlik ve süre sınırlıdır (hatada sessiz)."""
+    farklı adla) ve worktree içindekiler listelenir; ana ağaçla aynı olan ya da durumu devralınmış worktree kopyaları
+    listelenmez. `kok` varsayılanı projedir; derinlik ve süre sınırlıdır (hatada sessiz)."""
     kok = os.path.abspath(kok or L.proje_dizini())
     bagli = {_norm(os.path.join(g.get("klasor") or "", "todo.md")) for g in is_liste(sd) if g.get("klasor")}
     atla_sd = _norm(sd)
@@ -813,7 +899,10 @@ def todo_denetle(sd: str, kok: str | None = None) -> list[dict]:
                         continue
                     gez(e.path, derinlik + 1)
                 elif _TODO_AD.search(e.name) and _norm(e.path) not in bagli:
-                    out.append({"yol": e.path, "tur": "worktree" if _worktree_mi(e.path, kok) else "bagsiz"})
+                    wt = _worktree_mi(e.path, kok)
+                    if wt and _worktree_kopyasi_gecerli_mi(e.path, kok):
+                        continue
+                    out.append({"yol": e.path, "tur": "worktree" if wt else "bagsiz"})
             except OSError:
                 continue
 

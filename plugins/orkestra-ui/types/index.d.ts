@@ -20,8 +20,8 @@ export type UiOzet = {
   kartlar?: KartOzeti[]
   sayac?: Record<string, number>
   maliyet?: { bugun: number; oturum: number }
-  // Eylem bekleyen kartlar (reddedildi/onaylandi) "durum:id" olarak sıralı; bant durum imzası bundan kurulur.
-  eylem?: string[]
+  // Bu sohbetin gözünden süren arka plan işi sayısı (sohbetin görevleri + perspektif koşusu + onay uygulaması); bant yalnız > 0 iken çıkar.
+  arka?: number
   // Teslim edilmiş kartlar yalnız sayı olarak; son teslim "açık iş yok" satırı için.
   teslim?: { sayi: number; sonId?: string; sonSaat?: string }
   defter?: DefterSatiri[]  // olay olmayan, temiz son 3 satır
@@ -49,10 +49,11 @@ export type HamOzet = {
   isler?: IsTodosu[]
   perspektif?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }
   ruya?: { zamani_geldi: boolean; rapor: boolean; calisiyor: boolean }  // eski anahtar (geriye uyum)
+  arka_plan?: { oturumlar?: Record<string, number>; perspektif?: boolean; uygulama?: boolean }
 }
 
 declare module 'claude-code' {
   interface PluginState {
-    'orkestra-ui': { veri: UiOzet | null; bantGizli: string }
+    'orkestra-ui': { veri: UiOzet | null }
   }
 }

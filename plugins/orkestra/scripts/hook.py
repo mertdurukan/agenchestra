@@ -1958,6 +1958,8 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
         import is_kaydi
         if is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd"))):
             u.append("işe bağlı olmayan todo dosyası var (`orkestra is todo-denetle`)")
+        if is_kaydi.devral_ipucu(sd, inp.get("cwd")):
+            u.append("worktree durum kopyasında devralınmamış kayıt var (`orkestra durum devral`)")
     except Exception:
         pass
     return u, onay_ek
@@ -2177,6 +2179,8 @@ def user_prompt_submit(inp: dict):
                 om = onay.baglam_metni(sd, inp.get("session_id"), "UserPromptSubmit")
                 if om:
                     parcalar.append(om)
+            except TimeoutError:  # I-157: kilit zaman aşımı sessiz düşmesin; gorulen güncellenmediği için sonraki mesajda yeniden denenir
+                parcalar.append("Orkestra: panel kararları okunamadı (onay kilidi zaman aşımı); sonraki mesajda yeniden denenir.")
             except Exception:
                 pass
             ek = "\n".join(p for p in parcalar if p)

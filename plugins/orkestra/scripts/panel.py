@@ -327,6 +327,9 @@ def _etki_json(alan_id) -> dict:
 
 
 def _kurallar_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.kurallar(*_tum_topla(_kurallar_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
@@ -340,6 +343,9 @@ _PENCERE_SIFIR = {w: {"usd": 0.0, "token": 0} for w in L.PENCERELER}
 def _isler_json(alan_id) -> dict:
     import collections  # noqa: PLC0415
     import is_kaydi as IK  # noqa: PLC0415
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.isler(*_tum_topla(_isler_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
@@ -476,6 +482,11 @@ def _teknik_json(alan_id, is_id, kart_id, ret=None) -> dict:
     import collections  # noqa: PLC0415
     import is_kaydi as IK  # noqa: PLC0415
     import teknik as T  # noqa: PLC0415
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        if is_id or kart_id or ret is not None:   # iş, kart ve ret görünümü kaydın kendi alanıyla istenir
+            return _teknik_hata(400, "İş, kart ve ret görünümü tek bir çalışma alanı ister.")
+        return panel_tum.teknik_liste(*_tum_topla(lambda i: _teknik_json(i, None, None)))
     a, sd = _alan_sd(alan_id, True)
     if a is None:
         return _teknik_hata(404, "Bilinmeyen çalışma alanı ya da orkestra açık değil.")
@@ -556,6 +567,9 @@ def _todo_json(alan_id, is_id) -> dict:
 
 
 def _kullanici_todo_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.kullanici_todo(*_tum_topla(_kullanici_todo_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
@@ -939,11 +953,11 @@ def _isleyici():
             if u.path == "/ozet.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli(("ozet", alan), 1.0, lambda: ozet.alan_ozeti(alan)))
+                                    onbellekli(("ozet", alan), 1.0, lambda: _ozet_json(alan)))
             if u.path == "/analitik.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli(("analitik", alan), 10.0, lambda: analitik.alan_analitigi(alan)))
+                                    onbellekli(("analitik", alan), 10.0, lambda: _analitik_json(alan)))
             if u.path == "/analitik-tum.json":
                 return self._gonder(200, "application/json; charset=utf-8",
                                     onbellekli("analitik-tum", 20.0, analitik.tum_alanlar))

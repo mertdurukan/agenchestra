@@ -153,6 +153,39 @@ def _oturum_olu(ol, simdi) -> bool:
     return bool(ol and (ol[1] == "kapandi" or (simdi - ol[0]).total_seconds() / 3600 >= ASILI_OTURUM_SESSIZ_SAAT))
 
 
+def arka_plan_oturumlari(sd: str, simdi=None) -> dict:
+    """oturum -> açık arka plan görevi sayısı (Stop kancasının `oturumlar/<oturum>.json` içindeki `acik_gorevler` kaydı).
+    Kapanmış ya da niyet.ARKA_PLAN_ZAMAN_ASIMI_DK'dır etkinliği olmayan oturum sayılmaz (niyet.gorunum ile aynı ölçüt)."""
+    simdi = simdi or datetime.datetime.now().astimezone()
+    out: dict = {}
+    try:
+        adlar = os.listdir(os.path.join(sd, "oturumlar"))
+        import niyet
+    except Exception:
+        return out
+    olaylar = None
+    for ad in adlar:
+        if not ad.endswith(".json") or ad.startswith(("acik_ajan_", "is_")):
+            continue
+        try:
+            with open(os.path.join(sd, "oturumlar", ad), encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        gorevler = d.get("acik_gorevler") if isinstance(d, dict) else None
+        if not isinstance(gorevler, list) or not gorevler:
+            continue
+        oid = ad[:-5]
+        if olaylar is None:
+            olaylar = _oturum_son_olaylar()
+        ol = olaylar.get(oid)
+        son = ol[0] if ol else A._zaman(d.get("guncelleme"))
+        if (ol and ol[1] == "kapandi") or (son and (simdi - son).total_seconds() / 60 >= niyet.ARKA_PLAN_ZAMAN_ASIMI_DK):
+            continue
+        out[oid] = len(gorevler)
+    return out
+
+
 def sahipsiz_ajanlar(sd: str, simdi=None) -> list:
     """Oturumu kapanmış (ya da ASILI_OTURUM_SESSIZ_SAAT sessiz) ama `acik_ajan_*.json` kaydı kalmış ajanlar (salt okuma)."""
     simdi = simdi or datetime.datetime.now().astimezone()
@@ -466,6 +499,11 @@ def olustur(sd: str, proje: str) -> dict:
         onaylar = onay.sayac(sd)
     except Exception:
         onaylar = None
+    try:
+        import onay
+        uygulama = bool(onay.uygulama_durumu(sd))
+    except Exception:
+        uygulama = False
 
     return {
         "surum": SURUM, "acik": True, "orkestra": True, "isler": _is_todolari(sd), "uretim": L.simdi(), "proje": os.path.basename(os.path.abspath(proje)),
@@ -492,6 +530,8 @@ def olustur(sd: str, proje: str) -> dict:
         "perspektif": {"zamani_geldi": rd["zamani_geldi"], "rapor": bool(rd["okunmamis_rapor"]), "calisiyor": bool(rd["calisiyor"]),
                  "son_perspektif": rd["son_perspektif"]},
         "onaylar": onaylar,
+        # Claude içi bant yalnız bunlar için çıkar: sohbet başına açık arka plan görevi, perspektif koşusu, onay uygulaması
+        "arka_plan": {"oturumlar": arka_plan_oturumlari(sd), "perspektif": bool(rd["calisiyor"]), "uygulama": uygulama},
     }
 
 

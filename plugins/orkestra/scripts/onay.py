@@ -626,13 +626,47 @@ def _kural_onayi_ac(sd: str, r: dict) -> dict:
                        f"kural:{r['id']}", [], None)
 
 
+_ESITLE_IZI: dict[str, tuple] = {}   # sd -> son tam geçişteki girdi parmak izi (süreç içi; panel her okumada çağırır)
+
+
+def _esitle_izi(sd: str) -> tuple:
+    """esitle girdilerinin mtime parmak izi: rapor dizinleri ve içindeki dosyalar, onerilen_skill altındaki her skill
+    klasörü, projenin skills klasörü, kural dosyası ve onay kayıtları dizini. Aynıysa esitle'nin yapacağı yeni iş yoktur."""
+    def mt(yol):
+        try:
+            return os.stat(yol).st_mtime_ns
+        except OSError:
+            return None
+
+    izi = [mt(_onay_dizini(sd)), mt(_kurallar_yolu(sd)), mt(os.path.join(_proje(sd), ".claude", "skills"))]
+    for alt in ("perspektif", "ruya", "onerilen_skill"):
+        d = os.path.join(sd, alt)
+        izi.append(mt(d))
+        try:
+            with os.scandir(d) as it:
+                izi.extend(sorted((e.name, e.stat().st_mtime_ns) for e in it))
+        except OSError:
+            pass
+    return tuple(izi)
+
+
 def esitle(sd: str) -> None:
-    """Kaynaklardan bekleyen kayıt üretir; idempotent (anahtar varsa yeni kayıt açmaz)."""
+    """Kaynaklardan bekleyen kayıt üretir; idempotent (anahtar varsa yeni kayıt açmaz). Girdiler son geçişten beri
+    değişmediyse kilit almadan döner (I-157: panel her okumada çağırır, onay kilidini gereksiz tutuyordu)."""
     os.makedirs(_onay_dizini(sd), exist_ok=True)
+    anahtar = os.path.abspath(sd)
+    once = _esitle_izi(sd)
+    if _ESITLE_IZI.get(anahtar) == once:
+        return
     with L.kilit(_kilit_yolu(sd)):
         _esitle_perspektif(sd)
         _esitle_skill(sd)
         _esitle_kural(sd)
+        # geçiş girdileri değiştirmediyse (kayıt yazmadı, başkası da dokunmadı) parmak izi saklanır; yazdıysa bir sonraki
+        # çağrı bir kez daha geçer ve kararlı izi saklar
+        sonra = _esitle_izi(sd)
+        if sonra == once:
+            _ESITLE_IZI[anahtar] = once
 
 
 # ---------------------------------------------------------------- sorgu
