@@ -119,6 +119,66 @@ def klon_ilerlet(klon: str, kuru: bool, yaz) -> tuple[str, str]:
     return eski, yeni
 
 
+UZAK_DAL = "origin/main"
+DEGISIKLIK_SINIRI = 20
+
+
+def _kisa(sha: str) -> str:
+    return (sha or "")[:7]
+
+
+def kontrol(ev: str | None = None, getir: bool = True) -> dict:
+    """Yeni sürüm var mı? Kurulu plugin SHA'sını GitHub `origin/main` ile karşılaştırır; asla fırlatmaz.
+
+    Sürüm commit SHA'sıdır (GELISTIRME.md). Yayın klonu geride kalsa bile `origin/main` ilerlediyse "yeni" döner.
+    `getir=False` ağa çıkmaz, klonda zaten bilinen `origin/main`'e bakar.
+    Dönüş: {durum: guncel|yeni|hata, kurulu, yeni, fark, degisiklikler:[{sha, konu}], klon_kirli, klon, neden}.
+    """
+    sonuc = {"durum": "hata", "kurulu": None, "yeni": None, "fark": None, "degisiklikler": [],
+             "klon_kirli": False, "klon": None, "neden": None}
+    try:
+        if not shutil.which("git"):
+            raise GuncelleHata("git bulunamadı (PATH'te yok).")
+        klon = pazar_klonu(ev)
+        if not klon:
+            raise GuncelleHata(f"{PAZAR} yayın klonu bulunamadı (known_marketplaces.json).")
+        sonuc["klon"] = klon
+        if not os.path.isdir(os.path.join(klon, ".git")):
+            raise GuncelleHata(f"yayın klonu git deposu değil: {klon}")
+        kurulu = kurulu_pluginler(ev)
+        if not kurulu:
+            raise GuncelleHata(f"kurulu {PAZAR} plugin'i bulunamadı (installed_plugins.json).")
+        if getir:
+            kod, cikti = kos(["git", "-C", klon, "fetch", "-q", "origin"])
+            if kod != 0:
+                raise GuncelleHata(f"GitHub'a ulaşılamadı (ağ ya da yetki?): {cikti}")
+        uzak = _git_cikti(klon, "rev-parse", UZAK_DAL)
+        sonuc["yeni"] = _kisa(uzak)
+        ana = next((p for p in kurulu if p["ad"].startswith("orkestra@")), kurulu[0])
+        sonuc["kurulu"] = ana["surum"]
+        surumler = {p["surum"] for p in kurulu}
+        sonuc["klon_kirli"] = bool(_git_cikti(klon, "status", "--porcelain"))
+        if all(uzak.startswith(s) for s in surumler if s != "-") and "-" not in surumler:
+            sonuc["durum"] = "guncel"
+            sonuc["fark"] = 0
+            return sonuc
+        sonuc["durum"] = "yeni"
+        # Kurulu SHA klonda bilinmiyorsa (kod != 0) fark sayılamaz: sayı None, son commitler listelenir.
+        taban = ana["surum"] if ana["surum"] != "-" else None
+        aralik = f"{taban}..{UZAK_DAL}" if taban and kos(["git", "-C", klon, "cat-file", "-e", f"{taban}^{{commit}}"])[0] == 0 else None
+        if aralik:
+            sonuc["fark"] = int(_git_cikti(klon, "rev-list", "--count", aralik))
+        log = _git_cikti(klon, "log", f"-n{DEGISIKLIK_SINIRI}", "--format=%h%x09%s", aralik or UZAK_DAL)
+        for satir in log.splitlines():
+            sha, _, konu = satir.partition("\t")
+            sonuc["degisiklikler"].append({"sha": sha, "konu": konu})
+        return sonuc
+    except GuncelleHata as e:
+        sonuc["durum"] = "hata"
+        sonuc["neden"] = str(e)
+        return sonuc
+
+
 def calistir(kuru: bool = False, yaz=print, ev: str | None = None, ortam: dict | None = None) -> int:
     """Güncellemeyi yürütür, Türkçe sonucu `yaz` ile verir; çıkış kodunu döner (0 başarı, 1 hata)."""
     try:
