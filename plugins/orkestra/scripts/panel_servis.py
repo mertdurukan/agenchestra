@@ -150,6 +150,7 @@ def kur(port: int | None = None) -> dict:
         raise SystemExit(f"görev kurulamadı: {(r.stderr or r.stdout).strip()}")
     _eski_paneli_durdur()
     _schtasks("/Run", "/TN", GOREV)
+    _isaret_yaz("kuruldu", port=port)
     return {"kuruldu": True, "gorev": GOREV, "port": port}
 
 
