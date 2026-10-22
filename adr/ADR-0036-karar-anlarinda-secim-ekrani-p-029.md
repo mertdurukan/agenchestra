@@ -1,6 +1,6 @@
 # ADR-0036: Karar anlarında düz metin yerine seçim ekranı (P-029)
 
-**Durum:** Kabul edildi
+**Durum:** Yerine geçildi: ADR-0037 (yalnız hook zorlamasını eleme kararı; kural kararı geçerli)
 
 **Tarih:** 22.10.2026
 

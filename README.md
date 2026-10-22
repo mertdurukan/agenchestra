@@ -36,7 +36,7 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 .claude-plugin/marketplace.json     yerel klasör marketplace'i (claude-orchestration)
 plugins/orkestra/                   çekirdek plugin
   agents/      triyaj, isci-t1..t4, denetci, arastirmaci, hafiza-bakimcisi, skill-avcisi, arsivci
-  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, is-anlati, update, sade-excel, toplu-etiketle, auto, root-cause-first  →  /orkestra:<ad>
+  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, is-anlati, update, sade-excel, toplu-etiketle, auto, root-cause-first, db-olcum, iddia-dogrula  →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
   scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: sekiz sayfa, /analitik → /verim; sunulan dosyalar STATIK),
@@ -187,6 +187,8 @@ Bir projede orkestrayı açmak için `/orkestra:baslat` kullan; sistem yalnız a
 | `/orkestra:root-cause-first` | Hata, regresyon, olay ve planlı değişikliklerde kanıta dayalı kök neden disiplini (RCF-G0…G4, doğrulama kapısı) |
 | `/orkestra:auto <iş>` | `/auto` modu: iş onay beklemeden çalışma özetine kadar yürür (ADR-0009); `/plan` varsayılandır |
 | `/orkestra:sade-excel` | CSV/JSON tabloyu sade Excel teslimatına çevirir (Özet + en çok 2 veri sayfası; Python `openpyxl` gerekir) |
+| `/orkestra:db-olcum` | Projenin veritabanında salt okuma ölçüm: hipotezden betik, kapı denetimleri (VPN, yasak saat, kimlik dosyası, SQL güvenliği), saatli CSV ve rapor; sunucu ve saat kuralları `.claude/orkestra/db_olcum.json` ezmesinden gelir |
+| `/orkestra:iddia-dogrula` | İddia listesini madde madde kanıtla doğrular (DOĞRULANDI / KISMEN / ÇÜRÜTÜLDÜ / TEYİT / BELİRSİZ), mekanik denetim ve ayrı denetçi; yollar `.claude/orkestra/iddia_dogrula.json` ezmesinden gelir |
 | `/orkestra:toplu-etiketle` | Yüzlerce satırı kurallara göre paralel Haiku işçileriyle etiketler, birleştirme ve örneklem denetimi betikle |
 | `/orkestra:onay` | Panelde onaylanan kararları (perspektif önerileri, skill taslakları, ajan soruları) uygular |
 | `orkestra onay liste/goster/iste/karar/al/uygulandi/iptal/esitle` | Onay kuyruğu: panelin Onaylar sayfasıyla aynı kayıtlar; `iste` ajanın panelden karar istemesi, `karar --onay\|--ret` sohbette verilen kararı kaydeder |

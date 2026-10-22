@@ -81,6 +81,8 @@ Açık bir işe dönmek için `orkestra is devam <id>` kullan. Büyük işler `/
 | PR, commit, dal, Jira yorumu standardı | `/orkestra:standart` |
 | Tabloyu sade Excel'e çevir | `/orkestra:sade-excel` |
 | Yüzlerce satırı toplu etiketle | `/orkestra:toplu-etiketle` |
+| Veritabanında salt okuma ölçüm yap | `/orkestra:db-olcum` |
+| İddia listesini kanıtla doğrula | `/orkestra:iddia-dogrula` |
 | Eklentiyi güncelle | `/orkestra:update` ya da `orkestra update` |
 
 Terminalden sık kullanılanlar:

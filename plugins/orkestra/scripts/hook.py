@@ -1115,6 +1115,25 @@ def _kimlik_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
+    """P-029: yanıt kullanıcıya düz metinle seçim yaptırıyor ama turda seçim ekranı aracı çağrılmadıysa ihlaldir.
+    Her kipte günlüğe `kural_ihlal / secim_ekrani` yazılır; varsayılan kip `golge` (engellemez), `block` kipinde tur başına
+    bir kez block (`stop_hook_active` döngüyü keser). Kalıplar ayarda (`ayarlar/secim_ekrani_hatirlatma.json`); hatada sessiz geçer."""
+    try:
+        import secim_ekrani_hatirlatma as SH
+        if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
+            return
+        kip = SH.mod(SH.ayar_oku(sd))
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                         "kural": "secim_ekrani", "mod": kip, "is": _oturum_isi(sd, oid)})
+        if kip == "block" and not inp.get("stop_hook_active"):
+            L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
     """P-009 tetik anı: bağlı işin tüm todo maddeleri bitti ama iş hâlâ açıksa tur bitmeden özet ve kapatma istenir.
     Tur başına bir kez block (`stop_hook_active` döngüyü keser); ORKESTRA_KAPANIS_KAPISI=0 kapatır. Hatada sessiz geçer."""
@@ -1281,6 +1300,7 @@ def stop(inp: dict):
     if not perspektif:
         _baglanti_kapisi(sd, oid, inp, ozet)
         _kimlik_kapisi_yanit(sd, oid, inp)
+        _secim_kapisi_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif:

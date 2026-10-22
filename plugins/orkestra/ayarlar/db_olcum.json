@@ -1,0 +1,13 @@
+{
+  "aciklama": "db-olcum skill varsayılanları. Proje ezmesi: .claude/orkestra/db_olcum.json (üst düzey anahtarlar yerine konur, ortamlar ad ad birleşir).",
+  "calisma_dizini": "calisma",
+  "kimlik_dosyasi": "db.py",
+  "senkron_kullanici": "",
+  "ortamlar": {
+    "kopya": {"host": "", "port": 5432, "yasak_saatler": []},
+    "prod": {"host": "", "port": 5432, "yasak_saatler": [], "mesai": ["09:00", "18:00"]}
+  },
+  "yasak_komut_kalibi": "\\b(insert|update|delete|truncate|alter|drop|create\\s+(table|index|role|schema|function|procedure)|grant|revoke|call|copy|vacuum|analyze)\\b",
+  "yasak_kolon_kaliplari": ["password", "authtoken", "clientsecret"],
+  "okunmayacak_alanlar": []
+}

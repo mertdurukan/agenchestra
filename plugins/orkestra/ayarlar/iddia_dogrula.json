@@ -1,0 +1,10 @@
+{
+  "aciklama": "iddia-dogrula skill varsayılanları. Proje ezmesi: .claude/orkestra/iddia_dogrula.json (anahtarlar yerine konur).",
+  "rapor_dizini": "calisma/dogrulama",
+  "calisma_dizini": "calisma",
+  "kod_depolari": [],
+  "kapsam_disi": [],
+  "ornek_raporlar": [],
+  "onceki_turlar": [],
+  "yayma_notlari": []
+}
