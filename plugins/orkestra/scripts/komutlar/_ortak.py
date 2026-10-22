@@ -27,6 +27,14 @@ BASAMAKLAR = ("T0", "T1", "T2", "T3", "T4")
 
 def hata(mesaj: str, kod: int = 2):
     print(f"orkestra: {mesaj}", file=sys.stderr)
+    if kod != 2:   # kod 2 kullanıcı/ön koşul hatası: kaydedilmez (ADR-0035 K2)
+        try:
+            import hata_kayit as HK
+            sd = L.durum_dizini()
+            if sd:
+                HK.kaydet(sd, "cli", "CliHata", mesaj, {"kod": kod})
+        except Exception:
+            pass
     sys.exit(kod)
 
 
