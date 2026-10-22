@@ -845,7 +845,6 @@
     document.title = 'Orkestra · ' + g.baslik;
     if (odakId) { const e = document.getElementById(odakId); if (e) { e.focus(); if (imlec) try { e.setSelectionRange(...imlec); } catch (x) { /* arama türü */ } } }
     kaydir.forEach(([id, t]) => { const e = id && document.getElementById(id); if (e) e.scrollTop = t; });
-    odakUygula();
     rayCiz();
   }
 
