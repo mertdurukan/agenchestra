@@ -89,6 +89,52 @@ def _eski_paneli_durdur() -> None:
         pass
 
 
+ISARET = os.path.join(L.GENEL_DIZIN, "panel_servis.json")
+
+
+def _isaret_oku() -> dict:
+    try:
+        with open(ISARET, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _isaret_yaz(durum: str, **ek) -> None:
+    """Otomatik kurulumun makine başına kaydı: kuruldu | kaldirildi (kullanıcı kaldırdı, yeniden kurulmaz) | hata."""
+    try:
+        L.atomik_yaz(ISARET, json.dumps({"durum": durum, "betik": PANEL_BETIGI, "zaman": L.simdi(), **ek}))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _gorev_betigi_guncel() -> bool:
+    """Kayıtlı görev bu eklenti kopyasının panel.py'sini mi çalıştırıyor (eklenti güncellenince yol değişir)."""
+    r = _schtasks("/Query", "/TN", GOREV, "/XML")
+    return r.returncode == 0 and escape(PANEL_BETIGI) in (r.stdout or "")
+
+
+def otomatik_kur() -> str | None:
+    """SessionStart'ta çağrılır (ADR-0034): Windows'ta görev yoksa kurar, eklenti yolu değiştiyse yeniden kaydeder.
+    Kullanıcı `servis kaldir` dediyse ya da ORKESTRA_PANEL_SERVIS=0 ise dokunmaz; hatada aynı yolla yeniden denemez."""
+    if os.name != "nt" or os.environ.get("ORKESTRA_PANEL_SERVIS") == "0":
+        return None
+    m = _isaret_oku()
+    if m.get("durum") == "kaldirildi":
+        return None
+    if m.get("durum") in ("kuruldu", "hata") and m.get("betik") == PANEL_BETIGI:
+        return None
+    try:
+        if kurulu() and _gorev_betigi_guncel():
+            _isaret_yaz("kuruldu")
+            return None
+        kur()
+        return "kuruldu"
+    except BaseException as e:  # noqa: BLE001  (kur() SystemExit ile hata bildirir)
+        _isaret_yaz("hata", hata=str(e)[:200])
+        return None
+
+
 def kur(port: int | None = None) -> dict:
     _nt_zorunlu()
     port = port or cfg.panel_port()
