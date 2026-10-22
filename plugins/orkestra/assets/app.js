@@ -159,6 +159,7 @@
         const degisti = imza !== k.imza;
         Object.assign(k, { veri: v, hata: null, zaman: Date.now(), imza });
         V.sonBasari = Date.now();
+        if (yol === GUNC_YOL) guncellemeIzle();
         if (degisti) { eksikleriGetir(); planla(); }
         return v;
       } catch (e) {
