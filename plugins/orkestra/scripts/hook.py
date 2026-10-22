@@ -2179,6 +2179,8 @@ def user_prompt_submit(inp: dict):
                 om = onay.baglam_metni(sd, inp.get("session_id"), "UserPromptSubmit")
                 if om:
                     parcalar.append(om)
+            except TimeoutError:  # I-157: kilit zaman aşımı sessiz düşmesin; gorulen güncellenmediği için sonraki mesajda yeniden denenir
+                parcalar.append("Orkestra: panel kararları okunamadı (onay kilidi zaman aşımı); sonraki mesajda yeniden denenir.")
             except Exception:
                 pass
             ek = "\n".join(p for p in parcalar if p)
