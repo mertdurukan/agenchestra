@@ -261,7 +261,8 @@ class DurumTest(unittest.TestCase):
         self.assertEqual({g["durum"] for g in p["gapler"]}, {"Bilinmiyor"})
 
     def test_sinyal_listesi_sabit(self):
-        for s in ("=>", "test", "pytest", "komut", "çıktı", "ölçüm", "canlı", "exit", "çıkış kodu", "ara ", "0 failed"):
+        for s in ("=>", "test", "pytest", "komut", "çıktı", "ölçüm", "canlı", "exit", "çıkış kodu", "ara ", "0 failed",
+                  "failed", "passed", "grep", "git diff", "node --check"):
             self.assertIn(s, IA.SINYALLER)
 
 
