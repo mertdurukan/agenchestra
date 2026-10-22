@@ -259,6 +259,12 @@ class HttpTest(Ortak):
         self.assertEqual(k, 200)
         self.assertTrue(json.loads(b)["tamam"])
 
+    def test_sohbet_ac_alan_yildizda_alan_hatasi_vermez(self):
+        # geçersiz kimlik: sohbet açılmaz, ama istek alan denetiminden geçip niyet.ac'ye ulaşır (400 değil)
+        k, b = self.istek("POST", "/ac?oturum=gecersiz&alan=*")
+        self.assertEqual(k, 200)
+        self.assertEqual(json.loads(b)["hata"], "geçersiz oturum kimliği")
+
     def test_diger_yazma_uclari_alan_yildizda_hala_reddedilir(self):
         k, b = self.istek("POST", "/onay?alan=*")
         self.assertEqual(k, 400)
