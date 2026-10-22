@@ -137,7 +137,7 @@ def planla(kaynak: str, hedef: str) -> dict:
 
 def say(plan: dict) -> int:
     return (sum(len(v) for v in plan["jsonl"].values()) + len(plan["isler"]) + len(plan["dosyalar"])
-            + len(plan["takma"]))
+            + len(plan["takma"]) + len(plan.get("gorulen") or {}))
 
 
 def devralinmamis_sayisi(kaynak: str, hedef: str) -> int:
