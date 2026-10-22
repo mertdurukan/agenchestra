@@ -2189,6 +2189,12 @@ def user_prompt_submit(inp: dict):
                 uyari = _is_degisimi_uyarisi(sd, inp.get("session_id"), inp.get("transcript_path"), metin)
             except Exception:
                 uyari = ""
+            if not uyari:  # I-159 P5: büyük bağlamda devir uyarısı (iş değişimi uyarısıyla aynı kanal, engellemez)
+                try:
+                    import soguk_onbellek
+                    uyari = soguk_onbellek.devir_uyarisi(sd, inp.get("session_id"), inp.get("transcript_path")) or ""
+                except Exception:
+                    uyari = ""
             cikti = {"systemMessage": uyari} if uyari else {}
             if ek:  # boş bağlam çıktısı yazılmaz
                 import baglam_kaydi
@@ -2251,6 +2257,11 @@ def post_tool_use(inp: dict):
     elif arac in ("Agent", "Task"):
         kayit.update(tur="ajan", ajan=g.get("subagent_type") or "general-purpose", model=g.get("model"),
                      arka_plan=bool(g.get("run_in_background")), aciklama=L.maskele(g.get("description") or "")[:80])
+        try:
+            import sayac
+            sayac.artir(sd, sayac.anahtar(kayit["ajan"], kayit["aciklama"]))
+        except Exception:
+            pass  # sayaç ve toast kancayı asla düşürmez
     elif arac == "Workflow":
         kayit.update(tur="workflow", ad=g.get("name") or (g.get("scriptPath") and os.path.basename(g["scriptPath"])) or "satir-ici")
     else:
