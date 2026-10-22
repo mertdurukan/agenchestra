@@ -1,5 +1,6 @@
-"""panel.py 'Tüm çalışma alanları' (alan=*): yalnız /simdi.json kabul eder; tek alan isteyen yollar 400 döner,
-sessizce ilk alana düşmez (sunucu süreç içinde açılır, panel.json'a dokunulmaz)."""
+"""panel.py 'Tüm çalışma alanları' (alan=*, ADR-0030): okuma uçları birleşir (panel_tum.py); tek alan isteyen yollar
+(iş/kart/ret ayrıntısı, /api/todo, /api/etki) ve her yazma 400 döner, sessizce ilk alana düşmez
+(sunucu süreç içinde açılır, panel.json'a dokunulmaz)."""
 import http.client
 import http.server
 import json
