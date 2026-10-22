@@ -56,6 +56,34 @@ def depo_koku(klasor):
         klasor = ust
 
 
+def kabuk_commit(veri, git):
+    """Kabuk komutundan sonra, ORKESTRA_OTO_COMMIT_BASH_YOLLAR öneklerinin altındaki .md/.json değişikliklerini tek commit'te kaydeder."""
+    import time
+    ham = os.environ.get("ORKESTRA_OTO_COMMIT_BASH_YOLLAR") or ""
+    onekler = [y.strip().strip("/") + "/" for y in ham.split(",") if y.strip()]
+    cwd = veri.get("cwd")
+    repo = depo_koku(cwd) if cwd else None
+    if not onekler or not repo:
+        return
+    cikti = git(repo, "status", "--porcelain", "-z", "-uall").stdout
+    yollar = []
+    for kayit in cikti.split("\0"):
+        yol = kayit[3:].strip('"')
+        if len(kayit) > 3 and yol.endswith((".md", ".json")) and any(yol.startswith(o) for o in onekler):
+            yollar.append(yol)
+    if not yollar:
+        return
+    atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(veri.get("transcript_path")) or ATIF_VARSAYILAN
+    govde = "\n".join(yollar[:20])
+    msg = f"Otomatik commit: {len(yollar)} dosya (kabuk)\n\n{govde}\n\n{atif}"
+    for _ in range(5):  # paralel oturumlarda index.lock bekle
+        a = git(repo, "add", "--", *yollar)
+        c = git(repo, "commit", "-m", msg, "--", *yollar) if a.returncode == 0 else a
+        if c.returncode == 0 or "index.lock" not in (c.stderr or ""):
+            break
+        time.sleep(1)
+
+
 def main():
     if not acik():
         return
