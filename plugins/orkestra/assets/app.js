@@ -468,7 +468,7 @@
         H`<button class="cip" data-eylem="sorgu" data-k="f" data-v="${k}" aria-pressed="${f === k}">${ad}<span class="say">${say[k]}</span></button>`)}
         <input class="arama" id="isAra" type="search" placeholder="İş ara…  /" value="${q}" data-sorgu="q" aria-label="İş ara"></div>
       ${satirlar}</div>`;
-    const sag = H`<section class="ayrinti">${r.id ? isAyrinti(r.id, tum.find(secili)) : bos('Bir iş seç', 'Soldan bir iş seç ya da <j>/<k> ile gez, Enter ile aç.', 'isler')}</section>`;
+    const sag = H`<section class="ayrinti">${r.id ? isAyrinti(r.id, tum.find(secili)) : bos('Bir iş seç', 'Soldan bir iş seç.', 'isler')}</section>`;
     return {
       baslik: 'İşler', yol: r.id ? H`<a href="#/isler${sorgu}">İşler</a> / <span class="kimlik">${r.id}</span>` : null,
       govde: H`<div class="bolunmus${r.id ? ' secili' : ''}">${sol}${sag}</div>`, tam: true,
