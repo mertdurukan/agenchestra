@@ -1,4 +1,4 @@
-"""orkestra komutları: durum (oturum worktree'lerindeki ayrışmış durum kopyalarını ana klasöre devralır; ADR-0032).
+"""orkestra komutları: durum (oturum worktree'lerindeki ayrışmış durum kopyalarını ana klasöre devralır; ADR-0033).
 
 `orkestra durum devral [--uygula] [--tum] [--kaynak YOL] [--json]`
 """

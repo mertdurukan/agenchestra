@@ -83,7 +83,7 @@ def ana_agac_koku(d: str) -> str | None:
 def proje_dizini(cwd: str | None = None) -> str:
     """CLAUDE_PROJECT_DIR > cwd'den yukarı .claude/orkestra arayışı > cwd. Bulunan klasör bağlı bir git worktree'siyse
     (oturum worktree'si: durum kopyası git dışı olduğundan ayrışır) ve ana ağaçta durum klasörü varsa ana ağaç döner;
-    hook, komut ve panel böylece tek durum kaynağını görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (ADR-0032)."""
+    hook, komut ve panel böylece tek durum kaynağını görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (ADR-0033)."""
     baslangic = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
     d = os.path.abspath(baslangic)
     while True:
@@ -1439,7 +1439,7 @@ def _agac_kayitlari(depo: str) -> list[dict]:
 
 
 def oturum_devralinmamis(depo: str, agac: str) -> int:
-    """Oturum ağacındaki durum kopyasında, ana durum klasöründe olmayan öğe sayısı (ADR-0032).
+    """Oturum ağacındaki durum kopyasında, ana durum klasöründe olmayan öğe sayısı (ADR-0033).
     Kopya yoksa, damgalı ve eklenecek yoksa ya da ana klasör yoksa 0."""
     kaynak = os.path.join(agac, ".claude", "orkestra")
     hedef = os.path.join(depo, ".claude", "orkestra")

@@ -1,4 +1,4 @@
-"""`orkestra durum devral`: worktree durum kopyasındaki kayıtları ana klasöre ekler (ADR-0032, I-156 P3).
+"""`orkestra durum devral`: worktree durum kopyasındaki kayıtları ana klasöre ekler (ADR-0033, I-156 P3).
 
 Her test tempfile altında kendi git deposunu kurar; gerçek depoya dokunmaz.
 `py -3.13 -m pytest plugins/orkestra/tests/test_durum_devral.py`

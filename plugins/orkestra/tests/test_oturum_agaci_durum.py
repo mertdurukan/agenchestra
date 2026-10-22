@@ -1,4 +1,4 @@
-"""Oturum worktree'sinde orkestra durumu tek kaynaktan çözülür (ADR-0032, I-156 P1).
+"""Oturum worktree'sinde orkestra durumu tek kaynaktan çözülür (ADR-0033, I-156 P1).
 
 Claude'un oturum başına açtığı worktree'de git dışı `.claude/orkestra` kopyalanır; hook ana klasöre, CLI kopyaya yazıyordu.
 Her test tempfile altında kendi git deposunu kurar; gerçek depoya dokunmaz.

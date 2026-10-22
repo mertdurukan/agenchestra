@@ -418,7 +418,7 @@ def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None, olustu
 
 def kardes_agac_klasorleri(kok: str) -> list[str]:
     """`kok` bir git çalışma ağacındaysa, aynı deponun ÖTEKİ ağaçlarında (oturum ve kart worktree'leri, ana ağaç) aynı göreli
-    klasörün alt klasör adları. Ağaçlar arası numara tekilliği için (ADR-0032): birleşmemiş dallarda aynı NNN iki işe verilmesin.
+    klasörün alt klasör adları. Ağaçlar arası numara tekilliği için (ADR-0033): birleşmemiş dallarda aynı NNN iki işe verilmesin.
     Git yoksa ya da herhangi bir hatada boş liste."""
     try:
         ust = L.git_koku(kok)
@@ -840,7 +840,7 @@ def _agac_koku_bul(yol: str, kok: str) -> str | None:
 
 def _worktree_kopyasi_gecerli_mi(yol: str, kok: str) -> bool:
     """Worktree içindeki todo kopyası bayat sayılmaz: ağacın durum kopyası devralınmış (`.devralindi`) ya da dosya
-    ana ağaçtaki aynı göreli yolla bayt bayt aynı (yalnız dal çıkışı, taşınacak bir şey yok). ADR-0032."""
+    ana ağaçtaki aynı göreli yolla bayt bayt aynı (yalnız dal çıkışı, taşınacak bir şey yok). ADR-0033."""
     agac = _agac_koku_bul(yol, kok)
     if not agac:
         return False

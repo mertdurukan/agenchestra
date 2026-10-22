@@ -1,4 +1,4 @@
-"""Oturum worktree'lerindeki ayrışmış orkestra durum kopyalarını ana durum klasörüne devralır (ADR-0032, I-156 P3).
+"""Oturum worktree'lerindeki ayrışmış orkestra durum kopyalarını ana durum klasörüne devralır (ADR-0033, I-156 P3).
 
 Neden: Claude her oturum için git dışı `.claude/orkestra` klasörünü worktree'ye kopyalar; `ork_lib.proje_dizini` artık
 worktree'den ana ağaca çözüldüğü için YENİ kayıtlar ana klasöre gider, ama çözüm gelmeden önce kopyaya yazılanlar
