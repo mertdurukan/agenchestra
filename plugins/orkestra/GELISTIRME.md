@@ -76,6 +76,12 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - Proje = en yakın manifest dizini; `.git` dosyası olan dizin (çalışma ağacı) ve manifestsiz klasör proje sayılmaz. Kapsamı genişletmek (içe aktarma taraması) ayrı karar ister.
 - Testler: `tests/test_harita_teknolojiler.py`.
 
+## Hata defteri (McD ADR-0035, iş I-184)
+- `scripts/hata_kayit.py`: `kaydet()` hook (`hook.py _hata_yaz`), CLI (`komutlar/_ortak.py hata()`, çıkış kodu 2 hariç) ve özet (`ozet.py`) hatalarını `<durum>/hata.jsonl`e imzalı satır olarak yazar; yazılamazsa stderr'e tek satır, çağıran düşmez. `imza()` sayı, tam yol, `.tmp_` adı ve onaltılık kimliği çıkarır.
+- `scripts/hata_en_cok.py` + `orkestra hata en-cok|liste [--gun N] [--kaynak K | --tum] [--ilk N] [--json]`: hata.jsonl, `gunluk.jsonl` `hook-hatasi` (karşılığı hata.jsonl'de olmayanlar) ve kart retleri okuma anında birleştirilir; kopya yoktur. Kural ihlalleri varsayılanda dışarıdadır (`--kaynak kural` ya da `--tum`).
+- Oturum başı uyarısı: `hook.py _ss_uyarilar` son 7 günde aynı imzadan 3 ve üzeri varsa tek `HATA:` satırı yazar; kural kaynağı sayılmaz.
+- Testler: `tests/test_hata_kayit.py`, `tests/test_hata_en_cok.py`.
+
 ## Test takımı
 - Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; yaklaşık 4 dk).
 - Değişiklikten sonra commit'ten önce koş.
