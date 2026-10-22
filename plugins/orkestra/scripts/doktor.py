@@ -21,6 +21,7 @@ import glob
 import importlib.util
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -368,7 +369,7 @@ def k_izin_politikasi(b: Baglam) -> Sonuc:
         return _hata(f"izin politikası okunamadı: {type(e).__name__}: {e}")
     if kotu:
         return _hata("izin politikasında geçersiz desen: " + ", ".join(kotu), desenler=kotu)
-    if "mcp__" not in eslesme:
+    if not re.fullmatch(eslesme, "mcp__sunucu__arac"):
         return _uyari("hooks.json PreToolUse eşleşmesi MCP araçlarını kapsamıyor: GitHub/Jira kapısı çalışmaz", eslesme=eslesme)
     return _ok(f"izin politikası geçerli (mod: {mod})", mod=mod)
 

@@ -110,6 +110,21 @@ class Mcp(unittest.TestCase):
         for a in ("getJiraIssue", "searchJiraIssuesUsingJql", "lookupJiraAccountId", "fetch", "search", "atlassianUserInfo"):
             self.assertEqual(karar(p + a), "allow", a)
 
+    def test_uuid_adli_atlassian_sunucusu_sunucu_bazli_kapida(self):
+        p = "mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__"
+        for a in ("executeWrite", "executeDestructive", "createConfluenceContent", "updateConfluenceContent",
+                  "addGraphContext", "yeni_bilinmeyen_arac"):
+            self.assertEqual(karar(p + a), "ask", a)
+        for a in ("executeRead", "discover", "getJiraIssue", "searchJiraIssuesUsingJql", "atlassianUserInfo",
+                  "getAccessibleAtlassianResources"):
+            self.assertEqual(karar(p + a), "allow", a)
+
+    def test_sunucu_kimligi_degisse_de_execute_yazma_sorulur(self):
+        p = "mcp__baska-kimlik-1234__"
+        for a in ("executeWrite", "executeDestructive"):
+            self.assertEqual(karar(p + a), "ask", a)
+        self.assertEqual(karar(p + "executeRead"), "allow")
+
     def test_baska_sunucu_ve_yerlesik_arac_serbest(self):
         for a in ("mcp__Claude_Browser__navigate", "mcp__ccd_session__list_start_targets", "Edit", "Write", "WebFetch"):
             self.assertEqual(karar(a), "allow", a)

@@ -402,17 +402,22 @@
     {
       "id": "P-010",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Halka açık ve geri alınamaz eylemler kullanıcı açıkça istemedikçe yapılmaz, istenmemişse sorulur (kullanıcı eylemi açıkça istediyse, ör. 'pushla', bu istek onaydır ve aynı eylem için tekrar sorulmaz): git push, gh ile yazma (PR, issue, release), GitHub MCP yazma araçları, Jira (Atlassian) yazma araçları ve bu adreslere yazan curl/Invoke-RestMethod. Zorla, silme ya da ayna push yapılmaz. Bunların dışındaki her iş (dosya, kabuk, yerel git, tarayıcı, okuma araçları) onay istenmeden yapılır; izin sistemi bir eylemi yine de sorarsa dolanılmaz. Politika ayarlar/izin_politikasi.json dosyasındadır, orkestra izin goster ile görülür; ORKESTRA_IZIN=0 kapatır. Betik içinden API çağrısı en iyi çabayla yakalanır; bu yüzden GitHub/Jira yazma işleri araç ya da gh ile yapılır, betikle değil.",
-      "neden": "Kullanıcı 16.10.2026: halka açık ve geri alınamaz süreçler (GitHub push, Jira update/delete/insert) dışında Claude tam yetkili olmalı ve onay istememeli; politika orkestra eklentisini içe aktaran her projede aynı olmalı. Eklenti permissions taşıyamadığı için politika PreToolUse hook'u ile taşınır (Claude Code dokümanı: plugin settings yalnız agent ve subagentStatusLine uygular).",
+      "metin": "ZORUNLU, istisnasız: Halka açık ve geri alınamaz eylemler kullanıcı açıkça istemedikçe yapılmaz, istenmemişse sorulur (kullanıcı eylemi açıkça istediyse, ör. 'pushla', bu istek onaydır ve aynı eylem için tekrar sorulmaz): git push, gh ile yazma (PR, issue, release), GitHub MCP yazma araçları, Jira (Atlassian) yazma araçları ve bu adreslere yazan curl/Invoke-RestMethod. Zorla, silme ya da ayna push yapılmaz. Bunların dışındaki her iş (dosya, kabuk, yerel git, tarayıcı, okuma araçları) onay istenmeden yapılır; izin sistemi bir eylemi yine de sorarsa dolanılmaz. Politika ayarlar/izin_politikasi.json dosyasındadır, orkestra izin goster ile görülür; ORKESTRA_IZIN=0 kapatır. Betik içinden API çağrısı en iyi çabayla yakalanır; bu yüzden GitHub/Jira yazma işleri araç ya da gh ile yapılır, betikle değil. Kapı sunucu bazlıdır: bilinen Atlassian MCP sunucusunda (ayarlar/izin_politikasi.json, araç adı Jira ya da Atlassian içermese de) okuma listesi (get, search, lookup, fetch, atlassianUserInfo, discover, executeRead) dışındaki her araç, ayrıca sunucu kimliğinden bağımsız her execute(Write|Destructive) aracı sorulur.",
+      "neden": "I-062: Atlassian MCP sunucusunda araç adı deseni execute* araçlarını kaçırıyordu; kapı sunucu bazlı yapıldı",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T21:32:55+03:00",
-      "guncelleme": "2026-10-16T21:32:55+03:00",
+      "guncelleme": "2026-10-22T23:12:59+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T21:32:55+03:00",
           "olay": "eklendi",
           "metin": "ZORUNLU, istisnasız: Halka açık ve geri alınamaz eylemler her seferinde kullanıcıya sorulur: git push, gh ile yazma (PR, issue, release), GitHub MCP yazma araçları, Jira (Atlassian) yazma araçları ve bu adreslere yazan curl/Invoke-RestMethod. Zorla, silme ya da ayna push yapılmaz. Bunların dışındaki her iş (dosya, kabuk, yerel git, tarayıcı, okuma araçları) onay istenmeden yapılır; izin sistemi bir eylemi yine de sorarsa dolanılmaz. Politika ayarlar/izin_politikasi.json dosyasındadır, orkestra izin goster ile görülür; ORKESTRA_IZIN=0 kapatır. Betik içinden API çağrısı en iyi çabayla yakalanır; bu yüzden GitHub/Jira yazma işleri araç ya da gh ile yapılır, betikle değil."
+        },
+        {
+          "zaman": "2026-10-22T23:12:59+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Halka açık ve geri alınamaz eylemler kullanıcı açıkça istemedikçe yapılmaz, istenmemişse sorulur (kullanıcı eylemi açıkça istediyse, ör. 'pushla', bu istek onaydır ve aynı eylem için tekrar sorulmaz): git push, gh ile yazma (PR, issue, release), GitHub MCP yazma araçları, Jira (Atlassian) yazma araçları ve bu adreslere yazan curl/Invoke-RestMethod. Zorla, silme ya da ayna push yapılmaz. Bunların dışındaki her iş (dosya, kabuk, yerel git, tarayıcı, okuma araçları) onay istenmeden yapılır; izin sistemi bir eylemi yine de sorarsa dolanılmaz. Politika ayarlar/izin_politikasi.json dosyasındadır, orkestra izin goster ile görülür; ORKESTRA_IZIN=0 kapatır. Betik içinden API çağrısı en iyi çabayla yakalanır; bu yüzden GitHub/Jira yazma işleri araç ya da gh ile yapılır, betikle değil."
         }
       ],
       "etkinlesme": "2026-10-16T21:32:55+03:00",

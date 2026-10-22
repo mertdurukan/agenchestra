@@ -47,6 +47,16 @@
       "ad": "Jira/Atlassian",
       "arac": "(?i)^mcp__.*(?:atlassian|jira)",
       "okuma": "(?i)__(?:get|search|lookup|fetch|atlassianUserInfo)"
+    },
+    {
+      "ad": "Atlassian sunucusu 73d9f9eb (sunucu bazlı: okuma dışı her araç)",
+      "arac": "^mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__",
+      "okuma": "^mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__(?:get|search|lookup|fetch|atlassianUserInfo|discover$|executeRead$)"
+    },
+    {
+      "ad": "Atlassian execute-yazma (sunucu kimliğinden bağımsız)",
+      "arac": "(?i)^mcp__.*__execute(?:Write|Destructive)$",
+      "okuma": "(?!)"
     }
   ]
 }
