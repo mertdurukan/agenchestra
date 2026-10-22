@@ -20,7 +20,7 @@ import is_kaydi as IK  # noqa: E402
 
 # Todo kanıt notunda doğrulama sinyali sayılan ifadeler (küçük harf, alt dize eşleşmesi).
 SINYALLER = ("=>", "test", "pytest", "komut", "çıktı", "ölçüm", "canlı", "exit", "çıkış kodu", "ara ", "0 failed",
-             "failed", "passed", "grep", "git diff", "sayısı")
+             "failed", "passed", "grep", "git diff", "node --check")
 
 FIILLER = {
     "Doğrulandı": ["doğruladım", "ölçtüm", "kontrol ettim"],
