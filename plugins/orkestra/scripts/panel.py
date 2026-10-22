@@ -964,6 +964,15 @@ def _isleyici():
                     return self._json(200, {"tamam": True}, kapat=True)
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
+            if u.path in ("/api/guncelle", "/api/guncelle-ertele"):
+                # Kullanıcı düzeyi: alan almaz. Gövde okunmaz; yanıt sonrası temiz kapatılır.
+                if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
+                    return self._gonder(403, "text/plain", b"yasak", kapat=True)
+                try:
+                    sonuc = GUNCELLEME.guncelle() if u.path == "/api/guncelle" else GUNCELLEME.ertele()
+                except Exception as e:  # noqa: BLE001
+                    return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
+                return self._json(200 if sonuc.get("tamam") else 409, sonuc, kapat=True)
             if u.path == "/api/isler-sifirla":
                 return self._post_isler_sifirla(urllib.parse.parse_qs(u.query))
             if u.path == "/api/is-kapat":
