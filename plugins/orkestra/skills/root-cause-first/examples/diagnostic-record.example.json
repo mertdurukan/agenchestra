@@ -1,0 +1,41 @@
+{
+  "task_kind": "failure",
+  "depth": "standard",
+  "expected": "Request returns valid result",
+  "observed": "Request returns HTTP 500",
+  "evidence": [
+    {
+      "id": "E1",
+      "kind": "test",
+      "location": "tests/test_api.py::test_request",
+      "observation": "Baseline test fails"
+    },
+    {
+      "id": "E2",
+      "kind": "test",
+      "location": "tests/test_api.py::test_request (after change)",
+      "observation": "Targeted regression test passes after change"
+    }
+  ],
+  "cause_confidence": "supported",
+  "implementation_status": "implemented",
+  "verification_status": "partial",
+  "disposition": "implemented_unverified",
+  "verification": [
+    {
+      "kind": "regression",
+      "result": "passed",
+      "evidence": [
+        "E2"
+      ]
+    },
+    {
+      "kind": "outcome",
+      "result": "not_run",
+      "evidence": []
+    }
+  ],
+  "residual_risks": [
+    "Production outcome not yet observed"
+  ]
+}
