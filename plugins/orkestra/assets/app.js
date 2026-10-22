@@ -1001,6 +1001,18 @@
       b.disabled = true;
       try { await gonder('/perspektif-yoksay', {}, b.dataset.alan || undefined); bildir('Yoksayıldı; bir sonraki tetiklemeye kadar sorulmaz.'); getir('/onaylar.json', { taze: true }); }
       catch (x) { bildir('Yoksayılamadı: ' + x.message, { hata: true }); b.disabled = false; }
+    } else if (ey === 'guncelle') {
+      b.disabled = true;
+      try { await gonder('/api/guncelle'); bildir('Güncelleme başladı.'); }
+      catch (x) { bildir('Güncelleme başlatılamadı: ' + x.message, { hata: true, sure: 8000 }); }
+      await getir(GUNC_YOL, { taze: true });   // başarıda 'calisiyor' kartı gelir ve yoklama başlar; başka sekmede çalışıyorsa o da görünür
+      b.disabled = false;
+    } else if (ey === 'guncelle-ertele') {
+      b.disabled = true;
+      try { await gonder('/api/guncelle-ertele'); bildir('Yeni bir sürüm çıkınca yeniden hatırlatılır.'); }
+      catch (x) { bildir('Ertelenemedi: ' + x.message, { hata: true }); }
+      await getir(GUNC_YOL, { taze: true });
+      b.disabled = false;
     } else if (ey === 'yenile') { V.onbellek.delete(anahtar(b.dataset.yol)); tazele(true); }
     else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
     else if (ey === 'yap-ekle') yapEkle();
