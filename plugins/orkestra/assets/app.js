@@ -175,7 +175,7 @@
   function eksikleriGetir() { gerekler(rota()).forEach(y => { const k = kayit(y); if (!k.veri && !k.istek && !k.hata && alanAl(y)) getir(y); }); }
   const tazele = (taze = false) => gerekler(rota()).concat(TEMEL).forEach(y => getir(y, { taze }));
   const GUNC_YOL = '/api/guncelleme';   // eklenti güncelleme durumu: kullanıcı düzeyi, çalışma alanından bağımsız (ADR-0035)
-  const GUNC_ARALIK = 1000;             // sn değil ms: koşu sürerken ilerleme yoklaması
+  const GUNC_ARALIK = 1000;             // ms: koşu sürerken ilerleme yoklaması
   const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json', GUNC_YOL];
   const YAP_YOL = '/api/kullanici-todo';
 
