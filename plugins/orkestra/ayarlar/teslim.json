@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "mod: golge = teslim eksiği (PR, CI, inceleme) uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = eksik varsa is kapat reddedilir. Yalnız origin uzak deposu olan ve iş açıldığından beri kod dosyası değişen işlerde çalışır. Kapatma: ORKESTRA_TESLIM_KAPISI=0. Proje ezmesi: .claude/orkestra/teslim.json (ADR-0035)."
+}
