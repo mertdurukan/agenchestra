@@ -1440,7 +1440,8 @@ def _agac_kayitlari(depo: str) -> list[dict]:
 
 def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
     """Deponun worktree'lerini sınıflar: aday (kartı teslim/iptal ya da kartsız kart ağacı), acik (kart açık),
-    kalip_disi (kart düzenine uymayan). Her öğe {yol, dal, kart, neden}."""
+    oturum (Claude'un oturum başına açtığı `claude/<ad>-<hex>` ağacı; orkestra kaldırmaz, devralınmamış kayıt sayısını
+    `devralinmamis` ile bildirir), kalip_disi (kart düzenine uymayan). Her öğe {yol, dal, kart, neden}."""
     depo_n = os.path.abspath(depo).replace("\\", "/").rstrip("/")
     kartlar_ = {k.get("id"): k for k in ks}
     kok = (os.environ.get(AGAC_KOKU_ORTAM) or "").strip()
