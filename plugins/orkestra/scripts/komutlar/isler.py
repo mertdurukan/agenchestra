@@ -193,6 +193,8 @@ def cmd_is_sira(a):
     print(f"todo: {'var' if os.path.exists(os.path.join(kayit['klasor'], 'todo.md')) else 'yok'}")
     for e in eksik:
         print(f"  eksik: {e}")
+    for e in ik.SIRA.sozlesme_uyari(kayit["klasor"]) if not eksik else []:  # ADR-0035: gölge modunda uyarı + kapi_golge kaydı
+        print(f"  uyarı (sözleşme): {e}")
 
 
 def cmd_is_onayla(a):
@@ -368,6 +370,13 @@ def _ozet_kalite_eksigi(klasor, metin):
         anilmayan += [f"G{n}" for n in sorted(SR.mevcut_durum_gapleri(klasor)) if not re.search(rf"\bG{n}\b", govde)]
     if anilmayan:
         return "calisma_ozeti: `Plana göre gerçekleşen` bölümünde anılmayan: " + ", ".join(anilmayan) + " (P-018)"
+    if SR.sozlesmeli_mi(klasor):  # ADR-0035: özet sözleşmedeki her başarı kriterini (S<n>) anar; gölge modunda yalnız uyarır
+        import kapi_mod as KM
+        sz = [f"S{n}" for n in sorted(SR.sozlesme_kriterleri(klasor)) if not re.search(rf"\bS{n}\b", govde)]
+        if sz:
+            kalan = KM.ihlal_ver(klasor, "sozlesme", ["calisma_ozeti: `Plana göre gerçekleşen` bölümünde anılmayan sözleşme kriteri: " + ", ".join(sz)])
+            if kalan:
+                return kalan[0]
     return _auto_ozet_eksigi(klasor, metin)
 
 
@@ -461,6 +470,10 @@ def kapanis_eksigi(sd, kayit, ozetsiz=""):
             return ("adr", f"ADR kaydı eksik ({eksik}). "
                     "Karar gerektiren iş için adr/ADR-nnnn-<kisa-baslik>.md yaz ve plan.md'ye `**ADR:** ADR-nnnn` satırı ekle; "
                     "gerekmiyorsa `**ADR:** gerekmez — <neden>` yaz (P-015). İş hiç yapılmadan kapanıyorsa: --ozetsiz \"neden\".")
+    import teslim as _teslim
+    eksik = _teslim.teslim_eksigi(sd, kayit)  # ADR-0035: gölge modunda uyarır ve boş döner
+    if eksik:
+        return ("teslim", "teslim eksik: " + "; ".join(eksik) + ". PR ve inceleme bağlantısı: `orkestra is teslim <iş> --pr <bağlantı> --inceleme \"<kim/ne>\"`.")
     return None
 
 
@@ -471,6 +484,16 @@ def kapat_uygula(sd, is_id):
     _teknik_detay_yaz(sd, is_id)
 
 
+def cmd_is_teslim(a):
+    """PR bağlantısı ve inceleme notunu is.json `teslim` alanına yazar; kapanış kapısı (teslim.py) bunu okur."""
+    sd = sd_gerekli()
+    _is_gerekli(sd, a.is_id)
+    if not (a.pr or a.inceleme):
+        hata("--pr ya da --inceleme ver")
+    t = __import__("teslim").kaydet_girdi(sd, a.is_id, a.pr or "", a.inceleme or "").get("teslim", {})
+    print(f"{a.is_id} teslim: pr={t.get('pr', '-')} inceleme={t.get('inceleme', '-')}")
+
+
 def cmd_is_kapat(a):
     """Kapanış kapıları: görev bitiş raporu (P-009) ve ADR kaydı (P-015) zorunlu.
     ORKESTRA_OZET_KAPISI=0 / ORKESTRA_ADR_KAPISI=0 kapıyı kapatır; hiç iş yapılmadan kapanan iş için `--ozetsiz NEDEN`
@@ -478,6 +501,9 @@ def cmd_is_kapat(a):
     sd = sd_gerekli()
     kayit = _is_gerekli(sd, a.is_id)
     ozetsiz = (getattr(a, "ozetsiz", None) or "").strip()
+    if getattr(a, "pr", None) or getattr(a, "inceleme", None):
+        import teslim as _teslim
+        kayit = _teslim.kaydet_girdi(sd, a.is_id, a.pr or "", a.inceleme or "")
     engel = kapanis_eksigi(sd, kayit, ozetsiz)
     if engel:
         hata(f"{a.is_id} kapatılamadı: {engel[1]}")
@@ -1059,9 +1085,9 @@ def kaydet(alt):
     idv = is_.add_parser("devam")
     idv.add_argument("is_id")
     idv.set_defaults(f=cmd_is_devam)
-    ibg = is_.add_parser("belge", help="şablondan belge açar (mevcut_durum, plan, ozet, bulgu, jira, rapor; var olanı ezmez) ve sohbet bağlantı satırlarını basar")
+    ibg = is_.add_parser("belge", help="şablondan belge açar (sozlesme, mevcut_durum, plan, ozet, bulgu, jira, rapor; var olanı ezmez) ve sohbet bağlantı satırlarını basar")
     ibg.add_argument("is_id")
-    ibg.add_argument("tur", choices=["mevcut_durum", "plan", "ozet", "bulgu", "jira", "rapor"])
+    ibg.add_argument("tur", choices=["sozlesme", "mevcut_durum", "plan", "ozet", "bulgu", "jira", "rapor"])
     ibg.set_defaults(f=cmd_is_belge)
     isa = is_.add_parser("sira", help="P-005 sırası: mevcut durum → plan → todo; adım ve eksikler (--ac eski işi sıralı yapar)")
     isa.add_argument("is_id")
@@ -1098,7 +1124,14 @@ def kaydet(alt):
     ik_ = is_.add_parser("kapat")
     ik_.add_argument("is_id")
     ik_.add_argument("--ozetsiz", metavar="NEDEN", help="görev bitiş raporu (çalışma özeti) olmadan kapat; neden zorunlu (P-009)")
+    ik_.add_argument("--pr", metavar="BAĞLANTI", help="teslim kapısı: kapanıştan önce PR bağlantısını kaydeder (ADR-0035)")
+    ik_.add_argument("--inceleme", metavar="NOT", help="teslim kapısı: inceleme kaydı (kim/ne); GitHub onayı yoksa gerekir")
     ik_.set_defaults(f=cmd_is_kapat)
+    ite = is_.add_parser("teslim", help="PR bağlantısı ve inceleme notunu işe kaydeder (teslim kapısı, ADR-0035)")
+    ite.add_argument("is_id")
+    ite.add_argument("--pr", metavar="BAĞLANTI")
+    ite.add_argument("--inceleme", metavar="NOT")
+    ite.set_defaults(f=cmd_is_teslim)
     it_ = is_.add_parser("todo")
     it_.add_argument("is_id")
     it_.add_argument("--ekle", action="append", metavar="METİN", help="todo.md sonuna açık madde ekler (tekrarlanabilir; --bitti'den sonra uygulanır)")

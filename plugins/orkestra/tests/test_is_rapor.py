@@ -426,5 +426,25 @@ class Yalitim(unittest.TestCase):  # kriter 8
             self.assertIn("I-001", p.stdout)
 
 
+class KapiGolge(Temel):  # ADR-0035 P5: gölge kapı uyarıları ölçülür
+    def test_kapi_golge_olaylari_kapiya_gore_sayilir(self):
+        import is_rapor
+        jsonl_yaz(os.path.join(self.sd, "gunluk.jsonl"), [
+            {"tur": "kapi_golge", "kapi": "sozlesme", "is": "I-001", "neden": "a"},
+            {"tur": "kapi_golge", "kapi": "sozlesme", "is": "I-002", "neden": "b"},
+            {"tur": "kapi_golge", "kapi": "teslim", "is": "I-001", "neden": "c"},
+            {"tur": "baska_olay", "kapi": "teslim"}])
+        r = is_rapor.rapor(self.sd)
+        self.assertEqual(r["kapi_golge"], {"sozlesme": 2, "teslim": 1})
+        self.assertIn("gölge kapı uyarıları: sozlesme 2, teslim 1", is_rapor.metin(r))
+
+    def test_golge_olayi_yoksa_satir_ve_csv_degismez(self):
+        import is_rapor
+        r = is_rapor.rapor(self.sd)
+        self.assertEqual(r["kapi_golge"], {})
+        self.assertNotIn("gölge", is_rapor.metin(r))
+        self.assertNotIn("kapi_golge", is_rapor.csv_metni(r))
+
+
 if __name__ == "__main__":
     unittest.main()

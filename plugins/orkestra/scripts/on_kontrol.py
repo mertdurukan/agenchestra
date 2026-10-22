@@ -25,6 +25,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import kapi_mod as KM  # noqa: E402
 
 TEST_ZAMAN_ASIMI = 900.0
 FAILED_RE = L.PYTEST_DUSEN_RE  # ortak ayrıştırıcı (ork_lib); geriye uyum için ad korunur
@@ -229,6 +230,14 @@ def _kosu_kaydet(proje, sd, gid, ajan_id, gecti, turler, ciktilar) -> None:
         pass
 
 
+def izole_degil(proje: str, kart: dict) -> bool:
+    """Kod kartı, git deposunun ana çalışma ağacında mı çalışıyor (worktree değil)? Yalnız uyarı içindir (ADR-0035)."""
+    if (kart.get("sinif") or "").strip().lower() != "kod":
+        return False
+    kok = L.git_koku(proje)
+    return bool(kok) and os.path.isdir(os.path.join(kok, ".git"))
+
+
 def kontrol(a) -> int:
     bas = time.monotonic()
     proje, sd, kart = _kart(a)
@@ -294,6 +303,11 @@ def kontrol(a) -> int:
             return _kullanim(f"kaynak okunamadı: {e}")
         if eksik:
             ihlaller.append({"tur": TUR_TOKEN, "ayrinti": eksik})
+
+    # (e) izole ortam: kod kartı ana çalışma ağacında (yalnız uyarı ve gölge kaydı; ADR-0035)
+    if os.environ.get("ORKESTRA_IZOLE_UYARI") != "0" and izole_degil(proje, kart):
+        uyarilar.append("izole-ortam")
+        KM.kaydet(proje, "izole_ortam", f"{kart['id']}: kod kartı ana çalışma ağacında; worktree önerilir")
 
     ajan = getattr(a, "ajan_id", None)
     if not ajan:

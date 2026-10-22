@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 
 import kapi_mod as KM
 import ork_lib as L
 
 KOD_UZANTILARI = {".py", ".js", ".ts", ".tsx", ".jsx", ".sh", ".ps1", ".css", ".html", ".sql", ".tf", ".yml", ".yaml"}
+ATLANAN_PARCALAR = ("/.claude/", "/_arsiv/")
 ATLANAN_YOLLAR = ("adr/", ".claude/", "_arsiv/")
 
 
@@ -39,10 +41,10 @@ def kod_dosyalari(git_kok: str, klasor: str, baslangic: str | None) -> list[str]
     """İş açıldığından beri (commit'ler `--since`, çalışma ağacı değişiklikleri) değişen kod dosyaları; iş klasörü, adr/, .claude/ hariç."""
     adlar: set[str] = set()
     if baslangic:
-        r = L.git(["log", f"--since={baslangic}", "--name-only", "--format="], git_kok)
+        r = L.git(["-c", "core.quotepath=off", "log", f"--since={baslangic}", "--name-only", "--format="], git_kok)
         if r.returncode == 0:
             adlar |= {s.strip() for s in r.stdout.splitlines() if s.strip()}
-    r = L.git(["status", "--porcelain"], git_kok)
+    r = L.git(["-c", "core.quotepath=off", "status", "--porcelain", "-uall"], git_kok)
     if r.returncode == 0:
         adlar |= {s[3:].strip().strip('"').split(" -> ")[-1] for s in r.stdout.splitlines() if len(s) > 3}
     try:
@@ -52,7 +54,7 @@ def kod_dosyalari(git_kok: str, klasor: str, baslangic: str | None) -> list[str]
     sonuc = []
     for a in sorted(adlar):
         n = a.replace("\\", "/")
-        if n.startswith(ATLANAN_YOLLAR) or (is_goreli and n.startswith(is_goreli)):
+        if n.startswith(ATLANAN_YOLLAR) or any(p in "/" + n for p in ATLANAN_PARCALAR) or (is_goreli and n.startswith(is_goreli)):
             continue
         if os.path.splitext(n)[1].lower() in KOD_UZANTILARI:
             sonuc.append(n)
@@ -73,8 +75,8 @@ def ci_durumu(rollup) -> str:
             return "kirmizi"
         if sonuc in ("SUCCESS", "NEUTRAL", "SKIPPED"):
             continue
-        if sonuc in ("PENDING", "EXPECTED", "") or (durum and durum != "COMPLETED"):
-            bekliyor = True
+        if sonuc not in ("SUCCESS", "NEUTRAL", "SKIPPED") or (durum and durum != "COMPLETED"):
+            bekliyor = True  # PENDING, EXPECTED, boş ve bilinmeyen sonuçlar yeşil sayılmaz
     return "bekliyor" if bekliyor else "yesil"
 
 
@@ -105,11 +107,16 @@ def teslim_eksigi(sd: str, kayit: dict) -> list[str]:
     t = kayit.get("teslim") if isinstance(kayit.get("teslim"), dict) else {}
     pr = pr_oku(str(t.get("pr") or ""), git_kok)
     eksik = []
+    gh_yok = pr is None and shutil.which("gh") is None
     ci = None
-    if pr is None:
+    if gh_yok:
+        eksik.append(f"{len(dosyalar)} kod dosyası değişti ama `gh` kurulu değil, PR doğrulanamadı (`orkestra is teslim <iş> --pr <bağlantı> --inceleme \"<kim/ne>\"` ile kaydet)")
+    elif pr is None:
         eksik.append(f"{len(dosyalar)} kod dosyası değişti ama PR bulunamadı (dalı PR olarak aç; `orkestra is teslim <iş> --pr <bağlantı>`)")
     else:
         ci = ci_durumu(pr.get("statusCheckRollup"))
+        if str(pr.get("state") or "").upper() == "CLOSED":
+            eksik.append("PR birleştirilmeden kapatılmış")
         if ci == "kirmizi":
             eksik.append("PR'ın CI sonucu başarısız")
         elif ci == "bekliyor":

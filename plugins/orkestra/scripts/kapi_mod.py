@@ -37,16 +37,40 @@ def mod(kapi: str, klasor: str | None = None) -> str:
     return sonuc
 
 
-def kaydet(klasor: str, kapi: str, neden: str) -> None:
-    """Gölge kaydı: gunluk.jsonl'a `kapi_golge` olayı. Kapıyı hiçbir koşulda bozmaz."""
+def _zaten_kayitli(yol: str, is_ad: str, kapi: str, neden: str) -> bool:
+    """Günlüğün son 64 KB'ında aynı (iş, kapı, neden) var mı; tekrar tekrar çağrılan kapılar sayıyı şişirmesin."""
+    try:
+        with open(yol, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 65536))
+            kuyruk = f.read().decode("utf-8", errors="ignore")
+    except OSError:
+        return False
+    for satir in kuyruk.splitlines():
+        try:
+            o = json.loads(satir)
+        except ValueError:
+            continue
+        if isinstance(o, dict) and o.get("tur") == "kapi_golge" and o.get("kapi") == kapi                 and o.get("is") == is_ad and o.get("neden") == neden[:300]:
+            return True
+    return False
+
+
+def kaydet(klasor: str, kapi: str, neden: str) -> bool:
+    """Gölge kaydı: gunluk.jsonl'a `kapi_golge` olayı; aynı (iş, kapı, neden) yeniden yazılmaz. Yeni kayıt yazıldıysa True.
+    Kapıyı hiçbir koşulda bozmaz."""
     try:
         sd = L.durum_dizini(klasor)
-        if sd:
-            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
-                         {"zaman": L.simdi(), "tur": "kapi_golge", "kapi": kapi,
-                          "is": os.path.basename(os.path.normpath(klasor)), "neden": neden[:300]})
+        if not sd:
+            return False
+        yol = os.path.join(sd, "gunluk.jsonl")
+        is_ad = os.path.basename(os.path.normpath(klasor))
+        if _zaten_kayitli(yol, is_ad, kapi, neden):
+            return False
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapi_golge", "kapi": kapi, "is": is_ad, "neden": neden[:300]})
+        return True
     except Exception:
-        pass
+        return False
 
 
 def ihlal_ver(klasor: str, kapi: str, eksik: list[str]) -> list[str]:
@@ -56,6 +80,6 @@ def ihlal_ver(klasor: str, kapi: str, eksik: list[str]) -> list[str]:
     if mod(kapi, klasor) == "ihlal":
         return eksik
     neden = "; ".join(eksik)
-    kaydet(klasor, kapi, neden)
-    print(f"orkestra (gölge, {kapi}): {neden}", file=sys.stderr)
+    if kaydet(klasor, kapi, neden):
+        print(f"orkestra (gölge, {kapi}): {neden}", file=sys.stderr)
     return []
