@@ -57,16 +57,26 @@ class TumAlan(unittest.TestCase):
         self.assertIsInstance(v["oturumlar"], list)
         self.assertNotIn("alan", v)  # tek alana süzülmedi
 
-    def test_tek_alan_isteyen_get_yollari_400(self):
-        for yol in ("/ozet.json", "/analitik.json", "/isler.json", "/onaylar.json", "/kurallar.json",
-                    "/teknik.json", "/api/todo", "/api/etki"):
+    def test_birlesen_yollar_200_ve_alan_etiketli(self):
+        for yol in ("/onaylar.json", "/isler.json", "/kurallar.json", "/ozet.json", "/analitik.json",
+                    "/api/kullanici-todo", "/teknik.json"):
             k, b = self.istek("GET", f"{yol}?alan=*")
+            self.assertEqual(k, 200, yol)
+            v = json.loads(b)
+            self.assertTrue(v["acik"], yol)
+            self.assertEqual(v["alan"]["id"], "*", yol)
+            self.assertTrue(v["birlesik"], yol)
+            self.assertEqual([a["id"] for a in v["alanlar"]], ["alan-x"], yol)
+
+    def test_tek_alan_isteyen_get_yollari_400(self):
+        for yol in ("/api/todo", "/api/etki", "/teknik.json?is=I-001", "/teknik.json?kart=G-001", "/teknik.json?ret=1"):
+            k, b = self.istek("GET", yol + ("&" if "?" in yol else "?") + "alan=*")
             self.assertEqual(k, 400, yol)
             self.assertIn("tek bir çalışma alanı", json.loads(b)["hata"], yol)
 
     def test_yazma_400(self):
         basliklar = {"X-Orkestra": "1", "Content-Type": "application/json"}
-        for yol in ("/onay", "/api/isler-sifirla", "/perspektif-calistir", "/api/kullanici-todo"):
+        for yol in ("/onay", "/api/isler-sifirla", "/perspektif-calistir", "/api/kullanici-todo", "/api/kural-dosya"):
             k, b = self.istek("POST", f"{yol}?alan=*", {"onay": True}, basliklar)
             self.assertEqual(k, 400, yol)
             self.assertIn("tek bir çalışma alanı", json.loads(b)["hata"], yol)
