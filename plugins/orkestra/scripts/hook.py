@@ -1982,6 +1982,13 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
     except Exception:
         pass
     try:
+        import hata_en_cok as HE
+        hs = HE.esik_satiri(sd)
+        if hs:
+            u.append(hs)
+    except Exception:
+        pass
+    try:
         import iz as IZ
         if IZ.kapsama_satiri(sd):
             u.append("iz kapsama eşik aşımı (`orkestra iz kapsama`)")
