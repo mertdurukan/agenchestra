@@ -159,6 +159,17 @@
     },
     // "11:26"
     saat(iso) { const d = tarihAl(iso); return d ? `${iki(d.getHours())}:${iki(d.getMinutes())}` : '–'; },
+    // Başlangıçtan bu yana geçen süre: "1 dk altı", "12 dk", "1 sa 5 dk", "2 gün"
+    calisma(iso) {
+      const d = tarihAl(iso);
+      if (!d) return '–';
+      const dk = Math.floor((Date.now() - d.getTime()) / 60000);
+      if (dk < 1) return '1 dk altı';
+      if (dk < 60) return dk + ' dk';
+      const sa = Math.floor(dk / 60);
+      if (sa < 24) return sa + ' sa' + (dk % 60 ? ' ' + (dk % 60) + ' dk' : '');
+      return Math.floor(sa / 24) + ' gün';
+    },
     // "şimdi", "3 dk önce", "2 sa önce", "3 gün önce"
     once(iso) {
       const d = tarihAl(iso);
@@ -200,6 +211,8 @@
     sen: ['Seni bekliyor', 'var(--warning)'], claude: ['Çalışıyor', 'var(--s1)'], bitti: ['Bitti', 'var(--good)'],
     beklemede: ['Beklemede', 'var(--neutral)'], kapandi: ['Kapandı', 'var(--neutral)'],
   };
+  const NEDEN = { 'siniflanmamis': 'sınıflanmamış', 'kapsam-eksik': 'kapsam eksik', 'bicim': 'biçim', 'sayi-tutarsiz': 'sayı tutarsız', 'kanit-yok': 'kanıt yok', 'talimat-ihlali': 'talimat ihlali', 'kriter-belirsiz': 'kriter belirsiz', 'yetenek-yetersiz': 'yetenek yetersiz', 'ortam': 'ortam' };
+  const KOK = { kart: 'kart', basamak: 'basamak', dikkat: 'dikkat', ortam: 'ortam', siniflanmamis: 'sınıflanmamış' };
   const KAYNAK = { motor: ["Claude'un hesabı", ''], defter: ['tahmini (orkestra defteri)', 'tahmini'], tahmin: ['kaba tahmin (transkript)', 'kaba'] };
   const ciftten = (tablo, k) => { const t = tablo[k]; return t ? { ad: t[0], renk: t[1] } : { ad: k == null ? '–' : String(k), renk: 'var(--neutral)' }; };
 
@@ -219,6 +232,8 @@
       const m = /^(?:orkestra:)?isci-t(\d+)$/i.exec(String(k));
       return m ? 'İşçi T' + m[1] : String(k);
     },
+    neden(k) { return bos(k) ? '–' : (NEDEN[k] || String(k)); },
+    kok(k) { return bos(k) ? '–' : (KOK[k] || String(k)); },
     durum(k) { return ciftten(DURUM, k); },
     bekleyen(k) { return ciftten(BEKLEYEN, k); },
     // kisa=true → ekranda glif yerine kısa sözcük: "tahmini" / "kaba" ("motor" için boş)
