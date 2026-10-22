@@ -393,6 +393,7 @@ def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None, olustu
             if m:
                 dolu = any(k.startswith(m.group(1) + "-") and k != tercih
                            for k in kardesler if os.path.isdir(os.path.join(kok, k)))
+                dolu = dolu or any(k.startswith(m.group(1) + "-") and k != tercih for k in kardes_agac_klasorleri(kok))
                 if not dolu and tercih in kardesler:  # aynı ad: yalnız açık bir iş orada çalışıyorsa dolu
                     dolu = is_klasorle_bul(sd, os.path.join(kok, tercih)) is not None
             else:
