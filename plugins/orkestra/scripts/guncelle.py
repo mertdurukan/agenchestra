@@ -123,6 +123,7 @@ def klon_ilerlet(klon: str, kuru: bool, yaz) -> tuple[str, str]:
 
 UZAK_DAL = "origin/main"
 DEGISIKLIK_SINIRI = 20
+FETCH_ZAMAN_ASIMI = 20
 
 
 def _kisa(sha: str) -> str:
