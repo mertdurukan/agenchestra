@@ -87,8 +87,8 @@ def birlestir(sd: str, gun=0, kaynak: str | None = None) -> list[dict]:
         for h in hatalar:
             k = h.get("kaynak")
             if k in ("hook", "cli", "ozet") and kaynak in (None, k) and pencerede(h.get("zaman")):
-                _topla(sayim, k, h.get("imza") or imza_goster(h.get("tur"), h.get("ileti")),
-                       h.get("zaman"), h.get("ileti"))
+                im = imza_goster(h.get("tur"), h.get("ileti")) if h.get("tur") else h.get("imza") or "?"
+                _topla(sayim, k, im, h.get("zaman"), h.get("ileti"))
     if kaynak in (None, "hook"):
         for g in _hook_eski_satirlar(gunluk, hatalar):
             if pencerede(g.get("zaman")):
