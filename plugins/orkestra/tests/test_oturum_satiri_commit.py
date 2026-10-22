@@ -101,13 +101,11 @@ class OturumSatiriCommit(unittest.TestCase):
 
     def test_stop_ozeti_tek_satir_yeniler_ve_commitler(self):
         yol = os.path.join(self.agac, self.rel)
-        self.yaz(self.agac, "- tur satiri
-")
+        self.yaz(self.agac, "- tur satiri\n")
         with mock.patch.object(hook, "_oturum_ozet_satiri", return_value=self._ozet(sayi="1")):
             hook._bagli_agacta_satirlari_kaydet("sd", "abcd1234-oturum", yol)
         self.assertEqual(self.durum(self.agac), "")
-        self.yaz(self.agac, "- tur satiri 2
-")
+        self.yaz(self.agac, "- tur satiri 2\n")
         with mock.patch.object(hook, "_oturum_ozet_satiri", return_value=self._ozet(sayi="2")):
             hook._bagli_agacta_satirlari_kaydet("sd", "abcd1234-oturum", yol)
         govde = open(yol, encoding="utf-8").read()
