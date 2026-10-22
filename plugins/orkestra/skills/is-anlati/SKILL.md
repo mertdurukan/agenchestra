@@ -17,7 +17,7 @@ argument-hint: "<I-nnn | Jira anahtarı | klasör no | all> [--yaz]"
 
 ## Çıktı sözleşmesi (değiştirilemez)
 
-- Tam iki paragraf: ilki `**Ne yaptım?**`, ikincisi `**Nasıl yaptım?**` kalın etiketiyle başlar. Başka başlık, giriş, kapanış, kanıt eki yok.
+- Tam iki paragraf: ilki `**Ne yaptım?**`, ikincisi `**Nasıl yaptım?**` kalın etiketiyle başlar; etiket paragrafın ilk satırında, metinle aynı satırda yazılır. Başka başlık, giriş, kapanış, kanıt eki yok.
 - Birinci tekil şahıs, etken anlatım: "inceledim", "karşılaştırdım", "planladım". Çoğul ve edilgen yok ("yaptık", "yapıldı").
 - Her paragraf 45-85 kelime hedefler (denetim 40-95 dışını reddeder). Sade, yöneticiye anlatılabilir Türkçe.
 - Madde işareti, tablo, ters tırnak, dosya yolu, commit SHA, URL, madde kimliği (P1, G2, K3, ADR numarası) yok. İşin özünü ayırt eden 1-2 somut ayrıntı kullanılabilir.
