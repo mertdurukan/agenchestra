@@ -80,6 +80,11 @@ class DenetleTest(unittest.TestCase):
             "ölçtüm", "ölçülür").replace("bıraktım", "bırakıldı")), {"A06"})
         self.assertEqual(kodlar(P1 + " Bunu birlikte yaptık.\n\n" + P2), {"A06"})
 
+    def test_a06_yanlis_pozitif_yok(self):
+        # otomatik, pratik, kritik, istatistik, mantık, sistematik: -dık/-tık/-dik/-tik ile biten sözcükler
+        ek = " Otomatik ve pratik bir yol seçtim; kritik adımda istatistik ve sistematik mantık kullandım."
+        self.assertEqual(kodlar(P1 + ek + "\n\n" + P2), set())
+
     def test_a07_abarti(self):
         self.assertEqual(kodlar(P1 + " Kusursuz oldu.\n\n" + P2), {"A07"})
         self.assertEqual(kodlar(P1 + " Sorunu çözdüm.\n\n" + P2), {"A07"})
