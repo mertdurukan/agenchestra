@@ -582,7 +582,8 @@
     const bekl = BG.onay && BG.onay.sayac ? Number(BG.onay.sayac.bekliyor) || 0 : null;
     const acik = S.veri && Array.isArray(S.veri.isler) ? S.veri.isler.filter(i => i.durum !== 'kapandi').length : null;
     const karolar = [
-      G.karo({ etiket: 'Seni bekleyen sohbet', deger: String(sen), alt: sohbet.length + ' sohbet bu alanda', durum: sen ? 'uyari' : 'iyi', href: '#sohbetler' }),
+      G.karo({ etiket: 'Seni bekleyen sohbet', deger: String(sen), alt: sohbet.length + ' sohbet bu alanda', durum: sen ? 'uyari' : 'iyi', href: '#sohbetler',
+        ...(enSon ? { veri: { 'sohbet-ac': enSon.oturum }, ipucu: 'Claude\'da aç: ' + kisalt(enSon.sohbet || 'sohbet', 60) + (sen > 1 ? ` (+${sen - 1} sohbet daha aşağıda)` : '') } : {}) }),
       G.karo({ etiket: 'Bugünkü harcama', deger: bugun == null ? '–' : O.B.bicim()(bugun), alt: 'son 7 gün eğilimi', spark: { degerler: gun.slice(-7).map(gd), etiket: 'Son 7 günlük harcama' }, href: '/maliyet#g=ozet' }),
       G.karo({ etiket: 'Tamamlanan iş başına', deger: ib ? ib.deger : '–', alt: ib ? ib.alt : 'tamamlanan iş yok', href: '/maliyet#g=ozet' }),
       G.karo({ etiket: 'Onay bekleyen', deger: bekl == null ? '–' : String(bekl), alt: 'öneri ve karar', durum: bekl ? 'uyari' : 'iyi', href: '/onaylar' }),
