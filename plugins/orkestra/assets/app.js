@@ -1035,14 +1035,6 @@
       else if (r.ad === 'kart') history.length > 1 ? history.back() : git('#/kosular');
       return;
     }
-    if (r.ad === 'gelen' && (e.key === 'a' || e.key === 'r')) {
-      const o = gezOgeleri()[odakSira];
-      if (o && o.dataset.onay) {
-        const b = o.querySelector(`[data-sonuc="${e.key === 'a' ? 'onay' : 'ret'}"]`);
-        if (b && !b.dataset.secim) b.click();
-        else if (b) bildir('Bu kararda bir seçenek seçilmeli; düğmeye tıkla.');
-      }
-    }
   });
 
   // ================================================================ 14. Komut paleti ve yardım
