@@ -84,6 +84,31 @@ class HookOnay(unittest.TestCase):
         self.assertNotIn("O-001", m)
         self.hook("UserPromptSubmit", {"prompt": "selam"})  # geçerli çıktı, sıfır çıkış kodu
 
+    @unittest.skipUnless(os.name == "nt", "POSIX flock beklemesi zaman aşımsız")
+    def test_kilit_zaman_asimi_uyari_satiri_yazar(self):
+        """I-157 P6: onay kilidi tutulurken UserPromptSubmit düşmez, tek satır uyarı bağlama girer."""
+        import threading
+        import ork_lib as L
+        tuttu, birak = threading.Event(), threading.Event()
+
+        def tut():
+            with L.kilit(onay._kilit_yolu(self.sd)):
+                tuttu.set()
+                birak.wait(15)
+
+        os.makedirs(onay._onay_dizini(self.sd), exist_ok=True)
+        t = threading.Thread(target=tut)
+        t.start()
+        try:
+            self.assertTrue(tuttu.wait(5))
+            m = self.baglam(self.hook("UserPromptSubmit", {"prompt": "merhaba"}))  # çıkış kodu 0 hook() içinde sınanır
+        finally:
+            birak.set()
+            t.join(5)
+        self.assertEqual(m.count("panel kararları okunamadı"), 1)
+        # kilit bırakılınca uyarı gelmez
+        self.assertNotIn("panel kararları okunamadı", self.baglam(self.hook("UserPromptSubmit", {"prompt": "tekrar"})))
+
     def test_ozet_onaylar_anahtari(self):
         import ozet
         onay.iste(self.sd, "Bekleyen", "m")
