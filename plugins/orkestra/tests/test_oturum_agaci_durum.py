@@ -102,6 +102,49 @@ class OturumAgaciDurum(unittest.TestCase):
         finally:
             subprocess.run(["git", "-C", self.ana, "worktree", "remove", "--force", kart], capture_output=True)
 
+    # ------------------------------------------------------------------ P2: ağaçlar arası numara tekilliği
+    def _ikinci_agac(self):
+        wt2 = os.path.join(self.ana, ".claude", "worktrees", "oturum-ef34gh")
+        git(self.ana, "worktree", "add", "-q", "-b", "claude/oturum-ef34gh", wt2)
+        self.addCleanup(lambda: subprocess.run(["git", "-C", self.ana, "worktree", "remove", "--force", wt2],
+                                               capture_output=True))
+        return wt2
+
+    def test_sonraki_klasor_adi_kardes_agactaki_numarayi_atlar(self):
+        import is_kaydi as K
+        wt2 = self._ikinci_agac()
+        os.makedirs(os.path.join(self.wt, "Is", "001-ilk-agac"))
+        os.makedirs(os.path.join(self.ana, "Is", "002-ana-agac"))
+        ad = K.sonraki_klasor_adi(os.path.join(wt2, "Is"), "Ikinci", "20261022")
+        self.assertEqual(ad, "003-20261022-ikinci")
+
+    def test_sonraki_klasor_adi_tek_agacta_degismez(self):
+        import is_kaydi as K
+        os.makedirs(os.path.join(self.wt, "Is", "004-x"))
+        self.assertEqual(K.sonraki_klasor_adi(os.path.join(self.wt, "Is"), "Y", "20261022"), "005-20261022-y")
+
+    def test_klasor_ayir_tercih_kardes_agactaki_numarayla_cakisirsa_siradakini_alir(self):
+        import is_kaydi as K
+        wt2 = self._ikinci_agac()
+        os.makedirs(os.path.join(self.wt, "Is", "001-ilk-agac"))
+        sd = os.path.join(self.ana, ".claude", "orkestra")
+        ad = K.klasor_ayir(sd, os.path.join(wt2, "Is"), "Ikinci", "20261022", olustur=False, tercih="001-baska-ad")
+        self.assertEqual(ad, "002-20261022-ikinci")
+
+    def test_klasor_ayir_ayni_ad_kardes_agacta_varsa_cakisma_sayilmaz(self):
+        import is_kaydi as K
+        wt2 = self._ikinci_agac()
+        os.makedirs(os.path.join(self.wt, "Is", "001-ayni-is"))
+        sd = os.path.join(self.ana, ".claude", "orkestra")
+        ad = K.klasor_ayir(sd, os.path.join(wt2, "Is"), "Ayni", "20261022", olustur=False, tercih="001-ayni-is")
+        self.assertEqual(ad, "001-ayni-is")
+
+    def test_git_disi_klasorde_kardes_listesi_bos(self):
+        import is_kaydi as K
+        d = os.path.join(self.taban, "gitsiz")
+        os.makedirs(d)
+        self.assertEqual(K.kardes_agac_klasorleri(d), [])
+
     # ------------------------------------------------------------------ CLI uçtan uca
     def test_cli_worktree_cwd_isi_ana_isler_json_a_yazar(self):
         klasor = os.path.join(self.wt, "Is", "001-deneme")
