@@ -2189,6 +2189,7 @@ def user_prompt_submit(inp: dict):
                         is_onay.aday_yaz(sd, metin, sinif)
                     if yeni:
                         is_onay.yaz(sd, kayit["id"], yeni, "onay:kullanici")
+                        _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))  # ADR-0038: onay yazımı işin is.json'ını kirli bırakmasın
                     if satir:
                         parcalar.append(satir)
             except Exception:
