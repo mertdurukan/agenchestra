@@ -97,6 +97,9 @@ def main():
     try:
         veri = json.load(sys.stdin)
         g = veri.get("tool_input") or {}
+        if veri.get("tool_name") in ("Bash", "PowerShell"):
+            kabuk_commit(veri, git)
+            return
         yol = g.get("file_path") or g.get("notebook_path")
         if not yol or not os.path.isfile(yol):
             return
