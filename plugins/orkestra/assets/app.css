@@ -289,6 +289,23 @@ table.tablo { width: 100%; border-collapse: collapse; font-size: var(--y13); }
 .oge .eylemler { display: flex; gap: var(--a2); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .secenekler { display: flex; gap: var(--a2); flex-wrap: wrap; }
 
+/* eklenti güncelleme kartı (ADR-0035) */
+.oge-guncelleme { border-left: 3px solid var(--renk, var(--vurgu)); }
+.oge-guncelleme code { font-family: var(--mono); font-size: var(--y12); padding: 1px 5px; border-radius: 4px; background: var(--yuzey-2); color: var(--metin); }
+.oge-guncelleme .guncelleme-son { font-family: var(--mono); font-size: var(--y12); -webkit-line-clamp: 1; overflow-wrap: anywhere; }
+.oge-guncelleme .guncelleme-hata { color: var(--kotu); }
+.oge-guncelleme .uyari-satir { color: var(--uyari); align-items: flex-start; flex-wrap: nowrap; }
+.oge-guncelleme .uyari-satir svg { width: 14px; height: 14px; flex: none; margin-top: 1px; }
+.oge-guncelleme .soluk { color: var(--metin-3); list-style: none; }
+.oge-guncelleme .degisiklik summary { cursor: pointer; font-size: var(--y12); color: var(--metin-2); width: fit-content; border-radius: var(--r1, 4px); }
+.oge-guncelleme .degisiklik summary:hover { color: var(--metin); }
+.oge-guncelleme .degisiklik summary:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 2px; }
+.oge-guncelleme .degisiklik ul { margin: var(--a2) 0 0; padding-left: var(--a4); display: flex; flex-direction: column; gap: 4px; font-size: var(--y13); color: var(--metin-2); max-height: 220px; overflow: auto; }
+.oge-guncelleme .degisiklik pre { margin: var(--a2) 0 0; padding: var(--a2) var(--a3); max-height: 220px; overflow: auto; background: var(--yuzey-2); border-radius: var(--r2); font: var(--y12) var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.simge.donen svg { animation: donme 1s linear infinite; }
+@keyframes donme { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .simge.donen svg { animation: none; } }
+
 /* koşu izi */
 .serit { display: flex; height: 28px; border-radius: var(--r2); overflow: hidden; background: var(--yuzey-2); }
 .serit > div { display: flex; align-items: center; padding: 0 var(--a2); font-size: var(--y12); color: #fff; white-space: nowrap; overflow: hidden; min-width: 2px; }
