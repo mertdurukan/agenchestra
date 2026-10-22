@@ -95,7 +95,7 @@ Terminalden sık kullanılanlar:
 
 ## 5. Panel
 
-Panel, tarayıcıda açılan canlı bir izleme ekranıdır. `orkestra panel` komutuyla ya da `/orkestra-web` ile başlar ve `http://127.0.0.1:8765/` adresinde yalnız bu bilgisayardan erişilir.
+Panel, tarayıcıda açılan canlı bir izleme ekranıdır. `orkestra panel` komutuyla ya da `/orkestra-web` ile başlar ve `http://127.0.0.1:8765/` adresinde yalnız bu bilgisayardan erişilir. Windows'ta panel, ilk oturumda kendiliğinden kurulan "Orkestra Panel" zamanlanmış görevi olarak çalışır: Windows'a oturum açınca başlar, kapanırsa bir dakika içinde yeniden başlar, adres hep aynı kalır. Yönetici hakkı gerekmez. Durum: `orkestra panel servis durum`; kaldırmak için `orkestra panel servis kaldir` (bir daha kurulmaz); otomatik kurulumu kapatmak için `ORKESTRA_PANEL_SERVIS=0`.
 
 Sekiz sayfası vardır:
 
