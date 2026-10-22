@@ -239,7 +239,7 @@ def _madde_durumu(satirlar: list[dict], ozet: str | None, engelli: bool) -> tupl
     if satirlar:
         xs = [s for s in satirlar if s["x"]]
         if len(xs) == len(satirlar):
-            durum = "Doğrulandı" if any(_sinyal(s["not"]) for s in satirlar) else "Tamamlandı"
+            durum = "Doğrulandı" if all(_sinyal(s["not"]) for s in satirlar) else "Tamamlandı"
         elif xs:
             durum = "Başlandı"
         else:
