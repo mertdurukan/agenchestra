@@ -45,8 +45,8 @@ def gorev_xml(port: int, python: str | None = None, betik: str | None = None, ca
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo><Description>Orkestra paneli (127.0.0.1:{port}); orkestra panel servis kaldir ile silinir.</Description></RegistrationInfo>
-  <Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>
-  <Principals><Principal id="Author"><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{kullanici}</UserId></LogonTrigger></Triggers>
+  <Principals><Principal id="Author"><UserId>{kullanici}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
   <Settings>
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
     <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
