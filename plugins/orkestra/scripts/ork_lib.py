@@ -119,33 +119,96 @@ def durum_dizini(cwd: str | None = None, olustur: bool = False) -> str | None:
 
 # ---------------------------------------------------------------- kilit ve yazım
 
-@contextmanager
-def kilit(yol: str, bekleme_s: float = 3.0):
-    """Süreçler arası basit dosya kilidi (Windows msvcrt / POSIX fcntl). Beklemesi 3 sn: hook'u en çok bu kadar
-    bloklar (önce 8 sn); süre dolarsa TimeoutError; kilit dosyasının yanındaki '.zaman_asimi.log'a bir satır yazılır."""
-    os.makedirs(os.path.dirname(yol), exist_ok=True)
-    fd = os.open(yol + ".lock", os.O_RDWR | os.O_CREAT)
+_SIRA_OMUR_S = 2.0   # bilet bu süreden uzun yenilenmediyse sahibi ölü sayılır (süreç çökmüş)
+
+
+def _sira_canli(sira: str) -> list[str]:
+    """Kuyruktaki canlı bilet adları, eskiden yeniye (ad = zaman damgası-pid)."""
+    simdi = time.time()
+    canli = []
     try:
-        basla = time.time()
-        bitis = basla + bekleme_s
-        if os.name == "nt":
-            import msvcrt
-            while True:
+        adlar = os.listdir(sira)
+    except OSError:
+        return canli
+    for a in adlar:
+        try:
+            if simdi - os.path.getmtime(os.path.join(sira, a)) <= _SIRA_OMUR_S:
+                canli.append(a)
+        except OSError:
+            pass  # bilet o an silindi
+    return sorted(canli)
+
+
+def _nt_kilit_al(fd: int, yol: str, bekleme_s: float) -> None:
+    """Windows: msvcrt kilidi FIFO bilet sırasıyla alır. LK_NBLCK yoklaması adil değil (bırakan süreç hemen yeniden alır;
+    I-157: 8 süreçte bekleme 2,6 sn, zaman aşımı); bu yüzden kilit doluysa '<yol>.sira/<ns>-<pid>' bileti açılır ve yalnız
+    en eski canlı bilet sahibi kilidi dener. Kuyruk boşken doğrudan denenir (ek maliyet bir stat)."""
+    import msvcrt
+    sira = yol + ".sira"
+    basla = time.time()
+    bitis = basla + bekleme_s
+    bilet = None          # None: henüz açılmadı; False: açılamadı (eski yoklamaya dön); yol: açık bilet
+    yenilendi = basla
+    try:
+        while True:
+            if bilet is None:
+                sirada = os.path.isdir(sira) and bool(_sira_canli(sira))
+                dene = not sirada
+            elif bilet is False:
+                dene = True
+            else:
+                canli = _sira_canli(sira)
+                dene = not canli or canli[0] == os.path.basename(bilet)
+            if dene:
                 try:
                     os.lseek(fd, 0, 0)
                     msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-                    break
+                    return
                 except OSError:
-                    if time.time() > bitis:
-                        try:  # süreç adı: zaman aşımının panel mi hook mu CLI mı olduğunu günlükten okutur
-                            surec = os.path.basename(sys.argv[0] or "-") or "-"
-                            with open(yol + ".zaman_asimi.log", "a", encoding="utf-8") as g:
-                                g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()} "
-                                        f"surec={surec} bekleme_ms={int((time.time() - basla) * 1000)}\n")
-                        except OSError:
-                            pass
-                        raise TimeoutError(f"kilit alınamadı: {yol}")
-                    time.sleep(0.02)
+                    pass
+            simdi = time.time()
+            if simdi > bitis:
+                try:  # süreç adı: zaman aşımının panel mi hook mu CLI mı olduğunu günlükten okutur
+                    surec = os.path.basename(sys.argv[0] or "-") or "-"
+                    with open(yol + ".zaman_asimi.log", "a", encoding="utf-8") as g:
+                        g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()} "
+                                f"surec={surec} bekleme_ms={int((simdi - basla) * 1000)}\n")
+                except OSError:
+                    pass
+                raise TimeoutError(f"kilit alınamadı: {yol}")
+            if bilet is None:
+                try:
+                    os.makedirs(sira, exist_ok=True)
+                    bilet = os.path.join(sira, f"{time.time_ns():020d}-{os.getpid()}")
+                    open(bilet, "w").close()
+                except OSError:
+                    bilet = False
+            elif bilet and simdi - yenilendi > _SIRA_OMUR_S / 4:
+                try:
+                    os.utime(bilet)
+                    yenilendi = simdi
+                except OSError:
+                    pass
+            time.sleep(0.02 if bilet is False else 0.002)
+    finally:
+        if bilet:
+            try:
+                os.remove(bilet)
+            except OSError:
+                pass
+
+
+@contextmanager
+def kilit(yol: str, bekleme_s: float = 3.0):
+    """Süreçler arası basit dosya kilidi (Windows msvcrt / POSIX fcntl). Beklemesi 3 sn: hook'u en çok bu kadar
+    bloklar (önce 8 sn); süre dolarsa TimeoutError; kilit dosyasının yanındaki '.zaman_asimi.log'a bir satır yazılır.
+    Windows'ta bekleyenler FIFO sırayla kilidi alır (bkz. _nt_kilit_al)."""
+    os.makedirs(os.path.dirname(yol), exist_ok=True)
+    fd = os.open(yol + ".lock", os.O_RDWR | os.O_CREAT)
+    try:
+        if os.name == "nt":
+            import msvcrt
+            _nt_kilit_al(fd, yol, bekleme_s)
             try:
                 yield
             finally:
