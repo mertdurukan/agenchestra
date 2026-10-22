@@ -177,11 +177,10 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const o = await read($, veri)
     if (e.props.hasSurvey || o === null || !o.acik || (o.arka ?? 0) === 0) return next(e)
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const { Box, Text } = $.ui.resolve(e)
     return (
       <Box>
-        <Text dimColor>{`Orkestra · arka planda ${o.arka} iş sürüyor `}</Text>
-        <Button key="panel" label="Panel" onPress={() => $.ui.open({ id: PANE, title: 'Orkestra' })} />
+        <Text dimColor>{bantMetni(o)}</Text>
       </Box>
     )
   })
