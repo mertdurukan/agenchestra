@@ -1133,6 +1133,16 @@ def _durdur(eski: dict) -> None:
         pass
 
 
+def _servis_baslat(port: int, sorgu: str) -> str:
+    """Servis görevini (yeniden) başlatır; port sabit kalır, ikinci süreç açılmaz."""
+    panel_servis.yeniden_baslat()
+    for _ in range(30):
+        if _saglik(port) == f"ok {SURUM}":
+            return f"http://127.0.0.1:{port}/{sorgu}"
+        time.sleep(0.5)
+    return f"http://127.0.0.1:{port}/{sorgu}  (servis görevi başlatıldı; yanıt vermiyorsa `orkestra panel servis durum`)"
+
+
 def baslat(port: int | None = None, alan_id: str | None = None, on_planda: bool = False) -> str:
     port = port or cfg.panel_port()
     sorgu = f"?alan={urllib.parse.quote(alan_id)}" if alan_id else ""
