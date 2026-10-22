@@ -30,7 +30,14 @@ _ONAY_KISA = re.compile(r"^\W*[yoeq]\W*$", re.I)
 # Onay fiili cümlenin içinde geçebilir ("Planı onaylıyorum", "kabul ediyorum"); kök: onayl(ı)yor, onayladım, onay veriyorum.
 _ONAY_FIIL = re.compile(r"\b(?:onayl(?:[ıi]yor|ad[ıi])\w*|onay\s+veriyor\w*|kabul\s+ed(?:iyor|tim|ildi)\w*)", re.I)
 _KOSUL = re.compile(r"\b(?:ama|fakat|ancak|lakin|yeter\s+ki|[sş]art[ıi]yla)\b", re.I)
-_RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz)\b", re.I)
+_RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz|\w+m[ıiuü]yor\w*)\b", re.I)
+# I-168 (ADR-0035): icra niyeti. Yalnız emir/izin biçimleri; "yapıyor", "devam ediyor" gibi anlatım eşleşmez.
+_ICRA = re.compile(
+    r"\b(?:yap(?:[ıi]n|abilirsin|sana|s[ıi]n)?|gerekeni\s+yap\w*|hallet(?:sin|sene|in)?|halledelim|[çc][öo]z(?:elim|sene)?"
+    r"|ilerle(?:yelim)?|devam\s+et\w*|go\s+ahead|proceed|ba[sş]la(?:yal[ıi]m|yın)?)\b", re.I)
+# Bulanık eşleşme: yazım hatalı onay fiili ("onaylyıorum"); 5 harften kısa sözcükte kapalı.
+_ONAY_KOKLERI = ("onaylıyorum", "onayladım", "onaylıyoruz", "onaylandı", "tamamdır", "başlayalım", "uygulayalım")
+BULANIK_ESIK = 0.85
 
 # Onay beklerken ana ya da alt ajanın kabukta çalıştıramayacağı komutlar (tırnak içi metin atılmış komuta uygulanır)
 KABUK_YASAK = re.compile(
@@ -131,7 +138,42 @@ def onay_mesaji_mi(metin: str) -> bool:
         return True
     # I-154: "Planı (P1-P10) onaylıyorum, K3 ve K5 önerildiği gibi" onay sözcüğüyle başlamaz; onay fiili ilk cümlecikte
     # geçiyorsa ve mesaj koşul/itiraz bağlacı taşımıyorsa onaydır (yanlış onay pahalı: bağlaç varsa onay sayılmaz).
-    return bool(_ONAY_FIIL.search(m)) and not _KOSUL.search(m) and not _RED.search(m)
+    # I-168: icra niyeti ("ne gerekiyorsa yap") ve yazım hatalı onay fiili de aynı korumalarla onaydır.
+    niyet = _ONAY_FIIL.search(m) or _ICRA.search(m) or _bulanik_onay(m)
+    return bool(niyet) and not _KOSUL.search(m) and not _RED.search(m)
+
+
+def mesaj_sinifi(metin: str) -> str:
+    """I-168: `onay` | `ret` | `soru` | `belirsiz` | `diger` (boş, sistem iletisi, komut ya da uzun mesaj)."""
+    m = (metin or "").strip()
+    if not m or len(m) > AZAMI_MESAJ or m.startswith(("<", "/")):
+        return "diger"
+    if onay_mesaji_mi(m):
+        return "onay"
+    if "?" in m:
+        return "soru"
+    ilk = re.split(r"[;.,]", m.replace("İ", "i").replace("I", "ı"), maxsplit=1)[0]
+    return "ret" if _RED.search(ilk) else "belirsiz"
+
+
+def aday_yaz(sd: str, metin: str, sinif: str) -> None:
+    """Onay bekleyen işte onay sayılmayan kısa mesajı günlüğe yazar (kalıp listesi gerçek mesajdan büyür); hata yutulur."""
+    import json
+    import time
+    try:
+        with open(os.path.join(sd, "onay_adaylari.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "sinif": sinif,
+                                "mesaj": (metin or "").strip()[:AZAMI_MESAJ]}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def _bulanik_onay(m: str) -> bool:
+    import difflib
+    for kelime in re.findall(r"\w+", m.lower()):
+        if len(kelime) >= 5 and difflib.get_close_matches(kelime, _ONAY_KOKLERI, n=1, cutoff=BULANIK_ESIK):
+            return True
+    return False
 
 
 def belge_eksikleri(klasor: str) -> list[str]:
@@ -260,7 +302,7 @@ def teslim_imzasi(klasor: str, proje: str) -> tuple[str, list[str]]:
     return ("|".join(parca) if satirlar else ""), satirlar
 
 
-def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
+def baglam_satiri(kayit: dict, mesaj_onay: bool, belirsiz: bool = False) -> tuple[str, str | None]:
     """UserPromptSubmit için (bağlam satırı, yeni durum). `bekliyor` değilse ('', None)."""
     if not bekliyor_mu(kayit):
         return "", None
@@ -274,7 +316,9 @@ def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
                 + "; ".join(eksik[:4]) + ". Belgeleri tamamla, sırayla (mevcut durum → plan → todo) bağlantılarıyla göster.", None)
     harita = (" Önce `orkestra harita oku` ile sistem haritasını oku (.claude/orkestra/sistem_haritasi/INDEX.md); "
               "mevcut durumda dokunduğun yerdeki var olan kayıtları ve plan maddesinde `**Mevcut varlık:**` alanını yaz.") if kayit.get("harita") else ""
+    soru = (" Son mesaj onay sayılmadı ama başlatma niyeti taşıyor olabilir: niyet buysa tek cümleyle 'bunu onay sayayım mı?' diye sor "
+            "(\"tek kelime yaz\" deme); tartışma ya da düzeltmeyse sormadan yanıtla.") if belirsiz else ""
     return ("Orkestra (P-016): iş onay bekliyor; uygulama (kod/dosya, commit, bağımlılık) yok. Mevcut durum → plan → todo "
             "sırasıyla hazırla ve bağlantılarıyla göster; kullanıcı onaylayınca iş başlar. SIRA (K-003): onay isteyen kutu/soru "
             "aracı (wrap_up, AskUserQuestion) turu bitirir; bağlantı satırlarını (`orkestra is baglanti " + str(kayit.get("id", "<id>"))
-            + "` hazır verir) önce yanıt METNİNE yaz, kutuyu en son çağır." + harita, None)
+            + "` hazır verir) önce yanıt METNİNE yaz, kutuyu en son çağır." + harita + soru, None)

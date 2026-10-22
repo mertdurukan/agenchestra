@@ -341,5 +341,55 @@ class GitIzniKapisi(_Onay):
         self.assertFalse(is_onay.kabuk_engeli("git commit -m x", True))
 
 
+class IcraNiyeti(unittest.TestCase):
+    """I-168: icra niyeti taşıyan doğal söyleyiş, yazım hatası dahil, onaydır; ret, koşul ve soru değildir."""
+
+    def test_icra_onay(self):
+        for m in ("Ne gerekiyorsa yap", "şu sorunu çözelim artık", "hallet", "önerinle devam et onaylıyorum",
+                  "önerinle devam et onaylyıorum", "Planı onaylyıorum", "gerekeni yap", "ilerle", "go ahead",
+                  "sen bunu hallet artık", "yapın"):
+            self.assertTrue(is_onay.onay_mesaji_mi(m), m)
+
+    def test_icra_onay_degil(self):
+        for m in ("ne gerekiyorsa yapma", "onay vermiyorum", "oyun", "hallet ama önce sor", "bunu nasıl çözdün",
+                  "hallettin mi?", "işlem devam ediyor", "sorun çözülmedi ama bekle", "yapıyor"):
+            self.assertFalse(is_onay.onay_mesaji_mi(m), m)
+
+
+class BelirsizMesaj(unittest.TestCase):
+    """I-168: onay sayılmayan kısa mesajda ajan sorar; mesaj günlüğe yazılır, durum değişmez."""
+
+    KAYIT = {"id": "I-1", "klasor": "x", "onay": "bekliyor"}
+
+    def test_sinif(self):
+        self.assertEqual(is_onay.mesaj_sinifi("ne gerekiyorsa yap"), "onay")
+        self.assertEqual(is_onay.mesaj_sinifi("bunu bir düşünelim"), "belirsiz")
+        self.assertEqual(is_onay.mesaj_sinifi("hayır bekle"), "ret")
+        self.assertEqual(is_onay.mesaj_sinifi("neden böyle?"), "soru")
+        self.assertEqual(is_onay.mesaj_sinifi("<task-notification>x</task-notification>"), "diger")
+
+    def test_belirsizde_soru_satiri_durum_yok(self):
+        satir, yeni = is_onay.baglam_satiri(self.KAYIT, False, True)
+        self.assertIn("tek cümleyle", satir)
+        self.assertIsNone(yeni)
+
+    def test_belirsiz_degilken_satir_degismez(self):
+        satir, _ = is_onay.baglam_satiri(self.KAYIT, False, False)
+        self.assertNotIn("tek cümleyle", satir)
+
+    def test_aday_gunlugu(self):
+        sd = tempfile.mkdtemp(prefix="ork_aday_")
+        try:
+            is_onay.aday_yaz(sd, "bunu bir düşünelim", "belirsiz")
+            with open(os.path.join(sd, "onay_adaylari.jsonl"), encoding="utf-8") as f:
+                satirlar = [json.loads(x) for x in f]
+            self.assertEqual(len(satirlar), 1)
+            self.assertEqual(satirlar[0]["sinif"], "belirsiz")
+            is_onay.aday_yaz(os.path.join(sd, "yok", "yok"), "x", "ret")  # hata yutulur
+        finally:
+            shutil.rmtree(sd, ignore_errors=True)
+
+
+
 if __name__ == "__main__":
     unittest.main()

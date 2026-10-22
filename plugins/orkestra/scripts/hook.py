@@ -2161,7 +2161,10 @@ def user_prompt_submit(inp: dict):
                 is_onay.git_izni_isle(sd, inp.get("session_id"), metin)  # ADR-0031: commit/push emri bu tur git komutunu açar
                 kayit = _onay_kaydi(sd, inp.get("session_id"))
                 if kayit:
-                    satir, yeni = is_onay.baglam_satiri(kayit, is_onay.onay_mesaji_mi(metin))
+                    sinif = is_onay.mesaj_sinifi(metin)
+                    satir, yeni = is_onay.baglam_satiri(kayit, sinif == "onay", sinif == "belirsiz")
+                    if sinif in ("belirsiz", "ret") and is_onay.bekliyor_mu(kayit):
+                        is_onay.aday_yaz(sd, metin, sinif)
                     if yeni:
                         is_onay.yaz(sd, kayit["id"], yeni, "onay:kullanici")
                     if satir:
