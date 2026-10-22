@@ -246,7 +246,7 @@ class Kosu:
         with self._kilit:
             bit = self._bit if self._bit is not None else self._saat()
             return {"durum": self._durum, "satirlar": list(self._satirlar), "neden": self._neden,
-                    "sure": round(bit - self._bas, 1) if self._bas is not None else None}
+                    "sure": round(bit - self._bas, 1) if self._bas is not None else None, "bitis": self._bit}
 
 
 def _calistir(kuru, yaz, ev, ortam) -> int:
