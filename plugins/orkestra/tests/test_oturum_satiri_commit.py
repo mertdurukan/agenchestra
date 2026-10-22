@@ -141,5 +141,22 @@ class OturumSatiriCommit(unittest.TestCase):
         self.assertEqual(git(self.agac, "status", "--porcelain").strip(), "")
 
 
+    def test_onay_yazimi_is_klasorunu_commitler(self):
+        klasor = os.path.join(self.agac, "is")
+        with open(os.path.join(klasor, "is.json"), "w", encoding="utf-8") as f:
+            f.write('{"onay": "verildi"}')
+        with mock.patch.dict(os.environ, {"ORKESTRA_OTO_COMMIT": "1"}):
+            hook._is_klasorunu_commitle(klasor, self.agac)
+        self.assertEqual(git(self.agac, "status", "--porcelain").strip(), "")
+
+    def test_onay_yazimi_kapaliyken_commitlemez(self):
+        klasor = os.path.join(self.agac, "is")
+        with open(os.path.join(klasor, "is.json"), "w", encoding="utf-8") as f:
+            f.write("{}")
+        with mock.patch.dict(os.environ, {"ORKESTRA_OTO_COMMIT": "0"}):
+            hook._is_klasorunu_commitle(klasor, self.agac)
+        self.assertTrue(git(self.agac, "status", "--porcelain").strip())
+
+
 if __name__ == "__main__":
     unittest.main()
