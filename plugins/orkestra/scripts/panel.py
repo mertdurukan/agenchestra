@@ -327,6 +327,9 @@ def _etki_json(alan_id) -> dict:
 
 
 def _kurallar_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.kurallar(*_tum_topla(_kurallar_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
