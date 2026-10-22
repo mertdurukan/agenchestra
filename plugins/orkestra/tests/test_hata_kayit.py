@@ -111,5 +111,47 @@ class Baglantilar(unittest.TestCase):
             self.assertEqual(s["tur"], "ValueError")
 
 
+class Davranis(unittest.TestCase):
+    """ADR-0037: ajan davranış hatası sinif=davranis ve kök neden alanıyla kaydedilir; kod hatası satırı değişmez."""
+
+    def test_davranis_satiri_kok_neden_alani(self):
+        with tempfile.TemporaryDirectory() as sd:
+            HK.davranis(sd, "is-klasoru-yanlis", "klasörde başka işin kaydı var: C:\\x\\y", {"komut": "is ac"})
+            (s,) = satirlar(sd)
+            self.assertEqual((s["kaynak"], s["sinif"], s["tur"]), ("davranis", "davranis", "is-klasoru-yanlis"))
+            self.assertEqual(s["kok"]["kaynak"], "betik")
+            self.assertIs(s["kok"]["onlenebilir"], True)
+            self.assertTrue(s["kok"]["cozum"])
+            self.assertEqual(s["baglam"], {"komut": "is ac"})
+
+    def test_bilinmeyen_tur_belirsiz_ve_onlenebilir_null(self):
+        with tempfile.TemporaryDirectory() as sd:
+            HK.davranis(sd, "yeni-tur", "x")
+            (s,) = satirlar(sd)
+            self.assertEqual(s["kok"]["kaynak"], "belirsiz")
+            self.assertIsNone(s["kok"]["onlenebilir"])
+
+    def test_hook_red_kaynagi_kapi_kimligine_gore(self):
+        self.assertEqual(HK.kok_neden("hook-red", "orkestra: K-003: kutu aracı")["kaynak"], "kural")
+        self.assertEqual(HK.kok_neden("hook-red", "orkestra: ortak defter elle düzenlenmez")["kaynak"], "betik")
+
+    def test_kod_hatasi_satirinda_sinif_ve_kok_yok(self):
+        with tempfile.TemporaryDirectory() as sd:
+            HK.kaydet(sd, "hook", "OSError", "x")
+            (s,) = satirlar(sd)
+            self.assertNotIn("sinif", s)
+            self.assertNotIn("kok", s)
+
+    def test_hata_en_cok_davranisi_sayar(self):
+        import hata_en_cok as HE
+        with tempfile.TemporaryDirectory() as sd:
+            for _ in range(2):
+                HK.davranis(sd, "kabuk-sozdizimi", "Get-ChildItem x")
+            HK.kaydet(sd, "hook", "OSError", "x")
+            r = [x for x in HE.birlestir(sd, kaynak="davranis")]
+            self.assertEqual([(x["kaynak"], x["sayi"]) for x in r], [("davranis", 2)])
+            self.assertTrue(any(x["kaynak"] == "davranis" for x in HE.birlestir(sd)))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -44,7 +44,7 @@ def kaydet(alt):
     h = alt.add_parser("hata", help="tekrar eden hatalar (hook, CLI, özet, kart reti, kural ihlali)").add_subparsers(dest="alt", required=True)
     e = h.add_parser("en-cok", help="aynı imzalı hataları sayıya göre sıralar (salt okuma)")
     e.add_argument("--gun", type=int, default=0, help="son N gün (0 = tümü)")
-    e.add_argument("--kaynak", choices=("hook", "cli", "ozet", "kart", "kural"))
+    e.add_argument("--kaynak", choices=("hook", "cli", "ozet", "kart", "kural", "davranis"))
     e.add_argument("--ilk", type=int, default=0, help="ilk N satır (0 = tümü)")
     e.add_argument("--json", action="store_true")
     e.set_defaults(f=cmd_en_cok)

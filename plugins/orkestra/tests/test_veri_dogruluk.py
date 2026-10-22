@@ -45,7 +45,7 @@ class IsDevri(unittest.TestCase):
         os.makedirs(klasor)
         with open(os.path.join(klasor, "is.json"), "w", encoding="utf-8") as f:
             json.dump({"id": "I-009", "baslik": "eski", "oturumlar": [{"oturum": "abc", "baglanma": "z"}]}, f)
-        yeni = IK.is_ac(sd, "yeni is", klasor)
+        yeni = IK.is_ac(sd, "yeni is", klasor, devral=True)  # ADR-0037: devralma yalnız açık bayrakla
         takma = json.load(open(os.path.join(sd, "isler.json"), encoding="utf-8")).get("takma")
         self.assertEqual(takma, {"I-009": yeni["id"]})
         self.assertEqual([o["oturum"] for o in yeni["oturumlar"]], ["abc"])

@@ -108,7 +108,7 @@ class Bagla(unittest.TestCase):
         return g
 
     def is_ac(self, baslik, klasor):
-        r = self.cli("is", "ac", baslik, "--klasor", klasor)
+        r = self.cli("is", "ac", baslik, "--klasor", klasor, "--devral")  # kapalı işin klasörünü yeniden kullanır (ADR-0037)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 

@@ -92,6 +92,15 @@ def _klasor_kok_disi(sd, yol):
             f"klasörü oturum kökü altında aç.{oneri} Kapatma: ORKESTRA_IS_KLASOR_KOK=0.")
 
 
+def _davranis_kaydet(sd, tur, ileti):
+    """Ajanın yanlış `is ac` girişini hata defterine davranış hatası olarak yazar (ADR-0037); hata vermez."""
+    try:
+        import hata_kayit as HK
+        HK.davranis(sd, tur, ileti, {"komut": "is ac"})
+    except Exception:
+        pass
+
+
 def cmd_is_ac(a):
     sd = sd_gerekli()
     klasor = a.klasor
@@ -101,6 +110,7 @@ def cmd_is_ac(a):
         yol = os.path.abspath(klasor)
         neden = _klasor_kok_disi(sd, yol)
         if neden:
+            _davranis_kaydet(sd, "is-klasoru-yanlis", neden)
             hata(neden)
         kok, ad = os.path.split(yol)
         try:
@@ -110,7 +120,12 @@ def cmd_is_ac(a):
         if yeni != ad:
             klasor = os.path.join(kok, yeni)
             print(f"orkestra: klasör numarası dolu ya da eksik ({ad}); yeni klasör: {klasor}", file=sys.stderr)
-    kayit = _ik().is_ac(sd, a.baslik, klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None)
+    try:
+        kayit = _ik().is_ac(sd, a.baslik, klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None,
+                            devral=a.devral)
+    except _ik().IsKlasoruHatasi as e:
+        _davranis_kaydet(sd, "is-klasoru-yanlis", str(e))
+        hata(str(e))
     _oturumu_bagla(sd, kayit["id"])
     print(kayit["id"])
     if kayit.get("onay") == "bekliyor":
@@ -1080,6 +1095,8 @@ def kaydet(alt):
     ia.add_argument("baslik")
     ia.add_argument("--klasor", required=True)
     ia.add_argument("--etiket", action="append", default=[])
+    ia.add_argument("--devral", action="store_true",
+                    help="klasörde başka işin is.json'u varsa reddetmek yerine devral (yedek alır, oturumları ve kimliği yeni işe bağlar)")
     ia.add_argument("--dogrulamasiz", action="store_true", help="plan ✅/❌ doğrulama bayrağı ve şablonu konmaz (eski plan şablonu)")
     ia.set_defaults(f=cmd_is_ac)
     idv = is_.add_parser("devam")

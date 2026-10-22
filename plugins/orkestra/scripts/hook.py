@@ -168,7 +168,24 @@ def izin_ver(guncel_girdi: dict | None = None, neden: str = ""):
     L.hook_cikti(o)
 
 
+_DURUM_DIZINI = ""  # PreToolUse'ta kurulur: reddet davranış hatasını bu dizindeki hata.jsonl'e yazar (ADR-0037)
+_PS_CMDLET = re.compile(r"\b(?:Get|Set|New|Remove|Select|Where|Write|Test|Invoke|Out|Start|Stop|Add|Import|Export|Copy|Move"
+                        r"|Join|Split|ForEach|Sort|Measure|Convert(?:To|From))-[A-Z][A-Za-z]+\b|\$env:\w+")
+
+
+def _davranis_yaz(tur: str, ileti: str, baglam=None) -> None:
+    """Ajan davranış hatasını hata defterine yazar (ADR-0037); durum dizini yoksa ya da yazılamazsa sessiz geçer."""
+    if not _DURUM_DIZINI:
+        return
+    try:
+        import hata_kayit as HK
+        HK.davranis(_DURUM_DIZINI, tur, ileti, baglam)
+    except Exception:
+        pass
+
+
 def reddet(neden: str):
+    _davranis_yaz("hook-red", neden)
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                          "permissionDecisionReason": f"orkestra: {neden}"}})
 
@@ -575,9 +592,10 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
 
 
 def pre_tool_use(inp: dict):
-    global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN
+    global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI
     _BEKLEYEN_UYARI = ""  # ic_kos işlem içi koşar: önceki çağrının uyarısı sızmasın
     _VARSAYILAN_IZIN = ""
+    _DURUM_DIZINI = ""
     arac = inp.get("tool_name", "")
     if arac in YAZAN_ARACLAR:  # eklentinin kopyasına yazılan değişiklik eşitlemede silinir (proje orkestralı olmasa da)
         g0 = inp.get("tool_input") or {}
@@ -589,6 +607,7 @@ def pre_tool_use(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
         gec()
+    _DURUM_DIZINI = sd
     girdi = dict(inp.get("tool_input") or {})
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
@@ -697,6 +716,8 @@ def pre_tool_use(inp: dict):
         # İstisna: tırnaklanmış program yolu "…/orkestra.py" korunur (tırnakları atılır).
         yol_acik = re.sub(r'["\']([^"\']*orkestra(?:\.py|\.cmd))["\']', lambda m: m.group(1).replace(" ", "_"), komut)
         tirnaksiz = re.sub(r'"(?:\\.|[^"\\])*"|\'[^\']*\'', '""', yol_acik)
+        if arac == "Bash" and _PS_CMDLET.search(tirnaksiz):  # Bash'e PowerShell sözdizimi: engellenmez, davranış hatası olarak kaydedilir
+            _davranis_yaz("kabuk-sozdizimi", komut[:120])
         _onay_kapisi(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), tirnaksiz=tirnaksiz)
         if ORK_KOMUT.search(tirnaksiz):
             yazan = bool(YAZAN_ALT_KOMUT.search(tirnaksiz))

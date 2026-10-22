@@ -266,14 +266,31 @@ def _proje_koku_mu(sd: str, klasor: str) -> bool:
         return False
 
 
-def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | None = None) -> dict:
+class IsKlasoruHatasi(ValueError):
+    """`is ac` hedef klasörü uygun değil: proje kökü ya da başka işin kaydını taşıyor (ADR-0037)."""
+
+
+def _alt_klasor_onerisi(klasor: str) -> str:
+    ust, ad = os.path.split(os.path.abspath(klasor))
+    return os.path.join(ust if re.match(r"\d{3}-", ad) else os.path.abspath(klasor), "NNN-YYYYMMDD-<ad>")
+
+
+def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | None = None,
+          devral: bool = False) -> dict:
     """Yeni iş. Kapı açıkken (P-005) iş sıralıdır: ilk dosya mevcut durum iskeletidir, plan.md ve todo.md
     önceki adım tamamlanınca açılır; kapı kapalıyken (ORKESTRA_SIRA_KAPISI=0) eski üç dosya yazılır.
     Sıralı işe ayrıca `dogrulama` bayrağı konur (plan ✅/❌ kapısı); `dogrulama=False` ya da
-    ORKESTRA_DOGRULAMA_KAPISI=0 ile konmaz, None varsayılandır (kapı açıksa konur)."""
+    ORKESTRA_DOGRULAMA_KAPISI=0 ile konmaz, None varsayılandır (kapı açıksa konur).
+
+    Klasörde başka işe ait is.json varsa (kapalı olsa bile) `devral=True` olmadan IsKlasoruHatasi fırlatır: kayıt
+    sessizce ezilmez (ADR-0037; I-085 kaydı I-185'e dönmüştü). Devralmada eski kimlik takma adla yeni işe bağlanır."""
     klasor = os.path.abspath(klasor)
     if _proje_koku_mu(sd, klasor):  # kök klasör iş klasörü sayılırsa kökteki başka işin kaydı ezilir (I-105)
-        raise ValueError(f"iş klasörü proje kökü olamaz: {klasor}; NNN-… biçiminde bir alt klasör ver")
+        raise IsKlasoruHatasi(f"iş klasörü proje kökü olamaz: {klasor}; NNN-… biçiminde bir alt klasör ver")
+    if not devral and os.path.exists(_is_json_yolu(klasor)):
+        raise IsKlasoruHatasi(
+            f"klasörde başka işin kaydı var: {klasor}; ezilmez. Yeni alt klasör aç: {_alt_klasor_onerisi(klasor)}. "
+            "Bilinçli devralma için --devral.")
     os.makedirs(klasor, exist_ok=True)
     sirali = SIRA.kapi_acik()
     for ad in (("oturumlar.md",) if sirali else _SABLON):

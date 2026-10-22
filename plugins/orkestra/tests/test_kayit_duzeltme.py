@@ -167,7 +167,7 @@ class IsKaydiYedek(unittest.TestCase):
         eski = os.path.join(klasor, "is.json")
         with open(eski, "w", encoding="utf-8") as f:
             f.write('{"id": "I-099", "baslik": "eski"}')
-        yeni = IK.is_ac(sd, "Yeni iş", klasor)
+        yeni = IK.is_ac(sd, "Yeni iş", klasor, devral=True)  # ADR-0037: ezme yalnız açık bayrakla
         yedekler = glob.glob(eski + ".eski-*")
         self.assertEqual(len(yedekler), 1)
         self.assertIn("I-099", open(yedekler[0], encoding="utf-8").read())

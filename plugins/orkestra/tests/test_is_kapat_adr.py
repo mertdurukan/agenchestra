@@ -14,7 +14,7 @@ class IsKapatAdr(unittest.TestCase):
 
     def ac(self, plan=None):
         klasor = os.path.join(self.proje, "is1")
-        r = self.cli("is", "ac", "Deneme işi", "--klasor", klasor)
+        r = self.cli("is", "ac", "Deneme işi", "--klasor", klasor, "--devral")  # test aynı klasörde kapalı işin yerine yenisini açar (ADR-0037)
         self.assertEqual(r.returncode, 0, r.stderr)
         if plan is not None:
             with open(os.path.join(klasor, "plan.md"), "w", encoding="utf-8", newline="\n") as f:

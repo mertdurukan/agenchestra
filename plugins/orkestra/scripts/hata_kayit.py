@@ -2,6 +2,9 @@
 
 İmza = hata türü + iletinin normalleştirilmiş hâli (sayı, tam yol, geçici dosya adı, onaltılık kimlik çıkarılır).
 kaydet() asla istisna fırlatmaz: yazılamazsa stderr'e tek satır yazar.
+
+Davranış hatası (ADR-0037): ajanın yanlış klasör, yanlış kabuk, kapı ihlali gibi kod dışı hataları `davranis()` ile
+`sinif: "davranis"` ve `kok` (kaynak, önlenebilir, çözüm) alanlarıyla yazılır; `sinif` alanı olmayan satır kod hatasıdır.
 """
 from __future__ import annotations
 
@@ -22,6 +25,24 @@ _SAYI = re.compile(r"\d+")
 _BOSLUK = re.compile(r"\s+")
 
 
+# Davranış hatası türleri: kök neden kaynağı (kural|sablon|skill|betik|istem|arac|belirsiz), kaynakta çözümün var olup
+# olmadığı (None = mekanik bilinemez; K-006 sorusu insan/denetimle yanıtlanır) ve çözümün yeri.
+TURLER = {
+    "is-klasoru-yanlis": ("betik", True, "`is ac` başka işin kaydını içeren klasörü reddeder; yeni alt klasör açılır"),
+    "kabuk-sozdizimi": ("istem", None, "oturum bağlamında kabuk ayrımı: Bash=POSIX, PowerShell=Windows cmdlet'i"),
+    "hook-red": ("kural", None, "reddin kapı kimliğindeki kuralın kaynağı (ilk yazımda uyum) ya da hook mesajı"),
+}
+_KAPI_KIMLIGI = re.compile(r"\b(?:[KP]-\d{3}|ADR-\d{4})\b")
+
+
+def kok_neden(tur: str, ileti: str = "") -> dict:
+    """Tür tablosundan kök neden alanı; hook-red'de kapı kimliği yoksa kaynak `betik` (kural değil, kod kapısı)."""
+    kaynak, onlenebilir, cozum = TURLER.get(tur, ("belirsiz", None, ""))
+    if tur == "hook-red" and not _KAPI_KIMLIGI.search(ileti or ""):
+        kaynak = "betik"
+    return {"kaynak": kaynak, "onlenebilir": onlenebilir, "cozum": cozum}
+
+
 def imza(tur: str, ileti: str) -> str:
     """Aynı hata aynı imzayı verir; tür ve tırnaklı değerler (KeyError: 'x') korunur."""
     s = str(ileti or "")
@@ -38,17 +59,24 @@ def _oturum() -> str:
     return os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or "-"
 
 
-def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None) -> None:
-    """sd/hata.jsonl'e tek satır ekler; hiçbir koşulda istisna fırlatmaz."""
+def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None, ek=None) -> None:
+    """sd/hata.jsonl'e tek satır ekler; hiçbir koşulda istisna fırlatmaz. `ek`: satıra eklenen ek alanlar."""
     try:
         ileti = str(ileti or "")
         satir = {"kaynak": kaynak, "imza": imza(tur, ileti), "tur": tur,
                  "ileti": ileti[:ILETI_EN_COK], "zaman": L.simdi(), "oturum": _oturum()}
         if baglam:
             satir["baglam"] = baglam
+        if ek:
+            satir.update(ek)
         L.jsonl_ekle(os.path.join(sd, DOSYA), satir)
     except Exception as e:  # noqa: BLE001
         try:
             print(f"orkestra: hata kaydı yazılamadı ({type(e).__name__})", file=sys.stderr)
         except Exception:
             pass
+
+
+def davranis(sd, tur: str, ileti: str, baglam=None) -> None:
+    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"` ve kök neden alanı. İstisna fırlatmaz."""
+    kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))})
