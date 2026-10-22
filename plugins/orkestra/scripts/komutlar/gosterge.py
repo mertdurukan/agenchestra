@@ -105,6 +105,7 @@ def kaydet(alt):
     ui.set_defaults(f=cmd_ui_ozet)
 
     pa = alt.add_parser("panel")
+    pa.add_argument("servis", nargs="*", help="servis kur|kaldir|durum: paneli Task Scheduler görevi olarak yönet (Windows)")
     pa.add_argument("--port", type=int, default=None, help="varsayılan: cfg (panel_port)")
     pa.add_argument("--on-planda", action="store_true", help="sunucuyu bu süreçte çalıştır (Ctrl+C ile durur)")
     pa.add_argument("--ac", action="store_true", help="adresi varsayılan tarayıcıda aç")
