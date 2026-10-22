@@ -67,6 +67,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum  # noqa: E402
+from komutlar import hata as hata_komut  # noqa: E402  (ad `_ortak.hata` işlevini gölgelemesin)
 
 # Kayıt sırası = `--help` sırası.
 MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum)
