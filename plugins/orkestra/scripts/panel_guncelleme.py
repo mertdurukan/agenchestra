@@ -1,7 +1,7 @@
 """Panel gelen kutusu için eklenti güncelleme durumu: arka plan yoklaması, erteleme ve güncelleme koşusu.
 
 Sürüm kontrolü ve koşu `guncelle.py`'dedir (CLI ile aynı kod); burası yalnız panel sunucusunun bellek durumunu,
-30 dk'lık yoklamayı ve "Sonra" erteleme dosyasını tutar. Kullanıcı düzeyindedir: çalışma alanı almaz (ADR-0035).
+30 dk'lık yoklamayı ve "Sonra" erteleme dosyasını tutar. Kullanıcı düzeyindedir: çalışma alanı almaz (ADR-0039).
 Testte `kontrol`, `kosu`, `dizin` ve `saat` değiştirilir.
 """
 from __future__ import annotations

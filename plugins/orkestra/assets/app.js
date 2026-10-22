@@ -174,7 +174,7 @@
   // liste yüklenince (ör. kimlikten alan çözülünce) henüz istenmemiş ayrıntı verisini getirir
   function eksikleriGetir() { gerekler(rota()).forEach(y => { const k = kayit(y); if (!k.veri && !k.istek && !k.hata && alanAl(y)) getir(y); }); }
   const tazele = (taze = false) => gerekler(rota()).concat(TEMEL).forEach(y => getir(y, { taze }));
-  const GUNC_YOL = '/api/guncelleme';   // eklenti güncelleme durumu: kullanıcı düzeyi, çalışma alanından bağımsız (ADR-0035)
+  const GUNC_YOL = '/api/guncelleme';   // eklenti güncelleme durumu: kullanıcı düzeyi, çalışma alanından bağımsız (ADR-0039)
   const GUNC_ARALIK = 1000;             // ms: koşu sürerken ilerleme yoklaması
   const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json', GUNC_YOL];
   const YAP_YOL = '/api/kullanici-todo';
@@ -361,7 +361,7 @@
   }
   const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + g.sohbet.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length; };
 
-  // Eklenti güncelleme kartı (ADR-0035): yeni | calisiyor | bitti | hata. Koşu LLM çağırmaz; aynı kod `orkestra update` ile çalışır.
+  // Eklenti güncelleme kartı (ADR-0039): yeni | calisiyor | bitti | hata. Koşu LLM çağırmaz; aynı kod `orkestra update` ile çalışır.
   const kisaSha = s => String(s ?? '').slice(0, 7);
   function guncellemeHtml(gu) {
     const c = gu.kontrol || {}, k = gu.kosu || {};

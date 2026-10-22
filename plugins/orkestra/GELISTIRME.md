@@ -18,7 +18,7 @@ Notlar:
 - `validate --strict` sürüm alanı olmadığı için hep "No version specified" ile düşer (bilinçli).
 - `orkestra` CLI'ı da önbellekten çalışır. HTML paneli geliştirme deposu yolundan `python <depo>/plugins/orkestra/scripts/orkestra.py panel` ile başlat.
 
-## Panelde güncelleme bildirimi (ADR-0035)
+## Panelde güncelleme bildirimi (ADR-0039)
 Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti).
 - Kontrol `guncelle.kontrol()`: `git fetch` + `origin/main` karşılaştırması; ağ hatası kartı silmez. Koşu `guncelle.Kosu`: CLI ile aynı `calistir`, arka plan iş parçacığı, tek koşu.
 - `panel_guncelleme.Guncelleme`: panel açılışında ve sonra 30 dk'da bir yoklar (`ORKESTRA_GUNCELLEME_YOKLA=0` kapatır), "Sonra" SHA'sını `guncelleme_ertele.json`'a yazar.

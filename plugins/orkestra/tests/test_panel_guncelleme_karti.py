@@ -1,4 +1,4 @@
-"""Gelen kutusu eklenti güncelleme kartı (ADR-0035): dört durumun çizimi, erteleme, Güncelle düğmesi ve ilerleme yoklaması.
+"""Gelen kutusu eklenti güncelleme kartı (ADR-0039): dört durumun çizimi, erteleme, Güncelle düğmesi ve ilerleme yoklaması.
 
 Node'da sahte tarayıcıyla (tests/panel_duman.js) gerçek assets/app.js koşulur; ağ ve sunucu yoktur.
 `py -3.13 -m pytest plugins/orkestra/tests/test_panel_guncelleme_karti.py`

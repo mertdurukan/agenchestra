@@ -1,5 +1,6 @@
 'use strict';
 // I-137 P3: panel v2 (assets/app.js) için sahte tarayıcı. Kullanım: node panel_duman.js <app.js> <fixture.json> <senaryolar.json> <cikti.json>
+// Fixture ek anahtarları: 'POST <yol>' = { status, govde, sonra? } (POST yanıtı; sonra: fixture'a birleştirilir), değer { __sira: [...] } = GET'te sırayla verilir.
 // Her senaryo: { depo: {anahtar: değer|null}, hash, adimlar: [['tikla', eylem, veri] | ['tus', tus]] } → { ray, bas, ana, depo, hash }.
 const fs = require('fs');
 const vm = require('vm');
@@ -33,13 +34,23 @@ const belge = {
 };
 
 const postlar = [];   // gönderilen POST gövdeleri (senaryo çıktısında 'postlar')
+const getler = [];    // yapılan GET yol adları (senaryo çıktısında 'getler')
 async function sahteFetch(url, secenek) {
-  if (secenek && secenek.method === 'POST') { postlar.push({ yol: String(url), keepalive: !!secenek.keepalive, govde: JSON.parse(secenek.body || 'null') }); return { ok: true, status: 200, json: async () => ({ tamam: true }) }; }
+  if (secenek && secenek.method === 'POST') {
+    postlar.push({ yol: String(url), keepalive: !!secenek.keepalive, govde: JSON.parse(secenek.body || 'null') });
+    const ov = fx['POST ' + new URL(url, 'http://x').pathname];   // isteğe bağlı: { status, govde } ile POST yanıtını değiştir
+    if (ov && ov.sonra) Object.assign(fx, JSON.parse(JSON.stringify(ov.sonra)));   // POST sonrası sunucu durumu: GET fixture'ları değişir
+    if (ov) return { ok: ov.status < 400, status: ov.status, json: async () => JSON.parse(JSON.stringify(ov.govde)) };
+    return { ok: true, status: 200, json: async () => ({ tamam: true }) };
+  }
   const u = new URL(url, 'http://x');
+  getler.push(u.pathname);
   const is = u.searchParams.get('is'), kart = u.searchParams.get('kart');
   const anahtar = u.pathname + (is ? '?is=' + is : kart ? '?kart=' + kart : '');
   if (fx[anahtar] === undefined) return { ok: false, status: 404, json: async () => ({ hata: 'fixture yok: ' + anahtar }) };
-  return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(fx[anahtar])) };
+  let v = fx[anahtar];
+  if (v && v.__sira) v = v.__sira.length > 1 ? v.__sira.shift() : v.__sira[0];   // {__sira: [yanıt1, yanıt2, ...]}: sırayla verilir, sonuncusu tekrarlanır
+  return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(v)) };
 }
 
 const kum = {
@@ -71,10 +82,10 @@ function tus(key) {
     if (s.hash !== undefined) { hash = s.hash; (dinleyici.window.hashchange || []).forEach(f => f()); }
     await bekle(60);
     for (const a of s.adimlar || []) {
-      if (a[0] === 'tikla') await tikla(a[1], a[2]); else if (a[0] === 'geriAl') sonGeriAl && sonGeriAl(); else if (a[0] === 'pencere') (dinleyici.window[a[1]] || []).forEach(f => f({})); else tus(a[1]);
+      if (a[0] === 'tikla') await tikla(a[1], a[2]); else if (a[0] === 'geriAl') sonGeriAl && sonGeriAl(); else if (a[0] === 'bekle') await bekle(a[1]); else if (a[0] === 'pencere') (dinleyici.window[a[1]] || []).forEach(f => f({})); else tus(a[1]);
       await bekle(40);
     }
-    cikti.push({ ray: ogeler.ray.innerHTML, bas: ogeler.bas.innerHTML, ana: ogeler.ana.innerHTML, depo: Object.fromEntries(depo), hash, postlar: postlar.splice(0) });
+    cikti.push({ ray: ogeler.ray.innerHTML, bas: ogeler.bas.innerHTML, ana: ogeler.ana.innerHTML, depo: Object.fromEntries(depo), hash, postlar: postlar.splice(0), getler: getler.splice(0) });
   }
   fs.writeFileSync(ciktiYol, JSON.stringify({ sonuc: cikti, hatalar }));
   process.exit(0);

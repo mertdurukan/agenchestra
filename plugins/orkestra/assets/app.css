@@ -289,7 +289,7 @@ table.tablo { width: 100%; border-collapse: collapse; font-size: var(--y13); }
 .oge .eylemler { display: flex; gap: var(--a2); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .secenekler { display: flex; gap: var(--a2); flex-wrap: wrap; }
 
-/* eklenti güncelleme kartı (ADR-0035) */
+/* eklenti güncelleme kartı (ADR-0039) */
 .oge-guncelleme { border-left: 3px solid var(--renk, var(--vurgu)); }
 .oge-guncelleme code { font-family: var(--mono); font-size: var(--y12); padding: 1px 5px; border-radius: 4px; background: var(--yuzey-2); color: var(--metin); }
 .oge-guncelleme .guncelleme-son { font-family: var(--mono); font-size: var(--y12); -webkit-line-clamp: 1; overflow-wrap: anywhere; }
