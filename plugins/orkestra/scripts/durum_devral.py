@@ -25,6 +25,7 @@ import ork_lib as L  # noqa: E402
 JSONL = ("gunluk.jsonl", "ortak_defter.jsonl", "maliyet.jsonl", "maliyet_duzeltme.jsonl", "atif.jsonl", "zaman.jsonl")
 DOSYA_KLASORLERI = ("onaylar", "oturumlar", "gorevler")
 DAMGA = ".devralindi"
+GORULEN = "gorulen.json"  # onaylar/ altında {kimlik: zaman} haritası
 _KILIT_DOSYASI = re.compile(r"\.lock$|^\.tmp_|\.zaman_asimi\.log$|^\.islem\.")
 
 
