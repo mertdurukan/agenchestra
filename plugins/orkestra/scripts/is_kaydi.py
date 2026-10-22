@@ -844,8 +844,6 @@ def _worktree_kopyasi_gecerli_mi(yol: str, kok: str) -> bool:
     agac = _agac_koku_bul(yol, kok)
     if not agac:
         return False
-    if os.path.isfile(os.path.join(agac, ".claude", "orkestra", "devralindi_yok_say")):
-        return True
     if os.path.isfile(os.path.join(agac, ".claude", "orkestra", ".devralindi")):
         return True
     ana = os.path.join(kok, os.path.relpath(yol, agac))
