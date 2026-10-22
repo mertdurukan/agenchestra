@@ -64,6 +64,7 @@ import niyet  # noqa: E402
 import onay  # noqa: E402
 import kural_dosya  # noqa: E402
 import kullanici_todo as KT  # noqa: E402
+import panel_guncelleme  # noqa: E402
 
 POST_MAX = 64 * 1024
 DOSYA_POST_MAX = 2 * kural_dosya.DOSYA_MAX  # JSON kaçışları için pay
