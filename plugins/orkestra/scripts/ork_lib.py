@@ -126,7 +126,8 @@ def kilit(yol: str, bekleme_s: float = 3.0):
     os.makedirs(os.path.dirname(yol), exist_ok=True)
     fd = os.open(yol + ".lock", os.O_RDWR | os.O_CREAT)
     try:
-        bitis = time.time() + bekleme_s
+        basla = time.time()
+        bitis = basla + bekleme_s
         if os.name == "nt":
             import msvcrt
             while True:
@@ -136,9 +137,11 @@ def kilit(yol: str, bekleme_s: float = 3.0):
                     break
                 except OSError:
                     if time.time() > bitis:
-                        try:
+                        try:  # süreç adı: zaman aşımının panel mi hook mu CLI mı olduğunu günlükten okutur
+                            surec = os.path.basename(sys.argv[0] or "-") or "-"
                             with open(yol + ".zaman_asimi.log", "a", encoding="utf-8") as g:
-                                g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()}\n")
+                                g.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} kilit_zaman_asimi pid={os.getpid()} "
+                                        f"surec={surec} bekleme_ms={int((time.time() - basla) * 1000)}\n")
                         except OSError:
                             pass
                         raise TimeoutError(f"kilit alınamadı: {yol}")
