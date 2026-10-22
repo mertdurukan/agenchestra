@@ -30,8 +30,12 @@ URL = re.compile(r"https?://|www\.", re.I)
 
 BIRINCI_TEKIL = re.compile(
     r"\b\w{2,}(?:d[ıiuü]m|t[ıiuü]m|yorum|ıyorum|iyorum|uyorum|üyorum)\b", re.I)
+# Çoğul: açık liste (genel -dık/-tık soneki otomatik, pratik, kritik, mantık gibi sözcükleri yakalardı).
+# Edilgen: -ıldı/-ildi/-uldu/-üldü ile biten fiiller (yapıldı, edildi, çözüldü).
 COGUL_EDILGEN = re.compile(
-    r"\b(?!değildi\b)(?:\w{2,}(?:d[ıiuü]k|t[ıiuü]k|ıldı|ildi|uldu|üldü)|yaptık|ettik)\b", re.I)
+    r"\b(?:yaptık|ettik|ekledik|yazdık|düzelttik|ölçtük|kurduk|okuduk|bulduk|gösterdik|hazırladık|"
+    r"uyguladık|tamamladık|çalıştık|denedik|yaptırdık|çözdük|aldık|"
+    r"(?!değildi\b)\w{2,}(?:ıldı|ildi|uldu|üldü))\b", re.I)
 
 ABARTI = re.compile(r"\b(çözdüm|çözüldü|başarıyla|sorunsuz|kusursuz|tamamen|eksiksiz|mükemmel)\b", re.I)
 ABARTI_SERBEST = {"çözdüm", "başarıyla"}
