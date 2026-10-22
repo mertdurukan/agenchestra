@@ -219,6 +219,21 @@ class OturumAgaciDurum(unittest.TestCase):
         self.assertNotIn("\n", satir)
         self.assertEqual(K.devral_ipucu(sd, self.ana), "")  # ana ağaçta ipucu yok
 
+    # ------------------------------------------------------------------ kapanış ADR kapısı worktree'deki adr/'yi de arar
+    def test_adr_kapisi_worktree_agacindaki_adr_yi_bulur(self):
+        from komutlar import isler as IS
+        klasor = os.path.join(self.wt, "Is", "001-x")
+        os.makedirs(klasor)
+        with open(os.path.join(klasor, "plan.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("**ADR:** ADR-0099 (test)\n")
+        self.assertIn("dosya yok", IS._adr_eksigi(klasor, self.ana))
+        os.makedirs(os.path.join(self.wt, "adr"))
+        govde = "".join(f"**{a}:**\n\nicerik\n\n" for a in
+                        ("Durum", "Tarih", "Bağlam", "Karar", "Seçenekler", "Sonuçlar", "İlgili iş ya da kural kimliği"))
+        with open(os.path.join(self.wt, "adr", "ADR-0099-test.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# ADR-0099: test\n\n" + govde)
+        self.assertIsNone(IS._adr_eksigi(klasor, self.ana))
+
     # ------------------------------------------------------------------ CLI uçtan uca
     def test_cli_worktree_cwd_isi_ana_isler_json_a_yazar(self):
         klasor = os.path.join(self.wt, "Is", "001-deneme")
