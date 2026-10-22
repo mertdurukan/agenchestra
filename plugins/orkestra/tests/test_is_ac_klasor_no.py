@@ -49,6 +49,14 @@ class IsAcKlasorNo(unittest.TestCase):
         self.ac("050-a")
         self.assertTrue(os.path.exists(os.path.join(self.proje, "050-a", "is.json")))
 
+    def test_goreli_klasor_alt_klasorden_cagrida_proje_kokune_gore_cozulur(self):
+        alt = os.path.join(self.proje, "altklasor")
+        os.makedirs(alt)
+        r = TC.kos([TC.CLI, "is", "ac", "deneme", "--klasor", "090-x"], alt)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(os.path.exists(os.path.join(self.proje, "090-x", "is.json")))
+        self.assertFalse(os.path.exists(os.path.join(alt, "090-x")))
+
     def test_onceden_acilmis_bos_klasor_yeniden_kullanilir(self):
         os.makedirs(os.path.join(self.proje, "060-hook"))
         r = self.ac("060-hook")
