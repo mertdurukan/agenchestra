@@ -509,7 +509,7 @@ def _bitis_baglanti_kapisi(sd: str, oid, proje: str) -> None:
 
 def _izin_karari(arac: str, girdi: dict, sd: str, oturum=None):
     """İzin politikası kararı (deny|ask|allow|None, neden). Hatada karar yok: Claude Code varsayılan istemine döner;
-    push komutunda hata `ask`'tir (ADR-0033: settings ask satırı kalktı, fail-open yok)."""
+    push komutunda hata `ask`'tir (ADR-0036: settings ask satırı kalktı, fail-open yok)."""
     try:
         import izin_politikasi
         return izin_politikasi.karar(arac, girdi, sd, oturum=oturum)
@@ -1984,6 +1984,11 @@ def session_start(inp: dict):
     """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600, en kötü durumda ≤700 karakter.
     Perspektif, panel açma, etki izleme ve onay yönergesi yalnız koşul sağlanınca ayrı satır olarak eklenir."""
     _doktor_hizli_yol(inp)
+    try:  # ADR-0034: Windows'ta panel görevi (oturum açılışında başlar) yoksa kurulur; hata hook'u düşürmez
+        import panel_servis
+        panel_servis.otomatik_kur()
+    except Exception:
+        pass
     sd = L.durum_dizini(inp.get("cwd")) or _otomatik_ac(inp)
     if not sd:
         gec()
@@ -2038,6 +2043,13 @@ def session_start(inp: dict):
     if korunan:
         ek = ek[:max(0, 1800 - len(korunan) - 1)] + "\n" + korunan
     ek = ek[:1800]
+    try:  # ADR-0036: compact/resume sonrası PreCompact'ta yazılan devir özeti bağlama eklenir
+        import devir_ozeti
+        dv = devir_ozeti.baglam(sd, inp)
+        if dv:
+            ek = ek + chr(10) + dv
+    except Exception:
+        pass
     import baglam_kaydi
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
@@ -2377,6 +2389,27 @@ def _acik_ajan_kayitlarini_sil(sd: str, oid: str | None) -> None:
             continue
 
 
+def pre_compact(inp: dict):
+    """ADR-0036: compact öncesi modelsiz devir özeti yazılır (devir_ozeti); hata compact'ı engellemez."""
+    sd = L.durum_dizini(inp.get("cwd"))
+    if not sd:
+        gec()
+    try:
+        import devir_ozeti
+        bagli = None
+        try:
+            oid = _oturum_isi(sd, inp.get("session_id"))
+            if oid:
+                import is_kaydi
+                bagli = is_kaydi.is_al(sd, oid)
+        except Exception:
+            pass
+        devir_ozeti.yaz(sd, inp, bagli)
+    except Exception as e:
+        _hata_yaz(sd, "pre_compact", e)
+    gec()
+
+
 def session_end(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd or os.environ.get("ORKESTRA_PERSPEKTIF"):
@@ -2415,7 +2448,7 @@ OLAYLAR = {
     "Notification": notification,
     "PreToolUse": pre_tool_use, "SubagentStart": subagent_start, "SubagentStop": subagent_stop, "Stop": stop,
     "SessionStart": session_start, "UserPromptSubmit": user_prompt_submit, "PostToolUse": post_tool_use,
-    "SessionEnd": session_end, "ConfigChange": config_change,
+    "SessionEnd": session_end, "ConfigChange": config_change, "PreCompact": pre_compact,
 }
 
 
