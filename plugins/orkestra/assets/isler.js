@@ -572,7 +572,9 @@
   const BG = { analitik: null, onay: null };
   function bugunCiz() {
     const kap = $('#bugunKaro'); if (!kap) return;
-    const sohbet = oturumlar().filter(buAlanda), sen = sohbet.filter(r => r.bekleyen === 'sen').length;
+    const sohbet = oturumlar().filter(buAlanda), senli = sohbet.filter(r => r.bekleyen === 'sen'), sen = senli.length;
+    // Karo tıklanınca Claude'da seni bekleyen sohbet açılır; birden çoksa en son hareket edeni (öbürleri #sohbetler listesinde).
+    const enSon = senli.reduce((a, r) => (!a || String(r.son_zaman || '') > String(a.son_zaman || '')) ? r : a, null);
     const gun = BG.analitik && BG.analitik.trend ? dizi(BG.analitik.trend.gunluk) : [];
     const tk = O.B.olcu() === 'token', gd = x => Number(tk ? x.token : x.usd) || 0;   // USD/token düğmesi
     const bugun = gun.length ? gd(gun[gun.length - 1]) : null;
