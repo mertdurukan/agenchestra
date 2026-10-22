@@ -26,6 +26,8 @@ class GorevXmlTest(unittest.TestCase):
         x = panel_servis.gorev_xml(8765, python="C:/py/pythonw.exe", betik="C:/k/panel.py", calisma_dizini="C:/g")
         self.assertIn("<LogonTrigger>", x)
         self.assertIn("<RestartOnFailure>", x)
+        self.assertIn("<Repetition><Interval>PT1M</Interval></Repetition>", x)
+        self.assertIn("<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>", x)
         self.assertIn("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>", x)
         self.assertIn('"C:/k/panel.py" _kos 8765', x)
 
