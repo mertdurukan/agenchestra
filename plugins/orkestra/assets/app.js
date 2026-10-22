@@ -100,6 +100,7 @@
     tamam: '<path d="m3 8.5 3 3 7-7"/>',
     carpi: '<path d="m4 4 8 8M12 4l-8 8"/>',
     ara: '<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>',
+    guncelle: '<path d="M13.5 8a5.5 5.5 0 1 1-1.8-4.1"/><path d="M13.5 2.5v3h-3"/>',
   };
   const simge = ad => ham(`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${S[ad] || ''}</svg>`);
 
