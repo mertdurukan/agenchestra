@@ -19,8 +19,8 @@ sys.path.insert(0, SCRIPTS)
 import ic_kos  # noqa: E402
 
 TEMIZ = (
-    "**Ne yaptım?** Müşteri raporlarında satış toplamları ekrandan ekrana farklı çıkıyordu ve ekip hangi rakama "
-    "güveneceğini bilmiyordu. Bunun için tek bir hesap kaynağı belirledim, eski hesapları ona bağladım ve bütün "
+    "**Ne yaptım?** Müşteri raporlarında satış toplamları ekrandan ekrana farklı çıkıyordu ve ekip hangi rakama, hangi ekrana ve hangi güne güvenmesi gerektiğini "
+    "net biçimde bilmiyordu. Bunun için tek bir hesap kaynağı belirledim, eski hesapları ona bağladım ve bütün "
     "ekranları aynı veriden okur hale getirdim. Böylece raporlar artık birbiriyle tutarlı çıkıyor.\n\n"
     "**Nasıl yaptım?** Önce her ekranın toplamı nereden aldığını tek tek izledim, farkın iki ayrı süzme "
     "kuralından geldiğini gördüm. Süzme kuralını ortak bir işleve taşıdım, eski kopyaları sildim ve karşılaştırma "
@@ -103,8 +103,13 @@ class Kimlik(Temel):  # kriter 2
                 v = json.load(f)
             v["isler"][f"I-{n:03d}"]["baslik"] = f"PE-77 is {n}"
             jyaz(yol, v)
+            ij = os.path.join(v["isler"][f"I-{n:03d}"]["klasor"], "is.json")
+            with open(ij, encoding="utf-8") as f:
+                k = json.load(f)
+            k["baslik"] = f"PE-77 is {n}"
+            jyaz(ij, k)
         p = cli(self.kok, "PE-77")
-        self.assertEqual(p.returncode, 2, p.stderr)
+        self.assertEqual(p.returncode, 2, p.stdout + "|" + p.stderr)
         self.assertIn("I-001", p.stdout)
         self.assertIn("I-002", p.stdout)
 

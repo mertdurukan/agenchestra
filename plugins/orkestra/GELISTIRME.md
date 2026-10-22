@@ -179,6 +179,11 @@ Eşik 8 ajan; 14 günde 32 kez çıktı. Kök neden: kartlar tek soruya bölünm
 - Belge kalitesi: Ö1+Ö2 uygulandı (şablonlar, `orkestra is belge`, `is baglanti`); Ö3/Ö4 gölge modda (`gunluk.jsonl`'a `kural_ihlal` düşer). Bekleyen karar: ihlal moduna geçiş.
 - K-006 kök neden ilkesi eklenti kuralıdır (`kurallar/eklenti_kurallari.json`).
 
+## is-anlati (I-177, ADR-0037)
+- Kanıt yalnız iş kaydındandır (`is.json`, mevcut durum, plan, todo, çalışma özeti); git/Jira okunmaz, ayrı günlük yoktur.
+- Parçalar: `scripts/is_anlati.py` (paket, durum, izinli fiil), `scripts/is_anlati_denetle.py` (A01-A09), `orkestra is anlati` (`komutlar/isler.py`), `skills/is-anlati/SKILL.md`.
+- Testler: `test_is_anlati*.py`; `ORKESTRA_IC_KOS=0` altında `test_guclu_fiil_izni_isin_paketinden` mock'u görmediği için kırılır (bilinen).
+
 ## Standartlar
 
 PR, commit, dal, review ve Jira yorumu gibi yapı standartları kural değil dosyadır (ADR-0006): eklentide `standartlar/*.md` varsayılan kalıplar, projede `.claude/orkestra/standartlar/<ad>.md` varsa o önceliklidir. `orkestra standart liste|goster|yol|ekle` okur ve yazar, `orkestra:standart` skill'i PR/commit/Jira yazarken ve incelerken ilgili dosyayı okutur. Kod: `scripts/standart.py`, `scripts/komutlar/standart.py`; test: `tests/test_standart.py`. Hook denetimi bu sürümde yoktur.
