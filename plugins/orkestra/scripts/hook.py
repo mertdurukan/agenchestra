@@ -507,12 +507,15 @@ def _bitis_baglanti_kapisi(sd: str, oid, proje: str) -> None:
            "yanıt METNİNE yaz (kutudan önce), sonra aracı yeniden çağır." + chr(10) + chr(10).join(satirlar))
 
 
-def _izin_karari(arac: str, girdi: dict, sd: str):
-    """İzin politikası kararı (deny|ask|allow|None, neden). Hatada karar yok: Claude Code varsayılan istemine döner."""
+def _izin_karari(arac: str, girdi: dict, sd: str, oturum=None):
+    """İzin politikası kararı (deny|ask|allow|None, neden). Hatada karar yok: Claude Code varsayılan istemine döner;
+    push komutunda hata `ask`'tir (ADR-0033: settings ask satırı kalktı, fail-open yok)."""
     try:
         import izin_politikasi
-        return izin_politikasi.karar(arac, girdi, sd)
+        return izin_politikasi.karar(arac, girdi, sd, oturum=oturum)
     except Exception:
+        if arac in KABUK_ARACLARI and re.search(r"\bpush\b", str((girdi or {}).get("command") or "")):
+            return "ask", "git push: izin politikası okunamadı, onay gerekir."
         return None, ""
 
 
@@ -572,7 +575,7 @@ def pre_tool_use(inp: dict):
     girdi = dict(inp.get("tool_input") or {})
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
-    kar, kneden = _izin_karari(arac, girdi, sd)  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
+    kar, kneden = _izin_karari(arac, girdi, sd, inp.get("session_id"))  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
     if kar == "allow":
         _VARSAYILAN_IZIN = kneden
     elif arac not in KABUK_ARACLARI:
@@ -1623,7 +1626,13 @@ def _panel_ac_satiri(sd: str, oid) -> str:
             except ValueError:
                 port = None
         adres = f"http://127.0.0.1:{port or cfg.panel_port()}/"
-        on = "" if acik else "sunucu kapalı, önce `orkestra panel` çalıştır (başka port verirse onu kullan); sonra "
+        if acik:
+            on = ""
+        else:
+            import panel_servis
+            on = ("sunucu kapalı, Task Scheduler görevi kurulu: önce `orkestra panel` çalıştır (görevi başlatır, port sabit); sonra "
+                  if panel_servis.kurulu() else
+                  "sunucu kapalı, önce `orkestra panel` çalıştır (başka port verirse onu kullan); sonra ")
         satir = (f"PANEL: ilk turda Claude masaüstü uygulamasının tarayıcı panelinde orkestra panelini aç: {on}"
                  f"preview_start (name: {PANEL_GIRDI}), ardından navigate ile {adres}. "
                  "Oturumda bir kez; araç yoksa atla, kullanıcıya en çok tek satırla bildir.")
@@ -2161,7 +2170,10 @@ def user_prompt_submit(inp: dict):
                 is_onay.git_izni_isle(sd, inp.get("session_id"), metin)  # ADR-0031: commit/push emri bu tur git komutunu açar
                 kayit = _onay_kaydi(sd, inp.get("session_id"))
                 if kayit:
-                    satir, yeni = is_onay.baglam_satiri(kayit, is_onay.onay_mesaji_mi(metin))
+                    sinif = is_onay.mesaj_sinifi(metin)
+                    satir, yeni = is_onay.baglam_satiri(kayit, sinif == "onay", sinif == "belirsiz")
+                    if sinif in ("belirsiz", "ret") and is_onay.bekliyor_mu(kayit):
+                        is_onay.aday_yaz(sd, metin, sinif)
                     if yeni:
                         is_onay.yaz(sd, kayit["id"], yeni, "onay:kullanici")
                     if satir:
