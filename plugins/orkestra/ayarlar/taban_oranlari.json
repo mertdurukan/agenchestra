@@ -1,0 +1,7 @@
+{
+  "_not": "Token/karakter oranları. kalemler: [merkez, alt, üst] (%95 aralık, veri içi kalibrasyon). genel: kalibre edilmemiş kalemler için [alt, üst] bant. Yenilemek için I-159 P1 yöntemi (oturum başına ilk çağrı bağlamı ~ kalem karakterleri, bootstrap).",
+  "genel": [0.30, 0.545],
+  "kalemler": {
+    "kural dosyaları": [0.447, 0.385, 0.520]
+  }
+}
