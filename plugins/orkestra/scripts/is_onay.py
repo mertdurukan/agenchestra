@@ -138,7 +138,17 @@ def onay_mesaji_mi(metin: str) -> bool:
         return True
     # I-154: "Planı (P1-P10) onaylıyorum, K3 ve K5 önerildiği gibi" onay sözcüğüyle başlamaz; onay fiili ilk cümlecikte
     # geçiyorsa ve mesaj koşul/itiraz bağlacı taşımıyorsa onaydır (yanlış onay pahalı: bağlaç varsa onay sayılmaz).
-    return bool(_ONAY_FIIL.search(m)) and not _KOSUL.search(m) and not _RED.search(m)
+    # I-168: icra niyeti ("ne gerekiyorsa yap") ve yazım hatalı onay fiili de aynı korumalarla onaydır.
+    niyet = _ONAY_FIIL.search(m) or _ICRA.search(m) or _bulanik_onay(m)
+    return bool(niyet) and not _KOSUL.search(m) and not _RED.search(m)
+
+
+def _bulanik_onay(m: str) -> bool:
+    import difflib
+    for kelime in re.findall(r"\w+", m.lower()):
+        if len(kelime) >= 5 and difflib.get_close_matches(kelime, _ONAY_KOKLERI, n=1, cutoff=BULANIK_ESIK):
+            return True
+    return False
 
 
 def belge_eksikleri(klasor: str) -> list[str]:
