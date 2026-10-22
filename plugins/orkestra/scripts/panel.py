@@ -343,6 +343,9 @@ _PENCERE_SIFIR = {w: {"usd": 0.0, "token": 0} for w in L.PENCERELER}
 def _isler_json(alan_id) -> dict:
     import collections  # noqa: PLC0415
     import is_kaydi as IK  # noqa: PLC0415
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.isler(*_tum_topla(_isler_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
