@@ -123,6 +123,12 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - Zorlama: `is todo --ekle` ve hook yazım anı kapısı aynı işlevleri çağırır (`plan_dogrulama.todo_onkosulu`, `todo_satir_engelleri`). Mod `ayarlar/plan_dogrulama.json` (ya da projede `.claude/orkestra/plan_dogrulama.json`): `golge` uyarır ve `gunluk.jsonl`a yazar, `ihlal` reddeder. Kapatma: `ORKESTRA_DOGRULAMA_KAPISI=0`; komut kanıtını kapatma: `ORKESTRA_PLAN_KOMUT=0`. `is ac` iddia sözdizimli planı varsayılan açar, `--dogrulamasiz` ile açmaz.
 - Sınır: kapı kanıtın var olduğunu ve beklenen değeri verdiğini sınar; kanıtın cümleyi anlamca desteklediğini sınamaz. Bu karar bloğunda "Sınır" olarak yazılır ve okuyana kalır.
 
+## Kapılar: sözleşme, teslim, izole ortam (ADR-0035)
+- Üç yeni kapı önce `golge` modunda koşar: eksik stderr'e uyarı olarak yazılır ve `gunluk.jsonl`a `kapi_golge` olayı düşer, iş engellenmez. Mod `ayarlar/<kapı>.json` (`mod: golge|ihlal`); projede `.claude/orkestra/<kapı>.json` ezer. `orkestra is rapor` kapı başına gölge uyarı sayısını gösterir; ölçüm yeterince temizse mod `ihlal` yapılır.
+- **Görev sözleşmesi** (`ayarlar/sozlesme.json`, `ORKESTRA_SOZLESME_KAPISI=0` kapatır): `is ac` mevcut durumdan önce `sozlesme_<YYYYMMDD>.md` açar (Özet, Problem, Başarı kriterleri `- **S<n>:**`, Kapsam dışı, Kısıtlar). Plan maddesi `**Sözleşme:** S<n>` ile bir kritere bağlanır, her kriter bir maddeye bağlıdır; çalışma özeti `Plana göre gerçekleşen` bölümünde her S<n>'i anar. İhlal modunda sözleşme tamam olmadan plan ve todo yazılamaz.
+- **Teslim kapısı** (`ayarlar/teslim.json`, `ORKESTRA_TESLIM_KAPISI=0` kapatır): `is kapat`, işin git ağacında `origin` varsa ve iş açıldığından beri kod dosyası değiştiyse PR, CI sonucu (`gh pr view`) ve inceleme kaydını arar. İnceleme kanıtı GitHub onayı ya da `orkestra is teslim <iş> --pr <bağlantı> --inceleme "<kim/ne>"`dir (`is kapat --pr --inceleme` aynı kaydı yapar). Uzak deposuz proje ve yalnız belge işi muaftır.
+- **İzole ortam uyarısı** (`ORKESTRA_IZOLE_UYARI=0` kapatır): kod kartı git deposunun ana çalışma ağacında koşuyorsa `on_kontrol` çıktısında `izole-ortam` uyarısı ve gölge kaydı oluşur. İzole ortam şart değildir; hiçbir modda reddetmez.
+
 ## Teknik not
 - İşçi is-bitti'si `--teknik <json_dosya>` (yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler) olmadan geçmez (çıkış 4; kapatma: `ORKESTRA_TEKNIK_KAPISI=0`). Denetçi teknik notun çıktıyla tutarlılığına bakar; tutarsızsa ret.
 
