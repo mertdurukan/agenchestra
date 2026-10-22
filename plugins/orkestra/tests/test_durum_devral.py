@@ -128,6 +128,16 @@ class DurumDevral(unittest.TestCase):
         plan = DD.planla(self.kaynak, self.hedef)
         self.assertEqual(len(plan["cakisma"]), 1)
 
+    def test_gorulen_isaretleri_birlesir_cakisma_sayilmaz(self):
+        yaz(os.path.join(self.hedef, "onaylar", "gorulen.json"), '{"a": "t1"}')
+        yaz(os.path.join(self.kaynak, "onaylar", "gorulen.json"), '{"a": "t0", "b": "t2"}')
+        plan = DD.planla(self.kaynak, self.hedef)
+        self.assertEqual(plan["cakisma"], [])
+        self.assertEqual(plan["gorulen"], {"b": "t2"})
+        DD.uygula(self.kaynak, self.hedef, plan)
+        self.assertEqual(json.loads(oku(os.path.join(self.hedef, "onaylar", "gorulen.json"))), {"a": "t1", "b": "t2"})
+        self.assertEqual(DD.say(DD.planla(self.kaynak, self.hedef)), 0)
+
     def test_kaynaklar_ana_agacta_bos_worktree_te_dolu(self):
         self.assertEqual(DD.kaynaklar(self.hedef, cwd=self.ana), [])
         self.assertEqual([os.path.normcase(x) for x in DD.kaynaklar(self.hedef, cwd=self.wt)],
