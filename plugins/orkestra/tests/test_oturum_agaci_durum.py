@@ -145,6 +145,39 @@ class OturumAgaciDurum(unittest.TestCase):
         os.makedirs(d)
         self.assertEqual(K.kardes_agac_klasorleri(d), [])
 
+    # ------------------------------------------------------------------ P4: oturum ağaçları temizlikte tanınır
+    def test_agac_temizle_oturum_agacini_oturum_sinifina_alir(self):
+        s = L.agac_temizle_siniflandir(self.ana, [])
+        self.assertEqual([n(w["yol"]) for w in s["oturum"]], [n(self.wt)])
+        self.assertEqual(s["kalip_disi"], [])
+        self.assertEqual(s["aday"], [])
+        self.assertEqual(s["oturum"][0]["devralinmamis"], 0)
+
+    def test_agac_temizle_devralinmamis_kopyayi_sayar(self):
+        with open(os.path.join(self.wt, ".claude", "orkestra", "gunluk.jsonl"), "w", encoding="utf-8", newline="\n") as f:
+            f.write('{"a":1}\n{"a":2}\n')
+        s = L.agac_temizle_siniflandir(self.ana, [])
+        self.assertEqual(s["oturum"][0]["devralinmamis"], 2)
+
+    def test_agac_temizle_kart_agaci_oturum_sayilmaz(self):
+        kart = os.path.join(self.ana, ".claude", "worktrees", "kart-G-009")
+        git(self.ana, "worktree", "add", "-q", "-b", "kart/G-009", kart)
+        try:
+            s = L.agac_temizle_siniflandir(self.ana, [])
+            self.assertEqual([n(w["yol"]) for w in s["oturum"]], [n(self.wt)])
+            self.assertEqual([n(w["yol"]) for w in s["aday"]], [n(kart)])  # kartı yok → aday
+        finally:
+            subprocess.run(["git", "-C", self.ana, "worktree", "remove", "--force", kart], capture_output=True)
+
+    def test_cli_agac_temizle_oturum_agacina_dokunmaz_ve_uyarir(self):
+        with open(os.path.join(self.wt, ".claude", "orkestra", "gunluk.jsonl"), "w", encoding="utf-8", newline="\n") as f:
+            f.write('{"a":1}\n')
+        r = self.kos(["kart", "agac-temizle", "--uygula", "--ajan-id", "ana", "--ajan-tipi", "ana"], self.wt)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("oturum ağacı", r.stdout)
+        self.assertIn("orkestra durum devral", r.stdout)
+        self.assertTrue(os.path.isdir(self.wt))
+
     # ------------------------------------------------------------------ CLI uçtan uca
     def test_cli_worktree_cwd_isi_ana_isler_json_a_yazar(self):
         klasor = os.path.join(self.wt, "Is", "001-deneme")
