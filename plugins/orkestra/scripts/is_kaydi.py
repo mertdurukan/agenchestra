@@ -899,7 +899,10 @@ def todo_denetle(sd: str, kok: str | None = None) -> list[dict]:
                         continue
                     gez(e.path, derinlik + 1)
                 elif _TODO_AD.search(e.name) and _norm(e.path) not in bagli:
-                    out.append({"yol": e.path, "tur": "worktree" if _worktree_mi(e.path, kok) else "bagsiz"})
+                    wt = _worktree_mi(e.path, kok)
+                    if wt and _worktree_kopyasi_gecerli_mi(e.path, kok):
+                        continue
+                    out.append({"yol": e.path, "tur": "worktree" if wt else "bagsiz"})
             except OSError:
                 continue
 
