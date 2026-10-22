@@ -127,6 +127,108 @@ def kaliteli_mi(klasor: str) -> bool:
         return False
 
 
+_SOZLESME_AD = re.compile(r"^sozlesme_\d{8}\.md$")
+_S_SATIRI = re.compile(r"^\s*[-*]\s+\*\*S(\d+):?\*\*", re.M)
+_S_NO = re.compile(r"\bS(\d+)\b")
+SOZLESME_BOLUMLERI = ("Problem", "Başarı kriterleri", "Kapsam dışı", "Kısıtlar")
+
+
+def sozlesme_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_SOZLESME_KAPISI") != "0"
+
+
+def sozlesmeli_mi(klasor: str) -> bool:
+    """İş sıralı, is.json `sozlesme: true` taşıyor ve sözleşme kapısı açık mı (ADR-0035 görev sözleşmesi)."""
+    if not sozlesme_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("sozlesme") is True
+    except (OSError, ValueError):
+        return False
+
+
+def sozlesme_yolu(klasor: str) -> str | None:
+    """En yeni `sozlesme_<YYYYMMDD>.md`; yoksa None."""
+    try:
+        adlar = sorted(a for a in os.listdir(klasor) if _SOZLESME_AD.match(a))
+    except OSError:
+        return None
+    return os.path.join(klasor, adlar[-1]) if adlar else None
+
+
+def _baslik_bolumu(metin: str, ad: str) -> str:
+    m = re.search(rf"^##[ \t]+{re.escape(ad)}[ \t]*$(.*?)(?=^##[ \t]|\Z)", metin or "", re.M | re.S)
+    return _YORUM.sub("", m.group(1)).strip() if m else ""
+
+
+def sozlesme_kriterleri(klasor: str) -> set[int]:
+    """Sözleşme `## Başarı kriterleri` altındaki S numaraları."""
+    yol = sozlesme_yolu(klasor)
+    metin = _oku(yol) if yol else None
+    return {int(n) for n in _S_SATIRI.findall(_baslik_bolumu(metin or "", "Başarı kriterleri"))}
+
+
+def sozlesme_eksikleri(klasor: str, baglanti: bool = False) -> list[str]:
+    """Sözleşmeli işte sözleşmenin eksikleri (boş liste = tamam). `baglanti`: plan maddelerinin sözleşme kriterine
+    bağını da denetler (P2). Sözleşmesiz iş için boş liste."""
+    if not sozlesmeli_mi(klasor):
+        return []
+    yol = sozlesme_yolu(klasor)
+    if yol is None:
+        return ["sozlesme_<YYYYMMDD>.md yok (`orkestra is belge <id> sozlesme`)"]
+    metin = _oku(yol) or ""
+    eksik = []
+    e = ozet_eksigi(metin, "sözleşme")
+    if e:
+        eksik.append(e)
+    for ad in SOZLESME_BOLUMLERI:
+        if not _baslik_bolumu(metin, ad):
+            eksik.append(f"sözleşme: `## {ad}` bölümü yok ya da boş")
+    if not sozlesme_kriterleri(klasor) and _baslik_bolumu(metin, "Başarı kriterleri"):
+        eksik.append("sözleşme: `## Başarı kriterleri` altında `- **S1:** …` satırı yok")
+    if baglanti:
+        eksik += sozlesme_baglanti_eksikleri(klasor)
+    return eksik
+
+
+def sozlesme_baglanti_eksikleri(klasor: str) -> list[str]:
+    """P2: her P maddesi `**Sözleşme:** S<n>` ile sözleşmedeki bir kriteri gösterir; her S bir P'de anılır."""
+    metin = _oku(os.path.join(klasor, "plan.md"))
+    if metin is None:
+        return []
+    kriterler = sozlesme_kriterleri(klasor)
+    if not kriterler:
+        return []
+    eksik, anilan = [], set()
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        m = re.search(r"\*\*Sözleşme:\*\*[ \t]*(.*)$", _YORUM.sub("", blok), re.M)
+        nolar = {int(x) for x in _S_NO.findall(m.group(1))} if m else set()
+        if not nolar:
+            eksik.append(f"P{n}: `**Sözleşme:**` alanı yok ya da S<n> içermiyor (sözleşme kriteri: {', '.join(f'S{k}' for k in sorted(kriterler))})")
+        elif not nolar <= kriterler:
+            eksik.append(f"P{n}: `**Sözleşme:**` alanındaki S{sorted(nolar - kriterler)[0]} sözleşmede yok")
+        anilan |= nolar
+    eksik += [f"S{k}: hiçbir plan maddesinin `**Sözleşme:**` alanında anılmıyor" for k in sorted(kriterler - anilan)]
+    return eksik
+
+
+def sozlesme_engeli(klasor: str, baglanti: bool = False) -> list[str]:
+    """Sessiz kapı: yalnız `ihlal` modunda sözleşme eksiklerini döndürür (adim ve ön koşullar sık çağrılır, gölge kayıt düşmez)."""
+    if not sozlesmeli_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return sozlesme_eksikleri(klasor, baglanti) if KM.mod("sozlesme", klasor) == "ihlal" else []
+
+
+def sozlesme_uyari(klasor: str, baglanti: bool = True) -> list[str]:
+    """Sesli kapı (plan yazımı, `is sira`): gölge modunda uyarır ve `kapi_golge` kaydı düşer, ihlal modunda eksikleri döndürür."""
+    if not sozlesmeli_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ihlal_ver(klasor, "sozlesme", sozlesme_eksikleri(klasor, baglanti))
+
+
 def ozet_eksigi(metin: str, ad: str) -> str | None:
     """Belgede `## Özet` bölümü var ve yer tutucu dışında içerik taşıyor mu; değilse neden."""
     m = _OZET_BOLUMU.search(metin or "")
