@@ -8,8 +8,6 @@ import type { HamOzet, KartOzeti, UiOzet } from '../types'
 const OZET = '.claude/orkestra/ozet.json'
 const PANE = 'orkestra'
 const veri = atom({ plugin: 'orkestra-ui', key: 'veri' } as const, null)
-// Gizle, gizlendiği andaki durum imzasını saklar; imza değişince (yeni ret/teslim/rapor) bant geri gelir.
-const bantGizli = atom({ plugin: 'orkestra-ui', key: 'bantGizli' } as const, '')
 
 const ACIK = ['isleniyor', 'denetimde', 'reddedildi', 'onaylandi', 'beklemede', 'planlandi']
 const ESKI_DK = 10
@@ -44,6 +42,12 @@ function olaymi(r: { metin: string; olay?: boolean }): boolean {
   return m.split(' ').length <= 4 && /\bg-\d+\b|teslim|denetim/.test(m.replace(/İ/g, 'i').toLowerCase())
 }
 
+// Bu sohbette süren arka plan işi: sohbetin kendi görevleri + proje çapında perspektif koşusu ve onay uygulaması.
+export function arkaSayisi(h: HamOzet, oturum: string): number {
+  const a = h.arka_plan
+  return (a?.oturumlar?.[oturum] ?? 0) + (a?.perspektif === true ? 1 : 0) + (a?.uygulama === true ? 1 : 0)
+}
+
 // Ham anlık görüntüyü bu oturumun gözünden panel verisine çevirir.
 export function donustur(h: HamOzet, oturum: string): UiOzet {
   const ot = h.maliyet?.oturumlar?.[oturum]
@@ -60,7 +64,7 @@ export function donustur(h: HamOzet, oturum: string): UiOzet {
     kartlar,
     sayac: h.sayac ?? {},
     maliyet: { bugun: h.maliyet?.bugun ?? 0, oturum: ot?.usd ?? 0 },
-    eylem: hepsi.filter(k => k.durum === 'reddedildi' || k.durum === 'onaylandi').map(k => `${k.durum}:${k.id}`).sort(),
+    arka: arkaSayisi(h, oturum),
     teslim: { sayi: teslimler.length, sonId: son?.id, sonSaat: (son?.guncelleme ?? '').slice(11, 16) || undefined },
     defter: (h.defter ?? []).filter(r => !olaymi(r)).slice(-3).map(r => ({
       saat: (r.zaman ?? '').slice(11, 16), gorev: r.gorev, metin: kes(temizMetin(r.metin), 160),
@@ -69,14 +73,6 @@ export function donustur(h: HamOzet, oturum: string): UiOzet {
     uretim: h.uretim,
     isler: h.isler ?? [],
   }
-}
-
-// Bantta eylem gerektiren durumun imzası; boşsa (ret yok, teslim bekleyen yok, rapor yok) bant çizilmez.
-// Kart kimliklerinden kurulur: sayı aynı kalsa da reddedilen kart değişirse imza değişir ve gizlenmiş bant geri gelir.
-export function eylemImzasi(o: UiOzet): string {
-  const kartlar = o.eylem ?? []
-  const rapor = o.perspektif?.rapor === true
-  return kartlar.length === 0 && !rapor ? '' : `${kartlar.join(',')}|${rapor ? 'rapor' : ''}`
 }
 
 // Modül düzeyi durum: yeniden yüklemede sıfırlanır (gösterilen veri $.state'te kalır).
@@ -133,7 +129,6 @@ export const register: Register = on => {
 
   on('command.run', { command: 'orkestra' }, async $ => {
     await yenile($, true)
-    await update($, bantGizli, () => '')
     await $.ui.open({ id: PANE, title: 'Orkestra' })
     return { text: 'Orkestra paneli açıldı. Daha zengin canlı görünüm için /orkestra-web.' }
   })
@@ -178,25 +173,15 @@ export const register: Register = on => {
     )
   })
 
-  // Bant yalnız kullanıcıdan eylem beklenirken: ret > 0, teslim bekleyen (onaylandi) > 0 ya da perspektif raporu hazır.
-  // Yalnız oturum maliyeti için çizilmez. "Gizle" o anki durum imzası için gizler.
+  // Bant yalnız bu sohbette arka plan işi sürerken çıkar ve süren her an görünür (Gizle yok); ret, teslim, rapor ve maliyet bant çıkarmaz.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const o = await read($, veri)
-    if (e.props.hasSurvey || o === null || !o.acik || o.kartlar === undefined) return next(e)
-    const imza = eylemImzasi(o)
-    if (imza === '' || (await read($, bantGizli)) === imza) return next(e)
-    const ret = (o.eylem ?? []).filter(x => x.startsWith('reddedildi:')).length
-    const onay = (o.eylem ?? []).filter(x => x.startsWith('onaylandi:')).length
+    if (e.props.hasSurvey || o === null || !o.acik || (o.arka ?? 0) === 0) return next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
-    const parca: string[] = []
-    if (ret > 0) parca.push(`${ret} ret`)
-    if (onay > 0) parca.push(`${onay} teslime hazır`)
-    if (o.perspektif?.rapor) parca.push('perspektif raporu hazır')
     return (
       <Box>
-        <Text dimColor>{`Orkestra · ${parca.join(' · ')} `}</Text>
+        <Text dimColor>{`Orkestra · arka planda ${o.arka} iş sürüyor `}</Text>
         <Button key="panel" label="Panel" onPress={() => $.ui.open({ id: PANE, title: 'Orkestra' })} />
-        <Button key="gizle" label="Gizle" onPress={() => update($, bantGizli, () => imza)} />
       </Box>
     )
   })
