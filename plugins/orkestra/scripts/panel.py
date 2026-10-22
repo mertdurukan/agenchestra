@@ -567,6 +567,9 @@ def _todo_json(alan_id, is_id) -> dict:
 
 
 def _kullanici_todo_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.kullanici_todo(*_tum_topla(_kullanici_todo_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
