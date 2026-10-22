@@ -124,8 +124,3 @@ class Guncelleme:
             kontrol["zaman"] = zaman
         return {"durum": durum, "ertelendi": ertelendi, "kontrol": kontrol,
                 "kosu": k if k["durum"] != "bosta" else None}
-
-    def _bitti_yeni(self, k: dict) -> bool:
-        """Başarılı koşu BITTI_GOSTER sn boyunca 'bitti' kartı olarak görünür."""
-        bitis = getattr(self.kosu, "_bit", None)
-        return bitis is not None and self._saat() - bitis <= BITTI_GOSTER
