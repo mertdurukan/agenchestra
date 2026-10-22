@@ -311,9 +311,24 @@ def k_panel_port(b: Baglam) -> Sonuc:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.3)
         dolu = s.connect_ex(("127.0.0.1", port)) == 0
+    servis = _panel_servisi_kurulu()
     if dolu:
+        if servis:
+            return _ok(f"panel portu {port} dolu; Task Scheduler görevi 'Orkestra Panel' kurulu", port=port)
         return _uyari(f"panel portu {port} dolu (orkestra paneli çalışıyorsa normal)", port=port)
+    if servis:
+        return _uyari(f"Task Scheduler görevi 'Orkestra Panel' kurulu ama panel portu {port} boş: `orkestra panel` ya da `orkestra panel servis durum`", port=port)
     return _ok(f"panel portu {port} boş", port=port)
+
+
+def _panel_servisi_kurulu() -> bool:
+    """'Orkestra Panel' görevi kayıtlı mı (Windows dışında False; doktor ork_lib'e bağımlı olmadığı için schtasks doğrudan)."""
+    if os.name != "nt":
+        return False
+    try:
+        return subprocess.run(["schtasks", "/Query", "/TN", "Orkestra Panel"], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def o_panel_port(b, s):
