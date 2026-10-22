@@ -26,7 +26,7 @@ def _nt_zorunlu() -> None:
 
 
 def _schtasks(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["schtasks", *args], capture_output=True, text=True, timeout=30)
+    return subprocess.run(["schtasks", *args], capture_output=True, text=True, timeout=30, **cfg.PENCERESIZ)
 
 
 def _pythonw() -> str:
@@ -84,7 +84,7 @@ def _eski_paneli_durdur() -> None:
     try:
         with open(os.path.join(L.GENEL_DIZIN, "panel.json"), encoding="utf-8") as f:
             eski = json.load(f)
-        subprocess.run(["taskkill", "/PID", str(eski["pid"]), "/F"], capture_output=True)
+        subprocess.run(["taskkill", "/PID", str(eski["pid"]), "/F"], capture_output=True, **cfg.PENCERESIZ)
     except Exception:  # noqa: BLE001
         pass
 

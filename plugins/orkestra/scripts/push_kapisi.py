@@ -10,6 +10,8 @@ import json
 import os
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 IZ = "# orkestra push-kapisi (ADR-0012)"
 SIFIR = "0" * 40
@@ -20,7 +22,7 @@ class KapiHata(Exception):
 
 
 def _git(kok: str, *arg: str) -> str:
-    r = subprocess.run(["git", "-c", "safe.directory=*", "-C", kok, *arg], capture_output=True, text=True, encoding="utf-8")
+    r = subprocess.run(["git", "-c", "safe.directory=*", "-C", kok, *arg], capture_output=True, text=True, encoding="utf-8", **cfg.PENCERESIZ)
     if r.returncode != 0:
         raise KapiHata(r.stderr.strip() or f"git {' '.join(arg)} başarısız")
     return r.stdout.strip()

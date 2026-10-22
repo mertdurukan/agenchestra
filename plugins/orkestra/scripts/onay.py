@@ -1252,6 +1252,7 @@ def _kosu_bitir(sd: str, sonuc: str) -> None:
 
 def _kos(sd: str, proje: str, exe: str, hafiza: str) -> None:
     import subprocess
+    import cfg
     d = _oku_json(_kosu_yolu(sd), None) or {}
     idler = d.get("idler") or _uygulanacaklar(sd, "perspektif")
     skill = os.path.join(L.PLUGIN_ROOT, "skills", "onay", "SKILL.md")
@@ -1262,7 +1263,7 @@ def _kos(sd: str, proje: str, exe: str, hafiza: str) -> None:
              "--add-dir", hafiza, "--add-dir", sd, "--output-format", "text"]
     sonuc = "tamam"
     try:
-        r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=KOSU_ZAMAN_ASIMI_SN)
+        r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=KOSU_ZAMAN_ASIMI_SN, **cfg.PENCERESIZ)
         if r.returncode != 0 or "Not logged in" in (r.stdout or ""):
             sonuc = f"hata: çıkış kodu {r.returncode}"
     except Exception as e:  # noqa: BLE001

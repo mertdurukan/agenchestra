@@ -777,7 +777,7 @@ def subagent_start(inp: dict):
     try:
         import subprocess
         out = subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "orkestra.py"), "defter", "baglam", gorev, "--max", "1800"],
-                             capture_output=True, text=True, encoding="utf-8", timeout=8, cwd=L.proje_dizini(inp.get("cwd"))).stdout
+                             capture_output=True, text=True, encoding="utf-8", timeout=8, cwd=L.proje_dizini(inp.get("cwd")), **cfg.PENCERESIZ).stdout
     except Exception:
         out = ""
     if out.strip():

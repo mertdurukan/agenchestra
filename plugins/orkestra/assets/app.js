@@ -422,14 +422,14 @@
     if (o.tur === 'uygula') return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
         <div class="simge">${simge('oynat')}</div>
         <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
-          <div class="metin">Uygulama Claude'da yeni bir sohbet açar ve kararları işler.</div></div>
+          <div class="metin">Kararlar arka planda, pencere açmadan sırayla uygulanır (komut satırı Claude oturumu gerekir).</div></div>
         <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula" data-alan="${o.alan?.id || ''}">Şimdi uygula</button></div></article>`;
     if (o.tur === 'perspektif') {
       const pd = o.d, gecen = pd.gun_once == null ? 'Perspektif hiç çalışmadı' : `Perspektif ${pd.gun_once} gündür çalışmadı`;
       return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
         <div class="simge">${simge('oynat')}</div>
         <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${gecen}</div>
-          <div class="metin">Son koşudan beri ${B.sayi(pd.oturum_sayaci)} oturum geçti. Perspektif hafıza bakımı ve skill avı yapar; Claude'da yeni bir sohbet açar.</div></div>
+          <div class="metin">Son koşudan beri ${B.sayi(pd.oturum_sayaci)} oturum geçti. Perspektif hafıza bakımı ve skill avı yapar; arka planda, pencere açmadan çalışır.</div></div>
         <div class="eylemler"><button class="dugme kucuk" data-eylem="perspektif-yoksay" data-alan="${o.alan?.id || ''}" title="Bir sonraki tetiklemeye kadar sorma">Yoksay</button> <button class="dugme ana-d kucuk" data-eylem="perspektif" data-alan="${o.alan?.id || ''}">Perspektifi başlat</button></div></article>`;
     }
     if (o.tur === 'katman5') return H`<article class="oge" data-gez style="--renk:var(--uyari)">

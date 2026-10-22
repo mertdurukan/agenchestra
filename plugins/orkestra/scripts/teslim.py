@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import subprocess
+import cfg  # noqa: E402
 
 import kapi_mod as KM
 import ork_lib as L
@@ -28,7 +29,7 @@ def kapi_acik() -> bool:
 
 def _gh(args: list[str], cwd: str) -> subprocess.CompletedProcess:
     try:
-        return subprocess.run(["gh"] + args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        return subprocess.run(["gh"] + args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, **cfg.PENCERESIZ)
     except (OSError, subprocess.TimeoutExpired) as e:
         return subprocess.CompletedProcess(args, 1, "", str(e))
 

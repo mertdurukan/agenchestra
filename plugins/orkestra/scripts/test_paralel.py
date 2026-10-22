@@ -14,6 +14,8 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 VARSAYILAN_ZAMAN_ASIMI = 900.0
 # Önceki koşuların dosya süreleri: en yavaş dosyalar havuza önce girer (LPT), kuyruk kısalır. Kayıt yoksa/bozuksa sıra korunur.
@@ -87,7 +89,7 @@ def dugumleri_topla(dosya):
         p = subprocess.run([sys.executable, "-m", "pytest", mutlak, "--collect-only", "-q", "-p", "no:cacheprovider"],
                            capture_output=True, text=True, encoding="utf-8", errors="replace",
                            env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"),
-                           timeout=120, cwd=calisma_dizini(dosya))
+                           timeout=120, cwd=calisma_dizini(dosya), **cfg.PENCERESIZ)
     except (subprocess.TimeoutExpired, OSError):
         return []
     if p.returncode != 0:
@@ -118,7 +120,7 @@ def tek_dosya(dosya, zaman_asimi, dugumler=None):
     t = time.time()
     try:
         p = subprocess.run(komut, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           env=env, timeout=zaman_asimi, cwd=calisma_dizini(dosya))
+                           env=env, timeout=zaman_asimi, cwd=calisma_dizini(dosya), **cfg.PENCERESIZ)
         return dosya, p.returncode, (p.stdout or "") + (p.stderr or ""), time.time() - t, False
     except subprocess.TimeoutExpired as e:
         def _s(v):

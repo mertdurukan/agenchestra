@@ -11,6 +11,7 @@ import hashlib
 import os
 import re
 import subprocess
+import cfg  # noqa: E402
 import sys
 import time
 
@@ -1019,7 +1020,7 @@ def _eski_surumde_kos(proje: str, ref: str, komut: str, dosyalar, zaman_asimi: f
     import tempfile
 
     def git(*args, cwd=proje):
-        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", **cfg.PENCERESIZ)
     ust = git("rev-parse", "--show-toplevel")
     if ust.returncode != 0:
         hata("--eski-surumde için proje bir git deposunda olmalı.")

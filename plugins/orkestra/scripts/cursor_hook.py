@@ -11,6 +11,8 @@ import json
 import os
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 OLAY_ESLEME = {
     "sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit",
@@ -129,7 +131,7 @@ def calistir(cursor_olay, ham):
     if claude_girdi.get("cwd"):
         env.setdefault("CLAUDE_PROJECT_DIR", claude_girdi["cwd"])
     p = subprocess.run([sys.executable, _hook_py(), claude_girdi["hook_event_name"]],
-                       input=json.dumps(claude_girdi).encode("utf-8"), capture_output=True, env=env)
+                       input=json.dumps(claude_girdi).encode("utf-8"), capture_output=True, env=env, **cfg.PENCERESIZ)
     cikis = p.stdout.decode("utf-8", "replace").strip()
     try:
         claude = json.loads(cikis) if cikis else None

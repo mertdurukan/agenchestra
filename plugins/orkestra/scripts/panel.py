@@ -1149,7 +1149,7 @@ def _isit(port: int) -> None:
 def _durdur(eski: dict) -> None:
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(eski["pid"]), "/F"], capture_output=True)
+            subprocess.run(["taskkill", "/PID", str(eski["pid"]), "/F"], capture_output=True, **cfg.PENCERESIZ)
         else:
             os.kill(int(eski["pid"]), 15)
     except Exception:

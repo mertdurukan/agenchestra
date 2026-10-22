@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+import cfg  # noqa: E402
 
 import ork_lib as L
 
@@ -64,7 +65,7 @@ def son_kullanici_mesajlari(transkript: str, adet: int = SON_MESAJ) -> list[str]
 def _git(cwd: str, *arg: str) -> str:
     try:
         r = subprocess.run(["git", "-c", "safe.directory=*", "-C", cwd, *arg], capture_output=True, text=True,
-                           encoding="utf-8", timeout=5)
+                           encoding="utf-8", timeout=5, **cfg.PENCERESIZ)
         return r.stdout.strip() if r.returncode == 0 else ""
     except Exception:
         return ""

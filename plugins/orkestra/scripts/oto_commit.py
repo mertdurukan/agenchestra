@@ -58,7 +58,8 @@ def depo_koku(klasor):
 
 def _git(repo, *args):
     import subprocess
-    return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, encoding="utf-8")
+    import cfg
+    return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, encoding="utf-8", **cfg.PENCERESIZ)
 
 
 def klasorleri_commit(repo, onekler, atif_kaynagi, git=None, etiket="kabuk"):
@@ -121,9 +122,10 @@ def main():
     import json
     import subprocess
     import time
+    import cfg
 
     def git(repo, *args):
-        return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, encoding="utf-8")
+        return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, encoding="utf-8", **cfg.PENCERESIZ)
 
     try:
         veri = json.load(sys.stdin)

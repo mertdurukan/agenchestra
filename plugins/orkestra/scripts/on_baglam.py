@@ -20,6 +20,9 @@ import re
 import subprocess
 
 import yol_denetimi as YD
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 _KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AYAR_YOLU = os.path.join(_KOK, "ayarlar", "on_baglam.json")
@@ -56,7 +59,7 @@ def _git(kok: str, *args: str) -> str | None:
     """git çıktısı; git yoksa ya da komut hata verirse (ör. depo değil) None."""
     try:
         r = subprocess.run(["git", "-c", "safe.directory=*", "-C", kok, *args], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=20)
+                           encoding="utf-8", errors="replace", timeout=20, **cfg.PENCERESIZ)
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout if r.returncode == 0 else None

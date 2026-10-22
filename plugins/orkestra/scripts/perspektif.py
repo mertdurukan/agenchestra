@@ -292,7 +292,7 @@ def headless_mumkun(sd: str, exe: str | None) -> bool:
     except Exception:
         pass
     try:
-        r = subprocess.run([exe, "auth", "status"], capture_output=True, text=True, encoding="utf-8", timeout=20)
+        r = subprocess.run([exe, "auth", "status"], capture_output=True, text=True, encoding="utf-8", timeout=20, **cfg.PENCERESIZ)
         mumkun = bool(json.loads(r.stdout or "{}").get("loggedIn"))
     except Exception:
         mumkun = False
@@ -447,7 +447,7 @@ def _kos(sd: str, proje: str, hafiza: str, exe: str):
              "--allowedTools", "Read", "Glob", "Grep", "--add-dir", hafiza, "--add-dir", sd, "--output-format", "text"]
     basarili = False
     try:
-        r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=3600)
+        r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=3600, **cfg.PENCERESIZ)
         metin = r.stdout.strip()
         basarili = r.returncode == 0 and len(metin) > 200 and "Not logged in" not in metin
         if not basarili:

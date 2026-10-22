@@ -84,7 +84,7 @@ def _hata(m, **a):
 
 def _calistir(argv, zaman=60):
     try:
-        r = subprocess.run(argv, capture_output=True, text=True, timeout=zaman, encoding="utf-8", errors="replace")
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=zaman, encoding="utf-8", errors="replace", **cfg.PENCERESIZ)
         return r.returncode, (r.stdout or "") + (r.stderr or "")
     except (OSError, subprocess.SubprocessError) as e:
         return -1, str(e)
@@ -327,7 +327,7 @@ def _panel_servisi_kurulu() -> bool:
     if os.name != "nt":
         return False
     try:
-        return subprocess.run(["schtasks", "/Query", "/TN", "Orkestra Panel"], capture_output=True, timeout=10).returncode == 0
+        return subprocess.run(["schtasks", "/Query", "/TN", "Orkestra Panel"], capture_output=True, timeout=10, **cfg.PENCERESIZ).returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
 

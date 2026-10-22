@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import cfg  # noqa: E402
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +18,7 @@ import ork_lib as L  # noqa: E402
 
 def pytest_var_mi(yorumlayici: str) -> bool:
     try:
-        r = subprocess.run([yorumlayici, "-c", "import pytest"], capture_output=True, timeout=60)
+        r = subprocess.run([yorumlayici, "-c", "import pytest"], capture_output=True, timeout=60, **cfg.PENCERESIZ)
         return r.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False

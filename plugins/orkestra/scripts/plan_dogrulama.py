@@ -313,7 +313,7 @@ def _k_komut(deger, kokler, proje, kos, zaman_asimi):
     arg = [bash, "-c", komut] if bash else komut
     env = dict(os.environ, PYTHONUTF8="1", ORKESTRA_DOGRULAMA_KAPISI="0")
     try:
-        r = subprocess.run(arg, shell=not bash, cwd=proje, capture_output=True, timeout=zaman_asimi, env=env)
+        r = subprocess.run(arg, shell=not bash, cwd=proje, capture_output=True, timeout=zaman_asimi, env=env, **cfg.PENCERESIZ)
     except subprocess.TimeoutExpired:
         return False, "K", f"komut {zaman_asimi} sn içinde bitmedi"
     except OSError as e:

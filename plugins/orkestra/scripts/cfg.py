@@ -215,7 +215,7 @@ def eklenti_surumu() -> str:
     if os.path.basename(ust) == "orkestra" and ad != "orkestra":
         return ad
     try:
-        r = subprocess.run(["git", "-C", kok, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["git", "-C", kok, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5, **PENCERESIZ)
         if r.returncode == 0 and r.stdout.strip():
             return "git-" + r.stdout.strip()
     except (OSError, subprocess.SubprocessError):
@@ -258,6 +258,9 @@ def doktor_gerekli() -> str | None:
 # DETACHED_PROCESS konsolsuz süreç doğurur ve CREATE_NO_WINDOW'u yok sayar; konsolsuz sürecin başlattığı her konsol programı
 # (git, py, python) varsayılan terminal uygulamasında yeni bir Terminal penceresi açar. NO_WINDOW tek başına gizli konsol verir, alt süreçler onu devralır.
 ARKA_PLAN_BAYRAK = 0x00000200 | 0x08000000 if os.name == "nt" else 0
+# Eklentinin başlattığı her alt süreç (subprocess.run/Popen/check_*) `**cfg.PENCERESIZ` taşır: konsolsuz bir süreçten (hook, panel)
+# çağrılan konsol programı Windows'ta yeni pencere açar. tests/test_pencerisiz_subprocess.py bayraksız çağrıyı reddeder.
+PENCERESIZ = {"creationflags": 0x08000000} if os.name == "nt" else {}
 
 DOKTOR_ARA = 3600  # sn: başarısız ya da yazamayan doktor her oturumda yeniden başlamasın
 
@@ -320,7 +323,7 @@ def kesif_python() -> str:
     if shutil.which("py"):
         try:
             r = subprocess.run(["py", "-3.13", "-c", "import sys;print(sys.executable)"], capture_output=True,
-                               text=True, timeout=20)
+                               text=True, timeout=20, **PENCERESIZ)
             yol = (r.stdout or "").strip().splitlines()
             if r.returncode == 0 and yol and os.path.isfile(yol[-1]):
                 return yol[-1]

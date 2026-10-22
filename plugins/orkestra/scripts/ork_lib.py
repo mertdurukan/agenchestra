@@ -39,8 +39,8 @@ KAPALI_DURUMLAR = ("teslim", "iptal", "beklemede", "planlandi")
 ETIKET_GOREV = re.compile(r"#GOREV:([A-Za-z0-9_.\-]+)")
 ETIKET_SUREC = re.compile(r"#SUREC:([a-z\-]+)")
 DEFTER_MAX_BAYT = 4 * 1024 * 1024
-# Konsolsuz (panel gibi ayrık) süreçten çağrılan konsol programı Windows'ta yeni pencere açar; bu bayrak açtırmaz.
-PENCERESIZ = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+# Eski ad; tek kaynak cfg.PENCERESIZ (konsolsuz süreçten çağrılan konsol programı yeni pencere açmasın).
+PENCERESIZ = cfg.PENCERESIZ
 
 
 # ---------------------------------------------------------------- zaman, yol
@@ -1656,7 +1656,7 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
         kod = -1
         try:
             if os.name == "nt":
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, timeout=15)
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, timeout=15, **cfg.PENCERESIZ)
             else:
                 import signal
                 os.killpg(p.pid, signal.SIGKILL)

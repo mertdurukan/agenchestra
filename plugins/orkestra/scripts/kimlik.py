@@ -12,6 +12,8 @@ import re
 import stat
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 ORTAK = "_ortak"
 _AD = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -119,7 +121,7 @@ def izin_sikilastir(yolu: str) -> str:
         k = _kullanici()
         if not k:
             raise KimlikHata("kullanıcı adı bulunamadı; ACL ayarlanamadı")
-        r = subprocess.run(["icacls", yolu, "/inheritance:r", "/grant:r", f"{k}:(OI)(CI)F"], capture_output=True, text=True)
+        r = subprocess.run(["icacls", yolu, "/inheritance:r", "/grant:r", f"{k}:(OI)(CI)F"], capture_output=True, text=True, **cfg.PENCERESIZ)
         if r.returncode != 0:
             raise KimlikHata("icacls başarısız: " + (r.stderr or r.stdout).strip()[:200])
         return "ACL: yalnız mevcut kullanıcı"
@@ -130,7 +132,7 @@ def izin_sikilastir(yolu: str) -> str:
 def izin_gevsek_mi(yolu: str) -> list[str]:
     """Gevşek izin bulgularını döner (boşsa sıkı)."""
     if os.name == "nt":
-        r = subprocess.run(["icacls", yolu], capture_output=True, text=True)
+        r = subprocess.run(["icacls", yolu], capture_output=True, text=True, **cfg.PENCERESIZ)
         if r.returncode != 0:
             return ["icacls okunamadı"]
         dusuk = r.stdout.lower()
@@ -201,7 +203,7 @@ def calistir(servis: str, komut: list[str], proje: str | None = None) -> int:
     env = dict(os.environ)
     for k, v in d.items():
         env.setdefault(k, v)  # ortam değişkeni önceliklidir
-    r = subprocess.run(komut, env=env, capture_output=True)
+    r = subprocess.run(komut, env=env, capture_output=True, **cfg.PENCERESIZ)
     gizli = sorted({v for v in d.values() if len(v) >= 4}, key=len, reverse=True)
 
     def maske(b: bytes) -> bytes:

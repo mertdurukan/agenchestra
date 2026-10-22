@@ -15,6 +15,9 @@ import shutil
 import subprocess
 import threading
 import time
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 PAZAR = "claude-orchestration"
 
@@ -26,7 +29,7 @@ class GuncelleHata(Exception):
 def kos(argv: list[str], cwd: str | None = None) -> tuple[int, str]:
     """Komutu çalıştırır; (çıkış kodu, stdout+stderr) döner. Program yoksa 127."""
     try:
-        r = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        r = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", **cfg.PENCERESIZ)
     except OSError as e:
         return 127, str(e)
     return r.returncode, (r.stdout + r.stderr).strip()

@@ -16,6 +16,9 @@ import os
 import subprocess
 
 import yol_denetimi as YD
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 
 BELGELER = ("mevcut_durum_*.md", "plan.md")
 
@@ -27,7 +30,7 @@ def norm(yol: str) -> str:
 def _git(kok: str, *args: str) -> str:
     try:
         r = subprocess.run(["git", "-c", "safe.directory=*", "-C", kok, *args], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=60)
+                           encoding="utf-8", errors="replace", timeout=60, **cfg.PENCERESIZ)
     except (OSError, subprocess.SubprocessError):
         return ""
     return r.stdout if r.returncode == 0 else ""
