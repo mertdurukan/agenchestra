@@ -30,7 +30,14 @@ _ONAY_KISA = re.compile(r"^\W*[yoeq]\W*$", re.I)
 # Onay fiili cümlenin içinde geçebilir ("Planı onaylıyorum", "kabul ediyorum"); kök: onayl(ı)yor, onayladım, onay veriyorum.
 _ONAY_FIIL = re.compile(r"\b(?:onayl(?:[ıi]yor|ad[ıi])\w*|onay\s+veriyor\w*|kabul\s+ed(?:iyor|tim|ildi)\w*)", re.I)
 _KOSUL = re.compile(r"\b(?:ama|fakat|ancak|lakin|yeter\s+ki|[sş]art[ıi]yla)\b", re.I)
-_RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz)\b", re.I)
+_RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz|\w+m[ıiuü]yor\w*)\b", re.I)
+# I-168 (ADR-0035): icra niyeti. Yalnız emir/izin biçimleri; "yapıyor", "devam ediyor" gibi anlatım eşleşmez.
+_ICRA = re.compile(
+    r"\b(?:yap(?:[ıi]n|abilirsin|sana|s[ıi]n)?|gerekeni\s+yap\w*|hallet(?:sin|sene|in)?|halledelim|[çc][öo]z(?:elim|sene)?"
+    r"|ilerle(?:yelim)?|devam\s+et\w*|go\s+ahead|proceed|ba[sş]la(?:yal[ıi]m|yın)?)\b", re.I)
+# Bulanık eşleşme: yazım hatalı onay fiili ("onaylyıorum"); 5 harften kısa sözcükte kapalı.
+_ONAY_KOKLERI = ("onaylıyorum", "onayladım", "onaylıyoruz", "onaylandı", "tamamdır", "başlayalım", "uygulayalım")
+BULANIK_ESIK = 0.85
 
 # Onay beklerken ana ya da alt ajanın kabukta çalıştıramayacağı komutlar (tırnak içi metin atılmış komuta uygulanır)
 KABUK_YASAK = re.compile(
