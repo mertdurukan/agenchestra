@@ -725,6 +725,24 @@
         }
       ],
       "etkinlesme": "2026-10-22T10:44:49+03:00"
+    },
+    {
+      "id": "P-027",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Orkestra paneli her Windows kurulumunda oturumdan bağımsız bir Task Scheduler görevi ('Orkestra Panel') olarak çalışır; elle ya da oturum hook'uyla başlatılan arka plan süreci olarak bırakılmaz. (1) Görev oturum açılışında (Windows başlangıcı) başlar, dakikalık zaman tetikleyicisiyle ölürse yeniden başlar ve portu sabit tutar (varsayılan 8765); servis kuruluyken baslat() süreç öldürmez, port kaydırmaz, ikinci süreç açmaz. (2) Görev kullanıcı düzeyindedir (yönetici hakkı gerekmez) ve her kullanıcı için SessionStart'ta kendiliğinden kurulur; eklenti yolu değişince (güncelleme) yeniden kaydedilir. (3) Kullanıcı 'orkestra panel servis kaldir' dediyse yeniden kurulmaz; ORKESTRA_PANEL_SERVIS=0 kurulumu kapatır; kurulum hatası aynı eklenti yoluyla tekrar denenmez. (4) Windows dışında komut açık hata verir, davranış değişmez. Zorlama: scripts/panel_servis.py otomatik_kur, hook.py session_start, panel.py baslat, tests/test_panel_servis.py.",
+      "neden": "Panel sürekli kapanıyor ve başka portlardan açılıyordu; tarayıcıdan sabit adresle ulaşılamıyordu. Çözüm tek projeye değil eklentiyi kullanan herkese uygulanmalı (P-022).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-22T19:15:20+03:00",
+      "guncelleme": "2026-10-22T19:15:20+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-22T19:15:20+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Orkestra paneli her Windows kurulumunda oturumdan bağımsız bir Task Scheduler görevi ('Orkestra Panel') olarak çalışır; elle ya da oturum hook'uyla başlatılan arka plan süreci olarak bırakılmaz. (1) Görev oturum açılışında (Windows başlangıcı) başlar, dakikalık zaman tetikleyicisiyle ölürse yeniden başlar ve portu sabit tutar (varsayılan 8765); servis kuruluyken baslat() süreç öldürmez, port kaydırmaz, ikinci süreç açmaz. (2) Görev kullanıcı düzeyindedir (yönetici hakkı gerekmez) ve her kullanıcı için SessionStart'ta kendiliğinden kurulur; eklenti yolu değişince (güncelleme) yeniden kaydedilir. (3) Kullanıcı 'orkestra panel servis kaldir' dediyse yeniden kurulmaz; ORKESTRA_PANEL_SERVIS=0 kurulumu kapatır; kurulum hatası aynı eklenti yoluyla tekrar denenmez. (4) Windows dışında komut açık hata verir, davranış değişmez. Zorlama: scripts/panel_servis.py otomatik_kur, hook.py session_start, panel.py baslat, tests/test_panel_servis.py."
+        }
+      ],
+      "etkinlesme": "2026-10-22T19:15:20+03:00"
     }
   ]
 }
