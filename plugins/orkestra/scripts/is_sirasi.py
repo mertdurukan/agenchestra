@@ -414,24 +414,31 @@ def plan_eksikleri(klasor: str) -> list[str]:
 
 
 def adim(klasor: str) -> tuple[str, list[str]]:
-    """(şu anki adım, o adımın eksikleri): 'mevcut_durum' | 'plan' | 'todo' (todo = ön koşullar tamam)."""
+    """(şu anki adım, o adımın eksikleri): 'sozlesme' | 'mevcut_durum' | 'plan' | 'todo' (todo = ön koşullar tamam).
+    'sozlesme' adımı yalnız sözleşmeli işte ve `ihlal` modunda çıkar (ADR-0035); gölge modunda sessizce atlanır."""
+    e = sozlesme_engeli(klasor)
+    if e:
+        return "sozlesme", e
     e = mevcut_durum_eksikleri(klasor)
     if e:
         return "mevcut_durum", e
     e = plan_eksikleri(klasor)
     if e:
         return "plan", e
+    e = sozlesme_engeli(klasor, baglanti=True)
+    if e:
+        return "plan", e
     return "todo", []
 
 
 def plan_onkosulu(klasor: str) -> list[str]:
-    """plan.md yazımı için ön koşul: mevcut durum tamam."""
-    return mevcut_durum_eksikleri(klasor)
+    """plan.md yazımı için ön koşul: sözleşme (ihlal modunda) ve mevcut durum tamam; gölge modunda sözleşme eksiği uyarılır."""
+    return sozlesme_uyari(klasor, baglanti=False) + mevcut_durum_eksikleri(klasor)
 
 
 def todo_onkosulu(klasor: str) -> list[str]:
-    """todo.md yazımı için ön koşul: mevcut durum ve plan tamam."""
-    return mevcut_durum_eksikleri(klasor) or plan_eksikleri(klasor)
+    """todo.md yazımı için ön koşul: sözleşme (ihlal modunda), mevcut durum ve plan tamam."""
+    return sozlesme_engeli(klasor, baglanti=True) or mevcut_durum_eksikleri(klasor) or plan_eksikleri(klasor)
 
 
 def todo_satir_ihlalleri(metin: str, planli: set[int], kanit: bool = False) -> list[str]:
