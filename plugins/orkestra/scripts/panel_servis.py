@@ -36,8 +36,8 @@ def _pythonw() -> str:
 
 
 def gorev_xml(port: int, python: str | None = None, betik: str | None = None, calisma_dizini: str | None = None) -> str:
-    """Oturum açılışında başlayan görev tanımı. Süreç ölürse (kapatılma dahil) her dakika tekrarlayan tetikleyici yeniden
-    başlatır; çalışırken IgnoreNew ikinci süreç açmaz. RestartOnFailure yalnız görev hatayla biterse işe yarar,
+    """Oturum açılışında başlayan görev tanımı. Süreç ölürse (kapatılma dahil) her dakika tekrarlayan zaman tetikleyicisi
+    yeniden başlatır (oturum açılışı tetikleyicisinin tekrarı yalnız açılıştan sonra işler, ölçüldü); çalışırken IgnoreNew ikinci süreç açmaz. RestartOnFailure yalnız görev hatayla biterse işe yarar,
     sonlandırılan süreçte (ölçüldü, 22.10.2026) tek başına yeniden başlatmadı."""
     python = python or _pythonw()
     betik = betik or PANEL_BETIGI
