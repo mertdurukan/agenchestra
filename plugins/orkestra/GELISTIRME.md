@@ -18,6 +18,14 @@ Notlar:
 - `validate --strict` sürüm alanı olmadığı için hep "No version specified" ile düşer (bilinçli).
 - `orkestra` CLI'ı da önbellekten çalışır. HTML paneli geliştirme deposu yolundan `python <depo>/plugins/orkestra/scripts/orkestra.py panel` ile başlat.
 
+## Panelde güncelleme bildirimi (ADR-0035)
+Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti).
+- Kontrol `guncelle.kontrol()`: `git fetch` + `origin/main` karşılaştırması; ağ hatası kartı silmez. Koşu `guncelle.Kosu`: CLI ile aynı `calistir`, arka plan iş parçacığı, tek koşu.
+- `panel_guncelleme.Guncelleme`: panel açılışında ve sonra 30 dk'da bir yoklar (`ORKESTRA_GUNCELLEME_YOKLA=0` kapatır), "Sonra" SHA'sını `guncelleme_ertele.json`'a yazar.
+- Uçlar `GET /api/guncelleme`, `POST /api/guncelle`, `POST /api/guncelle-ertele`: çalışma alanı almaz, `alan=*` reddinden muaftır (`KULLANICI_YOLLARI`).
+- Panel kendini yenilemez: güncelleme yeni oturumda ya da `/reload-plugins` ile yüklenir. Çalışan panel sunucusu eski kodla sürer; `app.js`/`panel.py` değişince `SURUM` artırılır.
+- Önizleme: panel testi `tests/test_panel_guncelleme*.py`; görsel doğrulama için `panel.GUNCELLEME` sahte nesneyle değiştirilip `panel.calistir` çağrılabilir.
+
 ## Paylaşılan git indeksi tuzağı
 Aynı depoda birden çok oturum aynı indeksi kullanır. Başka oturumun commit'i senin sahnelediğin dosyaları da alır. Bu yüzden commit'i ana indeksle değil, geçici `GIT_INDEX_FILE` ile kur.
 
