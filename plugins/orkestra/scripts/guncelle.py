@@ -189,6 +189,64 @@ def calistir(kuru: bool = False, yaz=print, ev: str | None = None, ortam: dict |
         return 1
 
 
+class Kosu:
+    """Güncellemeyi arka plan iş parçacığında çalıştıran, aynı anda tek koşuya izin veren sarmalayıcı (panel kullanır).
+
+    `calistir`'ın çıktı satırlarını toplar; durum: bosta | calisiyor | bitti | hata. LLM ya da ikinci güncelleyici yoktur.
+    """
+    SATIR_SINIRI = 500
+
+    def __init__(self, ev: str | None = None, ortam: dict | None = None, calistir=None, saat=time.time):
+        self._ev, self._ortam, self._calistir, self._saat = ev, ortam, calistir, saat
+        self._kilit = threading.Lock()
+        self._is: threading.Thread | None = None
+        self._durum = "bosta"
+        self._satirlar: list[str] = []
+        self._neden: str | None = None
+        self._bas = self._bit = None
+
+    def baslat(self) -> bool:
+        """Koşu başlatır; zaten çalışıyorsa False (ikinci koşu açılmaz)."""
+        with self._kilit:
+            if self._durum == "calisiyor":
+                return False
+            self._durum, self._satirlar, self._neden = "calisiyor", [], None
+            self._bas, self._bit = self._saat(), None
+            self._is = threading.Thread(target=self._yurut, name="orkestra-guncelle", daemon=True)
+            self._is.start()
+            return True
+
+    def _yaz(self, satir: str) -> None:
+        with self._kilit:
+            if len(self._satirlar) < self.SATIR_SINIRI:
+                self._satirlar.append(str(satir))
+
+    def _yurut(self) -> None:
+        kos_fn = self._calistir or calistir
+        try:
+            kod = kos_fn(kuru=False, yaz=self._yaz, ev=self._ev, ortam=self._ortam)
+            beklenmedik = None
+        except Exception as e:  # noqa: BLE001: iş parçacığı sessizce ölmemeli, durum 'hata' olmalı
+            kod, beklenmedik = 1, f"{type(e).__name__}: {e}"
+        with self._kilit:
+            if kod != 0:
+                hatalar = [s[len("HATA: "):] for s in self._satirlar if s.startswith("HATA: ")]
+                self._neden = beklenmedik or (hatalar[-1] if hatalar else f"güncelleme başarısız (çıkış {kod})")
+            self._durum = "bitti" if kod == 0 else "hata"
+            self._bit = self._saat()
+
+    def bekle(self, zaman_asimi: float | None = None) -> None:
+        t = self._is
+        if t:
+            t.join(zaman_asimi)
+
+    def anlik(self) -> dict:
+        with self._kilit:
+            bit = self._bit if self._bit is not None else self._saat()
+            return {"durum": self._durum, "satirlar": list(self._satirlar), "neden": self._neden,
+                    "sure": round(bit - self._bas, 1) if self._bas is not None else None}
+
+
 def _calistir(kuru, yaz, ev, ortam) -> int:
     if not shutil.which("git"):
         raise GuncelleHata("git bulunamadı (PATH'te yok).")
