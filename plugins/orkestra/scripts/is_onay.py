@@ -143,6 +143,31 @@ def onay_mesaji_mi(metin: str) -> bool:
     return bool(niyet) and not _KOSUL.search(m) and not _RED.search(m)
 
 
+def mesaj_sinifi(metin: str) -> str:
+    """I-168: `onay` | `ret` | `soru` | `belirsiz` | `diger` (boş, sistem iletisi, komut ya da uzun mesaj)."""
+    m = (metin or "").strip()
+    if not m or len(m) > AZAMI_MESAJ or m.startswith(("<", "/")):
+        return "diger"
+    if onay_mesaji_mi(m):
+        return "onay"
+    if "?" in m:
+        return "soru"
+    ilk = re.split(r"[;.,]", m.replace("İ", "i").replace("I", "ı"), maxsplit=1)[0]
+    return "ret" if _RED.search(ilk) else "belirsiz"
+
+
+def aday_yaz(sd: str, metin: str, sinif: str) -> None:
+    """Onay bekleyen işte onay sayılmayan kısa mesajı günlüğe yazar (kalıp listesi gerçek mesajdan büyür); hata yutulur."""
+    import json
+    import time
+    try:
+        with open(os.path.join(sd, "onay_adaylari.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "sinif": sinif,
+                                "mesaj": (metin or "").strip()[:AZAMI_MESAJ]}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def _bulanik_onay(m: str) -> bool:
     import difflib
     for kelime in re.findall(r"\w+", m.lower()):
@@ -277,7 +302,7 @@ def teslim_imzasi(klasor: str, proje: str) -> tuple[str, list[str]]:
     return ("|".join(parca) if satirlar else ""), satirlar
 
 
-def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
+def baglam_satiri(kayit: dict, mesaj_onay: bool, belirsiz: bool = False) -> tuple[str, str | None]:
     """UserPromptSubmit için (bağlam satırı, yeni durum). `bekliyor` değilse ('', None)."""
     if not bekliyor_mu(kayit):
         return "", None
@@ -291,7 +316,9 @@ def baglam_satiri(kayit: dict, mesaj_onay: bool) -> tuple[str, str | None]:
                 + "; ".join(eksik[:4]) + ". Belgeleri tamamla, sırayla (mevcut durum → plan → todo) bağlantılarıyla göster.", None)
     harita = (" Önce `orkestra harita oku` ile sistem haritasını oku (.claude/orkestra/sistem_haritasi/INDEX.md); "
               "mevcut durumda dokunduğun yerdeki var olan kayıtları ve plan maddesinde `**Mevcut varlık:**` alanını yaz.") if kayit.get("harita") else ""
+    soru = (" Son mesaj onay sayılmadı ama başlatma niyeti taşıyor olabilir: niyet buysa tek cümleyle 'bunu onay sayayım mı?' diye sor "
+            "(\"tek kelime yaz\" deme); tartışma ya da düzeltmeyse sormadan yanıtla.") if belirsiz else ""
     return ("Orkestra (P-016): iş onay bekliyor; uygulama (kod/dosya, commit, bağımlılık) yok. Mevcut durum → plan → todo "
             "sırasıyla hazırla ve bağlantılarıyla göster; kullanıcı onaylayınca iş başlar. SIRA (K-003): onay isteyen kutu/soru "
             "aracı (wrap_up, AskUserQuestion) turu bitirir; bağlantı satırlarını (`orkestra is baglanti " + str(kayit.get("id", "<id>"))
-            + "` hazır verir) önce yanıt METNİNE yaz, kutuyu en son çağır." + harita, None)
+            + "` hazır verir) önce yanıt METNİNE yaz, kutuyu en son çağır." + harita + soru, None)
