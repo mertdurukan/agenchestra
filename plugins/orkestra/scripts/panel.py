@@ -953,7 +953,7 @@ def _isleyici():
             if u.path == "/ozet.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli(("ozet", alan), 1.0, lambda: ozet.alan_ozeti(alan)))
+                                    onbellekli(("ozet", alan), 1.0, lambda: _ozet_json(alan)))
             if u.path == "/analitik.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
