@@ -78,7 +78,8 @@ class OturumSatiriCommit(unittest.TestCase):
 
     def _sessionend(self, kok, ozet):
         yol = os.path.join(kok, self.rel)
-        with mock.patch.object(hook, "_oturum_ozet_yolu", return_value=yol),                 mock.patch.object(hook, "_oturum_ozet_satiri", return_value=ozet):
+        with mock.patch.object(hook, "_oturum_ozet_yolu", return_value=yol), \
+                mock.patch.object(hook, "_oturum_ozet_satiri", return_value=ozet):
             hook._oturum_satiri_yaz("sd", "abcd1234-oturum")
 
     def test_sessionend_bagli_worktree_te_yazmaz(self):
