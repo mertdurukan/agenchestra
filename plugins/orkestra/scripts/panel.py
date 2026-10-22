@@ -1124,6 +1124,8 @@ def calistir(port: int, durum_yaz: bool = True) -> None:
     if durum_yaz:
         L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "zaman": L.simdi()}))
         threading.Thread(target=_isit, args=(port,), daemon=True).start()
+        if os.environ.get("ORKESTRA_GUNCELLEME_YOKLA") != "0":
+            GUNCELLEME.yoklamayi_baslat()   # açılışta ve 30 dk'da bir git fetch; ağ yoksa sessiz
     sunucu.serve_forever()
 
 
