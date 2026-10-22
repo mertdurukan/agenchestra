@@ -128,6 +128,9 @@ class DenetleTest(unittest.TestCase):
     def test_izinli_onekler(self):
         self.assertEqual(self.isabet("UTF-8, SHA-256, ISO-8601, RFC-2119, MD-5, HTTP-2 kullanılır."), [])
 
+    def test_adr_kimligi_jira_kodu_sayilmaz(self):
+        self.assertEqual(self.isabet("Karar ADR-0033 ve ADR-0034'te kayıtlı."), [])
+
     def test_sir(self):
         for m in ("api_key=abc123xyz", "token: abcdef", "sk-" + "a1" * 12):
             s = self.isabet(m)
