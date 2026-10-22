@@ -208,7 +208,7 @@ def perspektif_sohbeti_ac(proje_yol: str) -> dict:
     if not proje_yol or not os.path.isdir(proje_yol):
         return {"tamam": False, "hata": "çalışma alanı klasörü bulunamadı"}
     link = "claude://code/new?" + urllib.parse.urlencode(
-        {"q": "/orkestra:perspektif şimdi", "folder": proje_yol}, quote_via=urllib.parse.quote)
+        {"q": f"/orkestra:perspektif şimdi proje={proje_yol}", "folder": proje_yol}, quote_via=urllib.parse.quote)
     try:
         if os.name == "nt":
             os.startfile(link)  # noqa: S606 — sabit claude:// şeması

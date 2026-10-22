@@ -72,25 +72,39 @@ def _eslesir(a, b):
     return len(kisa) >= ONEK_MIN and uzun.startswith(kisa)
 
 
+_YAN_OTURUM_ON = re.compile(r"^\s*(?:Background|Task) \(from the session[^)]*\):\s*", re.I)
+
+
+def devir_onu_at(metin):
+    """Yan oturum devir öneklerini ('Background|Task (from the session…):', art arda) atar; başlık üretimi ve eşleştirme ortak kullanır."""
+    metin = str(metin or "")
+    while True:
+        yeni = _YAN_OTURUM_ON.sub("", metin)
+        if yeni == metin:
+            return metin
+        metin = yeni
+
+
 def eslestir(istek, isler, ayar=None):
-    """İstek sözcüklerinin iş metniyle örtüşme oranı (0-1); puana göre azalan [{'id','puan'}]."""
+    """İstek sözcüklerinin iş metniyle örtüşme oranı (0-1); puana göre azalan [{'id','puan'}].
+    Devir önekleri ('Task (from the session…):') istekten ve iş başlığından atılır: ortak sözcükler (session, task, from) başka işe bağlamasın."""
     if not isinstance(istek, str) or not isinstance(isler, (list, tuple)):
         return []
     a = _ayar(ayar)
     durak_ham = {_kucult(x) for x in a["durak_sozcukler"]}
-    istek_s = set(_sozcukler(istek, durak_ham))
+    istek_s = set(_sozcukler(devir_onu_at(istek), durak_ham))
     if not istek_s:
         return []
     sonuc = []
     for is_ in isler:
         if not isinstance(is_, dict) or is_.get("id") is None:
             continue
-        metin = " ".join(str(is_.get(k) or "") for k in ("baslik", "klasor", "metin"))
+        metin = " ".join(devir_onu_at(is_.get(k)) for k in ("baslik", "klasor", "metin"))
         is_s = set(_sozcukler(metin, durak_ham))
         say = sum(1 for s in istek_s if any(_eslesir(s, t) for t in is_s))
         puan = say / len(istek_s)
         # I-138 P3: yeterince uzun başlıkta başlık kapsaması da sayılır (başlığı üreten mesaj o işe bağlanır)
-        baslik_s = set(_sozcukler(str(is_.get("baslik") or ""), durak_ham))
+        baslik_s = set(_sozcukler(devir_onu_at(is_.get("baslik")), durak_ham))
         if len(baslik_s) >= a["baslik_kapsama_min_sozcuk"]:
             bsay = sum(1 for t in baslik_s if any(_eslesir(s, t) for s in istek_s))
             puan = max(puan, bsay / len(baslik_s))

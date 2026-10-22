@@ -17,6 +17,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 import is_sirasi as SIRA  # noqa: E402
+from is_yonlendirme import devir_onu_at  # noqa: E402
 
 DURUMLAR = ("acik", "beklemede", "kapandi")
 _ID = re.compile(r"^I-(\d+)$")
@@ -346,19 +347,13 @@ def slug(baslik: str, azami: int = 40) -> str:
     return s or "is"
 
 
-_YAN_OTURUM_ON = re.compile(r"^\s*(?:Background|Task) \(from the session[^)]*\):\s*", re.I)
 _ORKESTRA_ANAHTAR = re.compile(r"orkestra|orchestr|eklenti|plugin|\bhook\b|\bskill\b|claude\.md", re.I)
 
 
 def baslik_uret(istek, azami: int = 70) -> str:
     """İş başlığı: boşluklar sadeleşir, yan oturum devir önekleri ('Background|Task (from the session…):', art arda) atılır,
     azami uzunlukta sözcük sınırından kesilir (önce 70 karakter ham kesiliyordu: 'Background (from the…' çöp başlık)."""
-    metin = " ".join(str(istek or "").split())
-    while True:  # 'Task (…): Background (…): başlık' gibi art arda önekler hepsi atılır
-        yeni = _YAN_OTURUM_ON.sub("", metin)
-        if yeni == metin:
-            break
-        metin = yeni
+    metin = devir_onu_at(" ".join(str(istek or "").split()))  # 'Task (…): Background (…): başlık' gibi art arda önekler hepsi atılır
     if len(metin) <= azami:
         return metin.rstrip() or "is"
     kesik = metin[:azami]

@@ -37,7 +37,7 @@
 
   // ------------------------------------------------------------ 0. Hedef panosu (sayfanın en üstü): 5 ölçü x 5 pencere, hedeften sapma
   const OLCU_TANIM = [
-    ['ana_ajan_payi', 'Ana ajan payı', 'ust', x => B.yuzde(x), 'ana ajan harcaması / toplam harcama (USD)', v => B.usd(v), 'puan'],
+    ['ana_ajan_payi', 'Ana ajan payı', 'ust', x => B.yuzde(x), 'yalnız ana ajanın kartsız harcaması / toplam harcama (USD); kartsız alt ajan ana ajana yazılmaz', v => B.usd(v), 'puan'],
     ['isci_cagrisi_kart', 'İşçi çağrısı / kart', 'ust', x => B.sayi(x, 2), 'işçi çağrısı / kart', v => B.sayi(v), 'adet'],
     ['onayli_kart_usd', 'Onaylı kart başına USD', 'ust', x => B.usd(x), 'onaylı kartların harcaması (USD) / onaylı kart', v => B.sayi(v), 'usd'],
     ['ret_orani', 'Ret oranı', 'ust', x => B.yuzde(x), 'ret / (ret + onay) denetimi', v => B.sayi(v), 'puan'],

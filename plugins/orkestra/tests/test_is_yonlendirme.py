@@ -415,5 +415,31 @@ class BaslikKapsama(unittest.TestCase):
         self.assertLess(p[0]["puan"], 0.6)
 
 
+class DevirOnu(unittest.TestCase):
+    """I-151 G8: 'Task (from the session…):' öneki sözcük örtüşmesine girmez; yan oturum yanlış işe bağlanmaz."""
+
+    ON = "Task (from the session that started this one): "
+    ISLER = [
+        {"id": "I-072", "baslik": ON + "Eski tarama aracı hata ayıklama günlüğü"},
+        {"id": "I-151", "baslik": "Panel klasik görünüm kısayollar kaldır"},
+    ]
+
+    def test_devir_onu_at(self):
+        self.assertEqual(iy.devir_onu_at(self.ON + "Panel düzeni"), "Panel düzeni")
+        self.assertEqual(iy.devir_onu_at("Background (from the session x): Task (from the session y): a b"), "a b")
+        self.assertEqual(iy.devir_onu_at("öneksiz metin"), "öneksiz metin")
+        self.assertEqual(iy.devir_onu_at(None), "")
+
+    def test_onek_ortak_sozcuk_baglamaz(self):
+        # önek yalnız istekte ve işin başlığında ortak: önek atılınca örtüşme kalmaz
+        p = {x["id"]: x["puan"] for x in iy.eslestir(self.ON + "Panel klasik görünüm kısayollar kaldır", self.ISLER)}
+        self.assertGreater(p["I-151"], p["I-072"])
+        self.assertEqual(p["I-072"], 0)
+
+    def test_yalniz_onek_olan_istek_hicbir_ise_baglanmaz(self):
+        self.assertEqual(iy.eslestir(self.ON, self.ISLER), [])
+        self.assertEqual(iy.karar(iy.eslestir(self.ON + "Yeni bambaşka konu", self.ISLER)), ("ac", None))
+
+
 if __name__ == "__main__":
     unittest.main()

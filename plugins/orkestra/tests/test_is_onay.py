@@ -119,6 +119,21 @@ class OnayKalibi(unittest.TestCase):
             self.assertFalse(is_onay.onay_mesaji_mi(m), m)
 
 
+class OnayFiiliCumleIci(unittest.TestCase):
+    """I-154: onay fiili cümle içinde geçen doğal söyleyiş onaydır; ret, koşul ve soru değildir."""
+
+    def test_cumle_ici_onay(self):
+        for m in ("Planı (P1-P10) onaylıyorum, K3 ve K5 önerildiği gibi; I-149'dan sonra uygula.",
+                  "Planı onaylıyorum", "K3 ve K5 önerildiği gibi, onaylıyorum", "Planı onayladım",
+                  "Plana onay veriyorum", "Planı kabul ediyorum"):
+            self.assertTrue(is_onay.onay_mesaji_mi(m), m)
+
+    def test_cumle_ici_onay_degil(self):
+        for m in ("Planı onaylamıyorum", "Planı onaylıyorum ama K3 değişsin", "Planı onaylıyor musun?",
+                  "Planı onaylıyorum, fakat P2 eksik", "Planı henüz onaylamadım", "Plan neden böyle"):
+            self.assertFalse(is_onay.onay_mesaji_mi(m), m)
+
+
 class YazmaKapisi(_Onay):
     def test_kod_yazimi_reddedilir(self):
         deny, neden = self.pre("Write", self.kod())
@@ -277,6 +292,53 @@ class OnayIlkCumlecik(unittest.TestCase):
     def test_ret_ilk_cumlecikte_false(self):
         for m in ("Onaylamıyorum", "Hayır", "evet ama dur"):
             self.assertFalse(is_onay.onay_mesaji_mi(m), m)
+
+
+class GitEmriKalibi(unittest.TestCase):
+    """ADR-0031: commit/push emri tanınır; ad kullanımı, soru ve ret tanınmaz."""
+
+    def test_emirler(self):
+        for m in ("commitle pushla", "orkestraya commitle pushla", "commitle pusha", "pusha", "pushla", "commit et",
+                  "Commit'le ve push yap", "pushlayalım", "commitleyip pushla"):
+            self.assertTrue(is_onay.git_emri_mi(m), m)
+
+    def test_emir_degil(self):
+        for m in ("commit mesajı nasıl olmalı", "push yapma", "pushlama", "commitleri göster", "commitler neden çok",
+                  "pushla mı?", "hayır commit etme", "", "x" * 300, "<task-notification>commit et</task-notification>",
+                  "tamam", "evet"):
+            self.assertFalse(is_onay.git_emri_mi(m), m)
+
+
+class GitIzniKapisi(_Onay):
+    def test_emir_turunda_git_kayit_komutlari_gecer(self):
+        self.mesaj("commitle pushla")
+        for komut in ("git add a.py", "git commit -m x", "git push origin main", "git -c safe.directory=* reset --soft HEAD~2",
+                      "git add a.py && git commit -m x"):
+            self.assertFalse(self.pre("Bash", komut=komut)[0], komut)
+
+    def test_emir_turunda_diger_yasaklar_kalir(self):
+        self.mesaj("commitle pushla")
+        for komut in ("git rebase main", "git stash", "pip install x", "orkestra is onayla I-001",
+                      "git commit -m x && pip install y", "echo {} > isler/001-fatura/is.json"):
+            self.assertTrue(self.pre("Bash", komut=komut)[0], komut)
+
+    def test_emir_is_onayi_vermez_ve_dosya_yazimini_acmaz(self):
+        self.mesaj("commitle pushla")
+        self.assertEqual(self.durum(), "bekliyor")
+        self.assertTrue(self.pre("Write", self.kod())[0])
+
+    def test_sonraki_mesajda_izin_soner(self):
+        self.mesaj("commitle pushla")
+        self.mesaj("bu ne demek")
+        self.assertTrue(self.pre("Bash", komut="git commit -m x")[0])
+
+    def test_emir_yokken_git_reddedilir(self):
+        self.mesaj("planı anlat")
+        self.assertTrue(self.pre("Bash", komut="git commit -m x")[0])
+
+    def test_kapi_fonksiyonu_izinsiz_eskisi_gibi(self):
+        self.assertTrue(is_onay.kabuk_engeli("git commit -m x"))
+        self.assertFalse(is_onay.kabuk_engeli("git commit -m x", True))
 
 
 if __name__ == "__main__":

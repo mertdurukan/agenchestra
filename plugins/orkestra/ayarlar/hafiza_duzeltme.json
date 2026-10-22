@@ -1,0 +1,17 @@
+{
+  "mod": "ihlal",
+  "esik": 2,
+  "min_uzunluk": 12,
+  "isaret_kokleri": [
+    "düzeltme",
+    "düzeltil",
+    "düzeltmiş",
+    "yanlıştı",
+    "yanlış çıktı",
+    "çürütüldü",
+    "correction",
+    "corrected",
+    "retracted"
+  ],
+  "hafiza_yolu": "/\\.claude/projects/[^/]+/memory/(?:.+/)?[^/]+\\.md$"
+}

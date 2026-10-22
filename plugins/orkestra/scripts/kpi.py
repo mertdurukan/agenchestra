@@ -40,7 +40,7 @@ TANIMLAR = {
     "onay_bekleme_sn": {"pay": "karar.zaman − olusturma, saniye; medyan ve nearest-rank p95",
                         "payda": "karar verilmiş onay sayısı"},
     # Hedef panosu (analitik.hedef_panosu, ayarlar/hedef.json): pencere son 3 gün ve tüm zaman
-    "ana_ajan_payi": {"pay": "ana ajan payı = karta bağlı olmayan (gorev boş ya da '-') defter maliyeti; kartsız alt ajan satırları dahil", "payda": "pencere içindeki tüm defter maliyeti"},
+    "ana_ajan_payi": {"pay": "ana ajan payı = karta bağlı olmayan (gorev boş ya da '-') ve ajanı 'ana-ajan' olan defter maliyeti; kartsız alt ajan ayrı kalem (kartsiz_alt_ajan)", "payda": "pencere içindeki tüm defter maliyeti"},
     "isci_cagrisi_kart": {"pay": "kartların isciler sayısı toplamı", "payda": "kart sayısı (iptal hariç)"},
     "onayli_kart_usd": {"pay": "onaylı kartlara bağlı defter maliyeti", "payda": "onaylı kart sayısı"},
     "teknik_not_kapsama": {"pay": "teknik alanı dolu onaylı/teslim kart (teknik_kapi_baslangic sonrası)",
@@ -186,6 +186,7 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
     idler = {k["id"] for k in kartlar}
     mal_kart: dict = {}
     ana = []
+    alt = []
     pencere_satir = []
     for r in L.maliyet_kayitlari(sd):
         if not icinde(r.get("zaman")):
@@ -194,9 +195,11 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         g = r.get("gorev")
         if L.ana_ajan_satiri_mi(r):
             ana.append(r)
+        elif L.kartsiz_alt_ajan_satiri_mi(r):
+            alt.append(r)
         elif g in idler:
             mal_kart.setdefault(g, []).append(r)
-    tum_mal = [r for rs in mal_kart.values() for r in rs] + ana
+    tum_mal = [r for rs in mal_kart.values() for r in rs] + ana + alt
 
     out = {
         "tanimlar": TANIMLAR,
@@ -204,6 +207,9 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         "ornek": _ornekler(kartlar, tum_mal),
         "ana_ajan_payi": {"maliyet_usd": sum(float(r.get("maliyet_usd") or 0) for r in ana),
                           "token": sum(_tok(r) for r in ana)},
+        "kartsiz_alt_ajan": {"maliyet_usd": sum(float(r.get("maliyet_usd") or 0) for r in alt),
+                             "token": sum(_tok(r) for r in alt)},
+        "ana_ajan_dagilimi": L.ana_ajan_dagilimi(pencere_satir),
         "sinif": {},
         "basamak": {},
     }
@@ -254,6 +260,9 @@ def tablo(s: dict) -> str:
                          + f" · toplam {_f(kk[tur]['toplam'])}")
     a = s["ana_ajan_payi"]
     satir.append(f"  ana_ajan_payi            maliyet_usd {a['maliyet_usd']:.4f}, token {a['token']} (kartlara dağıtılmaz)")
+    b = s.get("kartsiz_alt_ajan")
+    if b:
+        satir.append(f"  kartsiz_alt_ajan         maliyet_usd {b['maliyet_usd']:.4f}, token {b['token']} (ana ajana yazılmaz)")
     for r in s.get("planlayici") or []:
         satir.append(f"  planlayici {r['planlayici']:<10} kabul_usd {_f(r['kabul_usd'])} (n={r['n']}, onaylı {r['onaylanan']})"
                      + ("" if r["yeterli"] else " [yetersiz veri]"))

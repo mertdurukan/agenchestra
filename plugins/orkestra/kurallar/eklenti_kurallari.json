@@ -707,6 +707,24 @@
         }
       ],
       "etkinlesme": "2026-10-20T21:39:50+03:00"
+    },
+    {
+      "id": "P-026",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Düzeltilen bir iddia kaynak kayıtta bir kez yeniden yazılır; düzeltme notu çoğaltılmaz. (1) Hafıza ya da bilgi kayıtlarında yanlış çıkan iddia, iddianın asıl anlatıldığı kayıtta olgu cümlesi olarak yeniden yazılır; geçtiği diğer yerlerde olgu doğru yazılır ya da cümle silinip kaynak kayda bağlantı verilir. Aynı düzeltme notu birden çok kayda kopyalanmaz. (2) Eski yanlış ifade tarihçe olarak en çok bir yerde ve bağlantıyla durur. (3) Perspektif raporundaki her var/yok/kaç kez/kayıp iddiası ve her öneri, yazılırken yeniden hesaplanabilir bir Kanıt satırı ve iddianın geçtiği yerlerin listesiyle verilir; kanıtı tutmayan satır rapora ❌ işaretiyle girer ve onaya sunulmaz (P-021). Zorlama: hafıza bakımcısının Düzeltme ilkesi, onay kartı şablonu, perspektif dogrula ve duzeltme-tara komutları, hafıza dosyası yazımında aynı düzeltme notunun ikinci ekleniş eşiğinde reddeden yazım kapısı (ayarlar/hafiza_duzeltme.json mod alanı: ihlal, golge, kapali; ORKESTRA_HAFIZA_DUZELTME=0 kapatır).",
+      "neden": "Hafıza kayıtlarında aynı düzeltme notu birden çok kayda kopyalandı; bakımcı görev kartındaki dar kapsama uydu, düzeltmeyi kaynakta yeniden yazmadı ve not tekrarı arşivde büyüdü. Rapor iddiaları da kanıtsız kabul edildi.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-22T10:44:49+03:00",
+      "guncelleme": "2026-10-22T10:44:49+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-22T10:44:49+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Düzeltilen bir iddia kaynak kayıtta bir kez yeniden yazılır; düzeltme notu çoğaltılmaz. (1) Hafıza ya da bilgi kayıtlarında yanlış çıkan iddia, iddianın asıl anlatıldığı kayıtta olgu cümlesi olarak yeniden yazılır; geçtiği diğer yerlerde olgu doğru yazılır ya da cümle silinip kaynak kayda bağlantı verilir. Aynı düzeltme notu birden çok kayda kopyalanmaz. (2) Eski yanlış ifade tarihçe olarak en çok bir yerde ve bağlantıyla durur. (3) Perspektif raporundaki her var/yok/kaç kez/kayıp iddiası ve her öneri, yazılırken yeniden hesaplanabilir bir Kanıt satırı ve iddianın geçtiği yerlerin listesiyle verilir; kanıtı tutmayan satır rapora ❌ işaretiyle girer ve onaya sunulmaz (P-021). Zorlama: hafıza bakımcısının Düzeltme ilkesi, onay kartı şablonu, perspektif dogrula ve duzeltme-tara komutları, hafıza dosyası yazımında aynı düzeltme notunun ikinci ekleniş eşiğinde reddeden yazım kapısı (ayarlar/hafiza_duzeltme.json mod alanı: ihlal, golge, kapali; ORKESTRA_HAFIZA_DUZELTME=0 kapatır)."
+        }
+      ],
+      "etkinlesme": "2026-10-22T10:44:49+03:00"
     }
   ]
 }

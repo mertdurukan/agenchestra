@@ -60,6 +60,46 @@ class PerspektifDugme(unittest.TestCase):
         self.assertIn("%2Forkestra%3Aperspektif", link)
         self.assertIn("folder=", link)
 
+    def test_baglanti_proje_ve_klasoru_tasir(self):
+        """I-148: istem projeyi açıkça taşır, folder= alan yoludur (sohbet klasörsüz açılsa da koşu yanlış projeye yazmasın)."""
+        import urllib.parse
+        with mock.patch("os.startfile", create=True) as sf, mock.patch("subprocess.Popen") as p:
+            self.post()
+        link = (sf.call_args or p.call_args)[0][0]
+        link = link if isinstance(link, str) else link[-1]
+        sorgu = urllib.parse.parse_qs(urllib.parse.urlsplit(link).query)
+        self.assertEqual(sorgu["q"], [f"/orkestra:perspektif şimdi proje={self.proje}"])
+        self.assertEqual(sorgu["folder"], [self.proje])
+
+    def test_proje_uyusmazligi(self):
+        a = self.proje
+        b = os.path.join(self.t.name, "baska")
+        os.makedirs(b)
+        self.assertIsNone(perspektif.proje_uyusmazligi(None, a))
+        self.assertIsNone(perspektif.proje_uyusmazligi(a, a))
+        mesaj = perspektif.proje_uyusmazligi(a, b)
+        self.assertIn("yanlış klasör", mesaj)
+        self.assertIn("change_directory", mesaj)
+
+    def test_basladi_yanlis_klasorde_reddeder_ve_yazmaz(self):
+        from komutlar import onay
+        sd = os.path.join(self.proje, ".claude", "orkestra")
+        baska = os.path.join(self.t.name, "baska")
+        os.makedirs(baska)
+        a = mock.Mock(islem="basladi", yol=None, proje=baska, komut="perspektif")
+        with mock.patch.object(onay, "sd_gerekli", return_value=sd), \
+                mock.patch.object(L, "proje_dizini", return_value=self.proje), \
+                mock.patch.object(perspektif, "basladi_isaretle") as bi, \
+                self.assertRaises(SystemExit):
+            onay.cmd_perspektif(a)
+        bi.assert_not_called()
+        a.proje = self.proje
+        with mock.patch.object(onay, "sd_gerekli", return_value=sd), \
+                mock.patch.object(L, "proje_dizini", return_value=self.proje), \
+                mock.patch.object(perspektif, "basladi_isaretle") as bi:
+            onay.cmd_perspektif(a)
+        bi.assert_called_once_with(sd)
+
     def test_baglanti_acilamazsa_hata(self):
         with mock.patch("os.startfile", create=True, side_effect=OSError("yok")),                 mock.patch("subprocess.Popen", side_effect=OSError("yok")):
             k, b = self.post()
@@ -76,6 +116,14 @@ class PerspektifDugme(unittest.TestCase):
         with mock.patch("subprocess.Popen") as p:
             self.assertEqual(self.post(alan="yok")[0], 400)
         p.assert_not_called()
+
+    def test_yeni_arayuz_gelen_kutusunda_perspektif_ogesi_var(self):
+        """ADR-0026: zamanı gelen perspektif Gelen kutusunda öğe + düğme; başlatma elle, aynı uca gider."""
+        with open(os.path.join(AD, "..", "assets", "app.js"), encoding="utf-8") as f:
+            js = f.read()
+        self.assertIn("pd?.zamani_geldi && !pd.calisiyor", js)
+        self.assertIn("data-eylem=\"perspektif\"", js)
+        self.assertIn("gonder('/perspektif-calistir'", js)
 
 if __name__ == "__main__":
     unittest.main()

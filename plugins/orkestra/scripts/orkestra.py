@@ -30,7 +30,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | anomali [--gun N] [--json] | yeniden-etiketle [--uygula]
   orkestra onbellek kacak [--gun N] [--defter] [--olay] [--json]   önbellek kaçaklarını sınıfla (5 dk katman, model, boşluk, sıkıştırma) ve USD ile dök
   orkestra iz <istek_id|I-nnn|oturum> [--json|--csv] | iz kapsama [--json]   süre/token ağacı (toplam = defter) ve atıf kapsama ölçümü
-  orkestra perspektif durum | basla | bitti
+  orkestra perspektif durum | basla | bitti | dogrula <rapor> | duzeltme-tara [klasör]   (dogrula: rapordaki Kanıt satırlarını yeniden hesaplar, tutmayan varsa çıkış 1; duzeltme-tara: hafızada tekrar eden düzeltme notları, bulgu varsa çıkış 1)
   orkestra gunluk ozet [--gun 7]
   orkestra onay liste [--durum D] [--tur T] [--json] | goster ID | iste --baslik B --metin M [--secenek S]... [--oturum O]
   orkestra onay karar ID (--onay|--ret) [--secim S] [--not N] | al ID [--oturum O] | uygulandi ID --ozet Z | iptal ID --not N | esitle

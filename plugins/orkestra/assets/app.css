@@ -334,6 +334,7 @@ details.ac[open] > summary::before { content: "▾ "; }
 .yap-liste li { align-items: center; padding: var(--a2) 0; border-bottom: 1px solid var(--cizgi); }
 .yap-liste li:last-child { border-bottom: 0; }
 .yap-liste .dugme { flex: none; }
+.yap-liste .yap-dugme { flex: none; display: flex; flex-direction: column; gap: var(--a1); }
 .yap-liste .yap-metin { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .yap-liste li.bitti .yap-metin span { text-decoration: line-through; color: var(--metin-3); }
 
@@ -373,7 +374,6 @@ dialog.palet::backdrop { background: rgb(0 0 0 / .35); }
 .palet li .tur { margin-left: auto; font-size: var(--y12); color: var(--metin-3); }
 .palet .grup { padding: var(--a2) var(--a3) var(--a1); font-size: var(--y11); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--metin-3); cursor: default; }
 .palet .ipucu-alt { display: flex; gap: var(--a4); padding: var(--a2) var(--a4); border-top: 1px solid var(--cizgi); font-size: var(--y12); color: var(--metin-3); }
-.kisayol-tablo { display: grid; grid-template-columns: auto 1fr; gap: var(--a2) var(--a4); padding: var(--a4); font-size: var(--y13); align-items: center; }
 
 /* ------------------------------------------------------------------ 5. Dar ekran */
 @media (max-width: 900px) {

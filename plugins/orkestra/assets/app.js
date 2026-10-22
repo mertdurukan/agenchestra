@@ -716,9 +716,10 @@
     const q = r.q.get('q') || '';
     const g = q ? maddeler.filter(m => eslesir(m.metin, q)) : maddeler;
     const satir = m => H`<li class="${YAP.bekleyen.has(m.id) ? 'bitti' : ''}">
-      <button class="dugme kucuk" data-eylem="yap-tamam" data-id="${m.id}" ${YAP.bekleyen.has(m.id) ? 'disabled' : ''} aria-label="Tamamla: ${m.metin}">${simge('tamam')}Tamamla</button>
-      <div class="yap-metin"><span>${m.metin}</span><small class="soluk" title="${m.zaman || ''}">${yapZaman(m.zaman)}</small></div>
-      <button class="dugme kucuk hayalet" data-eylem="yap-kopya" data-id="${m.id}" aria-label="Kopyala: ${m.metin}">Kopyala</button></li>`;
+      <div class="yap-dugme">
+        <button class="dugme kucuk hayalet" data-eylem="yap-kopya" data-id="${m.id}" aria-label="Kopyala: ${m.metin}">Kopyala</button>
+        <button class="dugme kucuk" data-eylem="yap-tamam" data-id="${m.id}" ${YAP.bekleyen.has(m.id) ? 'disabled' : ''} aria-label="Tamamla: ${m.metin}">${simge('tamam')}Tamamla</button></div>
+      <div class="yap-metin"><span>${m.metin}</span><small class="soluk" title="${m.zaman || ''}">${yapZaman(m.zaman)}</small></div></li>`;
     const govde = yuk || H`
       <div class="karolar">${karo('Benim yapılacaklarım', maddeler.length, maddeler.length ? 'açık madde' : 'açık madde yok')}</div>
       <section class="kart"><div class="kart-ic yigin sik">
@@ -773,8 +774,6 @@
       <div class="ray-alt">
         <span class="satir canli" id="canli"><i></i><span id="canliMetin">bağlanıyor</span></span>
         <span class="satir"><button class="dugme hayalet kucuk" data-eylem="tema" title="Tema: ${tema}">Tema: ${{ sistem: 'sistem', acik: 'açık', koyu: 'koyu' }[tema]}</button></span>
-        <a href="/isler?alan=${enc(V.alan)}">Klasik görünüm</a>
-        <span class="satir"><kbd>?</kbd> kısayollar</span>
       </div>`.__h;
     canliYaz();
   }
@@ -950,7 +949,6 @@
     if (e.key === 'k' || e.key === 'ArrowUp' && odakSira >= 0) { e.preventDefault(); odakTasi(-1); return; }
     if (e.key === 'Enter' && odakSira >= 0) { e.preventDefault(); odakAc(); return; }
     if (e.key === '/') { const a = document.querySelector('#ana .arama'); if (a) { e.preventDefault(); a.focus(); a.select(); } else { e.preventDefault(); paletAc(); } return; }
-    if (e.key === '?') { yardimAc(); return; }
     if (e.key === 'Escape') {
       if (r.ad === 'isler' && r.id) git('#/isler' + sorguEk(r.q));
       else if (r.ad === 'kart') history.length > 1 ? history.back() : git('#/kosular');
@@ -1023,19 +1021,6 @@
     dl.showModal();
     inp.focus();
   }
-  function yardimAc() {
-    const dl = document.createElement('dialog');
-    dl.className = 'palet';
-    const k = [['Ctrl K', 'Komut paleti'], ['/', 'Ara'], ['g g · 1', 'Gelen kutusu'], ['g i · 2', 'İşler'], ['g k · 3', 'Koşular'], ['g m · 4', 'Maliyet'], ['g r · 5', 'Kurallar'], ['g y · 6', 'Yapılacaklar'],
-      ['p', 'Zaman penceresi (Bugün → Son 3 gün → Son 7 gün → Bu ay → Tümü)'], ['u', 'Ölçü birimi (USD / token)'], ['j  k', 'Sonraki / önceki öğe'], ['Enter', 'Öğeyi aç'], ['a', 'Onayla (Gelen kutusu)'], ['r', 'Reddet (Gelen kutusu)'], ['Esc', 'Ayrıntıyı kapat'], ['?', 'Bu yardım']];
-    dl.innerHTML = H`<div class="kart-bas"><h2>Klavye kısayolları</h2><span class="bosluk"></span><button class="dugme hayalet kucuk" value="kapat" onclick="this.closest('dialog').close()">Kapat</button></div>
-      <div class="kisayol-tablo">${k.map(([t, a]) => H`<span>${t.split(' ').map(x => x === '·' ? H`<span class="soluk"> ya da </span>` : H`<kbd>${x}</kbd> `)}</span><span>${a}</span>`)}</div>`.__h;
-    document.body.appendChild(dl);
-    dl.addEventListener('close', () => dl.remove());
-    dl.addEventListener('click', e => { if (e.target === dl) dl.close(); });
-    dl.showModal();
-  }
-
   // ================================================================ 15. Başlangıç
   window.addEventListener('hashchange', () => { derinBaglanti(); gorunumCiz(); gerekler(rota()).forEach(y => getir(y)); document.getElementById('ana').focus({ preventScroll: true }); window.scrollTo(0, 0); });
   async function basla() {

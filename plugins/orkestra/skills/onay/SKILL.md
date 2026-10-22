@@ -13,7 +13,8 @@ Kural: `orkestra …` komutlarını tek başına çalıştır (zincir, boru ya d
 2. Her kayıt için sırayla:
    1. Önce türe bak: başka oturumun `karar` kaydını (`oturum` alanı dolu ve bu oturum değil) `orkestra onay al` ÇALIŞTIRMADAN atla; yalnız soran oturum ya da oturumsuz karar alınır. Diğerleri için `orkestra onay al <id>` ile kaydı üstlen (başka oturum aldıysa hata verir; atla).
    2. Türüne göre uygula:
-      - **perspektif**: `orkestra perspektif hafiza` ile hafıza klasörünü al. Onaylı maddenin tam metnini (karar notu dahil) Agent aracıyla `orkestra:hafiza-bakimcisi` ajanına ver: hafıza klasörünün yolu + madde metni.
+      - **perspektif**: `orkestra perspektif hafiza` ile hafıza klasörünü al. Hafıza bakımcısı ajanına (`orkestra:hafiza-bakimcisi`, Agent aracı) yalnız şunları ver: hafıza klasörünün yolu, onaylı maddenin tam metni (karar notu ve `Geçtiği yerler:` dahil) ve tek cümle "Düzeltme ilkesine uy". Kısıtlayıcı ifade ekleme ("yalnız şu satırı değiştir", "not ekle" gibi): kapsam iddia düzeyindedir ve ajan kendi Düzeltme ilkesini uygular.
+        Ajan dönünce `orkestra perspektif duzeltme-tara <hafıza klasörü>` çalıştır. Bulgu çıkarsa (aynı düzeltme notu ikiden çok kayıtta) maddeyi `uygulandi` işaretleme; bulgudaki kayıtları ajana yeniden ver ve temiz çıkana dek tekrarla.
         Başlığı "Skill adayı" ile başlayan maddeler için hafıza değiştirme; `/orkestra:skill-avi` çalıştırmayı öner.
       - **perspektif terfisi** (yalnız maddede `Yayın: kapsam=evrensel` varsa; hafıza işinden sonra):
         1. Maddedeki `Eklenti metni:` ve `Neden:` alanlarını oku.

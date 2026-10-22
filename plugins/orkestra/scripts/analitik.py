@@ -736,6 +736,20 @@ def _sinif(k: dict) -> str:
     return s if s and s != "-" else "sınıfsız"
 
 
+def ret_kayitlari(kartlar: list[dict]):
+    """Sayılan her ret için (kart, denetim, sınıf, basamak, neden kodu, kök) üretir. Ret sayımının tek kuralı:
+    `_ders` ve panelin ret listesi buradan beslenir, tıklanan sayı ile liste ayrışmaz."""
+    for k in kartlar:
+        sinif = _sinif(k)
+        bas = k.get("baslangic_basamak") or k.get("basamak")
+        for d in [] if k.get("durum") == "iptal" else k.get("denetimler") or []:   # iptal kartın retleri sayılmaz
+            if d.get("karar") != "ret":
+                continue
+            kod = d.get("neden")
+            kod = kod if kod in RN.NEDENLER else RN.SINIFLANMAMIS
+            yield k, d, sinif, d.get("basamak") or bas, kod, RN.kok(kod)
+
+
 def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
     """Ret nedenleri (sınıf x basamak) ve verim (sınıf x başlangıç basamağı)."""
     kart_usd = collections.Counter()
@@ -746,19 +760,14 @@ def _ders(kartlar: list[dict], kayitlar: list[dict]) -> dict:
             kart_tok[r["gorev"]] += sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
     ned: dict = {}
     ver: dict = {}
+    for _k, _d, sinif, basamak, kod, kok in ret_kayitlari(kartlar):
+        e = ned.setdefault((sinif, basamak), {"ret": 0, "nedenler": collections.Counter(), "kok": collections.Counter()})
+        e["ret"] += 1
+        e["nedenler"][kod] += 1
+        e["kok"][kok] += 1
     for k in kartlar:
         sinif = _sinif(k)
         bas = k.get("baslangic_basamak") or k.get("basamak")
-        for d in [] if k.get("durum") == "iptal" else k.get("denetimler") or []:   # iptal kartın retleri sayılmaz
-            if d.get("karar") != "ret":
-                continue
-            kod = d.get("neden")
-            kod = kod if kod in RN.NEDENLER else RN.SINIFLANMAMIS
-            e = ned.setdefault((sinif, d.get("basamak") or bas),
-                               {"ret": 0, "nedenler": collections.Counter(), "kok": collections.Counter()})
-            e["ret"] += 1
-            e["nedenler"][kod] += 1
-            e["kok"][RN.kok(kod)] += 1
         v = ver.setdefault((sinif, bas), {"kart": 0, "onaylanan": 0, "tur": 0, "usd": 0.0, "token": 0})
         v["kart"] += 1
         v["tur"] += sum(1 for g in k.get("gecmis") or [] if g.get("olay") == "is-bitti")
@@ -813,12 +822,15 @@ def _ayar(ad: str, dizin: str | None = None) -> dict:
         return {}
 
 
-def olcu_durumu(deger, spec: dict, uyari_carpani: float = 1.25, teknik_uyari_alt: float = 0.8) -> tuple:
-    """(durum, yorum). deger None -> veri-yok. ust: <=hedef iyi, <=hedef*çarpan uyarı, üstü kötü.
+def olcu_durumu(deger, spec: dict, uyari_carpani: float = 1.25, teknik_uyari_alt: float = 0.8,
+                ornek: int | None = None, asgari: int = 0) -> tuple:
+    """(durum, yorum). deger None -> veri-yok. ornek asgarinin altındaysa yetersiz-ornek (küçük örnekte oran alarm vermez). ust: <=hedef iyi, <=hedef*çarpan uyarı, üstü kötü.
     alt (ör. =1,0): >=hedef iyi, >=teknik_uyari_alt uyarı, altı kötü. band: [alt, ust] iyi; altı uyarı (gevsek-riski),
     üstü kötü (plan-kusuru)."""
     if deger is None:
         return "veri-yok", None
+    if asgari and ornek is not None and ornek < asgari:
+        return "yetersiz-ornek", None
     tur = spec.get("tur")
     if tur == "band":
         if deger < spec["alt"]:
@@ -926,7 +938,8 @@ def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
     usd = lambda xs: sum(r.get("maliyet_usd") or 0.0 for r in xs)  # noqa: E731
     tok = lambda xs: sum(int(r.get(a) or 0) for r in xs for a in L._TOKEN_ALANLARI)  # noqa: E731
     ana = [r for r in rs if L.ana_ajan_satiri_mi(r)]
-    karta = [r for r in rs if not L.ana_ajan_satiri_mi(r)]
+    karta = [r for r in rs if not L.kartsiz_satir_mi(r)]
+    alt = [r for r in rs if L.kartsiz_alt_ajan_satiri_mi(r)]
     persp = [r for r in ana if r.get("perspektif") or r.get("ruya")]
     kalan = [r for r in ana if not (r.get("perspektif") or r.get("ruya"))]
     kart_usd: dict = collections.defaultdict(float)
@@ -948,7 +961,8 @@ def ek_olculer(ks: list, rs: list, onayli: list) -> dict:
         "ana_kirilim": {"is_bagli_usd": _r(usd([r for r in kalan if r.get("is")])), "is_bagsiz_usd": _r(usd([r for r in kalan if not r.get("is")])),
                         "perspektif_usd": _r(usd(persp)), "ana_usd": _r(usd(ana)), "toplam_usd": _r(usd(rs)),
                         "is_bagli_token": tok([r for r in kalan if r.get("is")]), "is_bagsiz_token": tok([r for r in kalan if not r.get("is")]),
-                        "perspektif_token": tok(persp), "ana_token": tok(ana), "toplam_token": tok(rs)},
+                        "perspektif_token": tok(persp), "ana_token": tok(ana), "toplam_token": tok(rs),
+                        "kartsiz_alt_usd": _r(usd(alt)), "kartsiz_alt_token": tok(alt)},
         "onayli_kart_toplam_usd": {"deger": _r(usd(rs) / len(onayli)) if onayli else None, "pay": _r(usd(rs)), "payda": len(onayli)},
         "onayli_kart_toplam_token": {"deger": _r(toplam_tok / len(onayli), 1) if onayli else None, "pay": toplam_tok, "payda": len(onayli)},
         "toplam_kalem": L.kalemler(rs),
@@ -972,6 +986,7 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
     carpan = hedef.get("uyari_carpani", 1.25)
     t_alt = hedef.get("teknik_uyari_alt", 0.8)
     olculer = hedef.get("olculer") or {}
+    asgari_ornek = hedef.get("asgari_ornek") or {}
     kapi_ham = hedef.get("teknik_kapi_baslangic")
     # tam zaman damgası (ofsetli) olduğu gibi; yalnız gün verilirse o günün 00:00'ı (eski davranış)
     kapi = _zaman(kapi_ham if "T" in kapi_ham else kapi_ham + "T00:00:00") if kapi_ham else None
@@ -989,7 +1004,8 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             tok_ajan[r["agent_id"]] += sum(int(r.get(x) or 0) for x in L._TOKEN_ALANLARI)
     out: dict = {"surum": 1, "uretim": L.simdi(),
                  "teknik_kapi_baslangic": hedef.get("teknik_kapi_baslangic"),
-                 "olculer": {a: {} for a in OLCU_SIRASI}, "israf": {}, "ek": {a: {} for a in EK_SIRASI}}
+                 "olculer": {a: {} for a in OLCU_SIRASI}, "israf": {}, "ek": {a: {} for a in EK_SIRASI},
+                 "asgari_ornek": asgari_ornek}
 
     for ad, alt in pencereler.items():
         def icinde(z):
@@ -1025,7 +1041,8 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
             pay, payda, ornek = ham[o]
             deger = pay / payda if payda else None
             spec = olculer.get(o) or {}
-            durum, yorum = olcu_durumu(deger, spec, carpan, t_alt) if spec else ("veri-yok", None)
+            durum, yorum = (olcu_durumu(deger, spec, carpan, t_alt, ornek, asgari_ornek.get(o, 0))
+                            if spec else ("veri-yok", None))
             hd = [spec.get("alt"), spec.get("ust")] if spec.get("tur") == "band" else spec.get("hedef")
             sapma = olcu_sapmasi(deger, spec)
             e = {"deger": _r(deger) if deger is not None else None, "hedef": hd, "tur": spec.get("tur"), "durum": durum,
@@ -1041,7 +1058,24 @@ def hedef_panosu(kartlar: list, kayitlar: list, simdi=None, hedef: dict | None =
                 v["hedef"] = spec.get("hedef")
                 v["durum"] = olcu_durumu(d, spec, carpan, t_alt)[0]
             out["ek"][a][ad] = v
+    out["ret_son_kararlar"] = ret_son_kararlar(kartlar, olculer.get("ret_orani") or {}, carpan, t_alt, asgari_ornek.get("ret_orani", 0))
     return out
+
+
+RET_KAYAN_N = 30
+
+
+def ret_son_kararlar(kartlar: list, spec: dict, carpan: float = 1.25, t_alt: float = 0.8, asgari: int = 0, n: int = RET_KAYAN_N) -> dict:
+    """Takvim penceresinden bağımsız kayan ret oranı: iptal olmayan kartların son n onay/ret kararı (denetim zamanına göre).
+    Eski öğrenme günlerini taşıyan 'bu ay' değeri yerine güncel eğilimi gösterir."""
+    kararlar = sorted(((_zaman(d.get("zaman")), d.get("karar")) for k in kartlar if k.get("durum") != "iptal"
+                       for d in k.get("denetimler") or [] if d.get("karar") in ("onay", "ret")),
+                      key=lambda x: (x[0] is None, x[0].timestamp() if x[0] else 0))[-n:]
+    payda, pay = len(kararlar), sum(1 for _, v in kararlar if v == "ret")
+    deger = pay / payda if payda else None
+    durum = olcu_durumu(deger, spec, carpan, t_alt, payda, min(asgari, n)) if spec else "veri-yok"
+    return {"n": n, "deger": _r(deger) if deger is not None else None, "hedef": spec.get("hedef"), "durum": durum[0] if isinstance(durum, tuple) else durum,
+            "pay": pay, "payda": payda}
 
 
 # ---------------------------------------------------------------- baglam kırılımı
@@ -1209,6 +1243,8 @@ def _planlayici(kartlar: list[dict], kayitlar: list[dict], min_n: int | None = N
         if L.ana_ajan_satiri_mi(r):
             if r.get("oturum"):
                 ana_oturum.setdefault(r["oturum"], collections.Counter())[r.get("model")] += r.get("maliyet_usd") or 0.0
+            continue
+        if L.kartsiz_alt_ajan_satiri_mi(r):
             continue
         if _rol(r.get("ajan")) == "denetci":
             den[r["gorev"]] += r.get("maliyet_usd") or 0.0

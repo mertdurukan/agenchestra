@@ -85,7 +85,7 @@ def _hafiza_ozeti(hafiza: str, proje: str) -> tuple[list, list, list, dict]:
     dosyalar, olu, belirsiz, imza = [], [], [], {}
     for yol in sorted(glob.glob(os.path.join(hafiza, "*.md"))):
         ad, metin = os.path.basename(yol), _metin(yol)
-        dosyalar.append({"ad": ad, "satir": metin.count("\n") + 1, "bayt": len(metin.encode("utf-8"))})
+        dosyalar.append({"ad": ad, "satir": len(metin.splitlines()), "bayt": len(metin.encode("utf-8"))})
         imza[ad] = hashlib.sha256(metin.encode("utf-8")).hexdigest()[:16]
         for m in YOL_DESENI.findall(metin):
             p = os.path.expandvars(os.path.expanduser(m.strip()))
@@ -95,6 +95,17 @@ def _hafiza_ozeti(hafiza: str, proje: str) -> tuple[list, list, list, dict]:
             if not any(os.path.exists(x) for x in adaylar):
                 (olu if os.path.isabs(p) else belirsiz).append({"dosya": ad, "yol": m})
     return dosyalar, olu, belirsiz, imza
+
+
+def _duzeltme_tekrari(hafiza: str) -> dict:
+    """Hafıza klasöründe birebir tekrar eden düzeltme notları (ADR-0029); yerler `dosya:satır`. Hatada boş."""
+    try:
+        import hafiza_duzeltme as HD
+        bulgular = [{"not": g["not"][:160], "adet": g["adet"],
+                     "yerler": [f"{os.path.basename(y)}:{n}" for y, n in g["yerler"]][:12]} for g in HD.tara(hafiza)]
+    except Exception:
+        bulgular = []
+    return {"sayi": len(bulgular), "bulgular": bulgular[:20]}
 
 
 def _skiller(proje: str) -> list[str]:
@@ -126,16 +137,19 @@ def girdi(sd: str, proje: str, hafiza: str) -> dict:
     defter = [r for r in L.defter_kayitlari(sd) if r.get("zaman", "") >= esik]
     etiketsiz = sum(1 for r in defter if r.get("gorev") in (None, "", "-") and r.get("ajan") not in (None, "ana-ajan"))
     skiller = _skiller(proje)
+    duzeltme = _duzeltme_tekrari(hafiza)
     memory = next((x for x in dosyalar if x["ad"] == "MEMORY.md"), None)
     imza_kaynagi = {"hafiza": h_imza, "kurallar": hashlib.sha256(kurallar.encode("utf-8")).hexdigest()[:16],
                     "skiller": skiller, "anomali": sorted({f"{a['kural']}:{a['kart']}" for a in anomali}),
-                    "istek_kovasi": len(istekler) // ISTEK_KOVASI}
+                    "istek_kovasi": len(istekler) // ISTEK_KOVASI,
+                    "duzeltme": sorted(b["not"] for b in duzeltme["bulgular"])}
     return {
         "zaman": L.simdi(), "gun": GIRDI_GUN,
         "imza": hashlib.sha256(json.dumps(imza_kaynagi, sort_keys=True).encode("utf-8")).hexdigest()[:20],
         "hafiza": {"klasor": hafiza, "dosyalar": dosyalar, "memory_md": memory,
                    "olu_yollar": olu[:60], "olu_yol_sayisi": len(olu), "belirsiz_yollar": belirsiz[:60]},
         "skiller": skiller,
+        "duzeltme_tekrari": duzeltme,
         "anomali": {"sayim": dict(collections.Counter(a["kural"] for a in anomali)), "ilk": anomali[:25]},
         "kpi": kpi_,
         "gunluk": {"olay": len(gun), "tur": dict(collections.Counter(r.get("tur") for r in gun)),
@@ -227,9 +241,21 @@ Rapor bölümleri (Türkçe, kısa cümleler):
 ## 3. Çelişkiler — iki kaydın birbirini yalanladığı yerler; hangisi güncel (tarih/kanıt).
 ## 4. Eskimiş veya doğrulanamayan — girdi.json'daki ölü yollar; "devam ediyor" denip bitmiş işler.
 ## 5. Boyut — girdi.json'daki MEMORY.md satır/bayt; 200 satır sınırına yakınsa hangi kayıtlar konu dosyalarına bölünmeli.
-## 6. Önerilen değişiklikler — her biri için dosya, ne değişecek, gerekçe; uygulanabilir kısa diff blokları.
+## 6. Önerilen değişiklikler — her biri için dosya, ne değişecek, gerekçe; uygulanabilir kısa diff blokları; her önerinin altında Kanıt:, Geçtiği yerler: ve Vaat: satırları.
 ## 7. Skill adayları — girdi.json günlük isteklerinde skill'siz tekrarlanan (≥3) istek türleri; her aday için ad, tetik cümleleri, girdi→çıktı, başlangıç basamağı (T0-T4), mevcut betik.
 ## 8. Orkestra sağlığı — ortak defterde etiketsiz (#GOREV yok) ajan oranı, reddedilen/yükseltilen kartlar, dikkat çeken maliyet; girdi.json'daki her anomali kuralı için kök neden ve Vaat satırlı düzeltme önerisi.
+
+
+## Doğrulama (P-021)
+Rapordaki her var/yok/kaç kez/kayıp iddiası ve her öneri yazılmadan önce kanıtlanır; hafızadan ya da varsayımdan yazılmaz.
+- Her iddianın ve önerinin altına girintili `Kanıt:` satırı ekle. Biçimler: `Kanıt: ara "regex" dosya => N` (ya da `>=N`), `Kanıt: say glob => N`, `Kanıt: dosya yol:satır "alıntı"`.
+- "Kayıp" ya da "eksik" denen dosyayı adıyla Glob'la; bulunmadıysa bu Kanıt satırında göster, bulunduysa iddiayı yazma.
+- Sayısal hedefte (satır, bayt, kez) hesabı Kanıt satırında göster; girdi.json'dan alınan sayıyı yeniden hesaplama.
+- Bir iddia ya da öneri `Geçtiği yerler:` satırı taşır: iddianın geçtiği tüm hafıza kayıtları, `dosya:satır` listesi olarak (Grep ile bul).
+- Düzeltme biçimi: kaynakta yeniden yaz, not ekleme. Düzeltilecek iddia asıl anlatıldığı kayıtta olgu cümlesi olarak yeniden yazılır; geçtiği diğer yerlerde olgu doğru yazılır ya da cümle silinip kaynak kayda bağlantı verilir. Düzeltme notu eklemek öneri sayılmaz.
+- girdi.json `duzeltme_tekrari` alanındaki her bulgu (aynı düzeltme notunun birden çok kayıtta tekrarı) bölüm 6'da bir öneri olur.
+- Bölüm 2-5'teki her bulgu bölüm 6'daki bir öneriye bağlanır ya da `Öneri yok: <neden>` satırı taşır.
+- Rapor yazıldıktan sonra `orkestra perspektif dogrula <rapor yolu>` çalıştırılır; ❌ ile işaretlenen Kanıt satırı düzeltilir ya da iddia "doğrulanamadı" diye işaretlenir. Komut çalıştıramıyorsan atla: `kaydet` aynı doğrulamayı kendisi yapar.
 
 Kurallar: sır değeri, şifre, çalışan adı yazma. Emin olmadığın şeyi "doğrulanamadı" diye işaretle. Değişiklik UYGULAMA.
 """
@@ -264,6 +290,20 @@ def headless_mumkun(sd: str, exe: str | None) -> bool:
     return mumkun
 
 
+def proje_uyusmazligi(istenen: str | None, gercek: str) -> str | None:
+    """`--proje` verilmişse ve oturumun projesi farklıysa hata metni döner; yoksa None.
+
+    Neden: düğmeyle açılan sohbet klasörsüz (scratch) açılırsa koşu yanlış projenin durum.json'una yazar.
+    """
+    if not istenen:
+        return None
+    norm = lambda p: os.path.normcase(os.path.realpath(p))  # noqa: E731
+    if norm(istenen) == norm(gercek):
+        return None
+    return (f"yanlış klasör: oturum {gercek}, istenen {istenen}; "
+            f"change_directory ile {istenen} klasörüne geç ve komutu yeniden çalıştır")
+
+
 def basladi_isaretle(sd: str) -> None:
     with L.kilit(_durum_yolu(sd)):
         st = _oku(sd)
@@ -271,7 +311,68 @@ def basladi_isaretle(sd: str) -> None:
         _yaz(sd, st)
 
 
-def kaydet(sd: str, rapor: str) -> None:
+# ---------------------------------------------------------------- rapor kanıt doğrulaması (ADR-0029, P-021)
+# Rapordaki `Kanıt:` satırları plan_dogrulama kanıt dilbilgisiyle yeniden hesaplanır (dosya, ara, say, deneme, kaynak;
+# komut koşulmaz: rapor katılımsız ajandan gelir). Tutmayan satırın altına işaret yazılır; kayıt engellenmez.
+
+_KANIT = re.compile(r"^(?P<g>\s*)(?:[-*]\s+)?Kanıt:[ \t]*(?P<deger>.+?)\s*$")
+ISARET = "\u274c Kanıt tutmadı:"
+_ISARET_SATIRI = re.compile(r"^\s*" + re.escape(ISARET))
+_KOSULMAYAN = ("komut koşulmadı", "komut çalıştırılmadı")
+
+
+def rapor_dogrula(rapor: str, hafiza: str, proje: str) -> dict:
+    """{toplam, tutan, dogrulanmadi, tutmayan: [{satir (1 tabanlı), tur, mesaj}]}. Rapor okunamazsa ValueError."""
+    import plan_dogrulama as PD
+    try:
+        with open(rapor, encoding="utf-8") as f:
+            satirlar = f.read().splitlines()
+    except OSError as e:
+        raise ValueError(f"rapor okunamadı: {rapor}") from e
+    kokler = [k for k in (hafiza, proje) if k]
+    sonuc = {"toplam": 0, "tutan": 0, "dogrulanmadi": 0, "tutmayan": []}
+    for no, satir in enumerate(satirlar, 1):
+        if _ISARET_SATIRI.match(satir):
+            continue
+        m = _KANIT.match(satir)
+        if not m:
+            continue
+        bol = m.group("deger").split(None, 1)
+        tur, deger = (bol[0] if bol else "").lower(), (bol[1] if len(bol) > 1 else "")
+        sonuc["toplam"] += 1
+        ok, _, mesaj = PD.kanit_dogrula({"tur": tur, "deger": deger}, kokler, proje, kos=False)
+        if ok is True:
+            sonuc["tutan"] += 1
+        elif ok is None or mesaj.startswith(_KOSULMAYAN):
+            sonuc["dogrulanmadi"] += 1
+        else:
+            sonuc["tutmayan"].append({"satir": no, "tur": tur, "mesaj": mesaj})
+    return sonuc
+
+
+def rapor_isaretle(rapor: str, hafiza: str, proje: str) -> dict:
+    """Önceki işaretleri siler, tutmayan her `Kanıt:` satırının altına işaret yazar (idempotent). rapor_dogrula sonucunu döner."""
+    with open(rapor, encoding="utf-8") as f:
+        satirlar = [s for s in f.read().splitlines() if not _ISARET_SATIRI.match(s)]
+    temiz = rapor + ".tmp"
+    with open(temiz, "w", encoding="utf-8", newline="") as f:
+        f.write("\n".join(satirlar) + "\n")
+    try:
+        sonuc = rapor_dogrula(temiz, hafiza, proje)
+    finally:
+        os.remove(temiz)
+    islenen = {t["satir"]: t for t in sonuc["tutmayan"]}
+    yeni = []
+    for no, satir in enumerate(satirlar, 1):
+        yeni.append(satir)
+        if no in islenen:
+            girinti = _KANIT.match(satir).group("g")
+            yeni.append(f"{girinti}  {ISARET} {islenen[no]['mesaj']}")
+    L.atomik_yaz(rapor, "\n".join(yeni) + "\n")
+    return sonuc
+
+
+def kaydet(sd: str, rapor: str, proje: str | None = None) -> dict | None:
     with L.kilit(_durum_yolu(sd)):
         st = _oku(sd)
         st.update(son_perspektif=L.simdi(), oturum_sayaci=0, son_rapor=os.path.abspath(rapor), rapor_okundu=False, calisiyor=None)
@@ -283,6 +384,13 @@ def kaydet(sd: str, rapor: str) -> None:
         _yaz(sd, st)
     L.defter_ekle(sd, {"gorev": "-", "surec": "perspektif", "ajan": "orkestra:perspektif-ajani", "model": "sonnet",
                        "yaptim": "Hafıza bakımı ve skill avı (yalnız okuma).", "sonuc": f"Rapor: {rapor}", "kaynak": "perspektif"})
+    try:  # kanıtı tutmayan iddialar işaretlenir; hata kaydı bozmaz
+        proje = proje or L.proje_dizini()
+        with open(_girdi_yolu(sd), encoding="utf-8") as f:
+            klasor = (json.load(f).get("hafiza") or {}).get("klasor")
+        return rapor_isaretle(rapor, klasor or hafiza_dizini(proje), proje)
+    except Exception:
+        return None
 
 
 def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = False) -> str:

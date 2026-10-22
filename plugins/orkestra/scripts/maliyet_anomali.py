@@ -13,7 +13,8 @@ Kurallar (kimlik → açıklama):
   K3 teslim-sonrasi    kart teslim/iptal olduktan sonra karta ajan koştu
   K4 es-zamanli-isci   aynı kartta zaman aralıkları kesişen iki işçi ajanı (iş/düzeltme/yükseltme)
   K5 kapi-ajani        test-kapisi / on-kontrol süreci ajanla koştu (kapılar CLI'de olmalı)
-  K6 ana-ajan-payi     ana ajan (orkestrasyon) maliyet payı >= esik_ana_pay
+  K6 ana-ajan-payi     ana ajan (orkestrasyon) maliyet payı >= esik_ana_pay (kart harcaması olan günlerde); kart
+                       harcaması olmayan günde pay yerine günlük ana ajan maliyeti >= esik_ana_gun_usd
   K7 t4-yukseltme      T4 basamağında ajan koştu (yükseltme zinciri pahalı uca ulaştı)
 
 Kullanım: `orkestra maliyet anomali [--gun N] [--json]`.
@@ -28,7 +29,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
 
-ESIKLER = {"esik_kart_usd": 2.0, "esik_kart_ajan": 8, "esik_ana_pay": 0.5}
+ESIKLER = {"esik_kart_usd": 2.0, "esik_kart_ajan": 8, "esik_ana_pay": 0.5, "esik_ana_gun_usd": 100.0}
 ISCI_SURECLERI = ("is", "duzeltme", "yukseltme")
 KAPI_SURECLERI = ("test-kapisi", "on-kontrol")
 
@@ -107,11 +108,23 @@ def denetle(satirlar: list[dict], kartlar: dict[str, dict], esikler: dict | None
     if kapi:
         out.append({"kural": "K5", "ad": "kapi-ajani", "kart": "-", "usd": round(sum(x.get("maliyet_usd") or 0 for x in kapi), 2),
                     "ayrinti": f"{len(kapi)} kapı/ön kontrol ajanı (kapılar CLI is-bitti'de koşmalı)"})
-    toplam = sum(d.get("maliyet_usd") or 0 for d in satirlar)
-    ana_usd = sum(d.get("maliyet_usd") or 0 for d in ana)
+    # K6: kart harcaması olan günlerde pay kuralı; kart harcaması olmayan günde pay %100'e doyar ve ana ajanın
+    # verimini göstermez, o gün mutlak günlük maliyet eşiğine bakılır (esik_ana_gun_usd).
+    usd = lambda d: d.get("maliyet_usd") or 0  # noqa: E731
+    kartli_gun = {d["_z"].date() for d in satirlar if not L.kartsiz_satir_mi(d) and usd(d) > 0}
+    toplam = sum(usd(d) for d in satirlar if d["_z"].date() in kartli_gun)
+    ana_usd = sum(usd(d) for d in ana if d["_z"].date() in kartli_gun)
     if toplam > 0 and ana_usd / toplam >= e["esik_ana_pay"]:
         out.append({"kural": "K6", "ad": "ana-ajan-payi", "kart": "-", "usd": round(ana_usd, 2),
                     "ayrinti": f"ana ajan payı %{100 * ana_usd / toplam:.0f} ({ana_usd:.2f}$ / {toplam:.2f}$)"})
+    gunluk: dict = collections.defaultdict(float)
+    for d in ana:
+        if d["_z"].date() not in kartli_gun:
+            gunluk[d["_z"].date()] += usd(d)
+    for gun, u in sorted(gunluk.items()):
+        if u >= e["esik_ana_gun_usd"]:
+            out.append({"kural": "K6", "ad": "ana-ajan-gun-maliyeti", "kart": "-", "usd": round(u, 2),
+                        "ayrinti": f"{gun:%d.%m}: kart harcaması yok, ana ajan günlük {u:.2f}$ ≥ eşik {e['esik_ana_gun_usd']:.0f}$"})
     out.sort(key=lambda x: -x["usd"])
     return out
 

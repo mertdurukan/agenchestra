@@ -43,6 +43,16 @@ Adımlar:
 - Yasak terimler proje durum dizinindeki `terfi_yasak.json` dosyasından okunur (liste ya da `{"terimler": [...]}`); dosya yoksa yalnız kalıp denetimi çalışır.
 - Testler: `tests/test_terfi.py`.
 
+## Hafıza düzeltme kapısı ve rapor kanıt doğrulaması
+- Kural P-026, P-021'in rapor ayağı; karar kaydı McD deposunda ADR-0029'dur (eklentiyi kuran başka bir kullanıcıda bulunmaz, kural metni kendi başına anlaşılır).
+- Çekirdek `scripts/hafiza_duzeltme.py`: düzeltme notu = parantezli ya da köşeli (`[[bağlantı]]` hariç) bölüm, `ayarlar/hafiza_duzeltme.json` `isaret_kokleri` kökünden birini taşır ve `min_uzunluk` karakterden uzundur. Aynı normalize not hafıza klasöründe `esik` (2) ya da daha çok dosyada geçerse `tara`/`tekrarlar` bulgu verir.
+- Yazım kapısı `scripts/hook.py` `_hafiza_duzeltme_kapisi` (PreToolUse, Write/Edit/MultiEdit; yol `hafiza_yolu` kalıbına uyan md): yazımdan sonraki metin hesaplanır, notun toplam sayımı eşiğe ulaşıp artıyorsa `reddet`. Hata olursa açık geçer (fail-open). Mod `ayarlar/hafiza_duzeltme.json` `mod`: `ihlal` (reddet, varsayılan), `golge` (yalnız uyarı), `kapali`; `ORKESTRA_HAFIZA_DUZELTME=0` hepsini kapatır.
+- Rapor ayağı `scripts/perspektif.py`: `girdi.json` `duzeltme_tekrari` alanı, `rapor_dogrula`/`rapor_isaretle` (`Kanıt:` satırları `plan_dogrulama.kanit_dogrula` ile, `kos=False`: komut koşulmaz; tutmayan satırın altına `ISARET` yazılır, idempotent), `kaydet` işaretlemeyi kendisi yapar. CLI: `orkestra perspektif dogrula <rapor>` (tutmayanda çıkış 1) ve `duzeltme-tara [klasör]` (bulguda çıkış 1).
+- Talimat iki kopyada yaşar: `agents/perspektif-ajani.md` ve `perspektif.ISTEM`; "Doğrulama (P-021)" bölümü birebir aynı kalır, `tests/test_perspektif_talimat.py` bağlar. Birini değiştirince ikincisini de değiştir.
+- Başsız perspektif koşusunda yalnız Read/Glob/Grep vardır (Bash yok); `dogrula` orada koşmaz, `kaydet` doğrulamayı yapar.
+- Doğrulanmadı: Claude Code'un yerleşik otomatik hafıza yazımının PreToolUse hook'undan geçip geçmediği; geçmiyorsa kapı yalnız ajan yazımlarını tutar, `duzeltme-tara` ve bakımcı ilkesi geri kalanı karşılar.
+- Testler: `tests/test_hafiza_duzeltme.py`, `tests/test_hook_hafiza_duzeltme.py`, `tests/test_perspektif_dogrulama.py`, `tests/test_perspektif_talimat.py`.
+
 ## Sistem haritası: teknolojiler katmanı
 - `scripts/harita.py` dokuzuncu katman `teknolojiler`i taşır; tarama ve md üretimi `scripts/harita_teknoloji.py`'dedir (ADR-0019, kural P-024).
 - Kategori eşlemesi `ayarlar/teknoloji_kategorileri.json`: önce tam ad, sonra en uzun önek; eşleşmeyen `diger`. Yeni paket buraya eklenir, koda dokunulmaz. Dosya imzaya girer: değişince katman eskir.

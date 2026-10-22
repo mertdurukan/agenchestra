@@ -831,11 +831,39 @@ def kart_durumu_hesapla(kart: dict) -> str:
     return durum or "planlandi"
 
 
-def ana_ajan_satiri_mi(satir: dict) -> bool:
-    """Ana ajan payının tek tanımı: defter satırının görevi boş ya da '-' (karta bağlı olmayan harcama). KPI, hedef
-    panosu, maliyet anomalisi (K6) ve etki ölçümü aynı tanımı kullanır."""
+def kartsiz_satir_mi(satir: dict) -> bool:
+    """Defter satırının görevi boş ya da '-' (karta bağlı olmayan harcama): ana ajan ve kartsız alt ajan ortak kümesi."""
     g = satir.get("gorev")
     return not g or g == "-"
+
+
+def ana_ajan_satiri_mi(satir: dict) -> bool:
+    """Ana ajan payının tek tanımı: kartsız satır VE ajan 'ana-ajan' (eski satırda ajan alanı yoksa da ana sayılır).
+    Kartsız alt ajan (araştırmacı, general-purpose, perspektif, hafıza bakımcısı...) ana ajana yazılmaz;
+    `kartsiz_alt_ajan_satiri_mi` ayrı kalemdir. KPI, hedef panosu, maliyet anomalisi (K6) ve etki ölçümü aynı tanımı kullanır."""
+    return kartsiz_satir_mi(satir) and (satir.get("ajan") in (None, "", "ana-ajan"))
+
+
+def kartsiz_alt_ajan_satiri_mi(satir: dict) -> bool:
+    """Karta bağlı olmayan ama ana ajan olmayan (alt ajan) defter satırı."""
+    return kartsiz_satir_mi(satir) and not ana_ajan_satiri_mi(satir)
+
+
+def ana_ajan_dagilimi(satirlar: list[dict]) -> dict:
+    """Kartsız harcamanın üç kalemi: ana ajan işe bağlı, ana ajan işsiz (sohbet), kartsız alt ajan.
+    Her kalem {satir, usd}. Kart satırları (görevi dolu) dahil değildir."""
+    d = {"ana_is_bagli": {"satir": 0, "usd": 0.0}, "ana_is_bagsiz": {"satir": 0, "usd": 0.0},
+         "kartsiz_alt_ajan": {"satir": 0, "usd": 0.0}}
+    for r in satirlar:
+        if not kartsiz_satir_mi(r):
+            continue
+        if ana_ajan_satiri_mi(r):
+            k = "ana_is_bagli" if (r.get("is") and r.get("is") != "-") else "ana_is_bagsiz"
+        else:
+            k = "kartsiz_alt_ajan"
+        d[k]["satir"] += 1
+        d[k]["usd"] += float(r.get("maliyet_usd") or 0)
+    return d
 
 
 def zaman_kayitlari(sd: str) -> list[dict]:

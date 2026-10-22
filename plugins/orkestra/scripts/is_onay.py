@@ -26,6 +26,9 @@ _ONAY = re.compile(
     re.I)
 # Tek harfli kısayol (y, o, e, q) yalnız mesajın tamamıysa onaydır; "o bir sorun" gibi cümleler eşleşmez.
 _ONAY_KISA = re.compile(r"^\W*[yoeq]\W*$", re.I)
+# Onay fiili cümlenin içinde geçebilir ("Planı onaylıyorum", "kabul ediyorum"); kök: onayl(ı)yor, onayladım, onay veriyorum.
+_ONAY_FIIL = re.compile(r"\b(?:onayl(?:[ıi]yor|ad[ıi])\w*|onay\s+veriyor\w*|kabul\s+ed(?:iyor|tim|ildi)\w*)", re.I)
+_KOSUL = re.compile(r"\b(?:ama|fakat|ancak|lakin|yeter\s+ki|[sş]art[ıi]yla)\b", re.I)
 _RED = re.compile(r"\b(?:hay[ıi]r|de[gğ]il|yapma\w*|bekle\w*|dur|durdur|iptal|onaylam\w*|olmaz)\b", re.I)
 
 # Onay beklerken ana ya da alt ajanın kabukta çalıştıramayacağı komutlar (tırnak içi metin atılmış komuta uygulanır)
@@ -121,7 +124,13 @@ def onay_mesaji_mi(metin: str) -> bool:
         return False
     m = m.replace("İ", "i").replace("I", "ı")
     ilk = re.split(r"[;.,]", m, maxsplit=1)[0]  # I-138 P15: ret kalıbı yalnız ilk cümlecikte aranır
-    return bool(_ONAY.match(m) or _ONAY_KISA.match(m)) and not _RED.search(ilk)
+    if _RED.search(ilk):
+        return False
+    if _ONAY.match(m) or _ONAY_KISA.match(m):
+        return True
+    # I-154: "Planı (P1-P10) onaylıyorum, K3 ve K5 önerildiği gibi" onay sözcüğüyle başlamaz; onay fiili ilk cümlecikte
+    # geçiyorsa ve mesaj koşul/itiraz bağlacı taşımıyorsa onaydır (yanlış onay pahalı: bağlaç varsa onay sayılmaz).
+    return bool(_ONAY_FIIL.search(m)) and not _KOSUL.search(m) and not _RED.search(m)
 
 
 def belge_eksikleri(klasor: str) -> list[str]:
@@ -171,8 +180,57 @@ def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
             "kullanıcı onaylamadan işin belgeleri dışında dosya yazılmaz. Kapatma: ORKESTRA_ONAY_KAPISI=0.")
 
 
-def kabuk_engeli(tirnaksiz_komut: str) -> str:
-    if KABUK_YASAK.search(tirnaksiz_komut) or IS_JSON_YAZIMI.search(tirnaksiz_komut):
+# ADR-0031: kullanıcı commit/push'u açıkça istediği turda yalnız bu git alt komutları kapıdan geçer.
+GIT_IZINLI = ("commit", "add", "push", "reset", "merge")
+_GIT_EMRI = re.compile(r"\b(?:commit|push)(?:'?l[ae](?!r)\w*|'?[au]\b|\s+(?:et|yap)\w*)", re.I)
+_GIT_OLUMSUZ = re.compile(r"\b(?:commit|push)\w*?(?:lama|leme|etme|yapma)", re.I)
+
+
+def git_emri_mi(metin: str) -> bool:
+    """Kısa, soru olmayan, ret içermeyen mesaj commit/push'u fiil olarak istiyor mu ('commitle pushla', 'pusha', 'commit et')."""
+    m = (metin or "").strip()
+    if not m or len(m) > AZAMI_MESAJ or "?" in m or m.startswith("<"):
+        return False
+    return bool(_GIT_EMRI.search(m)) and not _RED.search(m) and not _GIT_OLUMSUZ.search(m)
+
+
+def _git_izin_yolu(sd: str, oturum) -> str:
+    return os.path.join(sd, "oturumlar", f"git_izin_{oturum}.json")
+
+
+def git_izni_isle(sd: str, oturum, metin: str) -> bool:
+    """Her kullanıcı mesajında: emirse oturum işaretini yazar, değilse siler (izin tek tur sürer). Emir var mı döner."""
+    if not oturum:
+        return False
+    yol = _git_izin_yolu(sd, oturum)
+    if git_emri_mi(metin):
+        import json
+        os.makedirs(os.path.dirname(yol), exist_ok=True)
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump({"izin": "git"}, f)
+        return True
+    try:
+        os.remove(yol)
+    except OSError:
+        pass
+    return False
+
+
+def git_izni_var(sd: str, oturum) -> bool:
+    return bool(oturum) and os.path.exists(_git_izin_yolu(sd, oturum))
+
+
+def _git_izinli_mi(eslesme: str) -> bool:
+    if not re.match(r"[;&|(`\s]*git\b", eslesme, re.I):
+        return False
+    return eslesme.split()[-1].lower() in GIT_IZINLI
+
+
+def kabuk_engeli(tirnaksiz_komut: str, git_izni: bool = False) -> str:
+    yasak = [m.group(0) for m in KABUK_YASAK.finditer(tirnaksiz_komut)]
+    if git_izni:
+        yasak = [y for y in yasak if not _git_izinli_mi(y)]
+    if yasak or IS_JSON_YAZIMI.search(tirnaksiz_komut):
         return ("iş onay bekliyor (P-016): commit, ekleme/itme, bağımlılık kurma ve onay komutu kullanıcı onayından önce "
                 "çalıştırılmaz. Mevcut durum → plan → todo'yu bağlantılarıyla göster, kullanıcının onayını bekle.")
     return ""

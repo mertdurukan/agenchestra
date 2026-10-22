@@ -11,10 +11,11 @@ Perspektif, oturumlar arasında arka planda çalışan hafıza bakımıdır:
 - Nasıl: Sonnet, yalnız okuma araçlarıyla.
 - Hafızayı kendisi DEĞİŞTİRMEZ; yalnız öneri raporu yazar.
 
+0. `$ARGUMENTS` içinde `proje=<yol>` varsa oturum klasörü bu yol değilse `change_directory` aracıyla o klasöre geç (panel düğmesi sohbeti klasörsüz açabilir; koşu yanlış projeye yazılmasın). Geçemezsen dur ve kullanıcıya söyle.
 1. `orkestra perspektif durum` çalıştır.
 2. `$ARGUMENTS` "şimdi" içeriyorsa ya da hiç rapor yoksa perspektifi başlat:
    - `orkestra perspektif hafiza` ile hafıza klasörünü al.
-   - Agent aracıyla `orkestra:perspektif-ajani` ajanını `run_in_background: true` ile başlat. İstem: `#SUREC:perspektif hafıza klasörü: <yol>`.
+   - Agent aracıyla `orkestra:perspektif-ajani` ajanını `run_in_background: true` ile başlat. İstem: `#SUREC:perspektif hafıza klasörü: <yol> proje: <proje= değeri; yoksa oturum klasörü>`.
    - Kullanıcıya perspektifin arka planda başladığını ve birkaç dakika süreceğini söyle.
    - Dur.
    - Komut satırı oturum açmışsa (`claude auth status` → loggedIn) perspektif her oturum kapanışında kendiliğinden de çalışır.
@@ -24,6 +25,7 @@ Perspektif, oturumlar arasında arka planda çalışan hafıza bakımıdır:
    - eskimiş kayıtlar;
    - boyut;
    - skill adayları.
+   Raporda `❌ Kanıt tutmadı:` satırı varsa `orkestra perspektif dogrula <rapor>` çıktısındaki "N Kanıt satırı: x tuttu, y tutmadı, z doğrulanmadı" özetini ver ve tutmayan iddiayı onaya sunma; kullanıcıya "doğrulanamadı" diye göster.
 4. Panel kararlarını al: `orkestra onay liste --tur perspektif`.
    - Panelde karar verilmiş (onaylandi, reddedildi, uygulandi) maddeleri kullanıcıya yeniden sorma.
    - Bekleyen maddeler için kullanıcıya iki yol öner: panelin Onaylar sayfası (`orkestra panel` ile açılır) ya da sohbette numara vererek onay.

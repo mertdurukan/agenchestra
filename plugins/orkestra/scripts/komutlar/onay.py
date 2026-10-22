@@ -26,6 +26,10 @@ def cmd_perspektif(a):
     sd = sd_gerekli()
     sys.path.insert(0, BETIK_DIZINI)
     import perspektif
+    if a.islem in ("basladi", "kaydet"):
+        uyusmazlik = perspektif.proje_uyusmazligi(getattr(a, "proje", None), L.proje_dizini())
+        if uyusmazlik:
+            hata(uyusmazlik)
     if a.islem == "durum":
         print(json.dumps(perspektif.durum(sd), ensure_ascii=False, indent=2))
     elif a.islem == "basla":
@@ -39,10 +43,37 @@ def cmd_perspektif(a):
     elif a.islem == "kaydet":
         if not a.yol or not os.path.exists(a.yol):
             hata("rapor yolu gerekli ve var olmalı: orkestra perspektif kaydet <yol>")
-        perspektif.kaydet(sd, a.yol)
+        o = perspektif.kaydet(sd, a.yol)
         print(f"perspektif raporu kaydedildi: {a.yol}")
+        if o and o["tutmayan"]:
+            print(f"uyarı: {len(o['tutmayan'])}/{o['toplam']} Kanıt satırı tutmadı (rapora {perspektif.ISARET} işareti yazıldı)")
     elif a.islem == "hafiza":
         print(perspektif.hafiza_dizini(L.proje_dizini()))
+    elif a.islem == "dogrula":
+        if not a.yol or not os.path.exists(a.yol):
+            hata("rapor yolu gerekli ve var olmalı: orkestra perspektif dogrula <rapor>")
+        proje = L.proje_dizini()
+        try:
+            o = perspektif.rapor_dogrula(a.yol, perspektif.hafiza_dizini(proje), proje)
+        except ValueError as e:
+            hata(str(e))
+        print(f"{o['toplam']} Kanıt satırı: {o['tutan']} tuttu, {len(o['tutmayan'])} tutmadı, {o['dogrulanmadi']} doğrulanmadı")
+        for t in o["tutmayan"]:
+            print(f"  satır {t['satir']} ({t['tur']}): {t['mesaj']}")
+        if o["tutmayan"]:
+            sys.exit(1)
+    elif a.islem == "duzeltme-tara":
+        import hafiza_duzeltme as HD
+        klasor = a.yol or perspektif.hafiza_dizini(L.proje_dizini())
+        if not os.path.isdir(klasor):
+            hata(f"klasör yok: {klasor}")
+        b = HD.tara(klasor)
+        print(f"{klasor}: {len(b)} tekrar eden düzeltme notu")
+        for g in b:
+            yerler = ", ".join(f"{os.path.basename(y)}:{n}" for y, n in g["yerler"][:8])
+            print(f"  {g['adet']} kez: {g['not'][:100]} → {yerler}")
+        if b:
+            sys.exit(1)
     elif a.islem == "girdi":
         proje = L.proje_dizini()
         g = perspektif.girdi_yaz(sd, proje, a.yol or perspektif.hafiza_dizini(proje))
@@ -246,8 +277,9 @@ def cmd_kural(a):
 def kaydet(alt):
     """Bu modülün alt komutlarını ana ayrıştırıcıya ekler."""
     ru = alt.add_parser("perspektif", aliases=["ruya"])  # "ruya": eski ad, geriye uyumlu takma ad
-    ru.add_argument("islem", choices=["durum", "basla", "basladi", "kaydet", "bitti", "hafiza", "girdi"])
+    ru.add_argument("islem", choices=["durum", "basla", "basladi", "kaydet", "bitti", "hafiza", "girdi", "dogrula", "duzeltme-tara"])
     ru.add_argument("yol", nargs="?")
+    ru.add_argument("--proje", help="basladi/kaydet: beklenen proje klasörü; oturum başka projedeyse reddeder")
     ru.set_defaults(f=cmd_perspektif)
 
     on = alt.add_parser("onay").add_subparsers(dest="alt", required=True)

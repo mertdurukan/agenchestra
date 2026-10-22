@@ -466,7 +466,8 @@ def _onay_kapisi(sd: str, oid, proje: str, tam: str = "", tirnaksiz: str = "") -
         return
     try:
         import is_onay
-        neden = is_onay.yazma_engeli(kayit, proje, tam) if tam else is_onay.kabuk_engeli(tirnaksiz)
+        neden = (is_onay.yazma_engeli(kayit, proje, tam) if tam
+                 else is_onay.kabuk_engeli(tirnaksiz, is_onay.git_izni_var(sd, oid)))  # ADR-0031
     except Exception:
         return
     if neden:
@@ -522,6 +523,37 @@ def _kapi_uygula(kar, neden: str):
         sor(neden)
 
 
+def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
+    """ADR-0029: hafıza .md yazımı birebir aynı düzeltme notunu ikinci kez ekliyorsa reddedilir (mod=golge: yalnız uyarı).
+    Ana ve alt ajan aynıdır. ORKESTRA_HAFIZA_DUZELTME=0 kapatır. Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır."""
+    global _BEKLEYEN_UYARI
+    neden, mod = "", ""
+    try:
+        import hafiza_duzeltme as HD
+        if arac not in ("Write", "Edit", "MultiEdit") or not HD.acik():
+            return
+        a = HD.ayar()
+        mod = a["mod"]
+        if mod == "kapali" or not HD.hafiza_yolu_mu(tam, a):
+            return
+        try:
+            with open(tam, encoding="utf-8", errors="replace") as f:
+                onceki = f.read()
+        except OSError:
+            onceki = ""
+        sonraki = HD.yazim_sonrasi(arac, girdi, onceki)
+        if sonraki is not None:
+            neden = HD.yazim_ihlali(tam, onceki, sonraki, a=a) or ""
+    except Exception:
+        return
+    if not neden:
+        return
+    if mod == "golge":
+        _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
+        return
+    reddet(neden)
+
+
 def pre_tool_use(inp: dict):
     global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN
     _BEKLEYEN_UYARI = ""  # ic_kos işlem içi koşar: önceki çağrının uyarısı sızmasın
@@ -560,6 +592,7 @@ def pre_tool_use(inp: dict):
         if not yol:
             gec()
         tam = os.path.abspath(os.path.join(inp.get("cwd") or os.getcwd(), yol))
+        _hafiza_duzeltme_kapisi(arac, girdi, tam)
         try:
             rel = os.path.relpath(tam, sd).replace("\\", "/")
         except ValueError:
@@ -1735,7 +1768,7 @@ def _otomatik_ac(inp: dict) -> str | None:
     try:
         if os.environ.get("ORKESTRA_OTOMATIK_ACIL", "1") == "0":
             return None
-        proje = os.path.abspath(inp.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+        proje = L.proje_dizini(inp.get("cwd"))  # durum_dizini ile aynı çözüm: CLAUDE_PROJECT_DIR > cwd (I-151 G9: kaynaklar ayrışmasın)
         if proje == os.path.abspath(os.path.expanduser("~")) or os.path.dirname(proje) == proje:
             return None
         sd = L.durum_dizini(proje, olustur=True)
@@ -2122,6 +2155,7 @@ def user_prompt_submit(inp: dict):
                 pass
             try:  # P-016: onay bekleyen işte kullanıcı mesajı onaysa durum yazılır; hata hook'u düşürmez
                 import is_onay
+                is_onay.git_izni_isle(sd, inp.get("session_id"), metin)  # ADR-0031: commit/push emri bu tur git komutunu açar
                 kayit = _onay_kaydi(sd, inp.get("session_id"))
                 if kayit:
                     satir, yeni = is_onay.baglam_satiri(kayit, is_onay.onay_mesaji_mi(metin))
