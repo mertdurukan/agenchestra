@@ -1557,6 +1557,11 @@ def cmd_kart_agac_temizle(a):
             print(f"  kaldırıldı: {w['yol']}  [{w['neden']}]")
             for x in u:
                 print(f"    uyarı: {x}")
+        for w in s["oturum"]:
+            n = w.get("devralinmamis") or 0
+            ek = (f" — ana klasörde olmayan {n} kayıt var; silmeden önce `orkestra durum devral --kaynak "
+                  f"{w['yol']}/.claude/orkestra --uygula`") if n else ""
+            print(f"  oturum ağacı (Claude yönetir, dokunulmadı): {w['yol']}{ek}")
         for w in s["kalip_disi"]:
             print(f"  kalıp dışı (dokunulmadı): {w['yol']}")
     if not bulundu:
