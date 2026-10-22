@@ -1449,7 +1449,7 @@ def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
     if kok:
         ebeveynler.add(_kiyas(os.path.abspath(os.path.join(kok, os.path.basename(depo_n)))))
     eski = re.compile(re.escape(_kiyas(depo_n)) + r"-kart-(.+)$")
-    sonuc = {"aday": [], "acik": [], "kalip_disi": []}
+    sonuc = {"aday": [], "acik": [], "oturum": [], "kalip_disi": []}
     for w in _agac_kayitlari(depo):
         y = w["yol"]
         ad = y.rstrip("/").rsplit("/", 1)[-1]
@@ -1461,6 +1461,10 @@ def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
             m = eski.match(_kiyas(y))
             if m:
                 gid = y[len(y) - len(m.group(1)):]
+        if not gid and ust in ebeveynler and (w["dal"] or "").startswith("claude/"):
+            sonuc["oturum"].append({**w, "kart": None, "neden": "Claude oturum ağacı",
+                                    "devralinmamis": oturum_devralinmamis(depo, y)})
+            continue
         if not gid:
             sonuc["kalip_disi"].append({**w, "kart": None, "neden": "kart düzenine uymuyor"})
             continue
