@@ -113,7 +113,7 @@ class Guncelleme:
             durum = "calisiyor"
         elif k["durum"] == "hata":
             durum = "hata"
-        elif k["durum"] == "bitti" and (k["sure"] is not None) and self._bitti_yeni(k):
+        elif k["durum"] == "bitti" and k["bitis"] is not None and self._saat() - k["bitis"] <= BITTI_GOSTER:
             durum = "bitti"
         elif son and son.get("durum") == "yeni":
             durum = "yeni"
