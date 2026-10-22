@@ -241,6 +241,14 @@ class PanelOnay(unittest.TestCase):
         self.assertIn("claude auth login", json.loads(b)["hata"])
         self.assertIsNone(self.getj("/onaylar.json?alan=alan-x")["uygulama"])
 
+    def test_simdi_uygula_exe_yok_oturum_demez(self):
+        self._onayli_perspektif()
+        with mock.patch("perspektif.claude_exe", lambda: None):
+            k, b = self.post("alan-x", {"islem": "simdi-uygula"})
+        self.assertEqual(k, 400)
+        self.assertIn("claude.exe bulunamadı", json.loads(b)["hata"])
+        self.assertNotIn("oturum açmamış", json.loads(b)["hata"])
+
     def test_simdi_uygula_baslar_ve_ikinci_istek_reddedilir(self):
         ids = self._onayli_perspektif()
         with mock.patch("perspektif.claude_exe", lambda: "x.exe"), mock.patch("perspektif.headless_mumkun", lambda sd, e: True),                 mock.patch("subprocess.Popen") as popen:
