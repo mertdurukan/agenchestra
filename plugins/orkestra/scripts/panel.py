@@ -96,7 +96,8 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "19"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "20"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+GUNCELLEME = panel_guncelleme.Guncelleme()  # eklenti güncelleme durumu (kullanıcı düzeyi, ADR-0035); testte değiştirilir
 
 
 def _alan(alan_id, kesin: bool):
