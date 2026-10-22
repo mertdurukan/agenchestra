@@ -28,6 +28,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
   orkestra defter oku [--gorev G] [--son N] | ozet
   orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | anomali [--gun N] [--json] | yeniden-etiketle [--uygula]
+  orkestra hata en-cok [--gun N] [--kaynak hook|cli|ozet|kart|kural] [--ilk N] [--json] | liste [--ilk N] [--json]   tekrar eden hatalar (salt okuma)
   orkestra onbellek kacak [--gun N] [--defter] [--olay] [--json]   önbellek kaçaklarını sınıfla (5 dk katman, model, boşluk, sıkıştırma) ve USD ile dök
   orkestra iz <istek_id|I-nnn|oturum> [--json|--csv] | iz kapsama [--json]   süre/token ağacı (toplam = defter) ve atıf kapsama ölçümü
   orkestra perspektif durum | basla | bitti | dogrula <rapor> | duzeltme-tara [klasör]   (dogrula: rapordaki Kanıt satırlarını yeniden hesaplar, tutmayan varsa çıkış 1; duzeltme-tara: hafızada tekrar eden düzeltme notları, bulgu varsa çıkış 1)
