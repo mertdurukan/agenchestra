@@ -54,15 +54,16 @@ class EsitleIzi(Temel):
         self.assertEqual(len(self.anahtarlar()), 9)
 
     def test_ayni_adli_raporun_icerigi_degisince_kayit_acar(self):
-        yol = self.rapor(metin="## 1. Öneriler\n\n1. Birinci\n\nGövde\n")
+        yol = self.rapor(metin="## 6. Önerilen değişiklikler\n1. Birinci öneri.\n")
         onay.esitle(self.sd)
         onay.esitle(self.sd)
         once = self.anahtarlar()
+        self.assertEqual(len(once), 1)
         with open(yol, "w", encoding="utf-8") as f:
-            f.write("## 1. Öneriler\n\n1. Birinci\n\nGövde\n\n2. İkinci\n\nGövde 2\n")
+            f.write("## 6. Önerilen değişiklikler\n1. Birinci öneri.\n2. İkinci öneri.\n")
         _ileri(yol)
         onay.esitle(self.sd)
-        self.assertGreater(len(self.anahtarlar()), len(once))
+        self.assertEqual(len(self.anahtarlar()), 2)
 
     def test_skill_klasoru_once_dosya_sonra_gelince_kayit_acar(self):
         onay.esitle(self.sd)
