@@ -238,30 +238,37 @@ def git_emri_mi(metin: str) -> bool:
     return bool(_GIT_EMRI.search(m)) and not _RED.search(m) and not _GIT_OLUMSUZ.search(m)
 
 
-def _git_izin_yolu(sd: str, oturum) -> str:
-    return os.path.join(sd, "oturumlar", f"git_izin_{oturum}.json")
+_GIT_OTURUM = re.compile(r"\b(?:push|commit)\w*\b[^.?!]{0,30}\b(?:serbest|izinli|sorma\w*)\b|\b(?:serbest|izinli)\b[^.?!]{0,20}\b(?:push|commit)", re.I)
+
+
+def git_oturum_izni_mi(metin: str) -> bool:
+    """ADR-0033: 'push serbest', 'pushlarda sorma' gibi mesaj push/commit'i oturum boyu serbest bırakır."""
+    m = (metin or "").strip()
+    if not m or len(m) > AZAMI_MESAJ or "?" in m or m.startswith("<"):
+        return False
+    return (bool(_GIT_OTURUM.search(m)) and not _RED.search(m) and not _GIT_OLUMSUZ.search(m)
+            and not re.search(r"b[ıi]rakma|verme|kapat", m, re.I))
 
 
 def git_izni_isle(sd: str, oturum, metin: str) -> bool:
-    """Her kullanıcı mesajında: emirse oturum işaretini yazar, değilse siler (izin tek tur sürer). Emir var mı döner."""
+    """Her kullanıcı mesajında (ADR-0033 onay kaydı): tur kayıtları silinir; emirse tur, 'serbest' ise oturum kaydı yazılır.
+    Emir ya da oturum izni var mı döner."""
     if not oturum:
         return False
-    yol = _git_izin_yolu(sd, oturum)
-    if git_emri_mi(metin):
-        import json
-        os.makedirs(os.path.dirname(yol), exist_ok=True)
-        with open(yol, "w", encoding="utf-8") as f:
-            json.dump({"izin": "git"}, f)
+    import onay_kaydi
+    onay_kaydi.tur_temizle(sd, oturum)
+    if git_oturum_izni_mi(metin):
+        onay_kaydi.ekle(sd, oturum, "git", "oturum")
         return True
-    try:
-        os.remove(yol)
-    except OSError:
-        pass
+    if git_emri_mi(metin):
+        onay_kaydi.ekle(sd, oturum, "git", "tur")
+        return True
     return False
 
 
 def git_izni_var(sd: str, oturum) -> bool:
-    return bool(oturum) and os.path.exists(_git_izin_yolu(sd, oturum))
+    import onay_kaydi
+    return onay_kaydi.var(sd, oturum, "git")
 
 
 def _git_izinli_mi(eslesme: str) -> bool:
