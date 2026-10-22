@@ -100,14 +100,16 @@ def cli_sonrasi(klasorler):
     try:
         if not acik():
             return
-        gruplar = {}
-        for k in klasorler:
+        repo = depo_koku(os.getcwd())
+        if not repo:
+            return
+        goreli = []
+        for k in klasorler:  # yalnız komutun çalıştığı deponun iş klasörleri; başka çalışma ağaçlarına dokunulmaz
             if k and os.path.isdir(k):
-                repo = depo_koku(os.path.abspath(k))
-                if repo:
-                    gruplar.setdefault(repo, []).append(os.path.relpath(os.path.abspath(k), repo))
-        for repo, goreli in gruplar.items():
-            klasorleri_commit(repo, [g for g in goreli if not g.startswith("..")], None, etiket="orkestra")
+                g = os.path.relpath(os.path.abspath(k), repo)
+                if not g.startswith(".."):
+                    goreli.append(g)
+        klasorleri_commit(repo, goreli, None, etiket="orkestra")
     except Exception:
         pass
 
