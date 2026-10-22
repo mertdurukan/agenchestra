@@ -332,7 +332,7 @@
     let html = '';
     if (bp.length) {
       html += `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
-        bp.map(x => `<li>Sohbet: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>';
+        bp.map(x => `<li>Sohbet: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· <span data-baslangic="${esc(x.baslangic)}">${esc(B.calisma(x.baslangic))}</span></span>` : ''}</li>`).join('') + '</ul>';
     }
     yerlestir(kap, html);
   }
