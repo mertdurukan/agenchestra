@@ -118,6 +118,11 @@ def planla(kaynak: str, hedef: str) -> dict:
             if not os.path.isfile(yol) or _KILIT_DOSYASI.search(ad):
                 continue
             h = os.path.join(hdir, ad)
+            if ad == GORULEN and klasor == "onaylar":
+                eksik = {k: v for k, v in _oku_json(yol, {}).items() if k not in _oku_json(h, {})}
+                if eksik:
+                    plan["gorulen"] = eksik  # "görüldü" işaretleri birleşir; çakışma sayılmaz
+                continue
             if not os.path.exists(h):
                 plan["dosyalar"].append((klasor, ad))
             else:
