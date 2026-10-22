@@ -70,7 +70,7 @@ from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isl
 from komutlar import hata as hata_komut  # noqa: E402  (ad `_ortak.hata` işlevini gölgelemesin)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, hata_komut)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:
