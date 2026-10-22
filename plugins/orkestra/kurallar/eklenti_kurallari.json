@@ -743,6 +743,24 @@
         }
       ],
       "etkinlesme": "2026-10-22T19:15:20+03:00"
+    },
+    {
+      "id": "P-028",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Yeni kontrol kapıları (görev sözleşmesi, teslim, izole ortam ve sonrakiler) önce 'golge' modunda açılır: eksik uyarılır ve gunluk.jsonl'a 'kapi_golge' olarak yazılır, iş engellenmez. 'ihlal' moduna geçiş yalnız 'orkestra is rapor' kapı sayıları ölçülüp yanlış pozitifler giderildikten sonra, kapı başına ayrı kararla yapılır; geçişte ADR yazılır. İzole ortam hiçbir modda zorunlu değildir. Zorlama: kapi_mod.py (ayarlar/<kapı>.json mod alanı; proje ezmesi .claude/orkestra/<kapı>.json), ADR-0035; geçiş kararını mekanik kapı denetlemez.",
+      "neden": "Yeni kapılar yanlış pozitifle işi bloklayabilir; ölçmeden zorunlu kılmak çalışma akışını bozar (ADR-0035).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-22T20:23:42+03:00",
+      "guncelleme": "2026-10-22T20:23:42+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-22T20:23:42+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Yeni kontrol kapıları (görev sözleşmesi, teslim, izole ortam ve sonrakiler) önce 'golge' modunda açılır: eksik uyarılır ve gunluk.jsonl'a 'kapi_golge' olarak yazılır, iş engellenmez. 'ihlal' moduna geçiş yalnız 'orkestra is rapor' kapı sayıları ölçülüp yanlış pozitifler giderildikten sonra, kapı başına ayrı kararla yapılır; geçişte ADR yazılır. İzole ortam hiçbir modda zorunlu değildir. Zorlama: kapi_mod.py (ayarlar/<kapı>.json mod alanı; proje ezmesi .claude/orkestra/<kapı>.json), ADR-0035; geçiş kararını mekanik kapı denetlemez."
+        }
+      ],
+      "etkinlesme": "2026-10-22T20:23:42+03:00"
     }
   ]
 }
