@@ -158,6 +158,7 @@ def kaldir() -> dict:
     _nt_zorunlu()
     _schtasks("/End", "/TN", GOREV)
     r = _schtasks("/Delete", "/TN", GOREV, "/F")
+    _isaret_yaz("kaldirildi")
     return {"kaldirildi": r.returncode == 0, "gorev": GOREV}
 
 
