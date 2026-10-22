@@ -123,8 +123,7 @@ class OturumSatiriCommit(unittest.TestCase):
         self.assertEqual(open(yol, encoding="utf-8").read(), onceki)
 
     def test_index_lock_cakismasinda_yeniden_dener(self):
-        self.yaz(self.agac, "- satir
-")
+        self.yaz(self.agac, "- satir\n")
         gitdir = git(self.agac, "rev-parse", "--path-format=absolute", "--git-dir").strip()
         kilit = os.path.join(gitdir, "index.lock")
         with open(kilit, "w"):
