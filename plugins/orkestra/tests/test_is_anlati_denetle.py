@@ -71,8 +71,7 @@ class DenetleTest(unittest.TestCase):
 
     def test_a05_sir(self):
         self.assertEqual(kodlar(P1 + " parola: Gizli123x\n\n" + P2), {"A05"})
-        # Bağlantı dizesi aynı zamanda URL biçimidir: A05 mutlaka üretilir, A04 ek olabilir.
-        self.assertIn("A05", kodlar(P1 + " postgres://kullanici:Gizli123@sunucu\n\n" + P2))
+        self.assertEqual(kodlar(P1 + " postgres://kullanici:Gizli123@sunucu\n\n" + P2), {"A05"})
         self.assertEqual(kodlar(P1 + " Zx9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXc\n\n" + P2), {"A05"})
 
     def test_a06_sahis(self):
