@@ -7,7 +7,7 @@ disable-model-invocation: true
 # /orkestra:perspektif
 
 Perspektif, oturumlar arasında arka planda çalışan hafıza bakımıdır:
-- Ne zaman: son perspektiften bu yana 7 gün ya da 10 oturum geçince, oturum kapanırken.
+- Ne zaman: son perspektiften bu yana 7 gün ya da 20 oturum geçince, oturum kapanırken.
 - Nasıl: Sonnet, yalnız okuma araçlarıyla.
 - Hafızayı kendisi DEĞİŞTİRMEZ; yalnız öneri raporu yazar.
 

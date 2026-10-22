@@ -209,3 +209,16 @@ class KaldirTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PerspektifYoksay(unittest.TestCase):
+    def test_yoksay_alarmi_sonraki_tetiklemeye_kadar_susturur(self):
+        with tempfile.TemporaryDirectory() as sd:
+            for _ in range(12):
+                perspektif.oturum_say(sd, "startup")
+            self.assertTrue(perspektif.durum(sd)["zamani_geldi"])
+            perspektif.yoksay(sd)
+            self.assertFalse(perspektif.durum(sd)["zamani_geldi"])
+            for _ in range(perspektif.OTURUM_ESIGI):
+                perspektif.oturum_say(sd, "startup")
+            self.assertTrue(perspektif.durum(sd)["zamani_geldi"])

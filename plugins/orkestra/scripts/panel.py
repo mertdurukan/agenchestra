@@ -29,6 +29,7 @@ GET /onay-sayac.json           → {alan_id: onay sayacı} (sekme rozeti)
 GET /yapilacaklar              → Yapılacaklar sayfası (assets/yapilacaklar.html)
 GET /api/todo?alan=<id>[&is=<id>] → işin açık/biten maddeleri + açık iş listesi (salt okunur; POST 405)
 GET /api/kullanici-todo?alan=<id> → kullanıcının kendi yapılacakları
+POST /perspektif-yoksay?alan=<id>   → perspektif alarmını bir sonraki tetiklemeye kadar susturur (X-Orkestra: 1, yerel Host)
 POST /perspektif-calistir?alan=<id> → Claude uygulamasında yeni sohbet açıp /orkestra:perspektif şimdi çalıştırır (X-Orkestra: 1, yerel Host)
 POST /api/isler-sifirla?alan=<id> → {onay: true}: Dashboard iş verisini yedeğe alıp sıfırlar (X-Orkestra: 1, yerel Host)
 POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra: 1, yerel Host, ≤64 KB)
@@ -899,6 +900,18 @@ def _isleyici():
                     return self._json(400, {"tamam": False, "hata": sd["hata"]}, kapat=True)
                 try:
                     return self._json(200, niyet.perspektif_sohbeti_ac(a["yol"]), kapat=True)
+                except Exception as e:  # noqa: BLE001
+                    return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
+            if u.path == "/perspektif-yoksay":
+                if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
+                    return self._gonder(403, "text/plain", b"yasak", kapat=True)
+                a, sd = _alan_sd((urllib.parse.parse_qs(u.query).get("alan") or [None])[0], kesin=True)
+                if a is None:
+                    return self._json(400, {"tamam": False, "hata": sd["hata"]}, kapat=True)
+                try:
+                    import perspektif  # noqa: PLC0415
+                    perspektif.yoksay(sd)
+                    return self._json(200, {"tamam": True}, kapat=True)
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
             if u.path == "/api/isler-sifirla":

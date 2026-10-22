@@ -1,6 +1,6 @@
 """Perspektif: oturumlar arasında arka planda çalışan hafıza bakımı (+ skill avı).
 
-Ne zaman: son perspektiften bu yana ≥7 gün ya da ≥10 oturum geçtiyse, oturum kapanırken (SessionEnd) arka planda.
+Ne zaman: son perspektiften bu yana ≥7 gün ya da ≥20 oturum geçtiyse, oturum kapanırken (SessionEnd) arka planda.
 Nasıl: başsız `claude -p` (Sonnet), YALNIZ OKUMA araçlarıyla; hafızayı değiştirmez, öneri raporu yazar.
 Rapor: <durum>/perspektif/perspektif_<tarih>.md ; bir sonraki oturumda ana ajan özetler, kullanıcı onaylarsa `/orkestra:perspektif` uygular.
 
@@ -25,7 +25,7 @@ import cfg  # noqa: E402
 import ork_lib as L  # noqa: E402
 
 GUN_ESIGI = 7
-OTURUM_ESIGI = 10
+OTURUM_ESIGI = 20
 CALISMA_ZAMAN_ASIMI_SN = 2 * 3600
 GIRDI_GUN = 14
 ISTEK_KOVASI = 20  # skill adayı sinyali: istek sayısı bu kadar artınca girdi değişmiş sayılır
@@ -185,7 +185,15 @@ def durum(sd, proje: str | None = None, hafiza: str | None = None) -> dict:
             gun = (simdi - datetime.datetime.fromisoformat(d["son_perspektif"])).days
         except Exception:
             gun = None
-    zamani = not calisiyor and (gun is None or gun >= GUN_ESIGI or d.get("oturum_sayaci", 0) >= OTURUM_ESIGI)
+    oturum = d.get("oturum_sayaci", 0)
+    if d.get("yoksay_tarihi"):  # kullanıcı bu alarmı yoksaydı: süre ve oturum eşiği yoksayma anından yeniden sayılır
+        try:
+            yoksay_gun = (simdi - datetime.datetime.fromisoformat(d["yoksay_tarihi"])).days
+            gun = yoksay_gun if gun is None else min(gun, yoksay_gun)
+        except Exception:
+            pass
+        oturum = max(0, oturum - d.get("yoksay_oturum", 0))
+    zamani = not calisiyor and (gun is None or gun >= GUN_ESIGI or oturum >= OTURUM_ESIGI)
     atlandi = False
     if zamani and proje and hafiza and d.get("son_girdi_imza"):
         try:
@@ -204,6 +212,14 @@ def durum(sd, proje: str | None = None, hafiza: str | None = None) -> dict:
     return {"son_perspektif": d.get("son_perspektif"), "gun_once": gun, "oturum_sayaci": d.get("oturum_sayaci", 0),
             "zamani_geldi": bool(zamani), "girdi_degismedi": atlandi, "calisiyor": calisiyor, "son_rapor": son_rapor,
             "okunmamis_rapor": son_rapor if son_rapor and d.get("son_rapor") and not d.get("rapor_okundu") else None}
+
+
+def yoksay(sd) -> None:
+    """Açık alarmı yoksayar: bir sonraki tetikleme (GUN_ESIGI gün ya da OTURUM_ESIGI yeni oturum sonra) gelene kadar sormaz."""
+    with L.kilit(_durum_yolu(sd)):
+        d = _oku(sd)
+        d.update(yoksay_tarihi=L.simdi(), yoksay_oturum=d.get("oturum_sayaci", 0))
+        _yaz(sd, d)
 
 
 def bitti_isaretle(sd):
@@ -376,6 +392,8 @@ def kaydet(sd: str, rapor: str, proje: str | None = None) -> dict | None:
     with L.kilit(_durum_yolu(sd)):
         st = _oku(sd)
         st.update(son_perspektif=L.simdi(), oturum_sayaci=0, son_rapor=os.path.abspath(rapor), rapor_okundu=False, calisiyor=None)
+        st.pop("yoksay_tarihi", None)
+        st.pop("yoksay_oturum", None)
         try:
             with open(_girdi_yolu(sd), encoding="utf-8") as f:
                 st["son_girdi_imza"] = json.load(f).get("imza")

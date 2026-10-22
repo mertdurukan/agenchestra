@@ -338,7 +338,7 @@
         <div class="simge">${simge('oynat')}</div>
         <div class="govde"><div class="baslik">${gecen}</div>
           <div class="metin">Son koşudan beri ${B.sayi(pd.oturum_sayaci)} oturum geçti. Perspektif hafıza bakımı ve skill avı yapar; Claude'da yeni bir sohbet açar.</div></div>
-        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="perspektif">Perspektifi başlat</button></div></article>`;
+        <div class="eylemler"><button class="dugme kucuk" data-eylem="perspektif-yoksay" data-alan="${o.alan?.id || ''}" title="Bir sonraki tetiklemeye kadar sorma">Yoksay</button> <button class="dugme ana-d kucuk" data-eylem="perspektif" data-alan="${o.alan?.id || ''}">Perspektifi başlat</button></div></article>`;
     }
     if (o.tur === 'katman5') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
         <div class="simge">${simge('goz')}</div>
@@ -885,7 +885,11 @@
       b.disabled = true;
       try { await gonder('/perspektif-calistir', {}); bildir("Yeni sohbet açıldı; istem hazır, Enter'a bas."); getir('/onaylar.json', { taze: true }); }
       catch (x) { bildir('Perspektif başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
-    } else if (ey === 'yenile') { V.onbellek.delete(b.dataset.yol); tazele(true); }
+    } else if (ey === 'perspektif-yoksay') {
+      b.disabled = true;
+      try { await gonder('/perspektif-yoksay', {}, b.dataset.alan || undefined); bildir('Yoksayıldı; bir sonraki tetiklemeye kadar sorulmaz.'); getir('/onaylar.json', { taze: true }); }
+      catch (x) { bildir('Yoksayılamadı: ' + x.message, { hata: true }); b.disabled = false; }
+    } else if (ey === 'yenile') { V.onbellek.delete(anahtar(b.dataset.yol)); tazele(true); }
     else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
     else if (ey === 'yap-ekle') yapEkle();
     else if (ey === 'yap-tamam') yapTamam(b.dataset.id);
