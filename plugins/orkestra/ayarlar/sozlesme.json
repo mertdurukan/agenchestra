@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "mod: golge = sözleşme eksiği uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, plan/todo yazımı engellenmez; ihlal = sözleşme tamam olmadan plan ve todo yazılamaz. Kapatma: ORKESTRA_SOZLESME_KAPISI=0. Proje ezmesi: .claude/orkestra/sozlesme.json (ADR-0035)."
+}
