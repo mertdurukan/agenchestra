@@ -84,6 +84,63 @@ class OtoCommit(unittest.TestCase):
         self.kos(yol)  # değişiklik yok
         self.assertEqual(self.commit_sayisi(), 2)
 
+    def kabuk(self, yollar=None, acik="1"):
+        env = dict(os.environ, PYTHONUTF8="1")
+        env.pop("ORKESTRA_OTO_COMMIT_BASH_YOLLAR", None)
+        env["ORKESTRA_OTO_COMMIT"] = acik
+        if yollar:
+            env["ORKESTRA_OTO_COMMIT_BASH_YOLLAR"] = yollar
+        girdi = {"tool_name": "Bash", "cwd": self.repo, "tool_input": {"command": "orkestra is todo"}}
+        r = subprocess.run([sys.executable, BETIK], input=json.dumps(girdi), capture_output=True, text=True,
+                           encoding="utf-8", env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_kabuk_bos_onekte_commit_yok(self):
+        os.makedirs(os.path.join(self.repo, "is1"))
+        self.yaz("is1/todo.md", "x")
+        self.kabuk()
+        self.assertEqual(self.commit_sayisi(), 1)
+
+    def test_kabuk_onekte_yalniz_md_json_commit_edilir(self):
+        os.makedirs(os.path.join(self.repo, "is1"))
+        os.makedirs(os.path.join(self.repo, "dis"))
+        self.yaz("is1/todo.md", "x")
+        self.yaz("is1/ara.csv", "1")
+        self.yaz("dis/n.md", "2")
+        self.kabuk(yollar="is1/")
+        self.assertEqual(self.commit_sayisi(), 2)
+        son = git(self.repo, "show", "--name-only", "--format=%B", "HEAD").stdout
+        self.assertIn("is1/todo.md", son)
+        self.assertNotIn("ara.csv", son)
+        self.assertNotIn("n.md", son)
+
+    def test_cli_sonrasi_is_klasorunu_ayarsiz_commit_eder(self):
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import oto_commit
+        os.makedirs(os.path.join(self.repo, "is1"))
+        os.makedirs(os.path.join(self.repo, "dis"))
+        self.yaz("is1/todo.md", "x")
+        self.yaz("is1/is.json", "{}")
+        self.yaz("is1/ara.csv", "1")
+        self.yaz("dis/n.md", "2")
+        eski = os.getcwd()
+        os.chdir(self.repo)
+        self.addCleanup(os.chdir, eski)
+        try:
+            os.environ.pop("ORKESTRA_OTO_COMMIT", None)
+            oto_commit.cli_sonrasi([os.path.join(self.repo, "is1")])  # anahtar kapalı
+            self.assertEqual(self.commit_sayisi(), 1)
+            os.environ["ORKESTRA_OTO_COMMIT"] = "1"
+            oto_commit.cli_sonrasi([os.path.join(self.repo, "is1"), os.path.dirname(self.repo)])
+        finally:
+            os.environ.pop("ORKESTRA_OTO_COMMIT", None)
+        self.assertEqual(self.commit_sayisi(), 2)
+        son = git(self.repo, "show", "--name-only", "--format=%B", "HEAD").stdout
+        self.assertIn("is1/todo.md", son)
+        self.assertIn("is1/is.json", son)
+        self.assertNotIn("ara.csv", son)
+        self.assertNotIn("n.md", son)
+
     def test_hooks_json_girdisi(self):
         with open(HOOKS, encoding="utf-8") as f:
             post = json.load(f)["hooks"]["PostToolUse"]
