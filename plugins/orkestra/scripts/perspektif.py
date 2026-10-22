@@ -419,7 +419,8 @@ def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = Fal
         return "zamanı gelmedi"
     exe = claude_exe()
     if not headless_mumkun(sd, exe):
-        return ("HEADLESS-YOK: komut satırı oturum açmamış. Perspektifi oturum içinde başlat: Agent aracı, "
+        neden = "komut satırı oturum açmamış" if exe else "claude.exe bulunamadı"
+        return (f"HEADLESS-YOK: {neden}. Perspektifi oturum içinde başlat: Agent aracı, "
                 "subagent_type `orkestra:perspektif-ajani`, run_in_background true, istem `#SUREC:perspektif hafıza klasörü: "
                 + hafiza_dizini(proje, transkript) + "`. (Kalıcı çözüm: bir kez `claude auth login`.)")
     with L.kilit(_durum_yolu(sd)):
