@@ -80,6 +80,12 @@ def cmd_panel(a):
     """HTML canlı paneli başlatır (tüm çalışma alanları; yalnız 127.0.0.1) ve adresini yazar.
 
     Bulunulan klasör bir Claude çalışma alanıysa panel onu seçili açar."""
+    if a.servis:
+        import panel_servis
+        if a.servis[0] != "servis" or len(a.servis) > 2 or (a.servis[1:] or ["durum"])[0] not in ("kur", "kaldir", "durum"):
+            raise SystemExit("kullanım: orkestra panel servis kur|kaldir|durum")
+        panel_servis.main((a.servis[1:] or ["durum"]) + ([str(a.port)] if a.port and a.servis[1:] == ["kur"] else []))
+        return
     import panel
     alan_id = os.path.basename(L.proje_oturum_dizini(L.proje_dizini()))
     if not os.path.isdir(L.proje_oturum_dizini(L.proje_dizini())):
