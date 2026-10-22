@@ -40,6 +40,8 @@ def gorev_xml(port: int, python: str | None = None, betik: str | None = None, ca
     python = python or _pythonw()
     betik = betik or PANEL_BETIGI
     calisma_dizini = calisma_dizini or L.GENEL_DIZIN
+    # Tetikleyici ve ana hesap açıkça bu kullanıcı: UserId olmadan oturum açılışı tetikleyicisi yönetici hakkı ister.
+    kullanici = escape(f"{os.environ.get('USERDOMAIN', '')}\\{os.environ.get('USERNAME', '')}".lstrip("\\"))
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo><Description>Orkestra paneli (127.0.0.1:{port}); orkestra panel servis kaldir ile silinir.</Description></RegistrationInfo>
