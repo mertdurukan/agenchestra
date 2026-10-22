@@ -56,32 +56,60 @@ def depo_koku(klasor):
         klasor = ust
 
 
-def kabuk_commit(veri, git):
-    """Kabuk komutundan sonra, ORKESTRA_OTO_COMMIT_BASH_YOLLAR öneklerinin altındaki .md/.json değişikliklerini tek commit'te kaydeder."""
+def _git(repo, *args):
+    import subprocess
+    return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, encoding="utf-8")
+
+
+def klasorleri_commit(repo, onekler, atif_kaynagi, git=None, etiket="kabuk"):
+    """Depo köküne göre `onekler` altındaki değişmiş .md/.json dosyalarını tek commit'te kaydeder; commit edilen yolları döndürür."""
     import time
-    ham = os.environ.get("ORKESTRA_OTO_COMMIT_BASH_YOLLAR") or ""
-    onekler = [y.strip().strip("/") + "/" for y in ham.split(",") if y.strip()]
-    cwd = veri.get("cwd")
-    repo = depo_koku(cwd) if cwd else None
+    git = git or _git
+    onekler = [o.replace("\\", "/").strip("/") + "/" for o in onekler if o]
     if not onekler or not repo:
-        return
-    cikti = git(repo, "status", "--porcelain", "-z", "-uall").stdout
+        return []
     yollar = []
-    for kayit in cikti.split("\0"):
+    for kayit in git(repo, "status", "--porcelain", "-z", "-uall").stdout.split("\0"):
         yol = kayit[3:].strip('"')
         if len(kayit) > 3 and yol.endswith((".md", ".json")) and any(yol.startswith(o) for o in onekler):
             yollar.append(yol)
     if not yollar:
-        return
-    atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(veri.get("transcript_path")) or ATIF_VARSAYILAN
+        return []
+    atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(atif_kaynagi) or ATIF_VARSAYILAN
     govde = "\n".join(yollar[:20])
-    msg = f"Otomatik commit: {len(yollar)} dosya (kabuk)\n\n{govde}\n\n{atif}"
+    msg = f"Otomatik commit: {len(yollar)} dosya ({etiket})\n\n{govde}\n\n{atif}"
     for _ in range(5):  # paralel oturumlarda index.lock bekle
         a = git(repo, "add", "--", *yollar)
         c = git(repo, "commit", "-m", msg, "--", *yollar) if a.returncode == 0 else a
         if c.returncode == 0 or "index.lock" not in (c.stderr or ""):
             break
         time.sleep(1)
+    return yollar
+
+
+def kabuk_commit(veri, git):
+    """Kabuk komutundan sonra, ORKESTRA_OTO_COMMIT_BASH_YOLLAR öneklerinin altındaki .md/.json değişikliklerini kaydeder."""
+    onekler = [y.strip() for y in (os.environ.get("ORKESTRA_OTO_COMMIT_BASH_YOLLAR") or "").split(",") if y.strip()]
+    cwd = veri.get("cwd")
+    klasorleri_commit(depo_koku(cwd) if cwd else None, onekler, veri.get("transcript_path"), git)
+
+
+def cli_sonrasi(klasorler):
+    """`orkestra is|plan` komutundan sonra: iş kaydındaki klasörlerin .md/.json belgelerini commit eder (ayar gerekmez).
+    Anahtar kapalıysa, depo yoksa ya da klasör depo dışındaysa sessiz çıkar; komutu bozmaz."""
+    try:
+        if not acik():
+            return
+        gruplar = {}
+        for k in klasorler:
+            if k and os.path.isdir(k):
+                repo = depo_koku(os.path.abspath(k))
+                if repo:
+                    gruplar.setdefault(repo, []).append(os.path.relpath(os.path.abspath(k), repo))
+        for repo, goreli in gruplar.items():
+            klasorleri_commit(repo, [g for g in goreli if not g.startswith("..")], None, etiket="orkestra")
+    except Exception:
+        pass
 
 
 def main():
