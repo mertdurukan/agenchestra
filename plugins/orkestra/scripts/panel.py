@@ -147,18 +147,51 @@ def _akis_imza(a: dict, sd: str) -> tuple:
     return tuple(sorted(imza))
 
 
-TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_ALAN_YOLLARI bunu kabul eder
-TUM_ALAN_YOLLARI = frozenset({"/simdi.json"})
+TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_ALAN_YOLLARI bunu kabul eder (ADR-0030)
+TUM_ALAN_YOLLARI = frozenset({"/simdi.json", "/onaylar.json", "/isler.json", "/kurallar.json", "/ozet.json",
+                              "/analitik.json", "/api/kullanici-todo", "/teknik.json"})   # yalnız GET; yazma her zaman tek alan
+_TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kayıtlı alana ister (liste kipi birleşir)
 
 
 def _tum_alan_reddi(yol: str, q: dict, yazma: bool = False) -> bytes | None:
     """alan=* tek alan isteyen yollarda sessizce ilk alana düşmesin (yanlış veri, yanlış alana yazma): 400 gövdesi, yoksa None."""
-    if (q.get("alan") or [None])[0] != TUM_ALAN or yol in TUM_ALAN_YOLLARI:
+    if (q.get("alan") or [None])[0] != TUM_ALAN:
         return None
-    if not (yazma or yol.endswith(".json") or yol.startswith("/api/")):
-        return None  # sayfa ve statik dosya
+    if not yazma:
+        if yol in TUM_ALAN_YOLLARI and not (yol == "/teknik.json" and any(q.get(x) for x in _TEKNIK_TEK_ALAN)):
+            return None
+        if not (yol.endswith(".json") or yol.startswith("/api/")):
+            return None  # sayfa ve statik dosya
     return json.dumps({"hata": "Bu istek tek bir çalışma alanı ister; 'Tüm çalışma alanları' seçiliyken kullanılamaz."},
                       ensure_ascii=False).encode("utf-8")
+
+
+def _tum_topla(uret) -> tuple[list, list]:
+    """Orkestra açık her alan için uret(alan_id) çağrılır; hata veren alan tüm yanıtı düşürmez, atlananlara yazılır."""
+    import panel_tum  # noqa: PLC0415
+    ham = []
+    for a in L.calisma_alanlari():
+        if not a.get("orkestra"):
+            continue
+        try:
+            ham.append((a, uret(a["id"])))
+        except Exception as e:  # noqa: BLE001
+            ham.append((a, e))
+    return panel_tum.ayir(ham)
+
+
+def _ozet_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.ozet(*_tum_topla(ozet.alan_ozeti))
+    return ozet.alan_ozeti(alan_id)
+
+
+def _analitik_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.analitik_birlesik(*_tum_topla(analitik.alan_analitigi))
+    return analitik.alan_analitigi(alan_id)
 
 
 def _simdi_json(alan_id: str | None) -> dict:
