@@ -89,7 +89,7 @@ class OtoCommit(unittest.TestCase):
             post = json.load(f)["hooks"]["PostToolUse"]
         girdi = [g for g in post if "oto_commit.py" in g["hooks"][0]["command"]]
         self.assertEqual(len(girdi), 1)
-        self.assertEqual(girdi[0]["matcher"], "Edit|Write|MultiEdit|NotebookEdit")
+        self.assertEqual(girdi[0]["matcher"], "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell")
         h = girdi[0]["hooks"][0]
         betik = '"${CLAUDE_PLUGIN_ROOT}/scripts/oto_commit.py"'
         self.assertEqual(h["command"], ('case "${ORKESTRA_OTO_COMMIT:-0}" in 0|"") exit 0;; esac; '
