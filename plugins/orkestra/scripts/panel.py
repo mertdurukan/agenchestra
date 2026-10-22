@@ -33,6 +33,9 @@ POST /perspektif-yoksay?alan=<id>   → perspektif alarmını bir sonraki tetikl
 POST /perspektif-calistir?alan=<id> → Claude uygulamasında yeni sohbet açıp /orkestra:perspektif şimdi çalıştırır (X-Orkestra: 1, yerel Host)
 POST /api/isler-sifirla?alan=<id> → {onay: true}: Dashboard iş verisini yedeğe alıp sıfırlar (X-Orkestra: 1, yerel Host)
 POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra: 1, yerel Host, ≤64 KB)
+GET /api/guncelleme            → eklenti güncelleme durumu: {durum: yok|yeni|calisiyor|bitti|hata, ertelendi, kontrol, kosu}; alan almaz, alan=* kabul eder
+POST /api/guncelle             → eklenti güncellemesini arka planda başlatır (aynı anda tek koşu, çalışıyorsa 409; X-Orkestra: 1, yerel Host)
+POST /api/guncelle-ertele      → kartı şu anki yeni sürüm için gizler ("Sonra"; daha yeni sürümde döner; X-Orkestra: 1, yerel Host)
 POST /onay?alan=<id>           → karar / simdi-uygula / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
