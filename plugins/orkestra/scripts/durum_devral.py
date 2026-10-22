@@ -81,7 +81,7 @@ def kaynaklar(hedef: str, cwd: str | None = None, tum: bool = False, kaynak: str
 
 def planla(kaynak: str, hedef: str) -> dict:
     """Salt okuma: hedefte olmayan öğeleri sayar. {jsonl:{ad:[satır]}, isler:[(id,kayıt)], cakisma:[metin], dosyalar:[(klasör,ad)]}"""
-    plan = {"jsonl": {}, "isler": [], "cakisma": [], "dosyalar": [], "takma": {}, "sayac": None}
+    plan = {"jsonl": {}, "isler": [], "cakisma": [], "dosyalar": [], "takma": {}, "sayac": None, "gorulen": {}}
     for ad in JSONL:
         hedef_set = set(_satirlar(os.path.join(hedef, ad)))
         yeni = [s for s in _satirlar(os.path.join(kaynak, ad)) if s not in hedef_set]
