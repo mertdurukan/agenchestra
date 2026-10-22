@@ -23,11 +23,13 @@
   };
 
   // Özet karosu: değer + etiket + alt metin + isteğe bağlı mini çizgi, durum ve bağlantı
-  G.karo = ({ deger, etiket, alt = '', durum = '', spark = null, href = '', ipucu = '', vurgu = '' }) => {
+  // veri: bağlantıya eklenen data-* öznitelikleri ({ 'sohbet-ac': oturum } → data-sohbet-ac="oturum"); sayfa kendi tıklama işleyicisiyle kullanır.
+  G.karo = ({ deger, etiket, alt = '', durum = '', spark = null, href = '', ipucu = '', vurgu = '', veri = null }) => {
     const ic = `<span class="g-karo-e">${esc(etiket)}</span><b class="g-karo-d">${esc(deger)}</b>` +
       `<span class="g-karo-a">${alt ? esc(alt) : ''}${durum ? ' ' + G.durum(durum) : ''}</span>` +
       (spark ? `<span class="g-karo-s">${G.spark(spark.degerler, spark)}</span>` : '');
-    const oz = (ipucu ? ` data-ipucu="${esc(ipucu)}" tabindex="0"` : '');
+    const oz = (ipucu ? ` data-ipucu="${esc(ipucu)}" tabindex="0"` : '') +
+      (veri ? Object.keys(veri).map(k => ` data-${k.replace(/[^\w-]/g, '')}="${esc(veri[k])}"`).join('') : '');
     return href ? `<a class="g-karo ${vurgu}" href="${esc(href)}"${oz}>${ic}</a>` : `<div class="g-karo ${vurgu}"${oz}>${ic}</div>`;
   };
   G.karolar = liste => `<div class="g-karolar">${liste.join('')}</div>`;
