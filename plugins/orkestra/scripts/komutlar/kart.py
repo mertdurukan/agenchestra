@@ -97,6 +97,15 @@ def _oto_teslim_dogrula(d: dict) -> bool:
     return v
 
 
+def _oto_teslim_gecerli(k: dict) -> bool:
+    """I-145: kartın oto-teslim politikası karar anında okunur. Karttaki açık değer (true/false) geçerlidir; alan yoksa
+    (G-124 öncesi kart) sınıftan türetilir. Yalnız sinif 'kod' kartı oto-teslim olur."""
+    if (k.get("sinif") or "").strip().lower() != "kod":
+        return False
+    v = k.get("oto_teslim")
+    return True if v is None else v is True
+
+
 def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     basamak = (d.get("basamak") or "T2").upper()
     if basamak not in BASAMAKLAR:
@@ -756,6 +765,8 @@ def cmd_kart_durum(a):
             k["durum"] = a.durum
             if a.durum == "beklemede":
                 k["beklemede_sira"] = L.sonraki_sira(k)  # sonraki denetimlerle sıralanabilsin
+        if a.durum in ("isleniyor", "is-bitti", "planlandi") and oturum_id():
+            k["son_oturum"] = oturum_id()  # I-145: güncel sahip; `oturum` oluşturan olarak kalır
         k["gecmis"].append({"zaman": L.simdi(), "olay": a.durum, "ajan": ajan_tipi, "agent_id": ajan_id,
                             "not": L.maskele(a.not_ or "")[:500]})
         uyarilar = _iptal_agac_temizle(k) if a.durum == "iptal" else []
@@ -830,7 +841,7 @@ def _politika_uygula(sd, gid) -> None:
               file=sys.stderr)
         return
     print(f"OTOMATIK-ONAY: politika {neden}")
-    if k["durum"] == "onaylandi" and k.get("oto_teslim") is True and k.get("sinif") == "kod":
+    if k["durum"] == "onaylandi" and _oto_teslim_gecerli(k):
         _oto_teslim_dene(sd, gid, f"politika: {neden}")
 
 
@@ -899,7 +910,7 @@ def cmd_kart_denetim(a):
         L.atomik_yaz(os.path.join(sd, "gorevler", f"{a.gid}.denetim.json"),
                      json.dumps(k["denetimler"], ensure_ascii=False, indent=2) + "\n")
     print(f"{a.gid} denetim: {a.karar} → {k['durum']}")
-    if a.karar == "onay" and k["durum"] == "onaylandi" and k.get("oto_teslim") is True and k.get("sinif") == "kod":
+    if a.karar == "onay" and k["durum"] == "onaylandi" and _oto_teslim_gecerli(k):
         _oto_teslim_dene(sd, a.gid, a.gerekce)
 
 
@@ -926,6 +937,35 @@ def _oto_teslim_dene(sd, gid, gerekce) -> None:
     for m in notlar:
         print(m)
     print(f"{gid} → teslim (oto)")
+
+
+def teslim_bekleyenleri_topla(sd) -> tuple[list, list]:
+    """I-145: denetçi onaylı, oto-teslim politikasına uyan ama `teslim` olmamış kartları teslim etmeyi dener.
+    Döner: (teslim edilenler, bekleyenler). Son olayı `oto-teslim-hata` olan kart yeniden denenmez (olay yinelenmez);
+    bekleyen sayılır. Tekrar çalıştırılabilir: teslim olan kart ikinci taramada görünmez."""
+    teslim, bekleyen = [], []
+    for k in L.kartlar(sd, derin=False):
+        gid = k.get("id")
+        if L.kart_durumu_hesapla(k) != "onaylandi" or not _oto_teslim_gecerli(k):
+            continue
+        if ((k.get("gecmis") or [{}])[-1]).get("olay") == "oto-teslim-hata":
+            bekleyen.append(gid)
+            continue
+        _oto_teslim_dene(sd, gid, "tarama: onaylı kart teslim edilmemişti")
+        son = L.kart_oku(sd, gid)
+        (teslim if son and son.get("durum") == "teslim" else bekleyen).append(gid)
+    return teslim, bekleyen
+
+
+def cmd_kart_teslim_bekleyen(a):
+    sd = sd_gerekli()
+    _, ajan_tipi = _kim(a)
+    if ajan_tipi not in ("ana", "bilinmiyor"):
+        hata("teslimi yalnız ana ajan yapar.", 3)
+    teslim, bekleyen = teslim_bekleyenleri_topla(sd)
+    print(f"{len(teslim)} teslim" + (f": {', '.join(teslim)}" if teslim else ""))
+    if bekleyen:
+        print(f"{len(bekleyen)} teslim bekliyor: {', '.join(bekleyen)}")
 
 
 def _yesil_kapi_engeli(k: dict) -> str | None:
@@ -1695,6 +1735,8 @@ def kaydet(alt):
     tt = kart.add_parser("teslim-toplu", help="onaylı kartları tek çağrıda teslim et")
     tt.add_argument("--json-dosya", required=True, help='[{"id":"G-1","ozet":"..."}, ...]')
     tt.set_defaults(f=cmd_kart_teslim_toplu)
+    tb = kart.add_parser("teslim-bekleyen", help="onaylı ama teslim edilmemiş oto-teslim kartlarını topla")
+    tb.set_defaults(f=cmd_kart_teslim_bekleyen)
     ag = kart.add_parser("agac", help="kart başına git çalışma ağacı aç")
     ag.add_argument("gid")
     ag.add_argument("--taban", default="HEAD", help="worktree'nin açılacağı commit (varsayılan: deponun HEAD'i)")

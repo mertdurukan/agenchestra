@@ -338,6 +338,24 @@ def _pencere_kirilimlari(kayitlar: list, bugun: datetime.date) -> dict:
     return cikti
 
 
+def _masaustu_oturumlari() -> dict:
+    """Masaüstü sohbet kayıtları (CLI oturum kimliği → {arsiv, ...}); okunamazsa boş (hiçbir kart arşivli sayılmaz)."""
+    try:
+        import niyet
+        return niyet.masaustu_oturumlari()
+    except Exception:
+        return {}
+
+
+def kart_sahibi(k: dict, masa: dict) -> tuple:
+    """I-145: kartın güncel sahibi (`son_oturum`, yoksa oluşturan `oturum`) ve o sohbetin arşivli olup olmadığı.
+    Sohbet masaüstü kayıtlarında yoksa arşivli sayılmaz (kayıt görünmüyor, yanlış iddia edilmez)."""
+    sahip = k.get("son_oturum") or k.get("oturum")
+    if not sahip or sahip == "-":
+        return None, False
+    return sahip, bool((masa.get(sahip) or {}).get("arsiv"))
+
+
 def olustur(sd: str, proje: str) -> dict:
     kayitlar = L.maliyet_kayitlari(sd)
     bugun = datetime.date.today()  # yerel gün sınırı; analitik.py ile aynı (UTC 'Z' damgaları yerel güne çevrilir)
@@ -350,11 +368,14 @@ def olustur(sd: str, proje: str) -> dict:
     kart_pencere = L.pencere_toplamlari(kayitlar, bugun, lambda r: r.get("gorev") if r.get("gorev") not in (None, "-") else None)
     sifir = {w: {"usd": 0.0, "token": 0} for w in PENCERELER}
     ks = []
+    masa = _masaustu_oturumlari()
     for k in L.kartlar(sd):
         d = L.kart_durumu_hesapla(k)
         son = (k.get("denetimler") or [{}])[-1]
+        sahip, arsivli = kart_sahibi(k, masa)
         ks.append({"id": k["id"], "baslik": kisalt_baslik(k["baslik"]), "durum": d, "basamak": k["basamak"],
-                   "oturum": k.get("oturum"), "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
+                   "oturum": k.get("oturum"), "son_oturum": sahip, "sahip_arsivli": arsivli, "is": k.get("is"),
+                   "isci": len(k.get("isciler", [])), "denetim": son.get("karar", "-"),
                    "bagimli": k.get("bagimliliklar", []), "usd": round(kart_usd.get(k["id"], 0.0), 4),
                    "pencere": kart_pencere.get(k["id"], sifir), "guncelleme": k.get("guncelleme")})
     acik = [k for k in ks if k["durum"] in L.ACIK_DURUMLAR or k["durum"] in ("beklemede", "planlandi")]

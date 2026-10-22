@@ -128,7 +128,7 @@ class PanelV2(unittest.TestCase):
         js = oku(os.path.join(ASSETS, "app.js"))
         self.assertIn("async function sohbetAc(", js)
         self.assertIn("gonder('/ac?oturum='", js)  # sunucu yolu: gonder() X-Orkestra başlığını ekler
-        self.assertIn("data-eylem=\"sohbet-ac\" data-oturum=\"${k.oturum}\"", js)  # Gelen kutusu kartı
+        self.assertIn("data-eylem=\"sohbet-ac\" data-oturum=\"${sohbet}\"", js)  # Gelen kutusu kartı (I-145: güncel sahip, arşivli sahibe düğme yok)
         self.assertIn("data-eylem=\"sohbet-ac\" data-oturum=\"${bilgi.oturum}\"", js)  # kart ayrıntısı
         self.assertIn("ey === 'sohbet-ac'", js)
         self.assertIn("article[data-oturum]", js)  # kart gövdesine tıklama

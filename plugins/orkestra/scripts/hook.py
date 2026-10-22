@@ -1824,6 +1824,19 @@ def _ss_birinci_satir(sd: str, bagli: str | None, ks: list) -> tuple[str, str]:
     Ayrıntı `orkestra is liste` / `orkestra kart liste`."""
     parcalar = []
     not_satiri = ""
+    try:  # I-145: onaylı ama teslim edilmemiş kartları topla; stdout hook çıktısı olduğundan yutulur, hata sessiz geçer
+        import contextlib
+        import io
+        from komutlar import kart as _kart_komut
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            teslim, bekleyen = _kart_komut.teslim_bekleyenleri_topla(sd)
+        if teslim:
+            ks = [k for k in ks if k.get("id") not in teslim]
+            parcalar.append(f"Teslim edildi (onaylı, toplanmamıştı): {', '.join(teslim[:4])}")
+        if bekleyen:
+            parcalar.append(f"Teslim bekliyor: {', '.join(bekleyen[:4])} (`orkestra kart teslim-bekleyen`)")
+    except Exception:
+        pass
     try:
         import is_kaydi
         acik = is_kaydi.is_liste(sd, "acik")

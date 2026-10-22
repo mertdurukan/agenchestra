@@ -1,4 +1,6 @@
 """G-124: denetçi onayında düşük riskli kod kartı kendiliğinden teslim (oto_teslim)."""
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -158,6 +160,84 @@ class OtoTeslim(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.goster(g)["durum"], "reddedildi")
         self.assertNotIn("oto-teslim", self.olaylar(g))
+
+    # I-145 P1/P5: alanı olmayan (G-124 öncesi) kart karar anında sınıftan türetilir
+    def alani_sil(self, g):
+        yol = os.path.join(self.sd, "gorevler", f"{g}.json")
+        with open(yol, encoding="utf-8") as f:
+            k = json.load(f)
+        k.pop("oto_teslim", None)
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump(k, f)
+
+    def test_p1_alansiz_eski_kod_karti_onayda_teslim_olur(self):
+        g = self.kod_karti()
+        self.onaya_hazirla(g)
+        self.alani_sil(g)
+        self.assertEqual(self.onay(g).returncode, 0)
+        self.assertEqual(self.goster(g)["durum"], "teslim")
+        self.assertIn("oto-teslim", self.olaylar(g))
+
+    def test_p1_alansiz_belge_karti_onaylandi_kalir(self):
+        g = self.belge_karti()
+        self.ok("kart", "durum", g, "is-bitti", "--ozet", "x", "--cikti", "docs/a.md", **ISCI_KAPISIZ)
+        self.alani_sil(g)
+        self.assertEqual(self.onay(g).returncode, 0)
+        self.assertEqual(self.goster(g)["durum"], "onaylandi")
+
+    def test_p1_acik_false_turetmeyi_gecer(self):
+        g = self.kod_karti("--elle-teslim")
+        self.onaya_hazirla(g)
+        self.assertEqual(self.onay(g).returncode, 0)
+        self.assertEqual(self.goster(g)["durum"], "onaylandi")
+
+    # I-145 P2: onaylı ama teslim edilmemiş kartları toplayan tarama
+    def onayli_birak(self, g, alan_sil=True):
+        """Kod kartını teslim edilmeden onaylı bırakır (eski kartın durumu): alan yazılı false iken onaylanır."""
+        bayrak = os.path.join(self.proje, "bayrak.txt")
+        if os.path.exists(bayrak):
+            os.remove(bayrak)  # kırmızı aşama için test başarısız olmalı
+        self.onaya_hazirla(g)
+        yol = os.path.join(self.sd, "gorevler", f"{g}.json")
+        with open(yol, encoding="utf-8") as f:
+            k = json.load(f)
+        k["oto_teslim"] = False
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump(k, f)
+        self.assertEqual(self.onay(g).returncode, 0)
+        self.assertEqual(self.goster(g)["durum"], "onaylandi")
+        if alan_sil:
+            self.alani_sil(g)
+
+    def test_p2_tarama_uygun_onayli_kartlari_teslim_eder_ikincisi_bos(self):
+        a, b = self.kod_karti(), self.kod_karti()
+        self.onayli_birak(a)
+        self.onayli_birak(b)
+        elle = self.kod_karti("--elle-teslim")
+        self.onayli_birak(elle, alan_sil=False)
+        belge = self.belge_karti()
+        self.ok("kart", "durum", belge, "is-bitti", "--ozet", "x", "--cikti", "docs/a.md", **ISCI_KAPISIZ)
+        self.assertEqual(self.onay(belge).returncode, 0)
+        r = self.ok("kart", "teslim-bekleyen", **ANA)
+        self.assertIn("2 teslim", r.stdout)
+        self.assertEqual([self.goster(g)["durum"] for g in (a, b, elle, belge)],
+                         ["teslim", "teslim", "onaylandi", "onaylandi"])
+        self.assertIn("0 teslim", self.ok("kart", "teslim-bekleyen", **ANA).stdout)
+
+    def test_p2_session_start_onayli_karti_toplar_ve_stdout_sessiz(self):
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import hook
+        g = self.kod_karti()
+        self.onayli_birak(g)
+        kapat = io.StringIO()
+        with contextlib.redirect_stdout(kapat):
+            satir, _ = hook._ss_birinci_satir(self.sd, None, [self.goster(g)])
+        self.assertEqual(kapat.getvalue(), "")  # stdout hook çıktısıdır; tarama yazmaz
+        self.assertIn(f"Teslim edildi (onaylı, toplanmamıştı): {g}", satir)
+        self.assertEqual(self.goster(g)["durum"], "teslim")
+
+    def test_p2_tarama_denetci_icin_cikis_3(self):
+        self.assertEqual(self.cli("kart", "teslim-bekleyen", **DENETCI).returncode, 3)
 
     # K4
     def test_k4_teslim_hatasinda_kart_onaylandi_kalir_cikis_sifir(self):

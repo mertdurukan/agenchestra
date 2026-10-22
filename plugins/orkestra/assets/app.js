@@ -250,7 +250,7 @@
     teslim: ['Teslim', 'r-iyi'], onay: ['Onay', 'r-iyi'], beklemede: ['Beklemede', 'r-uyari'], ret: ['Ret', 'r-kotu'],
     iptal: ['İptal', 'r-notr'], suruyor: ['Sürüyor', 'r-bilgi'], calisiyor: ['Çalışıyor', 'r-bilgi'], denetimde: ['Denetimde', 'r-bilgi'],
     acik: ['Açık', 'r-vurgu'], kapandi: ['Kapandı', 'r-notr'], bitti: ['Bitti', 'r-iyi'], bekliyor: ['Bekliyor', 'r-uyari'],
-    iyi: ['İyi', 'r-iyi'], uyari: ['Uyarı', 'r-uyari'], kotu: ['Hedef dışı', 'r-kotu'], 'veri-yok': ['Veri yok', 'r-notr'],
+    iyi: ['İyi', 'r-iyi'], uyari: ['Uyarı', 'r-uyari'], kotu: ['Hedef dışı', 'r-kotu'], 'veri-yok': ['Veri yok', 'r-notr'], 'yetersiz-ornek': ['Az örnek', 'r-notr'],
   };
   const rozet = (durum, metin) => { const [ad, sinif] = DURUM[durum] || [durum || '–', 'r-notr']; return H`<span class="rozet ${sinif}">${metin || ad}</span>`; };
   const iskelet = (n = 4, y = 44) => H`<div class="yigin sik">${Array.from({ length: n }, () => H`<div class="iskelet" style="height:${y}px"></div>`)}</div>`;
@@ -292,14 +292,16 @@
 
   function gelenOgeleri() {
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
-    const g = { karar: [], sohbet: [], kart: [], olcu: [] };
+    const g = { karar: [], sohbet: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
     if (on && on.acik !== false) {
       (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(k.id)).forEach(k => g.karar.push({ tur: 'onay', k }));
       if (on.sayac?.uygulanacak > 0) g.karar.push({ tur: 'uygula', n: on.sayac.uygulanacak });
       (on.kayitlar || []).filter(k => k.etki?.soru_bekliyor).forEach(k => g.karar.push({ tur: 'etki', k }));
+      const pd = on.perspektif?.durum;   // perspektif elle başlar (ADR-0026): zamanı gelince burada görünür
+      if (pd?.zamani_geldi && !pd.calisiyor) g.karar.push({ tur: 'perspektif', d: pd });
     }
     if (sm) (sm.oturumlar || []).filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => g.sohbet.push({ tur: 'sohbet', o }));
-    if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => g.kart.push({ tur: 'kart', k }));
+    if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => (k.durum === 'onaylandi' ? g.teslim : k.sahip_arsivli ? g.sahipsiz : g.kart).push({ tur: 'kart', k }));   // I-145: onaylı = teslim bekliyor; sahibi arşivli = sahipsiz
     if (an?.onbellek?.katman_5dk_son_24s > 0) g.karar.push({ tur: 'katman5', n: an.onbellek.katman_5dk_son_24s });   // 5 dk önbellek katmanı nöbeti (I-144)
     if (an?.hedef_panosu?.olculer) {   // seçili pencerenin hedef dışı ölçüleri
       const w = B.pencere();
@@ -307,7 +309,7 @@
     }
     return g;
   }
-  const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + g.sohbet.length + g.kart.length + g.olcu.length; };
+  const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + g.sohbet.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length; };
 
   function ogeHtml(o) {
     if (o.tur === 'onay') {
@@ -330,6 +332,14 @@
         <div class="govde"><div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
           <div class="metin">Uygulama Claude'da yeni bir sohbet açar ve kararları işler.</div></div>
         <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula">Şimdi uygula</button></div></article>`;
+    if (o.tur === 'perspektif') {
+      const pd = o.d, gecen = pd.gun_once == null ? 'Perspektif hiç çalışmadı' : `Perspektif ${pd.gun_once} gündür çalışmadı`;
+      return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
+        <div class="simge">${simge('oynat')}</div>
+        <div class="govde"><div class="baslik">${gecen}</div>
+          <div class="metin">Son koşudan beri ${B.sayi(pd.oturum_sayaci)} oturum geçti. Perspektif hafıza bakımı ve skill avı yapar; Claude'da yeni bir sohbet açar.</div></div>
+        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="perspektif">Perspektifi başlat</button></div></article>`;
+    }
     if (o.tur === 'katman5') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
         <div class="simge">${simge('goz')}</div>
         <div class="govde"><div class="baslik">5 dakikalık önbellek katmanı</div>
@@ -350,12 +360,15 @@
     }
     if (o.tur === 'kart') {
       const k = o.k, eski = (Date.now() - new Date(k.guncelleme).getTime()) / 864e5;
-      return H`<article class="oge" data-gez${k.oturum ? H` data-oturum="${k.oturum}" data-ad="${k.baslik}" style="--renk:var(--uyari);cursor:pointer" title="Tıkla: kartı başlatan sohbeti aç"` : H` style="--renk:var(--uyari)"`}>
+      const sohbet = k.sahip_arsivli ? null : (k.son_oturum || k.oturum);   // I-145: arşivli sahibe yönlendirme yok
+      const ipucu = k.durum === 'onaylandi' ? 'onaylı; teslim: orkestra kart teslim-bekleyen'
+        : k.sahip_arsivli ? 'sahibi arşivli sohbet' + (k.is ? '; yeni oturumda: orkestra is devam ' + k.is : '') : '';
+      return H`<article class="oge" data-gez${sohbet ? H` data-oturum="${sohbet}" data-ad="${k.baslik}" style="--renk:var(--uyari);cursor:pointer" title="Tıkla: kartı başlatan sohbeti aç"` : H` style="--renk:var(--uyari)"`}>
         <div class="simge">${simge('kart')}</div>
         <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.basamak || ''}</span>${rozet(k.durum)}</div>
           <div class="baslik">${k.baslik}</div>
-          <div class="meta"><span>${eski >= 1 ? Math.round(eski) + ' gündür hareketsiz' : 'son hareket ' + B.goreli(k.guncelleme)}</span><span>·</span><span>${k.isci ?? 0} işçi çağrısı</span><span>·</span><span>${B.paraP(k)}</span></div></div>
-        <div class="eylemler">${k.oturum ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${k.oturum}" data-ad="${k.baslik}" data-birincil>Sohbeti aç</button>` : ''}<a class="dugme kucuk" href="#/kart/${enc(k.id)}"${k.oturum ? '' : ' data-birincil'}>İzi aç</a></div></article>`;
+          <div class="meta"><span>${eski >= 1 ? Math.round(eski) + ' gündür hareketsiz' : 'son hareket ' + B.goreli(k.guncelleme)}</span><span>·</span><span>${k.isci ?? 0} işçi çağrısı</span><span>·</span><span>${B.paraP(k)}</span>${ipucu ? H`<span>·</span><span>${ipucu}</span>` : ''}</div></div>
+        <div class="eylemler">${sohbet ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${sohbet}" data-ad="${k.baslik}" data-birincil>Sohbeti aç</button>` : ''}<a class="dugme kucuk" href="#/kart/${enc(k.id)}"${sohbet ? '' : ' data-birincil'}>İzi aç</a></div></article>`;
     }
     if (o.tur === 'olcu') {
       const [ad, f] = OLCU_AD[o.ad] || [o.ad, x => B.sayi(x, 2)];
@@ -382,11 +395,11 @@
         ${karo('Açık iş', il ? B.sayi(acikIs) : '–', 'İşlere git →', '#/isler')}
         ${karo('Karar bekleyen', B.sayi(g.karar.length), g.karar.length ? 'aşağıda' : 'yok')}
       </div>` : '';
-    const toplam = g.karar.length + g.sohbet.length + g.kart.length + g.olcu.length;
+    const toplam = g.karar.length + g.sohbet.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length;
     const grup = (baslik, liste) => liste.length ? H`<section class="gelen-grup"><h2>${baslik} <span class="say">${liste.length}</span></h2>${liste.map(ogeHtml)}</section>` : '';
     const govde = yuk || (toplam === 0
       ? bos('Gelen kutusu boş', 'Senden beklenen bir karar, yanıt ya da müdahale yok.')
-      : H`${grup('Karar ver', g.karar)}${grup('Seni bekleyen sohbetler', g.sohbet)}${grup('Takılan kartlar', g.kart)}${grup('Hedef dışı ölçüler', g.olcu)}`);
+      : H`${grup('Karar ver', g.karar)}${grup('Seni bekleyen sohbetler', g.sohbet)}${grup('Teslim bekleyen kartlar', g.teslim)}${grup('Sahipsiz kartlar', g.sahipsiz)}${grup('Takılan kartlar', g.kart)}${grup('Hedef dışı ölçüler', g.olcu)}`);
     return {
       baslik: 'Gelen kutusu',
       sag: H`<span class="soluk kucuk-y ipucu-kisayol"><kbd>j</kbd> <kbd>k</kbd> gez · <kbd>a</kbd> onayla · <kbd>r</kbd> reddet</span>`,
@@ -604,15 +617,19 @@
     return H`<svg class="grafik" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${pAd}: ${saatlik ? 'saatlik' : 'günlük'} harcama, modele göre, ${B.birim()}">${ham(s)}</svg>
       <div class="lejant">${modeller.map(m => H`<span><i style="--renk:${renk[m]}"></i>${m}</span>`)}</div>`;
   }
-  function gosterge(ad, e, f) {
+  function gosterge(ad, e, f, ek = {}) {
     if (!e || e.durum === 'veri-yok' || e.deger == null) return H`<div class="gosterge"><div class="ust"><span class="ad">${ad}</span><span class="d soluk">–</span></div><div class="ray-g"></div><div class="alt"><span>veri yok</span><span>hedef ${e?.tur === 'alt' ? '≥' : '≤'} ${f(e?.hedef)}</span></div></div>`;
+    const kayan = ek.kayan && ek.kayan.payda ? H`<div class="alt"><span>son ${B.sayi(ek.kayan.n)} karar ${f(ek.kayan.deger)}</span><span>${B.sayi(ek.kayan.pay)} / ${B.sayi(ek.kayan.payda)} ret</span></div>` : '';
+    const mutlak = ek.usd ? H`<span>${B.usdSabit(e.pay)} / ${B.usdSabit(e.payda)}</span>` : '';
+    if (e.durum === 'yetersiz-ornek') return H`<div class="gosterge"><div class="ust"><span class="ad">${ad}</span>${rozet(e.durum)}<span class="d soluk">${f(e.deger)}</span></div><div class="ray-g"></div>
+      <div class="alt"><span>${B.sayi(e.ornek)} örnek · en az ${B.sayi(ek.asgari)} gerekir</span><span>hedef ${e.tur === 'alt' ? '≥' : '≤'} ${f(e.hedef)}</span></div>${kayan}</div>`;
     const ust = Math.max(e.hedef * 2, e.deger * 1.1) || 1;
     const p = v => Math.max(0, Math.min(100, v / ust * 100));
     const bolge = e.tur === 'ust' ? `left:0;width:${p(e.hedef)}%` : `left:${p(e.hedef)}%;right:0`;
     const renk = e.durum === 'iyi' ? 'var(--iyi)' : e.durum === 'uyari' ? 'var(--uyari)' : 'var(--kotu)';
     return H`<div class="gosterge"><div class="ust"><span class="ad">${ad}</span>${rozet(e.durum)}<span class="d">${f(e.deger)}</span></div>
       <div class="ray-g" role="img" aria-label="${ad}: ${f(e.deger)}, hedef ${f(e.hedef)}"><div class="bolge" style="${bolge}"></div><div class="hedef" style="left:${p(e.hedef)}%"></div><div class="isaret" style="left:${p(e.deger)}%;--renk:${renk}"></div></div>
-      <div class="alt"><span>${B.sayi(e.ornek)} örnek</span><span>hedef ${e.tur === 'ust' ? '≤' : '≥'} ${f(e.hedef)}</span></div></div>`;
+      <div class="alt"><span>${B.sayi(e.ornek)} örnek</span>${mutlak}<span>hedef ${e.tur === 'ust' ? '≤' : '≥'} ${f(e.hedef)}</span></div>${kayan}</div>`;
   }
   // Önbellek kaçakları (I-144): önceki bağlamın okunmayıp yeniden yazıldığı çağrılar; yalnız gösterir. Pencereden bağımsız, son 7 gün.
   const KACAK_AD = { katman_5dk: '5 dakikalık katman', model: 'Model değişimi', bosluk: '60 dakika ve üstü duraksama', sikistirma: 'Bağlam sıkıştırma', diger: 'Diğer' };
@@ -650,7 +667,7 @@
         ${karo('Kart başı (medyan)', B.para(bu.kart_medyan, bu.kart_medyan_token), `ortalama ${B.para(bu.kart_basi, bu.kart_basi_token)} · ${B.sayi(bu.teslim_kart)} teslim`)}
         ${karo('Önlenebilir israf', B.para(israf?.onlenebilir_usd, israf?.onlenebilir_token), `${ad} · ret kaynaklı`)}</div>
       <section><div class="bolum-bas"><h2>Hedefler</h2><span class="aciklama">işaret = değer, kesik çizgi = hedef, yeşil bölge = kabul edilen aralık</span><span class="bosluk"></span><span class="soluk kucuk-y">${ad}</span></div>
-        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [adi, f]]) => gosterge(adi, olc[k]?.[p], f))}</div></section>
+        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [adi, f]]) => gosterge(adi, olc[k]?.[p], f, { asgari: hp.asgari_ornek?.[k], usd: k === 'ana_ajan_payi', kayan: k === 'ret_orani' ? hp.ret_son_kararlar : null }))}</div></section>
       <section class="kart"><div class="kart-bas"><h2>${p === 'bugun' ? 'Saatlik' : 'Günlük'} harcama</h2><span class="soluk kucuk-y">${ad} · modele göre, ${B.birim()}</span></div><div class="kart-ic">${dilimGrafik(dilim, modelRenk, p === 'bugun', ad)}</div></section>
       <div class="izgara iki">
         <section class="kart"><div class="kart-bas"><h2>Model</h2><span class="soluk kucuk-y">${ad}</span></div><div class="kart-ic">${modelL.length ? modelL.map(([m, v], j) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / mx(modelL) * 100).toFixed(1)}%;--renk:${modelRenk[m] || MODEL_RENK[j % MODEL_RENK.length]}"></i></span><span class="d">${B.para(v, v)}</span></div>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
@@ -850,6 +867,10 @@
       b.disabled = true;
       try { await gonder('/onay', { islem: 'simdi-uygula' }); bildir('Uygulama başlatıldı: Claude\'da yeni sohbet açılıyor.'); getir('/onaylar.json', { taze: true }); }
       catch (x) { bildir('Başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
+    } else if (ey === 'perspektif') {
+      b.disabled = true;
+      try { await gonder('/perspektif-calistir', {}); bildir("Yeni sohbet açıldı; istem hazır, Enter'a bas."); getir('/onaylar.json', { taze: true }); }
+      catch (x) { bildir('Perspektif başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
     } else if (ey === 'yenile') { V.onbellek.delete(b.dataset.yol); tazele(true); }
     else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
     else if (ey === 'yap-ekle') yapEkle();
