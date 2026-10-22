@@ -186,6 +186,8 @@ class K5MaliyetDogrulama(Temel):
         self.assertEqual(dg["denetimler"][0]["karar"], "ret")
         self.assertEqual(dg["denetimler"][0]["neden"], "kanit-yok")
         self.assertEqual(dg["denetimler"][0]["k_satirlari"], ["K1: kanıt yok", "K3: sayı tutarsız"])
+        self.assertEqual(dg["denetimler"][0]["gerekce"], "Eksikler:\n- K1: kanıt yok\nK3: sayı tutarsız\nilgisiz satır")
+        self.assertEqual(dg["denetimler"][1]["gerekce"], "tamam")
         self.assertEqual(len(dg["test_kosulari"]), 1)
         self.assertEqual(len(dg["onkontrol_kosulari"]), 1)
         self.assertEqual(d["maliyet_sure"]["sureler"].get("kuyruk_sn"), 0.0)

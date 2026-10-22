@@ -289,7 +289,7 @@ def _dogrulama(kart: dict) -> dict:
         if not isinstance(d, dict):
             continue
         den.append({"sira": d.get("sira"), "karar": d.get("karar"), "neden": d.get("neden"),
-                    "k_satirlari": _k_satirlari(d.get("gerekce") or "")})
+                    "k_satirlari": _k_satirlari(d.get("gerekce") or ""), "gerekce": d.get("gerekce") or ""})
     tk = [{"asama": x.get("asama"), "gecti": x.get("gecti"), "cikis_kodu": x.get("cikis_kodu"), "zaman": x.get("zaman")}
           for x in kart.get("test_kosulari") or [] if isinstance(x, dict)]
     ok = [{"gecti": x.get("gecti"), "ihlal_turleri": x.get("ihlal_turleri"), "zaman": x.get("zaman")}
@@ -335,7 +335,7 @@ def _ogrenilen(kart: dict) -> dict:
     for d in kart.get("denetimler") or []:
         if isinstance(d, dict) and d.get("karar") == "ret":
             retler.append({"sira": d.get("sira"), "neden": d.get("neden"), "kok": d.get("kok"),
-                           "talimat": (d.get("talimat") or "")[:300]})
+                           "talimat": (d.get("talimat") or "")[:300], "gerekce": d.get("gerekce") or ""})
     t = kart.get("teknik")
     riskler = list(t.get("riskler") or []) if isinstance(t, dict) else []
     return {"ret_dersleri": retler, "riskler": riskler}

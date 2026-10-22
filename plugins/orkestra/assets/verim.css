@@ -115,3 +115,5 @@
   .pano-satir .durum i { flex: none; }
   .ek-kutu .g-dag-sayi { font-size: var(--t-12); gap: var(--a-4) var(--a-12); }
   .ek-kutu .g-dag-sayi b { font-size: var(--t-12); display: inline; }
+a.ret-bag { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+a.ret-bag:hover { text-decoration-style: solid; }

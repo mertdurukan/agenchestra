@@ -52,3 +52,22 @@ mark { background: color-mix(in srgb, var(--warning) 35%, transparent); color: i
   .t-liste-kap { position: static; }
   .t-sag { padding: var(--a-12); }
 }
+button.t-ret-giris { width: 100%; text-align: left; display: flex; gap: var(--a-8); align-items: baseline; padding: var(--a-8) var(--a-12); border-radius: var(--k-10);
+  background: var(--surface-1); border: 1px solid var(--line); color: var(--text-primary); font-weight: 600; font-size: var(--t-14); }
+button.t-ret-giris:hover { border-color: var(--text-muted); }
+button.t-ret-giris[aria-current="true"] { background: var(--surface-2); border-color: var(--s1); box-shadow: inset 3px 0 0 var(--s1); }
+.t-cipler { display: flex; flex-wrap: wrap; gap: var(--a-8); margin-bottom: var(--a-12); }
+button.t-cip { border: 1px solid var(--line); border-radius: 999px; background: var(--surface-0); color: var(--text-secondary); padding: 2px var(--a-12); font-size: var(--t-12); }
+button.t-cip:hover { border-color: var(--text-muted); }
+ol.t-ret-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--a-12); }
+ol.t-ret-liste > li { min-width: 0; border: 1px solid var(--line); border-left: 3px solid var(--warning); border-radius: var(--k-6); background: var(--surface-0); padding: var(--a-8) var(--a-12); }
+.t-ret .ust { display: flex; gap: var(--a-8); align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.t-ret .kid { font-size: var(--t-12); color: var(--text-muted); font-weight: 600; }
+.t-ret .bas { font-size: var(--t-14); font-weight: 600; overflow-wrap: anywhere; flex: 1 1 200px; min-width: 0; }
+.t-ret .alt { display: flex; gap: var(--a-12); flex-wrap: wrap; color: var(--text-secondary); font-size: var(--t-12); font-variant-numeric: tabular-nums; }
+.t-ret .etiket { margin: var(--a-8) 0 0; color: var(--text-muted); font-size: var(--t-12); }
+.t-ret p.talimat { margin: 0; font-size: var(--t-13); color: var(--text-secondary); overflow-wrap: anywhere; white-space: pre-wrap; }
+button.t-git { margin-top: var(--a-8); background: none; border: 0; padding: 0; color: var(--s1); font-size: var(--t-12); text-decoration: underline; }
+.t-gerekce { margin-top: var(--a-4); }
+.t-gerekce summary { cursor: pointer; font-size: var(--t-12); color: var(--text-muted); }
+.t-metin { margin: var(--a-4) 0 0; padding: var(--a-8); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: var(--t-13); color: var(--text-secondary); background: var(--surface-1, var(--surface-0)); border-radius: var(--k-6); }

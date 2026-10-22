@@ -39,6 +39,13 @@ class PerspektifSeridi(unittest.TestCase):
             bp = panel._onaylar_json("alan-x")["arka_plan"]
         self.assertEqual([x["tur"] for x in bp], ["perspektif", "uygulama"])
 
+    def test_perspektif_esik_durumu_panele_aktarilir(self):
+        d = {"son_perspektif": "2026-10-16T20:44:00+03:00", "gun_once": 5, "oturum_sayaci": 133,
+             "zamani_geldi": True, "calisiyor": None, "okunmamis_rapor": None}
+        with mock.patch.object(perspektif, "durum", return_value=d):
+            durum = panel._onaylar_json("alan-x")["perspektif"]["durum"]
+        self.assertEqual((durum["gun_once"], durum["oturum_sayaci"], durum["zamani_geldi"]), (5, 133, True))
+
     def test_arka_plan_isi_suren_sohbet_listelenir(self):
         satir = {"arka_plan": True, "bekleyen": "claude", "ne": "Uzun tarama", "kisa": "abc"}
         diger = {"arka_plan": True, "bekleyen": "beklemede", "ne": "Ölü iş", "kisa": "def"}
