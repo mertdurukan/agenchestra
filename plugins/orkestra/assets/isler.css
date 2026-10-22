@@ -86,6 +86,7 @@
   .detay-meta { display: flex; flex-wrap: wrap; gap: var(--a-4) var(--a-12); font-size: var(--t-12); color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .detay-meta b { color: var(--text-secondary); font-weight: 600; }
   .detay .bar.buyuk { margin-top: var(--a-12); max-width: 520px; }
+  .is-kapat { margin: var(--a-8) 0 0; }
   .is-hata { margin: var(--a-12) 0 0; font-size: var(--t-13); color: var(--serious); }
 
   .odak { margin-top: var(--a-24); display: grid; gap: var(--a-16); }

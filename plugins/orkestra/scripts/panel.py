@@ -834,6 +834,52 @@ def _isleyici():
                     onbellek.pop(k, None)
             return self._json(200, {"tamam": True, "kayit": kayit})
 
+        def _post_is_kapat(self, q):
+            """İşi kapatır: CLI `orkestra is kapat` ile aynı kapılar (özet, ADR). Gövde {"is": id, "ozetsiz": neden?}.
+            Açık todo maddesi kalan iş kapatılmaz (409); kapı engeli 422 + {"kapi": ozet|adr} döner, istemci
+            gerekçeyle `ozetsiz` göndererek kapıyı bilerek atlayabilir."""
+            if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
+                return self._gonder(403, "text/plain", b"yasak")
+            if "application/json" not in (self.headers.get("Content-Type") or "").lower():
+                return self._json(400, {"tamam": False, "hata": "Content-Type application/json olmalı."})
+            try:
+                uzun = int(self.headers.get("Content-Length") or 0)
+                if not 0 <= uzun <= POST_MAX:
+                    raise ValueError
+                g = json.loads(self.rfile.read(uzun).decode("utf-8") or "null")
+            except (ValueError, UnicodeDecodeError):
+                return self._json(400, {"tamam": False, "hata": "Geçersiz gövde."})
+            is_id = g.get("is") if isinstance(g, dict) else None
+            ozetsiz = g.get("ozetsiz") if isinstance(g, dict) else None
+            if not isinstance(is_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", is_id)                     or not (ozetsiz is None or (isinstance(ozetsiz, str) and len(ozetsiz) <= 500)):
+                return self._json(400, {"tamam": False, "hata": "Geçersiz iş ya da gerekçe."})
+            if ozetsiz is not None and not ozetsiz.strip():
+                return self._json(400, {"tamam": False, "hata": "Özetsiz kapatmak için gerekçe zorunlu."})
+            a, sd = _alan_sd((q.get("alan") or [None])[0], kesin=True)
+            if a is None:
+                return self._json(400, {"tamam": False, "hata": sd["hata"]})
+            import is_kaydi as IK  # noqa: PLC0415
+            from komutlar import isler as KI  # noqa: PLC0415
+            try:
+                kayit = IK.is_al(sd, is_id)
+                if not kayit:
+                    return self._json(404, {"tamam": False, "hata": f"İş yok: {is_id}"})
+                if kayit.get("durum") == "kapandi":
+                    return self._json(409, {"tamam": False, "hata": f"{is_id} zaten kapalı."})
+                acik = sum(1 for m in IK.todo_maddeleri(kayit["klasor"]) if m.get("durum") != "bitti")
+                if acik:
+                    return self._json(409, {"tamam": False, "hata": f"{is_id} kapatılamaz: {acik} açık todo maddesi var."})
+                engel = KI.kapanis_eksigi(sd, kayit, (ozetsiz or "").strip())
+                if engel:
+                    return self._json(422, {"tamam": False, "kapi": engel[0], "hata": engel[1]})
+                KI.kapat_uygula(sd, is_id)
+            except Exception as e:  # noqa: BLE001
+                return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {L.maskele(str(e))}"})
+            with kilit:
+                for k in [k for k in onbellek if isinstance(k, tuple) and k[0] in ("isler", "ozet", "onay")]:
+                    onbellek.pop(k, None)
+            return self._json(200, {"tamam": True, "is": is_id, "ozetsiz": (ozetsiz or "").strip() or None})
+
         def _post_isler_sifirla(self, q):
             """Dashboard iş verisini sıfırlar (is_kaydi.sifirla). Gövde {"onay": true} zorunlu: son onay istemcide alınır."""
             if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
@@ -916,6 +962,8 @@ def _isleyici():
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
             if u.path == "/api/isler-sifirla":
                 return self._post_isler_sifirla(urllib.parse.parse_qs(u.query))
+            if u.path == "/api/is-kapat":
+                return self._post_is_kapat(urllib.parse.parse_qs(u.query))
             if u.path == "/api/todo":  # iş todo listeleri salt okunur
                 return self._json(405, {"tamam": False, "hata": "İş todo listeleri salt okunur."})
             if u.path == "/api/kullanici-todo":

@@ -17,6 +17,8 @@
   const acikIs = i => i.durum !== 'kapandi' && i.durum !== 'beklemede';
   const todoToplam = i => Number(i.ilerleme && i.ilerleme.toplam) || 0;
   const todoKalan = i => todoToplam(i) - (Number(i.ilerleme && i.ilerleme.biten) || 0);
+  // İşi kapat düğmesi: yalnız kapanmamış, beklemede olmayan ve açık todo maddesi kalmamış işte (sunucu da aynısını denetler).
+  const kapatilabilir = i => acikIs(i) && todoKalan(i) <= 0;
   const FILTRELER = [
     { k: 'acik', ad: 'Açık', f: i => acikIs(i) && todoToplam(i) > 0 && todoKalan(i) > 0 },
     { k: 'ozet', ad: 'Özet ve kapanış', f: i => acikIs(i) && todoToplam(i) > 0 && todoKalan(i) <= 0 },
@@ -143,7 +145,9 @@
     const shHtml = `<div class="is-sohbetler"><h3>Sohbetler</h3>${sohbetler.length
       ? sohbetler.map(r => { const d = bekleyenD(r.bekleyen); return `<button type="button" class="bag sohbet-chip" style="--renk:${d.renk}" data-sohbet-ac="${esc(r.oturum)}" data-anahtar="h:${esc(r.oturum)}" title="Sohbeti Claude uygulamasında aç"><i></i>${esc(kisalt(r.sohbet, 46))}<span class="meta">${esc(d.ad)} · ${B.once(r.son_zaman)}</span></button>`; }).join('')
       : '<span class="meta">Bu işe bağlı sohbet yok.</span>'}</div>`;
-    return `<header><h2>${esc(is.ad || is.baslik || is.id)}</h2><div class="detay-meta">${meta}</div>${barHtml(is.ilerleme, true)}${shHtml}</header>
+    const kapatHtml = kapatilabilir(is)
+      ? `<div class="is-kapat"><button type="button" class="onayla" data-is-kapat="${esc(is.id)}" data-anahtar="kapat:${esc(is.id)}" title="Açık todo maddesi yok; kapanış kapıları (çalışma özeti, ADR) denetlenir">İşi kapat</button></div>` : '';
+    return `<header><h2>${esc(is.ad || is.baslik || is.id)}</h2><div class="detay-meta">${meta}</div>${barHtml(is.ilerleme, true)}${kapatHtml}${shHtml}</header>
       ${is.hata ? `<p class="is-hata">Bu iş okunamadı: ${esc(O.yolGizle(O.hataMetni(is.hata)))}</p>` : ''}${odak}`;
   }
 
@@ -448,11 +452,63 @@
     if (el && el === e.target && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sohbetAc(el.dataset.oturum); }
   });
 
+
+  // ---------------------------------------------------------------- işi kapat (CLI `orkestra is kapat` ile aynı kapılar)
+  function isKapatSor(dugme, isId) {
+    if (document.getElementById('isKapatOnay')) return;
+    const d = document.createElement('dialog');
+    d.id = 'isKapatOnay'; d.className = 'sifirla-onay is-kapat-onay';
+    d.setAttribute('aria-labelledby', 'isKapatBaslik');
+    d.innerHTML = `<form method="dialog">
+      <h2 id="isKapatBaslik">${esc(isId)} kapatılsın mı?</h2>
+      <p>Açık todo maddesi yok. Kapatırken çalışma özeti ve ADR kaydı denetlenir; kapatılan iş "Tamamlanan" altına geçer.</p>
+      <div id="isKapatGerekce" class="gizli">
+        <label for="isKapatNeden" class="meta">Özetsiz kapatma gerekçesi (zorunlu)</label>
+        <textarea id="isKapatNeden" rows="2" maxlength="500" placeholder="Örn. iş hiç yapılmadı, yinelenen kayıt"></textarea>
+      </div>
+      <p class="hata-satir" id="isKapatHata" role="alert"></p>
+      <div class="dugmeler"><button type="button" id="isKapatVazgec">Vazgeç</button>
+        <button type="button" class="onayla" id="isKapatEvet">Evet, kapat</button></div></form>`;
+    document.body.appendChild(d);
+    const kapat = () => { d.close(); d.remove(); dugme.isConnected && dugme.focus(); };
+    const evet = d.querySelector('#isKapatEvet'), hata = d.querySelector('#isKapatHata');
+    const neden = d.querySelector('#isKapatNeden'), gerekce = d.querySelector('#isKapatGerekce');
+    let ozetsizKip = false;
+    d.querySelector('#isKapatVazgec').addEventListener('click', kapat);
+    d.addEventListener('cancel', e => { e.preventDefault(); kapat(); });
+    evet.addEventListener('click', async () => {
+      const govde = { is: isId };
+      if (ozetsizKip) {
+        const n = neden.value.trim();
+        if (!n) { hata.textContent = 'Gerekçe yazın.'; neden.focus(); return; }
+        govde.ozetsiz = n;
+      }
+      evet.disabled = true; evet.textContent = 'Kapatılıyor…'; hata.textContent = '';
+      try {
+        await O.gonder('/api/is-kapat?alan=' + encodeURIComponent(O.alan), govde);
+        kapat();
+        if (K && K.zorla) K.zorla(); else if (K) K.yenile();
+      } catch (err) {
+        evet.disabled = false;
+        evet.textContent = ozetsizKip ? 'Özetsiz kapat' : 'Evet, kapat';
+        hata.textContent = 'Kapatılamadı: ' + O.hataMetni(err);
+        // Kapı engeli (özet/ADR): gerekçe alanı açılır; iş gerçekten yapılmadıysa özetsiz kapatılabilir.
+        if (/görev bitiş raporu|ADR kaydı/.test(String(err.message || err))) {
+          ozetsizKip = true; gerekce.classList.remove('gizli'); evet.textContent = 'Özetsiz kapat'; neden.focus();
+        }
+      }
+    });
+    d.showModal();
+    d.querySelector('#isKapatVazgec').focus();
+  }
+
   // ---------------------------------------------------------------- olaylar (iş bölümü)
   $('main').addEventListener('click', e => {
     if (e.target.closest('#sohbetler')) return;
     const so = e.target.closest('[data-sohbet-ac]');
     if (so) { sohbetAc(so.dataset.sohbetAc); return; }
+    const kp = e.target.closest('[data-is-kapat]');
+    if (kp) { isKapatSor(kp, kp.dataset.isKapat); return; }
     const fl = e.target.closest('[data-filtre]');
     if (fl) { S.filtre = fl.dataset.filtre; O.depo.koy('orkestra.isler.filtre', S.filtre); sayfaCiz(); return; }
     const isB = e.target.closest('button.is-sec');
