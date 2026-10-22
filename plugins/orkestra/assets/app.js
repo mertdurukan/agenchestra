@@ -1029,9 +1029,6 @@
     if (e.key === 'g') { gBekliyor = Date.now(); return; }
     if ((e.key === 'p' || e.key === 'u') && kontrolVar()) { e.preventDefault(); if (e.key === 'u') olcuKoy(); else if (r.ad !== 'kart') pencereSonraki(); return; }
     if (/^[1-6]$/.test(e.key)) { git(SAYFALAR[+e.key - 1][2]); return; }
-    if (e.key === 'j' || e.key === 'ArrowDown' && !e.shiftKey && odakSira >= 0) { e.preventDefault(); odakTasi(1); return; }
-    if (e.key === 'k' || e.key === 'ArrowUp' && odakSira >= 0) { e.preventDefault(); odakTasi(-1); return; }
-    if (e.key === 'Enter' && odakSira >= 0) { e.preventDefault(); odakAc(); return; }
     if (e.key === '/') { const a = document.querySelector('#ana .arama'); if (a) { e.preventDefault(); a.focus(); a.select(); } else { e.preventDefault(); paletAc(); } return; }
     if (e.key === 'Escape') {
       if (r.ad === 'isler' && r.id) git('#/isler' + ek(r.q));
