@@ -963,6 +963,7 @@ def _is_surekliligi(sd: str, oid: str, ofset_yolu: str, ozet: dict, kayda_deger:
                             bas = "\n"
                 with open(yol, "a", encoding="utf-8", newline="\n") as f:
                     f.write(bas + satir)
+            _bagli_agacta_satirlari_kaydet(sd, oid, yol)  # ADR-0038: bağlı worktree'de özet satırı + commit
         except Exception:
             pass
     # (D2) hatırlatma: oturum başına en çok bir kez
