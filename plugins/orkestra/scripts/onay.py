@@ -507,7 +507,7 @@ def yayin_ayristir(govde: str) -> tuple[dict, bool]:
 
 # ---------------------------------------------------------------- terfi kapısı
 
-_TERFI_JIRA_IZINLI = ("UTF", "SHA", "ISO", "RFC", "MD", "HTTP")
+_TERFI_JIRA_IZINLI = ("UTF", "SHA", "ISO", "RFC", "MD", "HTTP", "ADR")  # ADR-0033 gibi karar kayıtları Jira kodu değildir
 _TERFI_KALIPLAR = [
     ("sır", re.compile(r"(?i)\b(?:api[_ -]?key|apikey|token|secret|password|passwd|şifre|sifre)\b\s*[:=]\s*\S+"), True),
     ("sır", re.compile(r"\b(?:sk-[A-Za-z0-9_-]{16,}|pk-lf-[A-Za-z0-9-]{8,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|"
