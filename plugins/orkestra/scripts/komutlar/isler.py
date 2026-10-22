@@ -268,6 +268,71 @@ def cmd_is_rapor(a):
     print(IR.metin(r))
 
 
+def cmd_is_anlati(a):
+    """İş anlatısı: kanıt paketi, toplu liste, taslak denetimi ve --yaz (yalnız denetimi geçen taslağı yazar)."""
+    import is_anlati as AN
+    import is_anlati_denetle as DN
+    sd = sd_gerekli()
+    kimlik = a.kimlik
+
+    def tek(k):
+        bulunan = AN.coz(sd, k)
+        if not bulunan:
+            hata(f"iş yok: {k}")
+        if len(bulunan) > 1:
+            for b in bulunan:
+                print(f"{b.get('id')}\t{b.get('baslik')}")
+            sys.exit(2)
+        return bulunan[0]
+
+    def oku(yol):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                return f.read()
+        except OSError as e:
+            hata(f"dosya okunamadı: {e}")
+
+    taslak = a.yaz or a.denetle
+    if taslak:
+        kayit = tek(kimlik) if kimlik else None
+        if a.yaz and not kayit:
+            hata("--yaz için iş kimliği gerekli")
+        izin = AN.paket(kayit, sd)["guclu_fiil_izni"] if kayit else False
+        metin = oku(taslak)
+        ihlal = DN.denetle(metin, {"guclu_fiil_izni": izin})
+        if ihlal:
+            for kod, ileti in ihlal:
+                print(f"{kod}: {ileti}")
+            sys.exit(1)
+        if not a.yaz:
+            print("temiz")
+            return
+        ad = "anlati_" + datetime.date.today().strftime("%Y%m%d") + ".md"
+        yol = os.path.join(kayit["klasor"], ad)
+        with open(yol, "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin if metin.endswith("\n") else metin + "\n")
+        goreli = os.path.relpath(os.path.abspath(yol), os.path.abspath(_proje_koku(sd))).replace(os.sep, "/")
+        print(f"anlati: [{ad}]({goreli})")
+        return
+    if not kimlik:
+        hata("kimlik ya da all gerekli")
+    if kimlik == "all":
+        satirlar = AN.toplu(sd, a.gun)
+        if a.json:
+            print(json.dumps(satirlar, ensure_ascii=False, indent=2))
+            return
+        for r in satirlar:
+            print(f"{r['id']}\t{r['durum']}\t{r['dogrulandi_say']}/{r['madde_say']}\t{r['baslik']}")
+        return
+    p = AN.paket(tek(kimlik), sd)
+    if a.json:
+        print(json.dumps(p, ensure_ascii=False, indent=2))
+    elif a.audit:
+        print(AN.audit_metin(p))
+    else:
+        print(AN.metin(p))
+
+
 def _ozet_eksigi(klasor):
     """Görev bitiş raporu (P-009): klasörde doldurulmuş calisma_ozeti_*.md yoksa eksik nedenini döner, varsa None.
     Doldurulmuş = '**Ana bulgu:**' başlığının altında metin var (şablon boş bırakılmış olamaz)."""
