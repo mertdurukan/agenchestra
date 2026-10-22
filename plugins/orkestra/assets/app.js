@@ -126,7 +126,7 @@
     return alanlar.size === 1 ? [...alanlar][0] : '';
   }
   const alanAl = yol => tumMu() && TEK_ALAN_YOL.test(yol) ? rotaAlani(rota()) : V.alan;
-  const urlAl = (yol, alan) => yol + (yol.includes('?') ? '&' : '?') + 'alan=' + enc(alan || alanAl(yol));
+  const urlAl = (yol, alan) => yol.startsWith('/ac?') ? yol : yol + (yol.includes('?') ? '&' : '?') + 'alan=' + enc(alan || alanAl(yol));   // /ac oturum kimliğiyle çalışır, alan almaz
   // bağlantıya kaydın alanı eklenir (yalnız birleşik kipte); q verilirse mevcut süzgeçler korunur, eski alan düşer
   const ek = (q, o) => {
     const c = new URLSearchParams(q || ''); c.delete('alan');
