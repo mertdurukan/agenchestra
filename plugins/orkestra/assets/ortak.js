@@ -550,6 +550,10 @@
     O.rozetTazele();
     setInterval(() => { if (!document.hidden) O.rozetTazele(); }, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) O.rozetTazele(); });  // sekmeye dönünce bayat rozet beklemesin
+    // Arka plan görevi süreleri: şerit veri değişmedikçe çizilmez, bu yüzden süre metni burada tazelenir.
+    const sureTazele = () => document.querySelectorAll('[data-baslangic]').forEach(e => { e.textContent = O.B.calisma(e.dataset.baslangic); });
+    setInterval(() => { if (!document.hidden) sureTazele(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) sureTazele(); });
     return O.hazir;
   };
 
