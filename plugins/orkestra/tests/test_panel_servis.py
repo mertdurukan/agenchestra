@@ -37,6 +37,9 @@ class KurKaldirTest(unittest.TestCase):
         self.nt = mock.patch.object(panel_servis.os, "name", "nt")
         self.nt.start()
         self.addCleanup(self.nt.stop)
+        self.isaret = mock.patch.object(panel_servis, "ISARET", os.path.join(tempfile.mkdtemp(prefix="ork_psrv_"), "p.json"))
+        self.isaret.start()
+        self.addCleanup(self.isaret.stop)
 
     def test_kur_gorevi_xml_ile_olusturur_ve_calistirir(self):
         with mock.patch.object(panel_servis, "_schtasks", return_value=_cp()) as st, \
