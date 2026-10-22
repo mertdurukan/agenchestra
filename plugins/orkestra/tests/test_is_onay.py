@@ -341,5 +341,20 @@ class GitIzniKapisi(_Onay):
         self.assertFalse(is_onay.kabuk_engeli("git commit -m x", True))
 
 
+class IcraNiyeti(unittest.TestCase):
+    """I-168: icra niyeti taşıyan doğal söyleyiş, yazım hatası dahil, onaydır; ret, koşul ve soru değildir."""
+
+    def test_icra_onay(self):
+        for m in ("Ne gerekiyorsa yap", "şu sorunu çözelim artık", "hallet", "önerinle devam et onaylıyorum",
+                  "önerinle devam et onaylyıorum", "Planı onaylyıorum", "gerekeni yap", "ilerle", "go ahead",
+                  "sen bunu hallet artık", "yapın"):
+            self.assertTrue(is_onay.onay_mesaji_mi(m), m)
+
+    def test_icra_onay_degil(self):
+        for m in ("ne gerekiyorsa yapma", "onay vermiyorum", "oyun", "hallet ama önce sor", "bunu nasıl çözdün",
+                  "hallettin mi?", "devam ediyor", "sorun çözülmedi ama bekle", "yapıyor"):
+            self.assertFalse(is_onay.onay_mesaji_mi(m), m)
+
+
 if __name__ == "__main__":
     unittest.main()
