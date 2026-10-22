@@ -174,8 +174,16 @@
   // liste yüklenince (ör. kimlikten alan çözülünce) henüz istenmemiş ayrıntı verisini getirir
   function eksikleriGetir() { gerekler(rota()).forEach(y => { const k = kayit(y); if (!k.veri && !k.istek && !k.hata && alanAl(y)) getir(y); }); }
   const tazele = (taze = false) => gerekler(rota()).concat(TEMEL).forEach(y => getir(y, { taze }));
-  const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json'];
+  const GUNC_YOL = '/api/guncelleme';   // eklenti güncelleme durumu: kullanıcı düzeyi, çalışma alanından bağımsız (ADR-0035)
+  const GUNC_ARALIK = 1000;             // sn değil ms: koşu sürerken ilerleme yoklaması
+  const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json', GUNC_YOL];
   const YAP_YOL = '/api/kullanici-todo';
+
+  // Güncelleme koşusu sürerken durumu saniyede bir yeniler; koşu bitince (ya da sunucu 'çalışıyor' demeyince) kendiliğinden durur.
+  function guncellemeIzle() {
+    if (V.gIzle || d(GUNC_YOL).veri?.durum !== 'calisiyor') return;
+    V.gIzle = setTimeout(async () => { V.gIzle = 0; await getir(GUNC_YOL, { taze: true }); guncellemeIzle(); }, GUNC_ARALIK);
+  }
 
   async function gonder(yol, govde, alan) {
     const r = await fetch(urlAl(yol, alan), { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde || {}) });
