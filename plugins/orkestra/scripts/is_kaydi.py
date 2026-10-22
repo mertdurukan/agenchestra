@@ -293,6 +293,8 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
     }
     if sirali:
         kayit["sira"] = SIRA.SIRA_ADI
+        if SIRA.sozlesme_kapisi_acik():
+            kayit["sozlesme"] = True  # ADR-0035: görev sözleşmesi (problem, başarı kriterleri, kapsam dışı); plan Kabul'u kriterlere bağlanır
         if SIRA.kalite_kapisi_acik():
             kayit["kalite"] = True  # P-018: belge çıtası (özet, kabul/geri alma, kanıtlı todo, planla karşılaştıran özet)
         if SIRA.gap_kapisi_acik():
