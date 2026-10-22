@@ -96,6 +96,8 @@ def cmd_is_ac(a):
     sd = sd_gerekli()
     klasor = a.klasor
     if klasor:  # I-138 P5: NNN- öneki kilit altında denetlenir; dolu ya da önek yoksa sıradaki numara alınır
+        if not os.path.isabs(klasor):  # göreli yol proje köküne göre çözülür (çalışma klasörüne göre değil: alt klasörden çağrı yolu ikiler)
+            klasor = os.path.join(os.path.dirname(os.path.dirname(sd)), klasor)
         yol = os.path.abspath(klasor)
         neden = _klasor_kok_disi(sd, yol)
         if neden:
