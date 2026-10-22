@@ -83,8 +83,14 @@ def _etiket(metin: str, ad: str) -> list[str]:
 
 
 def _paragraflar(metin: str) -> list[str]:
-    return [_kes(" ".join(p.split())) for p in re.split(r"\n\s*\n", metin.strip()) if p.strip()
-            and not p.strip().startswith("#")]
+    out = []
+    for p in re.split(r"\n\s*\n", metin.strip()):
+        p = p.strip()
+        if p.startswith("**"):   # etiketli alanlar başlar: serbest paragraflar burada biter
+            break
+        if p and not p.startswith("#"):
+            out.append(_kes(" ".join(p.split())))
+    return out
 
 
 # ---------------------------------------------------------------- iş çözümü
