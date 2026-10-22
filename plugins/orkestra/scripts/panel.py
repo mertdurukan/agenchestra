@@ -155,11 +155,12 @@ TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_AL
 TUM_ALAN_YOLLARI = frozenset({"/simdi.json", "/onaylar.json", "/isler.json", "/kurallar.json", "/ozet.json",
                               "/analitik.json", "/api/kullanici-todo", "/teknik.json"})   # yalnız GET; yazma her zaman tek alan
 _TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kayıtlı alana ister (liste kipi birleşir)
+KULLANICI_YOLLARI = frozenset({"/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele"})   # eklenti güncellemesi: alan almaz, alan=* ile de çalışır
 
 
 def _tum_alan_reddi(yol: str, q: dict, yazma: bool = False) -> bytes | None:
     """alan=* tek alan isteyen yollarda sessizce ilk alana düşmesin (yanlış veri, yanlış alana yazma): 400 gövdesi, yoksa None."""
-    if (q.get("alan") or [None])[0] != TUM_ALAN:
+    if (q.get("alan") or [None])[0] != TUM_ALAN or yol in KULLANICI_YOLLARI:
         return None
     if not yazma:
         if yol in TUM_ALAN_YOLLARI and not (yol == "/teknik.json" and any(q.get(x) for x in _TEKNIK_TEK_ALAN)):
