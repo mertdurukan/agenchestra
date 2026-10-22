@@ -281,6 +281,8 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
             except FileExistsError:  # var-mı kontrolü ile yazma arası yarış
                 pass
     if sirali:
+        if SIRA.sozlesme_kapisi_acik():
+            belge_olustur(klasor, baslik, "sozlesme")  # ADR-0035: ilk belge; mevcut durumdan önce
         belge_olustur(klasor, baslik, "mevcut_durum")
     is_id = yeni_is_id(sd)
     an = L.simdi()
