@@ -482,6 +482,11 @@ def _teknik_json(alan_id, is_id, kart_id, ret=None) -> dict:
     import collections  # noqa: PLC0415
     import is_kaydi as IK  # noqa: PLC0415
     import teknik as T  # noqa: PLC0415
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        if is_id or kart_id or ret is not None:   # iş, kart ve ret görünümü kaydın kendi alanıyla istenir
+            return _teknik_hata(400, "İş, kart ve ret görünümü tek bir çalışma alanı ister.")
+        return panel_tum.teknik_liste(*_tum_topla(lambda i: _teknik_json(i, None, None)))
     a, sd = _alan_sd(alan_id, True)
     if a is None:
         return _teknik_hata(404, "Bilinmeyen çalışma alanı ya da orkestra açık değil.")
