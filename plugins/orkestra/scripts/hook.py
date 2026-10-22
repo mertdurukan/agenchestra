@@ -2308,20 +2308,42 @@ def _tek_satir(metin) -> str:
     return m or "-"
 
 
-def _oturum_satiri_yaz(sd: str, oid: str | None) -> None:
-    """T-07: oturum bir işe bağlıysa işin oturumlar.md SONUNA tek satır (dosya yoksa/iş yoksa yazmaz)."""
+def _oturum_satiri_stopta() -> bool:
+    """ADR-0038: bağlı worktree'de oturum satırları Stop'ta yazılır ve commit'lenir; ORKESTRA_OTURUM_SATIRI_STOPTA=0 kapatır."""
+    return (os.environ.get("ORKESTRA_OTURUM_SATIRI_STOPTA") or "1").strip().lower() not in ("0", "false", "hayir", "hayır", "kapali", "kapalı")
+
+
+def _bagli_agac_koku(yol: str) -> str | None:
+    """Yol bağlı (linked) worktree içindeyse depo kökü; ana ağaçta, depo dışında ya da hata durumunda None."""
+    try:
+        kok = L.git_koku(yol)
+        if not kok:
+            return None
+        gd = L.git(["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"], kok).stdout.split("\n")
+        if len(gd) < 2 or os.path.normcase(gd[0].strip()) == os.path.normcase(gd[1].strip()):
+            return None
+        return kok
+    except Exception:
+        return None
+
+
+def _oturum_ozet_yolu(sd: str, oid: str | None):
+    """Oturumun bağlı olduğu işin oturumlar.md yolu; bağ, iş klasörü ya da dosya yoksa None."""
     is_id = _oturum_isi(sd, oid)
     if not is_id or not oid:
-        return
+        return None
     import is_kaydi
-    import niyet
     kayit = is_kaydi.is_al(sd, is_id)
     klasor = kayit.get("klasor") if isinstance(kayit, dict) else None
     if not klasor:
-        return
+        return None
     yol = os.path.join(klasor, "oturumlar.md")
-    if not os.path.isfile(yol):
-        return
+    return yol if os.path.isfile(yol) else None
+
+
+def _oturum_ozet_satiri(sd: str, oid: str) -> str:
+    """Oturumun süre, token ve maliyet özeti satırı (SessionEnd ve bağlı worktree'de Stop aynı biçimi yazar)."""
+    import niyet
     zaman = [r for r in L.zaman_kayitlari(sd) if r.get("oturum") == oid]
     ana = _dk([r.get("sure_ms") for r in zaman if r.get("tur") == "ana"])
     alt = _dk([r.get("sure_ms") for r in zaman if r.get("tur") == "alt"])
