@@ -6,6 +6,8 @@ import tempfile
 # Testler gerçek ~/.claude/orkestra-makine/makine.json dosyasını okumasın ya da yazmasın (I-026 cfg).
 # SessionStart hızlı yolu test koşusunda arka plan doktoru başlatmasın (süreç sızıntısı + gerçek makine config'i).
 os.environ.setdefault("ORKESTRA_DOKTOR_OTOMATIK", "0")
+# SessionStart'ta panel görevi otomatik kurulmasın (gerçek Task Scheduler kaydı; ADR-0034). panel_servis testleri kendisi açar.
+os.environ.setdefault("ORKESTRA_PANEL_SERVIS", "0")
 os.environ.setdefault("ORKESTRA_HOME", os.path.join(tempfile.gettempdir(), "orkestra_test_ev"))
 os.environ.setdefault("ORKESTRA_EKLENTI_KURALLARI",
                       os.path.join(tempfile.gettempdir(), "orkestra_test_eklenti_yok", "kurallar", "eklenti_kurallari.json"))
