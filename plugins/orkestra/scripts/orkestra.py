@@ -110,6 +110,16 @@ def main():
         if sd and not (a.komut == "kart" and alt_komut in ("goster", "liste")):
             import ozet
             ozet.yaz(sd, L.proje_dizini())
+    if a.komut in ("is", "plan"):
+        # İş belgelerini yazan komutlardan sonra belgeleri commit et (ORKESTRA_OTO_COMMIT açıksa); komutu bozmaz.
+        try:
+            sd = L.durum_dizini()
+            if sd:
+                import is_kaydi
+                import oto_commit
+                oto_commit.cli_sonrasi([g.get("klasor") for g in is_kaydi.is_liste(sd)])
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
