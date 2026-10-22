@@ -987,30 +987,6 @@
     rayCiz();
   }
 
-  // j / k ile gezinme: görünümdeki [data-gez] öğeleri
-  let odakSira = -1, odakRota = '';
-  function gezOgeleri() { return [...document.querySelectorAll('#ana [data-gez]')]; }
-  function odakUygula() {
-    const k = location.hash.split('?')[0];
-    if (k !== odakRota) { odakRota = k; odakSira = -1; }
-    const l = gezOgeleri();
-    l.forEach((e, i) => e.classList.toggle('odak', i === odakSira));
-  }
-  function odakTasi(n) {
-    const l = gezOgeleri();
-    if (!l.length) return;
-    odakSira = Math.max(0, Math.min(l.length - 1, odakSira + n));
-    odakUygula();
-    l[odakSira].scrollIntoView({ block: 'nearest' });
-  }
-  function odakAc() {
-    const e = gezOgeleri()[odakSira];
-    if (!e) return;
-    if (e.dataset.git) git(e.dataset.git);
-    else if (e.tagName === 'A') e.click();
-    else (e.querySelector('[data-birincil]') || e.querySelector('a'))?.click();
-  }
-
   let gBekliyor = 0;
   document.addEventListener('keydown', e => {
     if (e.target.id === 'yapYeni' && e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); yapEkle(); return; }
