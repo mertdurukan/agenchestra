@@ -246,11 +246,11 @@ def _arka_plan(perspektif_durum: dict | None, uygulama: dict | None) -> list[dic
 
 
 def _sohbet_arka_plan(a: dict) -> list[dict]:
-    """Arka plan işi süren sohbetler (İşler sayfası); yalnız Claude'un çalıştığı olanlar."""
+    """Claude'un şu an çalıştığı sohbetler (İşler sayfası): tur sürerken çalışan iş de, tur bittikten sonra arka planda süren iş de."""
     out = []
     try:
         for r in niyet.gorunum(alan_yol=a["yol"]).get("oturumlar", []):
-            if r.get("arka_plan") and r.get("bekleyen") == "claude":
+            if r.get("bekleyen") == "claude":
                 out.append({"tur": "sohbet", "ad": r.get("ne") or r.get("sohbet") or r.get("kisa"),
                             "baslangic": r.get("son_zaman")})
     except Exception:  # noqa: BLE001
