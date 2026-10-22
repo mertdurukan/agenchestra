@@ -506,7 +506,7 @@
   $('main').addEventListener('click', e => {
     if (e.target.closest('#sohbetler')) return;
     const so = e.target.closest('[data-sohbet-ac]');
-    if (so) { sohbetAc(so.dataset.sohbetAc); return; }
+    if (so) { if (so.tagName === 'A') e.preventDefault(); sohbetAc(so.dataset.sohbetAc); return; }   // karo bağlantısı sayfayı kaydırmasın
     const kp = e.target.closest('[data-is-kapat]');
     if (kp) { isKapatSor(kp, kp.dataset.isKapat); return; }
     const fl = e.target.closest('[data-filtre]');
