@@ -361,7 +361,49 @@
   }
   const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + g.sohbet.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length; };
 
+  // Eklenti güncelleme kartı (ADR-0035): yeni | calisiyor | bitti | hata. Koşu LLM çağırmaz; aynı kod `orkestra update` ile çalışır.
+  const kisaSha = s => String(s ?? '').slice(0, 7);
+  function guncellemeHtml(gu) {
+    const c = gu.kontrol || {}, k = gu.kosu || {};
+    const satirlar = (k.satirlar || []).filter(s => String(s).trim());
+    if (gu.durum === 'calisiyor') {
+      const son = satirlar.length ? satirlar[satirlar.length - 1] : 'Başlatılıyor…';
+      return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="calisiyor" aria-busy="true" style="--renk:var(--bilgi)">
+        <div class="simge donen">${simge('guncelle')}</div>
+        <div class="govde"><div class="baslik">Orkestra güncelleniyor…</div>
+          <div class="metin guncelleme-son" role="status" aria-live="polite">${son}</div>
+          <div class="meta">${B.sure(k.sure)} · Bu sayfayı kapatsan da güncelleme sürer.</div></div>
+        <div class="eylemler"><button class="dugme ana-d kucuk" disabled aria-disabled="true">Güncelleniyor…</button></div></article>`;
+    }
+    if (gu.durum === 'bitti') {
+      return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="bitti" style="--renk:var(--iyi)">
+        <div class="simge">${simge('tamam')}</div>
+        <div class="govde"><div class="baslik" role="status">Orkestra güncellendi</div>
+          <div class="metin">Yeni sürüm yeni oturumda yüklenir: yeni bir oturum aç ya da <code>/reload-plugins</code> yaz.</div>
+          <div class="meta">${c.yeni ? H`<span>Sürüm <code>${kisaSha(c.yeni)}</code></span><span>·</span>` : ''}<span>${B.sure(k.sure)} sürdü</span></div></div></article>`;
+    }
+    if (gu.durum === 'hata') {
+      return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="hata" style="--renk:var(--kotu)">
+        <div class="simge">${simge('uyari')}</div>
+        <div class="govde"><div class="baslik">Güncelleme başarısız</div>
+          <div class="metin guncelleme-hata" role="alert">${k.neden || 'Bilinmeyen hata.'}</div>
+          ${satirlar.length ? H`<details class="degisiklik"><summary>Koşu çıktısı</summary><pre>${satirlar.join('\n')}</pre></details>` : ''}
+          <div class="meta">Aynı işlem terminalde: <code>orkestra update</code></div></div>
+        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="guncelle">Tekrar dene</button></div></article>`;
+    }
+    const liste = c.degisiklikler || [], fazla = c.fark != null ? c.fark - liste.length : 0;
+    return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="yeni" style="--renk:var(--vurgu)">
+        <div class="simge">${simge('guncelle')}</div>
+        <div class="govde"><div class="baslik">Orkestra güncellemesi var</div>
+          <div class="metin">${c.fark ? B.sayi(c.fark) + ' yeni değişiklik' : 'Yeni değişiklikler var'}${c.kurulu && c.yeni ? H`: <code>${kisaSha(c.kurulu)}</code> → <code>${kisaSha(c.yeni)}</code>` : ''}</div>
+          ${c.klon_kirli ? H`<div class="meta uyari-satir" role="note">${simge('uyari')}<span>Yayın klonunda commitlenmemiş değişiklik var; güncelleme reddedilebilir.</span></div>` : ''}
+          ${liste.length ? H`<details class="degisiklik"><summary>Neler değişti</summary><ul>${liste.map(x => H`<li><code>${x.sha}</code> ${x.konu}</li>`)}${fazla > 0 ? H`<li class="soluk">ve ${B.sayi(fazla)} değişiklik daha</li>` : ''}</ul></details>` : ''}
+          <div class="meta">Güncelleme yeni oturumda yüklenir.</div></div>
+        <div class="eylemler"><button class="dugme kucuk" data-eylem="guncelle-ertele" title="Yeni bir sürüm çıkana kadar hatırlatma">Sonra</button> <button class="dugme ana-d kucuk" data-eylem="guncelle">Güncelle</button></div></article>`;
+  }
+
   function ogeHtml(o) {
+    if (o.tur === 'guncelleme') return guncellemeHtml(o.g);
     if (o.tur === 'onay') {
       const k = o.k, sec = Array.isArray(k.secenekler) ? k.secenekler : [];
       return H`<article class="oge" data-gez data-onay="${k.id}" style="--renk:var(--vurgu)">
