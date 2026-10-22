@@ -111,7 +111,8 @@ SABLON_DIZINI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 
 # tür -> (şablon dosyası, hedef dosya adı kalıbı, sohbet bağlantı etiketi)
 BELGE_TURLERI = {
-    "mevcut_durum": ("mevcut_durum.md", "mevcut_durum_{gun}.md", "mevcut durum"),
+    "sozlesme": ("sozlesme.md", "sozlesme_{gun}.md", "görev sözleşmesi"),
+    "mevcut_durum":("mevcut_durum.md", "mevcut_durum_{gun}.md", "mevcut durum"),
     "plan": ("plan.md", "plan.md", "plan dosyası"),
     "todo": ("todo.md", "todo.md", "to-do dosyası"),
     "ozet": ("calisma_ozeti.md", "calisma_ozeti_{gun}.md", "çalışma özeti"),
