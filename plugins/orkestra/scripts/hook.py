@@ -2308,6 +2308,27 @@ def _oturum_satiri_yaz(sd: str, oid: str | None) -> None:
     satir = (f"- {an} · oturum {oid[:8]} · Claude süresi {ana} · alt ajan süresi {alt} · {tok_s} token · ${usd_s}"
              f" · ne: {_tek_satir(ne)} · sonuç/nerede kalındı: {_tek_satir(sonuc)}\n")
     L.sona_ekle(yol, satir)
+    _oturum_agacinda_commitle(yol)
+
+
+def _oturum_agacinda_commitle(yol: str) -> None:
+    """Oturum satırı SessionEnd'de, son otomatik commit'ten sonra yazılır; Claude oturum worktree'sini "commit edilmemiş
+    değişiklikle arşivlendi" uyarısıyla bırakmasın diye dosya yalnız bağlı (linked) worktree'de ve yalnız bu dosya commit'lenir.
+    Ana ağaçta, izlenmeyen dosyada ya da hata durumunda hiçbir şey yapmaz."""
+    try:
+        kok = L.git_koku(yol)
+        if not kok:
+            return
+        gd = L.git(["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"], kok).stdout.split("\n")
+        if len(gd) < 2 or os.path.normcase(gd[0].strip()) == os.path.normcase(gd[1].strip()):
+            return  # ana ağaç: kullanıcının kendi çalışma ağacına commit atılmaz
+        if L.git(["ls-files", "--error-unmatch", "--", yol], kok).returncode != 0:
+            return
+        if not L.git(["status", "--porcelain", "--", yol], kok).stdout.strip():
+            return
+        L.git(["commit", "--only", "-m", "oturumlar.md: oturum satırı", "--", yol], kok)
+    except Exception:  # commit hatası kapanışı bozmasın
+        pass
 
 
 def _acik_ajan_kayitlarini_sil(sd: str, oid: str | None) -> None:
