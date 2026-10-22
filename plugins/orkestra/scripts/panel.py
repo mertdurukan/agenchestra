@@ -1136,17 +1136,20 @@ def _durdur(eski: dict) -> None:
 def baslat(port: int | None = None, alan_id: str | None = None, on_planda: bool = False) -> str:
     port = port or cfg.panel_port()
     sorgu = f"?alan={urllib.parse.quote(alan_id)}" if alan_id else ""
+    servis = not on_planda and panel_servis.kurulu()   # Task Scheduler görevi (ADR-0033): süreci görev yönetir
     try:
         with open(DURUM, encoding="utf-8") as f:
             eski = json.load(f)
         durum = _saglik(eski["port"])
         if durum == f"ok {SURUM}":
             return f"http://127.0.0.1:{eski['port']}/{sorgu}"
-        if durum is not None:          # eski sürüm sunucu: kapat, yenisini aç
+        if durum is not None and not servis:   # eski sürüm sunucu: kapat, yenisini aç
             _durdur(eski)
             time.sleep(0.5)
     except Exception:
         pass
+    if servis:
+        return _servis_baslat(port, sorgu)
     port = _bos_port(port)
     if on_planda:
         print(f"http://127.0.0.1:{port}/{sorgu}  (Ctrl+C ile durur)", flush=True)
