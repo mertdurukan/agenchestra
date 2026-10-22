@@ -337,6 +337,8 @@
   function gelenOgeleri() {
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
     const g = { karar: [], sohbet: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
+    const gu = d(GUNC_YOL).veri;   // eklenti güncellemesi her zaman en üstte; "Sonra" yalnız 'yeni' durumunu gizler (koşu ve hata görünür kalır)
+    if (gu && ['yeni', 'calisiyor', 'bitti', 'hata'].includes(gu.durum) && !(gu.durum === 'yeni' && gu.ertelendi)) g.karar.push({ tur: 'guncelleme', g: gu });
     if (on && on.acik !== false) {
       (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(altAlan(k))).forEach(k => g.karar.push({ tur: 'onay', k }));
       // uygulama ve perspektif eylemleri çalışma alanına özeldir: birleşik kipte her alan kendi satırını alır
