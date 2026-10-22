@@ -165,26 +165,37 @@ def teknik_liste(ok, atlanan) -> dict:
 
 # ------------------------------------------------------------------ özet (sohbet, kart, maliyet)
 
-def _ajan_surec(ok) -> list:
-    """(ajan, süreç) başına koşu, USD ve token toplamı; en pahalı 20 satır (tek alandaki sınırla aynı)."""
-    toplam = collections.OrderedDict()
-    for _, v in ok:
-        for r in (v.get("maliyet") or {}).get("ajan_surec", []):
+def _ajan_surec(listeler, sinir: int) -> list:
+    """(ajan, süreç) başına koşu, USD ve token toplamı; en pahalı `sinir` satır (tek alandaki sınırla aynı)."""
+    toplam = {}
+    for liste in listeler:
+        for r in liste or []:
             k = (r.get("ajan"), r.get("surec"))
-            toplam[k] = _topla(toplam.get(k), {x: y for x, y in r.items() if x not in ("ajan", "surec")}) if k in toplam else dict(r)
-    out = [{**r, "ajan": k[0], "surec": k[1]} if "ajan" not in r else r for k, r in toplam.items()]
-    out = [{**r, "ajan": k[0], "surec": k[1]} for k, r in zip(toplam.keys(), out)]
-    return _yuvarla(sorted(out, key=lambda r: -(r.get("usd") or 0))[:20])
+            toplam[k] = _topla(toplam.get(k), {x: y for x, y in r.items() if x not in ("ajan", "surec")})
+    out = [{"ajan": k[0], "surec": k[1], **r} for k, r in toplam.items()]
+    return _yuvarla(sorted(out, key=lambda r: -(r.get("usd") or 0))[:sinir])
+
+
+def _maliyet(ok) -> dict:
+    """Alanların maliyet bölümü: sayılar toplanır; (ajan, süreç) listeleri ve oturum listesi ayrıca birleşir (düz ekleme satırı tekrarlar)."""
+    def sade(m):
+        m = {k: x for k, x in m.items() if k not in ("ajan_surec", "oturumlar")}
+        if isinstance(m.get("pencere"), dict):
+            m["pencere"] = {w: {k: x for k, x in p.items() if k != "ajan_surec"} for w, p in m["pencere"].items()}
+        return m
+    ms = [v.get("maliyet") or {} for _, v in ok]
+    maliyet = _topla_hepsi(sade(m) for m in ms) or {}
+    maliyet["ajan_surec"] = _ajan_surec((m.get("ajan_surec") for m in ms), 20)
+    maliyet["oturumlar"] = _hepsi([(a, v.get("maliyet") or {}) for a, v in ok], "oturumlar")
+    for w in list(maliyet.get("pencere") or {}):
+        ps = [((m.get("pencere") or {}).get(w) or {}) for m in ms]
+        if any("ajan_surec" in p for p in ps):
+            maliyet["pencere"][w]["ajan_surec"] = _ajan_surec((p.get("ajan_surec") for p in ps), 15)
+    return maliyet
 
 
 def ozet(ok, atlanan) -> dict:
-    maliyetler = []
-    for _, v in ok:
-        m = {k: x for k, x in (v.get("maliyet") or {}).items() if k not in ("ajan_surec", "oturumlar")}
-        maliyetler.append(m)
-    maliyet = _topla_hepsi(maliyetler) or {}
-    maliyet["ajan_surec"] = _ajan_surec(ok)
-    maliyet["oturumlar"] = _hepsi([(a, v.get("maliyet") or {}) for a, v in ok], "oturumlar")
+    maliyet = _maliyet(ok)
     defter = _hepsi(ok, "defter")
     defter.sort(key=lambda r: str(r.get("zaman") or ""), reverse=True)
     sohbetler = _hepsi(ok, "sohbetler")
