@@ -146,6 +146,10 @@ class KosuTest(Ortak):
         g = self.yap()
         g.yokla()
         self.assertEqual(g.guncelle(), {"tamam": True})
+        for _ in range(100):   # iş parçacığı ilk satırı yazana kadar bekle
+            if g.kosu.anlik()["satirlar"]:
+                break
+            threading.Event().wait(0.05)
         d = g.durum()
         self.assertEqual((d["durum"], d["kosu"]["durum"]), ("calisiyor", "calisiyor"))
         self.assertEqual(d["kosu"]["satirlar"][0], "ORKESTRA GÜNCELLE")
