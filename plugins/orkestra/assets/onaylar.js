@@ -157,7 +157,7 @@
     const ADLAR = { perspektif: 'Perspektif', uygulama: 'Uygulama' };
     yerlestir(kap, bp.length
       ? `<p class="persp-satir"><b>Arka plan görevleri · ${bp.length} sürüyor</b></p><ul>` +
-        bp.map(x => `<li>${esc(ADLAR[x.tur] || x.tur)}: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· ${esc(O.tarih ? O.tarih(x.baslangic) : x.baslangic)}</span>` : ''}</li>`).join('') + '</ul>'
+        bp.map(x => `<li>${esc(ADLAR[x.tur] || x.tur)}: ${esc(x.ad)}${x.baslangic ? ` <span class="meta">· <span data-baslangic="${esc(x.baslangic)}">${esc(O.B.calisma(x.baslangic))}</span></span>` : ''}</li>`).join('') + '</ul>'
       : '');
   }
 
