@@ -7,8 +7,6 @@ Saf işlevler: dosya, ağ ve panel durumu yok; panel.py tek alan işlevlerini ç
 """
 from __future__ import annotations
 
-import collections
-
 import ork_lib as L
 
 TUM_AD = "Tüm çalışma alanları"
