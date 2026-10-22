@@ -24,7 +24,7 @@ SIR_B64 = re.compile(r"(?<![A-Za-z0-9+/=_-])(?=[A-Za-z0-9+/=_-]*\d)(?=[A-Za-z0-9
 
 MADDE = re.compile(r"^\s*(?:[-*]\s|\d+\.\s)", re.M)
 SHA = re.compile(r"\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b", re.I)
-YOL_SURUCU = re.compile(r"\w:[\\/]")
+YOL_SURUCU = re.compile(r"(?<!\w)[A-Za-z]:[\\/]")  # tek harfli sürücü; "postgres://" yol sayılmaz
 YOL_PARCALI = re.compile(r"(?:[\w.-]+[\\/])+[\w-]+\.[A-Za-z0-9]{1,5}\b")
 URL = re.compile(r"https?://|www\.", re.I)
 
