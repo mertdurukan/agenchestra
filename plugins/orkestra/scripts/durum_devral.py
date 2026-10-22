@@ -176,6 +176,14 @@ def uygula(kaynak: str, hedef: str, plan: dict, simdi: str | None = None) -> dic
             if plan["sayac"]:
                 veri["sayac"] = max(int(veri.get("sayac", 0) or 0), plan["sayac"])
             L.atomik_yaz(h_is_yol, json.dumps(veri, ensure_ascii=False, indent=2))
+    if plan.get("gorulen"):
+        g_yol = os.path.join(hedef, "onaylar", GORULEN)
+        os.makedirs(os.path.dirname(g_yol), exist_ok=True)
+        with L.kilit(g_yol):
+            g = _oku_json(g_yol, {})
+            for k, v in plan["gorulen"].items():
+                g.setdefault(k, v)
+            L.atomik_yaz(g_yol, json.dumps(g, ensure_ascii=False, indent=2))
     for klasor, ad in plan["dosyalar"]:
         os.makedirs(os.path.join(hedef, klasor), exist_ok=True)
         shutil.copy2(os.path.join(kaynak, klasor, ad), os.path.join(hedef, klasor, ad))
