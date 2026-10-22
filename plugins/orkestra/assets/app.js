@@ -104,13 +104,43 @@
   const simge = ad => ham(`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${S[ad] || ''}</svg>`);
 
   // ================================================================ 2. Veri
+  // V.alan: seçili çalışma alanı kimliği ya da TUM ('Tüm çalışma alanları', ADR-0030). Birleşik kipte sunucu orkestralı alanları
+  // birleştirir ve her kayda alan:{id,ad} ekler; iş/kart ayrıntısı ve yazma kaydın kendi alanıyla gider.
+  const TUM = '*';
   const V = { alan: '', alanlar: [], onbellek: new Map(), sonBasari: 0 };
-  const urlAl = yol => yol + (yol.includes('?') ? '&' : '?') + 'alan=' + enc(V.alan);
+  const tumMu = () => V.alan === TUM;
+  const TEK_ALAN_YOL = /^\/(teknik\.json\?(?:.*&)?(?:is|kart|ret)=|api\/todo)/;   // sunucuda tek alan ister (liste kipi birleşir)
+  const orkAlanlar = () => V.alanlar.filter(a => a.orkestra);
+  const alanAd = id => (V.alanlar.find(a => a.id === id) || {}).ad || id;
+  // son seçilen gerçek alan: klasik sayfalar birleşik kipi bilmez, bağlantıları buna gider
+  const gercekAlan = () => { const k = depo.al('orkestra.alan'); return tumMu() ? (orkAlanlar().find(a => a.id === k) || orkAlanlar()[0] || {}).id || '' : V.alan; };
+  // birleşik kipte rota alanı: ?alan= ya da yüklü listelerde kimliğin tek bir alanda geçtiği yer
+  function rotaAlani(r) {
+    if (!tumMu()) return V.alan;
+    const a = r.q.get('alan');
+    if (a) return a;
+    const liste = r.ad === 'isler' ? (d('/isler.json').veri?.isler || [])
+      : r.ad === 'kart' ? [...(d('/ozet.json').veri?.kartlar || []), ...(d('/analitik.json').veri?.akis?.kartlar || [])] : [];
+    const alanlar = new Set(liste.filter(x => x.id === r.id && x.alan).map(x => x.alan.id));
+    return alanlar.size === 1 ? [...alanlar][0] : '';
+  }
+  const alanAl = yol => tumMu() && TEK_ALAN_YOL.test(yol) ? rotaAlani(rota()) : V.alan;
+  const urlAl = (yol, alan) => yol + (yol.includes('?') ? '&' : '?') + 'alan=' + enc(alan || alanAl(yol));
+  // bağlantıya kaydın alanı eklenir (yalnız birleşik kipte); q verilirse mevcut süzgeçler korunur, eski alan düşer
+  const ek = (q, o) => {
+    const c = new URLSearchParams(q || ''); c.delete('alan');
+    if (tumMu() && o?.alan?.id) c.set('alan', o.alan.id);
+    const t = c.toString(); return t ? '?' + t : '';
+  };
+  const alanRozeti = o => tumMu() && o?.alan?.ad ? H`<span class="etiket alan-rozet" title="Çalışma alanı: ${o.alan.ad}">${o.alan.ad}</span>` : '';
+  const altAlan = o => (o?.alan?.id || '') + '|' + (o?.id || '');   // kimlikler alanlar arasında çakışabilir
   const imzasi = v => { try { const k = { ...v }; delete k.uretim; return JSON.stringify(k); } catch (e) { return Math.random() + ''; } };
 
+  const anahtar = yol => alanAl(yol) + '|' + yol;   // iş/kart ayrıntısı aynı kimlikle iki alanda çakışmasın
   function kayit(yol) {
-    if (!V.onbellek.has(yol)) V.onbellek.set(yol, { veri: null, hata: null, zaman: 0, imza: '', istek: null });
-    return V.onbellek.get(yol);
+    const a = anahtar(yol);
+    if (!V.onbellek.has(a)) V.onbellek.set(a, { veri: null, hata: null, zaman: 0, imza: '', istek: null });
+    return V.onbellek.get(a);
   }
   async function getir(yol, { taze = false } = {}) {
     const k = kayit(yol);
@@ -120,6 +150,7 @@
       const ctl = new AbortController();
       const zs = setTimeout(() => ctl.abort(), 30000);
       try {
+        if (!alanAl(yol)) throw new Error('Bu ayrıntı için çalışma alanı gerekir; bağlantıda alan yok ve kimlik tek bir alanda bulunamadı.');
         const r = await fetch(urlAl(yol), { signal: ctl.signal });
         const v = await r.json().catch(() => null);
         if (!r.ok || !v) throw new Error((v && v.hata) || 'HTTP ' + r.status);
@@ -127,7 +158,7 @@
         const degisti = imza !== k.imza;
         Object.assign(k, { veri: v, hata: null, zaman: Date.now(), imza });
         V.sonBasari = Date.now();
-        if (degisti) planla();
+        if (degisti) { eksikleriGetir(); planla(); }
         return v;
       } catch (e) {
         k.hata = e.name === 'AbortError' ? 'Zaman aşımı (30 sn)' : (e.message || String(e));
@@ -138,12 +169,14 @@
     return k.istek;
   }
   const d = yol => kayit(yol);
+  // liste yüklenince (ör. kimlikten alan çözülünce) henüz istenmemiş ayrıntı verisini getirir
+  function eksikleriGetir() { gerekler(rota()).forEach(y => { const k = kayit(y); if (!k.veri && !k.istek && !k.hata && alanAl(y)) getir(y); }); }
   const tazele = (taze = false) => gerekler(rota()).concat(TEMEL).forEach(y => getir(y, { taze }));
   const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json'];
   const YAP_YOL = '/api/kullanici-todo';
 
-  async function gonder(yol, govde) {
-    const r = await fetch(urlAl(yol), { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde || {}) });
+  async function gonder(yol, govde, alan) {
+    const r = await fetch(urlAl(yol, alan), { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde || {}) });
     const v = await r.json().catch(() => null);
     if (!r.ok || !v || v.tamam === false) throw new Error((v && v.hata) || 'HTTP ' + r.status);
     return v;
@@ -276,9 +309,10 @@
   }
   const ilerleme = (oran, renk) => H`<div class="ilerleme"><i style="width:${Math.max(0, Math.min(1, oran || 0)) * 100}%;${renk ? `--renk:${renk}` : ''}"></i></div>`;
   const karo = (ad, deger, alt, href) => H`<div class="karo"><span class="ad">${ad}</span><span class="deger">${deger}</span>${alt ? (href ? H`<a class="alt" href="${href}">${alt}</a>` : H`<span class="alt">${alt}</span>`) : ''}</div>`;
-  const kartBilgi = id => {
-    const a = (d('/analitik.json').veri?.akis?.kartlar || []).find(k => k.id === id);
-    const o = (d('/ozet.json').veri?.kartlar || []).find(k => k.id === id);
+  const kartBilgi = (id, alan) => {
+    const es = k => k.id === id && (!tumMu() || !alan || k.alan?.id === alan);
+    const a = (d('/analitik.json').veri?.akis?.kartlar || []).find(es);
+    const o = (d('/ozet.json').veri?.kartlar || []).find(es);
     return { ...(a || {}), ...(o || {}) };
   };
 
@@ -294,11 +328,15 @@
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
     const g = { karar: [], sohbet: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
     if (on && on.acik !== false) {
-      (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(k.id)).forEach(k => g.karar.push({ tur: 'onay', k }));
-      if (on.sayac?.uygulanacak > 0) g.karar.push({ tur: 'uygula', n: on.sayac.uygulanacak });
+      (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(altAlan(k))).forEach(k => g.karar.push({ tur: 'onay', k }));
+      // uygulama ve perspektif eylemleri çalışma alanına özeldir: birleşik kipte her alan kendi satırını alır
+      const ozetler = tumMu() ? (on.alan_ozetleri || []) : [{ alan: null, sayac: on.sayac, perspektif: on.perspektif }];
+      ozetler.forEach(o => { if (o.sayac?.uygulanacak > 0) g.karar.push({ tur: 'uygula', n: o.sayac.uygulanacak, alan: o.alan }); });
       (on.kayitlar || []).filter(k => k.etki?.soru_bekliyor).forEach(k => g.karar.push({ tur: 'etki', k }));
-      const pd = on.perspektif?.durum;   // perspektif elle başlar (ADR-0026): zamanı gelince burada görünür
-      if (pd?.zamani_geldi && !pd.calisiyor) g.karar.push({ tur: 'perspektif', d: pd });
+      ozetler.forEach(o => {   // perspektif elle başlar (ADR-0026): zamanı gelince burada görünür
+        const pd = o.perspektif?.durum;
+        if (pd?.zamani_geldi && !pd.calisiyor) g.karar.push({ tur: 'perspektif', d: pd, alan: o.alan });
+      });
     }
     if (sm) (sm.oturumlar || []).filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => g.sohbet.push({ tur: 'sohbet', o }));
     if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => (k.durum === 'onaylandi' ? g.teslim : k.sahip_arsivli ? g.sahipsiz : g.kart).push({ tur: 'kart', k }));   // I-145: onaylı = teslim bekliyor; sahibi arşivli = sahipsiz
@@ -316,27 +354,27 @@
       const k = o.k, sec = Array.isArray(k.secenekler) ? k.secenekler : [];
       return H`<article class="oge" data-gez data-onay="${k.id}" style="--renk:var(--vurgu)">
         <div class="simge">${simge('onay')}</div>
-        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.tur}</span></div>
+        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.tur}</span>${alanRozeti(k)}</div>
           <div class="baslik">${k.baslik}</div>
           ${k.metin && k.metin !== k.baslik ? H`<div class="metin">${k.metin}</div>` : ''}
           ${k.vaat?.metin ? H`<div class="meta">Beklenen etki: ${k.vaat.metin}</div>` : ''}
           <div class="meta">${B.goreli(k.olusturma)}</div></div>
         <div class="eylemler">${sec.length
-          ? H`<div class="secenekler">${sec.map(s => H`<button class="dugme kucuk" data-eylem="karar" data-id="${k.id}" data-sonuc="onay" data-secim="${s}">${s}</button>`)}</div>`
-          : H`<button class="dugme ana-d kucuk" data-eylem="karar" data-id="${k.id}" data-sonuc="onay" title="Onayla (a)">Onayla</button>`}
-          <button class="dugme kucuk tehlike" data-eylem="karar" data-id="${k.id}" data-sonuc="ret" title="Reddet (r)">Reddet</button></div>
+          ? H`<div class="secenekler">${sec.map(s => H`<button class="dugme kucuk" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="onay" data-secim="${s}">${s}</button>`)}</div>`
+          : H`<button class="dugme ana-d kucuk" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="onay" title="Onayla (a)">Onayla</button>`}
+          <button class="dugme kucuk tehlike" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="ret" title="Reddet (r)">Reddet</button></div>
       </article>`;
     }
     if (o.tur === 'uygula') return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
         <div class="simge">${simge('oynat')}</div>
-        <div class="govde"><div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
+        <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
           <div class="metin">Uygulama Claude'da yeni bir sohbet açar ve kararları işler.</div></div>
-        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula">Şimdi uygula</button></div></article>`;
+        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula" data-alan="${o.alan?.id || ''}">Şimdi uygula</button></div></article>`;
     if (o.tur === 'perspektif') {
       const pd = o.d, gecen = pd.gun_once == null ? 'Perspektif hiç çalışmadı' : `Perspektif ${pd.gun_once} gündür çalışmadı`;
       return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
         <div class="simge">${simge('oynat')}</div>
-        <div class="govde"><div class="baslik">${gecen}</div>
+        <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${gecen}</div>
           <div class="metin">Son koşudan beri ${B.sayi(pd.oturum_sayaci)} oturum geçti. Perspektif hafıza bakımı ve skill avı yapar; Claude'da yeni bir sohbet açar.</div></div>
         <div class="eylemler"><button class="dugme kucuk" data-eylem="perspektif-yoksay" data-alan="${o.alan?.id || ''}" title="Bir sonraki tetiklemeye kadar sorma">Yoksay</button> <button class="dugme ana-d kucuk" data-eylem="perspektif" data-alan="${o.alan?.id || ''}">Perspektifi başlat</button></div></article>`;
     }
@@ -346,9 +384,9 @@
           <div class="metin">Son 24 saatte ${B.sayi(o.n)} ana ajan çağrısı 5 dakikalık katmana yazdı. 5 dakikayı aşan her duraksama bağlamı yeniden yazdırır; 1 saatlik katman beklenir.</div></div></article>`;
     if (o.tur === 'etki') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
         <div class="simge">${simge('goz')}</div>
-        <div class="govde"><div class="yatay"><span class="kimlik">${o.k.id}</span></div><div class="baslik">Etki ölçümü kararını bekliyor</div>
+        <div class="govde"><div class="yatay"><span class="kimlik">${o.k.id}</span>${alanRozeti(o.k)}</div><div class="baslik">Etki ölçümü kararını bekliyor</div>
           <div class="metin">${o.k.baslik}</div></div>
-        <div class="eylemler"><a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#etki">Yanıtla</a></div></article>`;
+        <div class="eylemler"><a class="dugme kucuk" href="/onaylar?alan=${enc(o.k.alan?.id || V.alan)}#etki">Yanıtla</a></div></article>`;
     if (o.tur === 'sohbet') {
       const s = o.o;
       return H`<article class="oge" data-gez style="--renk:var(--uyari)">
@@ -365,10 +403,10 @@
         : k.sahip_arsivli ? 'sahibi arşivli sohbet' + (k.is ? '; yeni oturumda: orkestra is devam ' + k.is : '') : '';
       return H`<article class="oge" data-gez${sohbet ? H` data-oturum="${sohbet}" data-ad="${k.baslik}" style="--renk:var(--uyari);cursor:pointer" title="Tıkla: kartı başlatan sohbeti aç"` : H` style="--renk:var(--uyari)"`}>
         <div class="simge">${simge('kart')}</div>
-        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.basamak || ''}</span>${rozet(k.durum)}</div>
+        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.basamak || ''}</span>${rozet(k.durum)}${alanRozeti(k)}</div>
           <div class="baslik">${k.baslik}</div>
           <div class="meta"><span>${eski >= 1 ? Math.round(eski) + ' gündür hareketsiz' : 'son hareket ' + B.goreli(k.guncelleme)}</span><span>·</span><span>${k.isci ?? 0} işçi çağrısı</span><span>·</span><span>${B.paraP(k)}</span>${ipucu ? H`<span>·</span><span>${ipucu}</span>` : ''}</div></div>
-        <div class="eylemler">${sohbet ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${sohbet}" data-ad="${k.baslik}" data-birincil>Sohbeti aç</button>` : ''}<a class="dugme kucuk" href="#/kart/${enc(k.id)}"${sohbet ? '' : ' data-birincil'}>İzi aç</a></div></article>`;
+        <div class="eylemler">${sohbet ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${sohbet}" data-ad="${k.baslik}" data-birincil>Sohbeti aç</button>` : ''}<a class="dugme kucuk" href="#/kart/${enc(k.id)}${ek('', k)}"${sohbet ? '' : ' data-birincil'}>İzi aç</a></div></article>`;
     }
     if (o.tur === 'olcu') {
       const [ad, f] = OLCU_AD[o.ad] || [o.ad, x => B.sayi(x, 2)];
@@ -400,10 +438,10 @@
     const govde = yuk || (toplam === 0
       ? bos('Gelen kutusu boş', 'Senden beklenen bir karar, yanıt ya da müdahale yok.')
       : H`${grup('Karar ver', g.karar)}${grup('Seni bekleyen sohbetler', g.sohbet)}${grup('Teslim bekleyen kartlar', g.teslim)}${grup('Sahipsiz kartlar', g.sahipsiz)}${grup('Takılan kartlar', g.kart)}${grup('Hedef dışı ölçüler', g.olcu)}`);
+    const not = tumMu() ? H`<p class="birlesik-not">Hedef dışı ölçüler (oran ve hedef panoları) toplanamaz; tek bir çalışma alanı seçince görünür.</p>` : '';
     return {
       baslik: 'Gelen kutusu',
-      sag: H`<span class="soluk kucuk-y ipucu-kisayol"><kbd>j</kbd> <kbd>k</kbd> gez · <kbd>a</kbd> onayla · <kbd>r</kbd> reddet</span>`,
-      govde: H`<div class="icerik yigin" style="max-width:920px">${ust}${govde}</div>`,
+      govde: H`<div class="icerik yigin" style="max-width:920px">${ust}${govde}${not}</div>`,
     };
   }
 
@@ -415,13 +453,14 @@
     const yuk = bekle('/isler.json');
     const tum = d('/isler.json').veri?.isler || [];
     const say = { acik: tum.filter(i => i.durum === 'acik').length, kapandi: tum.filter(i => i.durum === 'kapandi').length, tum: tum.length };
-    const liste = tum.filter(i => (f === 'tum' || i.durum === f) && (!q || eslesir(i.id + ' ' + i.ad, q)));
-    const sorgu = sorguEk(r.q);
+    const liste = tum.filter(i => (f === 'tum' || i.durum === f) && (!q || eslesir(i.id + ' ' + i.ad + ' ' + (i.alan?.ad || ''), q)));
+    const sorgu = ek(r.q);   // alan süzgeçlerle taşınmaz; her satır kendi alanını ekler
+    const secili = i => i.id === r.id && (!tumMu() || i.alan?.id === rotaAlani(r));
     const satirlar = yuk || (liste.length ? H`<div class="liste" role="listbox" aria-label="İşler">${liste.map(i => {
       const t = i.ilerleme?.toplam || 0, b = i.ilerleme?.biten || 0, surer = (i.kovalar?.simdi || []).length > 0;
-      return H`<a class="satir-l" role="option" data-gez href="#/is/${enc(i.id)}${sorgu}" aria-selected="${i.id === r.id}">
+      return H`<a class="satir-l" role="option" data-gez href="#/is/${enc(i.id)}${ek(r.q, i)}" aria-selected="${secili(i)}">
         <span class="nokta" style="--renk:${i.durum === 'kapandi' ? 'var(--notr)' : surer ? 'var(--bilgi)' : 'var(--vurgu)'}"></span>
-        <span class="kimlik">${i.id}</span><span class="ad" title="${i.ad}">${i.ad}</span>
+        <span class="kimlik">${i.id}</span>${alanRozeti(i)}<span class="ad" title="${i.ad}">${i.ad}</span>
         <span class="sag">${t ? H`<span class="mini-ilerleme">${ilerleme(b / t, i.durum === 'kapandi' ? 'var(--notr)' : '')}</span>` : ''}<span>${B.paraP(i)}</span><span style="min-width:62px;text-align:right">${B.goreli(i.son)}</span></span></a>`;
     })}</div>` : bos('Eşleşen iş yok', q ? `“${q}” için sonuç yok.` : 'Bu süzgeçte iş yok.', 'ara'));
     const sol = H`<div class="liste-yan" id="isListe" data-kaydir>
@@ -429,7 +468,7 @@
         H`<button class="cip" data-eylem="sorgu" data-k="f" data-v="${k}" aria-pressed="${f === k}">${ad}<span class="say">${say[k]}</span></button>`)}
         <input class="arama" id="isAra" type="search" placeholder="İş ara…  /" value="${q}" data-sorgu="q" aria-label="İş ara"></div>
       ${satirlar}</div>`;
-    const sag = H`<section class="ayrinti">${r.id ? isAyrinti(r.id, tum.find(i => i.id === r.id)) : bos('Bir iş seç', 'Soldan bir iş seç ya da <j>/<k> ile gez, Enter ile aç.', 'isler')}</section>`;
+    const sag = H`<section class="ayrinti">${r.id ? isAyrinti(r.id, tum.find(secili)) : bos('Bir iş seç', 'Soldan bir iş seç ya da <j>/<k> ile gez, Enter ile aç.', 'isler')}</section>`;
     return {
       baslik: 'İşler', yol: r.id ? H`<a href="#/isler${sorgu}">İşler</a> / <span class="kimlik">${r.id}</span>` : null,
       govde: H`<div class="bolunmus${r.id ? ' secili' : ''}">${sol}${sag}</div>`, tam: true,
@@ -444,14 +483,14 @@
     const kovalar = H`<div class="kovalar">${KOVA.filter(([k]) => (i.kovalar?.[k] || []).length).map(([k, ad, renk]) => {
       const l = i.kovalar[k];
       const oge = e => e.tur === 'kart'
-        ? H`<a class="k" href="#/kart/${enc(e.kart)}"><span class="yatay"><span class="kimlik">${e.kart}</span>${e.basamak ? H`<span class="etiket">${e.basamak}</span>` : ''}<span class="soluk kucuk-y" style="margin-left:auto">${B.paraP(e)}</span></span><span>${kisalt(e.metin, 120)}</span></a>`
+        ? H`<a class="k" href="#/kart/${enc(e.kart)}${ek('', i)}"><span class="yatay"><span class="kimlik">${e.kart}</span>${e.basamak ? H`<span class="etiket">${e.basamak}</span>` : ''}<span class="soluk kucuk-y" style="margin-left:auto">${B.paraP(e)}</span></span><span>${kisalt(e.metin, 120)}</span></a>`
         : H`<div class="k"><span>${kisalt(e.metin, 160)}</span>${e.bolum ? H`<span class="soluk kucuk-y">${e.bolum}</span>` : ''}</div>`;
       return H`<div class="kova"><h3><span class="nokta" style="--renk:${renk}"></span>${ad}<span class="soluk">${l.length}</span></h3>
         ${l.slice(0, 6).map(oge)}${l.length > 6 ? H`<details class="ac"><summary>${l.length - 6} daha</summary><div class="yigin sik" style="margin-top:6px">${l.slice(6).map(oge)}</div></details>` : ''}</div>`;
     })}</div>`;
     const kartTablo = tk.hata && !tk.veri ? hataKutu(tk.hata, `/teknik.json?is=${enc(id)}`) : !tk.veri ? iskelet(3, 32) : kartlar.length ? H`<div class="tablo-kap"><table class="tablo">
       <thead><tr><th>Kart</th><th>Başlık</th><th class="gizle-dar">Sınıf</th><th>Basamak</th><th>Durum</th><th class="gizle-dar">Denetim</th><th class="sayi gizle-dar">Süre</th><th class="sayi">${B.birim()}</th></tr></thead>
-      <tbody>${kartlar.map(k => H`<tr class="tik" data-git="#/kart/${enc(k.id)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td>
+      <tbody>${kartlar.map(k => H`<tr class="tik" data-git="#/kart/${enc(k.id)}${ek('', i)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td>
         <td class="gizle-dar soluk">${k.sinif || '–'}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
         <td class="gizle-dar">${k.denetim ? rozet(k.denetim) : H`<span class="soluk">–</span>`}</td><td class="sayi gizle-dar">${B.sure(k.sure)}</td><td class="sayi">${B.paraP(k)}</td></tr>`)}</tbody></table></div>`
       : H`<p class="soluk" style="padding:0 var(--a4) var(--a3)">Bu işte kart yok.</p>`;
@@ -460,7 +499,7 @@
       ${bitenM.length ? H`<details class="ac" style="margin-top:8px"><summary>${bitenM.length} biten madde</summary><ul class="todo" style="margin-top:6px">${bitenM.map(m => H`<li class="bitti"><span class="kutu"></span><span>${m}</span></li>`)}</ul></details>` : ''}`
       : H`<p class="soluk">Todo yok.</p>`) : td.hata ? hataKutu(td.hata) : iskelet(3, 18);
     return H`<div class="yigin">
-      <div class="yigin sik"><div class="yatay"><span class="kimlik">${i.id}</span>${rozet(i.durum)}${(i.kovalar?.simdi || []).length ? rozet('suruyor') : ''}</div>
+      <div class="yigin sik"><div class="yatay"><span class="kimlik">${i.id}</span>${alanRozeti(i)}${rozet(i.durum)}${(i.kovalar?.simdi || []).length ? rozet('suruyor') : ''}</div>
         <h1>${i.ad}</h1>
         ${i.klasor ? H`<div class="yatay soluk kucuk-y"><code title="${i.klasor}">${yolKisa(i.klasor)}</code><button class="dugme hayalet kucuk" data-eylem="kopyala" data-metin="${i.klasor}">Yolu kopyala</button></div>` : ''}</div>
       <div class="karolar">${karo('İlerleme', t ? B.yuzde(b / t) : '–', t ? H`${b} / ${t} madde` : 'madde yok')}
@@ -483,7 +522,7 @@
     let l = (an?.akis?.kartlar || []).filter(k => (k.penceresi || []).includes(p));
     const basamaklar = [...new Set(l.map(k => k.basamak).filter(Boolean))].sort();
     const durumlar = [...new Set(l.map(k => k.durum).filter(Boolean))].sort();
-    l = l.filter(k => (!bs || k.basamak === bs) && (!du || k.durum === du) && (!q || eslesir(k.id + ' ' + k.baslik, q)));
+    l = l.filter(k => (!bs || k.basamak === bs) && (!du || k.durum === du) && (!q || eslesir(k.id + ' ' + k.baslik + ' ' + (k.alan?.ad || ''), q)));
     const sirala = { yeni: (a, b) => String(b.olusturma).localeCompare(String(a.olusturma)), sure: (a, b) => (b.toplam_dk || 0) - (a.toplam_dk || 0), kuyruk: (a, b) => (b.kuyruk_dk || 0) - (a.kuyruk_dk || 0) };
     l.sort(sirala[s] || sirala.yeni);
     const mx = Math.max(1, ...l.map(k => k.toplam_dk || 0));
@@ -504,7 +543,7 @@
         <div class="tablo-kap"><table class="tablo"><thead><tr><th>Kart</th><th>Başlık</th><th>Basamak</th><th>Durum</th><th>Süre dağılımı</th><th class="sayi">Toplam</th><th class="sayi gizle-dar">${B.birim()}</th><th class="gizle-dar gizle-orta">Oluşturma</th></tr></thead>
         <tbody>${l.slice(0, 300).map(k => {
           const w = x => ((x || 0) / mx * 120).toFixed(1);
-          return H`<tr class="tik" data-gez data-git="#/kart/${enc(k.id)}"><td><span class="kimlik">${k.id}</span></td><td class="kirp" title="${k.baslik}">${k.baslik}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
+          return H`<tr class="tik" data-gez data-git="#/kart/${enc(k.id)}${ek('', k)}"><td><span class="kimlik">${k.id}</span>${alanRozeti(k)}</td><td class="kirp" title="${k.baslik}">${k.baslik}</td><td><span class="etiket">${k.basamak || '–'}</span></td><td>${rozet(k.durum)}</td>
             <td><span class="mini-serit" title="Kuyruk ${B.sure(k.kuyruk_dk * 60)} · İş ${B.sure(k.is_dk * 60)} · Denetim ${B.sure(k.denetim_toplam_dk * 60)} · Turlar arası ${B.sure(ara(k) * 60)}"><i style="width:${w(k.kuyruk_dk)}px;background:var(--seri-5)"></i><i style="width:${w(k.is_dk)}px;background:var(--seri-1)"></i><i style="width:${w(k.denetim_toplam_dk)}px;background:var(--seri-3)"></i><i style="width:${w(ara(k))}px;background:var(--cizgi-guclu)"></i></span></td>
             <td class="sayi">${B.sure((k.toplam_dk || 0) * 60)}</td><td class="sayi gizle-dar">${B.paraP(k)}</td><td class="gizle-dar gizle-orta soluk">${B.tarih(k.olusturma)}</td></tr>`;
         })}</tbody></table></div>
@@ -522,7 +561,9 @@
     const yol = `/teknik.json?kart=${enc(r.id)}`;
     const yuk = bekle(yol);
     const t = d(yol).veri || {};
-    const bilgi = kartBilgi(r.id);
+    const kAlan = rotaAlani(r);
+    const kObj = tumMu() && kAlan ? { alan: { id: kAlan, ad: alanAd(kAlan) } } : null;
+    const bilgi = kartBilgi(r.id, kAlan);
     const ms = t.maliyet_sure || {}, sr = ms.sureler || {};
     const dg = t.dogrulama || {};
     const denetimler = dg.denetimler || [], testler = dg.test_kosulari || [], onk = dg.onkontrol_kosulari || [];
@@ -552,7 +593,7 @@
     </ol>`;
     const ders = t.ogrenilen?.ret_dersleri || [], risk = t.ogrenilen?.riskler || [];
     const govde = yuk || H`<div class="yigin">
-      <div class="yigin sik"><div class="yatay"><span class="kimlik">${r.id}</span>${t.ne?.sinif && t.ne.sinif !== '-' ? H`<span class="etiket">${t.ne.sinif}</span>` : ''}${durum ? rozet(durum) : ''}${isId ? H`<a class="baglanti kucuk-y" href="#/is/${enc(isId)}">${isId} işine git →</a>` : ''}</div>
+      <div class="yigin sik"><div class="yatay"><span class="kimlik">${r.id}</span>${alanRozeti(kObj)}${t.ne?.sinif && t.ne.sinif !== '-' ? H`<span class="etiket">${t.ne.sinif}</span>` : ''}${durum ? rozet(durum) : ''}${isId ? H`<a class="baglanti kucuk-y" href="#/is/${enc(isId)}${ek('', kObj)}">${isId} işine git →</a>` : ''}</div>
         <h1>${t.ne?.baslik || bilgi.baslik || r.id}</h1></div>
       <div class="karolar">${karo('Toplam süre', B.sure(topSure), 'kuyruk + iş + denetim')}${karo('Maliyet', B.para(ms.toplam_usd, ms.toplam_token), `${(ms.maliyet || []).length} ajan koşusu`)}
         ${karo('Denetim', `${denetimler.length}`, retS ? `${retS} ret` : 'ret yok')}${karo('Değişen dosya', B.sayi(dosyalar.length), dosyalar.length ? `+${dosyalar.reduce((a, f) => a + (f.ekle || 0), 0)} −${dosyalar.reduce((a, f) => a + (f.sil || 0), 0)} satır` : '–')}</div>
@@ -570,7 +611,7 @@
     </div>`;
     return {
       baslik: r.id, yol: H`${isId ? H`<a href="#/is/${enc(isId)}">${isId}</a> / ` : H`<a href="#/kosular">Koşular</a> / `}<span class="kimlik">${r.id}</span>`,
-      sag: H`${bilgi.oturum ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${bilgi.oturum}" data-ad="${bilgi.baslik || r.id}">Sohbeti aç</button> ` : ''}<a class="dugme hayalet kucuk" href="/teknik?alan=${enc(V.alan)}&is=${enc(isId || '')}&kart=${enc(r.id)}">Klasik teknik görünüm</a>`,
+      sag: H`${bilgi.oturum ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${bilgi.oturum}" data-ad="${bilgi.baslik || r.id}">Sohbeti aç</button> ` : ''}<a class="dugme hayalet kucuk" href="/teknik?alan=${enc(kAlan || gercekAlan())}&is=${enc(isId || '')}&kart=${enc(r.id)}">Klasik teknik görünüm</a>`,
       govde: H`<div class="icerik">${govde}</div>`,
     };
   }
@@ -660,14 +701,18 @@
     const onc = pw.onceki, fark = onc && birimDeger(onc) ? birimDeger(pw) / birimDeger(onc) - 1 : null;
     const bu = ap.birim || {};
     const bos0 = `${ad} içinde harcama yok.`;
+    const tm = tumMu();
+    const eksikAy = (ay.tahmin_eksik_alanlar || []).join(', ');
+    const hedefler = tm ? H`<p class="birlesik-not">Hedefler, oranlar ve basamak verimi toplanamaz; tek bir çalışma alanı seçince görünür. Harcama, model, süreç ve en pahalı kartlar tüm orkestralı alanlar için toplanmıştır.</p>`
+      : H`<section><div class="bolum-bas"><h2>Hedefler</h2><span class="aciklama">işaret = değer, kesik çizgi = hedef, yeşil bölge = kabul edilen aralık</span><span class="bosluk"></span><span class="soluk kucuk-y">${ad}</span></div>
+        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [adi, f]]) => gosterge(adi, olc[k]?.[p], f, { asgari: hp.asgari_ornek?.[k], usd: k === 'ana_ajan_payi', kayan: k === 'ret_orani' ? hp.ret_son_kararlar : null }))}</div></section>`;
     const govde = yuk || H`
       <div class="karolar">${karo('Harcama · ' + ad, B.para(pw.usd, pw.token), fark == null ? 'önceki dönem verisi yok' : `${fark >= 0 ? '↑' : '↓'} ${B.yuzde(Math.abs(fark))} önceki döneme göre`)}
         ${karo('Günlük ortalama', pw.gun ? B.para(pw.usd / pw.gun, pw.token / pw.gun) : '–', pw.gun ? `${B.sayi(pw.gun)} günlük veri` : '')}
-        ${karo('Ay sonu tahmini', ay.tahmin_yeterli ? B.para(ay.tahmin_ort, ay.token?.tahmin_ort) : '–', ay.tahmin_yeterli ? 'pencereden bağımsız' : `${ay.veri_gun ?? '–'} günlük veri`)}
-        ${karo('Kart başı (medyan)', B.para(bu.kart_medyan, bu.kart_medyan_token), `ortalama ${B.para(bu.kart_basi, bu.kart_basi_token)} · ${B.sayi(bu.teslim_kart)} teslim`)}
-        ${karo('Önlenebilir israf', B.para(israf?.onlenebilir_usd, israf?.onlenebilir_token), `${ad} · ret kaynaklı`)}</div>
-      <section><div class="bolum-bas"><h2>Hedefler</h2><span class="aciklama">işaret = değer, kesik çizgi = hedef, yeşil bölge = kabul edilen aralık</span><span class="bosluk"></span><span class="soluk kucuk-y">${ad}</span></div>
-        <div class="karolar" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${Object.entries(OLCU_AD).map(([k, [adi, f]]) => gosterge(adi, olc[k]?.[p], f, { asgari: hp.asgari_ornek?.[k], usd: k === 'ana_ajan_payi', kayan: k === 'ret_orani' ? hp.ret_son_kararlar : null }))}</div></section>
+        ${karo('Ay sonu tahmini', ay.tahmin_yeterli ? B.para(ay.tahmin_ort, ay.token?.tahmin_ort) : '–', ay.tahmin_yeterli ? (eksikAy ? `yalnız veri yeten alanlar; eksik: ${eksikAy}` : 'pencereden bağımsız') : `${ay.veri_gun ?? '–'} günlük veri`)}
+        ${karo('Kart başı (medyan)', tm ? '–' : B.para(bu.kart_medyan, bu.kart_medyan_token), tm ? `${B.sayi(bu.teslim_kart)} teslim · oran toplanamaz` : `ortalama ${B.para(bu.kart_basi, bu.kart_basi_token)} · ${B.sayi(bu.teslim_kart)} teslim`)}
+        ${karo('Önlenebilir israf', tm ? '–' : B.para(israf?.onlenebilir_usd, israf?.onlenebilir_token), tm ? 'alan başına görünür' : `${ad} · ret kaynaklı`)}</div>
+      ${hedefler}
       <section class="kart"><div class="kart-bas"><h2>${p === 'bugun' ? 'Saatlik' : 'Günlük'} harcama</h2><span class="soluk kucuk-y">${ad} · modele göre, ${B.birim()}</span></div><div class="kart-ic">${dilimGrafik(dilim, modelRenk, p === 'bugun', ad)}</div></section>
       <div class="izgara iki">
         <section class="kart"><div class="kart-bas"><h2>Model</h2><span class="soluk kucuk-y">${ad}</span></div><div class="kart-ic">${modelL.length ? modelL.map(([m, v], j) => H`<div class="cubuk-l"><span>${m}</span><span class="yol"><i style="width:${(v / mx(modelL) * 100).toFixed(1)}%;--renk:${modelRenk[m] || MODEL_RENK[j % MODEL_RENK.length]}"></i></span><span class="d">${B.para(v, v)}</span></div>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
@@ -675,11 +720,11 @@
       </div>
       ${onbellekKarti(an.onbellek)}
       <div class="izgara iki" style="align-items:start">
-        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">${ad} · tıkla: koşu izi</span></div><div class="kart-ic">${pahali.length ? pahali.map(([id, v]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}" data-gez><span class="kimlik">${id}</span><span class="yol"><i style="width:${(v / mx(pahali) * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.para(v, v)}</span></a>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
-        <section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2><span class="soluk kucuk-y">${ad} içinde oluşan kartlar</span></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
-          <tbody>${(ap.basamak || []).map(s => H`<tr><td><span class="etiket">${s.basamak}</span></td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.yuzde(s.ilk_gecis_orani)}</td><td class="sayi" style="${s.ret_orani > 0.15 ? 'color:var(--kotu)' : ''}">${B.yuzde(s.ret_orani)}</td><td class="sayi">${B.para(s.kart_basi_usd, s.kart_basi_token)}</td></tr>`)}</tbody></table></div></section>
+        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">${ad} · tıkla: koşu izi</span></div><div class="kart-ic">${pahali.length ? pahali.map(([id, v, alanId]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}${ek('', alanId ? { alan: { id: alanId } } : null)}" data-gez><span class="kimlik">${id}</span>${tm && alanId ? H`<span class="etiket alan-rozet">${alanAd(alanId)}</span>` : ''}<span class="yol"><i style="width:${(v / mx(pahali) * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.para(v, v)}</span></a>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
+        ${tm ? '' : H`<section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2><span class="soluk kucuk-y">${ad} içinde oluşan kartlar</span></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
+          <tbody>${(ap.basamak || []).map(s => H`<tr><td><span class="etiket">${s.basamak}</span></td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.yuzde(s.ilk_gecis_orani)}</td><td class="sayi" style="${s.ret_orani > 0.15 ? 'color:var(--kotu)' : ''}">${B.yuzde(s.ret_orani)}</td><td class="sayi">${B.para(s.kart_basi_usd, s.kart_basi_token)}</td></tr>`)}</tbody></table></div></section>`}
       </div>`;
-    return { baslik: 'Maliyet', sag: H`<a class="dugme hayalet kucuk" href="/maliyet?alan=${enc(V.alan)}">Ayrıntılı analiz</a>`, govde: H`<div class="icerik yigin">${govde}</div>` };
+    return { baslik: 'Maliyet', sag: H`<a class="dugme hayalet kucuk" href="/maliyet?alan=${enc(gercekAlan())}">Ayrıntılı analiz</a>`, govde: H`<div class="icerik yigin">${govde}</div>` };
   }
 
   // ================================================================ 10. Görünüm: Kurallar
@@ -687,10 +732,10 @@
     const yuk = bekle('/kurallar.json');
     const kv = d('/kurallar.json').veri || {};
     const q = r.q.get('q') || '', kt = r.q.get('k') || '';
-    const etkin = (kv.etkin || []).filter(k => (!kt || k.katman === kt) && (!q || eslesir(k.id + ' ' + k.metin + ' ' + (k.neden || ''), q)));
+    const etkin = (kv.etkin || []).filter(k => (!kt || k.katman === kt) && (!q || eslesir(k.id + ' ' + k.metin + ' ' + (k.neden || '') + ' ' + (k.alan?.ad || ''), q)));
     const KATMAN = { plugin: 'Eklenti', proje: 'Proje' };
     const kural = k => H`<article class="kart" data-gez><div class="kart-ic yigin sik">
-      <div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${KATMAN[k.katman] || k.katman || '–'}</span><span class="soluk kucuk-y" style="margin-left:auto">${B.goreli(k.guncelleme || k.olusturma)}</span></div>
+      <div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${KATMAN[k.katman] || k.katman || '–'}</span>${k.ortak ? H`<span class="etiket" title="Eklenti kuralı tüm çalışma alanlarında geçerli">ortak</span>` : alanRozeti(k)}<span class="soluk kucuk-y" style="margin-left:auto">${B.goreli(k.guncelleme || k.olusturma)}</span></div>
       <b>${ilkCumle(k.metin)}</b>
       <details class="ac"><summary>Tam metin ve neden</summary><div class="yigin sik" style="margin-top:8px"><p class="ikincil">${k.metin}</p>${k.neden ? H`<p class="soluk kucuk-y"><b>Neden:</b> ${k.neden}</p>` : ''}</div></details>
     </div></article>`;
@@ -701,12 +746,12 @@
         <input class="arama" id="kuralAra" type="search" placeholder="Kural ara…  /" value="${q}" data-sorgu="q" aria-label="Kural ara"></div>
       <div class="yigin sik">${etkin.length ? etkin.map(kural) : bos('Eşleşen kural yok', '', 'ara')}</div>
       ${(kv.gecmis || []).length ? H`<details class="ac"><summary>${kv.gecmis.length} kaldırılan ya da devre dışı kural</summary><div class="yigin sik" style="margin-top:8px">${kv.gecmis.map(k => H`<div class="k-satir"><span class="kimlik">${k.id}</span> ${rozet(k.durum === 'kaldirildi' ? 'iptal' : k.durum, k.durum)} ${ilkCumle(k.metin)}</div>`)}</div></details>` : ''}`;
-    return { baslik: 'Kurallar', sag: H`<a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#kurallar">Kural ekle ya da düzenle</a>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
+    return { baslik: 'Kurallar', sag: tumMu() ? '' : H`<a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#kurallar">Kural ekle ya da düzenle</a>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
   }
 
   // ================================================================ 10b. Görünüm: Yapılacaklar (kullanıcının kendi listesi)
   // Taslak ve bekleyen tamamlamalar yeniden çizimde kaybolmasın diye görünümün dışında tutulur.
-  const YAP = { taslak: '', bekleyen: new Set() };
+  const YAP = { taslak: '', bekleyen: new Set(), alan: '' };   // alan: birleşik kipte yeni maddenin gideceği çalışma alanı
   const YAP_SINIR = 2000;
   const yapZaman = z => B.goreli(String(z || '').replace(' ', 'T'));
 
@@ -715,42 +760,45 @@
     const maddeler = d(YAP_YOL).veri?.maddeler || [];
     const q = r.q.get('q') || '';
     const g = q ? maddeler.filter(m => eslesir(m.metin, q)) : maddeler;
-    const satir = m => H`<li class="${YAP.bekleyen.has(m.id) ? 'bitti' : ''}">
+    const satir = m => H`<li class="${YAP.bekleyen.has(altAlan(m)) ? 'bitti' : ''}">
       <div class="yap-dugme">
-        <button class="dugme kucuk hayalet" data-eylem="yap-kopya" data-id="${m.id}" aria-label="Kopyala: ${m.metin}">Kopyala</button>
-        <button class="dugme kucuk" data-eylem="yap-tamam" data-id="${m.id}" ${YAP.bekleyen.has(m.id) ? 'disabled' : ''} aria-label="Tamamla: ${m.metin}">${simge('tamam')}Tamamla</button></div>
-      <div class="yap-metin"><span>${m.metin}</span><small class="soluk" title="${m.zaman || ''}">${yapZaman(m.zaman)}</small></div></li>`;
+        <button class="dugme kucuk hayalet" data-eylem="yap-kopya" data-id="${m.id}" data-alan="${m.alan?.id || ''}" aria-label="Kopyala: ${m.metin}">Kopyala</button>
+        <button class="dugme kucuk" data-eylem="yap-tamam" data-id="${m.id}" data-alan="${m.alan?.id || ''}" ${YAP.bekleyen.has(altAlan(m)) ? 'disabled' : ''} aria-label="Tamamla: ${m.metin}">${simge('tamam')}Tamamla</button></div>
+      <div class="yap-metin"><span>${alanRozeti(m)}${m.metin}</span><small class="soluk" title="${m.zaman || ''}">${yapZaman(m.zaman)}</small></div></li>`;
     const govde = yuk || H`
       <div class="karolar">${karo('Benim yapılacaklarım', maddeler.length, maddeler.length ? 'açık madde' : 'açık madde yok')}</div>
       <section class="kart"><div class="kart-ic yigin sik">
         <textarea class="yap-yeni" id="yapYeni" rows="2" maxlength="${YAP_SINIR}" placeholder="Yeni madde yaz, Enter ile ekle (Shift+Enter: yeni satır)" aria-label="Yeni yapılacak madde" data-yap="taslak">${YAP.taslak}</textarea>
-        <div class="yatay"><span class="soluk kucuk-y" id="yapSayac">${YAP.taslak.length} / ${YAP_SINIR}</span><button class="dugme ana-d kucuk" style="margin-left:auto" data-eylem="yap-ekle">Ekle</button></div>
+        <div class="yatay">${tumMu() ? H`<select class="alan-sec" id="yapAlan" aria-label="Maddenin çalışma alanı" style="width:auto">${orkAlanlar().map(a => H`<option value="${a.id}" ${a.id === yapHedef() ? 'selected' : ''}>${a.ad}</option>`)}</select>` : ''}<span class="soluk kucuk-y" id="yapSayac">${YAP.taslak.length} / ${YAP_SINIR}</span><button class="dugme ana-d kucuk" style="margin-left:auto" data-eylem="yap-ekle">Ekle</button></div>
       </div></section>
       ${maddeler.length >= 8 ? H`<input class="arama" id="yapAra" type="search" placeholder="Madde ara…" value="${q}" data-sorgu="q" aria-label="Madde ara">` : ''}
       <section class="kart"><div class="kart-ic">${g.length ? H`<ul class="todo yap-liste">${g.map(satir)}</ul>` : bos(q ? 'Aramaya uyan madde yok' : 'Henüz madde yok', q ? '' : 'Yukarıya yaz, Enter ile ekle.', q ? 'ara' : 'tamam')}</div></section>`;
     return { baslik: 'Yapılacaklar', sag: H`<span class="soluk kucuk-y">yalnız sen düzenlersin</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
   }
 
-  async function yapYaz(govde) {
-    try { await gonder(YAP_YOL, govde); await getir(YAP_YOL, { taze: true }); return true; }
+  const yapHedef = () => (orkAlanlar().some(a => a.id === YAP.alan) ? YAP.alan : gercekAlan());
+  async function yapYaz(govde, alan) {
+    try { await gonder(YAP_YOL, govde, alan); await getir(YAP_YOL, { taze: true }); return true; }
     catch (e) { bildir('Kaydedilemedi: ' + e.message, { hata: true, sure: 8000 }); return false; }
   }
   async function yapEkle() {
     const metin = YAP.taslak.trim();
     if (!metin) return;
-    if (await yapYaz({ eylem: 'ekle', metin })) { YAP.taslak = ''; planla(); }
+    if (await yapYaz({ eylem: 'ekle', metin }, tumMu() ? yapHedef() : undefined)) { YAP.taslak = ''; planla(); }
     document.getElementById('yapYeni')?.focus();
   }
-  async function yapTamam(id) {
-    const m = (d(YAP_YOL).veri?.maddeler || []).find(x => x.id === id);
+  const yapBul = (id, alan) => (d(YAP_YOL).veri?.maddeler || []).find(x => x.id === id && (!tumMu() || (x.alan?.id || '') === (alan || '')));
+  async function yapTamam(id, alan) {
+    const m = yapBul(id, alan);
     if (!m) return;
-    YAP.bekleyen.add(id); planla();
-    const ok = await yapYaz({ eylem: 'sil', id });
-    YAP.bekleyen.delete(id); planla();
-    if (ok) bildir('Tamamlandı: ' + kisalt(m.metin, 60), { sure: 10000, geriAl: () => yapYaz({ eylem: 'ekle', metin: m.metin }).then(planla) });
+    const an = tumMu() ? m.alan?.id : undefined, ak = altAlan(m);
+    YAP.bekleyen.add(ak); planla();
+    const ok = await yapYaz({ eylem: 'sil', id }, an);
+    YAP.bekleyen.delete(ak); planla();
+    if (ok) bildir('Tamamlandı: ' + kisalt(m.metin, 60), { sure: 10000, geriAl: () => yapYaz({ eylem: 'ekle', metin: m.metin }, an).then(planla) });
   }
-  async function yapKopya(id) {
-    const m = (d(YAP_YOL).veri?.maddeler || []).find(x => x.id === id);
+  async function yapKopya(id, alan) {
+    const m = yapBul(id, alan);
     try { await navigator.clipboard.writeText(m ? m.metin : ''); bildir('Kopyalandı.'); }
     catch (x) { bildir('Kopyalanamadı.', { hata: true }); }
   }
@@ -768,7 +816,7 @@
     const tema = document.documentElement.dataset.tema || 'sistem';
     document.getElementById('ray').innerHTML = H`
       <div class="ray-ust"><img src="/logo.png" alt=""><b>Orkestra</b></div>
-      <select class="alan-sec" id="alanSec" aria-label="Çalışma alanı">${orkAlan.map(a => H`<option value="${a.id}" ${a.id === V.alan ? 'selected' : ''}>${a.ad}</option>`)}</select>
+      <select class="alan-sec" id="alanSec" aria-label="Çalışma alanı">${orkAlan.length > 1 ? H`<option value="${TUM}" ${tumMu() ? 'selected' : ''}>Tüm çalışma alanları</option>` : ''}${orkAlan.map(a => H`<option value="${a.id}" ${a.id === V.alan ? 'selected' : ''}>${a.ad}</option>`)}</select>
       <button class="ara-dugme" data-eylem="palet">${simge('ara')}<span>Ara ya da komut</span><kbd>Ctrl</kbd><kbd>K</kbd></button>
       <div class="gezinti">${SAYFALAR.map(([k, ad, h, s]) => H`<a href="${h}" ${aktif === k ? 'aria-current="page"' : ''}>${simge(s)}<span>${ad}</span>${say[k] || ''}</a>`)}</div>
       <div class="ray-alt">
@@ -789,7 +837,10 @@
     const kaydir = [...document.querySelectorAll('[data-kaydir]')].map(e => [e.id, e.scrollTop]);
     document.getElementById('bas').innerHTML = H`${g.yol ? H`<span class="yol">${g.yol}</span>` : H`<h1>${g.baslik}</h1>`}<span class="bosluk"></span>${g.sag || ''}${kontroller(r)}`.__h;
     const ana = document.getElementById('ana');
-    ana.innerHTML = g.govde.__h;
+    // birleşik kipte okunamayan alan sessizce eksik kalmaz: hangi alanın neden atlandığı sayfanın başında yazılır
+    const atlanan = tumMu() ? [...new Map(gerekler(r).flatMap(y => d(y).veri?.atlanan || []).map(a => [a.alan?.id, a])).values()] : [];
+    const uyari = atlanan.length ? H`<p class="birlesik-not" role="status">Bu alanlar toplamda yok: ${atlanan.map(a => `${a.alan?.ad || '?'} (${a.hata})`).join('; ')}</p>`.__h : '';
+    ana.innerHTML = uyari + g.govde.__h;
     ana.className = g.tam ? '' : '';
     document.title = 'Orkestra · ' + g.baslik;
     if (odakId) { const e = document.getElementById(odakId); if (e) { e.focus(); if (imlec) try { e.setSelectionRange(...imlec); } catch (x) { /* arama türü */ } } }
@@ -799,16 +850,23 @@
   }
 
   // ================================================================ 12. Canlı akış
-  let kaynak = null, yedekZam = null;
+  let kaynaklar = [], yedekZam = null;
+  // birleşik kipte sunucu '*' akışı vermez; her orkestralı alanın akışı ayrı açılır, biri açıksa "canlı" sayılır
   function canliBagla() {
-    if (kaynak) kaynak.close();
+    kaynaklar.forEach(k => k.close());
+    kaynaklar = [];
     clearInterval(yedekZam);
     yedekZam = setInterval(() => tazele(true), 30000);   // akış kopsa da veri bayatlamaz
     if (!window.EventSource || !V.alan) return;
-    kaynak = new EventSource('/akis?alan=' + enc(V.alan));
-    kaynak.addEventListener('degisti', () => tazele(true));
-    kaynak.onopen = () => { V.canli = true; canliYaz(); };
-    kaynak.onerror = () => { V.canli = false; canliYaz(); };
+    const acik = new Set();
+    const durum = () => { V.canli = acik.size > 0; canliYaz(); };
+    (tumMu() ? orkAlanlar().map(a => a.id) : [V.alan]).forEach(id => {
+      const k = new EventSource('/akis?alan=' + enc(id));
+      k.addEventListener('degisti', () => tazele(true));
+      k.onopen = () => { acik.add(id); durum(); };
+      k.onerror = () => { acik.delete(id); durum(); };
+      kaynaklar.push(k);
+    });
   }
   function canliYaz() {
     const e = document.getElementById('canli'), m = document.getElementById('canliMetin');
@@ -832,23 +890,24 @@
     setTimeout(kapat, sure);
   }
 
-  function kararVer(id, sonuc, secim) {
-    if (ertelenen.has(id)) return;
+  function kararVer(id, sonuc, secim, alan) {
+    const an = alan || undefined, ak = (alan || '') + '|' + id;   // birleşik kipte karar kaydın kendi alanına yazılır
+    if (ertelenen.has(ak)) return;
     const z = setTimeout(async () => {
       try {
-        await gonder('/onay', { islem: 'karar', id, sonuc, secim: secim || null, not: '' });
-        ertelenen.delete(id);
+        await gonder('/onay', { islem: 'karar', id, sonuc, secim: secim || null, not: '' }, an);
+        ertelenen.delete(ak);
         getir('/onaylar.json', { taze: true });
       } catch (e) {
-        ertelenen.delete(id);
+        ertelenen.delete(ak);
         bildir(`${id} kaydedilemedi: ${e.message}`, { hata: true, sure: 8000 });
         planla();
       }
     }, 5000);
-    ertelenen.set(id, { z, sonuc, secim: secim || null });
+    ertelenen.set(ak, { z, id, alan: an, sonuc, secim: secim || null });
     planla();
     bildir(`${id} ${sonuc === 'onay' ? 'onaylandı' + (secim ? ` (${secim})` : '') : 'reddedildi'}`, {
-      geriAl: () => { clearTimeout(z); ertelenen.delete(id); planla(); },
+      geriAl: () => { clearTimeout(z); ertelenen.delete(ak); planla(); },
     });
   }
 
@@ -856,12 +915,12 @@
   // "bekliyor" olarak geri gelirdi). Sayfa terk edilirken bekleyen kararlar hemen gönderilir; keepalive isteği sayfa
   // kapanınca da tamamlanır.
   function ertelenenleriGonder() {
-    ertelenen.forEach((e, id) => {
+    ertelenen.forEach((e, ak) => {
       clearTimeout(e.z);
-      ertelenen.delete(id);
+      ertelenen.delete(ak);
       try {
-        fetch(urlAl('/onay'), { method: 'POST', keepalive: true, headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ islem: 'karar', id, sonuc: e.sonuc, secim: e.secim, not: '' }) }).catch(() => {});
+        fetch(urlAl('/onay', e.alan), { method: 'POST', keepalive: true, headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ islem: 'karar', id: e.id, sonuc: e.sonuc, secim: e.secim, not: '' }) }).catch(() => {});
       } catch (x) { /* sayfa zaten kapanıyor */ }
     });
   }
@@ -876,14 +935,14 @@
     if (!b) return;
     const ey = b.dataset.eylem;
     if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
-    else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim);
+    else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
     else if (ey === 'uygula') {
       b.disabled = true;
-      try { await gonder('/onay', { islem: 'simdi-uygula' }); bildir('Uygulama başlatıldı: Claude\'da yeni sohbet açılıyor.'); getir('/onaylar.json', { taze: true }); }
+      try { await gonder('/onay', { islem: 'simdi-uygula' }, b.dataset.alan || undefined); bildir('Uygulama başlatıldı: Claude\'da yeni sohbet açılıyor.'); getir('/onaylar.json', { taze: true }); }
       catch (x) { bildir('Başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
     } else if (ey === 'perspektif') {
       b.disabled = true;
-      try { await gonder('/perspektif-calistir', {}); bildir("Yeni sohbet açıldı; istem hazır, Enter'a bas."); getir('/onaylar.json', { taze: true }); }
+      try { await gonder('/perspektif-calistir', {}, b.dataset.alan || undefined); bildir("Yeni sohbet açıldı; istem hazır, Enter'a bas."); getir('/onaylar.json', { taze: true }); }
       catch (x) { bildir('Perspektif başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
     } else if (ey === 'perspektif-yoksay') {
       b.disabled = true;
@@ -892,8 +951,8 @@
     } else if (ey === 'yenile') { V.onbellek.delete(anahtar(b.dataset.yol)); tazele(true); }
     else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
     else if (ey === 'yap-ekle') yapEkle();
-    else if (ey === 'yap-tamam') yapTamam(b.dataset.id);
-    else if (ey === 'yap-kopya') yapKopya(b.dataset.id);
+    else if (ey === 'yap-tamam') yapTamam(b.dataset.id, b.dataset.alan);
+    else if (ey === 'yap-kopya') yapKopya(b.dataset.id, b.dataset.alan);
     else if (ey === 'sohbet-ac') sohbetAc(b.dataset.oturum, b.dataset.ad);
     else if (ey === 'palet') paletAc();
     else if (ey === 'tema') temaDegis();
@@ -908,11 +967,17 @@
       const s = document.getElementById('yapSayac'); if (s) s.textContent = t.value.length + ' / ' + YAP_SINIR;
     }
   });
+  // alan seçimi: TUM ya da gerçek bir alan. Gerçek alan 'orkestra.alan'da, 'tüm' tercihi 'orkestra.tumAlan'da saklanır;
+  // böylece birleşik kipten çıkınca son gerçek alan kaybolmaz.
+  function alanSec(deger) {
+    if (deger === TUM) depo.koy('orkestra.tumAlan', '1');
+    else { depo.koy('orkestra.tumAlan', '0'); depo.koy('orkestra.alan', deger); }
+    V.alan = deger; V.onbellek.clear();
+    canliBagla(); git('#/gelen'); gorunumCiz(); tazele(true);
+  }
   document.addEventListener('change', e => {
-    if (e.target.id === 'alanSec') {
-      V.alan = e.target.value; depo.koy('orkestra.alan', V.alan); V.onbellek.clear();
-      canliBagla(); git('#/gelen'); gorunumCiz(); tazele(true);
-    }
+    if (e.target.id === 'alanSec') alanSec(e.target.value);
+    else if (e.target.id === 'yapAlan') { YAP.alan = e.target.value; }
   });
   function temaDegis() {
     const sira = { sistem: 'acik', acik: 'koyu', koyu: 'sistem' };
@@ -969,7 +1034,7 @@
     if (e.key === 'Enter' && odakSira >= 0) { e.preventDefault(); odakAc(); return; }
     if (e.key === '/') { const a = document.querySelector('#ana .arama'); if (a) { e.preventDefault(); a.focus(); a.select(); } else { e.preventDefault(); paletAc(); } return; }
     if (e.key === 'Escape') {
-      if (r.ad === 'isler' && r.id) git('#/isler' + sorguEk(r.q));
+      if (r.ad === 'isler' && r.id) git('#/isler' + ek(r.q));
       else if (r.ad === 'kart') history.length > 1 ? history.back() : git('#/kosular');
       return;
     }
@@ -987,17 +1052,18 @@
   function paletOgeleri() {
     const l = [];
     SAYFALAR.forEach(([k, ad, h], i) => l.push({ grup: 'Sayfalar', ad, ek: String(i + 1), git: h }));
-    (d('/isler.json').veri?.isler || []).forEach(i => l.push({ grup: 'İşler', ad: i.ad, kimlik: i.id, ek: i.durum === 'acik' ? 'açık' : 'kapandı', git: '#/is/' + enc(i.id) }));
+    const alanEk = o => tumMu() && o.alan?.ad ? ' · ' + o.alan.ad : '';
+    (d('/isler.json').veri?.isler || []).forEach(i => l.push({ grup: 'İşler', ad: i.ad, kimlik: i.id, ek: (i.durum === 'acik' ? 'açık' : 'kapandı') + alanEk(i), git: '#/is/' + enc(i.id) + ek('', i) }));
     const kartlar = new Map();
-    (d('/analitik.json').veri?.akis?.kartlar || []).forEach(k => kartlar.set(k.id, k));
-    (d('/ozet.json').veri?.kartlar || []).forEach(k => kartlar.set(k.id, { ...kartlar.get(k.id), ...k }));
-    [...kartlar.values()].reverse().forEach(k => l.push({ grup: 'Kartlar', ad: k.baslik, kimlik: k.id, ek: k.basamak || '', git: '#/kart/' + enc(k.id) }));
+    (d('/analitik.json').veri?.akis?.kartlar || []).forEach(k => kartlar.set(altAlan(k), k));
+    (d('/ozet.json').veri?.kartlar || []).forEach(k => kartlar.set(altAlan(k), { ...kartlar.get(altAlan(k)), ...k }));
+    [...kartlar.values()].reverse().forEach(k => l.push({ grup: 'Kartlar', ad: k.baslik, kimlik: k.id, ek: (k.basamak || '') + alanEk(k), git: '#/kart/' + enc(k.id) + ek('', k) }));
     l.push({ grup: 'Komutlar', ad: 'Temayı değiştir', calis: temaDegis });
     l.push({ grup: 'Komutlar', ad: 'Ölçü birimini değiştir (USD / token)', ek: 'u', calis: () => olcuKoy() });
     PENCERE.forEach(([k, ad]) => l.push({ grup: 'Komutlar', ad: 'Zaman penceresi: ' + ad, ek: B.pencere() === k ? 'seçili' : 'p', calis: () => pencereKoy(k) }));
     l.push({ grup: 'Komutlar', ad: 'Veriyi şimdi yenile', calis: () => tazele(true) });
     [['Klasik: Dashboard', '/isler'], ['Klasik: Maliyet ve verim', '/maliyet'], ['Klasik: Onaylar, etki ve kurallar', '/onaylar'], ['Klasik: Son olaylar', '/simdi'], ['Klasik: Teknik detay', '/teknik']]
-      .forEach(([ad, y]) => l.push({ grup: 'Klasik görünüm', ad, href: y + '?alan=' + enc(V.alan) }));
+      .forEach(([ad, y]) => l.push({ grup: 'Klasik görünüm', ad, href: y + '?alan=' + enc(gercekAlan()) }));
     return l;
   }
   function paletAc() {
@@ -1048,14 +1114,17 @@
       V.alanlar = await fetch('/alanlar.json').then(r => r.json());
     } catch (e) { V.alanlar = []; }
     const ork = V.alanlar.filter(a => a.orkestra);
-    const istenen = new URLSearchParams(location.search).get('alan') || depo.al('orkestra.alan');
+    const adresAlan = new URLSearchParams(location.search).get('alan');
+    const istenen = adresAlan || depo.al('orkestra.alan');
     V.alan = (ork.find(a => a.id === istenen) || ork[0] || {}).id || '';
+    // birleşik kip: adreste ?alan=* ya da (adreste başka alan yokken) önceki seçim; tek orkestralı alanda anlamsızdır
+    if (ork.length > 1 && (adresAlan === TUM || (!adresAlan && depo.al('orkestra.tumAlan') === '1'))) V.alan = TUM;
     if (!V.alan) {
       document.getElementById('ana').innerHTML = bos('Orkestralı çalışma alanı yok', 'Bir projede orkestra kurulunca burada görünür.', 'uyari').__h;
       rayCiz();
       return;
     }
-    depo.koy('orkestra.alan', V.alan);
+    if (!tumMu()) depo.koy('orkestra.alan', V.alan);
     derinBaglanti();
     gorunumCiz();
     tazele();
