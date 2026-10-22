@@ -151,7 +151,9 @@ def kontrol(ev: str | None = None, getir: bool = True) -> dict:
         if not kurulu:
             raise GuncelleHata(f"kurulu {PAZAR} plugin'i bulunamadı (installed_plugins.json).")
         if getir:
-            kod, cikti = kos(["git", "-C", klon, "fetch", "-q", "origin"])
+            # lowSpeedTime: 20 sn boyunca (neredeyse) veri gelmezse fetch kendiliğinden düşer; panel iş parçacığı asılmaz.
+            kod, cikti = kos(["git", "-C", klon, "-c", "http.lowSpeedLimit=1000", "-c", f"http.lowSpeedTime={FETCH_ZAMAN_ASIMI}",
+                              "fetch", "-q", "origin"])
             if kod != 0:
                 raise GuncelleHata(f"GitHub'a ulaşılamadı (ağ ya da yetki?): {cikti}")
         uzak = _git_cikti(klon, "rev-parse", UZAK_DAL)
