@@ -1958,6 +1958,8 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
         import is_kaydi
         if is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd"))):
             u.append("işe bağlı olmayan todo dosyası var (`orkestra is todo-denetle`)")
+        if is_kaydi.devral_ipucu(sd, inp.get("cwd")):
+            u.append("worktree durum kopyasında devralınmamış kayıt var (`orkestra durum devral`)")
     except Exception:
         pass
     return u, onay_ek
