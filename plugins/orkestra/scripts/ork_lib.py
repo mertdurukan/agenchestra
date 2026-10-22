@@ -1438,6 +1438,20 @@ def _agac_kayitlari(depo: str) -> list[dict]:
     return [x for x in out[1:]]
 
 
+def oturum_devralinmamis(depo: str, agac: str) -> int:
+    """Oturum ağacındaki durum kopyasında, ana durum klasöründe olmayan öğe sayısı (ADR-0032).
+    Kopya yoksa, damgalı ve eklenecek yoksa ya da ana klasör yoksa 0."""
+    kaynak = os.path.join(agac, ".claude", "orkestra")
+    hedef = os.path.join(depo, ".claude", "orkestra")
+    if not os.path.isdir(kaynak) or not os.path.isdir(hedef):
+        return 0
+    try:
+        import durum_devral
+        return durum_devral.devralinmamis_sayisi(kaynak, hedef)
+    except Exception:
+        return 0
+
+
 def agac_temizle_siniflandir(depo: str, ks: list[dict]) -> dict:
     """Deponun worktree'lerini sınıflar: aday (kartı teslim/iptal ya da kartsız kart ağacı), acik (kart açık),
     oturum (Claude'un oturum başına açtığı `claude/<ad>-<hex>` ağacı; orkestra kaldırmaz, devralınmamış kayıt sayısını
