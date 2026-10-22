@@ -137,7 +137,20 @@ def _kimlik_kapisi(arac: str, girdi: dict, okuma_acik: bool = False) -> str | No
     return None
 
 
-def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None) -> tuple[str | None, str]:
+PUSH_AD = "git push"
+PUSH_SORU = ("git push: halka açık eylem. Seçenekler: bu push için izin ver (Allow once); sonraki push'lar da sorulmasın "
+             "diye sohbete 'push serbest' yaz; ya da vazgeç. 'pushla' dersen bu soru çıkmaz.")
+
+
+def _onay_kaydi_var(sd, oturum) -> bool:
+    try:
+        import onay_kaydi
+        return bool(sd) and onay_kaydi.var(sd, oturum, "git")
+    except Exception:
+        return False
+
+
+def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None, oturum=None) -> tuple[str | None, str]:
     cfg = cfg or ayar_yukle(sd)
     ned = _kimlik_kapisi(arac, girdi or {}, _kimlik_okuma_acik(cfg))
     if ned:
@@ -157,6 +170,10 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
         for m in cfg.get("kabuk_kapi") or []:
             d = _derle(str(m.get("desen") or ""))
             if d and (d.search(kuru) or (ic and d.search(ic))):
+                if m.get("ad") == PUSH_AD:  # ADR-0036: kullanıcı push'u istediyse sorulmaz; yoksa seçenekli tek soru
+                    if _onay_kaydi_var(sd, oturum):
+                        return "allow", "orkestra onay kaydı: kullanıcı push'u istedi (ADR-0036)"
+                    return "ask", PUSH_SORU
                 return "ask", f"{m.get('ad')}: halka açık eylem, onay gerekir."
         if _KODLANMIS.search(komut):
             return "ask", "kodlanmış PowerShell komutu: içeriği denetlenemez, onay gerekir."

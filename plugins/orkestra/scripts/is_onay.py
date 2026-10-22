@@ -242,7 +242,7 @@ _GIT_OTURUM = re.compile(r"\b(?:push|commit)\w*\b[^.?!]{0,30}\b(?:serbest|izinli
 
 
 def git_oturum_izni_mi(metin: str) -> bool:
-    """ADR-0033: 'push serbest', 'pushlarda sorma' gibi mesaj push/commit'i oturum boyu serbest bırakır."""
+    """ADR-0036: 'push serbest', 'pushlarda sorma' gibi mesaj push/commit'i oturum boyu serbest bırakır."""
     m = (metin or "").strip()
     if not m or len(m) > AZAMI_MESAJ or "?" in m or m.startswith("<"):
         return False
@@ -251,7 +251,7 @@ def git_oturum_izni_mi(metin: str) -> bool:
 
 
 def git_izni_isle(sd: str, oturum, metin: str) -> bool:
-    """Her kullanıcı mesajında (ADR-0033 onay kaydı): tur kayıtları silinir; emirse tur, 'serbest' ise oturum kaydı yazılır.
+    """Her kullanıcı mesajında (ADR-0036 onay kaydı): tur kayıtları silinir; emirse tur, 'serbest' ise oturum kaydı yazılır.
     Emir ya da oturum izni var mı döner."""
     if not oturum:
         return False

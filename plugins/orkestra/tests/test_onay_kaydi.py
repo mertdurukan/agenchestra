@@ -1,4 +1,4 @@
-"""Tek onay kaydı (ADR-0033): kayıt modülü, oturum izni cümlesi, izin politikasının kayda bakması, deny önceliği."""
+"""Tek onay kaydı (ADR-0036): kayıt modülü, oturum izni cümlesi, izin politikasının kayda bakması, deny önceliği."""
 import os
 import shutil
 import sys

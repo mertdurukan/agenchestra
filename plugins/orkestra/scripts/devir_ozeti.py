@@ -115,7 +115,7 @@ def yaz(sd: str, inp: dict, is_kaydi: dict | None) -> str:
         return ""
 
 
-def bağlam(sd: str, inp: dict) -> str:
+def baglam(sd: str, inp: dict) -> str:
     """SessionStart (kaynak compact | resume): varsa özet metni; yoksa boş. Yüklenince log satırı yazılır."""
     if inp.get("source") not in ("compact", "resume"):
         return ""

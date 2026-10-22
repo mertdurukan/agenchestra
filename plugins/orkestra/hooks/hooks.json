@@ -29,6 +29,9 @@
     "Notification": [
       { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Notification; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Notification; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" Notification; fi", "timeout": 10 } ] }
     ],
+    "PreCompact": [
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PreCompact; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PreCompact; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PreCompact; fi", "timeout": 10 } ] }
+    ],
     "SessionEnd": [
       { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionEnd; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionEnd; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SessionEnd; fi", "timeout": 10 } ] }
     ],

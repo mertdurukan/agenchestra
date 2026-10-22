@@ -150,9 +150,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await $.command.run({ command: 'orkestra', args: '' })
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
     const t = metin(await ui.drawn())
-    expect(t).toContain('arka planda 2 iş sürüyor')
-    expect(t).toContain('Panel')
-    for (const yok of ['ret', 'teslime hazır', 'perspektif raporu hazır', 'Gizle', 'oturum $']) expect(t).not.toContain(yok)
+    expect(t).toContain('4/7 yapıldı · işlem devam ediyor')
+    for (const yok of ['Panel', 'ret', 'teslime hazır', 'perspektif raporu hazır', 'Gizle', 'oturum $']) expect(t).not.toContain(yok)
   })
 
   test(`arka plan işi yokken ret, teslim ve rapor olsa da bant çizilmez (${surface})`, async ($, on) => {
@@ -168,7 +167,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     sahte(on, { ...SESSIZ, arka_plan: { oturumlar: {}, perspektif: true, uygulama: false } })
     await $.command.run({ command: 'orkestra', args: '' })
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    expect(metin(await ui.drawn())).toContain('arka planda 1 iş sürüyor')
+    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
   })
 
   test(`arka plan işi bitince bant kaybolur, yeni iş gelince geri gelir (${surface})`, async ($, on) => {
@@ -179,15 +178,15 @@ for (const surface of ['terminal', 'desktop'] as const) {
     on('session.start', ($, e) => ({ cwd: e.cwd }))
     await $.session.start({ cwd: '/proje', surface, isInteractive: true })  // session.start: komutlar, ilk okuma, 3 sn'lik yoklama
     const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    expect(metin(await ui.drawn())).toContain('arka planda 2 iş sürüyor')
+    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
     kaynak.ham = SESSIZ
     kaynak.surum++
     await saat.advance(3000)
-    expect(await ui.drawn().then(metin, () => '')).not.toContain('arka planda')
+    expect(await ui.drawn().then(metin, () => '')).not.toContain('işlem devam ediyor')
     kaynak.ham = { ...HAM, arka_plan: { oturumlar: { [BU]: 1 }, perspektif: false, uygulama: false } }
     kaynak.surum++
     await saat.advance(3000)
-    expect(metin(await ui.drawn())).toContain('arka planda 1 iş sürüyor')
+    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
   })
 }
 

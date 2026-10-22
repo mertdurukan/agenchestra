@@ -1,4 +1,4 @@
-"""Tek onay kaydı (ADR-0033): kullanıcının açıkça istediği eylemler oturum başına bir dosyada tutulur.
+"""Tek onay kaydı (ADR-0036): kullanıcının açıkça istediği eylemler oturum başına bir dosyada tutulur.
 
 Kapılar (P-016 kabuk kapısı, izin politikası) aynı eylemi ikinci kez sormadan önce bu kayda bakar.
 Kayıt: <sd>/oturumlar/onay_kaydi_<oturum>.json  {"kayitlar": [{"sinif": "git", "kapsam": "tur"|"oturum"}]}
