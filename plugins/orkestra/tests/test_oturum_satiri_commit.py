@@ -111,10 +111,8 @@ class OturumSatiriCommit(unittest.TestCase):
         govde = open(yol, encoding="utf-8").read()
         self.assertEqual(govde.count("oturum abcd1234 · Claude süresi"), 1)
         self.assertIn("Claude süresi 2", govde)
-        self.assertIn("- tur satiri
-", govde)
-        self.assertIn("- tur satiri 2
-", govde)
+        self.assertIn("- tur satiri\n", govde)
+        self.assertIn("- tur satiri 2\n", govde)
         self.assertEqual(self.durum(self.agac), "")
 
     def test_stop_ana_agacta_dokunmaz(self):
