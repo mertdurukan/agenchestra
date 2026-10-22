@@ -72,6 +72,70 @@ class KurKaldirTest(unittest.TestCase):
                 panel_servis.kur(8765)
 
 
+class OtomatikKurTest(unittest.TestCase):
+    """ADR-0034: SessionStart'ta görev yoksa kurulur; kullanıcı kaldırdıysa, opt-out varsa ya da aynı yolla hata aldıysa dokunulmaz."""
+
+    def setUp(self):
+        self.isaret = os.path.join(tempfile.mkdtemp(prefix="ork_psrv_"), "panel_servis.json")
+        self.yamalar = [mock.patch.object(panel_servis, "ISARET", self.isaret),
+                        mock.patch.object(panel_servis.os, "name", "nt"),
+                        mock.patch.dict(os.environ, {}, clear=False)]
+        for y in self.yamalar:
+            y.start()
+            self.addCleanup(y.stop)
+        os.environ.pop("ORKESTRA_PANEL_SERVIS", None)
+
+    def _isaret(self, durum, betik=None):
+        with open(self.isaret, "w", encoding="utf-8") as f:
+            json.dump({"durum": durum, "betik": betik or panel_servis.PANEL_BETIGI}, f)
+
+    def test_gorev_yoksa_kurar(self):
+        with mock.patch.object(panel_servis, "kurulu", return_value=False), \
+                mock.patch.object(panel_servis, "kur") as kur:
+            self.assertEqual(panel_servis.otomatik_kur(), "kuruldu")
+        kur.assert_called_once()
+
+    def test_opt_out_dokunmaz(self):
+        os.environ["ORKESTRA_PANEL_SERVIS"] = "0"
+        with mock.patch.object(panel_servis, "kur") as kur:
+            self.assertIsNone(panel_servis.otomatik_kur())
+        kur.assert_not_called()
+
+    def test_kullanici_kaldirdiysa_yeniden_kurmaz(self):
+        self._isaret("kaldirildi", betik="baska")
+        with mock.patch.object(panel_servis, "kur") as kur:
+            self.assertIsNone(panel_servis.otomatik_kur())
+        kur.assert_not_called()
+
+    def test_kurulu_ve_ayni_yolsa_schtasks_cagrilmaz(self):
+        self._isaret("kuruldu")
+        with mock.patch.object(panel_servis, "_schtasks") as st:
+            self.assertIsNone(panel_servis.otomatik_kur())
+        st.assert_not_called()
+
+    def test_eklenti_yolu_degistiyse_yeniden_kaydeder(self):
+        self._isaret("kuruldu", betik="C:/eski/panel.py")
+        with mock.patch.object(panel_servis, "kurulu", return_value=True), \
+                mock.patch.object(panel_servis, "_gorev_betigi_guncel", return_value=False), \
+                mock.patch.object(panel_servis, "kur") as kur:
+            self.assertEqual(panel_servis.otomatik_kur(), "kuruldu")
+        kur.assert_called_once()
+
+    def test_hata_isaretlenir_ve_ayni_yolla_tekrarlanmaz(self):
+        with mock.patch.object(panel_servis, "kurulu", return_value=False), \
+                mock.patch.object(panel_servis, "kur", side_effect=SystemExit("erişim engellendi")) as kur:
+            self.assertIsNone(panel_servis.otomatik_kur())
+            self.assertIsNone(panel_servis.otomatik_kur())
+        kur.assert_called_once()
+        with open(self.isaret, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["durum"], "hata")
+
+    def test_windows_disinda_dokunmaz(self):
+        with mock.patch.object(panel_servis.os, "name", "posix"), mock.patch.object(panel_servis, "kur") as kur:
+            self.assertIsNone(panel_servis.otomatik_kur())
+        kur.assert_not_called()
+
+
 class BaslatServisTest(unittest.TestCase):
     def setUp(self):
         self.gecici = tempfile.mkdtemp(prefix="ork_psrv_")
