@@ -178,6 +178,47 @@ class OturumAgaciDurum(unittest.TestCase):
         self.assertIn("orkestra durum devral", r.stdout)
         self.assertTrue(os.path.isdir(self.wt))
 
+    # ------------------------------------------------------------------ P5: todo-denetle ve devral ipucu
+    def _todo(self, kok, metin):
+        yol = os.path.join(kok, "Is", "todo.md")
+        os.makedirs(os.path.dirname(yol), exist_ok=True)
+        with open(yol, "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin)
+        return yol
+
+    def _denetle(self):
+        import is_kaydi as K
+        sd = os.path.join(self.ana, ".claude", "orkestra")
+        return [n(x["yol"]) for x in K.todo_denetle(sd, self.ana) if n(x["yol"]).startswith(n(self.wt))]
+
+    def test_todo_denetle_ana_agacla_ayni_worktree_kopyasini_saymaz(self):
+        self._todo(self.ana, "- [ ] a\n")
+        yol = self._todo(self.wt, "- [ ] a\n")
+        self.assertNotIn(n(yol), self._denetle())
+
+    def test_todo_denetle_farkli_worktree_kopyasini_listeler(self):
+        self._todo(self.ana, "- [ ] a\n")
+        yol = self._todo(self.wt, "- [x] a\n")
+        self.assertIn(n(yol), self._denetle())
+
+    def test_todo_denetle_devralinmis_agacta_farkli_kopyayi_saymaz(self):
+        self._todo(self.ana, "- [ ] a\n")
+        yol = self._todo(self.wt, "- [x] a\n")
+        with open(os.path.join(self.wt, ".claude", "orkestra", ".devralindi"), "w", encoding="utf-8") as f:
+            f.write("{}")
+        self.assertNotIn(n(yol), self._denetle())
+
+    def test_devral_ipucu_devralinmamis_varsa_tek_satir(self):
+        import is_kaydi as K
+        sd = os.path.join(self.ana, ".claude", "orkestra")
+        self.assertEqual(K.devral_ipucu(sd, self.wt), "")  # kopya boş
+        with open(os.path.join(self.wt, ".claude", "orkestra", "gunluk.jsonl"), "w", encoding="utf-8", newline="\n") as f:
+            f.write('{"a":1}\n')
+        satir = K.devral_ipucu(sd, self.wt)
+        self.assertIn("orkestra durum devral", satir)
+        self.assertNotIn("\n", satir)
+        self.assertEqual(K.devral_ipucu(sd, self.ana), "")  # ana ağaçta ipucu yok
+
     # ------------------------------------------------------------------ CLI uçtan uca
     def test_cli_worktree_cwd_isi_ana_isler_json_a_yazar(self):
         klasor = os.path.join(self.wt, "Is", "001-deneme")
