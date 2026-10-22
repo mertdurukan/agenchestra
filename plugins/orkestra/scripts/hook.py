@@ -440,6 +440,23 @@ def _is_kapisi(sd: str, oid, proje: str, tam: str) -> None:
         reddet(neden)
 
 
+def _is_klasorunu_commitle(klasor, cwd):
+    """Hook'un yazdığı iş kaydını (is.json) aynı turda commit eder; arşivde commit edilmemiş dosya kalmasın.
+    ORKESTRA_OTO_COMMIT kapalıysa, klasör depo dışındaysa ya da hata olursa sessiz çıkar."""
+    try:
+        import oto_commit
+        if not klasor or not oto_commit.acik():
+            return
+        repo = oto_commit.depo_koku(os.path.abspath(cwd or os.getcwd()))
+        if not repo:
+            return
+        goreli = os.path.relpath(os.path.abspath(klasor), repo)
+        if not goreli.startswith(".."):
+            oto_commit.klasorleri_commit(repo, [goreli], None, etiket="orkestra")
+    except Exception:
+        pass
+
+
 def _onay_kaydi(sd: str, oid):
     """Oturumun bağlı işi `onay: bekliyor` ise iş kaydı, değilse None. Hatada None (fail-open)."""
     try:
