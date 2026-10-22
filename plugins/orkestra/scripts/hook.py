@@ -2363,28 +2363,61 @@ def _oturum_ozet_satiri(sd: str, oid: str) -> str:
                 sonuc = k.get("sonuc") or sonuc
     sonuc = sonuc or ne
     an = L.simdi()[:16].replace("T", " ")
-    satir = (f"- {an} · oturum {oid[:8]} · Claude süresi {ana} · alt ajan süresi {alt} · {tok_s} token · ${usd_s}"
-             f" · ne: {_tek_satir(ne)} · sonuç/nerede kalındı: {_tek_satir(sonuc)}\n")
-    L.sona_ekle(yol, satir)
+    return (f"- {an} · oturum {oid[:8]} · Claude süresi {ana} · alt ajan süresi {alt} · {tok_s} token · ${usd_s}"
+            f" · ne: {_tek_satir(ne)} · sonuç/nerede kalındı: {_tek_satir(sonuc)}\n")
+
+
+def _oturum_satiri_yaz(sd: str, oid: str | None) -> None:
+    """T-07: SessionEnd'de oturum bir işe bağlıysa işin oturumlar.md SONUNA tek satır (dosya yoksa/iş yoksa yazmaz).
+    Bağlı worktree'de yazmaz: SessionEnd, uygulamanın arşiv temizliğinden sonra çalışır; satır Stop'ta yazılır (ADR-0038)."""
+    yol = _oturum_ozet_yolu(sd, oid)
+    if not yol or not oid:
+        return
+    if _oturum_satiri_stopta() and _bagli_agac_koku(yol):
+        return
+    L.sona_ekle(yol, _oturum_ozet_satiri(sd, oid))
     _oturum_agacinda_commitle(yol)
 
 
+def _bagli_agacta_satirlari_kaydet(sd: str, oid: str | None, yol: str) -> None:
+    """Stop'ta (ADR-0038): bağlı worktree'de tur satırı yazıldıktan sonra oturum özetini oturum başına tek satır olarak
+    yeniler ve dosyayı commit'ler; arşiv tur bittikten sonra geldiği için worktree temiz kalır. Ana ağaçta hiçbir şey yapmaz."""
+    try:
+        if not oid or not _oturum_satiri_stopta() or not _bagli_agac_koku(yol):
+            return
+        isaret = f"· oturum {oid[:8]} · Claude süresi"
+        yeni = _oturum_ozet_satiri(sd, oid)
+        with L.kilit(yol):
+            with open(yol, encoding="utf-8") as f:
+                satirlar = [s for s in f.read().splitlines(keepends=True) if isaret not in s]
+            if satirlar and not satirlar[-1].endswith("\n"):
+                satirlar[-1] += "\n"
+            satirlar.append(yeni)
+            L.atomik_yaz(yol, "".join(satirlar))
+        _oturum_agacinda_commitle(yol)
+    except Exception:  # özet/commit hatası Stop'u bozmasın
+        pass
+
+
 def _oturum_agacinda_commitle(yol: str) -> None:
-    """Oturum satırı SessionEnd'de, son otomatik commit'ten sonra yazılır; Claude oturum worktree'sini "commit edilmemiş
-    değişiklikle arşivlendi" uyarısıyla bırakmasın diye dosya yalnız bağlı (linked) worktree'de ve yalnız bu dosya commit'lenir.
+    """Oturum satırı yazıldıktan sonra Claude oturum worktree'sini "commit edilmemiş değişiklikle arşivlendi" uyarısıyla
+    bırakmasın diye dosya yalnız bağlı (linked) worktree'de ve yalnız bu dosya commit'lenir; `index.lock` çakışmasında
+    (uygulamanın git işçisi aynı anda çalışır) 5 kez, 1 sn arayla yeniden dener.
     Ana ağaçta, izlenmeyen dosyada ya da hata durumunda hiçbir şey yapmaz."""
     try:
-        kok = L.git_koku(yol)
+        import time
+        kok = _bagli_agac_koku(yol)  # ana ağaç: kullanıcının kendi çalışma ağacına commit atılmaz
         if not kok:
             return
-        gd = L.git(["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"], kok).stdout.split("\n")
-        if len(gd) < 2 or os.path.normcase(gd[0].strip()) == os.path.normcase(gd[1].strip()):
-            return  # ana ağaç: kullanıcının kendi çalışma ağacına commit atılmaz
         if L.git(["ls-files", "--error-unmatch", "--", yol], kok).returncode != 0:
             return
         if not L.git(["status", "--porcelain", "--", yol], kok).stdout.strip():
             return
-        L.git(["commit", "--only", "-m", "oturumlar.md: oturum satırı", "--", yol], kok)
+        for _ in range(5):
+            c = L.git(["commit", "--only", "-m", "oturumlar.md: oturum satırı", "--", yol], kok)
+            if c.returncode == 0 or "index.lock" not in (c.stderr or ""):
+                break
+            time.sleep(1)
     except Exception:  # commit hatası kapanışı bozmasın
         pass
 
