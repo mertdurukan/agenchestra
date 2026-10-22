@@ -1088,6 +1088,11 @@ def _isleyici():
                     return self._json(404, {"tamam": False, "hata": str(e)})
                 except ValueError as e:
                     return self._json(400, {"tamam": False, "hata": str(e)})
+            if u.path == "/api/guncelleme":
+                try:
+                    return self._json(200, GUNCELLEME.durum())
+                except Exception as e:  # noqa: BLE001
+                    return self._json(500, {"durum": "yok", "hata": f"{type(e).__name__}: {e}"})
             if u.path == "/onay-sayac.json":
                 return self._gonder(200, "application/json; charset=utf-8", onbellekli("sayac", 5.0, _sayac_tum))
             if u.path == "/saglik":
