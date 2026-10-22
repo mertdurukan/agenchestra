@@ -71,7 +71,8 @@ def klasorleri_commit(repo, onekler, atif_kaynagi, git=None, etiket="kabuk"):
     yollar = []
     for kayit in git(repo, "status", "--porcelain", "-z", "-uall").stdout.split("\0"):
         yol = kayit[3:].strip('"')
-        if len(kayit) > 3 and yol.endswith((".md", ".json")) and any(yol.startswith(o) for o in onekler):
+        belge = yol.endswith((".md", ".json")) or ".json.eski-" in yol  # eski-: is_kaydi'nin yedeği (ADR-0038)
+        if len(kayit) > 3 and belge and any(yol.startswith(o) for o in onekler):
             yollar.append(yol)
     if not yollar:
         return []
