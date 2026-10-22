@@ -54,6 +54,13 @@ class PerspektifSeridi(unittest.TestCase):
             bp = panel._isler_json("alan-x")["arka_plan"]
         self.assertEqual([x["ad"] for x in bp], ["Uzun tarama"])
 
+    def test_tur_surerken_calisan_sohbet_listelenir(self):
+        calisan = {"arka_plan": False, "bekleyen": "claude", "ne": "Sürüyor", "kisa": "ghi"}
+        bekleyen = {"arka_plan": False, "bekleyen": "sen", "ne": "Sıra sende", "kisa": "jkl"}
+        with mock.patch.object(niyet, "gorunum", return_value={"oturumlar": [calisan, bekleyen]}):
+            bp = panel._isler_json("alan-x")["arka_plan"]
+        self.assertEqual([x["ad"] for x in bp], ["Sürüyor"])
+
     def test_sayfa_ogeleri_var(self):
         assets = os.path.join(AD, "..", "assets")
         with open(os.path.join(assets, "onaylar.html"), encoding="utf-8") as f:
