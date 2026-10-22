@@ -416,8 +416,39 @@ def klasor_ayir(sd: str, kok: str, baslik: str, tarih: str | None = None, olustu
     return ad
 
 
+def kardes_agac_klasorleri(kok: str) -> list[str]:
+    """`kok` bir git çalışma ağacındaysa, aynı deponun ÖTEKİ ağaçlarında (oturum ve kart worktree'leri, ana ağaç) aynı göreli
+    klasörün alt klasör adları. Ağaçlar arası numara tekilliği için (ADR-0032): birleşmemiş dallarda aynı NNN iki işe verilmesin.
+    Git yoksa ya da herhangi bir hatada boş liste."""
+    try:
+        ust = L.git_koku(kok)
+        if not ust:
+            return []
+        rel = os.path.relpath(os.path.abspath(kok), ust)
+        r = L.git(["worktree", "list", "--porcelain"], ust)
+        if r.returncode != 0:
+            return []
+        kendi = os.path.normcase(os.path.realpath(ust))
+        adlar: list[str] = []
+        for satir in r.stdout.splitlines():
+            if not satir.startswith("worktree "):
+                continue
+            w = satir[len("worktree "):].strip()
+            if os.path.normcase(os.path.realpath(w)) == kendi:
+                continue
+            hedef = os.path.join(w, rel)
+            try:
+                adlar += [a for a in os.listdir(hedef) if os.path.isdir(os.path.join(hedef, a))]
+            except OSError:
+                continue
+        return adlar
+    except Exception:
+        return []
+
+
 def sonraki_klasor_adi(kok: str, baslik: str, tarih: str | None = None) -> str:
-    """kök altında sıradaki 'NNN-YYYYMMDD-<slug>' adı: NNN = en büyük ^\\d{3}- numarası + 1 (3 hane)."""
+    """kök altında sıradaki 'NNN-YYYYMMDD-<slug>' adı: NNN = en büyük ^\\d{3}- numarası + 1 (3 hane); öteki git
+    çalışma ağaçlarındaki aynı klasör de sayılır (`kardes_agac_klasorleri`)."""
     import datetime
     en_buyuk = 0
     try:
@@ -427,6 +458,10 @@ def sonraki_klasor_adi(kok: str, baslik: str, tarih: str | None = None) -> str:
                 en_buyuk = max(en_buyuk, int(m.group(1)))
     except OSError:
         pass
+    for ad in kardes_agac_klasorleri(kok):
+        m = _NNN.match(ad)
+        if m:
+            en_buyuk = max(en_buyuk, int(m.group(1)))
     tarih = tarih or datetime.date.today().strftime("%Y%m%d")
     return f"{en_buyuk + 1:03d}-{tarih}-{slug(baslik)}"
 
