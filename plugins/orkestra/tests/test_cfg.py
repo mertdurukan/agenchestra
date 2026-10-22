@@ -110,6 +110,15 @@ class KesifTest(unittest.TestCase):
         with mock.patch.dict(cfg.KESIF, {"claude_exe": lambda: gercek}):
             self.assertEqual(cfg.kaynakli_al("claude_exe"), (gercek, "kesif"))
 
+    def test_kesif_claude_data_yerlesimini_bulur(self):
+        """22.10.2026: masaüstü exe'si Claude-Data\\<kurulum>\\claude-code\\<sürüm>\\<özet> altında; panelde ortam değişkeni yok."""
+        exe = os.path.join(self.tmp.name, "Claude-Data", "kurulum1", "claude-code", "2.1.308", "abc123", "claude.exe")
+        os.makedirs(os.path.dirname(exe))
+        open(exe, "w").close()
+        with mock.patch.dict(os.environ, {"APPDATA": os.path.join(self.tmp.name, "yokRoaming"), "LOCALAPPDATA": self.tmp.name}), \
+                mock.patch.object(cfg.shutil, "which", return_value=None):
+            self.assertEqual(cfg.kesif_claude_exe(), exe)
+
     def test_gecersiz_ortam_degeri_atlanir_python_atlanmaz(self):
         os.environ["CLAUDE_CODE_EXECPATH"] = os.path.join(self.tmp.name, "yok.exe")
         with mock.patch.dict(cfg.KESIF, {"claude_exe": lambda: None}):
