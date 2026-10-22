@@ -360,16 +360,21 @@
     {
       "id": "P-008",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Kullanıcıya 'senin yapman gerekenler' listesi yazmadan önce her madde sınanır: elimde araç, anahtar, API ya da tarayıcı varsa işi kendim yaparım. Listeye yalnız gerçekten kullanıcıya ait olanlar girer: parola girişi, değeri yalnız onda olan sır, hesap açma, iş kapanışı, push ya da PR kararı, başka ekibin işi. Yazma ya da ayar değişikliği onay gerektiriyorsa iş listeye yazılmaz; tek cümlelik tek soruyla onay istenir, kullanıcı genel olarak 'ne gerekiyorsa yap' demişse onay verilmiş sayılır. API'si olmayan iş için önce tarayıcıyla denenir. İzin sistemi bir eylemi engellerse dolanılmaz; neyi neden yapmak istediğim söylenir ve onay istenir.",
+      "metin": "ZORUNLU, istisnasız: Kullanıcıya 'senin yapman gerekenler' listesi yazmadan önce her madde sınanır: elimde araç, anahtar, API ya da tarayıcı varsa işi kendim yaparım. Listeye yalnız gerçekten kullanıcıya ait olanlar girer: parola girişi, değeri yalnız onda olan sır, hesap açma, iş kapanışı, push ya da PR kararı, başka ekibin işi. Yazma ya da ayar değişikliği onay gerektiriyorsa iş listeye yazılmaz; tek cümlelik tek soruyla onay istenir, kullanıcı genel olarak 'ne gerekiyorsa yap' demişse onay verilmiş sayılır. API'si olmayan iş için önce tarayıcıyla denenir. İzin sistemi bir eylemi engellerse dolanılmaz; neyi neden yapmak istediğim söylenir ve onay, P-029'e göre seçim ekranıyla istenir.",
       "neden": "Kullanıcı 16.10.2026: erişim anahtarı verildiği halde API ile yapılabilecek işler kullanıcıya liste olarak yazıldı; bu davranış projeden bağımsız, her projede geçerli.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T17:55:22+03:00",
-      "guncelleme": "2026-10-16T17:55:22+03:00",
+      "guncelleme": "2026-10-22T20:27:15+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T17:55:22+03:00",
           "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcıya 'senin yapman gerekenler' listesi yazmadan önce her madde sınanır: elimde araç, anahtar, API ya da tarayıcı varsa işi kendim yaparım. Listeye yalnız gerçekten kullanıcıya ait olanlar girer: parola girişi, değeri yalnız onda olan sır, hesap açma, iş kapanışı, push ya da PR kararı, başka ekibin işi. Yazma ya da ayar değişikliği onay gerektiriyorsa iş listeye yazılmaz; tek cümlelik tek soruyla onay istenir, kullanıcı genel olarak 'ne gerekiyorsa yap' demişse onay verilmiş sayılır. API'si olmayan iş için önce tarayıcıyla denenir. İzin sistemi bir eylemi engellerse dolanılmaz; neyi neden yapmak istediğim söylenir ve onay istenir."
+        },
+        {
+          "zaman": "2026-10-22T20:27:15+03:00",
+          "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Kullanıcıya 'senin yapman gerekenler' listesi yazmadan önce her madde sınanır: elimde araç, anahtar, API ya da tarayıcı varsa işi kendim yaparım. Listeye yalnız gerçekten kullanıcıya ait olanlar girer: parola girişi, değeri yalnız onda olan sır, hesap açma, iş kapanışı, push ya da PR kararı, başka ekibin işi. Yazma ya da ayar değişikliği onay gerektiriyorsa iş listeye yazılmaz; tek cümlelik tek soruyla onay istenir, kullanıcı genel olarak 'ne gerekiyorsa yap' demişse onay verilmiş sayılır. API'si olmayan iş için önce tarayıcıyla denenir. İzin sistemi bir eylemi engellerse dolanılmaz; neyi neden yapmak istediğim söylenir ve onay istenir."
         }
       ],
@@ -761,6 +766,24 @@
         }
       ],
       "etkinlesme": "2026-10-22T20:23:42+03:00"
+    },
+    {
+      "id": "P-029",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Gerçek karar noktalarında kullanıcıya düz metin yerine seçim ekranı sunulur. (1) Tetikleyiciler: izin sistemi bir eylemi reddetti, bir adım doğrulanamadı, birden çok yol var, onay gerekiyor. (2) Biçim: AskUserQuestion ya da wrap_up butonları; 2-4 seçenek, önerilen seçenek ilk sırada ve '(Recommended)' etiketli, her seçenek tek cümleyle ne olacağını söyler; tek soruda tek karar sorulur. (3) Kapsam dışı: bilgi soruları (P-001 kadar kısa yanıtlanır), küçük ve geri alınabilir adımlar, kullanıcı daha önce 'ne gerekiyorsa yap' dediyse onaylanmış işler; kullanıcıyı soruya boğmamak için ekran yalnız gerçek karar anında çıkar. (4) Alt ajan kullanıcıya doğrudan soru sormaz; seçenekleri raporuyla ana ajana döner, ekranı ana ajan sunar. (5) İzin reddi dolanılmaz (P-008); neyi neden yapmak istediğim bu ekranda söylenir. Zorlama: yalnız bu kural; hook yoktur. (ADR-0036)",
+      "neden": "Kullanıcı 22.10.2026: orkestra guncelle sonrası izin reddinde ajan seçenek yerine düz metinle onay istedi; karar anlarında seçim ekranı istendi. Davranış her projede geçerli (P-022). İş I-068.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-22T20:27:15+03:00",
+      "guncelleme": "2026-10-22T20:27:15+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-22T20:27:15+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Gerçek karar noktalarında kullanıcıya düz metin yerine seçim ekranı sunulur. (1) Tetikleyiciler: izin sistemi bir eylemi reddetti, bir adım doğrulanamadı, birden çok yol var, onay gerekiyor. (2) Biçim: AskUserQuestion ya da wrap_up butonları; 2-4 seçenek, önerilen seçenek ilk sırada ve '(Recommended)' etiketli, her seçenek tek cümleyle ne olacağını söyler; tek soruda tek karar sorulur. (3) Kapsam dışı: bilgi soruları (P-001 kadar kısa yanıtlanır), küçük ve geri alınabilir adımlar, kullanıcı daha önce 'ne gerekiyorsa yap' dediyse onaylanmış işler; kullanıcıyı soruya boğmamak için ekran yalnız gerçek karar anında çıkar. (4) Alt ajan kullanıcıya doğrudan soru sormaz; seçenekleri raporuyla ana ajana döner, ekranı ana ajan sunar. (5) İzin reddi dolanılmaz (P-008); neyi neden yapmak istediğim bu ekranda söylenir. Zorlama: yalnız bu kural; hook yoktur. (ADR-0036)"
+        }
+      ],
+      "etkinlesme": "2026-10-22T20:27:15+03:00"
     }
   ]
 }
