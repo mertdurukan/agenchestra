@@ -567,6 +567,11 @@ def yaz(sd: str, proje: str) -> dict | None:
             L.atomik_yaz(hata_yolu, "\n".join(onceki + [f"{L.simdi()} {type(e).__name__}: {e}"]) + "\n")
         except Exception:
             pass
+        try:   # ADR-0035: imzalı hata defteri
+            import hata_kayit as HK
+            HK.kaydet(sd, "ozet", type(e).__name__, str(e))
+        except Exception:
+            pass
         return None
 
 
