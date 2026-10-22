@@ -11,7 +11,8 @@ const hatalar = [];
 process.on('uncaughtException', e => hatalar.push(String((e && e.stack) || e)));
 process.on('unhandledRejection', e => hatalar.push(String((e && e.stack) || e)));
 
-const el = () => ({ innerHTML: '', className: '', textContent: '', dataset: {}, focus() {}, appendChild() {}, remove() {}, classList: { toggle() {} } });
+let sonGeriAl = null;   // bildirimdeki 'Geri al' düğmesinin tıklama işleyicisi
+const el = () => ({ querySelector: () => ({ addEventListener: (t, f) => { sonGeriAl = f; } }), innerHTML: '', className: '', textContent: '', dataset: {}, focus() {}, appendChild() {}, remove() {}, classList: { toggle() {} } });
 const ogeler = { ray: el(), bas: el(), ana: el(), bildirimler: el() };
 const dinleyici = { document: {}, window: {} };
 const depo = new Map();
@@ -31,7 +32,9 @@ const belge = {
   addEventListener: (t, f) => { (dinleyici.document[t] = dinleyici.document[t] || []).push(f); },
 };
 
-async function sahteFetch(url) {
+const postlar = [];   // gönderilen POST gövdeleri (senaryo çıktısında 'postlar')
+async function sahteFetch(url, secenek) {
+  if (secenek && secenek.method === 'POST') { postlar.push({ yol: String(url), keepalive: !!secenek.keepalive, govde: JSON.parse(secenek.body || 'null') }); return { ok: true, status: 200, json: async () => ({ tamam: true }) }; }
   const u = new URL(url, 'http://x');
   const is = u.searchParams.get('is'), kart = u.searchParams.get('kart');
   const anahtar = u.pathname + (is ? '?is=' + is : kart ? '?kart=' + kart : '');
@@ -68,10 +71,10 @@ function tus(key) {
     if (s.hash !== undefined) { hash = s.hash; (dinleyici.window.hashchange || []).forEach(f => f()); }
     await bekle(60);
     for (const a of s.adimlar || []) {
-      if (a[0] === 'tikla') await tikla(a[1], a[2]); else tus(a[1]);
+      if (a[0] === 'tikla') await tikla(a[1], a[2]); else if (a[0] === 'geriAl') sonGeriAl && sonGeriAl(); else if (a[0] === 'pencere') (dinleyici.window[a[1]] || []).forEach(f => f({})); else tus(a[1]);
       await bekle(40);
     }
-    cikti.push({ ray: ogeler.ray.innerHTML, bas: ogeler.bas.innerHTML, ana: ogeler.ana.innerHTML, depo: Object.fromEntries(depo), hash });
+    cikti.push({ ray: ogeler.ray.innerHTML, bas: ogeler.bas.innerHTML, ana: ogeler.ana.innerHTML, depo: Object.fromEntries(depo), hash, postlar: postlar.splice(0) });
   }
   fs.writeFileSync(ciktiYol, JSON.stringify({ sonuc: cikti, hatalar }));
   process.exit(0);

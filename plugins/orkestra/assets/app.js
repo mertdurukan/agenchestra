@@ -288,7 +288,7 @@
     onayli_kart_usd: ['Onaylı kart başına USD', x => B.usdSabit(x)], ret_orani: ['Ret oranı', x => B.yuzde(x, 1)],
     teknik_not_kapsama: ['Teknik not kapsaması', x => B.yuzde(x)],
   };
-  const ertelenen = new Map();   // onay id → { zamanlayici }  (geri al süresi içindeki kararlar)
+  const ertelenen = new Map();   // onay id → { z: zamanlayıcı, sonuc, secim }  (geri al süresi içindeki kararlar)
 
   function gelenOgeleri() {
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
@@ -845,12 +845,27 @@
         planla();
       }
     }, 5000);
-    ertelenen.set(id, z);
+    ertelenen.set(id, { z, sonuc, secim: secim || null });
     planla();
     bildir(`${id} ${sonuc === 'onay' ? 'onaylandı' + (secim ? ` (${secim})` : '') : 'reddedildi'}`, {
       geriAl: () => { clearTimeout(z); ertelenen.delete(id); planla(); },
     });
   }
+
+  // Geri al süresi dolmadan sayfa yenilenir ya da kapanırsa zamanlayıcı ölür ve karar hiç kaydedilmezdi (kart yenilemede
+  // "bekliyor" olarak geri gelirdi). Sayfa terk edilirken bekleyen kararlar hemen gönderilir; keepalive isteği sayfa
+  // kapanınca da tamamlanır.
+  function ertelenenleriGonder() {
+    ertelenen.forEach((e, id) => {
+      clearTimeout(e.z);
+      ertelenen.delete(id);
+      try {
+        fetch(urlAl('/onay'), { method: 'POST', keepalive: true, headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ islem: 'karar', id, sonuc: e.sonuc, secim: e.secim, not: '' }) }).catch(() => {});
+      } catch (x) { /* sayfa zaten kapanıyor */ }
+    });
+  }
+  window.addEventListener('pagehide', ertelenenleriGonder);
 
   document.addEventListener('click', async e => {
     const tr = e.target.closest('tr[data-git]');
