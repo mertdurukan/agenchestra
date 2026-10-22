@@ -90,7 +90,9 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 
 ## PostToolUse hook'ları
 - `hook.py` `post_tool_use`: Skill, Agent, Task ve Workflow çağrılarını `gunluk.jsonl`'a yazar. `mcp__ccd_session__start_session` sonrasında K-007 detach hatırlatmasını (`detach_hatirlatmasi`) ek bağlam olarak verir. Test: `tests/test_hook_detach.py`.
-- `scripts/oto_commit.py`: ayrı girdidir (`Edit|Write|MultiEdit|NotebookEdit`). Her düzenlemede çalıştığı için `hook.py`'yi yüklemez. `ORKESTRA_OTO_COMMIT` boş ya da `0` ise kabuk satırı Python'u hiç başlatmaz. Test: `tests/test_oto_commit.py`.
+- `scripts/oto_commit.py`: ayrı girdidir (`Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell`). Her düzenlemede çalıştığı için `hook.py`'yi yüklemez. `ORKESTRA_OTO_COMMIT` boş ya da `0` ise kabuk satırı Python'u hiç başlatmaz. Test: `tests/test_oto_commit.py`.
+  - Kabuk komutlarında yalnız `ORKESTRA_OTO_COMMIT_BASH_YOLLAR` (virgülle ayrılmış klasör önekleri) altındaki `.md/.json` dosyaları commit edilir; ayar yoksa kabuk commit etmez.
+  - `orkestra is|plan` komutlarından sonra `orkestra.py main()` ayarsız olarak `oto_commit.cli_sonrasi` çağırır: komutun çalıştığı depodaki iş klasörlerinin `.md/.json` belgeleri commit edilir (ADR-0034). Ortak işlev `klasorleri_commit`.
 
 ## Denetim dersleri
 Orkestranın kendi kartları denetlenirken tekrar eden kusurlar. Denetçi ve işçi bu yollara önce bakar.
