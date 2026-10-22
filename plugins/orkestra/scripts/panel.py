@@ -251,6 +251,9 @@ def _sohbet_arka_plan(a: dict) -> list[dict]:
 
 
 def _onaylar_json(alan_id) -> dict:
+    if alan_id == TUM_ALAN:
+        import panel_tum  # noqa: PLC0415
+        return panel_tum.onaylar(*_tum_topla(_onaylar_json))
     a, sd = _alan_sd(alan_id)
     if a is None:
         return sd
