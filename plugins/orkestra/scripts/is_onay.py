@@ -16,6 +16,8 @@ import ork_lib as L
 ALAN = "onay"
 BEKLIYOR = "bekliyor"
 VERILDI = "verildi"
+BEKLEYEN_ALAN = "onay_bekleyen"  # ADR-0070: eksik belge yüzünden kaydedilemeyen onay mesajının zamanı
+BEKLEYEN_YENI = "bekleyen"  # baglam_satiri'nın "onayı sakla" sinyali
 AZAMI_MESAJ = 200
 MOD_ALANI = "mod"  # ADR-0009: iş başına çalışma modu
 MOD_PLAN = "plan"
