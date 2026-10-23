@@ -2327,7 +2327,12 @@ def user_prompt_submit(inp: dict):
                     satir, yeni = is_onay.baglam_satiri(kayit, sinif == "onay", sinif == "belirsiz")
                     if sinif in ("belirsiz", "ret") and is_onay.bekliyor_mu(kayit):
                         is_onay.aday_yaz(sd, metin, sinif)
-                    if yeni:
+                    if sinif in ("belirsiz", "ret", "soru") and is_onay.bekleyen_mi(kayit):
+                        is_onay.bekleyen_temizle(sd, kayit["id"])  # ADR-0070: saklı onay, onay olmayan yeni mesajla düşer
+                    if yeni == is_onay.BEKLEYEN_YENI:
+                        is_onay.bekleyen_yaz(sd, kayit["id"])
+                        _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))
+                    elif yeni:
                         is_onay.yaz(sd, kayit["id"], yeni, "onay:kullanici")
                         _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))  # ADR-0038: onay yazımı işin is.json'ını kirli bırakmasın
                     if satir:
