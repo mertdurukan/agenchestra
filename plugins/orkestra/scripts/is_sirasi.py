@@ -403,8 +403,9 @@ def uretim_kapsaminda_mi(klasor: str) -> bool:
 
 
 def _alan_degeri(blok: str, alan: str) -> str:
-    """P bloğunda `**<alan>:**` değeri (aynı ve sonraki satırlar, boşluklar tek aralığa indirilmiş); yoksa ''."""
-    m = re.search(r"\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
+    """P bloğunda satır başındaki `**<alan>:**` değeri (aynı ve sonraki satırlar, boşluklar tek aralığa indirilmiş); yoksa ''.
+    Satır içi anma (başka alanın metninde geçen `**<alan>:**`) alan sayılmaz."""
+    m = re.search(r"^[ \t]*\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
     return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
 
 
