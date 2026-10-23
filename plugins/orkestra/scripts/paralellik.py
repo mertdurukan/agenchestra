@@ -100,6 +100,12 @@ def maddeler(plan_metni: str) -> dict[int, dict]:
     return sonuc
 
 
+def _norm(yol: str) -> str:
+    """Küçük harf (Windows yolları); `/` ile biten klasör girdisi `klasör/**` sayılır."""
+    yol = yol.lower()
+    return yol + "**" if yol.endswith("/") else yol
+
+
 def _yol_kesisir(a: str, b: str) -> bool:
     """İki yazma alanı girdisi aynı dosyaya düşebilir mi (glob için fnmatch ve önek; temkinli: şüphede kesişir)."""
     a, b = _norm(a), _norm(b)
