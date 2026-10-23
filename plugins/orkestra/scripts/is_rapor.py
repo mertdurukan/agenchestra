@@ -320,7 +320,7 @@ def detay(sd: str, is_id: str):
         a["usd"] += _sayi(r.get("maliyet_usd"))
         a["token"] += _token(r)
     return {"is": i, "oturum_gun": [og[k] for k in sorted(og)],
-            "kirilim": sorted(kr.values(), key=lambda x: -x["usd"])}
+            "kirilim": sorted(kr.values(), key=lambda x: -x["usd"]), "paralellik": par}
 
 
 def csv_metni(r: dict) -> str:
