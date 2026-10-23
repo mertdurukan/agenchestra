@@ -199,9 +199,48 @@ def yaz(sd: str, is_id: str, yeni: str, olay: str) -> dict:
 
     def islem(k):
         k[ALAN] = yeni
+        k.pop(BEKLEYEN_ALAN, None)
         k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": olay})
 
     return is_kaydi._degistir(sd, is_id, islem)
+
+
+def bekleyen_mi(kayit: dict | None) -> bool:
+    return bool((kayit or {}).get(BEKLEYEN_ALAN))
+
+
+def bekleyen_yaz(sd: str, is_id: str) -> dict:
+    """ADR-0070: kullanıcı onay mesajı gönderdi ama belgeler eksikti; onay, eksik giderilince verilmek üzere saklanır."""
+    import is_kaydi
+    import ork_lib as L
+
+    def islem(k):
+        k[BEKLEYEN_ALAN] = L.simdi()
+        k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": "onay:bekleyen"})
+
+    return is_kaydi._degistir(sd, is_id, islem)
+
+
+def bekleyen_temizle(sd: str, is_id: str) -> dict:
+    """Kullanıcı onay dışı bir mesaj yazdı: saklı onay düşer (konu ya da niyet değişmiş olabilir)."""
+    import is_kaydi
+    import ork_lib as L
+
+    def islem(k):
+        if k.pop(BEKLEYEN_ALAN, None):
+            k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": "onay:bekleyen-iptal"})
+
+    return is_kaydi._degistir(sd, is_id, islem)
+
+
+def bekleyen_onay_ver(sd: str, kayit: dict | None) -> bool:
+    """Saklı onay varsa ve belgeler artık tamamsa onayı `verildi` yapar (ADR-0070); yapıldıysa True. Kullanıcıdan yeniden onay istenmez."""
+    if not kayit or not kapi_acik() or durum(kayit) != BEKLIYOR or not bekleyen_mi(kayit):
+        return False
+    if belge_eksikleri(str(kayit.get("klasor") or "")):
+        return False
+    yaz(sd, kayit["id"], VERILDI, "onay:bekleyen-verildi")
+    return True
 
 
 def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
