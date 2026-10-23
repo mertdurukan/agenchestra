@@ -285,8 +285,13 @@ class TakiliKayitTest(Temel):
         self.assertEqual(onay.eski_alimlari_birak(self.sd), [])  # etkin koşu var
         self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")
 
-class KosuDogrulamaTest(TakiliKayitTest):
+class KosuDogrulamaTest(Temel):
     """I-215 P3: başsız koşu sonucu kayıt durumuyla doğrulanır; hedef hafıza klasörü ön koşuldur."""
+
+    def alinmis(self):
+        k = onay.iste(self.sd, "Öneri", "m", tur="perspektif")
+        onay.karar_ver(self.sd, k["id"], "onay")
+        return onay.al(self.sd, k["id"], "oturum-a")
 
     def test_s3_kayit_kapanmadan_biten_kosu_tamam_yazmaz_ve_birakir(self):
         k = self.alinmis()
