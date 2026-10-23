@@ -230,6 +230,69 @@ class KararTest(Temel):
         self.assertEqual(onay.sayac(self.sd)["uygulanacak"], 1)
 
 
+class TakiliKayitTest(Temel):
+    """I-215: sayaç/düğme tek küme, takılı `uygulaniyor` çıkışı."""
+
+    def alinmis(self, tur="perspektif"):
+        k = onay.iste(self.sd, "Öneri", "m", tur=tur)
+        onay.karar_ver(self.sd, k["id"], "onay")
+        return onay.al(self.sd, k["id"], "oturum-a")
+
+    def eskit(self, id, sn=3700):
+        k = onay._kayit_oku(self.sd, id)
+        eski = (onay.datetime.datetime.now().astimezone() - onay.datetime.timedelta(seconds=sn)).isoformat(timespec="seconds")
+        k["uygulama"]["alma_zamani"] = eski
+        onay._kayit_yaz(self.sd, k)
+
+    def test_s1_yalniz_uygulaniyor_varken_kart_sayisi_sifir(self):
+        k = self.alinmis()
+        s = onay.sayac(self.sd)
+        self.assertEqual((s["uygulanacak"], s["panelden_uygulanabilir"]), (1, 0))
+        with self.assertRaisesRegex(ValueError, "Uygulanacak onaylı"):
+            onay.simdi_uygula(self.sd)  # sayaç 0 dediği için düğme zaten çıkmaz
+        self.assertEqual(k["durum"], "uygulaniyor")
+
+    def test_s1_onaylandi_varken_kart_sayisi_duttugu_kadar(self):
+        k = onay.iste(self.sd, "Öneri", "m", tur="perspektif")
+        onay.karar_ver(self.sd, k["id"], "onay")
+        d = onay.iste(self.sd, "Karar", "m")
+        onay.karar_ver(self.sd, d["id"], "onay")  # tur=karar: düğme uygulamaz
+        s = onay.sayac(self.sd)
+        self.assertEqual((s["uygulanacak"], s["panelden_uygulanabilir"]), (2, 1))
+
+    def test_s2_birak_onaylandiya_dondurur_ve_alinabilir(self):
+        k = self.alinmis()
+        b = onay.birak(self.sd, k["id"], "deneme")
+        self.assertEqual((b["durum"], b["uygulama"]), ("onaylandi", None))
+        self.assertEqual(b["gecmis"][-1]["olay"], "birakildi")
+        self.assertEqual(onay.sayac(self.sd)["panelden_uygulanabilir"], 1)
+        self.assertEqual(onay.al(self.sd, k["id"], "oturum-b")["durum"], "uygulaniyor")
+        with self.assertRaisesRegex(ValueError, "uygulaniyor durumunda değil"):
+            onay.birak(self.sd, self.kayit()["id"], "x")
+
+    def test_s2_eski_alim_sayac_okunurken_otomatik_birakilir(self):
+        k = self.alinmis()
+        self.eskit(k["id"])
+        s = onay.sayac(self.sd)
+        self.assertEqual((s["panelden_uygulanabilir"], onay.goster(self.sd, k["id"])["durum"]), (1, "onaylandi"))
+
+    def test_s2_taze_alim_ve_etkin_kosu_birakilmaz(self):
+        k = self.alinmis()
+        onay.sayac(self.sd)
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")  # taze
+        self.eskit(k["id"])
+        onay._yaz_json(onay._kosu_yolu(self.sd), {"baslangic": onay.L.simdi(), "idler": [k["id"]], "bitis": None, "sonuc": None})
+        self.assertEqual(onay.eski_alimlari_birak(self.sd), [])  # etkin koşu var
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")
+
+    def test_s2_cli_birak(self):
+        k = self.alinmis()
+        r = ic_kos.calistir(["onay", "birak", k["id"], "--neden", "cli denemesi"], cwd=self.proje) if hasattr(ic_kos, "calistir") else None
+        if r is None:
+            self.skipTest("ic_kos.calistir yok")
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "onaylandi")
+
+
 class KuralTest(Temel):
     def test_oneri_onayi_dosyayi_yazar_ve_kaldirinca_silinir(self):
         r = onay.kural_oner(self.sd, "Sır yazma", "güvenlik", "oturum-1")
