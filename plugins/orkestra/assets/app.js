@@ -558,7 +558,8 @@
     return H`<div class="yigin">
       <div class="yigin sik"><div class="yatay"><span class="kimlik">${i.id}</span>${alanRozeti(i)}${rozet(i.durum)}${(i.kovalar?.simdi || []).length ? rozet('suruyor') : ''}</div>
         <h1>${i.ad}</h1>
-        ${i.klasor ? H`<div class="yatay soluk kucuk-y"><code title="${i.klasor}">${yolKisa(i.klasor)}</code><button class="dugme hayalet kucuk" data-eylem="kopyala" data-metin="${i.klasor}">Yolu kopyala</button></div>` : ''}</div>
+        ${i.klasor ? H`<div class="yatay soluk kucuk-y"><code title="${i.klasor}">${yolKisa(i.klasor)}</code><button class="dugme hayalet kucuk" data-eylem="kopyala" data-metin="${i.klasor}">Yolu kopyala</button></div>` : ''}
+        ${i.durum === 'acik' && t - b <= 0 ? H`<div class="yatay"><button class="dugme kucuk" data-eylem="is-kapat" data-is="${i.id}" data-alan="${i.alan?.id || ''}" title="Açık todo maddesi yok; kapanış kapıları (çalışma özeti, ADR) denetlenir">İşi kapat</button></div>` : ''}</div>
       <div class="karolar">${karo('İlerleme', t ? B.yuzde(b / t) : '–', t ? H`${b} / ${t} madde` : 'madde yok')}
         ${karo('Harcama', B.paraP(i), pencereAd(B.pencere()) + ' · ' + B.birim())}
         ${karo('Kart', B.sayi(kartlar.length || Object.values(i.kovalar || {}).flat().filter(e => e.tur === 'kart').length), 'oluşturma sırasıyla aşağıda')}
