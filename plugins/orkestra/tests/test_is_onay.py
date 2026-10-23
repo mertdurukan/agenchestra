@@ -63,9 +63,10 @@ class _Onay(unittest.TestCase):
             except SystemExit:
                 pass
         ham = buf.getvalue().strip()
+        self.son_cikti = json.loads(ham.splitlines()[-1]) if ham else {}
         if not ham:
             return False, ""
-        h = json.loads(ham.splitlines()[-1]).get("hookSpecificOutput", {})
+        h = self.son_cikti.get("hookSpecificOutput", {})
         return h.get("permissionDecision") == "deny", h.get("permissionDecisionReason", "")
 
     def mesaj(self, metin):
@@ -238,24 +239,26 @@ class KutuOncesiBaglanti(_Onay):
         self.assertIn("wrap_up", m)
         self.assertIn("is baglanti " + self.kayit["id"], m)
 
-    def test_ilk_kutu_cagrisi_reddedilir_ve_satir_verir(self):
+    def test_ilk_kutu_cagrisi_reddedilmez_hook_satiri_gosterir(self):
         self.belgeler()
         deny, neden = self.pre("mcp__ccd_turn__wrap_up", komut="x")
-        self.assertTrue(deny)
-        self.assertIn("plan dosyası: [plan.md]", neden)
-        self.assertIn("to-do dosyası: [todo.md]", neden)
+        self.assertFalse(deny)
+        self.assertIn("plan dosyası: [plan.md]", self.son_cikti["systemMessage"])
+        self.assertIn("to-do dosyası: [todo.md]", self.son_cikti["systemMessage"])
 
-    def test_ikinci_cagri_gecer(self):
+    def test_ikinci_cagri_satir_tekrarlamaz(self):
         self.belgeler()
         self.pre("mcp__ccd_turn__wrap_up", komut="x")
         self.assertFalse(self.pre("mcp__ccd_turn__wrap_up", komut="x")[0])
+        self.assertNotIn("systemMessage", self.son_cikti)
 
-    def test_belge_degisince_yeniden_reddedilir(self):
+    def test_belge_degisince_yeniden_gosterilir(self):
         self.belgeler()
         self.pre("AskUserQuestion", komut="x")
         yol = os.path.join(self.klasor, "plan.md")
         os.utime(yol, (os.path.getmtime(yol) + 10, os.path.getmtime(yol) + 10))
-        self.assertTrue(self.pre("AskUserQuestion", komut="x")[0])
+        self.assertFalse(self.pre("AskUserQuestion", komut="x")[0])
+        self.assertIn("plan dosyası", self.son_cikti["systemMessage"])
 
     def test_baska_arac_ve_alt_ajan_etkilenmez(self):
         self.belgeler()

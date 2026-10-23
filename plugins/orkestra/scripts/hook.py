@@ -197,6 +197,7 @@ def sor(neden: str):
 
 
 _BEKLEYEN_UYARI = ""  # PreToolUse gölge uyarısı: yazma engellenmez, çıkışta tek satır bağlam olarak gider
+_KULLANICI_MESAJI = ""  # K-003: bağlantı satırlarını hook kullanıcıya gösterir (ADR-0040); model yazmaz
 _VARSAYILAN_IZIN = ""  # izin politikası (mod=genis): kapı dışı çağrıya hook allow verir; settings deny/ask yine geçerlidir
 
 
@@ -208,7 +209,10 @@ def _pre_cikti(ek: str = ""):
         ho["permissionDecisionReason"] = _VARSAYILAN_IZIN
     if ek:
         ho["additionalContext"] = ek
-    L.hook_cikti({"hookSpecificOutput": ho} if len(ho) > 1 else None)
+    cikti = {"hookSpecificOutput": ho} if len(ho) > 1 else {}
+    if _KULLANICI_MESAJI:
+        cikti["systemMessage"] = _KULLANICI_MESAJI
+    L.hook_cikti(cikti or None)
 
 
 def gec():
@@ -509,9 +513,11 @@ def _onay_kapisi(sd: str, oid, proje: str, tam: str = "", tirnaksiz: str = "") -
 
 
 def _bitis_baglanti_kapisi(sd: str, oid, proje: str) -> None:
-    """K-003 kaynakta: turu bitiren araç (wrap_up, AskUserQuestion, ExitPlanMode) çağrılmadan önce, işin belgeleri
-    son teslimden beri değiştiyse bir kez reddeder ve hazır bağlantı satırlarını verir; ajan satırları yanıt metnine
-    yazıp aracı yeniden çağırır (aynı imza ikinci kez reddedilmez). Hatada serbest."""
+    """K-003 kaynakta (ADR-0040): turu bitiren araç (wrap_up, AskUserQuestion, ExitPlanMode) çağrılırken, işin belgeleri
+    son teslimden beri değiştiyse hazır bağlantı satırlarını hook kullanıcıya `systemMessage` ile gösterir; tur
+    reddedilmez, model satır yazmaz (aynı imza ikinci kez gösterilmez). Gösterilen satırlar Stop'ta tekrarlanmasın diye
+    kaydedilir. Hatada serbest."""
+    global _KULLANICI_MESAJI
     try:
         import is_onay
         if not oid or not is_onay.kapi_acik():
@@ -534,11 +540,10 @@ def _bitis_baglanti_kapisi(sd: str, oid, proje: str) -> None:
         if onceki == imza:
             return
         with open(yol, "w", encoding="utf-8") as f:
-            json.dump({"imza": imza}, f)
+            json.dump({"imza": imza, "gosterilen": list(satirlar)}, f)
+        _KULLANICI_MESAJI = "Orkestra belgeleri:" + chr(10) + chr(10).join(satirlar)
     except Exception:
         return
-    reddet("K-003: kutu/soru aracı turu bitirir; işin belgeleri değişti ve bağlantıları yanıtta yok. Bu satırları "
-           "yanıt METNİNE yaz (kutudan önce), sonra aracı yeniden çağır." + chr(10) + chr(10).join(satirlar))
 
 
 def _izin_karari(arac: str, girdi: dict, sd: str, oturum=None):
@@ -592,7 +597,8 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
 
 
 def pre_tool_use(inp: dict):
-    global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI
+    global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI
+    _KULLANICI_MESAJI = ""
     _BEKLEYEN_UYARI = ""  # ic_kos işlem içi koşar: önceki çağrının uyarısı sızmasın
     _VARSAYILAN_IZIN = ""
     _DURUM_DIZINI = ""
@@ -1066,12 +1072,34 @@ def _bayat_todo_uyarisi(sd: str, is_id) -> str:
             f"`orkestra is todo {is_id} --bitti <n>`.")
 
 
+def _sm(*parca: str) -> str:
+    """Stop çıkışı: K-003 bağlantı satırları (ADR-0040) varsa diğer sistem mesajlarının önüne eklenir."""
+    return chr(10).join(x for x in (_KULLANICI_MESAJI, *parca) if x)
+
+
+def _pre_gosterilenler(sd: str, oid) -> str:
+    """PreToolUse kapısının bu turda gösterdiği satırlar (bir kez okunur, silinir); Stop aynı belgeyi tekrarlamasın."""
+    yol = os.path.join(sd, "oturumlar", f"{oid}.baglanti.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            d = json.load(f)
+        gosterilen = d.pop("gosterilen", None) or []
+        with open(yol, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        return chr(10).join(gosterilen)
+    except (OSError, ValueError):
+        return ""
+
+
 def _baglanti_kapisi(sd: str, oid, inp: dict, ozet: dict) -> None:
-    """K-003 (Ö3): bu turda dokunulan okunacak belgenin yanıtta bağlantısı yoksa golge: `gunluk.jsonl`'a
-    kural_ihlal / belge_baglantisi_yok; ihlal: tek seferlik block + hazır satırlar (`stop_hook_active` döngüyü keser).
-    Bash ile yazılan belgeler `dokunulan`a girmez. Hatada sessiz geçer."""
+    """K-003 (Ö3, ADR-0040): bu turda dokunulan okunacak belgenin yanıtta bağlantısı yoksa golge: `gunluk.jsonl`'a
+    kural_ihlal / belge_baglantisi_yok; ihlal: satırları hook kullanıcıya `systemMessage` ile gösterir (tur bloklanmaz,
+    model satır yazmaz; PreToolUse'ta gösterilen belge tekrarlanmaz). Bash ile yazılan belgeler `dokunulan`a girmez.
+    Hatada sessiz geçer."""
+    global _KULLANICI_MESAJI
     try:
         import belge_bicim as BB
+        gosterilen = _pre_gosterilenler(sd, oid)
         ayar = BB.ayar_oku(sd)
         eksik = BB.baglantisiz_belgeler(ozet.get("dokunulan"), inp.get("last_assistant_message"), ayar)
         if not eksik:
@@ -1082,14 +1110,14 @@ def _baglanti_kapisi(sd: str, oid, inp: dict, ozet: dict) -> None:
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
             "zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal", "kural": "belge_baglantisi_yok", "mod": kip,
             "dosyalar": goreli[:8], "adet": len(goreli), "is": _oturum_isi(sd, oid)})
-        if kip == "ihlal" and not inp.get("stop_hook_active"):
+        if kip == "ihlal":
             import is_kaydi
-            satirlar = "\n".join(is_kaydi.baglanti_satiri(
+            satirlar = [is_kaydi.baglanti_satiri(
                 "belge", os.path.abspath(os.path.join(inp.get("cwd") or os.getcwd(), y)),
-                L.baglanti_koku(proje, inp.get("cwd"))) for y in eksik[:6])
-            L.hook_cikti({"decision": "block", "reason":
-                          "Orkestra (K-003): bu turda okunacak belge yazıldı, yanıtta bağlantısı yok. Yanıtın sonuna ekle "
-                          "(etiketi plan dosyası / to-do dosyası / çalışma özeti / rapor yap; `orkestra is baglanti <id>` hazır verir):\n" + satirlar})
+                L.baglanti_koku(proje, inp.get("cwd"))) for y in eksik[:6]]
+            satirlar = [x for x, g in zip(satirlar, goreli) if g not in gosterilen]
+            if satirlar:
+                _KULLANICI_MESAJI = "Orkestra belgeleri:" + chr(10) + chr(10).join(satirlar)
     except SystemExit:
         raise
     except Exception:
@@ -1308,7 +1336,7 @@ def stop(inp: dict):
     if inp.get("background_tasks"):
         satir = arka_plan_satiri(sd, inp.get("background_tasks"))
         if satir:
-            L.hook_cikti({"systemMessage": satir})
+            L.hook_cikti({"systemMessage": _sm(satir)})
         gec()
     acik = []
     for k in L.kartlar(sd):
@@ -1324,18 +1352,21 @@ def stop(inp: dict):
         except Exception:
             pass
         satir = arka_plan_satiri(sd, None)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
-        mesaj = " ".join(x for x in (satir, hatirlatma) if x)
+        mesaj = _sm(" ".join(x for x in (satir, hatirlatma) if x))
         if mesaj:
             L.hook_cikti({"systemMessage": mesaj})
         gec()
     liste = "; ".join(f"{g} [{d}] {b[:50]}" for g, d, b in acik)
     ek = f" {hatirlatma}" if hatirlatma else ""
     if inp.get("stop_hook_active"):
-        L.hook_cikti({"systemMessage": f"Orkestra: açık kartlar kaldı → {liste}{ek}"})
-    L.hook_cikti({"decision": "block", "reason":
+        L.hook_cikti({"systemMessage": _sm(f"Orkestra: açık kartlar kaldı → {liste}{ek}")})
+    blok = {"decision": "block", "reason":
                   f"Orkestra bitiş kapısı: bu oturumun açık kartları var → {liste}. "
                   "onaylandi → sonucu topla ve `orkestra kart teslim <id>`; denetimde → ayrı denetçiyi çalıştır; "
-                  "reddedildi → düzeltme/yükseltme yap; bilerek bırakıyorsan `orkestra kart durum <id> beklemede --not \"neden\"`." + ek})
+                  "reddedildi → düzeltme/yükseltme yap; bilerek bırakıyorsan `orkestra kart durum <id> beklemede --not \"neden\"`." + ek}
+    if _KULLANICI_MESAJI:
+        blok["systemMessage"] = _KULLANICI_MESAJI
+    L.hook_cikti(blok)
 
 
 # ---------------------------------------------------------------- diğer olaylar

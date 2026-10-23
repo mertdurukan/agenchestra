@@ -188,14 +188,12 @@ class Kancalar(unittest.TestCase):
         self.stop("rapor: [rapor.md](is1/rapor.md)", ["is1/rapor.md"])
         self.assertEqual(self.ihlaller("belge_baglantisi_yok"), [])
 
-    def test_stop_ihlal_modunda_bir_kez_bloklar_dongu_yok(self):
+    def test_stop_ihlal_modunda_hook_gosterir_bloklamaz(self):
         self.ayar_yaz(baglanti_kapisi="ihlal")
         c = self.stop("bitti", ["is1/rapor.md"])
-        self.assertEqual(c.get("decision"), "block", c)
-        self.assertIn("rapor.md", c["reason"])
-        self.assertIn("(is1/rapor.md)", c["reason"])
-        c = self.hook("Stop", {"last_assistant_message": "bitti", "stop_hook_active": True})
         self.assertNotEqual(c.get("decision"), "block", c)
+        self.assertIn("rapor.md", c["systemMessage"])
+        self.assertIn("(is1/rapor.md)", c["systemMessage"])
 
     def test_stop_belge_olmayan_dosya_ihlal_sayilmaz(self):
         self.stop("bitti", ["scripts/kod.py", "README.md", "is1/devir_ozeti.md"])
