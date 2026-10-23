@@ -287,6 +287,7 @@ def _is_todolari(sd: str) -> list[dict]:
         except Exception:  # noqa: BLE001
             continue
         out.append({"id": g["id"], "ad": IK.is_adi(g.get("baslik")), "biten": t["biten"], "toplam": t["toplam"],
+                    "oturumlar": [o.get("oturum") for o in g.get("oturumlar") or [] if isinstance(o, dict)],
                     "acik": [temiz_metin(m, 120) for m in t["acik_maddeler"][:5]]})
     return out
 
