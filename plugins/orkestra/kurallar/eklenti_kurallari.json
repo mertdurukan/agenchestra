@@ -2,7 +2,7 @@
   "kurallar": [
     {
       "id": "K-003",
-      "metin": "ZORUNLU, istisnasız: Okunmak üzere üretilen belgelerden (mevcut durum, plan, todo, bulgu, rapor, özet) yalnız bu turda yeni oluşan ya da içeriği değişen belge, yanıtın sonunda her belge için bir satırla verilir: '<belge türü>: <bağlantı>' ('mevcut durum', 'plan dosyası', 'to-do dosyası' dahil). Değişmeyen belge tekrar verilmez. Todo'da yalnız madde işaretleme (bitti, not) değişiklik sayılmaz; madde eklenir, çıkarılır ya da yeniden yazılırsa verilir. Yeni iş klasöründe mevcut durum, plan ve todo birlikte verilir. Çalışma dosyaları (kural, kod, betik, test, ayar) verilmez. Bağlantı proje köküne göre göreli, tıklanabilir markdown bağlantısıdır. Bağlantı satırlarını hook kullanıcıya gösterir (turu bitiren araçtan önce ve Stop'ta); model belgeyi ya da bağlantısını yanıtta yeniden yazmaz ve içeriğini aktarmaz (ADR-0040).",
+      "metin": "ZORUNLU, istisnasız: Okunmak üzere üretilen belgelerden (mevcut durum, plan, todo, bulgu, rapor, özet) yalnız bu turda yeni oluşan ya da içeriği değişen belge, yanıtın sonunda her belge için bir satırla verilir: '<belge türü>: <bağlantı>' ('mevcut durum', 'plan dosyası', 'to-do dosyası' dahil). Değişmeyen belge tekrar verilmez. Todo'da yalnız madde işaretleme (bitti, not) değişiklik sayılmaz; madde eklenir, çıkarılır ya da yeniden yazılırsa verilir. Yeni iş klasöründe mevcut durum, plan ve todo birlikte verilir. Çalışma dosyaları (kural, kod, betik, test, ayar) verilmez. Bağlantı proje köküne göre göreli, tıklanabilir markdown bağlantısıdır. Bağlantı satırlarını hook kullanıcıya gösterir (turu bitiren araçtan önce ve Stop'ta); model belgeyi ya da bağlantısını yanıtta yeniden yazmaz ve içeriğini aktarmaz (ADR-0040). Kullanıcı bir dosyayı ya da belgeyi istediğinde (ver, göster, MD olarak ver) dosya SendUserFile ile gönderilir; içeriği sohbet metnine yapıştırılmaz, özetlenip yeniden yazılmaz. İçerik yalnız kullanıcı açıkça sohbette yazılmasını isterse yazılır.",
       "neden": "Kullanıcı 16.10.2026: onaylanıp devam edilen plan, mevcut durum ve todo her yanıtta tekrar verilmesin; yalnız yeni klasör açıldığında ya da içerik (plan, mevcut durum, todo maddeleri) değiştiğinde verilsin; todo'da yalnız madde bitirme bağlantı gerektirmez.",
       "durum": "etkin",
       "kaynak": "cli",
@@ -799,6 +799,42 @@
         }
       ],
       "etkinlesme": "2026-10-22T20:27:15+03:00"
+    },
+    {
+      "id": "P-031",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcıdan bir şey istendiğinde ajan sırayla çalışır: (1) kaynakları tarar, (2) kaynaklar arasındaki çelişkileri belirler, (3) sentezler. Güncellik önemlidir: kaynağın tarihine ve son değişikliğine bakılır, eski kopya ya da eski kural güncel sayılmaz; çelişkide güncel olan kazanır. Yazılan her şey açık, net ve anlaşılırdır. Yanıt her zaman kısadır: giriş, arka plan, özet ve tekrar yazılmaz; gerekmedikçe başlık ve tablo kullanılmaz. Zorlama: yalnız bu kural; hook yoktur.",
+      "neden": "Kullanıcı 23.10.2026: projedeki eski kural kopyası izlendi (güncellik hatası), dosya istenince içerik yapıştırıldı ve yanıtlar gereksiz uzadı.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-23T09:49:16+03:00",
+      "guncelleme": "2026-10-23T09:49:16+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-23T09:49:16+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcıdan bir şey istendiğinde ajan sırayla çalışır: (1) kaynakları tarar, (2) kaynaklar arasındaki çelişkileri belirler, (3) sentezler. Güncellik önemlidir: kaynağın tarihine ve son değişikliğine bakılır, eski kopya ya da eski kural güncel sayılmaz; çelişkide güncel olan kazanır. Yazılan her şey açık, net ve anlaşılırdır. Yanıt her zaman kısadır: giriş, arka plan, özet ve tekrar yazılmaz; gerekmedikçe başlık ve tablo kullanılmaz. Zorlama: yalnız bu kural; hook yoktur."
+        }
+      ],
+      "etkinlesme": "2026-10-23T09:49:16+03:00"
+    },
+    {
+      "id": "P-030",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Her türlü iş ve süreçte (Jira story, plan, kod, ölçüm, belge) çözüm best in class düzeyinde olur. (1) Kök neden: çözüm belirtiyi değil kök nedeni ortadan kaldırır. (2) Alternatifler: en az iki UYGULANABİLİR yaklaşım karşılaştırılır, mevcut mekanizmalar (skill, standart, hook, kural) da rakip olarak tartılır, seçim gerekçelenir; göstermelik rakip sayılmaz. (3) Kapsam özü: kapsam daraltılırken çözümün özü (kalıcı ya da yapısal öğe, ör. koruma katmanı, rol kısıtı, bağımsız denetim) çıkarılmaz; çıkarılıyorsa gerekçesi ve yerine konan yazılır. (4) Ölçüm: yöntem istatistiksel olarak yeterli ve gerekçelidir; eşik, örnek büyüklüğü ve seçim nedeni yazılır; LLM davranışı için sabit küçük tekrar (örn. 5) yeterli sayılmaz, geçme oranı eşiği ve yeterli örnek gerekir; varlık kontrolü davranış ölçümü yerine geçmez. (5) İş başında istek kendi cümlenle yeniden yazılır, belirsizse tek soruyla teyit edilir; mevcut analize çıpalanılmaz, önce alternatifler çıkarılır. Zorlama: her plan maddesi '**Alternatifler:**' alanı taşır (en az iki madde, biri 'Elenen'); plan.md sonunda plan yazarından AYRI orkestra:denetci'nin dört soruyu yanıtladığı '## Best in class denetimi' bloğu bulunur ve '**Denetçi:**' satırı denetçi alt ajanın agent_id'sini taşır (kapı bunu zaman.jsonl alt ajan kaydıyla sınar); içerik üreten skill'ler (ör. jira-story) aynı soruları kendi adımlarına alır ve çıktıyı ayrı denetçiden geçirir. Standart: 'orkestra standart goster best_in_class'. İlişki: P-018 belge BİÇİMİNİ denetler, P-030 çözümün KALİTESİNİ sorar; ikisi birlikte geçerlidir, P-018 değişmez. Kapı 'best_in_class' gölge modundadır (P-028): eksik uyarılır ve gunluk.jsonl'a kapi_golge yazılır, iş engellenmez; ihlal geçişi ölçümden sonra ayrı kararla. Kapatma: ORKESTRA_BIC_KAPISI=0. Zorlama: is_sirasi.bic_eksikleri, ayarlar/best_in_class.json, tests/test_best_in_class.py. (ADR-0065)",
+      "neden": "Kullanıcı 23.10.2026: Jira açıklamaları işinde ilk üretim best in class değildi (istek yanlış okundu, alternatif karşılaştırılmadı, kapsam daraltılırken yapısal çözüm çıkarıldı, örneklem gerekçesizdi, bağımsız denetçi yoktu); tüm işlerde best in class istendi. İş I-199.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-23T09:40:14+03:00",
+      "guncelleme": "2026-10-23T09:40:14+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-23T09:40:14+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Her türlü iş ve süreçte (Jira story, plan, kod, ölçüm, belge) çözüm best in class düzeyinde olur. (1) Kök neden: çözüm belirtiyi değil kök nedeni ortadan kaldırır. (2) Alternatifler: en az iki UYGULANABİLİR yaklaşım karşılaştırılır, mevcut mekanizmalar (skill, standart, hook, kural) da rakip olarak tartılır, seçim gerekçelenir; göstermelik rakip sayılmaz. (3) Kapsam özü: kapsam daraltılırken çözümün özü (kalıcı ya da yapısal öğe, ör. koruma katmanı, rol kısıtı, bağımsız denetim) çıkarılmaz; çıkarılıyorsa gerekçesi ve yerine konan yazılır. (4) Ölçüm: yöntem istatistiksel olarak yeterli ve gerekçelidir; eşik, örnek büyüklüğü ve seçim nedeni yazılır; LLM davranışı için sabit küçük tekrar (örn. 5) yeterli sayılmaz, geçme oranı eşiği ve yeterli örnek gerekir; varlık kontrolü davranış ölçümü yerine geçmez. (5) İş başında istek kendi cümlenle yeniden yazılır, belirsizse tek soruyla teyit edilir; mevcut analize çıpalanılmaz, önce alternatifler çıkarılır. Zorlama: her plan maddesi '**Alternatifler:**' alanı taşır (en az iki madde, biri 'Elenen'); plan.md sonunda plan yazarından AYRI orkestra:denetci'nin dört soruyu yanıtladığı '## Best in class denetimi' bloğu bulunur ve '**Denetçi:**' satırı denetçi alt ajanın agent_id'sini taşır (kapı bunu zaman.jsonl alt ajan kaydıyla sınar); içerik üreten skill'ler (ör. jira-story) aynı soruları kendi adımlarına alır ve çıktıyı ayrı denetçiden geçirir. Standart: 'orkestra standart goster best_in_class'. İlişki: P-018 belge BİÇİMİNİ denetler, P-030 çözümün KALİTESİNİ sorar; ikisi birlikte geçerlidir, P-018 değişmez. Kapı 'best_in_class' gölge modundadır (P-028): eksik uyarılır ve gunluk.jsonl'a kapi_golge yazılır, iş engellenmez; ihlal geçişi ölçümden sonra ayrı kararla. Kapatma: ORKESTRA_BIC_KAPISI=0. Zorlama: is_sirasi.bic_eksikleri, ayarlar/best_in_class.json, tests/test_best_in_class.py. (ADR-0065)"
+        }
+      ],
+      "etkinlesme": "2026-10-23T09:40:14+03:00"
     }
   ]
 }
