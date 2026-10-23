@@ -104,7 +104,7 @@ async function yenile($: EngineInterface) {
   try {
     ic.liste = listeyiKayittanCikar(await $.session.messages())
   } catch {
-    // Kayıt okunamazsa mevcut liste kalır; bant en kötü "işlem devam ediyor" yazar.
+    // Kayıt okunamazsa mevcut liste kalır; bant en kötü "0/0" yazar.
   }
 }
 
