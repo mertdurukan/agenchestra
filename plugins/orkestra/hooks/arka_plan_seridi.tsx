@@ -200,12 +200,12 @@ export const register: Register = on => {
       return next(e)
     }
 
-    if (Date.now() - sonYenileme >= YENILEME_MS) {
+    if (Date.now() - ic.sonYenileme >= YENILEME_MS) {
       await yenile($)
     }
 
     const { Text } = $.ui.resolve(e)
 
-    return <Text dimColor>{bantMetni(liste, arka)}</Text>
+    return <Text dimColor>{bantMetni(ic.liste, arka)}</Text>
   })
 }
