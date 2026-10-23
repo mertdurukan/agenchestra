@@ -384,6 +384,14 @@ details.ac[open] > summary::before { content: "▾ "; }
 /* komut paleti ve yardım */
 dialog.palet { width: min(640px, calc(100vw - 32px)); margin: 12vh auto auto; padding: 0; border: 1px solid var(--cizgi-guclu); border-radius: var(--r4); background: var(--yuzey); color: var(--metin); box-shadow: var(--golge-buyuk); }
 dialog.palet::backdrop { background: rgb(0 0 0 / .35); }
+/* onay diyaloğu (İşi kapat) */
+dialog.onay { width: min(440px, calc(100vw - 32px)); margin: 18vh auto auto; padding: var(--a5); border: 1px solid var(--cizgi-guclu); border-radius: var(--r4); background: var(--yuzey); color: var(--metin); box-shadow: var(--golge-buyuk); }
+dialog.onay::backdrop { background: rgb(0 0 0 / .35); }
+dialog.onay h2 { margin: 0 0 var(--a2); font-size: var(--y16); }
+dialog.onay p { margin: 0 0 var(--a3); }
+dialog.onay textarea { width: 100%; margin-top: var(--a1); padding: var(--a2); border: 1px solid var(--cizgi-guclu); border-radius: var(--r4); background: transparent; color: var(--metin); font: inherit; resize: vertical; }
+dialog.onay .hata-satir { min-height: 1.5em; color: var(--kotu); font-size: var(--y12); }
+dialog.onay .eylemler { display: flex; justify-content: flex-end; gap: var(--a2); }
 .palet input { width: 100%; height: 52px; padding: 0 var(--a4); border: 0; border-bottom: 1px solid var(--cizgi); background: transparent; color: var(--metin); font: inherit; font-size: var(--y16); outline: none; }
 .palet ul { list-style: none; margin: 0; padding: var(--a2); max-height: 50vh; overflow: auto; }
 .palet li { display: flex; align-items: center; gap: var(--a3); padding: var(--a2) var(--a3); border-radius: var(--r2); cursor: pointer; font-size: var(--y13); }
