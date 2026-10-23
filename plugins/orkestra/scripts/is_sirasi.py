@@ -120,9 +120,9 @@ def mevcut_varlik_eksikleri(klasor: str, metin: str | None = None, bos_say: bool
         elif kimlikler is None:
             eksik.append(f"P{n}: sistem haritası yok; önce `orkestra harita oku` çalıştır")
         else:
-            for kid in [x.strip(" `") for x in deger.split(",") if x.strip(" `")]:
+            for kid in varlik_kimlikleri(deger):
                 if kid not in kimlikler:
-                    eksik.append(f"P{n}: `{kid}` haritada yok (`orkestra harita oku` ile kimliği doğrula)")
+                    eksik.append(f"P{n}: `{kid}` haritada yok (`orkestra harita oku` ile kimliği doğrula; alan biçimi {VARLIK_BICIM})")
     return eksik
 
 
