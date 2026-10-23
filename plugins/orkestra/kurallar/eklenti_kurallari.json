@@ -469,12 +469,12 @@
     {
       "id": "P-012",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır.",
+      "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır (önce Grep/Glob; Bash aramada `timeout` ve dar kök, geniş kökte zamansız grep -r/find kullanılmaz); genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır.",
       "neden": "Kullanıcı 13-15.10.2026: yan bulgular ve öneriler asıl görevi gölgeledi; bir ölçüm kartı 26 dk ve ~170 bin token harcadı, oysa kolon varlığı kontrolü yeterliydi. Kural yalnız bir projenin CLAUDE.md dosyasındaydı; eklentiyi kullanan her projede geçerli olmalı.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-18T10:36:24+03:00",
-      "guncelleme": "2026-10-18T17:35:00+03:00",
+      "guncelleme": "2026-10-23T18:24:33+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-18T10:36:24+03:00",
@@ -485,6 +485,11 @@
           "zaman": "2026-10-18T17:35:00+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Kullanıcı 'yap' demeden iş başlatılmaz; engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır."
+        },
+        {
+          "zaman": "2026-10-23T18:24:33+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır."
         }
       ],
       "etkinlesme": "2026-10-18T10:36:24+03:00"

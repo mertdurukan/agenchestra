@@ -1,6 +1,6 @@
 # ADR-0039: Geniş Bash taraması gölgede uyarılır; zaman aşımıyla arka plana düşen komut izlenir
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 22.10.2026
 
@@ -21,7 +21,7 @@ I-190 oturumunda `grep -r` (C:\Mert\McD) ve `find` (C:\Users\PC) ön planda, zam
 **Sonuçlar:**
 
 - **Olumlu:** ihlal sayılabilir; arka plana düşen komut görünür olur; tüm projelerde geçerli (P-022).
-- **Olumsuz:** `golge` kipinde ajan uyarı almaz; kalıp dışı geniş tarama kaçar.
+- **Olumsuz:** `golge` kipinde ajan yalnız tek satır uyarı alır, komut engellenmez; kalıp dışı geniş tarama kaçar.
 - **Geri alma:** ayarda `mod: kapali` ya da `ORKESTRA_GENIS_TARAMA=0`; kalıcı: modül, ayar, test ve çağrı silinir; kural cümlesi `orkestra kural duzenle` ile geri alınır.
 
 **İlgili iş:** I-194; kurallar P-012, P-022, P-023, P-028; ADR-0037
