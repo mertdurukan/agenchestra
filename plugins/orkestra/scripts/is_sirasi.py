@@ -559,6 +559,43 @@ def uretim_engeli(klasor: str) -> list[str]:
     return KM.ret_ver(klasor, "uretim_noktasi", uretim_eksikleri(klasor))
 
 
+# ADR-0080: plan paralellik kapısı (`**Önce:**` gerekçeli bağımlılık, `**Yazma alanı:**`, dalga kesişimi, tam sıralı gerekçe).
+def paralellik_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_PARALELLIK_KAPISI") != "0"
+
+
+def paralellik_kapsaminda_mi(klasor: str) -> bool:
+    """ADR-0080: iş sıralı ve is.json `paralel: true` taşıyor (bayraksız eski işler muaf)."""
+    if not paralellik_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("paralel") is True
+    except (OSError, ValueError):
+        return False
+
+
+def paralellik_eksikleri(klasor: str) -> list[str]:
+    """ADR-0080: `paralel: true` taşıyan sıralı işte plan.md paralellik analizinin eksikleri: alan yok/biçimsiz, geçersiz
+    başvuru (ileri başvuru izinli, döngü yasak), sahte `Çakışma:`, aynı dalgada kesişen yazma alanı, gerekçesiz tam sıralı
+    plan. Kapsam dışı iş ya da plan.md yok: boş liste."""
+    if not paralellik_kapsaminda_mi(klasor):
+        return []
+    metin = _oku(os.path.join(klasor, "plan.md"))
+    if metin is None:
+        return []
+    import paralellik as PAR
+    return [f"{e} (ADR-0080)" for e in PAR.analiz(metin, ileri_yasak=False)["eksikler"]]
+
+
+def paralellik_engeli(klasor: str) -> list[str]:
+    """`plan_eksikleri` bağlantısı: ihlal modunda eksikleri döndürür ve her reddi `kapi_ret` olarak kaydeder (gölgede `kapi_golge`)."""
+    if not paralellik_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ret_ver(klasor, "paralellik", paralellik_eksikleri(klasor))
+
+
 def ozet_eksigi(metin: str, ad: str) -> str | None:
     """Belgede `## Özet` bölümü var ve yer tutucu dışında içerik taşıyor mu; değilse neden."""
     m = _OZET_BOLUMU.search(metin or "")
