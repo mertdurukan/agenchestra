@@ -1,0 +1,6 @@
+{
+  "mod": "golge",
+  "esik": 0.5,
+  "kalibrasyon_n": 20,
+  "aciklama": "ADR-0080 kapanış paralellik kapısı (S6a/S6b, K6-K8). is.json `paralel: true` taşıyan ve planlanan eşzamanlılığı (paralellik.analiz planlanan_agirlikli) 2 ya da daha büyük olan işte `is kapat`: kartlar is.json'a yüklenmediyse ya da oran (gerçekleşen ÷ planlanan, birim ortalama eşzamanlı iş sayısı, yalnız orkestra:isci-* ve orkestra:test-yazari) `esik`in altındaysa çalışma özetinde en az 40 karakter gerekçeli `## Paralellik sapması` bölümü istenir. Bayraksız iş muaftır. Mod: ilk `kalibrasyon_n` farklı işte `golge` (her kapanış ölçümü gunluk.jsonl'a kapi_golge yazar, engellemez); gunluk.jsonl'da bu kapının kapi_golge kaydı olan farklı iş sayısı `kalibrasyon_n`e ulaşınca kendiliğinden `ihlal` (kapi_ret yazar, kapanışı reddeder). `mod: ihlal` sayımdan bağımsız ihlal demektir. Kalibrasyon: ilk 20 işin birinci çeyreği 0,5'in altındaysa eşik ADR ile gözden geçirilir. Kapatma: ORKESTRA_PARALELLIK_KAPANIS_KAPISI=0 (plan paralellik kapısından ayrı). Proje ezmesi: .claude/orkestra/paralellik_kapanis.json."
+}
