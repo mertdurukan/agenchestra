@@ -162,12 +162,12 @@ class IstekIpucu(_Ortak):
         idler = idler or [self.fatura["id"], self.diger["id"]]
         self.karar_yama(("sec", idler), [{"id": i, "puan": 0.5 - n * 0.1} for n, i in enumerate(idler)])
 
-    def test_baglisiz_oturum_acik_isler_listelenir(self):
+    def test_baglisiz_oturum_belirsizde_en_yakin_ise_kendiliginden_baglanir(self):
         self._sec()
         m = self.istek(ISTEK_FATURA)
         self.assertIn(self.fatura["id"], m)
-        self.assertIn(self.diger["id"], m)
-        self.assertIn("orkestra is ac", m)
+        self.assertIn("otomatik bağlandı", m)
+        self.assertEqual(self.oturum_json().get("is"), self.fatura["id"])
 
     def test_eslesmeyen_istek_de_ayni_satiri_alir(self):
         self._sec()
@@ -492,18 +492,16 @@ class OtomatikYonlendirme(_Ortak):
         self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], [])
 
     # --- K1 sec
-    def test_sec_en_yakin_iki_isi_ve_secim_satirini_verir(self):
+    def test_sec_en_yakin_ise_sormadan_baglar_yeni_is_acmaz(self):
         a, b = self.fatura["id"], self.diger["id"]
         once = self._is_idleri()
         self.karar_yama(("sec", [a, b]), self._puan(a, b))
         m = self.istek(ISTEK_FATURA)
         self.assertIn(a, m)
-        self.assertIn(b, m)
-        self.assertIn("ilk araç çağrısından önce", m)
-        self.assertIn("orkestra is devam", m)
-        self.assertIn("orkestra is ac", m)
+        self.assertIn("otomatik bağlandı", m)
+        self.assertNotIn("seç", m)
         self.assertEqual(self._is_idleri(), once)
-        self.assertIsNone(self.oturum_json().get("is"))
+        self.assertEqual(self.oturum_json().get("is"), a)
 
     # --- K2 devam
     def test_devam_turu_bagsizda_is_acmaz_bagsiz_uyarisi_ve_sec(self):
@@ -549,7 +547,7 @@ class OtomatikYonlendirme(_Ortak):
         self.assertEqual(karsilastirilacak(), onceki)
         self.assertEqual(karsilastirilacak().get("is"), self.fatura["id"])
         self.assertIn("bağlı iş " + self.fatura["id"], m)
-        self.assertIn("start_session", m)  # K-004 yeni oturum önerisi korunur
+        self.assertNotIn("start_session", m)  # K-004: yeni oturum önerilmez, oturum kendisi geçer
 
     # --- K3 klasör
     def test_klasor_esleme_ilk_projesi_altinda_NNN_tarih_slug(self):

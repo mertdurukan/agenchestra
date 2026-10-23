@@ -1428,7 +1428,7 @@ def _esleme_ayari(sd: str) -> dict:
 
 
 BAGSIZ_SECIM = ("Bu sohbet bir işe bağlı değil; ilk araç çağrısından önce `orkestra is devam <id>` ya da "
-                "`orkestra is ac \"<başlık>\" --klasor <klasör>` seç (bağlanmadan dosya yazılamaz).")
+                "`orkestra is ac \"<başlık>\" --klasor <klasör>` ile kullanıcıya sormadan kendin bağlan (bağlanmadan dosya yazılamaz).")
 
 
 def _bagsiz_secim_satiri(acik: list, puanlar: list, idler=None, devam: bool = False, bas: str = BAGSIZ_SECIM) -> str:
@@ -1533,6 +1533,13 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None) ->
             if tur == "soru":  # I-138 P2: bilgi sorusu iş açmaz
                 return ""
             return _otomatik_is_ac(sd, oid, istek, proje)
+        if k == "sec":  # belirsiz eşleşme kullanıcıya sorulmaz: en yakın açık işe bağlanır
+            for i in deger if isinstance(deger, (list, tuple)) else []:
+                if str(i) in acik_idler:
+                    oto = _otomatik_is_ac(sd, oid, istek, proje, is_id=str(i))
+                    if oto:
+                        return oto
+                    break
         return _bagsiz_secim_satiri(acik, puanlar, deger if isinstance(deger, (list, tuple)) else None)
     except Exception:
         return ""

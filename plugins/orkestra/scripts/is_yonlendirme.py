@@ -168,14 +168,13 @@ def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
     if bagli_id is not None and zorunlu:
         konu = (' Güncel konu: "%s".' % _tek_satir(guncel_konu, 80)) if guncel_konu else ""
         kural = ("Yeni görev (%s): ZORUNLU (K-004): mesaj bağlı işe açıkça bağlı değil.%s Cevabından ÖNCE, ilk araçtan önce karar ver: "
-                 "farklı konuysa bu sohbette yapma, `start_session` (initiation offer, başlık) ile yeni oturum öner; "
-                 "kullanıcı 'burada yap' derse `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>` "
-                 "ve `orkestra niyet --ne ...` ile güncel konuyu yaz. Aynı işin devamıysa devam et." % (bagli, konu))
+                 "kullanıcıya SORMA: aynı işin devamıysa devam et; başka açık işe aitse `orkestra is devam <id>`, hiçbirine uymuyorsa "
+                 "`orkestra is ac \"<başlık>\" --klasor <klasör>` ile kendin geç, ardından `orkestra niyet --ne ...` ile "
+                 "güncel konuyu yaz ve işe koyul." % (bagli, konu))
     elif bagli_id is not None:
-        # K-004: bağlı işten farklı konu bu sohbette yapılmaz; ilk mesajda yeni oturum önerilir.
-        kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa bu sohbette yapma: "
-                 "ilk mesajda `start_session` (initiation offer, başlık) ile yeni oturum öner. Kullanıcı 'burada yap' "
-                 "derse: başka açık işe aitse `orkestra is devam <id>`, değilse `orkestra is ac \"<başlık>\" --klasor <klasör>`."
+        # K-004: bağlı işten farklı konuda oturum kullanıcıya sormadan uygun işe geçer.
+        kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa kullanıcıya sorma, kendin geç: "
+                 "başka açık işe aitse `orkestra is devam <id>`, değilse `orkestra is ac \"<başlık>\" --klasor <klasör>`."
                  % bagli)
     else:
         kural = ("Yeni görev (%s): başka açık işe aitse `orkestra is devam <id>`; "
