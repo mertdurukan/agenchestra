@@ -777,7 +777,7 @@ def plan_eksikleri(klasor: str) -> list[str]:
             for alan in ("Kabul", "Geri alma"):
                 if not alan_dolu(blok, alan):
                     eksik.append(f"P{n}: `**{alan}:**` alanı yok ya da boş (P-018)")
-    return eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor) + bic_engeli(klasor) + uretim_engeli(klasor)
+    return (eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor) + bic_engeli(klasor) + uretim_engeli(klasor)
             + paralellik_engeli(klasor))
 
 
