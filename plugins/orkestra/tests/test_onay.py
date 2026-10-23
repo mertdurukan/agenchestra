@@ -230,6 +230,122 @@ class KararTest(Temel):
         self.assertEqual(onay.sayac(self.sd)["uygulanacak"], 1)
 
 
+class TakiliKayitTest(Temel):
+    """I-215: sayaç/düğme tek küme, takılı `uygulaniyor` çıkışı."""
+
+    def alinmis(self, tur="perspektif"):
+        k = onay.iste(self.sd, "Öneri", "m", tur=tur)
+        onay.karar_ver(self.sd, k["id"], "onay")
+        return onay.al(self.sd, k["id"], "oturum-a")
+
+    def eskit(self, id, sn=3700):
+        k = onay._kayit_oku(self.sd, id)
+        eski = (onay.datetime.datetime.now().astimezone() - onay.datetime.timedelta(seconds=sn)).isoformat(timespec="seconds")
+        k["uygulama"]["alma_zamani"] = eski
+        onay._kayit_yaz(self.sd, k)
+
+    def test_s1_yalniz_uygulaniyor_varken_kart_sayisi_sifir(self):
+        k = self.alinmis()
+        s = onay.sayac(self.sd)
+        self.assertEqual((s["uygulanacak"], s["panelden_uygulanabilir"]), (1, 0))
+        with self.assertRaisesRegex(ValueError, "Uygulanacak onaylı"):
+            onay.simdi_uygula(self.sd)  # sayaç 0 dediği için düğme zaten çıkmaz
+        self.assertEqual(k["durum"], "uygulaniyor")
+
+    def test_s1_onaylandi_varken_kart_sayisi_duttugu_kadar(self):
+        k = onay.iste(self.sd, "Öneri", "m", tur="perspektif")
+        onay.karar_ver(self.sd, k["id"], "onay")
+        d = onay.iste(self.sd, "Karar", "m")
+        onay.karar_ver(self.sd, d["id"], "onay")  # tur=karar: düğme uygulamaz
+        s = onay.sayac(self.sd)
+        self.assertEqual((s["uygulanacak"], s["panelden_uygulanabilir"]), (2, 1))
+
+    def test_s2_birak_onaylandiya_dondurur_ve_alinabilir(self):
+        k = self.alinmis()
+        b = onay.birak(self.sd, k["id"], "deneme")
+        self.assertEqual((b["durum"], b["uygulama"]), ("onaylandi", None))
+        self.assertEqual(b["gecmis"][-1]["olay"], "birakildi")
+        self.assertEqual(onay.sayac(self.sd)["panelden_uygulanabilir"], 1)
+        self.assertEqual(onay.al(self.sd, k["id"], "oturum-b")["durum"], "uygulaniyor")
+        with self.assertRaisesRegex(ValueError, "uygulaniyor durumunda değil"):
+            onay.birak(self.sd, self.kayit()["id"], "x")
+
+    def test_s2_eski_alim_sayac_okunurken_otomatik_birakilir(self):
+        k = self.alinmis()
+        self.eskit(k["id"])
+        s = onay.sayac(self.sd)
+        self.assertEqual((s["panelden_uygulanabilir"], onay.goster(self.sd, k["id"])["durum"]), (1, "onaylandi"))
+
+    def test_s2_taze_alim_ve_etkin_kosu_birakilmaz(self):
+        k = self.alinmis()
+        onay.sayac(self.sd)
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")  # taze
+        self.eskit(k["id"])
+        onay._yaz_json(onay._kosu_yolu(self.sd), {"baslangic": onay.L.simdi(), "idler": [k["id"]], "bitis": None, "sonuc": None})
+        self.assertEqual(onay.eski_alimlari_birak(self.sd), [])  # etkin koşu var
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")
+
+class KosuDogrulamaTest(Temel):
+    """I-215 P3: başsız koşu sonucu kayıt durumuyla doğrulanır; hedef hafıza klasörü ön koşuldur."""
+
+    def alinmis(self):
+        k = onay.iste(self.sd, "Öneri", "m", tur="perspektif")
+        onay.karar_ver(self.sd, k["id"], "onay")
+        return onay.al(self.sd, k["id"], "oturum-a")
+
+    def test_s3_kayit_kapanmadan_biten_kosu_tamam_yazmaz_ve_birakir(self):
+        k = self.alinmis()
+        sonuc = onay._kosu_sonucu_dogrula(self.sd, [k["id"]], "tamam")
+        self.assertEqual(sonuc, "kayıtlar kapanmadı: 1")
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "onaylandi")
+
+    def test_s3_hepsi_kapandiysa_tamam_kalir(self):
+        k = self.alinmis()
+        onay.uygulandi(self.sd, k["id"], "yapıldı")
+        self.assertEqual(onay._kosu_sonucu_dogrula(self.sd, [k["id"]], "tamam"), "tamam")
+
+    def test_s3_hata_sonucu_korunur(self):
+        k = self.alinmis()
+        self.assertEqual(onay._kosu_sonucu_dogrula(self.sd, [k["id"]], "hata: çıkış kodu 1"),
+                         "kayıtlar kapanmadı: 1 (hata: çıkış kodu 1)")
+
+    def _simdi_uygula(self, hafiza):
+        k = onay.iste(self.sd, "Öneri", "m", tur="perspektif")
+        onay.karar_ver(self.sd, k["id"], "onay")
+        from unittest import mock
+        with mock.patch("perspektif.hafiza_dizini", lambda p, t=None: hafiza), \
+                mock.patch("perspektif.claude_exe", lambda: "x.exe"), \
+                mock.patch("perspektif.headless_mumkun", lambda sd, e: True), \
+                mock.patch("subprocess.Popen") as popen:
+            try:
+                onay.simdi_uygula(self.sd)
+                return k, None, popen
+            except ValueError as e:
+                return k, str(e), popen
+
+    def test_s4_hafiza_klasoru_yoksa_reddeder_ve_kosu_baslamaz(self):
+        k, hata, popen = self._simdi_uygula(os.path.join(self.proje, "yok"))
+        self.assertIn("yok ya da boş", hata)
+        self.assertEqual(popen.call_count, 0)
+        self.assertIsNone(onay.uygulama_durumu(self.sd))
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "onaylandi")
+
+    def test_s4_hafiza_klasoru_bossa_reddeder(self):
+        bos = os.path.join(self.proje, "bos")
+        os.makedirs(bos)
+        k, hata, popen = self._simdi_uygula(bos)
+        self.assertIn("yok ya da boş", hata)
+        self.assertEqual(popen.call_count, 0)
+
+    def test_s4_dolu_klasorde_kosu_baslar(self):
+        dolu = os.path.join(self.proje, "dolu")
+        os.makedirs(dolu)
+        open(os.path.join(dolu, "MEMORY.md"), "w", encoding="utf-8").write("- x")
+        k, hata, popen = self._simdi_uygula(dolu)
+        self.assertIsNone(hata)
+        self.assertEqual(popen.call_count, 1)
+
+
 class KuralTest(Temel):
     def test_oneri_onayi_dosyayi_yazar_ve_kaldirinca_silinir(self):
         r = onay.kural_oner(self.sd, "Sır yazma", "güvenlik", "oturum-1")
@@ -419,6 +535,17 @@ class CliTest(Temel):
         self.assertIn(oid, r.stdout)
         r = self.calistir("onay", "iptal", "O-001", "--not", "gereksiz")
         self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_birak_komutu(self):
+        r = self.calistir("onay", "iste", "--baslik", "Öneri", "--metin", "m")
+        oid = r.stdout.strip()
+        self.calistir("onay", "karar", oid, "--onay")
+        self.calistir("onay", "al", oid, "--oturum", "s1")
+        r = self.calistir("onay", "birak", oid, "--neden", "hafıza klasörü boş")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("onaylandi", r.stdout)
+        r = self.calistir("onay", "birak", oid, "--neden", "ikinci")
+        self.assertEqual(r.returncode, 2)  # artık uygulaniyor değil
         r = self.calistir("onay", "goster", "O-999")
         self.assertEqual(r.returncode, 2)
 

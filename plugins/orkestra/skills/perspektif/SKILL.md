@@ -11,7 +11,7 @@ Perspektif, oturumlar arasında arka planda çalışan hafıza bakımıdır:
 - Nasıl: Sonnet, yalnız okuma araçlarıyla.
 - Hafızayı kendisi DEĞİŞTİRMEZ; yalnız öneri raporu yazar.
 
-0. `$ARGUMENTS` içinde `proje=<yol>` varsa oturum klasörü bu yol değilse `change_directory` aracıyla o klasöre geç (panel düğmesi sohbeti klasörsüz açabilir; koşu yanlış projeye yazılmasın). Geçemezsen dur ve kullanıcıya söyle.
+0. `$ARGUMENTS` içinde `proje=<yol>` varsa oturum klasörü bu yol değilse `change_directory` aracıyla o klasöre geç (panel düğmesi sohbeti klasörsüz açabilir; koşu yanlış projeye yazılmasın). Geçemezsen dur ve kullanıcıya söyle. Bash'te `cd` oturumun proje klasörünü değiştirmez; yalnız `change_directory` geçer. Hafıza klasörü oturumun projesine ait değilse `orkestra perspektif girdi` reddeder.
 1. `orkestra perspektif durum` çalıştır.
 2. `$ARGUMENTS` "şimdi" içeriyorsa ya da hiç rapor yoksa perspektifi başlat:
    - `orkestra perspektif hafiza` ile hafıza klasörünü al.

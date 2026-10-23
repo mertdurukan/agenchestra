@@ -76,7 +76,10 @@ def cmd_perspektif(a):
             sys.exit(1)
     elif a.islem == "girdi":
         proje = L.proje_dizini()
-        g = perspektif.girdi_yaz(sd, proje, a.yol or perspektif.hafiza_dizini(proje))
+        try:
+            g = perspektif.girdi_yaz(sd, proje, a.yol or perspektif.hafiza_dizini(proje))
+        except ValueError as e:
+            hata(str(e))
         print(f"{os.path.join(sd, 'perspektif', 'girdi.json')} · imza {g['imza']} · anomali {g['anomali']['sayim']} · "
               f"ölü yol {g['hafiza']['olu_yol_sayisi']}")
 
@@ -138,6 +141,9 @@ def cmd_onay(a):
         print(f"{k['id']} → {k['durum']}")
     elif i == "uygulandi":
         k = _onay_calistir(lambda m: m.uygulandi(sd, a.id, a.ozet, oturum=_onay_oturumu(a)))
+        print(f"{k['id']} → {k['durum']}")
+    elif i == "birak":
+        k = _onay_calistir(lambda m: m.birak(sd, a.id, a.neden))
         print(f"{k['id']} → {k['durum']}")
     elif i == "iptal":
         k = _onay_calistir(lambda m: m.iptal(sd, a.id, a.not_))
@@ -308,6 +314,9 @@ def kaydet(alt):
     x.add_argument("id")
     x.add_argument("--ozet", required=True)
     x.add_argument("--oturum")
+    x = on.add_parser("birak", help="uygulaniyor kaydını onaylandi'ya geri bırak (uygulanamadı)")
+    x.add_argument("id")
+    x.add_argument("--neden", required=True)
     x = on.add_parser("iptal")
     x.add_argument("id")
     x.add_argument("--not", dest="not_", required=True)

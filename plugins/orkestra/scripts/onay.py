@@ -556,9 +556,17 @@ def _terfi_kapisi(sd: str, metin: str, neden: str) -> None:
         raise ValueError("eklenti katmanına terfi kapısı reddetti (kural yazılmadı): " + "; ".join(isabet))
 
 
+def _girdi_baska_projenin(sd: str) -> bool:
+    """`perspektif/girdi.json` başka projenin hafızasını gösteriyorsa True (rapor bu projenin değil; I-215)."""
+    import perspektif as P
+    g = _oku_json(os.path.join(sd, "perspektif", "girdi.json"), None)
+    klasor = ((g or {}).get("hafiza") or {}).get("klasor") if isinstance(g, dict) else None
+    return bool(klasor) and not P.hafiza_projeye_ait(_proje(sd), klasor)
+
+
 def _esitle_perspektif(sd: str) -> None:
     yol = en_yeni_rapor(sd)
-    if not yol:
+    if not yol or _girdi_baska_projenin(sd):
         return
     ad = os.path.basename(yol)
     with open(yol, encoding="utf-8", errors="replace") as f:
@@ -686,7 +694,14 @@ def goster(sd: str, id: str) -> dict | None:
 
 
 def sayac(sd: str) -> dict:
-    s = {"bekliyor": 0, "uygulanacak": 0, "tur": {t: 0 for t in TURLER}}
+    """`uygulanacak`: onaylandi + uygulaniyor (Onaylar sekmesi). `panelden_uygulanabilir`: "Şimdi uygula" düğmesinin
+    gerçekten başlatabileceği kayıtlar; panel kartı bunu sayar, böylece kart ve düğme aynı kümeyi kullanır."""
+    try:
+        eski_alimlari_birak(sd)
+    except Exception:  # noqa: BLE001 - sayaç okuması hiçbir koşulda düşmez
+        pass
+    s = {"bekliyor": 0, "uygulanacak": 0, "panelden_uygulanabilir": len(_uygulanacaklar(sd, "perspektif")),
+         "tur": {t: 0 for t in TURLER}}
     for k in _hepsi(sd):
         if k.get("durum") == "bekliyor":
             s["bekliyor"] += 1
@@ -796,6 +811,42 @@ def uygulandi(sd: str, id: str, ozet: str, oturum=None) -> dict:
         _etki_kancasi(k, lambda: etki.kanca_uygulandi(k))
         _kayit_yaz(sd, k)
         return k
+
+
+def birak(sd: str, id: str, neden: str) -> dict:
+    """`uygulaniyor` kaydını `onaylandi`ya geri bırakır (uygulanamadı, oturum öldü). Etki tabanı donuk kalır (_taban_ic)."""
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        k = _gerekli(sd, id)
+        if k["durum"] != "uygulaniyor":
+            raise ValueError(f"{id} uygulaniyor durumunda değil (şu an: {k['durum']}); bırakılamaz.")
+        k["durum"] = "onaylandi"
+        k["uygulama"] = None
+        _olay(k, "birakildi", neden)
+        _kayit_yaz(sd, k)
+        return k
+
+
+def eski_alimlari_birak(sd: str) -> list[str]:
+    """Etkin başsız koşu yokken KOSU_ZAMAN_ASIMI_SN'den eski `uygulaniyor` alımlarını bırakır; bırakılan kimlikler döner."""
+    if uygulama_durumu(sd):
+        return []
+    simdi = datetime.datetime.now().astimezone()
+    birakilan = []
+    for k in _hepsi(sd):
+        if k.get("durum") != "uygulaniyor":
+            continue
+        try:
+            gecen = (simdi - datetime.datetime.fromisoformat((k.get("uygulama") or {})["alma_zamani"])).total_seconds()
+        except Exception:  # noqa: BLE001 - alma zamanı okunamayan alım eski sayılmaz
+            continue
+        if gecen >= KOSU_ZAMAN_ASIMI_SN:
+            try:
+                birak(sd, k["id"], f"otomatik: {int(gecen // 60)} dk önce alındı, kapanmadı")
+                birakilan.append(k["id"])
+            except ValueError:
+                pass
+    return birakilan
 
 
 def iptal(sd: str, id: str, not_: str) -> dict:
@@ -1227,11 +1278,16 @@ def simdi_uygula(sd: str, tur: str = "perspektif") -> dict:
         raise ValueError("Komut satırı Claude oturum açmamış; arka planda uygulanamaz. Bir kez `claude auth login` çalıştır "
                          "ya da sohbette /orkestra:onay ile uygula.")
     proje = _proje(sd)
+    hafiza = P.hafiza_dizini(proje)
+    if not (os.path.isdir(hafiza) and any(os.path.isfile(os.path.join(hafiza, ad)) for ad in os.listdir(hafiza))):
+        # I-215: boş klasörde başsız oturum uygulayacak dosya bulamaz, kayıtları takılı bırakır; oturum açmadan reddet
+        raise ValueError(f"Hedef hafıza klasörü yok ya da boş ({hafiza}); karar bu projenin hafızasına ait değil ya da "
+                         "perspektif başka projede çalıştırılmış. Kayıtlar olduğu gibi duruyor.")
     with L.kilit(_kilit_yolu(sd)):
         if uygulama_durumu(sd):
             raise ValueError("Uygulama zaten sürüyor.")
         _yaz_json(_kosu_yolu(sd), {"baslangic": L.simdi(), "idler": idler, "tur": tur, "bitis": None, "sonuc": None})
-    args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, exe, P.hafiza_dizini(proje)]
+    args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, exe, hafiza]
     import cfg
     try:
         subprocess.Popen(args, cwd=proje, creationflags=cfg.ARKA_PLAN_BAYRAK, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -1268,7 +1324,27 @@ def _kos(sd: str, proje: str, exe: str, hafiza: str) -> None:
             sonuc = f"hata: çıkış kodu {r.returncode}"
     except Exception as e:  # noqa: BLE001
         sonuc = f"hata: {type(e).__name__}"
+    sonuc = _kosu_sonucu_dogrula(sd, idler, sonuc)
     _kosu_bitir(sd, sonuc)
+
+
+def _kosu_sonucu_dogrula(sd: str, idler: list[str], sonuc: str) -> str:
+    """Başarı çıkış koduna değil kayıtların durumuna bağlıdır (I-215): koşunun kapatmadığı `uygulaniyor` kayıtlar
+    `onaylandi`ya bırakılır ve sonuç 'kayıtlar kapanmadı: N' olur. `tamam` yalnız hepsi kapandıysa yazılır."""
+    kapanmayan = 0
+    for i in idler:
+        k = goster(sd, i)
+        if not k or k.get("durum") not in ("onaylandi", "uygulaniyor"):
+            continue
+        kapanmayan += 1
+        if k["durum"] == "uygulaniyor":
+            try:
+                birak(sd, i, f"başsız koşu kapatmadan bitti ({sonuc})")
+            except ValueError:
+                pass
+    if kapanmayan:
+        return f"kayıtlar kapanmadı: {kapanmayan}" + ("" if sonuc == "tamam" else f" ({sonuc})")
+    return sonuc
 
 
 if __name__ == "__main__" and len(sys.argv) >= 6 and sys.argv[1] == "_kos":
