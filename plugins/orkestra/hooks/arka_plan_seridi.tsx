@@ -184,7 +184,7 @@ export const register: Register = on => {
 
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
-      sonYenileme = 0
+      ic.sonYenileme = 0
       await update($, surum, n => n + 1)
     }
 
