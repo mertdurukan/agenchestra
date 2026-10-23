@@ -1,6 +1,7 @@
 """orkestra komutları: hata (ADR-0035). Salt okur.
 
-`orkestra hata en-cok [--gun N] [--kaynak hook|cli|ozet|kart|kural] [--ilk N] [--json]`
+`orkestra hata en-cok [--gun N] [--kaynak hook|cli|ozet|kart|kural | --tum] [--ilk N] [--json]`
+Varsayılan görünüm kural ihlallerini dışlar (uyum sayacı, hata değil); `--kaynak kural` ya da `--tum` ile görünür.
 `orkestra hata liste [--ilk N] [--json]`   (hata.jsonl'in son satırları)
 """
 from __future__ import annotations
@@ -14,7 +15,7 @@ from komutlar._ortak import sd_gerekli  # noqa: E402
 
 def cmd_en_cok(a):
     import hata_en_cok as HE
-    satirlar = HE.birlestir(sd_gerekli(), a.gun, a.kaynak)
+    satirlar = HE.birlestir(sd_gerekli(), a.gun, a.kaynak, kural_haric=not a.tum)
     if a.ilk:
         satirlar = satirlar[:a.ilk]
     if a.json:
@@ -24,6 +25,8 @@ def cmd_en_cok(a):
         print("hata kaydı yok")
     for r in satirlar:
         print(HE.satir_metni(r))
+    if not a.tum and not a.kaynak:
+        print("(kural ihlalleri dışarıda: --kaynak kural ya da --tum)")
 
 
 def cmd_liste(a):
@@ -44,7 +47,9 @@ def kaydet(alt):
     h = alt.add_parser("hata", help="tekrar eden hatalar (hook, CLI, özet, kart reti, kural ihlali)").add_subparsers(dest="alt", required=True)
     e = h.add_parser("en-cok", help="aynı imzalı hataları sayıya göre sıralar (salt okuma)")
     e.add_argument("--gun", type=int, default=0, help="son N gün (0 = tümü)")
-    e.add_argument("--kaynak", choices=("hook", "cli", "ozet", "kart", "kural", "davranis"))
+    g = e.add_mutually_exclusive_group()
+    g.add_argument("--kaynak", choices=("hook", "cli", "ozet", "kart", "kural", "davranis"))
+    g.add_argument("--tum", action="store_true", help="kural ihlalleri dahil tüm kaynaklar")
     e.add_argument("--ilk", type=int, default=0, help="ilk N satır (0 = tümü)")
     e.add_argument("--json", action="store_true")
     e.set_defaults(f=cmd_en_cok)

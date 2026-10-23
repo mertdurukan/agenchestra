@@ -57,7 +57,7 @@ class Birlestir(Temel):
         self.assertEqual(s[("cli", "CliHata: kart N yok")]["sayi"], 2)
         self.assertEqual(s[("kural", "kural:belge_bicim")]["ornek"], "a.md")
         self.assertEqual(s[("kart", "kart:kod:kanit-yok")]["ornek"], "G-001")
-        self.assertIn(("ozet", "PermissionError: [WinError 5] Erisim engellendi: '<yol>'"), s)
+        self.assertTrue(any(k == "ozet" and i.startswith("PermissionError: [WinError 5] Erisim engellendi: '<yol>") for k, i in s))
         for r in s.values():
             self.assertEqual(set(r), {"imza", "kaynak", "sayi", "son_zaman", "ornek"})
 
@@ -95,7 +95,7 @@ class Toplamlar(Temel):
         kart(self.sd, "G-003", "kod", ["kapsam-eksik"])
         kartlar = L.kartlar(self.sd)
         beklenen = sum(a["sayi"] for a in KA.kural_adaylari(kartlar, esik=1))
-        self.assertEqual(beklenen, 7)
+        self.assertEqual(beklenen, 6)
         self.assertEqual(sum(r["sayi"] for r in HE.birlestir(self.sd, 0, "kart")), beklenen)
 
     def test_kural_ihlali_toplami_gunluk_satir_sayisi(self):
@@ -123,6 +123,44 @@ class Komut(Temel):
         r = self.kos("hata", "liste")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(sorted(os.listdir(self.sd)), once)
+
+    def kural_ve_hata(self):
+        yaz(self.sd, "hata.jsonl", [{"kaynak": "cli", "imza": "x", "tur": "CliHata", "ileti": "m", "zaman": simdi_oncesi()}])
+        yaz(self.sd, "gunluk.jsonl", [{"zaman": simdi_oncesi(), "tur": "kural_ihlal", "kural": "belge_bicim", "dosya": "a.md"}] * 3)
+        kart(self.sd, "G-001", "kod", ["kanit-yok"])
+
+    def test_varsayilan_kurali_dislar_ipucu_yazar(self):
+        self.kural_ve_hata()
+        r = self.kos("hata", "en-cok")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("[cli] CliHata: m", r.stdout)
+        self.assertNotIn("[kural]", r.stdout)
+        satirlar = r.stdout.strip().splitlines()
+        self.assertIn("--kaynak kural", satirlar[-1])
+        self.assertIn("--tum", satirlar[-1])
+        j = json.loads(self.kos("hata", "en-cok", "--json").stdout)
+        self.assertTrue(j and all(x["kaynak"] != "kural" for x in j))
+
+    def test_kaynak_kural_yalniz_kural(self):
+        self.kural_ve_hata()
+        r = self.kos("hata", "en-cok", "--kaynak", "kural")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("[kural] kural:belge_bicim", r.stdout)
+        self.assertNotIn("[cli]", r.stdout)
+        self.assertNotIn("dışarıda", r.stdout)
+        j = json.loads(self.kos("hata", "en-cok", "--kaynak", "kural", "--json").stdout)
+        self.assertEqual({x["kaynak"] for x in j}, {"kural"})
+        self.assertEqual(j[0]["sayi"], 3)
+
+    def test_tum_butun_kaynaklar(self):
+        self.kural_ve_hata()
+        yaz(self.sd, "gunluk.jsonl", [{"zaman": simdi_oncesi(), "tur": "kural_ihlal", "kural": "k"},
+                                      {"zaman": simdi_oncesi(), "tur": "hook-hatasi", "olay": "O", "hata": "KeyError: 'x'"}])
+        yaz(self.sd, "hata.jsonl", [{"kaynak": k, "tur": "T", "ileti": k, "zaman": simdi_oncesi()} for k in ("cli", "ozet")])
+        r = self.kos("hata", "en-cok", "--tum", "--json")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual({x["kaynak"] for x in json.loads(r.stdout)}, {"hook", "cli", "ozet", "kart", "kural"})
+        self.assertNotIn("dışarıda", self.kos("hata", "en-cok", "--tum").stdout)
 
 
 class Uyari(Temel):

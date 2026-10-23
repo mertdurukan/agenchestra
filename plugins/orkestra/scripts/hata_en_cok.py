@@ -70,8 +70,9 @@ def _hook_eski_satirlar(gunluk: list[dict], hata_satirlari: list[dict]) -> list[
     return out
 
 
-def birlestir(sd: str, gun=0, kaynak: str | None = None) -> list[dict]:
-    """Kaynakları imzaya göre toplar; sayıya göre azalan (eşitlikte imza) satır listesi. gun: son N takvim günü (0 = tümü)."""
+def birlestir(sd: str, gun=0, kaynak: str | None = None, kural_haric: bool = False) -> list[dict]:
+    """Kaynakları imzaya göre toplar; sayıya göre azalan (eşitlikte imza) satır listesi. gun: son N takvim günü (0 = tümü).
+    kural_haric: kaynak verilmemişken kural ihlallerini dışlar (CLI varsayılanı; kural bir hata değil uyum sayacıdır)."""
     esik = L.gun_baslangici(gun) if gun else None
 
     def pencerede(z) -> bool:
@@ -94,7 +95,7 @@ def birlestir(sd: str, gun=0, kaynak: str | None = None) -> list[dict]:
             if pencerede(g.get("zaman")):
                 tur, _, ileti = str(g.get("hata") or "").partition(": ")
                 _topla(sayim, "hook", imza_goster(tur, ileti), g.get("zaman"), g.get("hata"))
-    if kaynak in (None, "kural"):
+    if kaynak == "kural" or (kaynak is None and not kural_haric):
         for g in gunluk:
             if g.get("tur") == "kural_ihlal" and pencerede(g.get("zaman")):
                 _topla(sayim, "kural", f"kural:{g.get('kural') or '?'}", g.get("zaman"), g.get("dosya") or g.get("mod"))

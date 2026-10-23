@@ -93,12 +93,12 @@
     },
     {
       "id": "K-005",
-      "metin": "ZORUNLU, istisnasız: Maksimum okunabilirlik için hem sohbette hem de oluşturulan her belgede (plan, todo, çalışma özeti, bulgu, jira_onerisi, rapor) şu düzen uygulanır: (1) Başlık ve ona bağlı etiketli alanlar (Amaç, Arıza sınıfı, Neden, Kanıt, Durum gibi) ayrı paragraflarda alt alta yazılır, tek paragrafta birleştirilmez; etiket kalın yazılır. (2) Liste ve sıralı maddeler (yapılacak işler, adımlar, bulgular) her madde ayrı satırda, madde işaretiyle yazılır; maddeler virgül, noktalı virgül ya da ' · ' ile tek satıra ya da tek paragrafa sıkıştırılmaz. (3) Belgeyi insan okuyacağı için uzun tek paragraf yerine kısa paragraflar ve boş satırlar kullanılır. Belge teslim edilmeden önce bu düzene karşı gözden geçirilir. (4) Yazılan her şey, okuyanın bağlamı bilmediği varsayımıyla yazılır: 'kendi sunucumuz', 'bizim kod' gibi belirsiz sahiplik ifadeleri yerine ilk yazımda somut ad (adres, sürüm, yol, tablo, müşteri) kullanılır. (5) Genel ilke: kullanıcının gördüğü her metin çıktısı (sohbet yanıtı, açık işler, çalışma özeti, todo, plan) üç hedefi birlikte karşılar: maksimum okunabilirlik, maksimum anlaşılırlık, minimum metin; gereksiz cümle, tekrar ve dolgu yazılmaz.",
-      "neden": "Kullanıcı 16.10.2026: 'Son yapılacak işler' tek satırda sıkıştırılmış verildi; amaç ve arıza sınıfı birleşik yazıldı. Kullanıcı 18.10.2026: kullanıcı çıktılarında ve belgelerinde maksimum okunabilirlik, anlaşılırlık ve minimum metin her zaman aranmalı.",
+      "metin": "ZORUNLU, istisnasız: Maksimum okunabilirlik için hem sohbette hem de oluşturulan her belgede (plan, todo, çalışma özeti, bulgu, jira_onerisi, rapor) şu düzen uygulanır: (1) Başlık ve ona bağlı etiketli alanlar (Amaç, Arıza sınıfı, Neden, Kanıt, Durum gibi) ayrı paragraflarda alt alta yazılır, tek paragrafta birleştirilmez; etiket kalın yazılır. (2) Liste ve sıralı maddeler (yapılacak işler, adımlar, bulgular) her madde ayrı satırda, madde işaretiyle yazılır; maddeler virgül, noktalı virgül ya da ' · ' ile tek satıra ya da tek paragrafa sıkıştırılmaz. (3) Belgeyi insan okuyacağı için uzun tek paragraf yerine kısa paragraflar ve boş satırlar kullanılır. Belge teslim edilmeden önce bu düzene karşı gözden geçirilir. (4) Yazılan her şey, okuyanın bağlamı bilmediği varsayımıyla yazılır: 'kendi sunucumuz', 'bizim kod' gibi belirsiz sahiplik ifadeleri yerine ilk yazımda somut ad (adres, sürüm, yol, tablo, müşteri) kullanılır. (5) Genel ilke: kullanıcının gördüğü her metin çıktısı (sohbet yanıtı, açık işler, çalışma özeti, todo, plan) üç hedefi birlikte karşılar: maksimum okunabilirlik, maksimum anlaşılırlık, minimum metin; gereksiz cümle, tekrar ve dolgu yazılmaz. (6) Dikey düzen (1)-(3) belgeler içindir; sohbet yanıtında P-001 uzunluk sözleşmesi önceliklidir ve 3 ya da daha az madde tek kısa paragrafta yazılabilir.",
+      "neden": "I-212: dikey düzen sohbet çıktısını uzatıyor; P-001 ile çatışma giderildi",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T10:26:14+03:00",
-      "guncelleme": "2026-10-18T10:36:23+03:00",
+      "guncelleme": "2026-10-23T15:38:53+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T10:26:14+03:00",
@@ -124,6 +124,11 @@
           "zaman": "2026-10-18T10:36:23+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Maksimum okunabilirlik için hem sohbette hem de oluşturulan her belgede (plan, todo, çalışma özeti, bulgu, jira_onerisi, rapor) şu düzen uygulanır: (1) Başlık ve ona bağlı etiketli alanlar (Amaç, Arıza sınıfı, Neden, Kanıt, Durum gibi) ayrı paragraflarda alt alta yazılır, tek paragrafta birleştirilmez; etiket kalın yazılır. (2) Liste ve sıralı maddeler (yapılacak işler, adımlar, bulgular) her madde ayrı satırda, madde işaretiyle yazılır; maddeler virgül, noktalı virgül ya da ' · ' ile tek satıra ya da tek paragrafa sıkıştırılmaz. (3) Belgeyi insan okuyacağı için uzun tek paragraf yerine kısa paragraflar ve boş satırlar kullanılır. Belge teslim edilmeden önce bu düzene karşı gözden geçirilir. (4) Yazılan her şey, okuyanın bağlamı bilmediği varsayımıyla yazılır: 'kendi sunucumuz', 'bizim kod' gibi belirsiz sahiplik ifadeleri yerine ilk yazımda somut ad (adres, sürüm, yol, tablo, müşteri) kullanılır."
+        },
+        {
+          "zaman": "2026-10-23T15:38:53+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Maksimum okunabilirlik için hem sohbette hem de oluşturulan her belgede (plan, todo, çalışma özeti, bulgu, jira_onerisi, rapor) şu düzen uygulanır: (1) Başlık ve ona bağlı etiketli alanlar (Amaç, Arıza sınıfı, Neden, Kanıt, Durum gibi) ayrı paragraflarda alt alta yazılır, tek paragrafta birleştirilmez; etiket kalın yazılır. (2) Liste ve sıralı maddeler (yapılacak işler, adımlar, bulgular) her madde ayrı satırda, madde işaretiyle yazılır; maddeler virgül, noktalı virgül ya da ' · ' ile tek satıra ya da tek paragrafa sıkıştırılmaz. (3) Belgeyi insan okuyacağı için uzun tek paragraf yerine kısa paragraflar ve boş satırlar kullanılır. Belge teslim edilmeden önce bu düzene karşı gözden geçirilir. (4) Yazılan her şey, okuyanın bağlamı bilmediği varsayımıyla yazılır: 'kendi sunucumuz', 'bizim kod' gibi belirsiz sahiplik ifadeleri yerine ilk yazımda somut ad (adres, sürüm, yol, tablo, müşteri) kullanılır. (5) Genel ilke: kullanıcının gördüğü her metin çıktısı (sohbet yanıtı, açık işler, çalışma özeti, todo, plan) üç hedefi birlikte karşılar: maksimum okunabilirlik, maksimum anlaşılırlık, minimum metin; gereksiz cümle, tekrar ve dolgu yazılmaz."
         }
       ],
       "etkinlesme": "2026-10-16T10:26:14+03:00",
@@ -155,12 +160,12 @@
     {
       "id": "P-001",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu; K-003 bağlantı satırları bu 5 madde sayımına girmez. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır.",
-      "neden": "Uzun teslim mesajı asıl kararı gölgeler ve gereksiz token harcatır; ayrıntı dosyada kalınca kullanıcı tek bakışta karar verir. Kullanıcı 18.10.2026: bağlantı satırları belge işaretçisidir, içerik yükü değildir; 5 madde sayımına girmez.",
+      "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu; K-003 bağlantı satırları bu 5 madde sayımına girmez. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır. Kullanıcıya giden sohbet çıktısı tek sözleşmeye uyar: sonuç tek cümle, en çok 3 madde, gerekiyorsa tek karar; tur toplamı hedefi ortanca 400, en çok 800 karakterdir. wrap_up kutusu varsa kapanış mesajı en çok 2 cümledir (300 karakteri geçmez) ve kutudaki özeti tekrarlamaz; ayrıntı belgede kalır. Ölçüm: Stop hook (ayarlar/cikti_butce.json, gölge).",
+      "neden": "I-212: kapanış ortanca 12 cümle, tur ortanca 870 karakter; P-001 kapanışı kapsamıyordu",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T15:06:36+03:00",
-      "guncelleme": "2026-10-18T01:16:35+03:00",
+      "guncelleme": "2026-10-23T15:38:52+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T15:06:36+03:00",
@@ -176,6 +181,11 @@
           "zaman": "2026-10-18T01:16:35+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır."
+        },
+        {
+          "zaman": "2026-10-23T15:38:52+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Yanıt, sorunun ağırlığı kadardır. Bilgi sorusuna ('ne demek', 'nedir', 'neden', 'gerekir mi') en çok 5 cümleyle cevap verilir; iş durumu, tablo, kaynak taraması ve alt ajan eklenmez; tek istisna kullanıcının açıkça kapsamlı inceleme istemesidir. Teslim ve özet mesajı en çok 5 maddedir: ne değişti, ana sayı, karar bekleyen tek konu; K-003 bağlantı satırları bu 5 madde sayımına girmez. İşçi ya da alt ajan raporu sohbete aktarılmaz; ayrıntı rapor dosyasında ve işin todo'sunda kalır. Sıradaki adımlar sohbette tekrarlanmaz, todo'ya yazılır."
         }
       ],
       "etkinlesme": "2026-10-16T15:06:36+03:00"

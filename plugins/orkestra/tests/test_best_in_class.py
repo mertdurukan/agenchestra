@@ -30,8 +30,11 @@ DENETIM_TAM = """## Best in class denetimi
 """
 
 
-def plan(alt=ALT_TAM, denetim=DENETIM_TAM):
-    return f"# Plan\n\n## 4. Plan maddeleri\n\n### P1 Madde\n\n**Dayanak:** MD §1\n\n{alt}\n**Kabul:** x\n\n{denetim}\n"
+LLM_YOK = "**LLM çıktısı:** yok — kural metni, kullanıcıya LLM yanıtı üretilmiyor"
+
+
+def plan(alt=ALT_TAM, denetim=DENETIM_TAM, llm=LLM_YOK):
+    return f"# Plan\n\n{llm}\n\n## 4. Plan maddeleri\n\n### P1 Madde\n\n**Dayanak:** MD §1\n\n{alt}\n**Kabul:** x\n\n{denetim}\n"
 
 
 class BestInClass(unittest.TestCase):
@@ -123,6 +126,58 @@ class BestInClass(unittest.TestCase):
                 self.assertTrue(S.bic_engeli(k))
                 self.assertTrue(S.bic_uyari(k))
                 self.assertTrue(any("Alternatifler" in x for x in S.plan_eksikleri(k)))
+
+    def llm_eksikleri(self, llm, denetim=DENETIM_TAM):
+        self.denetci_kaydi()
+        with self.ortam():
+            return S.bic_eksikleri(self.is_klasoru(plan_metni=plan(llm=llm, denetim=denetim)))
+
+    def dogrulama_dosyasi(self, icerik="def test_ihlal_yakalanir():\n    pass\n"):
+        os.makedirs(os.path.join(self.proje, "tests"), exist_ok=True)
+        with open(os.path.join(self.proje, "tests", "test_dogrulama.py"), "w", encoding="utf-8") as f:
+            f.write(icerik)
+
+    def test_llm_beyani_yok(self):
+        e = self.llm_eksikleri("")
+        self.assertTrue(any("beyanı yok" in x and "P-032" in x for x in e), e)
+
+    def test_llm_yok_gerekcesi_kisaysa_eksik(self):
+        e = self.llm_eksikleri("**LLM çıktısı:** yok — yok")
+        self.assertTrue(any("gerekçesi" in x for x in e), e)
+
+    def test_llm_yok_yeterli_gerekceyle_eksiksiz(self):
+        self.assertEqual(self.llm_eksikleri(LLM_YOK), [])
+
+    def test_llm_gider_yolsuz_eksik(self):
+        e = self.llm_eksikleri("**LLM çıktısı:** kullanıcıya gider")
+        self.assertTrue(any("doğrulama yolu vermiyor" in x for x in e), e)
+
+    def test_llm_gider_olmayan_yolla_eksik(self):
+        e = self.llm_eksikleri("**LLM çıktısı:** kullanıcıya gider — Doğrulama: tests/yok_dosya.py")
+        self.assertTrue(any("bulunamadı" in x for x in e), e)
+
+    def test_llm_gider_var_olan_yolla_ve_yanit_kisiti_satiriyla_eksiksiz(self):
+        self.dogrulama_dosyasi()
+        denetim = DENETIM_TAM.replace("\n**Denetçi:**", "- **Yanıt kısıtı:** ✔ — doğrulama ihlali yakalıyor.\n\n**Denetçi:**")
+        e = self.llm_eksikleri("**LLM çıktısı:** kullanıcıya gider — Doğrulama: tests/test_dogrulama.py::test_ihlal_yakalanir", denetim)
+        self.assertEqual(e, [])
+
+    def test_llm_gider_test_adi_dosyada_yoksa_eksik(self):
+        self.dogrulama_dosyasi()
+        e = self.llm_eksikleri("**LLM çıktısı:** kullanıcıya gider — Doğrulama: tests/test_dogrulama.py::test_baska")
+        self.assertTrue(any("geçmiyor" in x for x in e), e)
+
+    def test_llm_gider_beyanli_planda_yanit_kisiti_satiri_zorunlu(self):
+        self.dogrulama_dosyasi()
+        e = self.llm_eksikleri("**LLM çıktısı:** kullanıcıya gider — Doğrulama: tests/test_dogrulama.py")
+        self.assertTrue(any("Yanıt kısıtı" in x for x in e), e)
+
+    def test_beyansiz_yok_planda_yanit_kisiti_istenmez(self):
+        self.assertFalse(any("Yanıt kısıtı" in x for x in self.llm_eksikleri(LLM_YOK)))
+
+    def test_llm_kontrolu_kapi_kapatilinca_calismaz(self):
+        with self.ortam(ORKESTRA_BIC_KAPISI="0"):
+            self.assertEqual(S.bic_eksikleri(self.is_klasoru(plan_metni=plan(llm=""))), [])
 
 
 if __name__ == "__main__":
