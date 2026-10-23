@@ -298,7 +298,10 @@ def ekran_onayi_mi(tool_input, tool_response, agent_id=None) -> bool:
         if not (any(siniflar) and not all(siniflar)):  # gerçek seçim: en az bir onay, en az bir onay olmayan seçenek
             return False
         yanit = ekran_yaniti(tool_response, soru)
-        return len(yanit) == 1 and onay_mesaji_mi(_ONERILEN.sub("", yanit[0]))
+        if len(yanit) != 1:
+            return False
+        e = _ONERILEN.sub("", yanit[0])
+        return onay_mesaji_mi(e) and not _KOSUL.search(e)  # "Evet ama önce X" gibi koşullu serbest metin onay değildir
     except Exception:
         return False
 
