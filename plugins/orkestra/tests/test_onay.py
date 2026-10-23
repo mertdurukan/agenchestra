@@ -474,6 +474,17 @@ class CliTest(Temel):
         self.assertIn(oid, r.stdout)
         r = self.calistir("onay", "iptal", "O-001", "--not", "gereksiz")
         self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_birak_komutu(self):
+        r = self.calistir("onay", "iste", "--baslik", "Öneri", "--metin", "m")
+        oid = r.stdout.strip()
+        self.calistir("onay", "karar", oid, "--onay")
+        self.calistir("onay", "al", oid, "--oturum", "s1")
+        r = self.calistir("onay", "birak", oid, "--neden", "hafıza klasörü boş")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("onaylandi", r.stdout)
+        r = self.calistir("onay", "birak", oid, "--neden", "ikinci")
+        self.assertEqual(r.returncode, 2)  # artık uygulaniyor değil
         r = self.calistir("onay", "goster", "O-999")
         self.assertEqual(r.returncode, 2)
 
