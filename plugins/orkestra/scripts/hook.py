@@ -395,6 +395,10 @@ def _sira_kapisi(arac: str, girdi: dict, tam: str) -> None:
             return
         if ad == "plan.md":
             eksik = SR.plan_onkosulu(klasor)
+            if not eksik:  # ADR-0070: `Mevcut varlık` biçimi yazıldığı anda denetlenir; todo yazıldıysa boş alan da eksiktir
+                yeni = _uygulanmis_metin(arac, girdi, tam)
+                if yeni is not None:
+                    eksik = SR.mevcut_varlik_eksikleri(klasor, yeni, bos_say=os.path.exists(os.path.join(klasor, "todo.md")))
             neden = SR.mesaj(eksik, "plan.md") if eksik else ""
         else:
             eksik = SR.todo_onkosulu(klasor)
@@ -1192,32 +1196,9 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
         return
 
 
-def _arka_plan_durum_yaz(oturum: str, adlar: list) -> None:
-    """Masaüstü bandı (orkestra-bant modu) için oturum başına süren görev adları; boş liste = süren yok. Hatada sessiz."""
-    try:
-        yol = os.environ.get("ORKESTRA_ARKA_PLAN_DURUM") or os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel", "arka_plan_durum.json")
-        try:
-            with open(yol, encoding="utf-8") as f:
-                kayit = json.load(f)
-            kayit = kayit if isinstance(kayit, dict) else {}
-        except Exception:
-            kayit = {}
-        simdi = time.time()
-        kayit = {k: v for k, v in kayit.items() if isinstance(v, dict) and simdi - v.get("t", 0) < 86400}
-        kayit[oturum] = {"gorevler": [L.maskele(a) for a in adlar], "t": simdi}
-        os.makedirs(os.path.dirname(yol), exist_ok=True)
-        gecici = yol + ".tmp"
-        with open(gecici, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(kayit, f, ensure_ascii=False)
-        os.replace(gecici, yol)
-    except Exception:
-        pass
-
-
-def arka_plan_satiri(sd: str, gorevler, oturum: str = "") -> str:
+def arka_plan_satiri(sd: str, gorevler) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
-    Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz.
-    `oturum` verilirse görev adları masaüstü bandı için `arka_plan_durum.json`'a da yazılır."""
+    Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
     adlar = []
     try:
         for g in gorevler if isinstance(gorevler, list) else []:
@@ -1244,8 +1225,6 @@ def arka_plan_satiri(sd: str, gorevler, oturum: str = "") -> str:
             adlar.append("Onaylı kararlar uygulanıyor")
     except Exception:
         pass
-    if oturum:
-        _arka_plan_durum_yaz(oturum, adlar)
     if not adlar:
         return ""
     gosterilen = ", ".join(adlar[:3]) + (f" +{len(adlar) - 3}" if len(adlar) > 3 else "")
@@ -1360,7 +1339,7 @@ def stop(inp: dict):
     if perspektif:
         gec()
     if inp.get("background_tasks"):
-        satir = arka_plan_satiri(sd, inp.get("background_tasks"), oid)
+        satir = arka_plan_satiri(sd, inp.get("background_tasks"))
         if satir:
             L.hook_cikti({"systemMessage": _sm(satir)})
         gec()
@@ -1377,7 +1356,7 @@ def stop(inp: dict):
             bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
         except Exception:
             pass
-        satir = arka_plan_satiri(sd, None, oid)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
+        satir = arka_plan_satiri(sd, None)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
         mesaj = _sm(" ".join(x for x in (satir, hatirlatma) if x))
         if mesaj:
             L.hook_cikti({"systemMessage": mesaj})
