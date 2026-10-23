@@ -208,6 +208,6 @@ export const register: Register = on => {
 
     const { Text } = $.ui.resolve(e)
 
-    return <Text dimColor>{bantMetni(ic.liste, arka)}</Text>
+    return <Text dimColor>{bantMetni(ic.liste, arka, e.props.isWorking === true)}</Text>
   })
 }
