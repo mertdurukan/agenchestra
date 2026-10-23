@@ -2435,6 +2435,29 @@ def _son_arac_yaz(sd: str, aid) -> None:
 OTURUM_BASLAT = "mcp__ccd_session__start_session"
 
 
+def _ekran_onayi(sd: str, inp: dict) -> None:
+    """ADR-0078: bağlı iş onay bekliyorsa ve AskUserQuestion yanıtı onaysa durumu yazar; bağlama tek satır ekler (çıkar).
+    Onay vermeyen her yolda sessiz döner; hata onay vermez ve hook'u düşürmez."""
+    try:
+        import is_onay
+        kayit = _onay_kaydi(sd, inp.get("session_id"))
+        if not kayit:
+            return
+        yanit = inp.get("tool_response")
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "onay-ekran",
+                                                         "bicim": is_onay.ekran_bicimi(yanit)})  # K5: değer yok, yalnız biçim
+        if not is_onay.ekran_onayi_mi(inp.get("tool_input"), yanit, inp.get("agent_id")):
+            return
+        satir = is_onay.ekran_onayi_isle(sd, kayit)
+        _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))
+        if satir:
+            L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": satir}})
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def detach_hatirlatmasi(sonuc) -> str:
     """K-007: açılan yan oturumu aynı turda detach_session ile ayrı sohbete almayı hatırlatır.
 
