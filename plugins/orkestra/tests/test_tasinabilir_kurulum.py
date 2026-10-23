@@ -60,14 +60,6 @@ class SabitYolYok(unittest.TestCase):
         for y in YASAK:
             self.assertNotIn(y, metin)
 
-    def test_hook_sablonunda_kisisel_yol_yok_ve_yer_tutucu_var(self):
-        yol = os.path.join(ARACLAR, "git_hooklar", "yayin-esitle.sh")
-        with open(yol, encoding="utf-8") as f:
-            metin = f.read()
-        for y in YASAK:
-            self.assertNotIn(y, metin)
-        self.assertIn("@YAYIN@", metin)
-
 
 class YayinYolu(unittest.TestCase):
     def setUp(self):
@@ -97,7 +89,7 @@ class YayinYolu(unittest.TestCase):
             os.makedirs(sahte)
             with mock.patch.dict(os.environ, self.env, clear=True), mock.patch.object(self.m, "DEPO", sahte):
                 y = norm(self.m.yayin_yolu())
-            izinli = {norm(sahte), norm(os.path.join(os.path.dirname(sahte), "claude-orchestration-yayin"))}
+            izinli = {norm(sahte), norm(os.path.join(os.path.dirname(sahte), "Claude_Orkestrasyon", "plugin_yayin"))}
             self.assertIn(y, izinli)
             self.assertTrue(y.startswith(norm(t)))
 

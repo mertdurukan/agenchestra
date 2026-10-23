@@ -47,7 +47,7 @@ plugins/orkestra/                   çekirdek plugin
   evals/       claude plugin eval vakaları
 plugins/orkestra-ui/                arayüz modu (Pane + AbovePrompt bandı + /orkestra)
 araclar/sifre_temizle.py            oturum kayıtlarından düz metin şifre temizleme (elle çalıştırılır)
-araclar/yayin_kur.py                yayın klonunu açar, git hook'larını yazar; araclar/git_hooklar/ hook şablonları
+araclar/yayin_kur.py                yayın klonunu GitHub'dan kurar (hook yazmaz)
 ```
 
 ## Tüm projelere kurmak (önerilen, tek komut)
@@ -109,13 +109,13 @@ python <depo>/araclar/projeye_kur.py <proje klasörü> --kaynak github
 ```
 
 - `--repo SAHIP/DEPO` ile GitHub deposu verilir; verilmezse klonun `origin` adresinden türetilir, bulunamazsa komut hata verir.
-- `--kaynak yerel` (varsayılan) yayın klonunu kullanır: `--yayin <yol>`, yoksa `ORKESTRA_YAYIN`, yoksa `<depo>/../claude-orchestration-yayin`. `--kaynak github` bu yola ihtiyaç duymaz.
+- `--kaynak yerel` (varsayılan) yayın klonunu kullanır: `--yayin <yol>`, yoksa `ORKESTRA_YAYIN`, yoksa `<depo>/../Claude_Orkestrasyon/plugin_yayin`. `--kaynak github` bu yola ihtiyaç duymaz.
 - Önce `--kuru` ile ne yapılacağını görebilirsin. Seçenekler için `python <depo>/araclar/projeye_kur.py --help`.
 - Sonra o projede yeni bir Claude oturumu aç. Özel depo için yukarıdaki git kimlik bilgisi bu makinede hazır olmalıdır.
 
 ### GitHub deposu
 
-Depo `mertdurukan/agenchestra` (özel), bu klasörün `origin`'i. Kök `.claude/settings.json` bu depoyu marketplace kaynağı olarak gösterir. Yol B'de `--repo` verilmezse `origin`'den türetilir. Geliştirme akışı: commitle → `git push`. Yayın klonu ve autoUpdate ile işleyen yerel akış değişmez.
+Depo `mertdurukan/agenchestra` (özel), bu klasörün `origin`'i. Kök `.claude/settings.json` bu depoyu marketplace kaynağı olarak gösterir. Yol B'de `--repo` verilmezse `origin`'den türetilir. Geliştirme akışı: yan dalda geliştir → `main`'e `--ff-only` ya da PR → `git push` (yalnız açık istekle) → `orkestra guncelle`.
 
 ### Depoya girmeyenler
 
@@ -149,7 +149,7 @@ Model, effort ve hafıza ayarları proje ayarındadır. Proje ayarı, genel ayar
 
 Masaüstü uygulamasında `claude` PATH'te yoktur. Gömülü ikili `%APPDATA%\Claude\claude-code\<sürüm>\…\claude.exe` altında bulunur. Hook'ların içinde aynı yol `CLAUDE_CODE_EXECPATH` değişkeninde durur.
 
-Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. `plugin.json` ve `marketplace.json` içinde `version` alanı bilerek yoktur; git deposundaki göreli yol girdilerinde sürüm commit SHA'sı olur. Bu yüzden bir değişiklik commitlenmeden kopyaya geçmez (`claude plugin validate --strict` yalnız bu eksik sürüm uyarısı yüzünden hata verir; `--strict`siz geçer). Marketplace bu klasörden değil **yayın klonundan** okur (aşağıda). Akış: geliştir → commitle (push gerekmez) → yayın klonu otomatik ilerler → autoUpdate ya da `orkestra guncelle`.
+Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/`. `plugin.json` ve `marketplace.json` içinde `version` alanı bilerek yoktur; git deposundaki göreli yol girdilerinde sürüm commit SHA'sı olur. Bu yüzden bir değişiklik commitlenmeden kopyaya geçmez (`claude plugin validate --strict` yalnız bu eksik sürüm uyarısı yüzünden hata verir; `--strict`siz geçer). Marketplace bu klasörden değil **yayın klonundan** okur (aşağıda). Akış: geliştir → `main`'e al → uzak `main`'e push → `orkestra guncelle` (ya da autoUpdate). Yayın klonu yalnız GitHub'dan çekilir; git hook'u yoktur.
 - Değişikliği bu klasörde commitle. Commitlenmemiş (başka oturumların yarım) işler plugin kopyasına girmez.
 - Otomatik: projenin `extraKnownMarketplaces.claude-orchestration.autoUpdate` değeri `true` (`projeye_kur.py` yazar). Claude Code ilk mesajdan sonra en çok 10 dakika içinde günceller, yeni kopya sonraki oturumda yüklenir.
 - Hemen için: herhangi bir klasörde `orkestra update` ya da `/orkestra:update` (eski adı `orkestra guncelle`; `--kuru` yalnız komutları yazar). LLM çağırmaz: yayın klonunu GitHub'dan çeker, marketplace'i ve `installed_plugins.json`'daki her kurulu plugin'i kendi kapsamıyla (user ya da project) günceller; sonucu `GÜNCELLENDİ (eski → yeni)`, `ZATEN GÜNCEL` ya da `HATA: neden` diye yazar, hatada çıkış kodu 1 olur. Ardından yeni oturum aç ya da `/reload-plugins`.
@@ -157,7 +157,7 @@ Claude Code plugin'leri bu klasörden değil, kurulumda alınan kopyadan okur: `
 
 ### Yayın klonu (plugin_yayin)
 
-`claude plugin update` commit'i değil marketplace klasörünün o anki çalışma ağacını kopyalar. Paralel oturumların commitlenmemiş işi çalışan plugin'e sızmasın diye marketplace bu klasörden değil, bu deponun temiz git klonundan (yayın klonu) okur. Varsayılan konum `<depo>/../claude-orchestration-yayin`, `--yayin` ya da `ORKESTRA_YAYIN` ile değişir (origin = bu klasör).
+`claude plugin update` commit'i değil marketplace klasörünün o anki çalışma ağacını kopyalar. Paralel oturumların commitlenmemiş işi çalışan plugin'e sızmasın diye marketplace bu klasörden değil, bu deponun temiz git klonundan (yayın klonu) okur. Varsayılan konum `<depo>/../Claude_Orkestrasyon/plugin_yayin`, `--yayin` ya da `ORKESTRA_YAYIN` ile değişir (origin = bu klasör).
 - Kurulum (tek komut, tekrar güvenli): `python araclar\yayin_kur.py` (`--yayin <yol>` ya da `ORKESTRA_YAYIN` ile yol değişir). Klonu açar ve `.git/hooks/` altına `post-commit`, `post-rewrite` (amend/rebase) ve `orkestra-yayin-esitle.sh` yazar; hook şablonları `araclar/git_hooklar/` altında izlenir.
 - `plugin_yayin` elle düzenlenmez: hook klondaki yerel değişikliği `checkout -f` ile ezer; yalnız main'deki commit'ler yayına çıkar (başka dalda atılan commit klona dokunmaz).
 - Her commit sonrası hook klonu çalışma dalıyla eşitler. Hata commit'i bozmaz (her zaman 0 çıkar, mesaj stderr'e).

@@ -6,17 +6,23 @@ Bu dosya eklentiyi geliştirenler içindir. Kullanım kuralları için `KURALLAR
 Oturumlar eklentiyi `~/.claude/plugins/cache/claude-orchestration/<plugin>/<sürüm>/` altındaki önbellek kopyasından yükler (göreli yol girdisine rağmen). Sürüm commit SHA'sıdır (12 hane); `version` alanı bilerek yoktur.
 
 1. Eklenti deposunda geliştir.
-2. `main` dalına commit at.
-3. Post-commit ve post-rewrite hook'u (`araclar/git_hooklar/yayin-esitle.sh`; kurulum `araclar/yayin_kur.py`) yayın klonunu ilerletir. Başka dalda ya da detached HEAD'de hiçbir şey yapmaz.
-4. `orkestra guncelle` çalıştır (yayın klonu kirliyse reddeder). Çalıştırmazsan `autoUpdate` ilk mesajdan en çok 10 dk sonra alır.
+2. Değişikliği kendi dalında commitle; `main`'e yalnız `--ff-only` ya da PR ile gir (aşağıda "Yan işler").
+3. Uzak `main`'e push et (yalnız kullanıcının açık isteğiyle). Git hook'u yoktur; hiçbir betik yayın klonuna yazmaz.
+4. `orkestra guncelle` çalıştır: yayın klonu GitHub `origin`'den çekilir (klon kirliyse reddeder). Çalıştırmazsan `autoUpdate` ilk mesajdan en çok 10 dk sonra alır.
 5. Sonraki oturumda ya da `/reload-plugins` ile yeni sürüm yüklenir.
 
 Notlar:
-- Güncelleme commit'i değil, marketplace klasörünün çalışma ağacını kopyalar. Bu yüzden marketplace, geliştirme deposunun temiz git klonudur (yayın klonu). Yayın klonunu elle düzenleme.
-- Commitlenmemiş iş yayına girmez.
+- Güncelleme commit'i değil, marketplace klasörünün çalışma ağacını kopyalar. Bu yüzden marketplace, GitHub deposunun temiz git klonudur (yayın klonu; `python araclar/yayin_kur.py` kurar, `origin` GitHub adresidir). Yayın klonunu elle düzenleme.
+- Push edilmemiş iş (commitli olsa bile) yayına girmez.
 - SessionStart bayatlık uyarısı önbellek kopyası ile yayın klonu arasındaki farkı bildirir.
 - `validate --strict` sürüm alanı olmadığı için hep "No version specified" ile düşer (bilinçli).
 - `orkestra` CLI'ı da önbellekten çalışır. HTML paneli geliştirme deposu yolundan `python <depo>/plugins/orkestra/scripts/orkestra.py panel` ile başlat.
+
+## Yan işler
+- Her iş kendi dalında ve `git worktree` ile ayrı klasörde yürür (`git worktree add ../co-wt/<iş> -b <dal> main`). Desktop kökü `main` çalışma ağacıdır; yeni özellik orada başlatılmaz.
+- `main`'e yalnız `git merge --ff-only <dal>` ya da PR ile girilir; ayrışmış dal önce `main` üzerine alınır.
+- Dal ve worktree iş bitince (ve başka oturum kullanmıyorsa) kaldırılır: `git worktree remove` + `git branch -d`.
+- Yayın akışı ("Yayın akışı" bölümü) yalnız `main` içindir; yan dal push edilse bile marketplace'e girmez.
 
 ## Panelde güncelleme bildirimi (ADR-0039)
 Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa ve aralıkta konusu `Yenilik:` ile başlayan en az bir commit varsa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti); kartta yalnız bu commit'ler listelenir. Yeni özellik içeren yayın commit'ine `Yenilik: <ne eklendi>` konusu verilir, aksi halde kart çıkmaz.

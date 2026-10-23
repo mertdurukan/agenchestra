@@ -9,7 +9,7 @@ Kullanım:
 projede SessionStart hook'u ile kendiliğinden açılır (hook.py _otomatik_ac; kapatma ORKESTRA_OTOMATIK_ACIL=0).
 
 Ne yapar (proje klasörü verilirse, hepsi o projenin içinde):
-  1. Marketplace'i yayın klonundan (--yayin > ORKESTRA_YAYIN > <depo>/../claude-orchestration-yayin)
+  1. Marketplace'i yayın klonundan (--yayin > ORKESTRA_YAYIN > <depo>/../Claude_Orkestrasyon/plugin_yayin)
      bu bilgisayarda tanıtır (--kaynak github ise GitHub deposundan) (claude plugin marketplace add; zaten varsa geçer). Klon yoksa önce araclar/yayin_kur.py.
      Bu, ayar değil, makinenin plugin kaydıdır (~/.claude/plugins/known_marketplaces.json).
   2. orkestra ve orkestra-ui plugin'lerini PROJE kapsamında kurar → <proje>/.claude/settings.json.
@@ -35,17 +35,18 @@ import sys
 
 DEPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARKET = "claude-orchestration"
-# Marketplace kaynağı: geliştirme deposunun temiz git klonu (yalnız commitlenmiş kod). Kurulum: araclar/yayin_kur.py
+# Marketplace kaynağı: GitHub deposunun temiz git klonu (yalnız push edilmiş kod). Kurulum: araclar/yayin_kur.py
+
+
+# Depo konumundan türetilir, sabit kişisel yol içermez; araclar/yayin_kur.py ile aynı varsayılan.
+VARSAYILAN_YAYIN = os.path.join(os.path.dirname(DEPO), "Claude_Orkestrasyon", "plugin_yayin").replace("\\", "/")
 
 
 def yayin_yolu(arguman=None):
-    """Öncelik: argüman > ORKESTRA_YAYIN > depo konumundan türetilen varsayılan."""
-    v = arguman or os.environ.get("ORKESTRA_YAYIN") or os.path.join(os.path.dirname(DEPO), "claude-orchestration-yayin")
-    return os.path.abspath(v).replace("\\", "/") if not (arguman or os.environ.get("ORKESTRA_YAYIN")) else v.replace("\\", "/")
+    """Öncelik: argüman > ORKESTRA_YAYIN > VARSAYILAN_YAYIN."""
+    return (arguman or os.environ.get("ORKESTRA_YAYIN") or VARSAYILAN_YAYIN).replace("\\", "/")
 
 
-# Geriye uyumlu ad: depo konumundan türetilir, sabit kişisel yol içermez.
-VARSAYILAN_YAYIN = os.path.join(os.path.dirname(DEPO), "Claude_Orkestrasyon", "plugin_yayin").replace("\\", "/")
 YAYIN = yayin_yolu()
 KAYNAK = None  # {"source": ...} marketplace kaynağı (main doldurur)
 PLUGINLER = ["orkestra", "orkestra-ui"]
@@ -288,7 +289,7 @@ def main():
     p.add_argument("--ui-yok", action="store_true", help="arayüz modunu kurma")
     p.add_argument("--kuru", action="store_true", help="yalnız ne yapılacağını göster")
     p.add_argument("--kaldir", action="store_true", help="bu projeden kaldır")
-    p.add_argument("--yayin", help="yerel marketplace kaynağı (yayın klonu); varsayılan ORKESTRA_YAYIN ya da <depo>/../claude-orchestration-yayin")
+    p.add_argument("--yayin", help="yerel marketplace kaynağı (yayın klonu); varsayılan ORKESTRA_YAYIN ya da <depo>/../Claude_Orkestrasyon/plugin_yayin")
     p.add_argument("--kaynak", choices=["yerel", "github"], default="yerel", help="marketplace kaynağı türü (varsayılan yerel)")
     p.add_argument("--repo", help="--kaynak github için SAHIP/DEPO (yoksa depo origin'inden türetilir)")
     a = p.parse_args()

@@ -110,7 +110,7 @@ def klon_ilerlet(klon: str, kuru: bool, yaz) -> tuple[str, str]:
     kirli = _git_cikti(klon, "status", "--porcelain")
     if kirli:
         raise GuncelleHata(f"yayın klonunda commitlenmemiş değişiklik var; güncelleme reddedildi ({klon}):\n{kirli}\n"
-                           f"Klon elle düzenlenmez: değişiklikleri geri al ya da klonu yeniden kur (araclar/yayin_kur.py).")
+                           f"Klona hiçbir şey yazılmaz ve klon elle düzenlenmez: değişiklikleri geri al (git -C <klon> restore .) ya da klonu silip `python araclar/yayin_kur.py` ile GitHub'dan yeniden kur. Düzeltme Desktop deposunda yapılır, push edilir, sonra `orkestra guncelle`.")
     for a in (("fetch", "-q", "origin"), ("merge", "--ff-only", "-q", "@{u}")):
         yaz(f"> git -C {klon} {' '.join(a)}")
         if kuru:

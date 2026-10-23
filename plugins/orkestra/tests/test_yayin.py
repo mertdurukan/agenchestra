@@ -1,4 +1,4 @@
-"""Yayın klonu: projeye_kur kaynağı, (klon denetimi artık test_guncelle.py'de), git hook (python -m unittest)."""
+"""Yayın klonu: projeye_kur kaynağı ve yayin_kur (GitHub'dan klon, hook yok); klon denetimi test_guncelle.py'de (python -m unittest)."""
 import contextlib
 import io
 import json
@@ -26,27 +26,6 @@ def yaz(yol, metin):
         f.write(metin)
 
 
-def _sh_yolu():
-    """sh yolu: PATH'te yoksa Git kurulumundaki sh.exe (bin/ ya da usr/bin/); yoksa None."""
-    yol = shutil.which("sh")
-    if yol:
-        return yol
-    try:
-        ep = subprocess.run(["git", "--exec-path"], capture_output=True, text=True,
-                            encoding="utf-8", check=True).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return None
-    d = os.path.abspath(ep)
-    while True:
-        for aday in (os.path.join(d, "bin", "sh.exe"), os.path.join(d, "usr", "bin", "sh.exe")):
-            if os.path.isfile(aday):
-                return aday
-        ust = os.path.dirname(d)
-        if ust == d:
-            return None
-        d = ust
-
-
 class Yayin(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="ork_yayin_")
@@ -70,71 +49,38 @@ class Yayin(unittest.TestCase):
         with open(os.path.join(proje, ".claude", "settings.json"), encoding="utf-8") as f:
             self.assertEqual(json.load(f)["extraKnownMarketplaces"][P.MARKET]["source"]["path"], "Z:/yayin")
 
-    def test_hook_yalniz_klonun_dalinda_esitler_ve_hep_0_cikar(self):
-        sh = _sh_yolu()
-        if sh is None:
-            self.skipTest("sh bulunamadı (Git Bash yok)")
-        sablon = os.path.join(DEPO, "araclar", "git_hooklar", "yayin-esitle.sh")
-        dev, klon = os.path.join(self.t, "dev"), os.path.join(self.t, "klon")
+    def test_yayin_kur_hook_yazmaz_ve_klonu_githubdan_kurar(self):
+        import yayin_kur as Y
+        self.assertFalse(os.path.exists(os.path.join(DEPO, "araclar", "git_hooklar")))
+        self.assertFalse(hasattr(Y, "hook_yaz"))
+        self.assertEqual(Y.varsayilan_yayin(), __import__("projeye_kur").VARSAYILAN_YAYIN)
+        # GitHub'ı temsil eden uzak depo (github_adresi taklit edilir; gerçek ağ kullanılmaz)
+        dev = os.path.join(self.t, "dev")
         os.makedirs(dev)
         git(dev, "init", "-q", "-b", "main")
         yaz(os.path.join(dev, "a.txt"), "1")
         git(dev, "add", ".")
         git(dev, "commit", "-q", "-m", "ilk")
-        subprocess.run(["git", "clone", "-q", dev, klon], check=True, capture_output=True)
-        with open(sablon, encoding="utf-8", newline="") as f:
-            betik = os.path.join(self.t, "he.sh")
-            with open(betik, "w", encoding="utf-8", newline="\n") as g:
-                g.write(f.read().replace("@YAYIN@", klon.replace("\\", "/")))
-        kos = lambda: subprocess.run([sh, betik], cwd=dev, capture_output=True, text=True, encoding="utf-8")
-        # main'de commit: klon ilerler
-        yaz(os.path.join(dev, "a.txt"), "2")
-        git(dev, "commit", "-q", "-am", "iki")
-        self.assertEqual(kos().returncode, 0)
-        self.assertEqual(git(klon, "rev-parse", "HEAD"), git(dev, "rev-parse", "HEAD"))
-        # başka dalda commit: klon dalı ve HEAD'i değişmez, sessiz 0
-        onceki = git(klon, "rev-parse", "HEAD")
-        git(dev, "checkout", "-q", "-b", "deneme")
-        yaz(os.path.join(dev, "a.txt"), "3")
-        git(dev, "commit", "-q", "-am", "uc")
-        r = kos()
-        self.assertEqual(r.returncode, 0)
-        self.assertEqual(git(klon, "symbolic-ref", "--short", "HEAD"), "main")
-        self.assertEqual(git(klon, "rev-parse", "HEAD"), onceki)
-        # klonda origin'de olmayan commit ve kirli dosya: silinmez, koruma dalına alınır
-        git(dev, "checkout", "-q", "main")
-        yaz(os.path.join(klon, "yerel.txt"), "klon commit")
-        git(klon, "add", ".")
-        git(klon, "commit", "-q", "-m", "klonda yazilan")
-        yaz(os.path.join(klon, "kirli.txt"), "kaydedilmemis")
-        yaz(os.path.join(dev, "a.txt"), "4")
-        git(dev, "commit", "-q", "-am", "dort")
-        r = kos()
-        self.assertEqual(r.returncode, 0)
-        self.assertEqual(git(klon, "rev-parse", "HEAD"), git(dev, "rev-parse", "HEAD"))
-        dallar = git(klon, "branch", "--list", "koruma/klon").split()
-        dallar = [d for d in dallar if d.startswith("koruma/")]
-        self.assertEqual(len(dallar), 1)
-        self.assertIn("klonda yazilan", git(klon, "log", "--format=%s", dallar[0]))
-        self.assertEqual(git(klon, "show", f"{dallar[0]}:kirli.txt"), "kaydedilmemis")
-        self.assertIn(dallar[0], git(dev, "branch", "--list", "koruma/*"))
-        self.assertIn("'koruma/klon'", r.stderr)
-        # ikinci çakışma: yeni dal açılmaz, aynı kurtarma dalı önceki işi koruyarak ilerler
-        yaz(os.path.join(klon, "ikinci.txt"), "ikinci klon isi")
-        git(klon, "add", ".")
-        git(klon, "commit", "-q", "-m", "klonda ikinci")
-        yaz(os.path.join(dev, "a.txt"), "5")
-        git(dev, "commit", "-q", "-am", "bes")
-        r = kos()
-        self.assertEqual(r.returncode, 0)
-        self.assertEqual(git(klon, "branch", "--list", "koruma/*").split(), ["koruma/klon"])
-        self.assertIn("klonda yazilan", git(klon, "log", "--format=%s", "koruma/klon"))
-        self.assertIn("klonda ikinci", git(klon, "log", "--format=%s", "koruma/klon"))
-        # klon yoksa yine 0, mesaj stderr'de
-        shutil.rmtree(klon, ignore_errors=True)
-        r = kos()
-        self.assertEqual(r.returncode, 0)
-        self.assertIn("orkestra-yayin", r.stderr)
+        uzak = os.path.join(self.t, "uzak.git").replace("\\", "/")
+        subprocess.run(["git", "clone", "-q", "--bare", dev, uzak], check=True, capture_output=True)
+        klon = os.path.join(self.t, "yayin")
+        with mock.patch.object(Y, "github_adresi", return_value=uzak):
+            with contextlib.redirect_stdout(io.StringIO()):
+                Y.klon_kur(klon, False)
+                self.assertEqual(git(klon, "rev-parse", "HEAD"), git(dev, "rev-parse", "HEAD"))
+                hooklar = [h for h in os.listdir(os.path.join(klon, ".git", "hooks")) if not h.endswith(".sample")]
+                self.assertEqual(hooklar, [])
+                # origin yerel yola çevrilmişse GitHub adresine döndürülür
+                git(klon, "remote", "set-url", "origin", dev)
+                Y.klon_kur(klon, False)
+            self.assertEqual(git(klon, "remote", "get-url", "origin"), uzak)
+
+    def test_yayin_kur_yerel_origini_reddeder(self):
+        import yayin_kur as Y
+        with mock.patch.object(Y, "git", return_value=mock.Mock(returncode=0, stdout=self.t + "\n")):
+            with self.assertRaises(SystemExit) as c:
+                Y.github_adresi()
+        self.assertIn("yerel", str(c.exception))
 
 
 if __name__ == "__main__":
