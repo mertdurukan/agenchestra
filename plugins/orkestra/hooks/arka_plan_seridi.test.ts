@@ -123,5 +123,21 @@ test('olay yolu: update_plan tool.call olayı gelince bant N/M değerini çizer'
   on('classic.Stop', () => ({}))
   await $.tool.call({ tool: PLAN, input: items('completed', 'in_progress', 'pending') } as never).catch(() => undefined)
   const metin = await cizim($, { isWorking: true })
-  expect(metin).toContain('işlem devam ediyor')
+  expect(metin).toContain('1/3 yapıldı · işlem devam ediyor')
+})
+
+test('olaysız yol: yalnız oturum kaydındaki update_plan çağrısından N/M çıkar', async ($, on) => {
+  on('classic.Stop', () => ({}))
+  await $.session.append({
+    message: {
+      type: 'assistant',
+      role: 'assistant',
+      content: [{ type: 'tool_use', id: 'u1', name: PLAN, input: items('completed', 'completed', 'in_progress', 'pending') }],
+    },
+    door: 'response',
+    origin: { kind: 'model' },
+    uuid: 'ut-1',
+  } as never)
+  const metin = await cizim($, { isWorking: true })
+  expect(metin).toContain('2/4 yapıldı · işlem devam ediyor')
 })
