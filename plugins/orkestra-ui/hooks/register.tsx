@@ -182,17 +182,7 @@ export const register: Register = on => {
     )
   })
 
-  // Bant yalnız bu sohbette arka plan işi sürerken çıkar ve süren her an görünür (Gizle yok); ret, teslim, rapor ve maliyet bant çıkarmaz.
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const o = await read($, veri)
-    if (e.props.hasSurvey || o === null || !o.acik || (o.arka ?? 0) === 0) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
-    return (
-      <Box>
-        <Text dimColor>{bantMetni(o)}</Text>
-      </Box>
-    )
-  })
+  // İstem kutusu bandı burada çizilmez: tek sahibi orkestra eklentisidir (orkestra/hooks/arka_plan_seridi.tsx, ADR-0073).
 }
 
 // Panel ağacı: bir bakışta özet (satırlar iç içe Text yerine Box içinde yan yana Text: her yüzeyde güvenli).
