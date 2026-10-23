@@ -1019,6 +1019,7 @@
       b.disabled = false;
     } else if (ey === 'yenile') { V.onbellek.delete(anahtar(b.dataset.yol)); tazele(true); }
     else if (ey === 'kopyala') { try { await navigator.clipboard.writeText(b.dataset.metin); bildir('Yol kopyalandı.'); } catch (x) { bildir('Kopyalanamadı.', { hata: true }); } }
+    else if (ey === 'is-kapat') isKapatSor(b, b.dataset.is, b.dataset.alan || undefined);
     else if (ey === 'yap-ekle') yapEkle();
     else if (ey === 'yap-tamam') yapTamam(b.dataset.id, b.dataset.alan);
     else if (ey === 'yap-kopya') yapKopya(b.dataset.id, b.dataset.alan);
