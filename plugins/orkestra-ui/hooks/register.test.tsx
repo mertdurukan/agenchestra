@@ -43,8 +43,6 @@ const HAM: HamOzet = {
 const SAAT = HAM.uretim.slice(11, 16)
 const ESKI: HamOzet = { ...HAM, uretim: dkOnce(30) }
 const ESKI_SAAT = ESKI.uretim.slice(11, 16)
-// Arka plan işi yok: ret, teslime hazır kart ve hazır perspektif raporu olsa da bant çizilmemeli.
-const SESSIZ: HamOzet = { ...HAM, arka_plan: { oturumlar: { baska: 5 }, perspektif: false, uygulama: false } }
 
 const PANE_PROPS = {
   title: 'Orkestra', isFocused: false, bodyColumns: 100, placement: 'dock' as const,
