@@ -102,7 +102,7 @@ def maddeler(plan_metni: str) -> dict[int, dict]:
 
 def _yol_kesisir(a: str, b: str) -> bool:
     """İki yazma alanı girdisi aynı dosyaya düşebilir mi (glob için fnmatch ve önek; temkinli: şüphede kesişir)."""
-    a, b = a.lower().rstrip("/") if not a.endswith("/") else a.lower() + "**", b.lower().rstrip("/") if not b.endswith("/") else b.lower() + "**"
+    a, b = _norm(a), _norm(b)
     if a == b:
         return True
     ga, gb = _GLOB.search(a), _GLOB.search(b)
