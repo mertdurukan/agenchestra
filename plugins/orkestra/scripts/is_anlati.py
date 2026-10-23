@@ -32,7 +32,8 @@ FIILLER = {
 
 _MAX = 300
 _TODO_RE = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s*(P\d+)\s*:\s*(.*)$")
-_ETIKET_RE = re.compile(r"^\*\*[^*\n]+:\*\*")
+_ETIKET_RE = re.compile(r"^\*\*[^*\n]+[:?]\*\*")
+_YORUM_RE = re.compile(r"<!--.*?-->", re.S)
 
 
 def _kes(s: str, n: int = _MAX) -> str:
