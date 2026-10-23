@@ -805,6 +805,42 @@ def uygulandi(sd: str, id: str, ozet: str, oturum=None) -> dict:
         return k
 
 
+def birak(sd: str, id: str, neden: str) -> dict:
+    """`uygulaniyor` kaydını `onaylandi`ya geri bırakır (uygulanamadı, oturum öldü). Etki tabanı donuk kalır (_taban_ic)."""
+    os.makedirs(_onay_dizini(sd), exist_ok=True)
+    with L.kilit(_kilit_yolu(sd)):
+        k = _gerekli(sd, id)
+        if k["durum"] != "uygulaniyor":
+            raise ValueError(f"{id} uygulaniyor durumunda değil (şu an: {k['durum']}); bırakılamaz.")
+        k["durum"] = "onaylandi"
+        k["uygulama"] = None
+        _olay(k, "birakildi", neden)
+        _kayit_yaz(sd, k)
+        return k
+
+
+def eski_alimlari_birak(sd: str) -> list[str]:
+    """Etkin başsız koşu yokken KOSU_ZAMAN_ASIMI_SN'den eski `uygulaniyor` alımlarını bırakır; bırakılan kimlikler döner."""
+    if uygulama_durumu(sd):
+        return []
+    simdi = datetime.datetime.now().astimezone()
+    birakilan = []
+    for k in _hepsi(sd):
+        if k.get("durum") != "uygulaniyor":
+            continue
+        try:
+            gecen = (simdi - datetime.datetime.fromisoformat((k.get("uygulama") or {})["alma_zamani"])).total_seconds()
+        except Exception:  # noqa: BLE001 - alma zamanı okunamayan alım eski sayılmaz
+            continue
+        if gecen >= KOSU_ZAMAN_ASIMI_SN:
+            try:
+                birak(sd, k["id"], f"otomatik: {int(gecen // 60)} dk önce alındı, kapanmadı")
+                birakilan.append(k["id"])
+            except ValueError:
+                pass
+    return birakilan
+
+
 def iptal(sd: str, id: str, not_: str) -> dict:
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
