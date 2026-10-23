@@ -67,6 +67,16 @@ class DalTemizleTest(unittest.TestCase):
         s = dal_temizle.temizle(os.path.join(self.k, "yok"), "", "ihlal")
         self.assertEqual(s["silinen"], [])
 
+    def test_kapanis_birlesmemis_dal_uyarir(self):
+        git(self.depo, "checkout", "-q", "yeni")                 # HEAD main'e birleşmemiş
+        self.assertIn("main'e birleşmemiş", dal_temizle.kapanis(self.depo))
+        git(self.depo, "checkout", "-q", "birlesmis")           # HEAD birleşmiş: uyarı yok
+        self.assertEqual(dal_temizle.kapanis(self.depo), "")
+
+    def test_session_start_cagrisi_hata_vermez(self):
+        s = dal_temizle.calistir(os.path.join(self.k, "yok"))      # git deposu değil: istisna yok, silme yok
+        self.assertEqual((s or {}).get("silinen", []), [])
+
     def test_kapali(self):
         os.environ["ORKESTRA_DAL_TEMIZLE"] = "0"
         try:

@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "Tek main için artık dal temizliği (I-201, ADR-0050). mod: golge = main'e tamamen birleşmiş, worktree'de açık olmayan dallar yalnız gunluk.jsonl'a dal_temizle olarak yazılır, silinmez; ihlal = her aday önce git bundle ile yedeklenir (_arsiv/<proje>/), sonra silinir. Birleşmemiş dala hiçbir modda dokunulmaz. Çalıştığı yerler: SessionStart ve orkestra is kapat. Kapatma: ORKESTRA_DAL_TEMIZLE=0. Proje ezmesi: .claude/orkestra/dal_temizle.json (P-028)."
+}

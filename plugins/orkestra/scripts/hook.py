@@ -2133,6 +2133,11 @@ def session_start(inp: dict):
         L.tmp_temizle(sd)
     except Exception:
         pass
+    try:  # I-201, ADR-0050: main'e birleşmiş artık dallar (gölge kipte yalnız günlüğe yazar); hook'u asla düşürmez
+        import dal_temizle
+        dal_temizle.calistir(inp.get("cwd") or os.getcwd(), kaynak="session_start")
+    except Exception:
+        pass
     ks = [k for k in L.kartlar(sd) if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",)]
     bagli = None
     try:

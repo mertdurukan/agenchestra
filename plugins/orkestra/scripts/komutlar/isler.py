@@ -499,6 +499,13 @@ def kapat_uygula(sd, is_id):
     _harita_yenile(sd)
     _ik().is_durum(sd, is_id, "kapandi")
     _teknik_detay_yaz(sd, is_id)
+    try:  # I-201, ADR-0050: artık dal temizliği (gölge kipte yalnız günlüğe yazar); kapanışı asla bozmaz
+        import dal_temizle
+        uyari = dal_temizle.kapanis(os.getcwd())
+        if uyari:
+            print(f"orkestra: {uyari}", file=sys.stderr)
+    except Exception:
+        pass
 
 
 def cmd_is_teslim(a):

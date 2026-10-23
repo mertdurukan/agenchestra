@@ -12,6 +12,7 @@ import os
 import subprocess
 import time
 
+import cfg
 import kapi_mod
 import ork_lib as L
 
@@ -19,7 +20,7 @@ ANA = "main"
 
 
 def _git(depo: str, *a: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", depo, *a], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+    return subprocess.run(["git", "-C", depo, *a], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, **cfg.PENCERESIZ)
 
 
 def _worktree_dallari(depo: str) -> tuple[str, set[str]]:
@@ -101,3 +102,16 @@ def calistir(cwd: str, oturum_dali: str = "", kaynak: str = "") -> dict | None:
         return s
     except Exception:
         return None
+
+
+def kapanis(cwd: str) -> str:
+    """`orkestra is kapat` sonrası: artık dalları temizler (kipe göre) ve oturum dalı main'e birleşmemişse uyarı metni döndürür.
+    Oturum dalının kendisi çalışan worktree'de açık olduğundan burada silinemez; worktree kalkınca SessionStart temizliği siler."""
+    try:
+        calistir(cwd, kaynak="is_kapat")
+        dal = _git(cwd, "symbolic-ref", "--short", "-q", "HEAD").stdout.strip()
+        if dal and dal != ANA and _git(cwd, "merge-base", "--is-ancestor", dal, ANA).returncode != 0:
+            return f"oturum dalı '{dal}' main'e birleşmemiş; birleştirmeden dal temizlenmez (git merge --ff-only {dal} main'de)."
+    except Exception:
+        pass
+    return ""
