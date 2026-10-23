@@ -2,15 +2,37 @@
 
 ## Özet
 
-<!-- doldur (ilk bakışta okunur, 3-4 cümle): ne değişti, ana sayı, karar bekleyen tek konu. -->
+***Şef Özeti***
 
-**Amaç:**
+**Amaç neydi?**
+
+<!-- doldur: tek cümle; istenen sonucun kendisi, mümkünse kullanıcının sözüyle. Yöntem ya da gerekçe yazma. -->
+
+**Ne yapıldı?**
+
+<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar. Somut ad ve sayı ver (dosya, komut çıktısı, ölçüm saati); süreç anlatma. -->
+
+- 
+
+**Amaca tamamen ulaşıldı mı?**
+
+<!-- doldur: ilk sözcük Evet, Kısmen ya da Hayır; ardından en çok bir cümle neden. Aşağıdaki iki liste bununla tutarlı olur. -->
+
+**Tamamen yapılanlar:**
+
+<!-- doldur: kanıtı olan işler, madde başına tek satır; yoksa "Yok". -->
+
+- 
+
+**Açık kalanlar:**
+
+<!-- doldur: yapılmayan ya da doğrulanamayan her iş tek satır ve nedeniyle; kullanıcıdan karar ya da onay gerekiyorsa tek cümleyle burada; yoksa "Yok". -->
+
+- 
 
 **Ölçüm saati:**
 
 {tarih} {saat} (yerel). Her sayının yanına komutu ve ölçüm saatini yaz.
-
-**Ana bulgu:**
 
 **Kapsam kararı:**
 
@@ -19,10 +41,6 @@
 - 
 
 **Doğrulanmayanlar:**
-
-- 
-
-**Açık işler:**
 
 - 
 

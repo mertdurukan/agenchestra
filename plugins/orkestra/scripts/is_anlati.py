@@ -32,7 +32,8 @@ FIILLER = {
 
 _MAX = 300
 _TODO_RE = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s*(P\d+)\s*:\s*(.*)$")
-_ETIKET_RE = re.compile(r"^\*\*[^*\n]+:\*\*")
+_ETIKET_RE = re.compile(r"^\*\*[^*\n]+[:?]\*\*")
+_YORUM_RE = re.compile(r"<!--.*?-->", re.S)
 
 
 def _kes(s: str, n: int = _MAX) -> str:
@@ -63,11 +64,11 @@ def _bolum(metin: str, baslik_re: str) -> str:
 
 
 def _etiket(metin: str, ad: str) -> list[str]:
-    """`**<ad>:**` etiketinin altındaki (ya da aynı satırdaki) dolu satırlar; madde işareti atılır."""
-    satirlar = metin.splitlines()
+    """`**<ad>:**` (ya da soru etiketi `**<ad?>**`) etiketinin altındaki ya da aynı satırdaki dolu satırlar; yorum ve madde işareti atılır."""
+    satirlar = _YORUM_RE.sub("", metin).splitlines()
     out: list[str] = []
     for i, s in enumerate(satirlar):
-        m = re.match(r"^\*\*%s:\*\*\s*(.*)$" % re.escape(ad), s)
+        m = re.match(r"^\*\*%s:?\*\*\s*(.*)$" % re.escape(ad), s)
         if not m:
             continue
         if m.group(1).strip():
@@ -84,7 +85,7 @@ def _etiket(metin: str, ad: str) -> list[str]:
 
 def _paragraflar(metin: str) -> list[str]:
     out = []
-    for p in re.split(r"\n\s*\n", metin.strip()):
+    for p in re.split(r"\n\s*\n", _YORUM_RE.sub("", metin).strip()):
         p = p.strip()
         if p.startswith("**"):   # etiketli alanlar başlar: serbest paragraflar burada biter
             break
@@ -360,10 +361,12 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
 
     # anlatı alanları
     ne_icin = _paragraflar(_bolum(metin["plan"], r"1\. Hedef"))
-    ne_icin += _etiket(metin["calisma_ozeti"], "Amaç")
+    ozet = metin["calisma_ozeti"]
+    ne_icin += _etiket(ozet, "Amaç neydi?") or _etiket(ozet, "Amaç")
     if not ne_icin:
         ne_icin = _paragraflar(_bolum(metin["plan"], r"Özet"))
-    sonuc = _paragraflar(_bolum(metin["calisma_ozeti"], r"Özet")) + _etiket(metin["calisma_ozeti"], "Ana bulgu")
+    # Şef Özeti biçiminde sonuç yalnız `Ne yapıldı?` altındandır; eski biçimde `## Özet` paragrafları + `Ana bulgu`
+    sonuc = _etiket(ozet, "Ne yapıldı?") or (_paragraflar(_bolum(ozet, r"Özet")) + _etiket(ozet, "Ana bulgu"))
     yontem = _etiket(metin["mevcut_durum"], "Yöntem")
     kararlar = [_kes(re.sub(r"^\s*[-*]\s*", "", s)) for s in _bolum(metin["plan"], r"3\. Kararlar").splitlines()
                 if re.match(r"^\s*[-*]\s*\*\*K\d+:\*\*", s)]
@@ -377,7 +380,7 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
             yontem += adr
     sinirlar = ["Doğrulanmayanlar: " + x for x in _etiket(metin["calisma_ozeti"], "Doğrulanmayanlar")
                 if x.strip(" .").lower() not in ("yok", "-")]
-    sinirlar += ["Açık iş: " + x for x in _etiket(metin["calisma_ozeti"], "Açık işler")
+    sinirlar += ["Açık iş: " + x for x in (_etiket(ozet, "Açık kalanlar") + _etiket(ozet, "Açık işler"))
                  if x.strip(" .").lower() not in ("yok", "-")]
 
     p = {

@@ -354,19 +354,23 @@ def cmd_is_anlati(a):
 
 def _ozet_eksigi(klasor):
     """Görev bitiş raporu (P-009): klasörde doldurulmuş calisma_ozeti_*.md yoksa eksik nedenini döner, varsa None.
-    Doldurulmuş = '**Ana bulgu:**' başlığının altında metin var (şablon boş bırakılmış olamaz)."""
+    Doldurulmuş = '**Ne yapıldı?**' (Şef Özeti) ya da eski biçimde '**Ana bulgu:**' başlığının altında yorum dışı metin var
+    (şablon boş bırakılmış olamaz; alan sonu `:` ya da `?` ile biten bir sonraki kalın etikettir)."""
     adaylar = sorted(glob.glob(os.path.join(klasor, "calisma_ozeti_*.md")))
     if not adaylar:
         return "klasörde calisma_ozeti_<YYYYMMDD>.md yok"
     for yol in adaylar:
         try:
-            metin = open(yol, encoding="utf-8").read()
+            with open(yol, encoding="utf-8") as f:
+                metin = f.read()
         except OSError:
             continue
-        m = re.search(r"\*\*Ana bulgu:\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+:\*\*|^#|\Z)", metin, re.S | re.M)
-        if m and m.group(1).strip():
+        yorumsuz = re.sub(r"<!--.*?-->", "", metin, flags=re.S)
+        m = re.search(r"\*\*(?:Ne yapıldı\?|Ana bulgu:)\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+[:?]\*\*|^#|\Z)", yorumsuz, re.S | re.M)
+        govde = re.sub(r"^\s*[-*]\s*$", "", m.group(1), flags=re.M) if m else ""
+        if govde.strip():
             return _ozet_kalite_eksigi(klasor, metin)
-    return "calisma_ozeti dosyasında 'Ana bulgu' boş (şablon doldurulmamış)"
+    return "calisma_ozeti dosyasında 'Ne yapıldı?' (eski biçimde 'Ana bulgu') boş (şablon doldurulmamış)"
 
 
 def _ozet_kalite_eksigi(klasor, metin):
