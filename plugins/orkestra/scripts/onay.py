@@ -1270,11 +1270,16 @@ def simdi_uygula(sd: str, tur: str = "perspektif") -> dict:
         raise ValueError("Komut satırı Claude oturum açmamış; arka planda uygulanamaz. Bir kez `claude auth login` çalıştır "
                          "ya da sohbette /orkestra:onay ile uygula.")
     proje = _proje(sd)
+    hafiza = P.hafiza_dizini(proje)
+    if not (os.path.isdir(hafiza) and any(e.is_file() for e in os.scandir(hafiza))):
+        # I-215: boş klasörde başsız oturum uygulayacak dosya bulamaz, kayıtları takılı bırakır; oturum açmadan reddet
+        raise ValueError(f"Hedef hafıza klasörü yok ya da boş ({hafiza}); karar bu projenin hafızasına ait değil ya da "
+                         "perspektif başka projede çalıştırılmış. Kayıtlar olduğu gibi duruyor.")
     with L.kilit(_kilit_yolu(sd)):
         if uygulama_durumu(sd):
             raise ValueError("Uygulama zaten sürüyor.")
         _yaz_json(_kosu_yolu(sd), {"baslangic": L.simdi(), "idler": idler, "tur": tur, "bitis": None, "sonuc": None})
-    args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, exe, P.hafiza_dizini(proje)]
+    args = [sys.executable, os.path.abspath(__file__), "_kos", sd, proje, exe, hafiza]
     import cfg
     try:
         subprocess.Popen(args, cwd=proje, creationflags=cfg.ARKA_PLAN_BAYRAK, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
