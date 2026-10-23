@@ -358,6 +358,26 @@ def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> 
         return
 
 
+def _uygulanmis_metin(arac: str, girdi: dict, tam: str) -> str | None:
+    """Yazım sonrası dosyanın tamamı: Write için yazılan metin, Edit/MultiEdit için düzenlemesi uygulanmış mevcut dosya.
+    Düzenleme uygulanamıyorsa (yazım zaten başarısız olur) ya da arac tanınmıyorsa None."""
+    if arac == "Write":
+        return _yazilacak_metin(arac, girdi)
+    if arac not in ("Edit", "MultiEdit"):
+        return None
+    try:
+        with open(tam, encoding="utf-8", errors="replace", newline="") as f:
+            yeni = f.read()
+    except OSError:
+        return None
+    for e in ([girdi] if arac == "Edit" else [e for e in (girdi.get("edits") or []) if isinstance(e, dict)]):
+        o, n = str(e.get("old_string") or ""), str(e.get("new_string") or "")
+        if not o or o not in yeni:
+            return None
+        yeni = yeni.replace(o, n) if e.get("replace_all") else yeni.replace(o, n, 1)
+    return yeni
+
+
 def _todo_yeni_metin(arac: str, girdi: dict, tam: str) -> str:
     """todo.md yazımında denetlenecek metin. Write: tamamı. Edit/MultiEdit: düzenleme uygulanmış dosyanın, mevcut dosyada
     olmayan satırları (parça içinde `P1:` gibi önek silinip satır bozulsa da `new_string` tek başına bunu göstermez)."""
