@@ -285,6 +285,62 @@ class TakiliKayitTest(Temel):
         self.assertEqual(onay.eski_alimlari_birak(self.sd), [])  # etkin koşu var
         self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")
 
+class KosuDogrulamaTest(TakiliKayitTest):
+    """I-215 P3: başsız koşu sonucu kayıt durumuyla doğrulanır; hedef hafıza klasörü ön koşuldur."""
+
+    def test_s3_kayit_kapanmadan_biten_kosu_tamam_yazmaz_ve_birakir(self):
+        k = self.alinmis()
+        sonuc = onay._kosu_sonucu_dogrula(self.sd, [k["id"]], "tamam")
+        self.assertEqual(sonuc, "kayıtlar kapanmadı: 1")
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "onaylandi")
+
+    def test_s3_hepsi_kapandiysa_tamam_kalir(self):
+        k = self.alinmis()
+        onay.uygulandi(self.sd, k["id"], "yapıldı")
+        self.assertEqual(onay._kosu_sonucu_dogrula(self.sd, [k["id"]], "tamam"), "tamam")
+
+    def test_s3_hata_sonucu_korunur(self):
+        k = self.alinmis()
+        self.assertEqual(onay._kosu_sonucu_dogrula(self.sd, [k["id"]], "hata: çıkış kodu 1"),
+                         "kayıtlar kapanmadı: 1 (hata: çıkış kodu 1)")
+
+    def _simdi_uygula(self, hafiza):
+        k = onay.iste(self.sd, "Öneri", "m", tur="perspektif")
+        onay.karar_ver(self.sd, k["id"], "onay")
+        from unittest import mock
+        with mock.patch("perspektif.hafiza_dizini", lambda p, t=None: hafiza), \
+                mock.patch("perspektif.claude_exe", lambda: "x.exe"), \
+                mock.patch("perspektif.headless_mumkun", lambda sd, e: True), \
+                mock.patch("subprocess.Popen") as popen:
+            try:
+                onay.simdi_uygula(self.sd)
+                return k, None, popen
+            except ValueError as e:
+                return k, str(e), popen
+
+    def test_s4_hafiza_klasoru_yoksa_reddeder_ve_kosu_baslamaz(self):
+        k, hata, popen = self._simdi_uygula(os.path.join(self.proje, "yok"))
+        self.assertIn("yok ya da boş", hata)
+        self.assertEqual(popen.call_count, 0)
+        self.assertIsNone(onay.uygulama_durumu(self.sd))
+        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "onaylandi")
+
+    def test_s4_hafiza_klasoru_bossa_reddeder(self):
+        bos = os.path.join(self.proje, "bos")
+        os.makedirs(bos)
+        k, hata, popen = self._simdi_uygula(bos)
+        self.assertIn("yok ya da boş", hata)
+        self.assertEqual(popen.call_count, 0)
+
+    def test_s4_dolu_klasorde_kosu_baslar(self):
+        dolu = os.path.join(self.proje, "dolu")
+        os.makedirs(dolu)
+        open(os.path.join(dolu, "MEMORY.md"), "w", encoding="utf-8").write("- x")
+        k, hata, popen = self._simdi_uygula(dolu)
+        self.assertIsNone(hata)
+        self.assertEqual(popen.call_count, 1)
+
+
 class KuralTest(Temel):
     def test_oneri_onayi_dosyayi_yazar_ve_kaldirinca_silinir(self):
         r = onay.kural_oner(self.sd, "Sır yazma", "güvenlik", "oturum-1")
