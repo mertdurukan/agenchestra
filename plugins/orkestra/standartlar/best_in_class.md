@@ -50,4 +50,6 @@ Plan sonunda `## Best in class denetimi` bloğu bulunur: dört satır `**Kök ne
 
 ## Zorlama
 
+`uretim_noktasi` kapısı (`ayarlar/uretim_noktasi.json`) ilk günden `ihlal` modundadır (ADR-0069, kullanıcı kararı); her ret `kapi_ret` olarak yazılır. Kapatma: `ORKESTRA_URETIM_KAPISI=0`.
+
 Gölge kapı `best_in_class` (`ayarlar/best_in_class.json`): eksik uyarılır ve `kapi_golge` olarak yazılır, iş engellenmez. `ihlal` geçişi `orkestra is rapor` kapı sayıları ölçüldükten sonra ayrı kararla yapılır (P-028).
