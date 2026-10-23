@@ -20,6 +20,16 @@ Plan `**LLM çıktısı:** kullanıcıya gider — Doğrulama: <yol>[::<test ad�
 
 Beyan `yok — <neden>` ise bu satır istenmez. Kapı yol ve test adının varlığını yoklar; kısıtın yakalandığını denetçi ve test kanıtı gösterir.
 
+## Üretim noktası (K-006, ADR-0069)
+
+`uretim: true` taşıyan sıralı işte her plan maddesi sorunun nerede doğduğunu ve orada nasıl önleneceğini yazar. Alan üç türdür:
+
+- `Düzeltme: <yer> — <önleme>`: çözüm sorunun doğduğu kural, şablon, skill, betik, kart, istem, hook, ayar ya da standartta yapılır.
+- `Kontrol: <yer> — <ne kontrol edilir>; Kaynakta çözülmedi çünkü: <neden>`: yalnız sonradan yakalayan bir kontrol ekleniyorsa; neden kaynakta çözümün gerçekten olmadığını söyler.
+- `Yeni yetenek — <gerekçe>`: düzeltilecek kusur yoksa; hata, ret, kusur ya da tekrar geçen maddede kullanılamaz.
+
+Denetçi bunu beşinci satır olarak yanıtlar: `**Üretim noktası:** ✔|✘ — gerekçe`. Alan gerçek bir yer ve önleme adlandırıyor mu, tür doğru mu, `Kontrol` türünde kaynakta çözülmeme nedeni gerçek mi, tümü `Yeni yetenek` ise bu seçim doğru mu? Kapı biçimi, kopyayı (birebir ya da Jaccard 0,8 ve üzeri) ve denetçi kimliğini betikle sınar; yerin ve çözümün gerçekliğini yalnız denetçi yargılar.
+
 ## Ek ilkeler
 
 - İsteği yanlış okumamak için iş başında istek kendi cümlenle yeniden yazılır; belirsizlik varsa kullanıcıya tek soruyla teyit ettirilir.
