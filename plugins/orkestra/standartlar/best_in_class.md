@@ -12,6 +12,14 @@ Plan yazılırken yazan kişi, plan bitince plan yazarından AYRI bir `orkestra:
 - **Kapsam özü:** kapsam daraltılırken çözümün özü (kalıcı ya da yapısal öğe, ör. koruma katmanı, rol kısıtı, bağımsız denetim) çıkarıldı mı? Çıkarıldıysa gerekçesi ve yerine ne konduğu yazılı mı?
 - **Ölçüm:** yöntem istatistiksel olarak yeterli ve gerekçeli mi? Eşik (geçme oranı), örnek büyüklüğü ve neden o sayı yazılı mı? Varlık kontrolü (`grep -c`) davranış ölçümü yerine geçmez.
 
+## Beşinci soru (yalnız LLM çıktısı kullanıcıya gidiyorsa, P-032)
+
+Plan `**LLM çıktısı:** kullanıcıya gider — Doğrulama: <yol>[::<test adı>]` beyanı taşıyorsa denetçi beşinci satırı da yanıtlar.
+
+- **Yanıt kısıtı:** kısıtlar (söylenmeyecek şey, zorunlu uyarı, sayı ve kaynak, kapsam dışı konu reddi) kodla doğrulanıyor mu, gösterilen doğrulama ihlal vakasını gerçekten yakalıyor mu? Doğrulama yoksa neden prompt yeterli?
+
+Beyan `yok — <neden>` ise bu satır istenmez. Kapı yol ve test adının varlığını yoklar; kısıtın yakalandığını denetçi ve test kanıtı gösterir.
+
 ## Ek ilkeler
 
 - İsteği yanlış okumamak için iş başında istek kendi cümlenle yeniden yazılır; belirsizlik varsa kullanıcıya tek soruyla teyit ettirilir.
