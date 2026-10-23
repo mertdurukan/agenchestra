@@ -1271,7 +1271,7 @@ def simdi_uygula(sd: str, tur: str = "perspektif") -> dict:
                          "ya da sohbette /orkestra:onay ile uygula.")
     proje = _proje(sd)
     hafiza = P.hafiza_dizini(proje)
-    if not (os.path.isdir(hafiza) and any(e.is_file() for e in os.scandir(hafiza))):
+    if not (os.path.isdir(hafiza) and any(os.path.isfile(os.path.join(hafiza, ad)) for ad in os.listdir(hafiza))):
         # I-215: boş klasörde başsız oturum uygulayacak dosya bulamaz, kayıtları takılı bırakır; oturum açmadan reddet
         raise ValueError(f"Hedef hafıza klasörü yok ya da boş ({hafiza}); karar bu projenin hafızasına ait değil ya da "
                          "perspektif başka projede çalıştırılmış. Kayıtlar olduğu gibi duruyor.")
