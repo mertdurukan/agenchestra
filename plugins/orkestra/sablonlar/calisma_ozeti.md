@@ -2,37 +2,37 @@
 
 ## Özet
 
-<!-- doldur: bu bölüm yorumsuz, şu biçimde ve en kısa, en anlaşılır dille yazılır (yer tutucu yorum sayılmaz):
-
 ***Şef Özeti***
 
 **Amaç neydi?**
 
-(tek cümle)
+<!-- doldur: tek cümle; istenen sonucun kendisi, mümkünse kullanıcının sözüyle. Yöntem ya da gerekçe yazma. -->
 
 **Ne yapıldı?**
 
-(en çok 3 madde, her biri ayrı satırda)
+<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar. Somut ad ve sayı ver (dosya, komut çıktısı, ölçüm saati); süreç anlatma. -->
+
+- 
 
 **Amaca tamamen ulaşıldı mı?**
 
-Tamamen yapılanlar:
+<!-- doldur: ilk sözcük Evet, Kısmen ya da Hayır; ardından en çok bir cümle neden. Aşağıdaki iki liste bununla tutarlı olur. -->
 
-- (madde)
+**Tamamen yapılanlar:**
 
-Açık kalanlar:
+<!-- doldur: kanıtı olan işler, madde başına tek satır; yoksa "Yok". -->
 
-- (madde; yoksa "Yok")
+- 
 
-Ana sayı ve karar bekleyen tek konu varsa Açık kalanlar altında tek satırla yazılır. -->
+**Açık kalanlar:**
 
-**Amaç:**
+<!-- doldur: yapılmayan ya da doğrulanamayan her iş tek satır ve nedeniyle; kullanıcıdan karar ya da onay gerekiyorsa tek cümleyle burada; yoksa "Yok". -->
+
+- 
 
 **Ölçüm saati:**
 
 {tarih} {saat} (yerel). Her sayının yanına komutu ve ölçüm saatini yaz.
-
-**Ana bulgu:**
 
 **Kapsam kararı:**
 
@@ -41,10 +41,6 @@ Ana sayı ve karar bekleyen tek konu varsa Açık kalanlar altında tek satırla
 - 
 
 **Doğrulanmayanlar:**
-
-- 
-
-**Açık işler:**
 
 - 
 
