@@ -76,7 +76,10 @@ def cmd_perspektif(a):
             sys.exit(1)
     elif a.islem == "girdi":
         proje = L.proje_dizini()
-        g = perspektif.girdi_yaz(sd, proje, a.yol or perspektif.hafiza_dizini(proje))
+        try:
+            g = perspektif.girdi_yaz(sd, proje, a.yol or perspektif.hafiza_dizini(proje))
+        except ValueError as e:
+            hata(str(e))
         print(f"{os.path.join(sd, 'perspektif', 'girdi.json')} · imza {g['imza']} · anomali {g['anomali']['sayim']} · "
               f"ölü yol {g['hafiza']['olu_yol_sayisi']}")
 
