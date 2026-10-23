@@ -162,7 +162,10 @@ def _hayalet(oturum: str | None, proje: str | None, masaustu: dict) -> bool:
     if not oturum or oturum in masaustu or not proje:
         return False
     try:
-        return not os.path.exists(os.path.join(L.proje_oturum_dizini(proje), oturum + ".jsonl"))
+        ana = L.proje_oturum_dizini(proje)
+        # git worktree sohbetinin transkripti <ana>--claude-worktrees-<ad> klasöründedir; günlükteki proje ana klasördür
+        adaylar = [ana] + glob.glob(glob.escape(ana) + "--claude-worktrees-*")
+        return not any(os.path.exists(os.path.join(d, oturum + ".jsonl")) for d in adaylar)
     except Exception:
         return False
 
