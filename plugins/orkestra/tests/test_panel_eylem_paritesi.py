@@ -31,7 +31,7 @@ TIRNAK = "['\"`]"
 
 def post_yollari(panel_kaynak):
     """_post_isle gövdesindeki `u.path` karşılaştırmalarında geçen yol sabitleri."""
-    bas = panel_kaynak.index("def _post_isle")
+    bas = panel_kaynak.index("def _post_isle(")   # parantezli: `_post_isler_sifirla` önekiyle karışmasın
     son = panel_kaynak.find("\n        def ", bas + 1)
     govde = panel_kaynak[bas:son if son != -1 else None]
     yollar = set()
