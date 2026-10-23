@@ -380,7 +380,7 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
             yontem += adr
     sinirlar = ["Doğrulanmayanlar: " + x for x in _etiket(metin["calisma_ozeti"], "Doğrulanmayanlar")
                 if x.strip(" .").lower() not in ("yok", "-")]
-    sinirlar += ["Açık iş: " + x for x in _etiket(metin["calisma_ozeti"], "Açık işler")
+    sinirlar += ["Açık iş: " + x for x in (_etiket(ozet, "Açık kalanlar") + _etiket(ozet, "Açık işler"))
                  if x.strip(" .").lower() not in ("yok", "-")]
 
     p = {
