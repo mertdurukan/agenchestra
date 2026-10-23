@@ -835,6 +835,42 @@
         }
       ],
       "etkinlesme": "2026-10-23T09:40:14+03:00"
+    },
+    {
+      "id": "P-032",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcıya giden bir LLM çıktısının kısıtları (söylenmeyecek şey, zorunlu uyarı, sayı ve kaynak, kapsam dışı konu reddi) kodla zorlanır: giriş sınıflandırması, araç çıktısının daraltılması ve LLM yanıtının gönderilmeden önce deterministik doğrulanması; ihlalde deterministik yedek yanıt verilir. Prompt yalnız ek katmandır, tek kısıt sayılmaz, çünkü yoruma ve manipülasyona açıktır. Kapsam yalnız kullanıcıya giden LLM yanıtıdır; orkestranın kendi iç LLM adımları dışındadır. Plan ve Jira işleri '**LLM çıktısı:**' satırını taşır: 'yok — <neden>' ya da 'kullanıcıya gider — Doğrulama: <kod veya test yolu>'. Doğrulama, kısıtın ihlal vakasını yakaladığını gösteren bir testle kanıtlanır; varlık kontrolü davranış ölçümü yerine geçmez. Zorlama: gölge kapı is_sirasi.bic_eksikleri beyanı yoklar (ayarlar/best_in_class.json, mod golge; kapatma ORKESTRA_BIC_KAPISI=0); ürün kodundaki zorlamayı kapı doğrulamaz (ADR-0068).",
+      "neden": "Prompt ile sağlanan yanıt kısıtları yoruma ve manipülasyona açıktır; yanıt üreten kod LLM çıktısını doğrulamadan kullanıcıya iletebilir. Yöntem seçimi ilkesi yalnız tespit ve düzeltme sürecini kapsıyordu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-23T11:22:38+03:00",
+      "guncelleme": "2026-10-23T11:22:38+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-23T11:22:38+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcıya giden bir LLM çıktısının kısıtları (söylenmeyecek şey, zorunlu uyarı, sayı ve kaynak, kapsam dışı konu reddi) kodla zorlanır: giriş sınıflandırması, araç çıktısının daraltılması ve LLM yanıtının gönderilmeden önce deterministik doğrulanması; ihlalde deterministik yedek yanıt verilir. Prompt yalnız ek katmandır, tek kısıt sayılmaz, çünkü yoruma ve manipülasyona açıktır. Kapsam yalnız kullanıcıya giden LLM yanıtıdır; orkestranın kendi iç LLM adımları dışındadır. Plan ve Jira işleri '**LLM çıktısı:**' satırını taşır: 'yok — <neden>' ya da 'kullanıcıya gider — Doğrulama: <kod veya test yolu>'. Doğrulama, kısıtın ihlal vakasını yakaladığını gösteren bir testle kanıtlanır; varlık kontrolü davranış ölçümü yerine geçmez. Zorlama: gölge kapı is_sirasi.bic_eksikleri beyanı yoklar (ayarlar/best_in_class.json, mod golge; kapatma ORKESTRA_BIC_KAPISI=0); ürün kodundaki zorlamayı kapı doğrulamaz (ADR-0068)."
+        }
+      ],
+      "etkinlesme": "2026-10-23T11:22:38+03:00"
+    },
+    {
+      "id": "P-033",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Her plan maddesi sorunun doğduğu yeri ve orada önleyici çözümü yazar; doğru yön üretildiği noktada sağlanır, sonradan yakalanmaz (K-006). Plan maddesi '**Üretim noktası:**' alanını üç türden birinde taşır: 'Düzeltme: <yer> — <önleme>' (yer: kural, şablon, skill, betik, kart, istem, hook, ayar, standart ya da dosya yolu), 'Kontrol: <yer> — <ne>; Kaynakta çözülmedi çünkü: <neden>' (yalnız sonradan yakalayan kontrol eklenecekse) ve 'Yeni yetenek — <gerekçe>' (düzeltilecek kusur yoksa; hata, ret, kusur ya da tekrar geçen maddede kullanılamaz). Her maddenin metni kendine özgüdür: birebir aynı ya da Jaccard benzerliği 0,8 ve üzeri gerekçe reddedilir. Plan sonundaki '## Best in class denetimi' bloğunda plan yazarından AYRI orkestra:denetci '**Üretim noktası:** ✔' satırını yazar; yerin ve çözümün gerçekliğini yalnız denetçi yargılar. Kural P-028'in gölge ilkesinin bilinçli istisnasıdır: kapı kullanıcı kararıyla ilk günden ihlal modundadır, her ret gunluk.jsonl'a kapi_ret olarak yazılır ve ilk 30 bayraklı planda elle sınıflanır (0 yanlış pozitif hedefi). Kapsam yalnız is.json 'uretim: true' taşıyan yeni sıralı işlerdir; eski işler muaftır. Zorlama: is_sirasi.uretim_eksikleri, plan_eksikleri bağlantısı, ayarlar/uretim_noktasi.json (mod ihlal), tests/test_uretim_noktasi.py; kapatma ORKESTRA_URETIM_KAPISI=0. İlişki: P-030 çözümün KALİTESİNİ sorar ve gölgededir, bu kural doğduğu yeri sorar ve ihlaldedir; ikisi birlikte geçerlidir. (ADR-0069)",
+      "neden": "I-204: K-006 yalnız metindi, zorlama yoktu (kullanıcı kararı 23.10.2026: gölgesiz)",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-23T11:44:56+03:00",
+      "guncelleme": "2026-10-23T11:44:56+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-23T11:44:56+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Her plan maddesi sorunun doğduğu yeri ve orada önleyici çözümü yazar; doğru yön üretildiği noktada sağlanır, sonradan yakalanmaz (K-006). Plan maddesi '**Üretim noktası:**' alanını üç türden birinde taşır: 'Düzeltme: <yer> — <önleme>' (yer: kural, şablon, skill, betik, kart, istem, hook, ayar, standart ya da dosya yolu), 'Kontrol: <yer> — <ne>; Kaynakta çözülmedi çünkü: <neden>' (yalnız sonradan yakalayan kontrol eklenecekse) ve 'Yeni yetenek — <gerekçe>' (düzeltilecek kusur yoksa; hata, ret, kusur ya da tekrar geçen maddede kullanılamaz). Her maddenin metni kendine özgüdür: birebir aynı ya da Jaccard benzerliği 0,8 ve üzeri gerekçe reddedilir. Plan sonundaki '## Best in class denetimi' bloğunda plan yazarından AYRI orkestra:denetci '**Üretim noktası:** ✔' satırını yazar; yerin ve çözümün gerçekliğini yalnız denetçi yargılar. Kural P-028'in gölge ilkesinin bilinçli istisnasıdır: kapı kullanıcı kararıyla ilk günden ihlal modundadır, her ret gunluk.jsonl'a kapi_ret olarak yazılır ve ilk 30 bayraklı planda elle sınıflanır (0 yanlış pozitif hedefi). Kapsam yalnız is.json 'uretim: true' taşıyan yeni sıralı işlerdir; eski işler muaftır. Zorlama: is_sirasi.uretim_eksikleri, plan_eksikleri bağlantısı, ayarlar/uretim_noktasi.json (mod ihlal), tests/test_uretim_noktasi.py; kapatma ORKESTRA_URETIM_KAPISI=0. İlişki: P-030 çözümün KALİTESİNİ sorar ve gölgededir, bu kural doğduğu yeri sorar ve ihlaldedir; ikisi birlikte geçerlidir. (ADR-0069)"
+        }
+      ],
+      "etkinlesme": "2026-10-23T11:44:56+03:00"
     }
   ]
 }
