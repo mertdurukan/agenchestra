@@ -92,16 +92,7 @@ class BestInClass(unittest.TestCase):
 
     def test_olay_tekrari_jira_plani_yakalanir(self):
         """23.10 Jira olayı: tek yaklaşım, alternatifsiz, denetçisiz plan; kapı üç ayrı eksik bildirir."""
-        kotu = "# Plan
-
-## 4. Plan maddeleri
-
-### P1 Açıklamalar
-
-**Ne:** Şablon doldur.
-
-**Kabul:** yapıldı
-"
+        kotu = "# Plan\n\n## 4. Plan maddeleri\n\n### P1 Açıklamalar\n\n**Ne:** Şablon doldur.\n\n**Kabul:** yapıldı\n"
         with self.ortam():
             e = S.bic_eksikleri(self.is_klasoru(plan_metni=kotu))
         self.assertTrue(any("P1" in x and "Alternatifler" in x for x in e), e)
