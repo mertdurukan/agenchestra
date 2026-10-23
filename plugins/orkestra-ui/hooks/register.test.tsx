@@ -2,7 +2,7 @@ import { expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import type { HamOzet } from '../types'
-import { arkaSayisi, bantMetni, donustur, usd } from './register'
+import { arkaSayisi, donustur, usd } from './register'
 
 const BU = 'oturum-bu'
 
