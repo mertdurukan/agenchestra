@@ -1101,6 +1101,53 @@
       .forEach(([ad, y]) => l.push({ grup: 'Klasik görünüm', ad, href: y + '?alan=' + enc(gercekAlan()) }));
     return l;
   }
+  // İşi kapat: CLI `orkestra is kapat` ile aynı kapılar (POST /api/is-kapat). Kapı engeli yanıttaki `kapi` alanından okunur.
+  function isKapatSor(dugme, isId, alan) {
+    if (document.getElementById('isKapatOnay')) return;
+    const dl = document.createElement('dialog');
+    dl.className = 'onay'; dl.id = 'isKapatOnay';
+    dl.setAttribute('aria-labelledby', 'isKapatBaslik');
+    dl.innerHTML = H`<form method="dialog">
+      <h2 id="isKapatBaslik">${isId} kapatılsın mı?</h2>
+      <p class="soluk">Açık todo maddesi yok. Kapatırken çalışma özeti ve ADR kaydı denetlenir; kapanan iş "Kapanan" altına geçer.</p>
+      <div id="isKapatGerekce" hidden>
+        <label for="isKapatNeden" class="soluk kucuk-y">Özetsiz kapatma gerekçesi (zorunlu)</label>
+        <textarea id="isKapatNeden" rows="2" maxlength="500" placeholder="Örn. iş hiç yapılmadı, yinelenen kayıt"></textarea>
+      </div>
+      <p class="hata-satir" id="isKapatHata" role="alert"></p>
+      <div class="eylemler"><button type="button" class="dugme kucuk" id="isKapatVazgec">Vazgeç</button>
+        <button type="button" class="dugme ana-d kucuk" id="isKapatEvet">Evet, kapat</button></div></form>`.__h;
+    document.body.appendChild(dl);
+    const evet = dl.querySelector('#isKapatEvet'), hata = dl.querySelector('#isKapatHata');
+    const neden = dl.querySelector('#isKapatNeden'), gerekce = dl.querySelector('#isKapatGerekce');
+    const kapat = () => { dl.close(); dl.remove(); if (dugme.isConnected) dugme.focus(); };
+    let ozetsizKip = false;
+    dl.querySelector('#isKapatVazgec').addEventListener('click', kapat);
+    dl.addEventListener('cancel', e => { e.preventDefault(); kapat(); });
+    evet.addEventListener('click', async () => {
+      const govde = { is: isId };
+      if (ozetsizKip) {
+        const n = neden.value.trim();
+        if (!n) { hata.textContent = 'Gerekçe yazın.'; neden.focus(); return; }
+        govde.ozetsiz = n;
+      }
+      evet.disabled = true; evet.textContent = 'Kapatılıyor…'; hata.textContent = '';
+      try {
+        await gonder('/api/is-kapat', govde, alan);
+        kapat();
+        bildir(`${isId} kapatıldı.`);
+        ['/isler.json', '/ozet.json'].forEach(y => getir(y, { taze: true }));
+      } catch (err) {
+        evet.disabled = false;
+        evet.textContent = ozetsizKip ? 'Özetsiz kapat' : 'Evet, kapat';
+        hata.textContent = 'Kapatılamadı: ' + err.message;
+        // Kapı engeli (özet/ADR/teslim): gerekçe alanı açılır; iş gerçekten yapılmadıysa özetsiz kapatılabilir.
+        if (err.veri?.kapi) { ozetsizKip = true; gerekce.hidden = false; evet.textContent = 'Özetsiz kapat'; neden.focus(); }
+      }
+    });
+    dl.showModal();
+    evet.focus();
+  }
   function paletAc() {
     if (document.getElementById('palet')) return;
     getir('/analitik.json');
