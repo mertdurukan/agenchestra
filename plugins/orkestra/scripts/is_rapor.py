@@ -216,9 +216,12 @@ def metin(r: dict) -> str:
     tt = "-" if k["todo_basina_token"] is None else f"{k['todo_basina_token']:,.0f}"
     golge = r.get("kapi_golge") or {}
     golge_satiri = ["gölge kapı uyarıları: " + ", ".join(f"{k} {n}" for k, n in golge.items())] if golge else []
+    ret = r.get("kapi_ret") or {}
+    ret_satiri = ["kapı retleri (ihlal modu): " + ", ".join(f"{k} {n}" for k, n in ret.items())] if ret else []
     return "\n".join([
         govde, "",
         *golge_satiri,
+        *ret_satiri,
         f"kapanan todo başına USD: {td}",
         f"kapanan todo başına token: {tt}",
         f"ret oranı: {_oran(k['ret_orani'])}",
