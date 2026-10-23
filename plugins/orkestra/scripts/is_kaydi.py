@@ -322,6 +322,8 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
             kayit["gap"] = True  # P-017: gap analizi (mevcut durum §6) ve plan kapsama denetimi
         if SIRA.harita_kapisi_acik():
             kayit["harita"] = True  # ADR-0005: plan maddesi mevcut varlığı sistem haritasından gösterir
+        if SIRA.uretim_kapisi_acik():
+            kayit["uretim"] = True  # ADR-0069: plan maddesi sorunun doğduğu yeri ve orada önlemeyi `**Üretim noktası:**` ile yazar
         if ONAY_KAPISI_ACIK():
             kayit["onay"] = "bekliyor"  # P-016: kullanıcı onaylamadan uygulama yok
         if dogrulama is None:
