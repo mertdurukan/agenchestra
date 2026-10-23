@@ -26,7 +26,7 @@ DENETIM_TAM = """## Best in class denetimi
 - **Kapsam özü:** ✔ — öz korunuyor.
 - **Ölçüm:** ✔ — eşik ve örnek gerekçeli.
 
-**Denetçi:** orkestra:denetci (opus)
+**Denetçi:** orkestra:denetci a8159550dfebaedf5
 """
 
 
@@ -48,10 +48,16 @@ class BestInClass(unittest.TestCase):
                 f.write(plan_metni)
         return k
 
+    def denetci_kaydi(self, kimlik="a8159550dfebaedf5", ajan="orkestra:denetci"):
+        """SubagentStop hook'unun yazdığı zaman.jsonl `alt` kaydını taklit eder."""
+        with open(os.path.join(self.sd, "zaman.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"tur": "alt", "agent_id": kimlik, "ajan": ajan}) + "\n")
+
     def ortam(self, **ek):
         return mock.patch.dict(os.environ, {"ORKESTRA_SIRA_KAPISI": "1", "ORKESTRA_BIC_KAPISI": "1", **ek})
 
     def test_tam_plan_eksiksiz(self):
+        self.denetci_kaydi()
         with self.ortam():
             self.assertEqual(S.bic_eksikleri(self.is_klasoru(plan_metni=plan())), [])
 
@@ -69,11 +75,37 @@ class BestInClass(unittest.TestCase):
         with self.ortam():
             yok = S.bic_eksikleri(self.is_klasoru(plan_metni=plan(denetim="")))
         self.assertTrue(any("bloğu yok" in x for x in yok), yok)
-        bekle = DENETIM_TAM.replace("✔ — kökü çözüyor.", "bekliyor").replace("orkestra:denetci (opus)", "bekliyor")
+        bekle = DENETIM_TAM.replace("✔ — kökü çözüyor.", "bekliyor").replace("orkestra:denetci a8159550dfebaedf5", "bekliyor")
         os.rename(os.path.join(self.proje, "Claude_Orkestrasyon"), os.path.join(self.proje, "eski"))
         with self.ortam():
             e = S.bic_eksikleri(self.is_klasoru(plan_metni=plan(denetim=bekle)))
         self.assertTrue(any("Kök neden" in x for x in e) and any("Denetçi" in x for x in e), e)
+
+    def test_denetci_kaydi_yoksa_ya_da_denetci_degilse_eksik(self):
+        with self.ortam():
+            k = self.is_klasoru(plan_metni=plan())
+            self.assertTrue(any("kaydı bulunamadı" in x for x in S.bic_eksikleri(k)))  # kayıt hiç yok: uydurma kimlik
+            self.denetci_kaydi(ajan="orkestra:isci-t3")  # aynı kimlik ama denetçi türü değil
+            self.assertTrue(any("kaydı bulunamadı" in x for x in S.bic_eksikleri(k)))
+            self.denetci_kaydi()
+            self.assertEqual(S.bic_eksikleri(k), [])
+
+    def test_olay_tekrari_jira_plani_yakalanir(self):
+        """23.10 Jira olayı: tek yaklaşım, alternatifsiz, denetçisiz plan; kapı üç ayrı eksik bildirir."""
+        kotu = "# Plan
+
+## 4. Plan maddeleri
+
+### P1 Açıklamalar
+
+**Ne:** Şablon doldur.
+
+**Kabul:** yapıldı
+"
+        with self.ortam():
+            e = S.bic_eksikleri(self.is_klasoru(plan_metni=kotu))
+        self.assertTrue(any("P1" in x and "Alternatifler" in x for x in e), e)
+        self.assertTrue(any("bloğu yok" in x for x in e), e)
 
     def test_bayraksiz_is_muaf_ve_kapi_kapatilabilir(self):
         with self.ortam():
