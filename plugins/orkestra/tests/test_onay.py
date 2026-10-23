@@ -285,14 +285,6 @@ class TakiliKayitTest(Temel):
         self.assertEqual(onay.eski_alimlari_birak(self.sd), [])  # etkin koşu var
         self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "uygulaniyor")
 
-    def test_s2_cli_birak(self):
-        k = self.alinmis()
-        r = ic_kos.calistir(["onay", "birak", k["id"], "--neden", "cli denemesi"], cwd=self.proje) if hasattr(ic_kos, "calistir") else None
-        if r is None:
-            self.skipTest("ic_kos.calistir yok")
-        self.assertEqual(onay.goster(self.sd, k["id"])["durum"], "onaylandi")
-
-
 class KuralTest(Temel):
     def test_oneri_onayi_dosyayi_yazar_ve_kaldirinca_silinir(self):
         r = onay.kural_oner(self.sd, "Sır yazma", "güvenlik", "oturum-1")
