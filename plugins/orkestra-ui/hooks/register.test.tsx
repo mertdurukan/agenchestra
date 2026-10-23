@@ -156,48 +156,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(metin(await ui.drawn())).toContain('ozet.json henüz yok')
   })
 
-  test(`bant yalnız bu sohbette arka plan işi sürerken çıkar; ret, teslim, rapor ve Gizle yok (${surface})`, async ($, on) => {
+  // Bant tek sahibi orkestra eklentisidir (ADR-0073): bu eklenti arka plan işi ve tur sürerken de bant çizmez.
+  test(`istem kutusu bandı çizilmez; arka plan işi ve tur sürse de (${surface})`, async ($, on) => {
     sahte(on, HAM)
     await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    const t = metin(await ui.drawn())
-    expect(t).toContain('4/7 yapıldı · işlem devam ediyor')
-    for (const yok of ['Panel', 'ret', 'teslime hazır', 'perspektif raporu hazır', 'Gizle', 'oturum $']) expect(t).not.toContain(yok)
-  })
-
-  test(`arka plan işi yokken ret, teslim ve rapor olsa da bant çizilmez (${surface})`, async ($, on) => {
-    sahte(on, SESSIZ)
-    await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
+    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: { ...BANT_PROPS, isWorking: true } })
     const t = await ui.drawn().then(metin, () => '')
-    expect(t).not.toContain('Orkestra ·')
-    expect(t).not.toContain('oturum')
-  })
-
-  test(`perspektif koşusu ya da onay uygulaması sürerken bant çıkar (${surface})`, async ($, on) => {
-    sahte(on, { ...SESSIZ, arka_plan: { oturumlar: {}, perspektif: true, uygulama: false } })
-    await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
-  })
-
-  test(`arka plan işi bitince bant kaybolur, yeni iş gelince geri gelir (${surface})`, async ($, on) => {
-    const kaynak: Kaynak = { ham: HAM, surum: 0 }
-    sahte(on, HAM, [], kaynak)
-    const saat = mock.clock(on)
-    on('command.register', () => ({ value: undefined }))
-    on('session.start', ($, e) => ({ cwd: e.cwd }))
-    await $.session.start({ cwd: '/proje', surface, isInteractive: true })  // session.start: komutlar, ilk okuma, 3 sn'lik yoklama
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
-    kaynak.ham = SESSIZ
-    kaynak.surum++
-    await saat.advance(3000)
-    expect(await ui.drawn().then(metin, () => '')).not.toContain('işlem devam ediyor')
-    kaynak.ham = { ...HAM, arka_plan: { oturumlar: { [BU]: 1 }, perspektif: false, uygulama: false } }
-    kaynak.surum++
-    await saat.advance(3000)
-    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
+    expect(t).not.toContain('işlem devam ediyor')
+    expect(t).not.toContain('yapıldı')
   })
 }
 
