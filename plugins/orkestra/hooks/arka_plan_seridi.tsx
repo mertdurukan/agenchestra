@@ -64,8 +64,6 @@ export function planUygula(liste: Gorev[], cagri: PlanCagri): Gorev[] {
     yeni[cagri.input.start - 1] = { durum: 'in_progress' }
   }
 
-  yeni = yeni.slice()
-
   return yeni
 }
 
