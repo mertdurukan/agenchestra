@@ -1316,7 +1316,27 @@ def _kos(sd: str, proje: str, exe: str, hafiza: str) -> None:
             sonuc = f"hata: çıkış kodu {r.returncode}"
     except Exception as e:  # noqa: BLE001
         sonuc = f"hata: {type(e).__name__}"
+    sonuc = _kosu_sonucu_dogrula(sd, idler, sonuc)
     _kosu_bitir(sd, sonuc)
+
+
+def _kosu_sonucu_dogrula(sd: str, idler: list[str], sonuc: str) -> str:
+    """Başarı çıkış koduna değil kayıtların durumuna bağlıdır (I-215): koşunun kapatmadığı `uygulaniyor` kayıtlar
+    `onaylandi`ya bırakılır ve sonuç 'kayıtlar kapanmadı: N' olur. `tamam` yalnız hepsi kapandıysa yazılır."""
+    kapanmayan = 0
+    for i in idler:
+        k = goster(sd, i)
+        if not k or k.get("durum") not in ("onaylandi", "uygulaniyor"):
+            continue
+        kapanmayan += 1
+        if k["durum"] == "uygulaniyor":
+            try:
+                birak(sd, i, f"başsız koşu kapatmadan bitti ({sonuc})")
+            except ValueError:
+                pass
+    if kapanmayan:
+        return f"kayıtlar kapanmadı: {kapanmayan}" + ("" if sonuc == "tamam" else f" ({sonuc})")
+    return sonuc
 
 
 if __name__ == "__main__" and len(sys.argv) >= 6 and sys.argv[1] == "_kos":
