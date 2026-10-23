@@ -299,7 +299,7 @@ def detay(sd: str, is_id: str):
     kayit = v["isler"].get(i) if isinstance(v["isler"].get(i), dict) else {}
     kart_is = {k["id"]: k.get("is") for k in v["kartlar"] if k.get("id") and k.get("is")}
     try:
-        par = paralellik_olcumu(sd, i, kayit.get("klasor"), kart_is, L.zaman_kayitlari(sd))
+        par = paralellik_olcumu(sd, i, kayit.get("klasor"), kart_is, v["zam"])
     except Exception:
         par = None
     og: dict = {}
