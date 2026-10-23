@@ -85,7 +85,7 @@ def _etiket(metin: str, ad: str) -> list[str]:
 
 def _paragraflar(metin: str) -> list[str]:
     out = []
-    for p in re.split(r"\n\s*\n", metin.strip()):
+    for p in re.split(r"\n\s*\n", _YORUM_RE.sub("", metin).strip()):
         p = p.strip()
         if p.startswith("**"):   # etiketli alanlar başlar: serbest paragraflar burada biter
             break
