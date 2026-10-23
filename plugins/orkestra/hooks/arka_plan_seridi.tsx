@@ -128,26 +128,6 @@ export const register: Register = on => {
   const motordan = (liste: { id: string; type: string; description: string; command?: string }[] | undefined): ArkaPlanGorevi[] =>
     (liste ?? []).map(t => ({ id: t.id, kind: t.type, label: kisalt(t.description || t.command || t.type) }))
 
-  const yenile = async ($: EngineInterface) => {
-    sonYenileme = Date.now()
-
-    try {
-      liste = listeyiKayittanCikar(await $.session.messages())
-    } catch {
-      // Kayıt okunamazsa mevcut liste kalır; bant en kötü "işlem devam ediyor" yazar.
-    }
-  }
-
-  const cagriOlayi = async ($: EngineInterface, e: { tool: string; input?: Record<string, unknown>; agentId?: string }) => {
-    if (e.agentId !== undefined) {
-      return
-    }
-
-    liste = planUygula(liste, { tool: e.tool, input: e.input ?? {} })
-    sonYenileme = Date.now()
-    await update($, surum, n => n + 1)
-  }
-
   on('classic.Stop', async ($, e, next) => {
     await update($, gorevler, () => motordan(e.background_tasks))
 
