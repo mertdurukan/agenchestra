@@ -360,8 +360,9 @@ def baglam_satiri(kayit: dict, mesaj_onay: bool, belirsiz: bool = False) -> tupl
         if not eksik:
             return ("Orkestra: kullanıcı onayladı (P-016); iş onaylandı, uygulamaya geçilebilir. Çalışma özeti kapanışta en son verilir.",
                     VERILDI)
-        return ("Orkestra (P-016): onay mesajı geldi ama belgeler hazır değil, onay kaydedilmedi. Eksik: "
-                + "; ".join(eksik[:4]) + ". Belgeleri tamamla, sırayla (mevcut durum → plan → todo) bağlantılarıyla göster.", None)
+        return ("Orkestra (P-016): onay mesajı geldi ama belgeler hazır değil; onay saklandı, eksik giderilince kendiliğinden verilir "
+                "(kullanıcıdan yeniden onay isteme). Eksik: " + "; ".join(eksik[:4])
+                + ". Eksiği düzelt (belgeleri aynen kullanıcının onayladığı kapsamda tut), sonra uygulamaya geç.", BEKLEYEN_YENI)
     harita = (" Önce `orkestra harita oku` ile sistem haritasını oku (.claude/orkestra/sistem_haritasi/INDEX.md); "
               "mevcut durumda dokunduğun yerdeki var olan kayıtları ve plan maddesinde `**Mevcut varlık:**` alanını yaz.") if kayit.get("harita") else ""
     soru = (" Son mesaj onay sayılmadı ama başlatma niyeti taşıyor olabilir: niyet buysa tek cümleyle 'bunu onay sayayım mı?' diye sor "
