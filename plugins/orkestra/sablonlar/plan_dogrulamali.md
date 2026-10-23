@@ -63,6 +63,7 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 **Kabul:** ölçülebilir tek ölçüt (komut çıktısı, sayı, dosya:satır); "yapıldı" kabul değildir (kalite kapısında zorunlu)
 **Geri alma:** değişikliği geri almanın yolu (kalite kapısında zorunlu)
 **Önce:** bu maddeden önce bitmesi gereken P maddeleri (varsa)
+**Alternatifler:** en az iki uygulanabilir yaklaşım, madde işaretli ayrı satırlarda: `- Seçilen: … Neden: …` ve `- Elenen: … Neden elendi: …` (P-030; `orkestra standart goster best_in_class`)
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
 
 ## Gap kapsama
