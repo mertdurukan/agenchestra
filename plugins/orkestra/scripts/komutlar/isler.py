@@ -361,7 +361,8 @@ def _ozet_eksigi(klasor):
         return "klasörde calisma_ozeti_<YYYYMMDD>.md yok"
     for yol in adaylar:
         try:
-            metin = open(yol, encoding="utf-8").read()
+            with open(yol, encoding="utf-8") as f:
+                metin = f.read()
         except OSError:
             continue
         yorumsuz = re.sub(r"<!--.*?-->", "", metin, flags=re.S)
