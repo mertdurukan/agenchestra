@@ -115,6 +115,43 @@ def _aralik(r):
     return bit - datetime.timedelta(milliseconds=ms), bit
 
 
+ISCI_AJAN_ONEK = "orkestra:isci-"
+ISCI_AJANLAR = ("orkestra:test-yazari",)
+BILINMEYEN_AJAN = "?"
+
+
+def isci_mi(ajan) -> bool:
+    """İşçi ajanı: `orkestra:isci-*` ya da `orkestra:test-yazari` (ADR-0080, K6); denetçi ve diğer alt ajanlar sayılmaz."""
+    return isinstance(ajan, str) and (ajan.startswith(ISCI_AJAN_ONEK) or ajan in ISCI_AJANLAR)
+
+
+def isci_eszamanlilik(is_adi, zaman_satirlari, kart_is=None):
+    """İşin gerçekleşen eşzamanlılığı (birim: ortalama eşzamanlı iş sayısı, ADR-0080 K6):
+    Σ işçi süresi ÷ işçi aralıklarının birleşimi; aralık [zaman − sure_ms, zaman]. Saf hesap.
+
+    zaman_satirlari: zaman.jsonl satırları (ork_lib.zaman_kayitlari; aynı ajanın kümülatif satırları tekilleştirilmiş).
+    kart_is: {kart id: iş}; satırın işi ork_lib.satir_isi kuralıyla bulunur. İşçi aralığı yoksa deger None (ölçülemedi).
+    `ajan: ?` satırları işçiye sayılmaz; payları (alt ajan satırları içinde adet ve süre) ayrıca döner (K8)."""
+    kart_is = kart_is or {}
+    alt = [r for r in zaman_satirlari if isinstance(r, dict) and r.get("tur") == "alt" and L.satir_isi(r, kart_is) == is_adi]
+    isci = [a for a in (_aralik(r) for r in alt if isci_mi(r.get("ajan"))) if a]
+    bilinmeyen = [r for r in alt if (r.get("ajan") or BILINMEYEN_AJAN) == BILINMEYEN_AJAN]
+    toplam = sum((b - a).total_seconds() for a, b in isci)
+    birlesim = _birlesim_sn(isci)
+    alt_sn = sum(float(r.get("sure_ms") or 0) for r in alt) / 1000
+    bil_sn = sum(float(r.get("sure_ms") or 0) for r in bilinmeyen) / 1000
+    return {
+        "deger": round(toplam / birlesim, 3) if birlesim else None,
+        "isci_kayit": len(isci),
+        "isci_toplam_sn": round(toplam, 1),
+        "birlesim_sn": round(birlesim, 1),
+        "alt_kayit": len(alt),
+        "bilinmeyen": {"kayit": len(bilinmeyen), "sn": round(bil_sn, 1),
+                       "pay": round(len(bilinmeyen) / len(alt), 4) if alt else None,
+                       "sure_pay": round(bil_sn / alt_sn, 4) if alt_sn else None},
+    }
+
+
 def _kirilim(satirlar, anahtar):
     gruplar: dict = {}
     for r in satirlar:
