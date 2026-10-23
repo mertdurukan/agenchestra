@@ -23,6 +23,7 @@ OTURUM = "test-oturum-1"
 def kos(args, cwd, ortam=None, stdin=None):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
+    env["ORKESTRA_URETIM_KAPISI"] = "0"  # ADR-0069: eski plan fikstürleri Üretim noktası taşımaz; kapıyı test_uretim_noktasi sınar
     env.update(ortam or {})
     return ic_kos.kos(args, cwd=cwd, env=env, input=stdin)
 
