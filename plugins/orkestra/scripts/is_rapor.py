@@ -144,7 +144,7 @@ def rapor(sd: str) -> dict:
         "onbellek_isabet": oku / (gir + oku + yaz) if (gir + oku + yaz) else None,
         "baglanmamis_emek_yuzde": 100 * kova_usd / toplam_usd if toplam_usd else 0,
     }
-    return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd)}
+    return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": _kapi_ret(sd)}
 
 
 def detay(sd: str, is_id: str):
