@@ -1,0 +1,4 @@
+{
+  "mod": "ihlal",
+  "aciklama": "Plan paralellik kapısı (ADR-0080). Her plan maddesi `**Önce:**` (yok | P<n> — Çıktı: … | P<n> — Çakışma: …) ve `**Yazma alanı:**` taşır; geçersiz başvuru ve döngü (ileri başvuru izinli), sahte Çakışma (alanlar ayrık), aynı dalgada kesişen yazma alanı ve gerekçesiz tam sıralı plan (`Tam sıralı çünkü:`) reddedilir. mod: ihlal = eksik plan eksiği sayılır ve gunluk.jsonl'a kapi_ret düşer. Kullanıcı kararıyla gölge dönemi yoktur (P-028'den bilinçli sapma). Yalnız is.json `paralel: true` taşıyan sıralı işlerde çalışır. Kapatma: ORKESTRA_PARALELLIK_KAPISI=0 ya da mod: golge. Proje ezmesi: .claude/orkestra/paralellik.json."
+}
