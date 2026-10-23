@@ -518,6 +518,8 @@ def _onay_kaydi(sd: str, oid):
         kayit = is_kaydi.is_al(sd, is_id)
         if is_onay.otomatik_onay(sd, kayit):  # ADR-0009: /auto işte belgeler tamamsa onay kendiliğinden verilir
             return None
+        if is_onay.bekleyen_onay_ver(sd, kayit):  # ADR-0070: eksik yüzünden saklanan kullanıcı onayı, eksik giderilince verilir
+            return None
         return kayit if is_onay.bekliyor_mu(kayit) else None
     except Exception:
         return None
