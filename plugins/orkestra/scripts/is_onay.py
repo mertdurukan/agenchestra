@@ -245,6 +245,88 @@ def bekleyen_onay_ver(sd: str, kayit: dict | None) -> bool:
     return True
 
 
+# ADR-0078: seçim ekranı (AskUserQuestion) yanıtı da onay kanalıdır. Yanıtı yalnız kullanıcı üretir; soru ve etiket metnini
+# ajan yazdığı için koşullar sıkıdır: ana ajan, tek soru, çoklu seçimsiz, açık onay sorusu, gerçek seçim, onay yanıtı.
+EKRAN_SORU = re.compile(
+    r"\bonay\w*|\buygulamaya\s+ba[sş]la\w*|\bba[sş]layay[ıi]m\b|\bba[sş]layal[ıi]m\b", re.I)  # "devam"/"başla"/"uygula" tek başına yetmez
+_ONERILEN = re.compile(r"\s*\((?:recommended|[öo]nerilen)\)\s*$", re.I)
+
+
+def _ekran_metni(deger) -> list[str]:
+    """Yapılandırılmış yanıt değerini (metin ya da metin listesi) etiket listesine çevirir; başka tür boş döner."""
+    if isinstance(deger, str):
+        return [deger]
+    if isinstance(deger, list) and all(isinstance(x, str) for x in deger):
+        return list(deger)
+    return []
+
+
+def ekran_yaniti(tool_response, soru: str) -> list[str]:
+    """Sorunun yanıt etiketleri. Önce yapılandırılmış `answers` alanı; yoksa yalnız `tool_input`'taki tam soru metniyle
+    `"soru"="yanıt"` yedeği (soru içine gömülü sahte kalıp eşleşmez). İptal, hata ve boş yanıtta boş liste."""
+    import json
+    r = tool_response
+    if isinstance(r, str):
+        try:
+            r = json.loads(r)
+        except ValueError:
+            pass
+    if isinstance(r, dict) and isinstance(r.get("answers"), dict):
+        return [e for e in _ekran_metni(r["answers"].get(soru)) if e.strip()]
+    if isinstance(r, dict):
+        r = json.dumps(r, ensure_ascii=False)
+    if isinstance(r, str) and soru:
+        m = re.search(r'"' + re.escape(soru) + r'"\s*=\s*"([^"]*)"', r.replace('\\"', '"'))
+        return [m.group(1)] if m and m.group(1).strip() else []
+    return []
+
+
+def ekran_onayi_mi(tool_input, tool_response, agent_id=None) -> bool:
+    """ADR-0078: AskUserQuestion yanıtı onay mı? Hata yolunda False (güvenli yön)."""
+    try:
+        if agent_id:  # alt ajanın çağrısı kullanıcı onayı sayılmaz
+            return False
+        sorular = (tool_input or {}).get("questions")
+        if not isinstance(sorular, list) or len(sorular) != 1 or not isinstance(sorular[0], dict):
+            return False
+        s = sorular[0]
+        soru = str(s.get("question") or "")
+        if s.get("multiSelect") or not EKRAN_SORU.search(soru):
+            return False
+        etiketler = [str(o.get("label") or "") for o in (s.get("options") or []) if isinstance(o, dict)]
+        siniflar = [onay_mesaji_mi(_ONERILEN.sub("", e)) for e in etiketler]
+        if not (any(siniflar) and not all(siniflar)):  # gerçek seçim: en az bir onay, en az bir onay olmayan seçenek
+            return False
+        yanit = ekran_yaniti(tool_response, soru)
+        return len(yanit) == 1 and onay_mesaji_mi(_ONERILEN.sub("", yanit[0]))
+    except Exception:
+        return False
+
+
+def ekran_bicimi(tool_response) -> str:
+    """K5: değer içermeyen biçim özeti (tür ve anahtar adları); canlı biçim teyidi için günlüğe yazılır."""
+    r = tool_response
+    if isinstance(r, dict):
+        a = r.get("answers")
+        return "dict:" + ",".join(sorted(map(str, r))[:8]) + ("|answers:" + type(next(iter(a.values()), None)).__name__
+                                                              if isinstance(a, dict) and a else "")
+    return type(r).__name__
+
+
+def ekran_onayi_isle(sd: str, kayit: dict | None) -> str:
+    """Onay yanıtı geldi: belgeler tamamsa `verildi` (olay `onay:ekran`), eksikse ADR-0072 gibi saklanır. Bağlam satırı döner;
+    `bekliyor` değilse boş. Yazma hatasında onay verilmez (istisna yukarı çıkar, çağıran yutar)."""
+    if not kayit or not bekliyor_mu(kayit):
+        return ""
+    eksik = belge_eksikleri(str(kayit.get("klasor") or ""))
+    if not eksik:
+        yaz(sd, kayit["id"], VERILDI, "onay:ekran")
+        return "Orkestra: kullanıcı seçim ekranında onayladı (P-016, ADR-0078); iş onaylandı, uygulamaya geçilebilir."
+    bekleyen_yaz(sd, kayit["id"])
+    return ("Orkestra (P-016): seçim ekranı onayı geldi ama belgeler hazır değil; onay saklandı, eksik giderilince kendiliğinden "
+            "verilir. Eksik: " + "; ".join(eksik[:4]))
+
+
 def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
     """`bekliyor` iken yazılan dosya izinli mi: işin klasörü (is.json hariç) ve proje adr/ klasörü izinlidir.
     İş klasörü projenin kökü ya da atası ise yalnız .md dosyaları izinlidir. Boş döner = izin."""
