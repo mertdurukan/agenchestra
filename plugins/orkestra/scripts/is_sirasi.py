@@ -376,6 +376,137 @@ def bic_uyari(klasor: str) -> list[str]:
     return KM.ihlal_ver(klasor, "best_in_class", bic_eksikleri(klasor))
 
 
+# K-006 / ADR-0069: plan maddesinde `**Üretim noktası:**` alanı (sorunun doğduğu yer ve orada önleme).
+URETIM_ALANI = "Üretim noktası"
+_URETIM_ASGARI = 15  # önleme / neden / gerekçe metninin en az karakteri
+_URETIM_TUR_KELIME = ("kural", "şablon", "skill", "betik", "kart", "istem", "hook", "ayar", "standart")
+_URETIM_DUZELTME = re.compile(r"^Düzeltme:\s*(.+?)\s+[—–]\s+(.+)$", re.S)
+_URETIM_KONTROL = re.compile(r"^Kontrol:\s*(.+?)\s+[—–]\s+(.+?);\s*Kaynakta çözülmedi çünkü:\s*(.+)$", re.S)
+_URETIM_YENI = re.compile(r"^Yeni yetenek\s+[—–]\s+(.+)$", re.S)
+_URETIM_YASAK = re.compile(r"(?<![\w/.])(düzelt\w*|hata\w*|kusur\w*|tekrar\w*|ret|reddi\w*)(?![\w/.])", re.I)
+URETIM_JACCARD = 0.8
+
+
+def uretim_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_URETIM_KAPISI") != "0"
+
+
+def uretim_kapsaminda_mi(klasor: str) -> bool:
+    """ADR-0069: iş sıralı ve is.json `uretim: true` taşıyor (bayraksız eski işler muaf)."""
+    if not uretim_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("uretim") is True
+    except (OSError, ValueError):
+        return False
+
+
+def _alan_degeri(blok: str, alan: str) -> str:
+    """P bloğunda `**<alan>:**` değeri (aynı ve sonraki satırlar, boşluklar tek aralığa indirilmiş); yoksa ''."""
+    m = re.search(r"\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
+    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+
+
+def _uretim_yer_gecerli(yer: str) -> bool:
+    """`<yer>` bir yol / dosya adı ya da bir tür kelimesi (kural, şablon, skill, betik, kart, istem, hook, ayar, standart) içerir."""
+    dusuk = yer.replace("İ", "i").lower()
+    return "/" in yer or re.search(r"\.(py|md|json)\b", dusuk) is not None or any(k in dusuk for k in _URETIM_TUR_KELIME)
+
+
+def _uretim_kelimeler(metin: str) -> set[str]:
+    return {k for k in re.findall(r"\w+", metin.replace("İ", "i").lower()) if len(k) > 1}
+
+
+def uretim_alan_ayristir(deger: str) -> tuple[str | None, str, str, str | None]:
+    """(tür, yer, gerekçe_metni, hata): tür 'duzeltme' | 'kontrol' | 'yeni' | None. `gerekçe_metni` kopya denetimi içindir
+    (tür öneki ve yer çıkarılmış kalan metin); hata biçim ya da asgari uzunluk kusurunu söyler."""
+    d = deger.strip()
+    m = _URETIM_KONTROL.match(d)
+    if m:
+        yer, ne, neden = (g.strip(" `") for g in m.groups())
+        if len(ne) < 8 or len(neden) < _URETIM_ASGARI:
+            return "kontrol", yer, ne + " " + neden, f"`Kontrol:` ne en az 8, `Kaynakta çözülmedi çünkü:` en az {_URETIM_ASGARI} karakter olmalı"
+        return "kontrol", yer, ne + " " + neden, None
+    m = _URETIM_DUZELTME.match(d)
+    if m:
+        yer, onleme = m.group(1).strip(" `"), m.group(2).strip()
+        if len(onleme) < _URETIM_ASGARI:
+            return "duzeltme", yer, onleme, f"`Düzeltme:` önleme metni en az {_URETIM_ASGARI} karakter olmalı"
+        return "duzeltme", yer, onleme, None
+    m = _URETIM_YENI.match(d)
+    if m:
+        gerekce = m.group(1).strip()
+        if len(gerekce) < _URETIM_ASGARI:
+            return "yeni", "", gerekce, f"`Yeni yetenek` gerekçesi en az {_URETIM_ASGARI} karakter olmalı"
+        return "yeni", "", gerekce, None
+    return None, "", d, "biçim `Düzeltme: <yer> — <önleme>`, `Kontrol: <yer> — <ne>; Kaynakta çözülmedi çünkü: <neden>` ya da `Yeni yetenek — <gerekçe>` olmalı"
+
+
+def uretim_eksikleri(klasor: str) -> list[str]:
+    """ADR-0069: `uretim: true` taşıyan sıralı işte her P maddesi `**Üretim noktası:**` alanını üç türden birinde taşır;
+    gerekçeler tekrarlanmaz; hata/ret/kusur/tekrar başlıklı maddede `Yeni yetenek` kullanılmaz; plan.md ayrı denetçinin
+    `**Üretim noktası:** ✔` satırını (kayıtlı denetçi kimliğiyle) taşır. Kapsam dışı iş: boş liste."""
+    if not uretim_kapsaminda_mi(klasor):
+        return []
+    metin = _oku(os.path.join(klasor, "plan.md"))
+    if metin is None:
+        return []
+    eksik: list[str] = []
+    turler: dict[int, str | None] = {}
+    kelimeler: dict[int, set[str]] = {}
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        deger = _alan_degeri(blok, URETIM_ALANI)
+        if not deger:
+            eksik.append(f"P{n}: `**{URETIM_ALANI}:**` alanı yok ya da boş (K-006; ADR-0069)")
+            continue
+        tur, yer, gerekce, hata = uretim_alan_ayristir(deger)
+        turler[n] = tur
+        if hata:
+            eksik.append(f"P{n}: `**{URETIM_ALANI}:**` {hata} (ADR-0069)")
+            continue
+        if tur != "yeni" and not _uretim_yer_gecerli(yer):
+            eksik.append(f"P{n}: `**{URETIM_ALANI}:**` yer bir yol/dosya adı ya da kural, şablon, skill, betik, kart, istem, hook, ayar, standart olmalı: `{yer}` (ADR-0069)")
+        if tur == "yeni":
+            baslik = re.sub(r"`[^`]*`", " ", blok.splitlines()[0] if blok else "")
+            ne = re.sub(r"`[^`]*`", " ", _alan_degeri(blok, "Ne"))
+            bulunan = _URETIM_YASAK.search(baslik) or _URETIM_YASAK.search(ne)
+            if bulunan:
+                eksik.append(f"P{n}: `Yeni yetenek` başlıkta ya da `Ne:` metninde `{bulunan.group(1)}` geçen maddede kullanılamaz; kusur düzeltiyorsa `Düzeltme:`/`Kontrol:` yaz (ADR-0069)")
+        kw = _uretim_kelimeler(gerekce)
+        for onceki, kw0 in sorted(kelimeler.items()):
+            birlesim = kw | kw0
+            if birlesim and (kw == kw0 or len(kw & kw0) / len(birlesim) >= URETIM_JACCARD):
+                eksik.append(f"P{n}: `**{URETIM_ALANI}:**` gerekçesi P{onceki} ile aynı ya da çok benzer; her madde kendi yerini ve nedenini yazar (ADR-0069)")
+                break
+        kelimeler[n] = kw
+    m = BIC_DENETIM_BASLIK.search(_YORUM.sub("", metin))
+    if m is None:
+        eksik.append("plan.md: `## Best in class denetimi` bloğu yok (ayrı denetçi `**Üretim noktası:**` satırını doldurur; ADR-0069)")
+        return eksik
+    govde = m.group(1)
+    satir = re.search(r"\*\*" + URETIM_ALANI + r":\*\*[ \t]*([^\n]*)", govde)
+    if satir is None or not satir.group(1).lstrip().startswith("✔"):
+        eksik.append(f"best in class denetimi: `**{URETIM_ALANI}:**` satırı `✔` ile başlamıyor (ayrı denetçi doldurur; ADR-0069)")
+    elif turler and all(t == "yeni" for t in turler.values()) and "tümü yeni yetenek onaylandı" not in satir.group(1).lower():
+        eksik.append(f"best in class denetimi: tüm maddeler `Yeni yetenek`; `**{URETIM_ALANI}:**` satırı `tümü yeni yetenek onaylandı` ifadesini taşımalı (ADR-0069)")
+    d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
+    kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
+    if not kimlik:
+        eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (ADR-0069)")
+    elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
+        eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; ADR-0069)")
+    return eksik
+
+
+def uretim_engeli(klasor: str) -> list[str]:
+    """`plan_eksikleri` bağlantısı: ihlal modunda eksikleri döndürür ve her reddi `kapi_ret` olarak kaydeder (gölgede `kapi_golge`)."""
+    if not uretim_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ret_ver(klasor, "uretim_noktasi", uretim_eksikleri(klasor))
+
+
 def ozet_eksigi(metin: str, ad: str) -> str | None:
     """Belgede `## Özet` bölümü var ve yer tutucu dışında içerik taşıyor mu; değilse neden."""
     m = _OZET_BOLUMU.search(metin or "")
