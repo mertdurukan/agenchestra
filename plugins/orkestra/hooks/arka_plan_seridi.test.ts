@@ -1,5 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
+import { todoSayimi } from './arka_plan_seridi'
+
 const GOREV = { id: 't1', type: 'shell', description: 'Uzun ölçüm', status: 'running' }
 const PROPS = { hasSurvey: false, isWorking: false, maxRows: 5, bodyColumns: 80 } as never
 
@@ -21,6 +23,17 @@ test('görev varken şerit görev sayısını gösterir', async ($, on) => {
   const metin = await cizim($, [GOREV, { ...GOREV, id: 't2' }])
   expect(metin).toContain('Arka plan görevleri sürüyor')
   expect(metin).toContain('2')
+})
+
+test('todo sayımı yalnız bu oturumun işlerini toplar; yoksa 0/0', () => {
+  const isler = [
+    { biten: 2, toplam: 3, oturumlar: ['bu'] },
+    { biten: 5, toplam: 9, oturumlar: ['baska'] },
+    { biten: 1, toplam: 1 },
+  ]
+  expect(todoSayimi(isler, 'bu')).toEqual({ biten: 2, toplam: 3 })
+  expect(todoSayimi(isler, 'yok')).toEqual({ biten: 0, toplam: 0 })
+  expect(todoSayimi(undefined, 'bu')).toEqual({ biten: 0, toplam: 0 })
 })
 
 test('görev yokken şerit çizilmez', async ($, on) => {

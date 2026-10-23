@@ -8,7 +8,7 @@ export type KartOzeti = {
   usd: number
 }
 
-export type IsTodosu = { id: string; ad: string; biten: number; toplam: number; acik: string[] }
+export type IsTodosu = { id: string; ad: string; biten: number; toplam: number; acik: string[]; oturumlar?: string[]; benim?: boolean }
 
 export type DefterSatiri = { saat: string; gorev: string; metin: string }
 

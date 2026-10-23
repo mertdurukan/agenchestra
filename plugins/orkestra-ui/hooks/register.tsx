@@ -48,9 +48,9 @@ export function arkaSayisi(h: HamOzet, oturum: string): number {
   return (a?.oturumlar?.[oturum] ?? 0) + (a?.perspektif === true ? 1 : 0) + (a?.uygulama === true ? 1 : 0)
 }
 
-// Prompt üstü bant yazısı: "<biten>/<toplam> yapıldı · işlem devam ediyor"; todo yoksa yalnız ikinci parça.
+// Prompt üstü bant yazısı: "<biten>/<toplam> yapıldı · işlem devam ediyor" (bu sohbetin işleri); todo yoksa yalnız ikinci parça.
 export function bantMetni(o: Pick<UiOzet, 'isler'>): string {
-  const isler = (o.isler ?? []).filter(x => x.toplam > 0)
+  const isler = (o.isler ?? []).filter(x => x.toplam > 0 && x.benim !== false)
   const toplam = isler.reduce((a, x) => a + x.toplam, 0)
   const biten = isler.reduce((a, x) => a + x.biten, 0)
   return toplam === 0 ? 'işlem devam ediyor' : `${biten}/${toplam} yapıldı · işlem devam ediyor`
@@ -79,7 +79,8 @@ export function donustur(h: HamOzet, oturum: string): UiOzet {
     })),
     perspektif: h.perspektif ?? h.ruya,  // ruya: eski ozet.json anahtarı
     uretim: h.uretim,
-    isler: h.isler ?? [],
+    // Bant yalnız bu sohbetin bağlı işlerini sayar (benim); `oturumlar` yoksa (eski ozet.json) süzülmez.
+    isler: (h.isler ?? []).map(x => (x.oturumlar === undefined ? x : { ...x, benim: x.oturumlar.includes(oturum) })),
   }
 }
 

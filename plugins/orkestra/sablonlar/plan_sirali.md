@@ -41,11 +41,23 @@
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
 **Sözleşme:** S<n> (sözleşmeli işte zorunlu: bu madde sözleşmedeki hangi başarı kriterini sağlar; `sozlesme_<tarih>.md`)
 **Mevcut varlık:** harita kayıt kimliği (virgülle) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
+**Alternatifler:** en az iki uygulanabilir yaklaşım, madde işaretli ayrı satırlarda: `- Seçilen: … Neden: …` ve `- Elenen: … Neden elendi: …` (P-030; `orkestra standart goster best_in_class`)
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
 
 ## Gap kapsama
 
 <!-- gap'li işlerde zorunlu (ikinci doğrulama): MD §6'daki her gap bir satır: - **G1** → P1, P2   ya da   - **G3** Kapsam dışı: <gerekçe> -->
+
+## Best in class denetimi
+
+Plan yazarından AYRI `orkestra:denetci` dört soruyu yanıtlar (`orkestra standart goster best_in_class`); sonucu ana ajan buraya yazar. Her satır `✔` ya da `✘` ile başlar.
+
+- **Kök neden:** bekliyor
+- **Alternatifler:** bekliyor
+- **Kapsam özü:** bekliyor
+- **Ölçüm:** bekliyor
+
+**Denetçi:** bekliyor (`orkestra:denetci <agent_id>`)
 
 ## 5. Riskler
 

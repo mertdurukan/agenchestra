@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import type { HamOzet } from '../types'
-import { arkaSayisi, donustur, usd } from './register'
+import { arkaSayisi, bantMetni, donustur, usd } from './register'
 
 const BU = 'oturum-bu'
 
@@ -83,6 +83,17 @@ test('donustur: olay satırları elenir, markdown soyulur, teslim yalnız sayı 
   expect(o.defter).toEqual([{ saat: '10:00', gorev: 'G-001', metin: 'README satırı eklendi' }])
   expect(o.teslim).toEqual({ sayi: 1, sonId: 'G-003', sonSaat: '11:07' })
   expect(o.kartlar?.map(k => k.id)).toEqual(['G-001', 'G-002', 'G-004'])
+})
+
+test('bant yalnız bu sohbetin bağlı işlerini sayar; oturum bilgisi yoksa hepsini sayar', () => {
+  const ham = { ...HAM, isler: [
+    { id: 'I-1', ad: 'a', biten: 2, toplam: 3, acik: [], oturumlar: [BU] },
+    { id: 'I-2', ad: 'b', biten: 400, toplam: 496, acik: [], oturumlar: ['baska'] },
+  ] } as HamOzet
+  expect(bantMetni(donustur(ham, BU))).toBe('2/3 yapıldı · işlem devam ediyor')
+  expect(bantMetni(donustur({ ...ham, isler: [{ ...ham.isler![1]!, oturumlar: ['baska'] }] } as HamOzet, BU))).toBe('işlem devam ediyor')
+  const eski = { ...HAM, isler: [{ id: 'I-3', ad: 'c', biten: 4, toplam: 7, acik: [] }] } as HamOzet
+  expect(bantMetni(donustur(eski, BU))).toBe('4/7 yapıldı · işlem devam ediyor')
 })
 
 test('donustur: isler alanı olduğu gibi geçer; yoksa boş dizi olur', () => {

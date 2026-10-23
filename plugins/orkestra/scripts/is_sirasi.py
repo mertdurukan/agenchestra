@@ -229,6 +229,100 @@ def sozlesme_uyari(klasor: str, baglanti: bool = True) -> list[str]:
     return KM.ihlal_ver(klasor, "sozlesme", sozlesme_eksikleri(klasor, baglanti))
 
 
+def bic_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_BIC_KAPISI") != "0"
+
+
+def bic_kapsaminda_mi(klasor: str) -> bool:
+    """P-030: iş sıralı ve is.json `kalite: true` taşıyor (P-018 ile aynı kapsam; bayraksız eski işler muaf)."""
+    if not bic_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("kalite") is True
+    except (OSError, ValueError):
+        return False
+
+
+def _alternatif_satirlari(blok: str) -> list[str]:
+    """`**Alternatifler:**` alanındaki madde satırları (`- ...`)."""
+    m = re.search(r"\*\*Alternatifler:\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
+    return [s.strip() for s in m.group(1).splitlines() if re.match(r"^\s*[-*]\s+\S", s)] if m else []
+
+
+BIC_DENETIM_BASLIK = re.compile(r"^##[ \t]+Best in class denetimi[ \t]*$(.*?)(?=^##[ \t]|\Z)", re.M | re.S)
+BIC_SORULAR = ("Kök neden", "Alternatifler", "Kapsam özü", "Ölçüm")
+
+
+def denetci_kayitli_mi(klasor: str, ajan_kimligi: str) -> bool:
+    """SubagentStop hook'unun yazdığı `zaman.jsonl` `tur: alt` kaydında bu kimlikle bir denetçi ajan var mı.
+    Plan yazarı kimliği uyduramaz; yazarın ajanı denetçi olamaz (denetçi türü hook kaydından gelir)."""
+    import ork_lib as L
+    sd = L.durum_dizini(klasor)
+    if not sd:
+        return False
+    try:
+        with open(os.path.join(sd, "zaman.jsonl"), encoding="utf-8") as f:
+            for satir in f:
+                if ajan_kimligi not in satir:
+                    continue
+                try:
+                    o = json.loads(satir)
+                except ValueError:
+                    continue
+                if o.get("tur") == "alt" and str(o.get("agent_id", "")).startswith(ajan_kimligi) and "denetci" in str(o.get("ajan", "")):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
+def bic_eksikleri(klasor: str) -> list[str]:
+    """P-030: her P maddesi `**Alternatifler:**` taşır (en az iki madde, biri `Elenen`); plan.md ayrı denetçinin
+    doldurduğu `## Best in class denetimi` bloğunu taşır (dört soru ✔/✘ ve `**Denetçi:**`). Kapsam dışı iş: boş liste."""
+    if not bic_kapsaminda_mi(klasor):
+        return []
+    metin = _oku(os.path.join(klasor, "plan.md"))
+    if metin is None:
+        return []
+    eksik = []
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        sat = _alternatif_satirlari(blok)
+        if len(sat) < 2 or not any(re.match(r"^[-*]\s+Elenen\b", s) for s in sat):
+            eksik.append(f"P{n}: `**Alternatifler:**` en az iki madde ve biri `Elenen: ... Neden elendi: ...` olmalı (P-030)")
+    m = BIC_DENETIM_BASLIK.search(_YORUM.sub("", metin))
+    if m is None:
+        eksik.append("plan.md: `## Best in class denetimi` bloğu yok (P-030)")
+    else:
+        govde = m.group(1)
+        for soru in BIC_SORULAR:
+            if not re.search(r"\*\*" + re.escape(soru) + r":\*\*\s*[✔✘]", govde):
+                eksik.append(f"best in class denetimi: `**{soru}:**` satırı `✔`/`✘` ile başlamıyor (ayrı denetçi doldurur; P-030)")
+        d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
+        kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
+        if not kimlik:
+            eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (`orkestra:denetci <agent_id>`; P-030)")
+        elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
+            eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; P-030)")
+    return eksik
+
+
+def bic_engeli(klasor: str) -> list[str]:
+    """Sessiz kapı: yalnız `ihlal` modunda eksikleri döndürür (plan_eksikleri sık çağrılır)."""
+    if not bic_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return bic_eksikleri(klasor) if KM.mod("best_in_class", klasor) == "ihlal" else []
+
+
+def bic_uyari(klasor: str) -> list[str]:
+    """Sesli kapı (todo yazımı, `is sira`): gölge modunda uyarır ve `kapi_golge` kaydı düşer, ihlal modunda eksikleri döndürür."""
+    if not bic_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ihlal_ver(klasor, "best_in_class", bic_eksikleri(klasor))
+
+
 def ozet_eksigi(metin: str, ad: str) -> str | None:
     """Belgede `## Özet` bölümü var ve yer tutucu dışında içerik taşıyor mu; değilse neden."""
     m = _OZET_BOLUMU.search(metin or "")
@@ -410,7 +504,7 @@ def plan_eksikleri(klasor: str) -> list[str]:
             for alan in ("Kabul", "Geri alma"):
                 if not alan_dolu(blok, alan):
                     eksik.append(f"P{n}: `**{alan}:**` alanı yok ya da boş (P-018)")
-    return eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor)
+    return eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor) + bic_engeli(klasor)
 
 
 def adim(klasor: str) -> tuple[str, list[str]]:
@@ -438,7 +532,10 @@ def plan_onkosulu(klasor: str) -> list[str]:
 
 def todo_onkosulu(klasor: str) -> list[str]:
     """todo.md yazımı için ön koşul: sözleşme (ihlal modunda), mevcut durum ve plan tamam."""
-    return sozlesme_engeli(klasor, baglanti=True) or mevcut_durum_eksikleri(klasor) or plan_eksikleri(klasor)
+    engel = sozlesme_engeli(klasor, baglanti=True) or mevcut_durum_eksikleri(klasor) or plan_eksikleri(klasor)
+    if not engel:
+        bic_uyari(klasor)  # P-030 gölge: uyarır ve kaydeder, todo yazımını engellemez
+    return engel
 
 
 def todo_satir_ihlalleri(metin: str, planli: set[int], kanit: bool = False) -> list[str]:
