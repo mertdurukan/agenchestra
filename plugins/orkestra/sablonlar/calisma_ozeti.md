@@ -57,6 +57,10 @@
 - G1: kapandı | açık. Hangi P ile kapandığı.
 Planın dışına çıkılan işler ve kalan işler de ayrı satırlarla yazılır. -->
 
+## Paralellik sapması
+
+<!-- yalnız kapanış kapısı isterse doldurulur (ADR-0080; `paralel: true` iş, kartlar yüklenmedi ya da gerçekleşen ÷ planlanan < 0,5): planlanan, gerçekleşen (`orkestra is rapor <iş>`, ortalama eşzamanlı iş sayısı) ve neden; en az 40 karakter. Gerekmiyorsa boş bırak. -->
+
 ## Plandan sapmalar
 
 <!-- yalnız /auto işlerinde zorunlu (ADR-0009): koşu sırasında plandan ayrılan her karar ayrı satır; yoksa "Yok". -->
