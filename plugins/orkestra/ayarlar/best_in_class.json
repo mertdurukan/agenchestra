@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "P-030 best in class kapısı. mod: golge = plan maddesinde `**Alternatifler:**` eksiği ve plan.md'de ayrı denetçinin doldurduğu `## Best in class denetimi` bloğu eksiği uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, todo yazımı engellenmez; ihlal = eksik varsa plan eksiği sayılır. Yalnız is.json `kalite: true` taşıyan sıralı işlerde çalışır. Kapatma: ORKESTRA_BIC_KAPISI=0. Proje ezmesi: .claude/orkestra/best_in_class.json (ADR-0035, P-028)."
+}
