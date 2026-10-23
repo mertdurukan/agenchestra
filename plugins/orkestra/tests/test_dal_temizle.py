@@ -70,7 +70,7 @@ class DalTemizleTest(unittest.TestCase):
     def test_kapanis_birlesmemis_dal_uyarir(self):
         git(self.depo, "checkout", "-q", "yeni")                 # HEAD main'e birleşmemiş
         self.assertIn("main'e birleşmemiş", dal_temizle.kapanis(self.depo))
-        git(self.depo, "checkout", "-q", "birlesmis")           # HEAD birleşmiş: uyarı yok
+        git(self.depo, "checkout", "-q", "-b", "yeni2", "main")  # HEAD birleşmiş: uyarı yok (kip ihlal olsa da çağıranın dalı silinmez)
         self.assertEqual(dal_temizle.kapanis(self.depo), "")
 
     def test_session_start_cagrisi_hata_vermez(self):
