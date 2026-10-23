@@ -24,6 +24,7 @@ def kos(args, cwd, ortam=None, stdin=None):
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
     env["ORKESTRA_URETIM_KAPISI"] = "0"  # ADR-0069: eski plan fikstürleri Üretim noktası taşımaz; kapıyı test_uretim_noktasi sınar
+    env["ORKESTRA_PARALELLIK_KAPISI"] = "0"  # ADR-0080: eski plan fikstürleri Önce/Yazma alanı taşımaz; kapıyı test_paralellik_kapi sınar
     env.update(ortam or {})
     return ic_kos.kos(args, cwd=cwd, env=env, input=stdin)
 
