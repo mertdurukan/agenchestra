@@ -871,6 +871,24 @@
         }
       ],
       "etkinlesme": "2026-10-23T11:44:56+03:00"
+    },
+    {
+      "id": "P-034",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Çalışma özeti başlığı yalnız Jira kodu ya da genel ifade olmaz ('<KOD> çalışma özeti' yazılmaz). Jira'dan çekilen iş için başlık '<KOD> <Jira başlığı>' biçimindedir (başlığı ajan Jira'dan alır, ör. getJiraIssue); Jira'dan çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık yazılır. Başlık yazıldığı yerde sağlanır: özet iskeleti (sablonlar/calisma_ozeti.md) ve son todo maddesi tetikleyicisi yönergeyi taşır. Zorlama: is_kaydi.ozet_baslik_eksigi, isler._ozet_baslik_kapisi, ayarlar/ozet_baslik.json (mod golge, P-028; ORKESTRA_OZET_BASLIK_KAPISI=0 kapatır), tests/test_ozet_baslik.py. (ADR-0074)",
+      "neden": "Çalışma özeti yalnız Jira koduyla başlayabiliyordu; başlığı yönlendiren ya da ölçen bir mekanizma yoktu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-23T15:24:23+03:00",
+      "guncelleme": "2026-10-23T15:24:23+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-23T15:24:23+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Çalışma özeti başlığı yalnız Jira kodu ya da genel ifade olmaz ('<KOD> çalışma özeti' yazılmaz). Jira'dan çekilen iş için başlık '<KOD> <Jira başlığı>' biçimindedir (başlığı ajan Jira'dan alır, ör. getJiraIssue); Jira'dan çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık yazılır. Başlık yazıldığı yerde sağlanır: özet iskeleti (sablonlar/calisma_ozeti.md) ve son todo maddesi tetikleyicisi yönergeyi taşır. Zorlama: is_kaydi.ozet_baslik_eksigi, isler._ozet_baslik_kapisi, ayarlar/ozet_baslik.json (mod golge, P-028; ORKESTRA_OZET_BASLIK_KAPISI=0 kapatır), tests/test_ozet_baslik.py. (ADR-0074)"
+        }
+      ],
+      "etkinlesme": "2026-10-23T15:24:23+03:00"
     }
   ]
 }
