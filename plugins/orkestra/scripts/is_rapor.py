@@ -90,6 +90,15 @@ def _kapi_golge(sd: str) -> dict:
     return dict(sorted(sayi.items()))
 
 
+def _kapi_ret(sd: str) -> dict:
+    """gunluk.jsonl'daki `kapi_ret` olayları (ihlal modundaki ret) kapı adına göre sayılır (ADR-0069: yanlış pozitif ölçümünün paydası)."""
+    sayi: dict = {}
+    for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")):
+        if isinstance(o, dict) and o.get("tur") == "kapi_ret" and o.get("kapi"):
+            sayi[o["kapi"]] = sayi.get(o["kapi"], 0) + 1
+    return dict(sorted(sayi.items()))
+
+
 def rapor(sd: str) -> dict:
     v = _veri(sd)
     mal, zam, isler, kartlar = v["mal"], v["zam"], v["isler"], v["kartlar"]
