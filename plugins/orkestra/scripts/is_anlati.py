@@ -64,11 +64,11 @@ def _bolum(metin: str, baslik_re: str) -> str:
 
 
 def _etiket(metin: str, ad: str) -> list[str]:
-    """`**<ad>:**` etiketinin altındaki (ya da aynı satırdaki) dolu satırlar; madde işareti atılır."""
-    satirlar = metin.splitlines()
+    """`**<ad>:**` (ya da soru etiketi `**<ad?>**`) etiketinin altındaki ya da aynı satırdaki dolu satırlar; yorum ve madde işareti atılır."""
+    satirlar = _YORUM_RE.sub("", metin).splitlines()
     out: list[str] = []
     for i, s in enumerate(satirlar):
-        m = re.match(r"^\*\*%s:\*\*\s*(.*)$" % re.escape(ad), s)
+        m = re.match(r"^\*\*%s:?\*\*\s*(.*)$" % re.escape(ad), s)
         if not m:
             continue
         if m.group(1).strip():
