@@ -38,7 +38,7 @@ export function planUygula(liste: Gorev[], cagri: PlanCagri): Gorev[] {
     return liste
   }
 
-  let yeni = Array.isArray(cagri.input.items) ? gorevlere(cagri.input.items) : liste.map(g => ({ ...g }))
+  const yeni = Array.isArray(cagri.input.items) ? gorevlere(cagri.input.items) : liste.map(g => ({ ...g }))
 
   for (const n of dizi(cagri.input.done)) {
     if (typeof n === 'number' && yeni[n - 1]) {
