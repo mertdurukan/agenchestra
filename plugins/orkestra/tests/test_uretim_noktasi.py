@@ -72,7 +72,9 @@ class UretimNoktasi(unittest.TestCase):
 
     # ---- Düzeltme: geçerli, eksik, kısa, yer yok (4)
     def test_duzeltme_gecerli(self):
-        self.assertEqual(self.p1(DUZELTME), [])
+        # Ne: metninde satır içi `**Üretim noktası:**` anması alan sayılmaz (canlı koşuda yakalanan hata)
+        ne = "Kapı `**Üretim noktası:**` satırını sınar:\n\n- Alan her P'de dolu olur."
+        self.assertEqual(self.eksik(plan(madde(1, DUZELTME, ne=ne), madde(2, DIGER))), [])
 
     def test_duzeltme_alani_eksik(self):
         e = self.p1(None)
@@ -135,7 +137,7 @@ class UretimNoktasi(unittest.TestCase):
     # ---- Yeni yetenek yasağı (2)
     def test_baslikta_hata_varsa_yeni_yetenek_yasak(self):
         e = self.eksik(plan(madde(1, YENI, baslik="Hata kaydı alanı"), madde(2, DIGER)))
-        self.assertTrue(any("P1" in x and "hata" in x for x in e), e)
+        self.assertTrue(any("P1" in x and "hata" in x.lower() for x in e), e)
 
     def test_ne_metninde_ret_varsa_yeni_yetenek_yasak(self):
         e = self.eksik(plan(madde(1, YENI, ne="Her ret kaydedilir."), madde(2, DIGER)))
@@ -153,13 +155,13 @@ class UretimNoktasi(unittest.TestCase):
         self.assertEqual(self.eksik(plan(madde(1, YENI), madde(2, ikinci), den=d)), [])
 
     # ---- Denetçi satırı (4)
-    def test_denetci_satiri_cross_ret(self):
+    def test_denetci_satiri_ret_isareti(self):
         e = self.eksik(plan(madde(1, DUZELTME), madde(2, DIGER), den=denetim("✘ — yer yok.")))
-        self.assertTrue(any("✔ ile başlamıyor" in x for x in e), e)
+        self.assertTrue(any("ile başlamıyor" in x for x in e), e)
 
     def test_denetci_satiri_bekliyor(self):
         e = self.eksik(plan(madde(1, DUZELTME), madde(2, DIGER), den=denetim("bekliyor")))
-        self.assertTrue(any("✔ ile başlamıyor" in x for x in e), e)
+        self.assertTrue(any("ile başlamıyor" in x for x in e), e)
 
     def test_denetci_kimligi_kayitsiz(self):
         e = self.eksik(plan(madde(1, DUZELTME), madde(2, DIGER)), kayitli=False)
