@@ -86,11 +86,13 @@ export function listeyiKayittanCikar(mesajlar: readonly SessionMessage[]): Gorev
   return liste
 }
 
-export function bantMetni(liste: Gorev[], arka: number): string {
-  const sayac = liste.length > 0 ? `${liste.filter(g => g.durum === 'completed').length}/${liste.length} yapıldı · ` : ''
+// Sayaç her zaman yazılır (liste yoksa 0/0); durum "devam ediyor" ya da "tamamlandı".
+export function bantMetni(liste: Gorev[], arka: number, calisiyor: boolean): string {
+  const sayac = `${liste.filter(g => g.durum === 'completed').length}/${liste.length} yapıldı`
+  const durum = calisiyor || arka > 0 ? 'devam ediyor' : 'tamamlandı'
   const arkaMetin = arka > 0 ? ` · arka plan ${arka}` : ''
 
-  return `${sayac}işlem devam ediyor${arkaMetin}`
+  return `${sayac} · ${durum}${arkaMetin}`
 }
 
 // Modül düzeyi durum: liste kayıttan ya da olaydan gelir, sonYenileme kayıt okumasını 2 sn'de bire düşürür.
