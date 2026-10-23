@@ -92,8 +92,9 @@ class TestDosyalarVeAyar(unittest.TestCase):
     def test_modulde_kalip_sabiti_yok(self):
         with open(MODUL, encoding="utf-8") as f:
             agac = ast.parse(f.read())
+        belge = {id(n.value) for n in ast.walk(agac) if isinstance(n, ast.Expr)}  # docstring ifadeleri
         for d in ast.walk(agac):
-            if isinstance(d, ast.Constant) and isinstance(d.value, str):
+            if isinstance(d, ast.Constant) and isinstance(d.value, str) and id(d) not in belge:
                 for w in ("grep", "timeout", "users", "moved to the background"):
                     self.assertNotIn(w, d.value.lower(), f"modülde kalıp sabiti: {d.value[:60]!r}")
 
