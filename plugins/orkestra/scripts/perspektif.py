@@ -162,7 +162,30 @@ def girdi(sd: str, proje: str, hafiza: str) -> dict:
     }
 
 
+def hafiza_projeye_ait(proje: str, hafiza: str) -> bool:
+    """Hafıza klasörü `~/.claude/projects/<kodlu proje adı>/memory` biçimindeyse sahibi `proje` (ya da üst klasörü) mü?
+
+    Neden: scratch çalışma alanında açılan oturum başka projenin hafızasından rapor üretip scratch durumuna yazdı
+    (I-215). Kalıp tanınmayan yol (özel klasör, test) denetlenemez; engellenmez. ORKESTRA_PROJE_ESLEME=0 kapatır.
+    Alt klasör oturumu kabul edilir: kodlu ad, hafıza sahibinin kodlu adıyla başlar.
+    """
+    if os.environ.get("ORKESTRA_PROJE_ESLEME") == "0":
+        return True
+    h = os.path.normpath(hafiza)
+    kodlu_ad = os.path.basename(os.path.dirname(h))
+    projeler = os.path.dirname(os.path.dirname(h))
+    if os.path.basename(h) != "memory" or os.path.basename(projeler) != "projects" \
+            or os.path.basename(os.path.dirname(projeler)) != ".claude":
+        return True
+    enc = re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(proje)).lower()
+    kodlu_ad = kodlu_ad.lower()
+    return enc == kodlu_ad or enc.startswith(kodlu_ad + "-")
+
+
 def girdi_yaz(sd: str, proje: str, hafiza: str) -> dict:
+    if not hafiza_projeye_ait(proje, hafiza):
+        raise ValueError(f"hafıza klasörü bu projeye ait değil: proje {proje}, hafıza {hafiza}. Perspektifi hafızanın sahibi "
+                         "projenin klasöründe çalıştır (change_directory ile geç; Bash cd oturum klasörünü değiştirmez).")
     g = girdi(sd, proje, hafiza)
     L.atomik_yaz(_girdi_yolu(sd), L.maskele(json.dumps(g, ensure_ascii=False, indent=1)))
     return g
