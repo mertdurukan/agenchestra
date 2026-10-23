@@ -686,7 +686,14 @@ def goster(sd: str, id: str) -> dict | None:
 
 
 def sayac(sd: str) -> dict:
-    s = {"bekliyor": 0, "uygulanacak": 0, "tur": {t: 0 for t in TURLER}}
+    """`uygulanacak`: onaylandi + uygulaniyor (Onaylar sekmesi). `panelden_uygulanabilir`: "Şimdi uygula" düğmesinin
+    gerçekten başlatabileceği kayıtlar; panel kartı bunu sayar, böylece kart ve düğme aynı kümeyi kullanır."""
+    try:
+        eski_alimlari_birak(sd)
+    except Exception:  # noqa: BLE001 - sayaç okuması hiçbir koşulda düşmez
+        pass
+    s = {"bekliyor": 0, "uygulanacak": 0, "panelden_uygulanabilir": len(_uygulanacaklar(sd, "perspektif")),
+         "tur": {t: 0 for t in TURLER}}
     for k in _hepsi(sd):
         if k.get("durum") == "bekliyor":
             s["bekliyor"] += 1
