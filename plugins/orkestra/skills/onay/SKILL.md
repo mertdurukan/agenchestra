@@ -27,6 +27,7 @@ Kural: `orkestra …` komutlarını tek başına çalıştır (zincir, boru ya d
       - **karar**: kaydı soran oturum sensen (`oturum` alanı bu oturumun kimliği) kararı (`karar.secim`, `karar.not`) işine uygula; başka oturumunsa yalnız bilgilendir, uygulama.
       - **kural**: panelde zaten uygulanır; atla.
    3. `orkestra onay uygulandi <id> --ozet "<ne yapıldı, tek cümle>"`.
+   Madde uygulanamıyorsa (hedef dosya ya da hafıza klasörü yok, ajan sonuç vermedi) `uygulaniyor`da bırakma: `orkestra onay birak <id> --neden "<neden>"` kaydı `onaylandi`ya döndürür. Bırakılmayan alım 60 dk sonra kendiliğinden düşer.
 3. Rapordaki tüm perspektif kayıtları kapandıysa (`orkestra onay liste --tur perspektif` çıktısında bekliyor, onaylandi ya da uygulaniyor kalmadıysa) `orkestra perspektif bitti` çalıştır.
 4. Kullanıcıya kısa özet ver: uygulananlar, atlananlar ve nedeni.
 
