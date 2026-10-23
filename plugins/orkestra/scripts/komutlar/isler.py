@@ -369,8 +369,99 @@ def _ozet_eksigi(klasor):
         m = re.search(r"\*\*(?:Ne yapıldı\?|Ana bulgu:)\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+[:?]\*\*|^#|\Z)", yorumsuz, re.S | re.M)
         govde = re.sub(r"^\s*[-*]\s*$", "", m.group(1), flags=re.M) if m else ""
         if govde.strip():
-            return _ozet_baslik_kapisi(klasor, metin) or _ozet_kalite_eksigi(klasor, metin)
+            return (_ozet_baslik_kapisi(klasor, metin) or _ozet_kalite_eksigi(klasor, metin)
+                    or _paralellik_kapanis_eksigi(klasor, metin))
     return "calisma_ozeti dosyasında 'Ne yapıldı?' (eski biçimde 'Ana bulgu') boş (şablon doldurulmamış)"
+
+
+PARALELLIK_KAPI = "paralellik_kapanis"
+PARALELLIK_SAPMA_MIN = 40  # `## Paralellik sapması` gövdesi en az bu kadar karakter
+PARALELLIK_PLANLANAN_MIN = 2  # planlanan eşzamanlılık bunun altındaysa kapı çalışmaz
+
+
+def _paralellik_ayar(klasor):
+    """`ayarlar/paralellik_kapanis.json`, proje ezmesi (durum klasöründeki aynı ad) önceliklidir. Bozuk dosya atlanır."""
+    kok = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ayar = {"mod": "golge", "esik": 0.5, "kalibrasyon_n": 20}
+    sd = L.durum_dizini(klasor)
+    for yol in [os.path.join(kok, "ayarlar", PARALELLIK_KAPI + ".json")] + ([os.path.join(sd, PARALELLIK_KAPI + ".json")] if sd else []):
+        ayar.update({k: v for k, v in _json_oku(yol).items() if k in ("mod", "esik", "kalibrasyon_n")})
+    return ayar
+
+
+def paralellik_kapanis_modu(klasor):
+    """ADR-0080 K8: ayarda `mod: ihlal` ise ihlal; değilse gunluk.jsonl'da bu kapının `kapi_golge` kaydı olan farklı iş
+    (bu iş hariç) sayısı `kalibrasyon_n`e ulaşınca ihlal, ulaşmadıysa ayardaki mod (kapi_mod'da sayım yeteneği yok)."""
+    import kapi_mod as KM
+    ayar = _paralellik_ayar(klasor)
+    taban = KM.mod(PARALELLIK_KAPI, klasor)
+    if taban == "ihlal":
+        return "ihlal"
+    try:
+        n = int(ayar.get("kalibrasyon_n") or 0)
+    except (TypeError, ValueError):
+        n = 0
+    sd = L.durum_dizini(klasor)
+    if n <= 0 or not sd:
+        return taban
+    bu = os.path.basename(os.path.normpath(klasor))
+    isler = {o.get("is") for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl"))
+             if isinstance(o, dict) and o.get("tur") == "kapi_golge" and o.get("kapi") == PARALELLIK_KAPI
+             and o.get("is") and o.get("is") != bu}
+    return "ihlal" if len(isler) >= n else taban
+
+
+def _paralellik_kapanis_eksigi(klasor, metin):
+    """ADR-0080 (S6a/S6b): `paralel: true` ve planlanan ≥ 2 olan işte kartlar is.json'a yüklenmediyse ya da oran
+    (gerçekleşen ÷ planlanan, yalnız işçi ajanları) eşiğin altındaysa özette ≥40 karakterlik `## Paralellik sapması`
+    istenir. İhlal: eksik döner ve `kapi_ret` yazılır; gölge: her kapanış ölçümü `kapi_golge` olarak yazılır, engellemez.
+    Bayraksız iş muaf. ORKESTRA_PARALELLIK_KAPANIS_KAPISI=0 kapatır (plan kapısından ayrı)."""
+    if os.environ.get("ORKESTRA_PARALELLIK_KAPANIS_KAPISI") == "0":
+        return None
+    kayit = _json_oku(os.path.join(klasor, "is.json"))
+    if kayit.get("paralel") is not True:
+        return None
+    sd = L.durum_dizini(klasor)
+    if not sd:
+        return None
+    import is_rapor as IR
+    import kapi_mod as KM
+    is_id = kayit.get("id") or ""
+    kartlar = [k for k in kayit.get("kartlar") or [] if isinstance(k, str)]
+    try:
+        p = IR.paralellik_olcumu(sd, is_id, klasor, {k: is_id for k in kartlar})
+    except Exception:
+        return None
+    if not p["planlanan"] or p["planlanan"] < PARALELLIK_PLANLANAN_MIN:
+        return None
+    ayar = _paralellik_ayar(klasor)
+    try:
+        esik = float(ayar.get("esik"))
+    except (TypeError, ValueError):
+        esik = 0.5
+    nedenler = []
+    if not kartlar:
+        nedenler.append("kartlar is.json'a yüklenmedi")
+    if p["oran"] is None:
+        nedenler.append("gerçekleşen ölçülemedi (işçi ajanı kaydı yok)")
+    elif p["oran"] < esik:
+        nedenler.append(f"oran {p['oran']:.2f} < eşik {esik:g}")
+    m = re.search(r"^##[ \t]+Paralellik sapması[ \t]*$(.*?)(?=^##[ \t]|\Z)", metin, re.M | re.S)
+    sapma_var = bool(m) and len(re.sub(r"\s+", " ", re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S)).strip()) >= PARALELLIK_SAPMA_MIN
+    g = "ölçülemedi" if p["gerceklesen"] is None else f"{p['gerceklesen']:.2f}"
+    olcum = f"planlanan {p['planlanan']:.2f}, gerçekleşen {g} (ortalama eşzamanlı iş), oran {'-' if p['oran'] is None else format(p['oran'], '.2f')}"
+    if paralellik_kapanis_modu(klasor) == "ihlal":
+        if nedenler and not sapma_var:
+            ileti = (f"calisma_ozeti: paralellik sapması açıklanmamış ({'; '.join(nedenler)}; {olcum}); özete en az "
+                     f"{PARALELLIK_SAPMA_MIN} karakterlik `## Paralellik sapması` bölümü yaz: planlanan, gerçekleşen, neden (ADR-0080)")
+            KM.ret_kaydet(klasor, PARALELLIK_KAPI, ileti)
+            return ileti
+        return None
+    neden = f"ölçüm: {olcum}; " + (f"sapma gerekir ({'; '.join(nedenler)}), bölüm {'var' if sapma_var else 'yok'}"
+                                   if nedenler else "sapma gerekmez")
+    if KM.kaydet(klasor, PARALELLIK_KAPI, neden) and nedenler and not sapma_var:
+        print(f"orkestra (gölge, {PARALELLIK_KAPI}): {neden}", file=sys.stderr)
+    return None
 
 
 def _ozet_baslik_kapisi(klasor, metin):
