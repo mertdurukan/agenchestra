@@ -48,9 +48,8 @@ class KanitIsBitti(unittest.TestCase):
         os.makedirs(os.path.join(self.sd, "kurallar"), exist_ok=True)
         with open(os.path.join(self.sd, "kurallar", "kurallar.json"), "w", encoding="utf-8") as f:
             json.dump({"kurallar": [{"id": "K-001", "durum": "etkin", "kontrol": "kanit-satiri"}]}, f)
-        if mod != "golge":
-            with open(os.path.join(self.sd, "on_kontrol.json"), "w", encoding="utf-8") as f:
-                json.dump({"kontroller": {"kanit-satiri": {"mod": mod}}}, f)
+        with open(os.path.join(self.sd, "on_kontrol.json"), "w", encoding="utf-8") as f:
+            json.dump({"kontroller": {"kanit-satiri": {"mod": mod}}}, f)
 
     def goster(self):
         r = self.cli("kart", "goster", self.gid)

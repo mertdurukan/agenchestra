@@ -39,9 +39,9 @@ class Taban(unittest.TestCase):
 class Ayar(Taban):
     def test_k1_varsayilan(self):
         a = KK.ayar_yukle()
-        for kim in ("kanit-satiri", "sayi-tutarli"):
+        for kim, mod in (("kanit-satiri", "ihlal"), ("sayi-tutarli", "golge")):  # ADR-0082
             c = a["kontroller"][kim]
-            self.assertEqual(c["mod"], "golge")
+            self.assertEqual(c["mod"], mod)
             self.assertFalse(c["her_zaman"])
             self.assertTrue(c["neden_kodlari"])
         self.assertEqual(KK.neden_kontrol("sayi-tutarsiz"), "sayi-tutarli")
@@ -65,7 +65,7 @@ class Etkin(Taban):
     def test_etkin_kural(self):
         self.kural("etkin", "kanit-satiri")
         e = KK.etkin_kontroller(self.sd)
-        self.assertEqual(e, {"kanit-satiri": {"mod": "golge", "kaynak": "kural K-001"}})
+        self.assertEqual(e, {"kanit-satiri": {"mod": "ihlal", "kaynak": "kural K-001"}})
 
     def test_etkin_degil(self):
         for d in ("oneri", "kaldirildi", "reddedildi"):
@@ -143,6 +143,14 @@ class Sayi(Taban):
     def test_kod_citi(self):
         self.assertEqual(self.calis([self.md("a.md", "Toplam kart: 12\n```\nToplam kart: 14\n```\n")]), [])
 
+    def test_haric_yollar_yonerge_belgesi(self):
+        # gölge koşusunda 3 yanlış pozitif: KURALLAR.md / agents/*.md içindeki "madde 3", "madde 5" atıfları
+        icerik = "3 madde\n5 madde\n"
+        self.assertEqual(self.calis([self.md("a.md", icerik)])[0]["degerler"], ["3", "5"])
+        os.makedirs(os.path.join(self.tmp.name, "agents"))
+        self.assertEqual(self.calis([self.md("KURALLAR.md", icerik)]), [])
+        self.assertEqual(self.calis([self.md(os.path.join("agents", "x.md"), icerik)]), [])
+
     def test_uzanti_ve_boyut(self):
         icerik = "Toplam kart: 12\nToplam kart: 14\n"
         self.assertEqual(self.calis([self.md("a.txt", icerik)]), [])
@@ -153,6 +161,8 @@ class Sayi(Taban):
 class Kapi(Taban):
     def test_golge(self):
         self.kural("etkin", "kanit-satiri")
+        self.yaz(os.path.join(self.sd, "on_kontrol.json"),
+                 json.dumps({"kontroller": {"kanit-satiri": {"mod": "golge"}}}))
         r = KK.kapi(self.sd, self.tmp.name, kart(2), "K1: yeterli kanıt var", [], [])
         self.assertFalse(r["ihlal"])
         self.assertTrue(r["mesajlar"][0].startswith("UYARI (gölge)"))
@@ -161,12 +171,24 @@ class Kapi(Taban):
 
     def test_ihlal(self):
         self.kural("etkin", "kanit-satiri")
-        self.yaz(os.path.join(self.sd, "on_kontrol.json"),
-                 json.dumps({"kontroller": {"kanit-satiri": {"mod": "ihlal"}}}))
         r = KK.kapi(self.sd, self.tmp.name, kart(2), "K1: yeterli kanıt var", [], [])
         self.assertTrue(r["ihlal"])
         self.assertIn("K2", r["mesajlar"][0])
         self.assertIn('--kanit "K2: ', r["mesajlar"][0])
+
+    def test_ihlal_sayi_tutarsiz_rapor(self):
+        # ihlal modunda tutarsız sayılı rapor kapıyı kapatır (varsayılan sayı kontrolü gölgede, ADR-0082)
+        self.kural("etkin", "sayi-tutarli")
+        self.yaz(os.path.join(self.sd, "on_kontrol.json"),
+                 json.dumps({"kontroller": {"sayi-tutarli": {"mod": "ihlal"}}}))
+        y = os.path.join(self.tmp.name, "rapor.md")
+        self.yaz(y, "Toplam kart: 12\n\nToplam kart: 14\n")
+        r = KK.kapi(self.sd, self.tmp.name, kart(1), "K1: yeterli kanıt var", [], [y])
+        self.assertTrue(r["ihlal"])
+        self.assertIn("rapor.md kart=12/14", r["mesajlar"][0])
+        self.assertFalse(r["mesajlar"][0].startswith("UYARI (gölge)"))
+        self.yaz(y, "Toplam kart: 12\n\nToplam kart: 12\n")
+        self.assertFalse(KK.kapi(self.sd, self.tmp.name, kart(1), "K1: yeterli kanıt var", [], [y])["ihlal"])
 
     def test_etkin_degil(self):
         r = KK.kapi(self.sd, self.tmp.name, kart(2), "", [], [])

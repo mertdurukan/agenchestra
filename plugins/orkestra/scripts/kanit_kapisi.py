@@ -5,6 +5,7 @@ Ayar: ayarlar/on_kontrol.json (varsayılan) + <sd>/on_kontrol.json (alan alan ez
 from __future__ import annotations
 
 import copy
+import fnmatch
 import json
 import os
 import re
@@ -136,6 +137,7 @@ def sayi_tutarlilik(yollar, proje, cfg) -> list:
     anahtar = [a.lower() for a in (cfg.get("etiket_anahtarlari") or [])]
     birim = [b.lower() for b in (cfg.get("birimler") or [])]
     yoksay = {y.lower() for y in (cfg.get("yoksay_etiketler") or [])}
+    haric = list(cfg.get("haric_yollar") or [])
     sayi = r"\d+(?:[.,]\d{3})*"
     k1 = re.compile(r"([^\W\d_][\w ]*?)\s*:\s*\**\s*(" + sayi + r")\b(?![:/.]\d)")
     k2 = (re.compile(r"(?<![\w.,])(" + sayi + r")\s+(" + "|".join(re.escape(b) for b in birim) + r")\w*", re.I)
@@ -146,6 +148,8 @@ def sayi_tutarlilik(yollar, proje, cfg) -> list:
             yol = y if os.path.isabs(y) else os.path.join(proje or "", y)
             if not uzn or not yol.lower().endswith(uzn) or not os.path.isfile(yol) or os.path.getsize(yol) > azami:
                 continue
+            if any(fnmatch.fnmatch(yol.replace("\\", "/"), h) for h in haric):
+                continue  # kural/yönerge belgeleri rapor değildir: "madde 3", "madde 5" gibi atıflar sayı çelişkisi sayılmaz
             with open(yol, encoding="utf-8", errors="replace") as f:
                 metin = f.read()
         except Exception:

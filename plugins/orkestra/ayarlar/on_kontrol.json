@@ -3,7 +3,7 @@
   "kontroller": {
     "kanit-satiri": {
       "neden_kodlari": ["kanit-yok", "kapsam-eksik"],
-      "mod": "golge",
+      "mod": "ihlal",
       "her_zaman": false,
       "satir_kalibi": "^\\s*(?:[-*•]\\s*)?\\**K{n}\\**\\s*[:.)\\-–]\\s*(?P<icerik>\\S.*)$",
       "min_icerik_karakter": 8,
@@ -20,7 +20,8 @@
       "azami_bayt": 400000,
       "etiket_anahtarlari": ["toplam", "sayısı", "adet", "count", "total"],
       "birimler": ["kart", "ret", "satır", "dosya", "test", "kayıt", "koşu", "madde"],
-      "yoksay_etiketler": []
+      "yoksay_etiketler": [],
+      "haric_yollar": ["*/KURALLAR.md", "*/GELISTIRME.md", "*/agents/*", "*/skills/*", "*/sablonlar/*", "*/kurallar/*", "*/.claude/rules/*"]
     }
   }
 }

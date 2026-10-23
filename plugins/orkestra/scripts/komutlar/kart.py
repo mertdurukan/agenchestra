@@ -17,6 +17,7 @@ import time
 
 import ork_lib as L  # noqa: E402
 import plan_modeli_doldur as PM  # noqa: E402
+import duzeltme_kapisi as DK  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
 import soru_sinif as SS  # noqa: E402
 from komutlar._ortak import BASAMAKLAR, BETIK_DIZINI, hata, oturum_id, sd_gerekli  # noqa: E402
@@ -429,6 +430,7 @@ def _is_turu(k: dict, a, ajan_id: str, ajan_tipi: str, sira: int) -> dict:
         surec = "is"
     t["surec"] = surec or None
     t["cikti_ozeti_sha"] = _cikti_ozeti_sha(k)
+    t["cikti_dosya_sha"] = DK.dosya_shalari(L.proje_dizini(), k.get("ciktilar"))  # A9 tabanı (ADR-0083)
     t["girdi_sha"] = _girdi_sha(k)
     return t
 
@@ -868,6 +870,15 @@ def cmd_kart_denetim(a):
     ajan_id, ajan_tipi = _kim(a)
     if not ajan_tipi.endswith("denetci"):
         hata(f"denetim kararını yalnız denetçi ajan yazar (sen: {ajan_tipi}).", 3)
+    duz = []
+    if getattr(a, "duzeltmeler_dosya", None):
+        if a.karar != "onay":
+            hata("--duzeltmeler-dosya yalnız onay kararında geçerli (içerik eksiği ret ile işçiye döner).", 2)
+        try:
+            with open(a.duzeltmeler_dosya, encoding="utf-8") as f:
+                duz = json.load(f)
+        except (OSError, ValueError) as e:
+            hata(f"--duzeltmeler-dosya okunamadı: {e}", 2)
     path = L.kart_yolu(sd, a.gid)
     with L.kilit(path):
         k = _kart_al(sd, a.gid)
@@ -888,6 +899,15 @@ def cmd_kart_denetim(a):
         kayit = {"zaman": L.simdi(), "sira": L.sonraki_sira(k), "karar": a.karar, "gerekce": L.maskele(a.gerekce)[:3000],
                  "talimat": L.maskele(a.talimat or "")[:3000], "agent_id": ajan_id, "ajan": ajan_tipi,
                  "basamak": k["basamak"]}
+        if a.karar == "onay":
+            son_is = (k.get("is_turlari") or [{}])[-1]
+            hatalar = DK.kapi(L.proje_dizini(), k.get("ciktilar"), son_is.get("cikti_dosya_sha"), duz)
+            if hatalar:
+                hata("A9 düzeltme kapısı onayı reddetti (karar kaydedilmedi): " + "; ".join(hatalar[:5]), 3)
+            if duz:
+                kayit["duzeltmeler"] = [{x: (L.maskele(v)[:500] if isinstance(v, str) else v) for x, v in d.items()}
+                                        for d in duz]
+                kayit["duzeltildi"] = DK.neden_kodlari(duz)
         if neden:
             kayit["neden"] = neden
             kayit["kok"] = RN.kok(neden)
@@ -1722,6 +1742,9 @@ def kaydet(alt):
     de.add_argument("--karar", required=True, choices=["onay", "ret"])
     de.add_argument("--gerekce", required=True)
     de.add_argument("--talimat")
+    de.add_argument("--duzeltmeler-dosya", dest="duzeltmeler_dosya",
+                    help="yalnız onayda: denetçinin Edit ile yaptığı mekanik düzeltmeler (JSON liste: dosya, "
+                         "tur bicim|sayi, once, sonra, kanit_komutu); A9 kapısı doğrular (ADR-0083)")
     de.add_argument("--neden", metavar="KOD",
                     help=_neden_yardim())
     de.set_defaults(f=cmd_kart_denetim)

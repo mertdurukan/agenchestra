@@ -58,6 +58,19 @@ def _retler(k: dict) -> list[dict]:
     return [d for d in (den if isinstance(den, list) else []) if isinstance(d, dict) and d.get("karar") == "ret"]
 
 
+def _neden_kayitlari(k: dict) -> list[dict]:
+    """Ret kayıtları + denetçinin mekanik düzeltmeleri (`duzeltildi:<neden>`, ADR-0083): düzeltilen hata da ret
+    nedeni sayılır, böylece kural önerisi akışı kaybolmaz."""
+    out = list(_retler(k))
+    den = k.get("denetimler")
+    for d in (den if isinstance(den, list) else []):
+        if isinstance(d, dict) and d.get("karar") == "onay":
+            for z in d.get("duzeltildi") or []:
+                if isinstance(z, str) and z.startswith("duzeltildi:"):
+                    out.append({"karar": "ret", "neden": z.split(":", 1)[1], "duzeltildi": True})
+    return out
+
+
 def _neden(d: dict) -> str:
     n = d.get("neden")
     return n if isinstance(n, str) and n in RN.NEDENLER else RN.SINIFLANMAMIS
@@ -68,7 +81,7 @@ def kural_adaylari(kartlar: list[dict], esik: int = 3) -> list[dict]:
     ornek: dict = {}
     for k in kartlar:
         sn = sinif_normal(k)
-        for d in _retler(k):
+        for d in _neden_kayitlari(k):
             a = (sn, _neden(d))
             sayim[a] = sayim.get(a, 0) + 1
             ids = ornek.setdefault(a, [])
