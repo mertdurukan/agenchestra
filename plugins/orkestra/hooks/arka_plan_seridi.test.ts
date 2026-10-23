@@ -33,33 +33,44 @@ async function cizim($: Parameters<Parameters<typeof test>[1]>[0], props: Record
 test('ön plan tur sürerken arka plan görevi olmasa da bant çizilir', async ($, on) => {
   on('classic.Stop', () => ({}))
   const metin = await cizim($, { isWorking: true })
-  expect(metin).toContain('işlem devam ediyor')
+  expect(metin).toContain('0/0 yapıldı · devam ediyor')
   expect(metin).not.toContain('arka plan')
 })
 
 test('arka plan görevi varken bant görev sayısını da yazar', async ($, on) => {
   on('classic.Stop', () => ({}))
   const metin = await cizim($, { isWorking: false }, [GOREV, { ...GOREV, id: 't2' }])
-  expect(metin).toContain('işlem devam ediyor')
+  expect(metin).toContain('devam ediyor')
   expect(metin).toContain('arka plan 2')
 })
 
-test('tur yok ve arka plan görevi yokken bant çizilmez', async ($, on) => {
+test('tur yok ve arka plan görevi yokken bant 0/0 tamamlandı yazar', async ($, on) => {
   on('classic.Stop', () => ({}))
   const metin = await cizim($, { isWorking: false })
-  expect(metin).not.toContain('işlem devam ediyor')
+  expect(metin).toContain('0/0 yapıldı · tamamlandı')
+})
+
+test('tüm görevler bitmiş ve iş yokken bant N/N tamamlandı yazar', async ($, on) => {
+  on('classic.Stop', () => ({}))
+  on('session.messages', () => ({
+    value: [kullanici('başla'), asistan({ tool: PLAN, input: items('completed', 'completed') })],
+  }) as never)
+  const metin = await cizim($, { isWorking: false })
+  expect(metin).toContain('2/2 yapıldı · tamamlandı')
 })
 
 test('anket açıkken bant çizilmez', async ($, on) => {
   on('classic.Stop', () => ({}))
   const metin = await cizim($, { isWorking: true, hasSurvey: true })
-  expect(metin).not.toContain('işlem devam ediyor')
+  expect(metin).not.toContain('yapıldı')
 })
 
-test('bant metni: sayaç yoksa yalnız işlem devam ediyor; varsa N/M ve arka plan', () => {
-  expect(bantMetni([], 0)).toBe('işlem devam ediyor')
-  expect(bantMetni(liste('completed', 'in_progress', 'pending'), 0)).toBe('1/3 yapıldı · işlem devam ediyor')
-  expect(bantMetni(liste('completed'), 2)).toBe('1/1 yapıldı · işlem devam ediyor · arka plan 2')
+test('bant metni: sayaç her zaman yazılır; durum devam ediyor ya da tamamlandı', () => {
+  expect(bantMetni([], 0, true)).toBe('0/0 yapıldı · devam ediyor')
+  expect(bantMetni([], 0, false)).toBe('0/0 yapıldı · tamamlandı')
+  expect(bantMetni(liste('completed', 'in_progress', 'pending'), 0, true)).toBe('1/3 yapıldı · devam ediyor')
+  expect(bantMetni(liste('completed', 'completed'), 0, false)).toBe('2/2 yapıldı · tamamlandı')
+  expect(bantMetni(liste('completed'), 2, false)).toBe('1/1 yapıldı · devam ediyor · arka plan 2')
 })
 
 test('planUygula: items listeyi baştan kurar', () => {
@@ -123,7 +134,7 @@ test('olay yolu: update_plan tool.call olayı gelince bant N/M değerini çizer'
   on('classic.Stop', () => ({}))
   await $.tool.call({ tool: PLAN, input: items('completed', 'in_progress', 'pending') } as never).catch(() => undefined)
   const metin = await cizim($, { isWorking: true })
-  expect(metin).toContain('1/3 yapıldı · işlem devam ediyor')
+  expect(metin).toContain('1/3 yapıldı · devam ediyor')
 })
 
 test('olaysız yol: yalnız oturum kaydındaki update_plan çağrısından N/M çıkar', async ($, on) => {
@@ -135,5 +146,5 @@ test('olaysız yol: yalnız oturum kaydındaki update_plan çağrısından N/M �
     ],
   }) as never)
   const metin = await cizim($, { isWorking: true })
-  expect(metin).toContain('2/4 yapıldı · işlem devam ediyor')
+  expect(metin).toContain('2/4 yapıldı · devam ediyor')
 })
