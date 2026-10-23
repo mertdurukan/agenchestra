@@ -16,7 +16,7 @@ import test_panel_pencere_birim as TPB
 
 YOL = "/api/guncelleme"
 YENI = {"durum": "yeni", "ertelendi": False,
-        "kontrol": {"kurulu": "838540496656", "yeni": "7a6e89c", "fark": 36, "klon_kirli": False, "neden": None, "zaman": 1.0,
+        "kontrol": {"kurulu": "838540496656", "yeni": "7a6e89c", "fark": 36, "yenilik_say": 36, "klon_kirli": False, "neden": None, "zaman": 1.0,
                     "degisiklikler": [{"sha": "7a6e89c", "konu": "Panel: güncelleme kartı"}, {"sha": "1234567", "konu": "Başka değişiklik"}]},
         "kosu": None}
 CALISIYOR = {"durum": "calisiyor", "ertelendi": False, "kontrol": YENI["kontrol"],
@@ -62,14 +62,15 @@ class KartCizimTest(unittest.TestCase):
         k = kart(html(YENI))
         self.assertIn('data-guncelleme="yeni"', k)
         self.assertIn("Orkestra güncellemesi var", k)
-        self.assertIn("36 yeni değişiklik", k)
-        self.assertIn("<code>8385404</code> → <code>7a6e89c</code>", k.replace("838540496656", "8385404"))
+        self.assertIn("36 yeni özellik", k)
+        self.assertNotIn("→", k)
+        self.assertNotIn("<code>", k)
         self.assertIn("Neler değişti", k)
         self.assertIn("Panel: güncelleme kartı", k)
-        self.assertIn("ve 34 değişiklik daha", k)
+        self.assertIn("ve 34 özellik daha", k)
         self.assertIn('data-eylem="guncelle"', k)
         self.assertIn('data-eylem="guncelle-ertele"', k)
-        self.assertIn("Güncelleme yeni oturumda yüklenir", k)
+        self.assertNotIn("yeni oturumda", k)
 
     def test_kart_karar_ver_grubunda_ilk_siradadir(self):
         h = html(YENI, onay=True)
@@ -129,11 +130,11 @@ class KartCizimTest(unittest.TestCase):
         self.assertNotIn("<script>", h)
         self.assertIn("&lt;script&gt;", h)
 
-    def test_fark_bilinmiyorsa_sayisiz_metin(self):
+    def test_yenilik_sayisi_yoksa_liste_uzunlugu_yazilir(self):
         g = copy.deepcopy(YENI)
-        g["kontrol"]["fark"] = None
+        g["kontrol"]["yenilik_say"] = None
         k = kart(html(g))
-        self.assertIn("Yeni değişiklikler var", k)
+        self.assertIn("2 yeni özellik", k)
         self.assertNotIn("daha</li>", k)
 
     def test_tum_calisma_alanlari_kipinde_de_gorunur(self):

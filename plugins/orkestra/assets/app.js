@@ -391,14 +391,13 @@
           <div class="meta">Aynı işlem terminalde: <code>orkestra update</code></div></div>
         <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="guncelle">Tekrar dene</button></div></article>`;
     }
-    const liste = c.degisiklikler || [], fazla = c.fark != null ? c.fark - liste.length : 0;
+    const liste = c.degisiklikler || [], sayi = c.yenilik_say ?? liste.length, fazla = sayi - liste.length;
     return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="yeni" style="--renk:var(--vurgu)">
         <div class="simge">${simge('guncelle')}</div>
         <div class="govde"><div class="baslik">Orkestra güncellemesi var</div>
-          <div class="metin">${c.fark ? B.sayi(c.fark) + ' yeni değişiklik' : 'Yeni değişiklikler var'}${c.kurulu && c.yeni ? H`: <code>${kisaSha(c.kurulu)}</code> → <code>${kisaSha(c.yeni)}</code>` : ''}</div>
+          <div class="metin">${B.sayi(sayi)} yeni özellik</div>
           ${c.klon_kirli ? H`<div class="meta uyari-satir" role="note">${simge('uyari')}<span>Yayın klonunda commitlenmemiş değişiklik var; güncelleme reddedilebilir.</span></div>` : ''}
-          ${liste.length ? H`<details class="degisiklik"><summary>Neler değişti</summary><ul>${liste.map(x => H`<li><code>${x.sha}</code> ${x.konu}</li>`)}${fazla > 0 ? H`<li class="soluk">ve ${B.sayi(fazla)} değişiklik daha</li>` : ''}</ul></details>` : ''}
-          <div class="meta">Güncelleme yeni oturumda yüklenir.</div></div>
+          ${liste.length ? H`<details class="degisiklik"><summary>Neler değişti</summary><ul>${liste.map(x => H`<li>${x.konu}</li>`)}${fazla > 0 ? H`<li class="soluk">ve ${B.sayi(fazla)} özellik daha</li>` : ''}</ul></details>` : ''}</div>
         <div class="eylemler"><button class="dugme kucuk" data-eylem="guncelle-ertele" title="Yeni bir sürüm çıkana kadar hatırlatma">Sonra</button> <button class="dugme ana-d kucuk" data-eylem="guncelle">Güncelle</button></div></article>`;
   }
 

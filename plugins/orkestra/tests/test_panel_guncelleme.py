@@ -19,7 +19,7 @@ import guncelle as G  # noqa: E402
 import panel  # noqa: E402
 import panel_guncelleme as PG  # noqa: E402
 
-YENI = {"durum": "yeni", "kurulu": "aaaaaaaaaaaa", "yeni": "bbbbbbb", "fark": 3, "klon_kirli": False, "klon": "x",
+YENI = {"durum": "yeni", "kurulu": "aaaaaaaaaaaa", "yeni": "bbbbbbb", "fark": 3, "yenilik_say": 1, "klon_kirli": False, "klon": "x",
         "degisiklikler": [{"sha": "bbbbbbb", "konu": "bir"}], "neden": None}
 GUNCEL = {"durum": "guncel", "kurulu": "bbbbbbbbbbbb", "yeni": "bbbbbbb", "fark": 0, "klon_kirli": False, "klon": "x",
           "degisiklikler": [], "neden": None}
@@ -74,6 +74,12 @@ class DurumTest(Ortak):
         self.assertEqual(d["kontrol"]["yeni"], "bbbbbbb")
         self.assertEqual(d["kontrol"]["fark"], 3)
         self.assertEqual(d["kontrol"]["degisiklikler"][0]["konu"], "bir")
+
+    def test_yenilik_yoksa_kart_cikmaz(self):
+        self.sonuclar = [dict(YENI, yenilik_say=0, degisiklikler=[])]
+        g = self.yap()
+        g.yokla()
+        self.assertEqual(g.durum()["durum"], "yok")
 
     def test_guncelse_yok(self):
         self.sonuclar = [GUNCEL]

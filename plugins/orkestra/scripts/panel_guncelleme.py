@@ -115,12 +115,12 @@ class Guncelleme:
             durum = "hata"
         elif k["durum"] == "bitti" and k["bitis"] is not None and self._saat() - k["bitis"] <= BITTI_GOSTER:
             durum = "bitti"
-        elif son and son.get("durum") == "yeni":
-            durum = "yeni"
+        elif son and son.get("durum") == "yeni" and (son.get("yenilik_say") or 0) > 0:
+            durum = "yeni"   # yeni özellik (Yenilik: commit'i) yoksa kart hiç çıkmaz
         ertelendi = bool(durum == "yeni" and son and self._ertelenen_sha() == son.get("yeni"))
         kontrol = None
         if son:
-            kontrol = {a: son.get(a) for a in ("kurulu", "yeni", "fark", "degisiklikler", "klon_kirli", "neden")}
+            kontrol = {a: son.get(a) for a in ("kurulu", "yeni", "fark", "yenilik_say", "degisiklikler", "klon_kirli", "neden")}
             kontrol["zaman"] = zaman
         return {"durum": durum, "ertelendi": ertelendi, "kontrol": kontrol,
                 "kosu": k if k["durum"] != "bosta" else None}

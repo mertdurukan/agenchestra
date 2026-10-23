@@ -36,13 +36,30 @@ class KontrolTest(TG.Ortam):
         self.origine_commit()
         TG.yaz(os.path.join(self.origin, "b.txt"), "x")
         TG.git(self.origin, "add", ".")
-        TG.git(self.origin, "commit", "-q", "-m", "ikinci yeni")
+        TG.git(self.origin, "commit", "-q", "-m", "Yenilik: ikinci yeni")
         s = G.kontrol(ev=self.ev)
         self.assertEqual(s["durum"], "yeni")
         self.assertEqual(s["fark"], 2)
         self.assertEqual(s["yeni"], TG.git(self.origin, "rev-parse", "HEAD")[:7])
-        self.assertEqual([d["konu"] for d in s["degisiklikler"]], ["ikinci yeni", "yeni"])
+        self.assertEqual([d["konu"] for d in s["degisiklikler"]], ["ikinci yeni"])
         self.assertTrue(all(d["sha"] for d in s["degisiklikler"]))
+
+    def test_yalniz_yenilik_commitleri_listelenir(self):
+        self.kurulu_sha(self.klon_basi())
+        for i, konu in enumerate(["Otomatik commit: x", "Yenilik: kart yalnız özellikte çıkar", "düzeltme"]):
+            TG.yaz(os.path.join(self.origin, f"y{i}.txt"), str(i))
+            TG.git(self.origin, "add", ".")
+            TG.git(self.origin, "commit", "-q", "-m", konu)
+        s = G.kontrol(ev=self.ev)
+        self.assertEqual(s["fark"], 3)
+        self.assertEqual(s["yenilik_say"], 1)
+        self.assertEqual([d["konu"] for d in s["degisiklikler"]], ["kart yalnız özellikte çıkar"])
+
+    def test_yenilik_yoksa_sayi_sifir_liste_bos(self):
+        self.kurulu_sha(self.klon_basi())
+        self.origine_commit()
+        s = G.kontrol(ev=self.ev)
+        self.assertEqual((s["durum"], s["yenilik_say"], s["degisiklikler"]), ("yeni", 0, []))
 
     def test_kurulu_sha_klonda_bilinmiyorsa_fark_bos_liste_dolu(self):
         self.surum = "aaaa"
@@ -50,7 +67,7 @@ class KontrolTest(TG.Ortam):
         s = G.kontrol(ev=self.ev)
         self.assertEqual(s["durum"], "yeni")
         self.assertIsNone(s["fark"])
-        self.assertEqual(len(s["degisiklikler"]), 1)
+        self.assertEqual((s["yenilik_say"], s["degisiklikler"]), (0, []))   # etiketsiz commit özellik sayılmaz
 
     def test_getir_false_aga_cikmaz(self):
         self.kurulu_sha(self.klon_basi())
@@ -63,9 +80,9 @@ class KontrolTest(TG.Ortam):
         for i in range(G.DEGISIKLIK_SINIRI + 5):
             TG.yaz(os.path.join(self.origin, f"d{i}.txt"), str(i))
             TG.git(self.origin, "add", ".")
-            TG.git(self.origin, "commit", "-q", "-m", f"c{i}")
+            TG.git(self.origin, "commit", "-q", "-m", f"Yenilik: c{i}")
         s = G.kontrol(ev=self.ev)
-        self.assertEqual(s["fark"], G.DEGISIKLIK_SINIRI + 5)
+        self.assertEqual((s["fark"], s["yenilik_say"]), (G.DEGISIKLIK_SINIRI + 5,) * 2)
         self.assertEqual(len(s["degisiklikler"]), G.DEGISIKLIK_SINIRI)
 
     def test_kirli_klon_isaretlenir_ama_hata_degil(self):

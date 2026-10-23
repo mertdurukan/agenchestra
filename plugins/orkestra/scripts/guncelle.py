@@ -126,6 +126,7 @@ def klon_ilerlet(klon: str, kuru: bool, yaz) -> tuple[str, str]:
 
 UZAK_DAL = "origin/main"
 DEGISIKLIK_SINIRI = 20
+YENILIK_ONEKI = "Yenilik:"   # yalnız bu önekli commit yeni özellik sayılır; güncelleme kartı yalnız onlar için çıkar
 FETCH_ZAMAN_ASIMI = 20
 
 
@@ -138,9 +139,10 @@ def kontrol(ev: str | None = None, getir: bool = True) -> dict:
 
     Sürüm commit SHA'sıdır (GELISTIRME.md). Yayın klonu geride kalsa bile `origin/main` ilerlediyse "yeni" döner.
     `getir=False` ağa çıkmaz, klonda zaten bilinen `origin/main`'e bakar.
-    Dönüş: {durum: guncel|yeni|hata, kurulu, yeni, fark, degisiklikler:[{sha, konu}], klon_kirli, klon, neden}.
+    Dönüş: {durum: guncel|yeni|hata, kurulu, yeni, fark, yenilik_say, degisiklikler:[{sha, konu}], klon_kirli, klon, neden}.
+    `degisiklikler` yalnız konusu `YENILIK_ONEKI` ile başlayan commit'leri taşır; `yenilik_say` onların toplamıdır.
     """
-    sonuc = {"durum": "hata", "kurulu": None, "yeni": None, "fark": None, "degisiklikler": [],
+    sonuc = {"durum": "hata", "kurulu": None, "yeni": None, "fark": None, "yenilik_say": 0, "degisiklikler": [],
              "klon_kirli": False, "klon": None, "neden": None}
     try:
         if not shutil.which("git"):
@@ -176,10 +178,17 @@ def kontrol(ev: str | None = None, getir: bool = True) -> dict:
         aralik = f"{taban}..{UZAK_DAL}" if taban and kos(["git", "-C", klon, "cat-file", "-e", f"{taban}^{{commit}}"])[0] == 0 else None
         if aralik:
             sonuc["fark"] = int(_git_cikti(klon, "rev-list", "--count", aralik))
-        log = _git_cikti(klon, "log", f"-n{DEGISIKLIK_SINIRI}", "--format=%h%x09%s", aralik or UZAK_DAL)
+        if aralik:
+            log = _git_cikti(klon, "log", f"--grep=^{YENILIK_ONEKI}", "--format=%h%x09%s", aralik)
+        else:
+            log = _git_cikti(klon, "log", f"-n{DEGISIKLIK_SINIRI}", "--format=%h%x09%s", UZAK_DAL)
+        yenilikler = []
         for satir in log.splitlines():
             sha, _, konu = satir.partition("\t")
-            sonuc["degisiklikler"].append({"sha": sha, "konu": konu})
+            if konu.startswith(YENILIK_ONEKI):
+                yenilikler.append({"sha": sha, "konu": konu[len(YENILIK_ONEKI):].strip()})
+        sonuc["yenilik_say"] = len(yenilikler)
+        sonuc["degisiklikler"] = yenilikler[:DEGISIKLIK_SINIRI]
         return sonuc
     except GuncelleHata as e:
         sonuc["durum"] = "hata"
