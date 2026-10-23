@@ -52,4 +52,10 @@ Plan sonunda `## Best in class denetimi` bloğu bulunur: dört satır `**Kök ne
 
 `uretim_noktasi` kapısı (`ayarlar/uretim_noktasi.json`) ilk günden `ihlal` modundadır (ADR-0069, kullanıcı kararı); her ret `kapi_ret` olarak yazılır. Kapatma: `ORKESTRA_URETIM_KAPISI=0`.
 
+Üretim anı enjeksiyonu (ADR-0068): yukarıdaki `## Üretim anı` bölümü `scripts/yontem_enjeksiyonu.py` ile iş mesajlarında ana ajana, kartlı işçilerde SubagentStart'ta bağlama eklenir; kapatma `ORKESTRA_YONTEM_ENJEKSIYONU=0`.
+
 Gölge kapı `best_in_class` (`ayarlar/best_in_class.json`): eksik uyarılır ve `kapi_golge` olarak yazılır, iş engellenmez. `ihlal` geçişi `orkestra is rapor` kapı sayıları ölçüldükten sonra ayrı kararla yapılır (P-028).
+
+## Üretim anı
+
+Bu işe başlarken best in class: (1) İsteği kendi cümlenle yeniden yaz, mevcut analize çıpalanma. (2) Sorunun doğduğu yeri bul ve orada önle; belirtiyi yamama (K-006). (3) En az iki uygulanabilir yaklaşım çıkar, mevcut skill/standart/hook/kuralı da rakip say, seçimi gerekçele. (4) Kapsam daraltırken çözümün yapısal öğesini (koruma, bağımsız denetim) çıkarma. (5) Ölçüm varsa eşik, örnek büyüklüğü ve nedenini yaz; varlık kontrolü davranış ölçümü değildir.

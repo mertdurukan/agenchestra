@@ -815,9 +815,16 @@ def subagent_start(inp: dict):
                              capture_output=True, text=True, encoding="utf-8", timeout=8, cwd=L.proje_dizini(inp.get("cwd")), **cfg.PENCERESIZ).stdout
     except Exception:
         out = ""
-    if out.strip():
-        L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SubagentStart",
-                                             "additionalContext": "Orkestra bağlamı (yalnız ihtiyacın olan kayıtlar):\n" + out[:1900]}})
+    try:  # ADR-0068: best in class yöntemi işçi görevin başında bağlamda olur (denetçi hariç); hata hook'u düşürmez
+        import yontem_enjeksiyonu
+        yontem = yontem_enjeksiyonu.isci_metni(inp.get("agent_type"), sd, inp.get("session_id"))
+    except Exception:
+        yontem = ""
+    if out.strip() or yontem:
+        ek = (yontem + "\n") if yontem else ""
+        if out.strip():
+            ek += "Orkestra bağlamı (yalnız ihtiyacın olan kayıtlar):\n" + out[:1900 - len(ek)]
+        L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": ek}})
     gec()
 
 
@@ -2313,6 +2320,11 @@ def user_prompt_submit(inp: dict):
                 ip = kimlik_hatirlatma.mesaj_ipucu(metin, sd)
                 if ip:
                     parcalar.append(ip)
+            except Exception:
+                pass
+            try:  # ADR-0068: iş mesajında best in class yöntemi (tek kaynak: standart); hata hook'u düşürmez
+                import yontem_enjeksiyonu
+                parcalar.append(yontem_enjeksiyonu.ana_ajan_metni(metin, sd, inp.get("session_id")))
             except Exception:
                 pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez

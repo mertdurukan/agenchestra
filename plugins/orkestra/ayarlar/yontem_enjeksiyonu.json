@@ -1,0 +1,7 @@
+{
+  "mod": "etkin",
+  "aciklama": "ADR-0068: best in class yöntemi (standartlar/best_in_class.md '## Üretim anı' bölümü) iş mesajlarında ana ajana, kartlı işçilerde SubagentStart'ta bağlama eklenir. Model çağırmaz, engellemez. mod: etkin | kapali. kontrol_payi: oturum kimliği özetiyle yöntemsiz kalan oturum oranı (etki ölçümü için eşzamanlı kontrol kolu); 0 kolu kapatır. Her kolda 30 bağımsız plana ulaşınca `orkestra is rapor` 'karar zamanı' der. Kapatma: ORKESTRA_YONTEM_ENJEKSIYONU=0. Proje ezmesi: .claude/orkestra/yontem_enjeksiyonu.json.",
+  "kontrol_payi": 0.5,
+  "baslik": "Üretim anı",
+  "onek": "ORKESTRA YÖNTEM (best in class, ADR-0068): "
+}

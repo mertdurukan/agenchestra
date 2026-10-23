@@ -382,10 +382,47 @@ def bic_engeli(klasor: str) -> list[str]:
     return bic_eksikleri(klasor) if KM.mod("best_in_class", klasor) == "ihlal" else []
 
 
+def _bic_olaylari(klasor: str) -> None:
+    """ADR-0068 ölçümü: planın ilk görülüşü (`bic_ilk`) ve ayrı denetçinin ilk dolu bloğu (`bic_denetim_ilk`) iş başına
+    bir kez `gunluk.jsonl`'a düşer; kol, planı yazan ilk oturumun kimliğinden türer. Hata kapıyı bozmaz."""
+    try:
+        import ork_lib as L
+        import yontem_enjeksiyonu as Y
+        sd = L.durum_dizini(klasor)
+        metin = _oku(os.path.join(klasor, "plan.md"))
+        if not sd or metin is None or not _p_bloklari(metin):
+            return
+        yol = os.path.join(sd, "gunluk.jsonl")
+        ad = os.path.basename(os.path.normpath(klasor))
+        try:
+            with open(yol, encoding="utf-8") as f:
+                var = {t for satir in f if ad in satir for t in ("bic_ilk", "bic_denetim_ilk") if f'"{t}"' in satir}
+        except OSError:
+            var = set()
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            oturumlar = json.load(f).get("oturumlar") or []
+        oturum = oturumlar[0].get("oturum") if oturumlar else None
+        taban = {"zaman": L.simdi(), "oturum": oturum, "is": ad, "kol": Y.kol(oturum, sd)}
+        if "bic_ilk" not in var:
+            L.jsonl_ekle(yol, {**taban, "tur": "bic_ilk"})
+        m = BIC_DENETIM_BASLIK.search(_YORUM.sub("", metin))
+        if "bic_denetim_ilk" in var or m is None:
+            return
+        kararlar = {q: (re.search(r"\*\*" + re.escape(q) + r":\*\*\s*([✔✘])", m.group(1)) or [None, None])[1] for q in BIC_SORULAR}
+        d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", m.group(1))
+        kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
+        if all(kararlar.values()) and kimlik and denetci_kayitli_mi(klasor, kimlik.group(1)):
+            L.jsonl_ekle(yol, {**taban, "tur": "bic_denetim_ilk", "kararlar": kararlar,
+                               "hepsi_ok": all(v == "✔" for v in kararlar.values())})
+    except Exception:
+        pass
+
+
 def bic_uyari(klasor: str) -> list[str]:
     """Sesli kapı (todo yazımı, `is sira`): gölge modunda uyarır ve `kapi_golge` kaydı düşer, ihlal modunda eksikleri döndürür."""
     if not bic_kapsaminda_mi(klasor):
         return []
+    _bic_olaylari(klasor)
     import kapi_mod as KM
     return KM.ihlal_ver(klasor, "best_in_class", bic_eksikleri(klasor))
 
