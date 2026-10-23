@@ -2459,6 +2459,9 @@ def post_tool_use(inp: dict):
     arac = inp.get("tool_name")
     g = inp.get("tool_input") or {}
     _son_arac_yaz(sd, inp.get("agent_id"))  # sessizlik saati: her araç çağrısı ajanın son-araç zamanını tazeler
+    if arac == "AskUserQuestion":  # ADR-0078: seçim ekranı yanıtı P-016 onay kanalıdır; kendi dalında çıkar
+        _ekran_onayi(sd, inp)
+        gec()
     if arac == OTURUM_BASLAT:
         L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                              "additionalContext": detach_hatirlatmasi(inp.get("tool_response"))}})
