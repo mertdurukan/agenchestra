@@ -988,6 +988,15 @@ _BILDIRIM_BITTI = re.compile(r"<status>\s*(?:completed|failed|killed|stopped)\s*
 ACIK_GOREV_AZAMI = 50
 
 
+def _sonuc_metni(icerik) -> str:
+    """tool_result içeriği (metin ya da blok listesi) düz metin."""
+    if isinstance(icerik, str):
+        return icerik
+    if isinstance(icerik, list):
+        return " ".join(str(x.get("text") or "") for x in icerik if isinstance(x, dict))
+    return ""
+
+
 def _acik_arka_plan(yol, ofset, bitis, onceki) -> list:
     """Transkriptin [ofset, bitis) aralığındaki arka plan görevlerini önceki açık listeye işler; bildirimi gelmemiş araç kimlikleri döner."""
     acik = [str(x) for x in onceki] if isinstance(onceki, list) else []
