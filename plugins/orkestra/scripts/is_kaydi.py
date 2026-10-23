@@ -340,6 +340,8 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
             kayit["harita"] = True  # ADR-0005: plan maddesi mevcut varlığı sistem haritasından gösterir
         if SIRA.uretim_kapisi_acik():
             kayit["uretim"] = True  # ADR-0069: plan maddesi sorunun doğduğu yeri ve orada önlemeyi `**Üretim noktası:**` ile yazar
+        if SIRA.paralellik_kapisi_acik():
+            kayit["paralel"] = True  # ADR-0080: plan maddesi `**Önce:**` gerekçeli bağımlılık ve `**Yazma alanı:**` taşır
         if ONAY_KAPISI_ACIK():
             kayit["onay"] = "bekliyor"  # P-016: kullanıcı onaylamadan uygulama yok
         if dogrulama is None:
