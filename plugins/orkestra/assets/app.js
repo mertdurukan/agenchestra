@@ -188,7 +188,11 @@
   async function gonder(yol, govde, alan) {
     const r = await fetch(urlAl(yol, alan), { method: 'POST', headers: { 'X-Orkestra': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(govde || {}) });
     const v = await r.json().catch(() => null);
-    if (!r.ok || !v || v.tamam === false) throw new Error((v && v.hata) || 'HTTP ' + r.status);
+    if (!r.ok || !v || v.tamam === false) {
+      const e = new Error((v && v.hata) || 'HTTP ' + r.status);
+      e.veri = v;   // sunucu yanıt gövdesi (ör. is-kapat 422 `kapi`): istemci hata metnini ayrıştırmaz
+      throw e;
+    }
     return v;
   }
 
