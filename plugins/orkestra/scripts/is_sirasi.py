@@ -252,6 +252,10 @@ def _alternatif_satirlari(blok: str) -> list[str]:
 
 BIC_DENETIM_BASLIK = re.compile(r"^##[ \t]+Best in class denetimi[ \t]*$(.*?)(?=^##[ \t]|\Z)", re.M | re.S)
 BIC_SORULAR = ("Kök neden", "Alternatifler", "Kapsam özü", "Ölçüm")
+# P-032: beşinci soru yalnız plan `**LLM çıktısı:** kullanıcıya gider` beyanı taşıyorsa zorunludur (geriye dönük uyarı yok).
+BIC_KOSULLU_SORU = "Yanıt kısıtı"
+_LLM_BEYAN = re.compile(r"\*\*LLM çıktısı:\*\*[ \t]*(.*)")
+_LLM_GEREKCE_ASGARI = (3, 15)  # en az sözcük, en az karakter
 
 
 def denetci_kayitli_mi(klasor: str, ajan_kimligi: str) -> bool:
@@ -275,6 +279,51 @@ def denetci_kayitli_mi(klasor: str, ajan_kimligi: str) -> bool:
     except OSError:
         return False
     return False
+
+
+def _kok_adaylari(klasor: str) -> list[str]:
+    """Doğrulama yolunun çözüleceği kökler: `.claude` taşıyan proje kökü (varsa) ve iş klasörü."""
+    kokler = []
+    d = os.path.abspath(klasor)
+    while True:
+        if os.path.isdir(os.path.join(d, ".claude")):
+            kokler.append(d)
+            break
+        ust = os.path.dirname(d)
+        if ust == d:
+            break
+        d = ust
+    kokler.append(os.path.abspath(klasor))
+    return kokler
+
+
+def llm_beyan_eksikleri(klasor: str, metin: str) -> tuple[list[str], bool]:
+    """P-032: plandaki `**LLM çıktısı:**` beyanını denetler. Dönüş: (eksikler, kullanıcıya_gider).
+
+    `yok — <neden>` (gerekçe asgari uzunlukta) ya da `kullanıcıya gider — Doğrulama: <yol>[::<test adı>]`;
+    yol proje kökünde ya da iş klasöründe dosya olarak bulunur, test adı dosyada geçer."""
+    m = _LLM_BEYAN.search(_YORUM.sub("", metin))
+    if m is None:
+        return ["plan.md: `**LLM çıktısı:**` beyanı yok: `yok — <neden>` ya da `kullanıcıya gider — Doğrulama: <yol>` (P-032)"], False
+    v = m.group(1).strip().strip("`").strip()
+    dusuk = v.lower()
+    if dusuk.startswith("yok"):
+        gerekce = re.sub(r"^[\s—–:\-]+", "", v[3:]).strip()
+        if len(gerekce.split()) < _LLM_GEREKCE_ASGARI[0] or len(gerekce) < _LLM_GEREKCE_ASGARI[1]:
+            return [f"plan.md: `**LLM çıktısı:** yok` gerekçesi en az {_LLM_GEREKCE_ASGARI[0]} sözcük ve {_LLM_GEREKCE_ASGARI[1]} karakter olmalı (P-032)"], False
+        return [], False
+    if dusuk.startswith("kullanıcıya gider"):
+        d = re.search(r"Doğrulama:\s*(\S+)", v)
+        if d is None:
+            return ["plan.md: `**LLM çıktısı:** kullanıcıya gider` doğrulama yolu vermiyor: `Doğrulama: <kod veya test yolu>` (P-032)"], True
+        yol, _, test = d.group(1).strip("`.,;").partition("::")
+        dosya = next((a for a in ([yol] if os.path.isabs(yol) else [os.path.join(k, yol) for k in _kok_adaylari(klasor)]) if os.path.isfile(a)), None)
+        if dosya is None:
+            return [f"plan.md: doğrulama yolu dosya olarak bulunamadı: `{yol}` (P-032)"], True
+        if test and test not in (_oku(dosya) or ""):
+            return [f"plan.md: doğrulama dosyasında `{test}` geçmiyor: `{yol}` (P-032)"], True
+        return [], True
+    return ["plan.md: `**LLM çıktısı:**` biçimi `yok — <neden>` ya da `kullanıcıya gider — Doğrulama: <yol>` olmalı (P-032)"], False
 
 
 def bic_eksikleri(klasor: str) -> list[str]:
@@ -304,6 +353,10 @@ def bic_eksikleri(klasor: str) -> list[str]:
             eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (`orkestra:denetci <agent_id>`; P-030)")
         elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
             eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; P-030)")
+    llm_eksik, gider = llm_beyan_eksikleri(klasor, metin)
+    eksik += llm_eksik
+    if gider and m is not None and not re.search(r"\*\*" + BIC_KOSULLU_SORU + r":\*\*\s*[✔✘]", m.group(1)):
+        eksik.append(f"best in class denetimi: `**{BIC_KOSULLU_SORU}:**` satırı `✔`/`✘` ile başlamıyor (LLM çıktısı kullanıcıya gidiyor; P-032)")
     return eksik
 
 
