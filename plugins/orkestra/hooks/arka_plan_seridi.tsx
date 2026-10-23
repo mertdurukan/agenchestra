@@ -93,10 +93,31 @@ export function bantMetni(liste: Gorev[], arka: number): string {
   return `${sayac}işlem devam ediyor${arkaMetin}`
 }
 
+// Modül düzeyi durum: liste kayıttan ya da olaydan gelir, sonYenileme kayıt okumasını 2 sn'de bire düşürür.
+const ic = { liste: [] as Gorev[], sonYenileme: 0 }
+
+async function yenile($: EngineInterface) {
+  ic.sonYenileme = Date.now()
+
+  try {
+    ic.liste = listeyiKayittanCikar(await $.session.messages())
+  } catch {
+    // Kayıt okunamazsa mevcut liste kalır; bant en kötü "işlem devam ediyor" yazar.
+  }
+}
+
+async function cagriOlayi($: EngineInterface, e: { tool: string; input?: Record<string, unknown>; agentId?: string }) {
+  if (e.agentId !== undefined) {
+    return
+  }
+
+  ic.liste = planUygula(ic.liste, { tool: e.tool, input: e.input ?? {} })
+  ic.sonYenileme = Date.now()
+  await update($, surum, n => n + 1)
+}
+
 export const register: Register = on => {
   let sira = 0
-  let liste: Gorev[] = []
-  let sonYenileme = 0
 
   const gecici = (tur: string, metin: string): ArkaPlanGorevi => {
     sira += 1
