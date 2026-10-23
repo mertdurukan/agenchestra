@@ -2,7 +2,29 @@
 
 ## Özet
 
-<!-- doldur (ilk bakışta okunur, 3-4 cümle): ne değişti, ana sayı, karar bekleyen tek konu. -->
+<!-- doldur: bu bölüm yorumsuz, şu biçimde ve en kısa, en anlaşılır dille yazılır (yer tutucu yorum sayılmaz):
+
+***Şef Özeti***
+
+**Amaç neydi?**
+
+(tek cümle)
+
+**Ne yapıldı?**
+
+(en çok 3 madde, her biri ayrı satırda)
+
+**Amaca tamamen ulaşıldı mı?**
+
+Tamamen yapılanlar:
+
+- (madde)
+
+Açık kalanlar:
+
+- (madde; yoksa "Yok")
+
+Ana sayı ve karar bekleyen tek konu varsa Açık kalanlar altında tek satırla yazılır. -->
 
 **Amaç:**
 
