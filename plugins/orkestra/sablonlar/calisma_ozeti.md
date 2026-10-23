@@ -1,5 +1,7 @@
 # {baslik}: çalışma özeti ({tarih})
 
+<!-- başlık: Jira kodu varsa "KOD Jira başlığı" (Jira'dan çekilen başlık); Jira'dan çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık. Yalnız kod ("PE-635") ya da genel ifade yazma; yukarıdaki {baslik} yerini bu başlıkla değiştir. -->
+
 ## Özet
 
 ***Şef Özeti***

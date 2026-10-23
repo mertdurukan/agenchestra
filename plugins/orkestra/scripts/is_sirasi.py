@@ -111,7 +111,8 @@ def mevcut_varlik_eksikleri(klasor: str, metin: str | None = None, bos_say: bool
         m = _MEVCUT_VARLIK.search(blok)
         deger = (m.group(1) if m else "").strip()
         if not deger:
-            eksik.append(f"P{n}: `**Mevcut varlık:**` alanı yok ya da boş (`orkestra harita oku` kayıt kimliği ya da `yok — <aranan>`)")
+            if bos_say:
+                eksik.append(f"P{n}: `**Mevcut varlık:**` alanı yok ya da boş (`orkestra harita oku` kayıt kimliği ya da `yok — <aranan>`)")
         elif re.match(r"^yok\b", deger, re.I):
             gerekce = re.sub(r"^yok\s*[—:\-]*\s*", "", deger, flags=re.I)
             if len(gerekce) < VARLIK_GEREKCE_MIN:
@@ -265,6 +266,10 @@ def _alternatif_satirlari(blok: str) -> list[str]:
 
 BIC_DENETIM_BASLIK = re.compile(r"^##[ \t]+Best in class denetimi[ \t]*$(.*?)(?=^##[ \t]|\Z)", re.M | re.S)
 BIC_SORULAR = ("Kök neden", "Alternatifler", "Kapsam özü", "Ölçüm")
+# P-032: beşinci soru yalnız plan `**LLM çıktısı:** kullanıcıya gider` beyanı taşıyorsa zorunludur (geriye dönük uyarı yok).
+BIC_KOSULLU_SORU = "Yanıt kısıtı"
+_LLM_BEYAN = re.compile(r"\*\*LLM çıktısı:\*\*[ \t]*(.*)")
+_LLM_GEREKCE_ASGARI = (3, 15)  # en az sözcük, en az karakter
 
 
 def denetci_kayitli_mi(klasor: str, ajan_kimligi: str) -> bool:
@@ -288,6 +293,51 @@ def denetci_kayitli_mi(klasor: str, ajan_kimligi: str) -> bool:
     except OSError:
         return False
     return False
+
+
+def _kok_adaylari(klasor: str) -> list[str]:
+    """Doğrulama yolunun çözüleceği kökler: `.claude` taşıyan proje kökü (varsa) ve iş klasörü."""
+    kokler = []
+    d = os.path.abspath(klasor)
+    while True:
+        if os.path.isdir(os.path.join(d, ".claude")):
+            kokler.append(d)
+            break
+        ust = os.path.dirname(d)
+        if ust == d:
+            break
+        d = ust
+    kokler.append(os.path.abspath(klasor))
+    return kokler
+
+
+def llm_beyan_eksikleri(klasor: str, metin: str) -> tuple[list[str], bool]:
+    """P-032: plandaki `**LLM çıktısı:**` beyanını denetler. Dönüş: (eksikler, kullanıcıya_gider).
+
+    `yok — <neden>` (gerekçe asgari uzunlukta) ya da `kullanıcıya gider — Doğrulama: <yol>[::<test adı>]`;
+    yol proje kökünde ya da iş klasöründe dosya olarak bulunur, test adı dosyada geçer."""
+    m = _LLM_BEYAN.search(_YORUM.sub("", metin))
+    if m is None:
+        return ["plan.md: `**LLM çıktısı:**` beyanı yok: `yok — <neden>` ya da `kullanıcıya gider — Doğrulama: <yol>` (P-032)"], False
+    v = m.group(1).strip().strip("`").strip()
+    dusuk = v.lower()
+    if dusuk.startswith("yok"):
+        gerekce = re.sub(r"^[\s—–:\-]+", "", v[3:]).strip()
+        if len(gerekce.split()) < _LLM_GEREKCE_ASGARI[0] or len(gerekce) < _LLM_GEREKCE_ASGARI[1]:
+            return [f"plan.md: `**LLM çıktısı:** yok` gerekçesi en az {_LLM_GEREKCE_ASGARI[0]} sözcük ve {_LLM_GEREKCE_ASGARI[1]} karakter olmalı (P-032)"], False
+        return [], False
+    if dusuk.startswith("kullanıcıya gider"):
+        d = re.search(r"Doğrulama:\s*(\S+)", v)
+        if d is None:
+            return ["plan.md: `**LLM çıktısı:** kullanıcıya gider` doğrulama yolu vermiyor: `Doğrulama: <kod veya test yolu>` (P-032)"], True
+        yol, _, test = d.group(1).strip("`.,;").partition("::")
+        dosya = next((a for a in ([yol] if os.path.isabs(yol) else [os.path.join(k, yol) for k in _kok_adaylari(klasor)]) if os.path.isfile(a)), None)
+        if dosya is None:
+            return [f"plan.md: doğrulama yolu dosya olarak bulunamadı: `{yol}` (P-032)"], True
+        if test and test not in (_oku(dosya) or ""):
+            return [f"plan.md: doğrulama dosyasında `{test}` geçmiyor: `{yol}` (P-032)"], True
+        return [], True
+    return ["plan.md: `**LLM çıktısı:**` biçimi `yok — <neden>` ya da `kullanıcıya gider — Doğrulama: <yol>` olmalı (P-032)"], False
 
 
 def bic_eksikleri(klasor: str) -> list[str]:
@@ -317,6 +367,10 @@ def bic_eksikleri(klasor: str) -> list[str]:
             eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (`orkestra:denetci <agent_id>`; P-030)")
         elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
             eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; P-030)")
+    llm_eksik, gider = llm_beyan_eksikleri(klasor, metin)
+    eksik += llm_eksik
+    if gider and m is not None and not re.search(r"\*\*" + BIC_KOSULLU_SORU + r":\*\*\s*[✔✘]", m.group(1)):
+        eksik.append(f"best in class denetimi: `**{BIC_KOSULLU_SORU}:**` satırı `✔`/`✘` ile başlamıyor (LLM çıktısı kullanıcıya gidiyor; P-032)")
     return eksik
 
 
@@ -328,12 +382,181 @@ def bic_engeli(klasor: str) -> list[str]:
     return bic_eksikleri(klasor) if KM.mod("best_in_class", klasor) == "ihlal" else []
 
 
+def _bic_olaylari(klasor: str) -> None:
+    """ADR-0068 ölçümü: planın ilk görülüşü (`bic_ilk`) ve ayrı denetçinin ilk dolu bloğu (`bic_denetim_ilk`) iş başına
+    bir kez `gunluk.jsonl`'a düşer; kol, planı yazan ilk oturumun kimliğinden türer. Hata kapıyı bozmaz."""
+    try:
+        import ork_lib as L
+        import yontem_enjeksiyonu as Y
+        sd = L.durum_dizini(klasor)
+        metin = _oku(os.path.join(klasor, "plan.md"))
+        if not sd or metin is None or not _p_bloklari(metin):
+            return
+        yol = os.path.join(sd, "gunluk.jsonl")
+        ad = os.path.basename(os.path.normpath(klasor))
+        try:
+            with open(yol, encoding="utf-8") as f:
+                var = {t for satir in f if ad in satir for t in ("bic_ilk", "bic_denetim_ilk") if f'"{t}"' in satir}
+        except OSError:
+            var = set()
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            oturumlar = json.load(f).get("oturumlar") or []
+        oturum = oturumlar[0].get("oturum") if oturumlar else None
+        taban = {"zaman": L.simdi(), "oturum": oturum, "is": ad, "kol": Y.kol(oturum, sd)}
+        if "bic_ilk" not in var:
+            L.jsonl_ekle(yol, {**taban, "tur": "bic_ilk"})
+        m = BIC_DENETIM_BASLIK.search(_YORUM.sub("", metin))
+        if "bic_denetim_ilk" in var or m is None:
+            return
+        kararlar = {q: (re.search(r"\*\*" + re.escape(q) + r":\*\*\s*([✔✘])", m.group(1)) or [None, None])[1] for q in BIC_SORULAR}
+        d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", m.group(1))
+        kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
+        if all(kararlar.values()) and kimlik and denetci_kayitli_mi(klasor, kimlik.group(1)):
+            L.jsonl_ekle(yol, {**taban, "tur": "bic_denetim_ilk", "kararlar": kararlar,
+                               "hepsi_ok": all(v == "✔" for v in kararlar.values())})
+    except Exception:
+        pass
+
+
 def bic_uyari(klasor: str) -> list[str]:
     """Sesli kapı (todo yazımı, `is sira`): gölge modunda uyarır ve `kapi_golge` kaydı düşer, ihlal modunda eksikleri döndürür."""
     if not bic_kapsaminda_mi(klasor):
         return []
+    _bic_olaylari(klasor)
     import kapi_mod as KM
     return KM.ihlal_ver(klasor, "best_in_class", bic_eksikleri(klasor))
+
+
+# K-006 / ADR-0069: plan maddesinde `**Üretim noktası:**` alanı (sorunun doğduğu yer ve orada önleme).
+URETIM_ALANI = "Üretim noktası"
+_URETIM_ASGARI = 15  # önleme / neden / gerekçe metninin en az karakteri
+_URETIM_TUR_KELIME = ("kural", "şablon", "skill", "betik", "kart", "istem", "hook", "ayar", "standart")
+_URETIM_DUZELTME = re.compile(r"^Düzeltme:\s*(.+?)\s+[—–]\s+(.+)$", re.S)
+_URETIM_KONTROL = re.compile(r"^Kontrol:\s*(.+?)\s+[—–]\s+(.+?);\s*Kaynakta çözülmedi çünkü:\s*(.+)$", re.S)
+_URETIM_YENI = re.compile(r"^Yeni yetenek\s+[—–]\s+(.+)$", re.S)
+_URETIM_YASAK = re.compile(r"(?<![\w/.])(düzelt\w*|hata\w*|kusur\w*|tekrar\w*|ret|reddi\w*)(?![\w/.])", re.I)
+URETIM_JACCARD = 0.8
+
+
+def uretim_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_URETIM_KAPISI") != "0"
+
+
+def uretim_kapsaminda_mi(klasor: str) -> bool:
+    """ADR-0069: iş sıralı ve is.json `uretim: true` taşıyor (bayraksız eski işler muaf)."""
+    if not uretim_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("uretim") is True
+    except (OSError, ValueError):
+        return False
+
+
+def _alan_degeri(blok: str, alan: str) -> str:
+    """P bloğunda satır başındaki `**<alan>:**` değeri (aynı ve sonraki satırlar, boşluklar tek aralığa indirilmiş); yoksa ''.
+    Satır içi anma (başka alanın metninde geçen `**<alan>:**`) alan sayılmaz."""
+    m = re.search(r"^[ \t]*\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
+    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+
+
+def _uretim_yer_gecerli(yer: str) -> bool:
+    """`<yer>` bir yol / dosya adı ya da bir tür kelimesi (kural, şablon, skill, betik, kart, istem, hook, ayar, standart) içerir."""
+    dusuk = yer.replace("İ", "i").lower()
+    return "/" in yer or re.search(r"\.(py|md|json)\b", dusuk) is not None or any(k in dusuk for k in _URETIM_TUR_KELIME)
+
+
+def _uretim_kelimeler(metin: str) -> set[str]:
+    return {k for k in re.findall(r"\w+", metin.replace("İ", "i").lower()) if len(k) > 1}
+
+
+def uretim_alan_ayristir(deger: str) -> tuple[str | None, str, str, str | None]:
+    """(tür, yer, gerekçe_metni, hata): tür 'duzeltme' | 'kontrol' | 'yeni' | None. `gerekçe_metni` kopya denetimi içindir
+    (tür öneki ve yer çıkarılmış kalan metin); hata biçim ya da asgari uzunluk kusurunu söyler."""
+    d = deger.strip()
+    m = _URETIM_KONTROL.match(d)
+    if m:
+        yer, ne, neden = (g.strip(" `") for g in m.groups())
+        if len(ne) < 8 or len(neden) < _URETIM_ASGARI:
+            return "kontrol", yer, ne + " " + neden, f"`Kontrol:` ne en az 8, `Kaynakta çözülmedi çünkü:` en az {_URETIM_ASGARI} karakter olmalı"
+        return "kontrol", yer, ne + " " + neden, None
+    m = _URETIM_DUZELTME.match(d)
+    if m:
+        yer, onleme = m.group(1).strip(" `"), m.group(2).strip()
+        if len(onleme) < _URETIM_ASGARI:
+            return "duzeltme", yer, onleme, f"`Düzeltme:` önleme metni en az {_URETIM_ASGARI} karakter olmalı"
+        return "duzeltme", yer, onleme, None
+    m = _URETIM_YENI.match(d)
+    if m:
+        gerekce = m.group(1).strip()
+        if len(gerekce) < _URETIM_ASGARI:
+            return "yeni", "", gerekce, f"`Yeni yetenek` gerekçesi en az {_URETIM_ASGARI} karakter olmalı"
+        return "yeni", "", gerekce, None
+    return None, "", d, "biçim `Düzeltme: <yer> — <önleme>`, `Kontrol: <yer> — <ne>; Kaynakta çözülmedi çünkü: <neden>` ya da `Yeni yetenek — <gerekçe>` olmalı"
+
+
+def uretim_eksikleri(klasor: str) -> list[str]:
+    """ADR-0069: `uretim: true` taşıyan sıralı işte her P maddesi `**Üretim noktası:**` alanını üç türden birinde taşır;
+    gerekçeler tekrarlanmaz; hata/ret/kusur/tekrar başlıklı maddede `Yeni yetenek` kullanılmaz; plan.md ayrı denetçinin
+    `**Üretim noktası:** ✔` satırını (kayıtlı denetçi kimliğiyle) taşır. Kapsam dışı iş: boş liste."""
+    if not uretim_kapsaminda_mi(klasor):
+        return []
+    metin = _oku(os.path.join(klasor, "plan.md"))
+    if metin is None:
+        return []
+    eksik: list[str] = []
+    turler: dict[int, str | None] = {}
+    kelimeler: dict[int, set[str]] = {}
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        deger = _alan_degeri(blok, URETIM_ALANI)
+        if not deger:
+            eksik.append(f"P{n}: `**{URETIM_ALANI}:**` alanı yok ya da boş (K-006; ADR-0069)")
+            continue
+        tur, yer, gerekce, hata = uretim_alan_ayristir(deger)
+        turler[n] = tur
+        if hata:
+            eksik.append(f"P{n}: `**{URETIM_ALANI}:**` {hata} (ADR-0069)")
+            continue
+        if tur != "yeni" and not _uretim_yer_gecerli(yer):
+            eksik.append(f"P{n}: `**{URETIM_ALANI}:**` yer bir yol/dosya adı ya da kural, şablon, skill, betik, kart, istem, hook, ayar, standart olmalı: `{yer}` (ADR-0069)")
+        if tur == "yeni":
+            baslik = re.sub(r"`[^`]*`", " ", blok.splitlines()[0] if blok else "")
+            ne = re.sub(r"`[^`]*`", " ", _alan_degeri(blok, "Ne"))
+            bulunan = _URETIM_YASAK.search(baslik) or _URETIM_YASAK.search(ne)
+            if bulunan:
+                eksik.append(f"P{n}: `Yeni yetenek` başlıkta ya da `Ne:` metninde `{bulunan.group(1)}` geçen maddede kullanılamaz; kusur düzeltiyorsa `Düzeltme:`/`Kontrol:` yaz (ADR-0069)")
+        kw = _uretim_kelimeler(gerekce)
+        for onceki, kw0 in sorted(kelimeler.items()):
+            birlesim = kw | kw0
+            if birlesim and (kw == kw0 or len(kw & kw0) / len(birlesim) >= URETIM_JACCARD):
+                eksik.append(f"P{n}: `**{URETIM_ALANI}:**` gerekçesi P{onceki} ile aynı ya da çok benzer; her madde kendi yerini ve nedenini yazar (ADR-0069)")
+                break
+        kelimeler[n] = kw
+    m = BIC_DENETIM_BASLIK.search(_YORUM.sub("", metin))
+    if m is None:
+        eksik.append("plan.md: `## Best in class denetimi` bloğu yok (ayrı denetçi `**Üretim noktası:**` satırını doldurur; ADR-0069)")
+        return eksik
+    govde = m.group(1)
+    satir = re.search(r"\*\*" + URETIM_ALANI + r":\*\*[ \t]*([^\n]*)", govde)
+    if satir is None or not satir.group(1).lstrip().startswith("✔"):
+        eksik.append(f"best in class denetimi: `**{URETIM_ALANI}:**` satırı `✔` ile başlamıyor (ayrı denetçi doldurur; ADR-0069)")
+    elif turler and all(t == "yeni" for t in turler.values()) and "tümü yeni yetenek onaylandı" not in satir.group(1).lower():
+        eksik.append(f"best in class denetimi: tüm maddeler `Yeni yetenek`; `**{URETIM_ALANI}:**` satırı `tümü yeni yetenek onaylandı` ifadesini taşımalı (ADR-0069)")
+    d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
+    kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
+    if not kimlik:
+        eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (ADR-0069)")
+    elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
+        eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; ADR-0069)")
+    return eksik
+
+
+def uretim_engeli(klasor: str) -> list[str]:
+    """`plan_eksikleri` bağlantısı: ihlal modunda eksikleri döndürür ve her reddi `kapi_ret` olarak kaydeder (gölgede `kapi_golge`)."""
+    if not uretim_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ret_ver(klasor, "uretim_noktasi", uretim_eksikleri(klasor))
 
 
 def ozet_eksigi(metin: str, ad: str) -> str | None:
@@ -517,7 +740,7 @@ def plan_eksikleri(klasor: str) -> list[str]:
             for alan in ("Kabul", "Geri alma"):
                 if not alan_dolu(blok, alan):
                     eksik.append(f"P{n}: `**{alan}:**` alanı yok ya da boş (P-018)")
-    return eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor) + bic_engeli(klasor)
+    return eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor) + bic_engeli(klasor) + uretim_engeli(klasor)
 
 
 def adim(klasor: str) -> tuple[str, list[str]]:

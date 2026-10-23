@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import os
 import re
 
@@ -90,6 +91,114 @@ def _kapi_golge(sd: str) -> dict:
     return dict(sorted(sayi.items()))
 
 
+CIKTI_ORNEK = 200  # ihlal geçişi kararı için en az tur (ADR-0075, plan K6)
+CIKTI_HEDEF = {"ortanca": 400, "p90": 800}
+
+
+def _cikti(sd: str):
+    """gunluk.jsonl'daki `cikti_olcum` turlarından kullanıcı çıktısı ölçümü (ADR-0075): ortanca, p90, aşım oranı.
+    Karar: ≥200 turda ortanca ≤400 ve p90 ≤800 ise hedef tutuyor; değilse ihlal geçişi önerilir. Veri yoksa None."""
+    toplam, kapanis = [], []
+    for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")):
+        if isinstance(o, dict) and o.get("tur") == "cikti_olcum" and isinstance(o.get("toplam"), int):
+            toplam.append(o["toplam"])
+            if isinstance(o.get("kapanis"), int):
+                kapanis.append(o["kapanis"])
+    if not toplam:
+        return None
+
+    def q(v, p):
+        v = sorted(v)
+        return v[min(len(v) - 1, int(len(v) * p))]
+
+    try:
+        import cikti_butce
+        sinir = cikti_butce.ayar_oku(sd).get("tur_siniri") or CIKTI_HEDEF["p90"]
+    except Exception:
+        sinir = CIKTI_HEDEF["p90"]
+    n = len(toplam)
+    ortanca, p90 = q(toplam, 0.5), q(toplam, 0.9)
+    if n < CIKTI_ORNEK:
+        karar = f"yetersiz örnek ({n}/{CIKTI_ORNEK}); karar verilmez"
+    elif ortanca <= CIKTI_HEDEF["ortanca"] and p90 <= CIKTI_HEDEF["p90"]:
+        karar = "hedef tutuyor; gölgede kalır"
+    else:
+        karar = "hedef tutmuyor; ihlal geçişi önerilir"
+    return {"tur": n, "ortanca": ortanca, "p90": p90, "asim_orani": sum(1 for t in toplam if t > sinir) / n,
+            "kapanis_tur": len(kapanis), "kapanis_ortanca": q(kapanis, 0.5) if kapanis else None, "karar": karar}
+
+
+YONTEM_ESIK = 30  # kol başına denetimli bağımsız plan sayısı (ADR-0068, plan §7)
+
+
+def fisher_tek_yonlu(a: int, b: int, c: int, d: int) -> float:
+    """Tek yönlü Fisher kesin sınama: [[a, b], [c, d]] (satır 1 = yöntem kolu: başarılı, başarısız; satır 2 = kontrol).
+    P(yöntem kolunda başarılı sayısı >= a), hipergeometrik."""
+    n1, k, n = a + b, a + c, a + b + c + d
+    if n == 0:
+        return 1.0
+    pay = sum(math.comb(k, i) * math.comb(n - k, n1 - i) for i in range(a, min(n1, k) + 1))
+    return pay / math.comb(n, n1)
+
+
+def _yontem(sd: str) -> dict:
+    """ADR-0068 etki ölçümü (gunluk.jsonl): enjeksiyon sayıları ve oturum başına ilk planın kolu. Birim: oturum başına ilk
+    `bic_ilk`; başarı: o işin ilk `bic_denetim_ilk` kaydında dört sorunun hepsi ✔."""
+    enj = {"yontem": 0, "kontrol": 0}
+    ilk: dict = {}
+    denetim: dict = {}
+    for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")):
+        if not isinstance(o, dict):
+            continue
+        t = o.get("tur")
+        if t == "yontem_enjekte" and o.get("kol") in enj:
+            enj[o["kol"]] += 1
+        elif t == "bic_ilk" and o.get("kol") in enj:
+            ilk.setdefault(o.get("oturum") or o.get("is"), o)
+        elif t == "bic_denetim_ilk":
+            denetim.setdefault(o.get("is"), o)
+    kol = {k: {"plan": 0, "denetimli": 0, "ok": 0} for k in enj}
+    for o in ilk.values():
+        s = kol[o["kol"]]
+        s["plan"] += 1
+        d = denetim.get(o.get("is"))
+        if d:
+            s["denetimli"] += 1
+            s["ok"] += 1 if d.get("hepsi_ok") else 0
+    y, c = kol["yontem"], kol["kontrol"]
+    p = fisher_tek_yonlu(y["ok"], y["denetimli"] - y["ok"], c["ok"], c["denetimli"] - c["ok"]) if y["denetimli"] and c["denetimli"] else None
+    return {"enjeksiyon": enj, "kol": kol, "p": p, "esik": YONTEM_ESIK,
+            "karar_zamani": y["denetimli"] >= YONTEM_ESIK and c["denetimli"] >= YONTEM_ESIK}
+
+
+def _yontem_satirlari(y: dict) -> list:
+    if not y or (not any(y["enjeksiyon"].values()) and not any(v["plan"] for v in y["kol"].values())):
+        return []
+    yk, ck = y["kol"]["yontem"], y["kol"]["kontrol"]
+    oran = lambda s: "-" if not s["denetimli"] else f"{s['ok']}/{s['denetimli']} (%{100 * s['ok'] / s['denetimli']:.0f})"  # noqa: E731
+    satirlar = [
+        f"yöntem enjeksiyonu (ADR-0068): günlük satırı yöntem {y['enjeksiyon']['yontem']}, kontrol {y['enjeksiyon']['kontrol']}",
+        f"  bağımsız plan (oturum başına ilk): yöntem {yk['plan']}, kontrol {ck['plan']}; denetimli: yöntem {yk['denetimli']}, kontrol {ck['denetimli']}",
+        f"  dört soru ilk denetimde ✔: yöntem {oran(yk)}, kontrol {oran(ck)}"
+        + ("" if y["p"] is None else f"; Fisher tek yönlü p={y['p']:.4f}"),
+    ]
+    if y["karar_zamani"]:
+        satirlar.append(f"  karar zamanı: her kolda {y['esik']} denetimli plana ulaşıldı; p<0,05 ise etkili, değilse kanıtlanamadı; "
+                        "kontrol payını 0'a çek (`ayarlar/yontem_enjeksiyonu.json` kontrol_payi)")
+    else:
+        satirlar.append(f"  karar için her kolda {y['esik']} denetimli plan gerekir (şimdi yöntem {yk['denetimli']}, kontrol {ck['denetimli']})")
+    return satirlar
+
+
+def _kapi_ret(sd: str) -> dict:
+    """gunluk.jsonl'daki `kapi_ret` olayları (ihlal modundaki ret) kapı adına göre sayılır (ADR-0069: yanlış pozitif ölçümünün paydası)."""
+    sayi: dict = {}
+    for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")):
+        if isinstance(o, dict) and o.get("tur") == "kapi_ret" and o.get("kapi"):
+            sayi[o["kapi"]] = sayi.get(o["kapi"], 0) + 1
+    return dict(sorted(sayi.items()))
+
+
 def rapor(sd: str) -> dict:
     v = _veri(sd)
     mal, zam, isler, kartlar = v["mal"], v["zam"], v["isler"], v["kartlar"]
@@ -135,7 +244,8 @@ def rapor(sd: str) -> dict:
         "onbellek_isabet": oku / (gir + oku + yaz) if (gir + oku + yaz) else None,
         "baglanmamis_emek_yuzde": 100 * kova_usd / toplam_usd if toplam_usd else 0,
     }
-    return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd)}
+    return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": _kapi_ret(sd), "yontem": _yontem(sd),
+            "cikti": _cikti(sd)}
 
 
 def detay(sd: str, is_id: str):
@@ -207,9 +317,19 @@ def metin(r: dict) -> str:
     tt = "-" if k["todo_basina_token"] is None else f"{k['todo_basina_token']:,.0f}"
     golge = r.get("kapi_golge") or {}
     golge_satiri = ["gölge kapı uyarıları: " + ", ".join(f"{k} {n}" for k, n in golge.items())] if golge else []
+    ret = r.get("kapi_ret") or {}
+    ret_satiri = ["kapı retleri (ihlal modu): " + ", ".join(f"{k} {n}" for k, n in ret.items())] if ret else []
+    c = r.get("cikti")
+    cikti_satiri = [] if not c else [
+        f"kullanıcı çıktısı ({c['tur']} tur): ortanca {c['ortanca']}, p90 {c['p90']} karakter, aşım oranı {_oran(c['asim_orani'])}"
+        + ("" if c["kapanis_ortanca"] is None else f", kutudan sonraki kapanış ortanca {c['kapanis_ortanca']} ({c['kapanis_tur']} tur)")
+        + f" — {c['karar']}"]
     return "\n".join([
         govde, "",
         *golge_satiri,
+        *ret_satiri,
+        *cikti_satiri,
+        *_yontem_satirlari(r.get("yontem")),
         f"kapanan todo başına USD: {td}",
         f"kapanan todo başına token: {tt}",
         f"ret oranı: {_oran(k['ret_orani'])}",

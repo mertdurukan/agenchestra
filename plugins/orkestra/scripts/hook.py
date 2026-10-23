@@ -815,9 +815,16 @@ def subagent_start(inp: dict):
                              capture_output=True, text=True, encoding="utf-8", timeout=8, cwd=L.proje_dizini(inp.get("cwd")), **cfg.PENCERESIZ).stdout
     except Exception:
         out = ""
-    if out.strip():
-        L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SubagentStart",
-                                             "additionalContext": "Orkestra bağlamı (yalnız ihtiyacın olan kayıtlar):\n" + out[:1900]}})
+    try:  # ADR-0068: best in class yöntemi işçi görevin başında bağlamda olur (denetçi hariç); hata hook'u düşürmez
+        import yontem_enjeksiyonu
+        yontem = yontem_enjeksiyonu.isci_metni(inp.get("agent_type"), sd, inp.get("session_id"))
+    except Exception:
+        yontem = ""
+    if out.strip() or yontem:
+        ek = (yontem + "\n") if yontem else ""
+        if out.strip():
+            ek += "Orkestra bağlamı (yalnız ihtiyacın olan kayıtlar):\n" + out[:1900 - len(ek)]
+        L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": ek}})
     gec()
 
 
@@ -1191,6 +1198,31 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
+    """P-001 / ADR-0075: turun sohbet metni ölçülür. Her turda günlüğe `cikti_olcum` (rapor ortanca ve p90'ı bundan hesaplar),
+    sınır aşımında `kapi_golge / cikti_butce` düşer; gölge modda engellemez. Ayar `ayarlar/cikti_butce.json`; hatada sessiz geçer."""
+    try:
+        import cikti_butce as CB
+        ayar = CB.ayar_oku(sd)
+        if not CB.acik(ayar):
+            return
+        olcum = CB.tur_olc(inp.get("transcript_path"), tuple(ayar.get("kutu_araclari") or ("wrap_up",)),
+                           inp.get("last_assistant_message"))
+        if not olcum:
+            return
+        yol, is_id = os.path.join(sd, "gunluk.jsonl"), _oturum_isi(sd, oid)
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "cikti_olcum", "toplam": olcum["toplam"],
+                           "kapanis": olcum["kapanis"], "is": is_id})
+        nedenler = CB.asimlar(olcum, ayar)
+        if nedenler:
+            L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "kapi": CB.KAPI, "is": is_id,
+                               "neden": "; ".join(nedenler)})
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
     """P-009 tetik anı: bağlı işin tüm todo maddeleri bitti ama iş hâlâ açıksa tur bitmeden özet ve kapatma istenir.
     Tur başına bir kez block (`stop_hook_active` döngüyü keser); ORKESTRA_KAPANIS_KAPISI=0 kapatır. Hatada sessiz geçer."""
@@ -1220,32 +1252,9 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
         return
 
 
-def _arka_plan_durum_yaz(oturum: str, adlar: list) -> None:
-    """Masaüstü bandı (orkestra-bant modu) için oturum başına süren görev adları; boş liste = süren yok. Hatada sessiz."""
-    try:
-        yol = os.environ.get("ORKESTRA_ARKA_PLAN_DURUM") or os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel", "arka_plan_durum.json")
-        try:
-            with open(yol, encoding="utf-8") as f:
-                kayit = json.load(f)
-            kayit = kayit if isinstance(kayit, dict) else {}
-        except Exception:
-            kayit = {}
-        simdi = time.time()
-        kayit = {k: v for k, v in kayit.items() if isinstance(v, dict) and simdi - v.get("t", 0) < 86400}
-        kayit[oturum] = {"gorevler": [L.maskele(a) for a in adlar], "t": simdi}
-        os.makedirs(os.path.dirname(yol), exist_ok=True)
-        gecici = yol + ".tmp"
-        with open(gecici, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(kayit, f, ensure_ascii=False)
-        os.replace(gecici, yol)
-    except Exception:
-        pass
-
-
-def arka_plan_satiri(sd: str, gorevler, oturum: str = "") -> str:
+def arka_plan_satiri(sd: str, gorevler) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
-    Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz.
-    `oturum` verilirse görev adları masaüstü bandı için `arka_plan_durum.json`'a da yazılır."""
+    Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
     adlar = []
     try:
         for g in gorevler if isinstance(gorevler, list) else []:
@@ -1272,8 +1281,6 @@ def arka_plan_satiri(sd: str, gorevler, oturum: str = "") -> str:
             adlar.append("Onaylı kararlar uygulanıyor")
     except Exception:
         pass
-    if oturum:
-        _arka_plan_durum_yaz(oturum, adlar)
     if not adlar:
         return ""
     gosterilen = ", ".join(adlar[:3]) + (f" +{len(adlar) - 3}" if len(adlar) > 3 else "")
@@ -1383,12 +1390,13 @@ def stop(inp: dict):
         _baglanti_kapisi(sd, oid, inp, ozet)
         _kimlik_kapisi_yanit(sd, oid, inp)
         _secim_kapisi_yanit(sd, oid, inp)
+        _cikti_butce_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif:
         gec()
     if inp.get("background_tasks"):
-        satir = arka_plan_satiri(sd, inp.get("background_tasks"), oid)
+        satir = arka_plan_satiri(sd, inp.get("background_tasks"))
         if satir:
             L.hook_cikti({"systemMessage": _sm(satir)})
         gec()
@@ -1405,7 +1413,7 @@ def stop(inp: dict):
             bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
         except Exception:
             pass
-        satir = arka_plan_satiri(sd, None, oid)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
+        satir = arka_plan_satiri(sd, None)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
         mesaj = _sm(" ".join(x for x in (satir, hatirlatma) if x))
         if mesaj:
             L.hook_cikti({"systemMessage": mesaj})
@@ -2338,6 +2346,11 @@ def user_prompt_submit(inp: dict):
                 ip = kimlik_hatirlatma.mesaj_ipucu(metin, sd)
                 if ip:
                     parcalar.append(ip)
+            except Exception:
+                pass
+            try:  # ADR-0068: iş mesajında best in class yöntemi (tek kaynak: standart); hata hook'u düşürmez
+                import yontem_enjeksiyonu
+                parcalar.append(yontem_enjeksiyonu.ana_ajan_metni(metin, sd, inp.get("session_id")))
             except Exception:
                 pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez

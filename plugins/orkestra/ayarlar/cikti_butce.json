@@ -1,0 +1,7 @@
+{
+  "mod": "golge",
+  "tur_siniri": 800,
+  "kapanis_siniri": 300,
+  "kutu_araclari": ["wrap_up"],
+  "aciklama": "Kullanıcıya giden sohbet çıktısı bütçesi (P-001, ADR-0075). Tur = gerçek kullanıcı mesajından sonraki ana ajan `text` bloklarının karakter toplamı (yan ajan hariç). mod: golge = her tur gunluk.jsonl'a `cikti_olcum` düşer, sınır aşımı `kapi_golge / cikti_butce` olur, engellenmez; ihlal geçişi ölçümden sonra ayrı kararla. kapanis_siniri: kutu aracından (kutu_araclari) sonraki metin. Kapatma: ORKESTRA_CIKTI_BUTCE=0. Proje ezmesi: .claude/orkestra/cikti_butce.json."
+}

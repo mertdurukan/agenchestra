@@ -369,8 +369,18 @@ def _ozet_eksigi(klasor):
         m = re.search(r"\*\*(?:Ne yapıldı\?|Ana bulgu:)\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+[:?]\*\*|^#|\Z)", yorumsuz, re.S | re.M)
         govde = re.sub(r"^\s*[-*]\s*$", "", m.group(1), flags=re.M) if m else ""
         if govde.strip():
-            return _ozet_kalite_eksigi(klasor, metin)
+            return _ozet_baslik_kapisi(klasor, metin) or _ozet_kalite_eksigi(klasor, metin)
     return "calisma_ozeti dosyasında 'Ne yapıldı?' (eski biçimde 'Ana bulgu') boş (şablon doldurulmamış)"
+
+
+def _ozet_baslik_kapisi(klasor, metin):
+    """ADR-0074: özet başlığı yalnız Jira kodu/genel olamaz; kapı `ozet_baslik` (gölge: uyarır ve kaydeder, ihlal: reddeder)."""
+    if os.environ.get("ORKESTRA_OZET_BASLIK_KAPISI") == "0":
+        return None
+    import kapi_mod as KM
+    e = _ik().ozet_baslik_eksigi(metin)
+    kalan = KM.ihlal_ver(klasor, "ozet_baslik", [e]) if e else []
+    return kalan[0] if kalan else None
 
 
 def _ozet_kalite_eksigi(klasor, metin):
@@ -666,7 +676,8 @@ def _ozet_tetikle(kayit):
         _ik().belge_olustur(kayit["klasor"], kayit.get("baslik") or "", "ozet")
         i = kayit["id"]
         print(f"{i} ZORUNLU (P-009): tüm todo maddeleri bitti; bu turu bitirmeden önce (1) `orkestra is belge {i} ozet` ile çalışma "
-              f"özetini doldur, (2) `orkestra is kapat {i}`. İş sürecekse `orkestra is todo {i} --ekle` ile yeni madde yaz.")
+              f"özetini doldur (başlık: Jira'dan çekiliyorsa 'KOD Jira başlığı', çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık; yalnız kod olmaz), "
+              f"(2) `orkestra is kapat {i}`. İş sürecekse `orkestra is todo {i} --ekle` ile yeni madde yaz.")
     except Exception:
         return
 

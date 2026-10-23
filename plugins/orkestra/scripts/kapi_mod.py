@@ -37,8 +37,8 @@ def mod(kapi: str, klasor: str | None = None) -> str:
     return sonuc
 
 
-def _zaten_kayitli(yol: str, is_ad: str, kapi: str, neden: str) -> bool:
-    """Günlüğün son 64 KB'ında aynı (iş, kapı, neden) var mı; tekrar tekrar çağrılan kapılar sayıyı şişirmesin."""
+def _zaten_kayitli(yol: str, is_ad: str, kapi: str, neden: str, tur: str = "kapi_golge") -> bool:
+    """Günlüğün son 64 KB'ında aynı (tür, iş, kapı, neden) var mı; tekrar tekrar çağrılan kapılar sayıyı şişirmesin."""
     try:
         with open(yol, "rb") as f:
             f.seek(0, os.SEEK_END)
@@ -51,7 +51,7 @@ def _zaten_kayitli(yol: str, is_ad: str, kapi: str, neden: str) -> bool:
             o = json.loads(satir)
         except ValueError:
             continue
-        if isinstance(o, dict) and o.get("tur") == "kapi_golge" and o.get("kapi") == kapi                 and o.get("is") == is_ad and o.get("neden") == neden[:300]:
+        if isinstance(o, dict) and o.get("tur") == tur and o.get("kapi") == kapi and o.get("is") == is_ad and o.get("neden") == neden[:300]:
             return True
     return False
 
@@ -83,3 +83,28 @@ def ihlal_ver(klasor: str, kapi: str, eksik: list[str]) -> list[str]:
     if kaydet(klasor, kapi, neden):
         print(f"orkestra (gölge, {kapi}): {neden}", file=sys.stderr)
     return []
+
+
+def ret_kaydet(klasor: str, kapi: str, neden: str) -> bool:
+    """İhlal modundaki ret: gunluk.jsonl'a `kapi_ret` olayı (yanlış pozitif ölçümünün verisi); aynı (iş, kapı, neden) bir kez yazılır.
+    Kapıyı hiçbir koşulda bozmaz."""
+    try:
+        sd = L.durum_dizini(klasor)
+        if not sd:
+            return False
+        yol = os.path.join(sd, "gunluk.jsonl")
+        is_ad = os.path.basename(os.path.normpath(klasor))
+        if _zaten_kayitli(yol, is_ad, kapi, neden[:300], "kapi_ret"):
+            return False
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapi_ret", "kapi": kapi, "is": is_ad, "neden": neden[:300]})
+        return True
+    except Exception:
+        return False
+
+
+def ret_ver(klasor: str, kapi: str, eksik: list[str]) -> list[str]:
+    """`ihlal_ver` gibi; ihlal modunda reddedilen eksik ayrıca `kapi_ret` olarak kaydedilir (gölgede `kapi_golge`)."""
+    if eksik and mod(kapi, klasor) == "ihlal":
+        ret_kaydet(klasor, kapi, "; ".join(eksik))
+        return eksik
+    return ihlal_ver(klasor, kapi, eksik)

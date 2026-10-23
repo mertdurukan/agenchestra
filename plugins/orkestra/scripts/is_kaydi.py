@@ -145,6 +145,22 @@ def sablon_metni(ad: str, baslik: str, simdi: datetime.datetime | None = None, g
             .replace("{saat}", simdi.strftime("%H:%M")).replace("{gun}", gun or simdi.strftime("%Y%m%d")))
 
 
+def ozet_baslik_eksigi(metin: str) -> str | None:
+    """Çalışma özeti başlığı (ADR-0074): ilk H1'den 'çalışma özeti', parantezli tarih/kimlik ve Jira/I-nnn kodları atıldığında en az iki sözcük kalmalı.
+    'PE-635 çalışma özeti' gibi yalnız kod ya da genel başlık eksiktir; tamamsa None."""
+    m = re.search(r"^#[ \t]+(.+)$", metin or "", re.M)
+    if not m:
+        return "çalışma özeti başlığı (H1) yok"
+    h = m.group(1).strip()
+    b = re.sub(r"çalışma özeti", " ", h, flags=re.I)
+    b = re.sub(r"\([^)]*\)", " ", b)
+    b = re.sub(r"\b[A-Z][A-Z0-9]*-\d+\b", " ", b)
+    if len(re.findall(r"[^\W_]+", b)) < 2:
+        return (f"çalışma özeti başlığı '{h}' yalnız Jira kodu ya da genel: Jira'dan çekiliyorsa 'KOD Jira başlığı', "
+                "çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık yaz")
+    return None
+
+
 def _dogrulamali(klasor: str) -> bool:
     try:
         import plan_dogrulama as PD
@@ -322,6 +338,8 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
             kayit["gap"] = True  # P-017: gap analizi (mevcut durum §6) ve plan kapsama denetimi
         if SIRA.harita_kapisi_acik():
             kayit["harita"] = True  # ADR-0005: plan maddesi mevcut varlığı sistem haritasından gösterir
+        if SIRA.uretim_kapisi_acik():
+            kayit["uretim"] = True  # ADR-0069: plan maddesi sorunun doğduğu yeri ve orada önlemeyi `**Üretim noktası:**` ile yazar
         if ONAY_KAPISI_ACIK():
             kayit["onay"] = "bekliyor"  # P-016: kullanıcı onaylamadan uygulama yok
         if dogrulama is None:

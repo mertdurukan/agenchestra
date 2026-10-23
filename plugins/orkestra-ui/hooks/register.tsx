@@ -48,14 +48,6 @@ export function arkaSayisi(h: HamOzet, oturum: string): number {
   return (a?.oturumlar?.[oturum] ?? 0) + (a?.perspektif === true ? 1 : 0) + (a?.uygulama === true ? 1 : 0)
 }
 
-// Prompt üstü bant yazısı: "<biten>/<toplam> yapıldı · işlem devam ediyor" (bu sohbetin işleri); todo yoksa yalnız ikinci parça.
-export function bantMetni(o: Pick<UiOzet, 'isler'>): string {
-  const isler = (o.isler ?? []).filter(x => x.toplam > 0 && x.benim !== false)
-  const toplam = isler.reduce((a, x) => a + x.toplam, 0)
-  const biten = isler.reduce((a, x) => a + x.biten, 0)
-  return toplam === 0 ? 'işlem devam ediyor' : `${biten}/${toplam} yapıldı · işlem devam ediyor`
-}
-
 // Ham anlık görüntüyü bu oturumun gözünden panel verisine çevirir.
 export function donustur(h: HamOzet, oturum: string): UiOzet {
   const ot = h.maliyet?.oturumlar?.[oturum]
@@ -182,17 +174,7 @@ export const register: Register = on => {
     )
   })
 
-  // Bant yalnız bu sohbette arka plan işi sürerken çıkar ve süren her an görünür (Gizle yok); ret, teslim, rapor ve maliyet bant çıkarmaz.
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const o = await read($, veri)
-    if (e.props.hasSurvey || o === null || !o.acik || (o.arka ?? 0) === 0) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
-    return (
-      <Box>
-        <Text dimColor>{bantMetni(o)}</Text>
-      </Box>
-    )
-  })
+  // İstem kutusu bandı burada çizilmez: tek sahibi orkestra eklentisidir (orkestra/hooks/arka_plan_seridi.tsx, ADR-0073).
 }
 
 // Panel ağacı: bir bakışta özet (satırlar iç içe Text yerine Box içinde yan yana Text: her yüzeyde güvenli).

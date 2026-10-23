@@ -1,8 +1,8 @@
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import type { HamOzet } from '../types'
-import { arkaSayisi, bantMetni, donustur, usd } from './register'
+import { arkaSayisi, donustur, usd } from './register'
 
 const BU = 'oturum-bu'
 
@@ -43,8 +43,6 @@ const HAM: HamOzet = {
 const SAAT = HAM.uretim.slice(11, 16)
 const ESKI: HamOzet = { ...HAM, uretim: dkOnce(30) }
 const ESKI_SAAT = ESKI.uretim.slice(11, 16)
-// Arka plan işi yok: ret, teslime hazır kart ve hazır perspektif raporu olsa da bant çizilmemeli.
-const SESSIZ: HamOzet = { ...HAM, arka_plan: { oturumlar: { baska: 5 }, perspektif: false, uygulama: false } }
 
 const PANE_PROPS = {
   title: 'Orkestra', isFocused: false, bodyColumns: 100, placement: 'dock' as const,
@@ -83,17 +81,6 @@ test('donustur: olay satırları elenir, markdown soyulur, teslim yalnız sayı 
   expect(o.defter).toEqual([{ saat: '10:00', gorev: 'G-001', metin: 'README satırı eklendi' }])
   expect(o.teslim).toEqual({ sayi: 1, sonId: 'G-003', sonSaat: '11:07' })
   expect(o.kartlar?.map(k => k.id)).toEqual(['G-001', 'G-002', 'G-004'])
-})
-
-test('bant yalnız bu sohbetin bağlı işlerini sayar; oturum bilgisi yoksa hepsini sayar', () => {
-  const ham = { ...HAM, isler: [
-    { id: 'I-1', ad: 'a', biten: 2, toplam: 3, acik: [], oturumlar: [BU] },
-    { id: 'I-2', ad: 'b', biten: 400, toplam: 496, acik: [], oturumlar: ['baska'] },
-  ] } as HamOzet
-  expect(bantMetni(donustur(ham, BU))).toBe('2/3 yapıldı · işlem devam ediyor')
-  expect(bantMetni(donustur({ ...ham, isler: [{ ...ham.isler![1]!, oturumlar: ['baska'] }] } as HamOzet, BU))).toBe('işlem devam ediyor')
-  const eski = { ...HAM, isler: [{ id: 'I-3', ad: 'c', biten: 4, toplam: 7, acik: [] }] } as HamOzet
-  expect(bantMetni(donustur(eski, BU))).toBe('4/7 yapıldı · işlem devam ediyor')
 })
 
 test('donustur: isler alanı olduğu gibi geçer; yoksa boş dizi olur', () => {
@@ -156,48 +143,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(metin(await ui.drawn())).toContain('ozet.json henüz yok')
   })
 
-  test(`bant yalnız bu sohbette arka plan işi sürerken çıkar; ret, teslim, rapor ve Gizle yok (${surface})`, async ($, on) => {
+  // Bant tek sahibi orkestra eklentisidir (ADR-0073): bu eklenti arka plan işi ve tur sürerken de bant çizmez.
+  test(`istem kutusu bandı çizilmez; arka plan işi ve tur sürse de (${surface})`, async ($, on) => {
     sahte(on, HAM)
     await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    const t = metin(await ui.drawn())
-    expect(t).toContain('4/7 yapıldı · işlem devam ediyor')
-    for (const yok of ['Panel', 'ret', 'teslime hazır', 'perspektif raporu hazır', 'Gizle', 'oturum $']) expect(t).not.toContain(yok)
-  })
-
-  test(`arka plan işi yokken ret, teslim ve rapor olsa da bant çizilmez (${surface})`, async ($, on) => {
-    sahte(on, SESSIZ)
-    await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
+    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: { ...BANT_PROPS, isWorking: true } })
     const t = await ui.drawn().then(metin, () => '')
-    expect(t).not.toContain('Orkestra ·')
-    expect(t).not.toContain('oturum')
-  })
-
-  test(`perspektif koşusu ya da onay uygulaması sürerken bant çıkar (${surface})`, async ($, on) => {
-    sahte(on, { ...SESSIZ, arka_plan: { oturumlar: {}, perspektif: true, uygulama: false } })
-    await $.command.run({ command: 'orkestra', args: '' })
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
-  })
-
-  test(`arka plan işi bitince bant kaybolur, yeni iş gelince geri gelir (${surface})`, async ($, on) => {
-    const kaynak: Kaynak = { ham: HAM, surum: 0 }
-    sahte(on, HAM, [], kaynak)
-    const saat = mock.clock(on)
-    on('command.register', () => ({ value: undefined }))
-    on('session.start', ($, e) => ({ cwd: e.cwd }))
-    await $.session.start({ cwd: '/proje', surface, isInteractive: true })  // session.start: komutlar, ilk okuma, 3 sn'lik yoklama
-    const ui = await $.ui.mount({ plugin: 'orkestra-ui', surface, component: 'AbovePrompt', props: BANT_PROPS })
-    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
-    kaynak.ham = SESSIZ
-    kaynak.surum++
-    await saat.advance(3000)
-    expect(await ui.drawn().then(metin, () => '')).not.toContain('işlem devam ediyor')
-    kaynak.ham = { ...HAM, arka_plan: { oturumlar: { [BU]: 1 }, perspektif: false, uygulama: false } }
-    kaynak.surum++
-    await saat.advance(3000)
-    expect(metin(await ui.drawn())).toContain('4/7 yapıldı · işlem devam ediyor')
+    expect(t).not.toContain('işlem devam ediyor')
+    expect(t).not.toContain('yapıldı')
   })
 }
 
