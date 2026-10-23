@@ -139,6 +139,9 @@ def cmd_onay(a):
     elif i == "uygulandi":
         k = _onay_calistir(lambda m: m.uygulandi(sd, a.id, a.ozet, oturum=_onay_oturumu(a)))
         print(f"{k['id']} → {k['durum']}")
+    elif i == "birak":
+        k = _onay_calistir(lambda m: m.birak(sd, a.id, a.neden))
+        print(f"{k['id']} → {k['durum']}")
     elif i == "iptal":
         k = _onay_calistir(lambda m: m.iptal(sd, a.id, a.not_))
         print(f"{k['id']} → {k['durum']}")
