@@ -393,4 +393,5 @@ def metin_detay(d) -> str:
                  for x in d["oturum_gun"]])
     kr = _tablo(["süreç", "ajan", "model", "USD", "token"],
                 [[x["surec"], x["ajan"], x["model"], f"{x['usd']:.2f}", x["token"]] for x in d["kirilim"]])
-    return f"{d['is']}\n\noturum x gün\n{og}\n\nsüreç x ajan x model\n{kr}"
+    return (f"{d['is']}\n\noturum x gün\n{og}\n\nsüreç x ajan x model\n{kr}\n\n"
+            + paralellik_satiri(d.get("paralellik")))
