@@ -1,5 +1,5 @@
-// Orkestra bandı: istem kutusunun üstünde tur ya da arka plan görevi sürerken "N/M yapıldı · işlem devam ediyor" yazar.
-// Neden: bant yalnız arka plan görevi varken çiziliyordu, ön planda süren tur bandı açmıyordu (ADR-0073).
+// Orkestra bandı: istem kutusunun üstünde her zaman "N/M yapıldı · devam ediyor" ya da "N/M yapıldı · tamamlandı" yazar (anket hariç).
+// Neden: bant yalnız iş sürerken çiziliyordu; kullanıcı sayacı ve bitiş durumunu da sürekli görmek istedi (ADR-0077, ADR-0073).
 // Sayaç: oturumun görev listesi (TodoWrite ve update_plan çağrıları), $.session.messages() kayıtlarından hesaplanır.
 // tool.call olayı yalnız anında tazeleme içindir; olay gelmese de kayıtlardan sayaç doğru çıkar.
 import { atom, read, update } from 'claude-code'
