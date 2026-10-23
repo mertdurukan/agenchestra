@@ -248,6 +248,47 @@ def rapor(sd: str) -> dict:
             "cikti": _cikti(sd)}
 
 
+def paralellik_olcumu(sd: str, is_id: str, klasor: str | None, kart_is: dict | None = None,
+                      zaman_satirlari: list | None = None) -> dict:
+    """Planlanan ve gerçekleşen paralellik, aynı birimde: ortalama eşzamanlı iş sayısı (ADR-0080, S6, K6).
+    planlanan = paralellik.analiz(plan.md)['planlanan_agirlikli']; gerçekleşen = metrikler.isci_eszamanlilik;
+    oran = gerçekleşen ÷ planlanan. Ölçülemeyen değer None ve `neden` alanında gerekçe. Kapanış kapısı da bunu kullanır."""
+    import metrikler as MT
+    import paralellik as PAR
+    planlanan, neden = None, []
+    plan = os.path.join(klasor, "plan.md") if isinstance(klasor, str) and klasor else None
+    if plan and os.path.exists(plan):
+        try:
+            with open(plan, encoding="utf-8") as f:
+                planlanan = PAR.analiz(f.read(), ileri_yasak=False)["planlanan_agirlikli"] or None
+        except OSError:
+            planlanan = None
+        if planlanan is None:
+            neden.append("planlanan ölçülemedi (plan.md'de P maddesi yok ya da bağımlılık döngüsü)")
+    else:
+        neden.append("planlanan ölçülemedi (plan.md yok)")
+    if zaman_satirlari is None:
+        zaman_satirlari = L.zaman_kayitlari(sd)
+    g = MT.isci_eszamanlilik(is_id, zaman_satirlari, kart_is)
+    if g["deger"] is None:
+        neden.append("gerçekleşen ölçülemedi (işçi ajanı kaydı yok)")
+    oran = round(g["deger"] / planlanan, 3) if planlanan and g["deger"] is not None else None
+    return {"birim": "ortalama eşzamanlı iş sayısı", "planlanan": planlanan, "gerceklesen": g["deger"], "oran": oran,
+            "isci": g, "neden": neden}
+
+
+def paralellik_satiri(p: dict | None) -> str:
+    """`orkestra is rapor <iş>` satırı: planlanan ve gerçekleşen aynı birimde, oran ve `ajan: ?` payı."""
+    if not p:
+        return "paralellik: ölçülemedi"
+    f = lambda x: "ölçülemedi" if x is None else f"{x:.2f}"  # noqa: E731
+    b = p["isci"]["bilinmeyen"]
+    pay = "-" if b["pay"] is None else f"{b['kayit']}/{p['isci']['alt_kayit']} kayıt (%{100 * b['pay']:.0f})"
+    s = (f"paralellik ({p['birim']}, yalnız işçi ajanları): planlanan {f(p['planlanan'])}, gerçekleşen {f(p['gerceklesen'])}, "
+         f"oran (gerçekleşen ÷ planlanan) {f(p['oran'])}; işçi kaydı {p['isci']['isci_kayit']}; ajan:? payı {pay}")
+    return s + ("" if not p["neden"] else " — " + "; ".join(p["neden"]))
+
+
 def detay(sd: str, is_id: str):
     v = _veri(sd)
     i = _is_id(is_id)
@@ -255,6 +296,12 @@ def detay(sd: str, is_id: str):
     z = [r for r in v["zam"] if r["_is"] == i]
     if not m and not z and i not in v["isler"] and not any(k.get("is") == i for k in v["kartlar"]):
         return None
+    kayit = v["isler"].get(i) if isinstance(v["isler"].get(i), dict) else {}
+    kart_is = {k["id"]: k.get("is") for k in v["kartlar"] if k.get("id") and k.get("is")}
+    try:
+        par = paralellik_olcumu(sd, i, kayit.get("klasor"), kart_is, L.zaman_kayitlari(sd))
+    except Exception:
+        par = None
     og: dict = {}
     for r in m + z:
         a = og.setdefault((r.get("oturum") or "-", _gun(r) or "-"),
