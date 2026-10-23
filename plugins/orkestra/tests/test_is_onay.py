@@ -205,9 +205,9 @@ class KullaniciOnayi(_Onay):
         self.assertIn("onay bekliyor", m)
         self.assertEqual(self.durum(), "bekliyor")
 
-    def test_onay_belgeler_eksikse_kaydedilmez(self):
+    def test_onay_belgeler_eksikse_verilmez_saklanir(self):
         m = self.mesaj("onaylıyorum")
-        self.assertIn("kaydedilmedi", m)
+        self.assertIn("onay saklandı", m)  # ADR-0072: durum bekliyor kalır, onay eksik giderilince verilir
         self.assertEqual(self.durum(), "bekliyor")
 
     def test_onay_belgeler_hazirsa_verildi(self):
@@ -391,6 +391,48 @@ class BelirsizMesaj(unittest.TestCase):
             is_onay.aday_yaz(os.path.join(sd, "yok", "yok"), "x", "ret")  # hata yutulur
         finally:
             shutil.rmtree(sd, ignore_errors=True)
+
+
+class BekleyenOnay(_Onay):
+    """ADR-0072: eksik belge yüzünden kaydedilemeyen onay saklanır; eksik giderilince kullanıcıdan yeniden istenmeden verilir."""
+
+    def kayit_al(self):
+        return is_kaydi.is_al(self.sd, self.kayit["id"])
+
+    def test_eksik_belgede_onay_saklanir_durum_bekliyor_kalir(self):
+        satir, yeni = is_onay.baglam_satiri(self.kayit_al(), True)
+        self.assertEqual(yeni, is_onay.BEKLEYEN_YENI)
+        self.assertIn("kendiliğinden verilir", satir)
+        self.mesaj("Onaylıyorum")
+        self.assertEqual(self.durum(), "bekliyor")
+        self.assertTrue(is_onay.bekleyen_mi(self.kayit_al()))
+
+    def test_eksik_giderilince_onay_verilir(self):
+        is_onay.bekleyen_yaz(self.sd, self.kayit["id"])
+        with mock.patch.object(is_onay, "belge_eksikleri", return_value=["plan eksik"]):
+            self.assertFalse(is_onay.bekleyen_onay_ver(self.sd, self.kayit_al()))
+            self.assertEqual(self.durum(), "bekliyor")
+        with mock.patch.object(is_onay, "belge_eksikleri", return_value=[]):
+            self.assertTrue(is_onay.bekleyen_onay_ver(self.sd, self.kayit_al()))
+        self.assertEqual(self.durum(), "verildi")
+        self.assertFalse(is_onay.bekleyen_mi(self.kayit_al()))
+
+    def test_saklanmis_onay_yoksa_belgeler_tamam_olsa_da_verilmez(self):
+        with mock.patch.object(is_onay, "belge_eksikleri", return_value=[]):
+            self.assertFalse(is_onay.bekleyen_onay_ver(self.sd, self.kayit_al()))
+        self.assertEqual(self.durum(), "bekliyor")
+
+    def test_onay_olmayan_mesaj_saklanan_onayi_dusurur(self):
+        is_onay.bekleyen_yaz(self.sd, self.kayit["id"])
+        self.mesaj("hayır bekle")
+        self.assertFalse(is_onay.bekleyen_mi(self.kayit_al()))
+        self.assertEqual(self.durum(), "bekliyor")
+
+    def test_onay_kaydi_hook_yolunda_verir(self):
+        is_onay.bekleyen_yaz(self.sd, self.kayit["id"])
+        with mock.patch.object(is_onay, "belge_eksikleri", return_value=[]):
+            self.assertIsNone(hook._onay_kaydi(self.sd, OTURUM))
+        self.assertEqual(self.durum(), "verildi")
 
 
 if __name__ == "__main__":

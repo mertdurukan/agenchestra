@@ -85,12 +85,25 @@ _MEVCUT_VARLIK = re.compile(r"\*\*Mevcut varlık:\*\*[ \t]*(.*)$", re.M)
 VARLIK_GEREKCE_MIN = 8  # `yok — <aranan>` sonrası gerekçe en az bu kadar karakter
 
 
-def mevcut_varlik_eksikleri(klasor: str) -> list[str]:
-    """ADR-0005: haritalı işte her P maddesi `**Mevcut varlık:**` taşır: harita kayıt kimlikleri ya da `yok — <aranan>`."""
+_VARLIK_NOT = re.compile(r"\s*(?:;|\(|\s—\s)")
+VARLIK_BICIM = "`id1, id2 (not)` ya da `yok — <aranan>`"
+
+
+def varlik_kimlikleri(deger: str) -> list[str]:
+    """Kimlik biçimli `Mevcut varlık` değerinden kayıt kimlikleri: ilk `;`, `(` ya da ` — ` öncesi virgüllü liste; sonrası serbest not."""
+    bas = _VARLIK_NOT.split(deger, maxsplit=1)[0]
+    return [x.strip(" `") for x in bas.split(",") if x.strip(" `")]
+
+
+def mevcut_varlik_eksikleri(klasor: str, metin: str | None = None, bos_say: bool = True) -> list[str]:
+    """ADR-0005: haritalı işte her P maddesi `**Mevcut varlık:**` taşır: harita kayıt kimlikleri (sonrasında serbest not)
+    ya da `yok — <aranan>`. `metin`: plan.md yerine denetlenecek metin (yazım anı, ADR-0072); `bos_say=False`: boş alan
+    taslak sayılır, yalnız dolu ama geçersiz alan eksik olur."""
     if not haritali_mi(klasor):
         return []
     import harita
-    metin = _oku(os.path.join(klasor, "plan.md")) or ""
+    if metin is None:
+        metin = _oku(os.path.join(klasor, "plan.md")) or ""
     sd = harita.sd_bul(klasor)
     kimlikler = harita.kayit_kimlikleri(sd) if sd else None
     eksik = []
@@ -106,9 +119,9 @@ def mevcut_varlik_eksikleri(klasor: str) -> list[str]:
         elif kimlikler is None:
             eksik.append(f"P{n}: sistem haritası yok; önce `orkestra harita oku` çalıştır")
         else:
-            for kid in [x.strip(" `") for x in deger.split(",") if x.strip(" `")]:
+            for kid in varlik_kimlikleri(deger):
                 if kid not in kimlikler:
-                    eksik.append(f"P{n}: `{kid}` haritada yok (`orkestra harita oku` ile kimliği doğrula)")
+                    eksik.append(f"P{n}: `{kid}` haritada yok (`orkestra harita oku` ile kimliği doğrula; alan biçimi {VARLIK_BICIM})")
     return eksik
 
 

@@ -5,6 +5,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import harita as H  # noqa: E402
@@ -139,6 +140,42 @@ class HaritaKapisi(unittest.TestCase):
         self.assertEqual(S.mevcut_varlik_eksikleri(self.is_k), [])
         self.plan("**Mevcut varlık:** yok")
         self.assertTrue(any("aranan" in x for x in S.mevcut_varlik_eksikleri(self.is_k)))
+
+    def test_kimlikten_sonra_not_gecer(self):
+        """ADR-0072: kimlikten sonra `(not)`, `; not` ya da ` — not` serbest; kimlik yine haritada olmalı."""
+        H.yenile(self.kok, self.sd)
+        for alan in ("**Mevcut varlık:** `sir:env:API_KEY` (anahtar okuyucu)",
+                     "**Mevcut varlık:** sir:env:API_KEY, sir:env:API_KEY (giriş); anlatıcı testi için yok — depoda aranmadı",
+                     "**Mevcut varlık:** `sir:env:API_KEY` — okuyucu"):
+            self.plan(alan)
+            self.assertEqual(S.mevcut_varlik_eksikleri(self.is_k), [], alan)
+        self.plan("**Mevcut varlık:** `sir:env:YOK_BOYLE` (not)")
+        self.assertTrue(any("YOK_BOYLE" in x for x in S.mevcut_varlik_eksikleri(self.is_k)))
+
+    def test_yazim_kapisi_yeni_bicim_hatasini_reddeder(self):
+        """ADR-0072: plan.md yazılırken `Mevcut varlık` hatası yazım anında reddedilir; bozuk planı madde madde düzeltmek engellenmez."""
+        import contextlib, io
+        import hook
+        H.yenile(self.kok, self.sd)
+        self.plan("**Mevcut varlık:** `sir:env:API_KEY` (anahtar okuyucu)")
+        yol = os.path.join(self.is_k, "plan.md")
+
+        def dene(icerik):
+            with mock.patch.object(S, "mevcut_durum_eksikleri", return_value=[]), contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    hook._sira_kapisi("Write", {"file_path": yol, "content": icerik}, yol)
+                except SystemExit:
+                    return True
+            return False
+
+        with open(yol, encoding="utf-8") as f:
+            iyi = f.read()
+        self.assertFalse(dene(iyi))
+        self.assertTrue(dene(iyi.replace("`sir:env:API_KEY`", "`sir:env:YOK_BOYLE`")))
+        with open(yol, "w", encoding="utf-8", newline="\n") as f:  # mevcut plan zaten bozuk
+            f.write(iyi.replace("`sir:env:API_KEY`", "`sir:env:YOK_BOYLE`"))
+        self.assertFalse(dene(iyi.replace("`sir:env:API_KEY`", "`sir:env:YOK_BOYLE`") + "\nek satır\n"))  # yeni eksik getirmez
+        self.assertFalse(dene(iyi))  # düzeltme geçer
 
     def test_harita_yokken_kimlik_dogrulanamaz(self):
         self.plan("**Mevcut varlık:** sir:env:API_KEY")

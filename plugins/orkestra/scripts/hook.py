@@ -358,6 +358,26 @@ def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> 
         return
 
 
+def _uygulanmis_metin(arac: str, girdi: dict, tam: str) -> str | None:
+    """Yazım sonrası dosyanın tamamı: Write için yazılan metin, Edit/MultiEdit için düzenlemesi uygulanmış mevcut dosya.
+    Düzenleme uygulanamıyorsa (yazım zaten başarısız olur) ya da arac tanınmıyorsa None."""
+    if arac == "Write":
+        return _yazilacak_metin(arac, girdi)
+    if arac not in ("Edit", "MultiEdit"):
+        return None
+    try:
+        with open(tam, encoding="utf-8", errors="replace", newline="") as f:
+            yeni = f.read()
+    except OSError:
+        return None
+    for e in ([girdi] if arac == "Edit" else [e for e in (girdi.get("edits") or []) if isinstance(e, dict)]):
+        o, n = str(e.get("old_string") or ""), str(e.get("new_string") or "")
+        if not o or o not in yeni:
+            return None
+        yeni = yeni.replace(o, n) if e.get("replace_all") else yeni.replace(o, n, 1)
+    return yeni
+
+
 def _todo_yeni_metin(arac: str, girdi: dict, tam: str) -> str:
     """todo.md yazımında denetlenecek metin. Write: tamamı. Edit/MultiEdit: düzenleme uygulanmış dosyanın, mevcut dosyada
     olmayan satırları (parça içinde `P1:` gibi önek silinip satır bozulsa da `new_string` tek başına bunu göstermez)."""
@@ -395,6 +415,12 @@ def _sira_kapisi(arac: str, girdi: dict, tam: str) -> None:
             return
         if ad == "plan.md":
             eksik = SR.plan_onkosulu(klasor)
+            if not eksik:  # ADR-0072: `Mevcut varlık` biçimi yazıldığı anda denetlenir; todo yazıldıysa boş alan da eksiktir
+                yeni = _uygulanmis_metin(arac, girdi, tam)
+                if yeni is not None:  # yalnız bu yazımın getirdiği eksikler reddedilir: bozuk planı madde madde düzeltmek engellenmez
+                    bos = os.path.exists(os.path.join(klasor, "todo.md"))
+                    onceki = set(SR.mevcut_varlik_eksikleri(klasor, None, bos_say=bos))
+                    eksik = [e for e in SR.mevcut_varlik_eksikleri(klasor, yeni, bos_say=bos) if e not in onceki]
             neden = SR.mesaj(eksik, "plan.md") if eksik else ""
         else:
             eksik = SR.todo_onkosulu(klasor)
@@ -491,6 +517,8 @@ def _onay_kaydi(sd: str, oid):
         import is_kaydi
         kayit = is_kaydi.is_al(sd, is_id)
         if is_onay.otomatik_onay(sd, kayit):  # ADR-0009: /auto işte belgeler tamamsa onay kendiliğinden verilir
+            return None
+        if is_onay.bekleyen_onay_ver(sd, kayit):  # ADR-0072: eksik yüzünden saklanan kullanıcı onayı, eksik giderilince verilir
             return None
         return kayit if is_onay.bekliyor_mu(kayit) else None
     except Exception:
@@ -2326,7 +2354,12 @@ def user_prompt_submit(inp: dict):
                     satir, yeni = is_onay.baglam_satiri(kayit, sinif == "onay", sinif == "belirsiz")
                     if sinif in ("belirsiz", "ret") and is_onay.bekliyor_mu(kayit):
                         is_onay.aday_yaz(sd, metin, sinif)
-                    if yeni:
+                    if sinif in ("belirsiz", "ret", "soru") and is_onay.bekleyen_mi(kayit):
+                        is_onay.bekleyen_temizle(sd, kayit["id"])  # ADR-0072: saklı onay, onay olmayan yeni mesajla düşer
+                    if yeni == is_onay.BEKLEYEN_YENI:
+                        is_onay.bekleyen_yaz(sd, kayit["id"])
+                        _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))
+                    elif yeni:
                         is_onay.yaz(sd, kayit["id"], yeni, "onay:kullanici")
                         _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))  # ADR-0038: onay yazımı işin is.json'ını kirli bırakmasın
                     if satir:
