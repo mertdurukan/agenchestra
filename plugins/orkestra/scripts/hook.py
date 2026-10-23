@@ -417,8 +417,10 @@ def _sira_kapisi(arac: str, girdi: dict, tam: str) -> None:
             eksik = SR.plan_onkosulu(klasor)
             if not eksik:  # ADR-0070: `Mevcut varlık` biçimi yazıldığı anda denetlenir; todo yazıldıysa boş alan da eksiktir
                 yeni = _uygulanmis_metin(arac, girdi, tam)
-                if yeni is not None:
-                    eksik = SR.mevcut_varlik_eksikleri(klasor, yeni, bos_say=os.path.exists(os.path.join(klasor, "todo.md")))
+                if yeni is not None:  # yalnız bu yazımın getirdiği eksikler reddedilir: bozuk planı madde madde düzeltmek engellenmez
+                    bos = os.path.exists(os.path.join(klasor, "todo.md"))
+                    onceki = set(SR.mevcut_varlik_eksikleri(klasor, None, bos_say=bos))
+                    eksik = [e for e in SR.mevcut_varlik_eksikleri(klasor, yeni, bos_say=bos) if e not in onceki]
             neden = SR.mesaj(eksik, "plan.md") if eksik else ""
         else:
             eksik = SR.todo_onkosulu(klasor)
