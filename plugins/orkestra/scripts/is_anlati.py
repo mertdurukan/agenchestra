@@ -361,10 +361,12 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
 
     # anlatı alanları
     ne_icin = _paragraflar(_bolum(metin["plan"], r"1\. Hedef"))
-    ne_icin += _etiket(metin["calisma_ozeti"], "Amaç")
+    ozet = metin["calisma_ozeti"]
+    ne_icin += _etiket(ozet, "Amaç neydi?") or _etiket(ozet, "Amaç")
     if not ne_icin:
         ne_icin = _paragraflar(_bolum(metin["plan"], r"Özet"))
-    sonuc = _paragraflar(_bolum(metin["calisma_ozeti"], r"Özet")) + _etiket(metin["calisma_ozeti"], "Ana bulgu")
+    # Şef Özeti biçiminde sonuç yalnız `Ne yapıldı?` altındandır; eski biçimde `## Özet` paragrafları + `Ana bulgu`
+    sonuc = _etiket(ozet, "Ne yapıldı?") or (_paragraflar(_bolum(ozet, r"Özet")) + _etiket(ozet, "Ana bulgu"))
     yontem = _etiket(metin["mevcut_durum"], "Yöntem")
     kararlar = [_kes(re.sub(r"^\s*[-*]\s*", "", s)) for s in _bolum(metin["plan"], r"3\. Kararlar").splitlines()
                 if re.match(r"^\s*[-*]\s*\*\*K\d+:\*\*", s)]
