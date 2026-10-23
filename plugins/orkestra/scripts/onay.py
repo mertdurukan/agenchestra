@@ -556,9 +556,17 @@ def _terfi_kapisi(sd: str, metin: str, neden: str) -> None:
         raise ValueError("eklenti katmanına terfi kapısı reddetti (kural yazılmadı): " + "; ".join(isabet))
 
 
+def _girdi_baska_projenin(sd: str) -> bool:
+    """`perspektif/girdi.json` başka projenin hafızasını gösteriyorsa True (rapor bu projenin değil; I-215)."""
+    import perspektif as P
+    g = _oku_json(os.path.join(sd, "perspektif", "girdi.json"), None)
+    klasor = ((g or {}).get("hafiza") or {}).get("klasor") if isinstance(g, dict) else None
+    return bool(klasor) and not P.hafiza_projeye_ait(_proje(sd), klasor)
+
+
 def _esitle_perspektif(sd: str) -> None:
     yol = en_yeni_rapor(sd)
-    if not yol:
+    if not yol or _girdi_baska_projenin(sd):
         return
     ad = os.path.basename(yol)
     with open(yol, encoding="utf-8", errors="replace") as f:
