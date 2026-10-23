@@ -198,7 +198,7 @@ export const register: Register = on => {
 
     await read($, surum)
 
-    if (e.props.hasSurvey || (!e.props.isWorking && arka === 0)) {
+    if (e.props.hasSurvey) {
       return next(e)
     }
 
