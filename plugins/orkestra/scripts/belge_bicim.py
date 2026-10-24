@@ -4,6 +4,8 @@ Saf Python; model çağrılmaz. Kurallar ve mod `ayarlar/belge_bicim.json` (ekle
 dizinindeki `belge_bicim.json` (alan alan ezer) içinden okunur. Bozuk ya da eksik dosya varsayılana düşer.
 
 Yazım anı kapısı (`yazim_ihlalleri`): PreToolUse içinde yazılacak metni tarar; ihlalli içerik diske inmeden bilinir.
+Güvenli düzeltme (`guvenli_duzelt`, I-224 P9): ihlallerin tümü anlamı değiştirmeyen dönüşümle gideriliyorsa
+düzeltilmiş metni verir; hook bunu Write'ta ret yerine updatedInput olarak kullanır (`ayarlar/belge_duzelt.json`).
 Bağlantı kapısı (`baglantisiz_belgeler`): Stop içinde dokunulan belgelerin yanıtta bağlantısı var mı bakar.
 Kapsam dışı (kullanıcı kararı bekliyor, rapor Ö7): tablo satırları, kod blokları ve Given/When/Then satırları sayılmaz.
 """
@@ -265,11 +267,11 @@ def _donustur(metin: str, ayar: dict) -> tuple[str, list[dict]]:
     en_az = int(k.get("sikisik_liste_en_az") or 2)
     satirlar = metin.split("\n")
     korunan = _korunan_satirlar(satirlar)
-    bloklar: list[list[str]] = []  # her öğe: bir kaynak satırın yerini alan satırlar
+    bloklar: list[tuple[list[str], bool]] = []  # (kaynak satırın yerini alan satırlar, ardına boş satır gerekir mi)
     uygulanan: list[dict] = []
     for no, s in enumerate(satirlar, 1):
         if korunan[no - 1] or not _duz_paragraf_satiri(s, yok_say, bastirma):
-            bloklar.append([s])
+            bloklar.append(([s], False))
             continue
         parcalar, donusum = _etiket_bol(s) or [s], []
         if len(parcalar) > 1:
@@ -289,13 +291,11 @@ def _donustur(metin: str, ayar: dict) -> tuple[str, list[dict]]:
             yeni.insert(0, "")
         if donusum:
             uygulanan.extend({"satir": no, "donusum": d} for d in donusum)
-        bloklar.append(yeni)
-    # Dönüşen bloğun ardından gelen dolu satır listeye/paragrafa yapışmasın: araya boş satır.
+        bloklar.append((yeni, "nokta_liste" in donusum))
+    # Üretilen madde listesinin ardındaki dolu satır son maddeye yapışmasın (Markdown tembel devam): araya boş satır.
     cikti: list[str] = []
-    for i, b in enumerate(bloklar):
-        if i > 0 and len(bloklar[i - 1]) > 1 and cikti and cikti[-1].strip() and b and b[0].strip():
-            cikti.append("")
-        if len(b) > 1 and cikti and cikti[-1].strip() and b[0].strip():
+    for i, (b, _) in enumerate(bloklar):
+        if cikti and cikti[-1].strip() and b[0].strip() and (bloklar[i - 1][1] or (len(b) > 1 and b[-1].startswith("- "))):
             cikti.append("")
         cikti.extend(b)
     return "\n".join(cikti), uygulanan
