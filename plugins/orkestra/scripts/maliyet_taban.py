@@ -356,10 +356,16 @@ def metin(r: dict) -> str:
     if not t.get("oturum"):
         s.append("taban: oturum yok")
     else:
+        o = r.get("onek")
         s += [f"## Taban: {t['oturum']} oturum; ilk çağrı bağlamı medyan {t['ilk_medyan']}, p90 {t['ilk_p90']} token", "",
-              "| kalem | medyan karakter | token (merkez) | aralık | kalibrasyon |", "|---|---|---|---|---|"]
+              "| kalem | medyan karakter | token (merkez) | aralık | kalibrasyon |" + (" pencere $ (merkez) |" if o else ""),
+              "|---|---|---|---|---|" + ("---|" if o else "")]
         for k in t["kalemler"]:
-            s.append(f"| {k['kalem']} | {k['karakter']} | {k['token']} | {k['token_alt']} – {k['token_ust']} | {'var' if k['kalibre'] else 'genel bant'} |")
+            s.append(f"| {k['kalem']} | {k['karakter']} | {k['token']} | {k['token_alt']} – {k['token_ust']} | {'var' if k['kalibre'] else 'genel bant'} |"
+                     + (f" {k['token'] / 1000 * o['bin_token_usd']:.2f}$ |" if o else ""))
+        if o:
+            s += ["", f"Önekte her 1000 token pencerede {o['bin_token_usd']:.2f}$ (okuma {o['okuma']:.2f}$ + {o['yazma_adedi']} yazma {o['yazma']:.2f}$; "
+                      "yazma = oturum + sıkıştırma, 1 saatlik tarife, baskın model; kalibrasyonsuz kalemlerin $ değeri bant ortasıdır, tahmindir)."]
     e = r["esik"]
     if e.get("cagri"):
         s += ["", f"## Eşikler: {e['cagri']} çağrı, {e['oturum']} oturum; liste maliyeti {e['toplam_usd']:.2f}$; bağlam medyan {e['baglam_medyan']}, p90 {e['baglam_p90']}", "",
