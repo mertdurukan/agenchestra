@@ -341,11 +341,12 @@ def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
         if tam.startswith(adr + os.sep):
             return ""
     klasor = os.path.normcase(os.path.abspath(str(kayit.get("klasor") or "")))
-    if klasor and tam.startswith(klasor + os.sep):
-        proje_n = os.path.normcase(os.path.abspath(proje))
-        genis = proje_n == klasor or proje_n.startswith(klasor + os.sep)
-        if not genis or tam.endswith(".md"):
-            return ""
+    proje_n = os.path.normcase(os.path.abspath(proje))
+    for k_n, p_n in ((klasor, proje_n),) + _worktree_esdeger(klasor, proje_n, tam):
+        if k_n and tam.startswith(k_n + os.sep):
+            genis = p_n == k_n or p_n.startswith(k_n + os.sep)
+            if not genis or tam.endswith(".md"):
+                return ""
     return ("iş onay bekliyor (P-016): önce mevcut durum → plan → todo hazırlanır, bağlantılarıyla kullanıcıya gösterilir; "
             "kullanıcı onaylamadan işin belgeleri dışında dosya yazılmaz. Kapatma: ORKESTRA_ONAY_KAPISI=0.")
 
