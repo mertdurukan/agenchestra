@@ -100,9 +100,10 @@ def proje_dizini(cwd: str | None = None) -> str:
 
 
 def oturum_koku(cwd: str | None = None) -> str:
-    """Oturumun klasörü: CLAUDE_PROJECT_DIR > cwd'den yukarı ilk `.git` içeren klasör bağlı bir git worktree'siyse o
-    klasör (uygulama göreli bağlantıyı buna göre çözer); değilse `proje_dizini` (ana ağaçta ikisi aynıdır). ADR-0035."""
-    baslangic = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
+    """Oturumun klasörü: açık `cwd` > CLAUDE_PROJECT_DIR > süreç cwd'si; oradan yukarı ilk `.git` içeren klasör bağlı bir
+    git worktree'siyse o klasör (uygulama göreli bağlantıyı buna göre çözer); değilse `proje_dizini` (ana ağaçta ikisi
+    aynıdır). Açık `cwd` ortamdan önce gelir: uygulama ortamı ana ağaç verirken hook girdisi oturum worktree'sidir (I-220)."""
+    baslangic = cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     d = os.path.abspath(baslangic)
     while True:
         if os.path.exists(os.path.join(d, ".git")):  # klasör: ana ağaç; dosya: bağlı worktree
