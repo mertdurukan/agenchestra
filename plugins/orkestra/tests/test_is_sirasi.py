@@ -5,8 +5,10 @@ Kapı bu testlerde ORKESTRA_SIRA_KAPISI=1 ile açıkça kurulur (ic_kos varsayı
 import datetime
 import json
 import os
+import re
 import sys
 import unittest
+import unittest.mock
 
 import test_cekirdek as TC
 
