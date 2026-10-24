@@ -124,6 +124,18 @@ def baglanti_koku(proje: str, cwd: str | None = None) -> str:
     return proje
 
 
+def replace_dene(kaynak: str, hedef: str, deneme: int = 5, bekle: float = 0.05) -> None:
+    """os.replace; Windows'ta okuyucu/AV yüzünden geçici PermissionError olursa kısa aralıkla yeniden dener (deneme x bekle sn), sonuncuda yükseltir."""
+    for i in range(deneme):
+        try:
+            os.replace(kaynak, hedef)
+            return
+        except PermissionError:
+            if i == deneme - 1:
+                raise
+            time.sleep(bekle)
+
+
 ESKI_AD = "ruya"  # geriye uyum: perspektifin eski adı (durum klasörü, rapor öneki, süreç etiketi, ajan adı)
 
 
@@ -134,7 +146,7 @@ def perspektif_goc(p: str) -> None:
     if os.path.isdir(yeni) or not os.path.isdir(eski):
         return
     try:
-        os.replace(eski, yeni)
+        replace_dene(eski, yeni)
     except OSError:
         try:
             shutil.copytree(eski, yeni)
@@ -1910,7 +1922,7 @@ def _defter_dondur(sd: str) -> None:
     md = os.path.join(sd, "ortak_defter.md")
     if os.path.exists(md) and os.path.getsize(md) > DEFTER_MAX_BAYT:
         damga = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        os.replace(md, os.path.join(sd, f"ortak_defter_{damga}.md"))
+        replace_dene(md, os.path.join(sd, f"ortak_defter_{damga}.md"))
 
 
 def defter_ekle(sd: str, kayit: dict) -> None:
@@ -1941,9 +1953,17 @@ def defter_kayitlari(sd: str) -> list[dict]:
 # ---------------------------------------------------------------- hook çıktısı
 
 def hook_cikti(obj: dict | None = None, kod: int = 0) -> None:
-    if obj:
-        sys.stdout.write(json.dumps(obj, ensure_ascii=False))
-    sys.stdout.flush()
+    try:
+        if obj:
+            sys.stdout.write(json.dumps(obj, ensure_ascii=False))
+        sys.stdout.flush()
+    except OSError as e:
+        # I-059 P5: hook-hatasi günlüğündeki 9 SessionStart/PreToolUse kaydının tamamı bu flush'ta "OSError [Errno 22]" (barındıran
+        # süreç stdout borusunu kapatmış/geçersiz kılmış); çıkış kodu korunur (reddetme kodu hata yoluyla izne dönmesin), neden stderr'e.
+        try:
+            sys.stderr.write(f"hook_cikti: stdout yazılamadı ({type(e).__name__}: {e})\n")
+        except Exception:
+            pass
     sys.exit(kod)
 
 
