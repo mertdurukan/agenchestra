@@ -1752,7 +1752,8 @@ def kaydet(alt):
     y.add_argument("--soru", help="zorunlu: kartın cevaplayacağı tek soru (tek cümle)")
     y.add_argument("--genislet-onay", dest="genislet_onay", action="store_true",
                    help="analiz kartında geniş tarama uyarısını kullanıcı onayıyla kaldırır")
-    y.add_argument("--kabul", action="append", default=[])
+    y.add_argument("--kabul", action="append", default=[],
+                   help='tekrarlanır: "<ne doğrulanır>; kontrol: <komut | dosya:satır | sayı>" (ölçüsüz ifade reddedilir)')
     y.add_argument("--yazma", action="append", default=[])
     y.add_argument("--bagimli", action="append", default=[])
     y.add_argument("--test-komutu", dest="test_komutu", help="kod kartında zorunlu: proje kökünde kabukla koşulan test komutu")
