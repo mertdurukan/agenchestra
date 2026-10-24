@@ -286,6 +286,107 @@ class KimlikKapisi(unittest.TestCase):
         self.assertNotEqual(self._k("Bash", {"command": "orkestra kimlik liste"}), "deny")
 
 
+class OnayKapisiKabuk(unittest.TestCase):
+    """I-224: P-016 onay kapısı yalnız proje içi yazımı bekletir; kabukla yazım Edit/Write ile aynı kapıdan geçer;
+    veri heredoc'undaki "push" metni kapıya takılmaz, gerçek `git push` takılır."""
+    OID = "i224-onay-oturum"
+
+    def setUp(self):
+        import is_kaydi
+        import is_onay
+        self.is_onay = is_onay
+        self.proje = tempfile.mkdtemp(prefix="ork_i224_")
+        self.disari = tempfile.mkdtemp(prefix="ork_i224_scratch_")  # proje dışı (scratchpad / %TEMP% yerine)
+        self.sd = os.path.join(self.proje, ".claude", "orkestra")
+        os.makedirs(os.path.join(self.sd, "oturumlar"))
+        self._env = dict(os.environ)
+        for k in ("CLAUDE_PROJECT_DIR", "ORKESTRA_ONAY_KAPISI", "ORKESTRA_IS_KAPISI"):
+            os.environ.pop(k, None)
+        os.environ.update(CLAUDE_PROJECT_DIR=self.proje, ORKESTRA_SIRA_KAPISI="1", ORKESTRA_DOGRULAMA_KAPISI="0",
+                          ORKESTRA_IZIN="genis")
+        self.klasor = os.path.join(self.proje, "isler", "001-x")
+        self.kayit = is_kaydi.is_ac(self.sd, "I-224 sınaması", self.klasor)
+        with open(os.path.join(self.sd, "oturumlar", self.OID + ".json"), "w", encoding="utf-8") as f:
+            json.dump({"is": self.kayit["id"]}, f)
+        self.assertEqual(is_kaydi.is_al(self.sd, self.kayit["id"]).get("onay"), "bekliyor")
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self._env)
+        shutil.rmtree(self.proje, ignore_errors=True)
+        shutil.rmtree(self.disari, ignore_errors=True)
+
+    def pre(self, arac, girdi):
+        """Hook'u süreç içinde koşar; (karar, neden)."""
+        import contextlib
+        import io
+        import hook
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                hook.pre_tool_use({"tool_name": arac, "cwd": self.proje, "session_id": self.OID, "tool_input": girdi})
+            except SystemExit:
+                pass
+        ham = buf.getvalue().strip()
+        h = (json.loads(ham.splitlines()[-1]).get("hookSpecificOutput") or {}) if ham else {}
+        return h.get("permissionDecision"), h.get("permissionDecisionReason", "")
+
+    def kabuk(self, komut, arac="Bash"):
+        return self.pre(arac, {"command": komut})[0]
+
+    def test_k1_proje_disi_yazim_bekliyor_iken_serbest(self):
+        d = os.path.join(self.disari, "not.txt")
+        self.assertEqual(self.is_onay.yazma_engeli(self.kayit, self.proje, d), "")
+        self.assertNotEqual(self.pre("Write", {"file_path": d, "content": "x"})[0], "deny")
+        for arac, komut in (("Bash", f"echo x > {d}"), ("Bash", f"cat <<'EOF' > {d}\nmetin\nEOF"),
+                            ("PowerShell", f'Set-Content -Path "{d}" -Value x'),
+                            ("PowerShell", f"'x' | Out-File -FilePath '{d}' -Encoding utf8"),
+                            ("Bash", f"cp a.txt {self.disari}/"), ("Bash", "python -m unittest 2>&1 > /dev/null"),
+                            ("PowerShell", "git status > $null")):
+            self.assertNotEqual(self.kabuk(komut, arac), "deny", komut)
+        # proje içi Edit/Write hâlâ reddedilir; işin belgeleri ve adr/ serbest
+        self.assertEqual(self.pre("Write", {"file_path": os.path.join(self.proje, "src", "a.py"), "content": "x"})[0], "deny")
+        self.assertNotEqual(self.kabuk(f"echo x > {os.path.join(self.klasor, 'plan.md')}"), "deny")
+        self.assertNotEqual(self.kabuk(f"echo x > {os.path.join(self.proje, 'adr', 'ADR-0001-x.md')}"), "deny")
+
+    def test_k2_proje_ici_kabuk_yazimi_reddedilir(self):
+        p = os.path.join(self.proje, "src", "a.py")
+        for arac, komut in (("Bash", f"echo x > {p}"), ("Bash", f"echo x >> {p}"), ("Bash", f"printf x | tee {p}"),
+                            ("Bash", f"cp /tmp/a.py {p}"), ("Bash", f"mv x.py {self.proje}/src/"),
+                            ("Bash", f"cd {self.proje} && echo x > src/a.py"), ("Bash", f"rm -f {p}"),
+                            ("Bash", f"cat > {p} <<'EOF'\nprint(1)\nEOF"),
+                            ("PowerShell", f'Set-Content -Path "{p}" -Value x'), ("PowerShell", f"Set-Content '{p}' x"),
+                            ("PowerShell", f'"x" | Out-File "{p}"'), ("PowerShell", f'Add-Content -LiteralPath "{p}" -Value x'),
+                            ("PowerShell", f'Copy-Item a.py -Destination "{self.proje}\\src"'),
+                            ("PowerShell", f"[IO.File]::WriteAllText('{p}', 'x')"),
+                            ("PowerShell", "$f = 'x'; Set-Content $f 'y'"),
+                            ("Bash", f"echo {{}} > {os.path.join(self.klasor, 'is.json')}")):
+            self.assertEqual(self.kabuk(komut, arac), "deny", komut)
+        # izin modu kapalı olsa da P-016 kapısı durur; onay verilince serbest
+        os.environ["ORKESTRA_IZIN"] = "0"
+        self.assertEqual(self.kabuk(f"echo x > {p}"), "deny")
+        self.is_onay.yaz(self.sd, self.kayit["id"], "verildi", "test")
+        self.assertNotEqual(self.kabuk(f"echo x > {p}"), "deny")
+
+    def test_k3_heredoc_push_metni_reddedilmez_gercek_push_reddedilir(self):
+        veri = ("git commit -F - <<'EOF'\nfix: git push kapısı düzeldi\nEOF",
+                "cat <<EOF\nsonra git push origin main\nEOF",
+                "@'\ngit push origin main\n'@ | Out-Host")
+        for k in veri:
+            self.assertEqual(karar("Bash", k), "allow", k)  # izin politikası: push sorusu yok
+        # onay bekleyen işte de (hook'un tırnak maskeli metniyle) heredoc gövdesi push sayılmaz
+        d = os.path.join(self.disari, "m.txt")
+        self.assertNotEqual(self.kabuk(f"cat <<'EOF' > {d}\ngit push origin main\nEOF"), "deny")
+        self.assertEqual(self.is_onay.kabuk_engeli('cat <<""\ngit push origin main\nEOF'), "")
+        # gerçek push: izin politikasında ask, onay bekleyen işte deny; heredoc sonrası ve yorumlayıcıya giden gövde dahil
+        for k in ("git push", "git push origin main", "cat <<'EOF'\nx\nEOF\ngit push origin main",
+                  "cat <<'EOF' | bash\ngit push origin main\nEOF", "bash <<'EOF'\ngit push\nEOF",
+                  "echo '<<X'\ngit push"):
+            self.assertEqual(karar("Bash", k), "ask", k)
+        self.assertEqual(self.kabuk("git push origin main"), "deny")
+        self.assertTrue(self.is_onay.kabuk_engeli('cat <<""\nx\nEOF\ngit push origin main'))
+
+
 class Cli(unittest.TestCase):
     def test_goster_ve_sina(self):
         env = dict(os.environ, PYTHONUTF8="1")
