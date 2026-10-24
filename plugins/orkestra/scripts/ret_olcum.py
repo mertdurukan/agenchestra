@@ -17,6 +17,7 @@ aynen üretir. Sonrası payda asgarinin altındaysa "yetersiz örnek".
 from __future__ import annotations
 
 import datetime
+import functools
 import math
 import os
 import re
