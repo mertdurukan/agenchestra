@@ -441,7 +441,7 @@ def _yol_coz(ham: str, taban: str):
     if "$" in y or re.search(r"%\w+%", y):
         return None
     if os.name == "nt":
-        m = re.match(r"^/([a-zA-Z])(?:/|$)(.*)$", y)  # Git Bash: /c/Users/... → C:/Users/...
+        m = re.match(r"^/([a-zA-Z])(?:/|$)(.*)$", y)  # Git Bash: /<sürücü>/yol → <SÜRÜCÜ>:/yol
         if m:
             y = f"{m.group(1)}:/{m.group(2)}"
     return os.path.normcase(os.path.abspath(os.path.join(taban, y)))
