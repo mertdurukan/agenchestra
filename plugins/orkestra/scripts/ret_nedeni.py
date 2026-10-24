@@ -53,6 +53,7 @@ KAPI_SINIF = {
     "P-018": "R1",        # kalite alanları ve P/G zinciri
     "P-030": "R2",        # BIC bloğu iskeleti
     "P-035": "R4",        # bozuk kural metni
+    "plan_dogrulama": "R3",  # plan ✅/❌ kapısı: alan eksikleri geç görünür
     "P-005": "R6",        # belge sırası
     "P-016": "R6",        # onay kapısı
     "bagsiz": "R6",       # işe bağlı olmayan oturum
