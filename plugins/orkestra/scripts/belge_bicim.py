@@ -170,6 +170,167 @@ def yazim_ihlalleri(metin: str, dosya_adi: str, ayar: dict) -> list[dict]:
     return ihlaller
 
 
+# ---------------------------------------------------------------- güvenli düzeltme (I-224 P9)
+# Yalnız anlamı değiştirmeyen, ayırıcısı kesin dönüşümler. Uzun paragraf / uzun todo maddesi (kısaltma ister),
+# `;` ve (a)(b) listeleri (ayırıcı belirsiz) düzeltilmez. Kod bloğu, HTML yorumu, tablo, başlık, alıntı, HTML satırı,
+# YAML ön bilgisi, girintili satır ve liste maddesine dokunulmaz.
+
+_KESIN_ETIKET = re.compile(r"\*\*[^*\n]{1,40}?:\*\*(?=\s|$)")  # yalnız '**Etiket:**' biçimi
+_NOKTA_AYIRICI = " · "
+_NOKTA_MADDE_AZAMI = 120
+_ONEK = re.compile(r"^(?:\*\*[^*\n]{1,40}?:\*\*|[^\s:*`][^:*`]{0,38}:)(?=\s)")  # '**Durum:**' ya da 'Durum:' öneki
+
+
+def _maske(s: str) -> str:
+    """Satır içi kod, bağlantı hedefi ve satır içi yorum aynı uzunlukta '\\0' ile örtülür (konum korunur)."""
+    for r in (_SATIR_ICI_KOD, _BAGLANTI_HEDEFI, _SATIR_ICI_YORUM):
+        s = r.sub(lambda m: "\0" * len(m.group(0)), s)
+    return s
+
+
+def _korunan_satirlar(satirlar: list[str]) -> list[bool]:
+    """Dönüştürülmeyecek satırlar: YAML ön bilgisi, kod bloğu, HTML yorumu (çok satırlı dahil)."""
+    korunan, kod, yorum = [False] * len(satirlar), False, False
+    bas = 0
+    if satirlar and satirlar[0].strip() == "---":
+        for j in range(1, len(satirlar)):
+            if satirlar[j].strip() in ("---", "..."):
+                for k in range(j + 1):
+                    korunan[k] = True
+                bas = j + 1
+                break
+    for i in range(bas, len(satirlar)):
+        s = satirlar[i]
+        if yorum:
+            korunan[i] = True
+            if "-->" in s:
+                yorum = _yorum_acar(s[s.index("-->") + 3:])
+            continue
+        if not kod and _yorum_acar(s):
+            korunan[i], yorum = True, True
+            continue
+        if s.strip().startswith("```"):
+            korunan[i], kod = True, not kod
+            continue
+        korunan[i] = kod or "<!--" in s
+    return korunan
+
+
+def _duz_paragraf_satiri(s: str, yok_say: re.Pattern | None, bastirma: str) -> bool:
+    """Girintisiz, düz paragraf satırı (başlık, tablo, alıntı, HTML, liste, Given/When ve bastırmalı satır değil)."""
+    if not s.strip() or s[0].isspace() or bastirma in s:
+        return False
+    if s.startswith(("#", "|", ">", "<", "```")) or _LISTE_MADDESI.match(s):
+        return False
+    return not (yok_say and yok_say.search(s))
+
+
+def _etiket_bol(s: str) -> list[str] | None:
+    """'**A:** x **B:** y' → ['**A:** x', '**B:** y']. Satır etiketle başlamıyorsa ya da tek etiket varsa None."""
+    yerler = [m.start() for m in _KESIN_ETIKET.finditer(_maske(s))]
+    if len(yerler) < 2 or yerler[0] != 0:
+        return None
+    parca = [s[a:b].strip() for a, b in zip(yerler, yerler[1:] + [len(s)])]
+    return parca if all(_KESIN_ETIKET.fullmatch(p) is None for p in parca) else None  # boş alan bırakılmaz
+
+
+def _nokta_bol(s: str, en_az: int) -> list[str] | None:
+    """'Önek: a · b · c' → ['Önek:', '', '- a', '- b', '- c']; ayırıcı kesin değilse None.
+    Kesinlik: en az `en_az` ayırıcı, her madde dolu ve kısa, maske dışında başka '·' yok, satır cümle gibi bitmiyor."""
+    m = _maske(s)
+    if m.count(_NOKTA_AYIRICI) < en_az or m.count("·") != m.count(_NOKTA_AYIRICI):
+        return None
+    yerler, i = [], m.find(_NOKTA_AYIRICI)
+    while i >= 0:
+        yerler.append(i)
+        i = m.find(_NOKTA_AYIRICI, i + len(_NOKTA_AYIRICI))
+    sinir = [0] + [y + len(_NOKTA_AYIRICI) for y in yerler]
+    maddeler = [s[a:(yerler[k] if k < len(yerler) else len(s))].strip() for k, a in enumerate(sinir)]
+    onek = ""
+    o = _ONEK.match(maddeler[0])
+    if o:
+        onek, maddeler[0] = o.group(0), maddeler[0][o.end():].strip()
+    if any(not x or len(x) > _NOKTA_MADDE_AZAMI for x in maddeler):
+        return None
+    return ([onek, ""] if onek else []) + [f"- {x}" for x in maddeler]
+
+
+def _donustur(metin: str, ayar: dict) -> tuple[str, list[dict]]:
+    k = ayar.get("yazim_kapisi") or {}
+    bastirma = k.get("bastirma_isareti") or "<!-- biçim-tamam -->"
+    try:
+        yok_say = re.compile(k["yok_say_satir_kalibi"]) if k.get("yok_say_satir_kalibi") else None
+    except re.error:
+        yok_say = None
+    en_az = int(k.get("sikisik_liste_en_az") or 2)
+    satirlar = metin.split("\n")
+    korunan = _korunan_satirlar(satirlar)
+    bloklar: list[list[str]] = []  # her öğe: bir kaynak satırın yerini alan satırlar
+    uygulanan: list[dict] = []
+    for no, s in enumerate(satirlar, 1):
+        if korunan[no - 1] or not _duz_paragraf_satiri(s, yok_say, bastirma):
+            bloklar.append([s])
+            continue
+        parcalar, donusum = _etiket_bol(s) or [s], []
+        if len(parcalar) > 1:
+            donusum.append("etiket_ayir")
+        yeni: list[str] = []
+        for p in parcalar:
+            nb = _nokta_bol(p, en_az)
+            if nb:
+                donusum.append("nokta_liste")
+            if yeni:
+                yeni.append("")
+            yeni.extend(nb or [p])
+        onceki = satirlar[no - 2] if no > 1 else ""
+        if _KESIN_ETIKET.match(s) and onceki.strip() and not korunan[no - 2] \
+                and _duz_paragraf_satiri(onceki, yok_say, bastirma):
+            donusum.append("bos_satir")  # bir önceki paragraf satırına yapışık etiketli alan: ayrı paragraf
+            yeni.insert(0, "")
+        if donusum:
+            uygulanan.extend({"satir": no, "donusum": d} for d in donusum)
+        bloklar.append(yeni)
+    # Dönüşen bloğun ardından gelen dolu satır listeye/paragrafa yapışmasın: araya boş satır.
+    cikti: list[str] = []
+    for i, b in enumerate(bloklar):
+        if i > 0 and len(bloklar[i - 1]) > 1 and cikti and cikti[-1].strip() and b and b[0].strip():
+            cikti.append("")
+        if len(b) > 1 and cikti and cikti[-1].strip() and b[0].strip():
+            cikti.append("")
+        cikti.extend(b)
+    return "\n".join(cikti), uygulanan
+
+
+def guvenli_duzelt(metin: str, dosya_adi: str = "plan.md", ayar: dict | None = None) -> tuple[str, list[dict]]:
+    """K-005 ihlalli metne yalnız güvenli dönüşümleri uygular → (yeni_metin, uygulananlar).
+    Uygulananlar: [{satir, donusum}] (donusum: etiket_ayir | bos_satir | nokta_liste). Hepsi ya da hiçbiri:
+    metin ihlalsizse, dönüşüm yoksa ya da dönüşüm sonrası hâlâ ihlal kalıyorsa orijinal metin ve [] döner.
+    İdempotent: sonuç ihlalsiz olduğundan ikinci uygulama metni değiştirmez."""
+    ayar = ayar if ayar is not None else ayar_oku(None)
+    if not metin or not yazim_ihlalleri(metin, dosya_adi, ayar):
+        return metin, []
+    crlf = "\r\n" in metin
+    yeni, uygulanan = _donustur(metin.replace("\r\n", "\n") if crlf else metin, ayar)
+    if crlf:
+        yeni = yeni.replace("\n", "\r\n")
+    if not uygulanan or yeni == metin or yazim_ihlalleri(yeni, dosya_adi, ayar):
+        return metin, []
+    return yeni, uygulanan
+
+
+def duzelt_acik(sd=None) -> bool:
+    """`ayarlar/belge_duzelt.json` mod (`acik` | `kapali`; proje ezmesi `<durum>/belge_duzelt.json`);
+    ORKESTRA_BELGE_DUZELT=0 kapatır."""
+    if os.environ.get("ORKESTRA_BELGE_DUZELT") == "0":
+        return False
+    m = "acik"
+    for yol in (os.path.join(_KOK, "ayarlar", "belge_duzelt.json"), os.path.join(sd, "belge_duzelt.json") if sd else ""):
+        d = _json_oku(yol) if yol else None
+        if d and d.get("mod") in ("acik", "kapali"):
+            m = d["mod"]
+    return m == "acik"
+
+
 def ozet_satiri(dosya_adi: str, ihlaller: list[dict], en_cok: int = 3) -> str:
     """Tek satırlık uyarı: ilk ihlaller satır numarasıyla."""
     parca = ", ".join(f"satır {i['satir']} {i['kural']}" for i in ihlaller[:en_cok])
