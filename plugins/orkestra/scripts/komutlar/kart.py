@@ -127,6 +127,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         hata(f"kart zaten var: {gid}")
     yazma = list(d.get("yazma_alani") or [])
     bag = _kart_is_bag_kur(sd, gid, d.get("baslik") or "", yazma, d.get("is"), onbellek)
+    kriterler, iskelet = _kabul_kontrol_dogrula(d, sd)
     k = {
         "id": gid,
         "baslik": d.get("baslik") or "(başlıksız)",
