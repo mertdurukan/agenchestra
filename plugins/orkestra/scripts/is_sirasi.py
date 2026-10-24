@@ -641,6 +641,19 @@ def _oku(yol: str) -> str | None:
         return None
 
 
+_PLAN_ESI: dict[str, str] = {}  # I-224: yazım anında denetlenecek plan metni (klasör → yazılacak metin); diskteki plan.md yerine
+
+
+def _anahtar(klasor: str) -> str:
+    return os.path.normcase(os.path.abspath(klasor))
+
+
+def _plan_oku(klasor: str) -> str | None:
+    """plan.md metni: yazım anı denetiminde yazılacak metin (`_PLAN_ESI`), yoksa diskteki dosya."""
+    k = _anahtar(klasor)
+    return _PLAN_ESI[k] if k in _PLAN_ESI else _oku(os.path.join(klasor, "plan.md"))
+
+
 def _bolumler(metin: str) -> dict[int, str]:
     parcalar = _BOLUM_BASLIK.split(metin)
     return {int(parcalar[i]): parcalar[i + 1] for i in range(1, len(parcalar) - 1, 2)}
