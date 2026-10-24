@@ -13,6 +13,7 @@ os.environ.setdefault("ORKESTRA_EKLENTI_KURALLARI",
                       os.path.join(tempfile.gettempdir(), "orkestra_test_eklenti_yok", "kurallar", "eklenti_kurallari.json"))
 # İş sırası kapısı (P-005): eski testler plan.md/todo.md'nin `is ac` ile hemen açılmasını bekler; sıra testleri '1' yapar.
 os.environ.setdefault("ORKESTRA_SIRA_KAPISI", "0")
+os.environ.setdefault("ORKESTRA_KART_KONTROL", "0")  # kart `kontrol:` alanı (I-224 P8): eski kart fikstürleri taşımaz; test_kart_kontrol_alani '1' yapar
 os.environ.setdefault("ORKESTRA_IZIN", "0")  # izin politikası (geniş allow): eski hook testleri kapı kararını sınar; izin testleri modu kendisi seçer
 os.environ.setdefault("ORKESTRA_OZET_KAPISI", "0")  # kapanış özet kapısı (P-009): eski testler özetsiz kapatır
 os.environ.setdefault("ORKESTRA_ADR_KAPISI", "0")  # kapanış ADR kapısı (P-015): eski testler ADR satırsız kapatır; ADR testleri '1' yapar

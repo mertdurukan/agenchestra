@@ -115,6 +115,7 @@ def tek_dosya(dosya, zaman_asimi, dugumler=None):
     env.setdefault("ORKESTRA_TEKNIK_KAPISI", "0")
     env.setdefault("ORKESTRA_MEVCUT_KAPISI", "0")
     env.setdefault("ORKESTRA_SIRA_KAPISI", "0")
+    env.setdefault("ORKESTRA_KART_KONTROL", "0")  # I-224 P8: eski kart fikstürleri `kontrol:` taşımaz
     env.setdefault("ORKESTRA_DOGRULAMA_KAPISI", "0")
     komut = [sys.executable, "-m", "pytest"] + (list(dugumler) if dugumler else [os.path.abspath(dosya)]) + ["-q", "-p", "no:cacheprovider"]
     t = time.time()
