@@ -216,7 +216,6 @@ class PlanAlanTesti(unittest.TestCase):
         yama = mock.patch.dict(os.environ, kapilar)
         yama.start()
         self.addCleanup(yama.stop)
-        self.assertTrue(S.sirali_mi(self.kok) or True)
         self.env = dict({k: v for k, v in os.environ.items() if not k.startswith("ORKESTRA_")}, **kapilar)
         _fikstur(self.kok)
 
