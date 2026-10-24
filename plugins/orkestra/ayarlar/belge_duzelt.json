@@ -1,0 +1,5 @@
+{
+  "surum": 1,
+  "not": "I-224 P9: K-005 yazım kapısı ihlal modundayken Write içeriğindeki ihlallerin TÜMÜ güvenli dönüşümle (etiket ayırma, boş satır, kesin ' · ' listesi) gideriliyorsa ret yerine düzeltilmiş içerik updatedInput ile yazılır. Edit/MultiEdit'e uygulanmaz. mod: acik | kapali; proje ezmesi <durum>/belge_duzelt.json; ORKESTRA_BELGE_DUZELT=0 kapatır.",
+  "mod": "acik"
+}
