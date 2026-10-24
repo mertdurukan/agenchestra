@@ -77,8 +77,11 @@ def _veri(sd: str) -> dict:
     kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
     mal = [dict(r, _is=_is_id(L.satir_isi(r, kart_is))) for r in L.maliyet_kayitlari(sd)]
     zam = [dict(r, _is=_is_id(L.satir_isi(r, kart_is))) for r in L.zaman_kayitlari(sd)]
-    isler = _json(os.path.join(sd, "isler.json")).get("isler")
-    isler = isler if isinstance(isler, dict) else {}
+    import is_kaydi as IK  # noqa: PLC0415
+    try:
+        isler = IK.merkez_isler(sd)   # klasor alanı çözülmüş (I-223: silinmiş worktree yolu ana ağaca bağlanır)
+    except Exception:  # noqa: BLE001 - eski _json davranışı: bozuk/eksik merkez kayıt rapor üretimini durdurmaz
+        isler = {}
     return {"mal": mal, "zam": zam, "isler": isler, "kartlar": kartlar}
 
 

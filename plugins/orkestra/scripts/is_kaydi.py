@@ -534,7 +534,7 @@ def is_klasorden(sd: str, klasor: str) -> dict | None:
     if kayit is None:
         return None
     try:
-        giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(kayit["id"])
+        giris = merkez_giris(sd, kayit["id"])
         if not giris or not _ayni_yol(giris.get("klasor") or "", klasor):
             return None
         return is_al(sd, kayit["id"])
@@ -550,7 +550,7 @@ def yetim_kaydet(sd: str, klasor: str, uygula: bool = True) -> dict | None:
     if kayit is None:
         return None
     try:
-        giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(kayit["id"])
+        giris = merkez_giris(sd, kayit["id"])
     except (OSError, ValueError, AttributeError):
         return None
     if giris and not _ayni_yol(giris.get("klasor") or "", klasor):
@@ -596,15 +596,70 @@ def merkez_kurtar(sd: str, bilinen_klasorler=None) -> dict:
     return {"yedek": yedek, "kuruldu": r["yazildi"], "farklar": r["farklar"]}
 
 
-def is_al(sd: str, is_id: str) -> dict | None:
+_WT_YOLU = re.compile(r"^(?P<kok>.+?)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+(?P<alt>[\\/].+)$", re.IGNORECASE)
+
+
+def klasor_coz(sd: str, giris: dict | None, is_id: str) -> str | None:
+    """Merkez kaydın iş klasörünü çözer (saf okuma, tarama yok): kayıtlı yolda is.json varsa o; yoksa kayıtlı yol silinmiş
+    bir `.claude/worktrees/<ad>/` altındaysa aynı alt yol ana ağaçta aranır ve is.json kimliği `is_id` ile eşleşirse o yol.
+    Çözülemezse None. Neden: iş klasörü worktree'de doğar, worktree birleşip silinince mutlak yol geçersiz kalır (I-223)."""
+    kayitli = (giris or {}).get("klasor") or ""
+    if not kayitli:
+        return None
+    if os.path.exists(_is_json_yolu(kayitli)):
+        return kayitli
+    m = _WT_YOLU.match(kayitli)
+    if not m:
+        return None
+    kokler = [m.group("kok"), os.path.dirname(os.path.dirname(os.path.abspath(sd)))]
+    for kok in dict.fromkeys(kokler):
+        aday = os.path.normpath(kok + m.group("alt"))
+        k = klasor_kaydi(aday)
+        if k is not None and k.get("id") == is_id:
+            return aday
+    return None
+
+
+def _cozulmus(sd: str, is_id: str, giris) -> dict:
+    """Ham merkez girişinin kopyası; klasor çözülebiliyorsa çözülmüş yolla (çözülemezse kayıtlı yol kalır)."""
+    if not isinstance(giris, dict):
+        return giris
+    g = dict(giris)
+    k = klasor_coz(sd, g, is_id)
+    if k:
+        g["klasor"] = k
+    return g
+
+
+def merkez_isler(sd: str) -> dict:
+    """{iş kimliği: giriş}; her girişin klasor alanı klasor_coz ile çözülmüş. Merkez kaydı okuyan yerler bunu kullanır."""
+    ham = _oku(_merkez(sd), _BOS).get("isler", {})
+    return {i: _cozulmus(sd, i, g) for i, g in ham.items()}
+
+
+def merkez_giris(sd: str, is_id: str) -> dict | None:
+    """Tek iş için çözülmüş merkez girişi; kayıt yoksa None."""
     giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(is_id)
+    return _cozulmus(sd, is_id, giris) if giris else None
+
+
+def ham_giris(sd: str, is_id: str) -> dict | None:
+    """Merkez girişi olduğu gibi (çözümleme yok); panel 'kayıt var, klasör yok' ayrımı için."""
+    return _oku(_merkez(sd), _BOS).get("isler", {}).get(is_id) or None
+
+
+def is_al(sd: str, is_id: str) -> dict | None:
+    giris = merkez_giris(sd, is_id)
     if not giris:
         return None
-    return _oku(_is_json_yolu(giris["klasor"]), None)
+    kayit = _oku(_is_json_yolu(giris["klasor"]), None)
+    if isinstance(kayit, dict):
+        kayit["klasor"] = giris["klasor"]   # is.json'daki eski mutlak yol yerine çözülmüş yol
+    return kayit
 
 
 def is_liste(sd: str, durum: str | None = None) -> list[dict]:
-    isler = _oku(_merkez(sd), _BOS).get("isler", {})
+    isler = merkez_isler(sd)
     out = []
     for i in is_sirala(isler):
         g = dict(isler[i])
@@ -641,7 +696,7 @@ def sifirlama_zamani(sd: str) -> str | None:
 
 
 def _degistir(sd: str, is_id: str, islem) -> dict:
-    giris = _oku(_merkez(sd), _BOS).get("isler", {}).get(is_id)
+    giris = merkez_giris(sd, is_id)
     if not giris:
         raise KeyError(f"iş yok: {is_id}")
     yol = _is_json_yolu(giris["klasor"])
@@ -649,6 +704,7 @@ def _degistir(sd: str, is_id: str, islem) -> dict:
         kayit = _oku(yol, None)
         if kayit is None:
             raise KeyError(f"is.json yok: {yol}")
+        kayit["klasor"] = giris["klasor"]   # çözülmüş yol (worktree silinmişse is.json'daki eski yol yerine)
         islem(kayit)
         kayit["guncelleme"] = L.simdi()
         _yaz(yol, kayit)
@@ -1220,6 +1276,113 @@ def onar(sd: str, ek_klasorler=None, uygula: bool = False) -> dict:
             _yaz(yol, {**mevcut, "sayac": sayac, "isler": isler})
             yazildi = True
     return {"farklar": farklar, "uyarilar": uyarilar, "yazildi": yazildi}
+
+
+def klasor_kalici(sd: str, is_id: str) -> str | None:
+    """Merkez kaydın klasor alanı çözülmüş yoldan farklıysa kilit altında çözülmüş yola günceller (yetim kaydın kendini
+    onarması; yalnız `is devam` / `is kapat` gibi zaten yazan yollardan çağrılır). Eski yol kayıtta `klasor_onceki`
+    olarak kalır. Güncellenen yeni yolu döndürür; değişiklik yoksa ya da çözülemezse None."""
+    ham = ham_giris(sd, is_id)
+    if not ham:
+        return None
+    yeni = klasor_coz(sd, ham, is_id)
+    if not yeni or _ayni_yol(yeni, ham.get("klasor") or ""):
+        return None
+    yol = _merkez(sd)
+    with L.kilit(yol):
+        veri = _oku(yol, _BOS)
+        giris = veri.get("isler", {}).get(is_id)
+        if not giris or giris.get("klasor") != ham.get("klasor"):
+            return None
+        giris["klasor_onceki"] = giris["klasor"]
+        giris["klasor"] = yeni
+        _yaz(yol, veri)
+    return yeni
+
+
+def _yetim_aday_dizinler(sd: str, kayitli: str) -> list[str]:
+    """Yetim kaydın iş klasörünün bulunabileceği üst dizinler: kayıtlı yolun üst dizini (varsa) ve worktree ise ana ağaçtaki karşılığı."""
+    dizinler = []
+    ust = os.path.dirname(kayitli)
+    if os.path.isdir(ust):
+        dizinler.append(ust)
+    m = _WT_YOLU.match(kayitli)
+    if m:
+        alt_ust = os.path.dirname(m.group("alt"))
+        for kok in dict.fromkeys([m.group("kok"), os.path.dirname(os.path.dirname(os.path.abspath(sd)))]):
+            ilk = os.path.normpath("." + m.group("alt")).split(os.sep)[0]
+            for d in (os.path.normpath(kok + alt_ust), os.path.normpath(kok + m.group("alt")), os.path.join(os.path.normpath(kok), ilk)):
+                if os.path.isdir(d):   # 2.: kayıt iş klasörü yerine kapsayıcıyı gösterdiyse; 3.: kapsayıcı iç içe yazılmışsa (X\X\NNN-…)
+                    dizinler.append(d)
+    return list(dict.fromkeys(dizinler))
+
+
+def yetim_onar(sd: str, uygula: bool = False) -> dict:
+    """Klasörü okunamayan (is.json yok) merkez kayıtları üçe sınıflar; yalnız bağlanabilir olanı uygula=True ile yazar.
+
+    - bağlanabilir: klasor_coz (worktree soneki) ya da ana ağaçtaki kardeş klasörlerde aynı kimlik ve aynı başlık;
+    - yinelenen: başlığı başka kimlikli bir klasörle aynı (aynı iş iki yerde açılmış; otomatik değiştirilmez);
+    - eşleşmesiz: hiçbiri (otomatik değiştirilmez).
+    Uygulama kilit altında, önce <durum dizini>/yedek/isler_<damga>.json kopyası alınır.
+    Dönüş: {"baglanabilir": [{id, baslik, durum, kayitli, yeni, neden}], "yinelenen": [...], "eslesmesiz": [...],
+            "yazildi": bool, "yedek": yol | None}."""
+    ham = _oku(_merkez(sd), _BOS).get("isler", {})
+    taramalar: dict = {}
+
+    def kardesler(dizin):
+        if dizin not in taramalar:
+            liste = []
+            try:
+                adlar = sorted(os.listdir(dizin))
+            except OSError:
+                adlar = []
+            for ad in adlar:
+                k = klasor_kaydi(os.path.join(dizin, ad))
+                if k is not None:
+                    liste.append((os.path.join(dizin, ad), k))
+            taramalar[dizin] = liste
+        return taramalar[dizin]
+
+    sonuc = {"baglanabilir": [], "yinelenen": [], "eslesmesiz": [], "yazildi": False, "yedek": None}
+    for i in is_sirala(ham):
+        g = ham[i]
+        kayitli = g.get("klasor") or ""
+        if not kayitli or os.path.exists(_is_json_yolu(kayitli)):
+            continue
+        satir = {"id": i, "baslik": g.get("baslik") or "", "durum": g.get("durum") or "", "kayitli": kayitli, "yeni": None, "neden": ""}
+        yeni = klasor_coz(sd, g, i)
+        if yeni:
+            satir.update(yeni=yeni, neden="worktree soneki, kimlik eşleşti")
+            sonuc["baglanabilir"].append(satir)
+            continue
+        adaylar = [c for d in _yetim_aday_dizinler(sd, kayitli) for c in kardesler(d)]
+        tam = [k for k, kayit in adaylar if kayit.get("id") == i and (kayit.get("baslik") or "") == satir["baslik"]]
+        if tam:
+            satir.update(yeni=tam[0], neden="kardeş klasörde kimlik ve başlık eşleşti")
+            sonuc["baglanabilir"].append(satir)
+            continue
+        ayni_baslik = [(k, kayit["id"]) for k, kayit in adaylar if kayit.get("id") != i and satir["baslik"] and (kayit.get("baslik") or "") == satir["baslik"]]
+        if ayni_baslik:
+            satir.update(yeni=ayni_baslik[0][0], neden=f"başlık {ayni_baslik[0][1]} ile aynı")
+            sonuc["yinelenen"].append(satir)
+        else:
+            satir["neden"] = "ana ağaçta kimlik ve başlık eşleşen klasör yok"
+            sonuc["eslesmesiz"].append(satir)
+    if uygula and sonuc["baglanabilir"]:
+        yol = _merkez(sd)
+        with L.kilit(yol):
+            veri = _oku(yol, _BOS)
+            yedek_dizin = os.path.join(sd, "yedek")
+            os.makedirs(yedek_dizin, exist_ok=True)
+            yedek = os.path.join(yedek_dizin, f"isler_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json")
+            _yaz(yedek, veri)
+            for satir in sonuc["baglanabilir"]:
+                giris = veri.get("isler", {}).get(satir["id"])
+                if giris and giris.get("klasor") == satir["kayitli"]:   # okuma ile yazma arasında değişmediyse
+                    giris["klasor"] = satir["yeni"]
+            _yaz(yol, veri)
+        sonuc.update(yazildi=True, yedek=yedek)
+    return sonuc
 
 
 def is_usd_ve_harcama_son(sd: str, kartlar: list[dict]) -> tuple[dict, dict]:

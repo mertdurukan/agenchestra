@@ -518,6 +518,9 @@ def _teknik_json(alan_id, is_id, kart_id, ret=None) -> dict:
         kart_pencere = IK.kart_pencere_toplamlari(sd)
         kayit = IK.is_al(sd, is_id) if _KART_KIMLIK.match(is_id) else None
         if not kayit:
+            ham = IK.ham_giris(sd, is_id) if _KART_KIMLIK.match(is_id) else None
+            if ham:   # kayıt var ama klasör çözülemiyor (I-223): neden ve çıkış yolu söylenir
+                return _teknik_hata(404, f"İş kaydı var, klasörü yok: {ham.get('klasor') or '-'}; `orkestra is onar --yetim` çalıştır")
             return _teknik_hata(404, f"İş bulunamadı: {is_id}")
         ks = sorted((k for k in kartlar if k.get("is") == is_id), key=T._sira_anahtari)
         kok = T._proje(sd)
