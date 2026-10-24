@@ -346,13 +346,17 @@ def _worktree_esdeger(klasor: str, proje_n: str, tam: str) -> tuple:
 
 
 def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
-    """`bekliyor` iken yazılan dosya izinli mi: işin klasörü (is.json hariç) ve proje adr/ klasörü izinlidir.
-    İş klasörü projenin kökü ya da atası ise yalnız .md dosyaları izinlidir. Boş döner = izin."""
+    """`bekliyor` iken yazılan dosya izinli mi: kapı yalnız proje içi yazımı bekletir (I-224: scratchpad, %TEMP% gibi proje
+    dışı yollar serbest); proje içinde işin klasörü (is.json hariç) ve proje adr/ klasörü izinlidir. İş klasörü projenin
+    kökü ya da atası ise yalnız .md dosyaları izinlidir. Boş döner = izin."""
     tam = os.path.normcase(os.path.abspath(tam))
     if os.path.basename(tam) == "is.json":
         return "is.json elle yazılmaz; onayı yalnız kullanıcı mesajı verir."
-    for kok in {proje, L.baglanti_koku(proje)}:  # oturum bağlı worktree'deyse onun adr/ klasörü de (ADR-0035)
-        adr = os.path.normcase(os.path.abspath(os.path.join(kok, "adr")))
+    kokler = {os.path.normcase(os.path.abspath(k)) for k in (proje, L.baglanti_koku(proje)) if k}
+    if not any(tam == k or tam.startswith(k.rstrip(os.sep) + os.sep) for k in kokler):
+        return ""
+    for kok in kokler:  # oturum bağlı worktree'deyse onun adr/ klasörü de (ADR-0035)
+        adr = os.path.join(kok, "adr")
         if tam.startswith(adr + os.sep):
             return ""
     klasor = os.path.normcase(os.path.abspath(str(kayit.get("klasor") or "")))
