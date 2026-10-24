@@ -184,6 +184,111 @@ def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None) -> dict:
             "baglam_p90": ctx[int(n * .9)], "esikler": satirlar}
 
 
+def _kullanici_istegi(o: dict) -> bool:
+    """Gerçek kullanıcı mesajı (araç sonucu, yan zincir, meta ve sıkıştırma özeti değil): yeni istek başlatır."""
+    if o.get("type") != "user" or o.get("isSidechain") or o.get("isMeta") or o.get("isCompactSummary"):
+        return False
+    c = (o.get("message") or {}).get("content")
+    if isinstance(c, str):
+        return bool(c.strip())
+    blok = [x for x in (c or []) if isinstance(x, dict)]
+    return any(x.get("type") == "text" for x in blok) and not any(x.get("type") == "tool_result" for x in blok)
+
+
+def istekler(yol: str, tablo: dict) -> dict:
+    """Ana zincir istekleri (kullanıcı mesajından bir sonrakine): [usd, araç çağrısı, API çağrısı] listesi, sıkıştırma olayı sayısı
+    ve model başına çağrı sayısı. Kullanım transkriptten (kesin); aynı mesajın sonraki blokları araçları toplar, çıkışın en büyüğü alınır."""
+    ist, mesaj, sikis, modeller = [], {}, 0, {}
+    for o in _satirlar(yol):
+        if o.get("subtype") == "compact_boundary":
+            sikis += 1
+            continue
+        if _kullanici_istegi(o):
+            ist.append([0.0, 0, 0])
+            continue
+        m = o.get("message") or {}
+        u = m.get("usage")
+        if o.get("type") != "assistant" or not u or o.get("isSidechain"):
+            continue
+        if not ist:
+            ist.append([0.0, 0, 0])
+        araclar = sum(1 for c in (m.get("content") or []) if isinstance(c, dict) and c.get("type") == "tool_use")
+        mid = m.get("id") or o.get("uuid")
+        r = mesaj.get(mid)
+        if r is None:
+            usd = L.kullanim_maliyeti(m.get("model") or "", u, tablo)
+            mesaj[mid] = r = {"i": ist[-1], "u": dict(u), "model": m.get("model") or "", "usd": usd}
+            ist[-1][0] += usd
+            ist[-1][2] += 1
+            modeller[r["model"]] = modeller.get(r["model"], 0) + 1
+        elif (u.get("output_tokens") or 0) > (r["u"].get("output_tokens") or 0):
+            r["u"]["output_tokens"] = u["output_tokens"]
+            yeni = L.kullanim_maliyeti(r["model"], r["u"], tablo)
+            r["i"][0] += yeni - r["usd"]
+            r["usd"] = yeni
+        r["i"][1] += araclar
+    return {"istekler": [i for i in ist if i[2]], "sikistirma": sikis, "modeller": modeller}
+
+
+def _pay(grup: list, toplam: float) -> dict:
+    usd = sum(i[0] for i in grup)
+    return {"adet": len(grup), "usd": usd, "pay": usd / toplam if toplam else 0.0}
+
+
+def istek_bolumu(dizin: str, gun: float, sonra=None) -> dict:
+    """İstek dağılımı (kesin kullanım): sayı, medyan/p90, 50+ ve 100+ araç çağrılı isteklerin adedi ve ücret payı, en pahalı 10 istek,
+    pencerede transkriptte görülen sıkıştırma olayı ve oturum sayısı."""
+    tablo = L.fiyat_tablosu()
+    hepsi, sikis, sikis_oturum, modeller = [], 0, 0, {}
+    for f in dosyalar(dizin, gun, sonra):
+        r = istekler(f, tablo)
+        hepsi += r["istekler"]
+        sikis += r["sikistirma"]
+        sikis_oturum += 1 if r["sikistirma"] else 0
+        for k, v in r["modeller"].items():
+            modeller[k] = modeller.get(k, 0) + v
+    if not hepsi:
+        return {"istek": 0, "sikistirma": sikis, "sikistirma_oturum": sikis_oturum}
+    usd = sorted(i[0] for i in hepsi)
+    top = sum(usd)
+    return {"istek": len(hepsi), "toplam_usd": top, "medyan_usd": statistics.median(usd), "p90_usd": usd[int(len(usd) * .9)],
+            "kucuk": _pay([i for i in hepsi if i[1] <= 3], top), "agir50": _pay([i for i in hepsi if i[1] >= 50], top),
+            "agir100": _pay([i for i in hepsi if i[1] >= 100], top),
+            "en_pahali": [{"usd": i[0], "arac": i[1], "api": i[2]} for i in sorted(hepsi, key=lambda i: -i[0])[:10]],
+            "sikistirma": sikis, "sikistirma_oturum": sikis_oturum,
+            "baskin_model": max(modeller.items(), key=lambda kv: kv[1])[0] if modeller else ""}
+
+
+def sikistirma_gunluk(sd: str, basla: str) -> int:
+    """gunluk.jsonl'daki `sikistirma` olay satırları (pre_compact kancası yazar); `basla` (YYYY-MM-DD) ve sonrası."""
+    n = 0
+    try:
+        with open(os.path.join(sd, "gunluk.jsonl"), encoding="utf-8", errors="replace") as h:
+            for s in h:
+                if '"sikistirma"' not in s:
+                    continue
+                try:
+                    r = json.loads(s)
+                except ValueError:
+                    continue
+                if r.get("tur") == "sikistirma" and str(r.get("zaman"))[:10] >= basla:
+                    n += 1
+    except OSError:
+        pass
+    return n
+
+
+def onek_maliyeti(taban: dict, esik: dict, istek: dict) -> dict | None:
+    """Önekte (sabit açılış bağlamı) her 1000 token'ın pencere maliyeti: her çağrıda okunur + oturum ve sıkıştırma başına bir kez yazılır
+    (1 saatlik yazma tarifesi, baskın model). Veri yoksa None."""
+    if not taban.get("oturum") or not esik.get("cagri"):
+        return None
+    f = L.model_fiyati(istek.get("baskin_model") or "")
+    okuma = esik["okuma_fiyat_toplam"] / 1000
+    yazma = (taban["oturum"] + istek.get("sikistirma", 0)) * f["onbellek_yazma_1sa"] / 1000
+    return {"bin_token_usd": okuma + yazma, "okuma": okuma, "yazma": yazma, "yazma_adedi": taban["oturum"] + istek.get("sikistirma", 0)}
+
+
 def is_basina_bolumu(sd: str, basla: str) -> dict:
     """A: pencerede kapanan iş başına iş-bağlı harcama. B: pencerede teslim edilen kart sayısı ve ret payı."""
     rs = [r for r in L.maliyet_kayitlari(sd) if str(r.get("zaman"))[:10] >= basla]
