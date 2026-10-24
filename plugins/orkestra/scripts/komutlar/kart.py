@@ -120,6 +120,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     effort = _effort_dogrula(d)
     butce = _butce_dogrula(d)
     oto_teslim = _oto_teslim_dogrula(d)
+    kriterler, iskelet = _kabul_kontrol_dogrula(d, sd)  # I-224: kart sayacından önce; ret yarım kart bırakmaz
     _merkez_saglamla(sd)  # K2: bozuk/eksik isler.json bağ çözümünü düşürmez
     _acik_is_dogrula(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
     gid = d.get("id") or L.yeni_kart_id(sd)
