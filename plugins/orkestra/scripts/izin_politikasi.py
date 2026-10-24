@@ -81,9 +81,70 @@ def gecersiz_desenler(cfg: dict) -> list[str]:
     return kotu
 
 
+_PS_BURADA = re.compile(r"@(['\"])[ \t]*\r?\n.*?\r?\n\1@", re.S)  # PowerShell here-string: @' … '@ / @" … "@
+
+
 def _tirnaksiz(komut: str) -> str:
-    """Tırnak içi metin veridir (commit mesajı, echo argümanı): kapı desenleri yalnız komutun kendisine bakar."""
-    return _TIRNAK.sub('""', komut)
+    """Tırnak içi metin veridir (commit mesajı, echo argümanı, PowerShell here-string): kapı desenleri yalnız komutun
+    kendisine bakar."""
+    return _TIRNAK.sub('""', _PS_BURADA.sub('""', komut))
+
+
+# Heredoc (I-224): gövde, komutu besleyen veridir (commit mesajı, dosya içeriği); yorumlayıcıya (bash, python …) giden
+# gövde ise koddur ve denetimde kalır. Sözcük çözücü tırnak içindeki `<<` işaretini açılış saymaz.
+_HD_SOZ = re.compile(r"""<<<|<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|\\?([A-Za-z_][\w.-]*))|"(?:\\.|[^"\\])*"|'[^']*'|\n""")
+_YORUMLAYICI = re.compile(
+    r"(?<![\w.-])(?:bash|sh|zsh|dash|ksh|pwsh|powershell|cmd|python[\d.]*|py|node|perl|ruby|ssh|xargs|eval|iex"
+    r"|Invoke-Expression|source)(?:\.exe)?\b", re.I)
+
+
+def _heredoc_bitti(satir: str, ad: str, tire: bool) -> bool:
+    s = satir.rstrip("\r")
+    if tire:
+        s = s.lstrip("\t")
+    if not ad:  # ad tırnak maskesiyle silinmiş (`<<""`): sonlandırıcı tek sözcüklü satırdır; erken biterse kalan komut sayılır
+        return bool(re.fullmatch(r"\s*[A-Za-z_][\w.-]*\s*", s))
+    return s.strip() == ad
+
+
+def heredoc_ayir(komut: str) -> tuple[str, list[tuple[str, str]]]:
+    """(gövdeleri atılmış komut, [(açılış satırı, gövde)]). Açılış satırı komutta kalır; gövde sonlandırıcısıyla çıkar."""
+    out, govdeler, bekleyen = [], [], []
+    i = satir_bas = 0
+    while True:
+        m = _HD_SOZ.search(komut, i)
+        if not m:
+            out.append(komut[i:])
+            break
+        t = m.group(0)
+        out.append(komut[i:m.end()])
+        i = m.end()
+        if t == "\n":
+            if bekleyen:
+                acilis = komut[satir_bas:m.start()]
+                for ad, tire in bekleyen:
+                    govde = []
+                    while i < len(komut):
+                        k = komut.find("\n", i)
+                        satir = komut[i:] if k < 0 else komut[i:k]
+                        i = len(komut) if k < 0 else k + 1
+                        if _heredoc_bitti(satir, ad, tire):
+                            break
+                        govde.append(satir)
+                    govdeler.append((acilis, "\n".join(govde)))
+                bekleyen = []
+            satir_bas = i
+        elif t.startswith("<<") and t != "<<<":
+            ad = next(g for g in m.group(2, 3, 4) if g is not None)
+            bekleyen.append((ad, m.group(1) == "-"))
+    return "".join(out), govdeler
+
+
+def komut_govdesi(komut: str) -> str:
+    """Denetlenecek metin: veri heredoc gövdeleri atılır, yorumlayıcıya giden gövdeler (kod) sona eklenir."""
+    kuru, govdeler = heredoc_ayir(komut or "")
+    kod = [g for a, g in govdeler if _YORUMLAYICI.search(a)]
+    return kuru + ("\n" + "\n".join(kod) if kod else "")
 
 
 # İç içe çalıştırma: tırnak içi kod başka bir kabuğa/yorumlayıcıya veriliyorsa o kod gerçekten çalışır (veri değildir).
