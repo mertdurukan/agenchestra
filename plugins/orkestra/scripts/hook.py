@@ -1666,7 +1666,7 @@ def _bagli_isle_ilgili(sd: str, bagli, istek: str) -> bool:
     return False
 
 
-def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None) -> str:
+def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: str | None = None) -> str:
     """Bağsız oturumda önce otomatik bağla/aç/seç (P2-P3); olmazsa ya da bağlı oturumda: yeni görev mesajında
     (soru/devam değil) açık işler + karar kuralı tek satır (K-004). Hatada boş."""
     oto = _otomatik_yonlendirme(sd, oid, istek, proje)
