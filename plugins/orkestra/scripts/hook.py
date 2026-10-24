@@ -404,6 +404,7 @@ def _sira_kapisi(arac: str, girdi: dict, tam: str) -> None:
     yazılamaz; todo.md'ye yazılan her onay kutusu satırı `P<n>:` ile başlar ve P<n> planda olmalıdır.
     Kaynak çözümler (şablon, `is ac`, CLI) Write aracıyla yapılan doğrudan yazımı engellemez; bu kapı yalnız onun içindir.
     Sıralı olmayan iş ve ORKESTRA_SIRA_KAPISI=0 geçer; hatada sessiz geçer, yazımı hiçbir zaman bozmaz."""
+    global _BEKLEYEN_UYARI
     neden = ""
     try:
         ad = os.path.basename(tam).lower()
@@ -415,13 +416,17 @@ def _sira_kapisi(arac: str, girdi: dict, tam: str) -> None:
             return
         if ad == "plan.md":
             eksik = SR.plan_onkosulu(klasor)
+            yeni = _uygulanmis_metin(arac, girdi, tam)
             if not eksik:  # ADR-0072: `Mevcut varlık` biçimi yazıldığı anda denetlenir; todo yazıldıysa boş alan da eksiktir
-                yeni = _uygulanmis_metin(arac, girdi, tam)
                 if yeni is not None:  # yalnız bu yazımın getirdiği eksikler reddedilir: bozuk planı madde madde düzeltmek engellenmez
                     bos = os.path.exists(os.path.join(klasor, "todo.md"))
                     onceki = set(SR.mevcut_varlik_eksikleri(klasor, None, bos_say=bos))
                     eksik = [e for e in SR.mevcut_varlik_eksikleri(klasor, yeni, bos_say=bos) if e not in onceki]
-            neden = SR.mesaj(eksik, "plan.md") if eksik else ""
+            # I-224: ret koşulu aynı; ileti planın tüm alan eksiklerini düzeltme satırıyla tek seferde verir. Ret yoksa bilgi olur.
+            rapor = SR.plan_yazim_mesaji(klasor, eksik, yeni)
+            neden = rapor if eksik else ""
+            if rapor and not eksik:
+                _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" if _BEKLEYEN_UYARI else "") + "orkestra: " + rapor
         else:
             eksik = SR.todo_onkosulu(klasor)
             if eksik:
