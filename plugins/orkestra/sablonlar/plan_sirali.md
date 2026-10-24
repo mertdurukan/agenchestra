@@ -2,7 +2,7 @@
 
 ## Özet
 
-<!-- doldur (ilk bakışta okunur, 3-4 cümle): hedef, seçilen yol, kaç madde, karar ya da onay gereken tek konu. Belgeyi bitirince yaz. -->
+<!-- doldur (ilk bakışta okunur, 3-4 kısa cümle; paragraf en çok 300 karakter (biçim kapısı daha uzununu reddeder), uzunsa ayrı paragraflara böl): hedef, seçilen yol, kaç madde, karar ya da onay gereken tek konu. Belgeyi bitirince yaz. -->
 
 **Sıra:**
 
