@@ -162,6 +162,92 @@ class Istek(unittest.TestCase):
             self.assertIn(parca, t)
 
 
+class DevirTanimi(unittest.TestCase):
+    """I-222 P3: eşik üstü okuma fazlası (brüt) ile ADR-0034 net devir kazancı ayrı hesaplanır; uyarı etkisi önceden sabit kuralla karar verir."""
+
+    def _c(self, baglam):
+        return (baglam, 0.0, 0.2, 20.0, 8.0)  # okuma, çıkış, 1 saatlik yazma $/M (opus)
+
+    def test_devir_net_elle_hesap(self):
+        uzun = [self._c(250_000)] * 101  # ilk çağrı devir noktası, sonraki 100 çağrı küçülür
+        kisa = [self._c(50_000)] * 5
+        adet, net = MT.devir_net([uzun, kisa], 200_000, 30_000, 10_000)
+        brut = 100 * (250_000 - 30_000) * 0.2 / 1e6
+        maliyet = (10_000 * 20 + 40_000 * 8) / 1e6
+        self.assertEqual(adet, 1)
+        self.assertAlmostEqual(net, brut - maliyet, places=9)
+
+    def test_devir_net_az_sonraki_cagri_negatif(self):
+        adet, net = MT.devir_net([[self._c(250_000)] * 3], 200_000, 30_000, 10_000)
+        self.assertEqual(adet, 1)
+        self.assertLess(net, 0)
+
+    def test_esik_tablosu_iki_tanimi_ayri_sutunda_gosterir(self):
+        d = tempfile.mkdtemp()
+        yaz(os.path.join(d, "a.jsonl"), [cagri(f"m{i}", 250_000) for i in range(20)])
+        r = MT.esik_bolumu(d, 1, yeni_taban=30_000)
+        self.assertIn("devir_net", r["esikler"][-1])
+        self.assertIn("devir_kazanc_ust_sinir", r["esikler"][-1])
+        self.assertNotIn("devir_net", MT.esik_bolumu(d, 1)["esikler"][-1])
+
+    def _gunler(self, d, kesim_gunu, once, sonra, once_asan, sonra_asan):
+        """Her gün 10 çağrılı bir transkript; `*_asan` gün başına aşan çağrı sayısı dizisi (döngüyle tekrarlanır)."""
+        import datetime
+        gunler = [(kesim_gunu - datetime.timedelta(days=i + 1), once_asan[i % len(once_asan)]) for i in range(once)]
+        gunler += [(kesim_gunu + datetime.timedelta(days=i + 1), sonra_asan[i % len(sonra_asan)]) for i in range(sonra)]
+        for g, asan in gunler:
+            satirlar = []
+            for k in range(10):
+                c = cagri(f"{g}-{k}", 250_000 if k < asan else 50_000)
+                c["timestamp"] = f"{g.isoformat()}T12:00:00Z"
+                satirlar.append(c)
+            yaz(os.path.join(d, f"{g}.jsonl"), satirlar)
+
+    def _etki(self, once, sonra, once_asan, sonra_asan):
+        import datetime
+        d = tempfile.mkdtemp()
+        kesim_gunu = datetime.date(2026, 10, 10)
+        self._gunler(d, kesim_gunu, once, sonra, once_asan, sonra_asan)
+        kesim = datetime.datetime(2026, 10, 10, 12, 0, tzinfo=datetime.timezone.utc)
+        return MT.uyari_etkisi(d, kesim, gun=60, min_cagri=5, bugun=datetime.date(2026, 10, 30))
+
+    def test_uyari_etkisi_var(self):
+        r = self._etki(8, 8, [5, 4], [1, 2])
+        self.assertEqual(r["karar"], "etki var")
+        self.assertGreaterEqual(r["fark"], 0.05)
+
+    def test_uyari_etkisi_gorulmedi(self):
+        r = self._etki(8, 8, [3, 4], [3, 4])
+        self.assertEqual(r["karar"], "etki görülmedi")
+
+    def test_uyari_etkisi_yetersiz_veri_ve_tohum_sabit(self):
+        r = self._etki(8, 3, [5, 4], [1, 2])
+        self.assertEqual(r["karar"], "yetersiz veri")
+        self.assertEqual(self._etki(8, 3, [5, 4], [1, 2])["yanlar"]["once"], r["yanlar"]["once"])
+
+    def test_uyari_etkisi_az_cagrili_gun_elenir_ve_bugun_kesim_gunu_sayilmaz(self):
+        import datetime
+        d = tempfile.mkdtemp()
+        self._gunler(d, datetime.date(2026, 10, 10), 7, 7, [4], [1])
+        yaz(os.path.join(d, "kisa.jsonl"), [dict(cagri("k1", 250_000), timestamp="2026-10-09T12:00:00Z")])
+        kesim = datetime.datetime(2026, 10, 10, 12, 0, tzinfo=datetime.timezone.utc)
+        r = MT.uyari_etkisi(d, kesim, gun=60, min_cagri=5, bugun=datetime.date(2026, 10, 30))
+        self.assertEqual(r["yanlar"]["once"]["gun"], 7)  # 09.10 günü 11 çağrıdır: elenmez; kesim günü ve sonrası ayrı
+        self.assertEqual(r["yanlar"]["sonra"]["gun"], 7)
+        r2 = MT.uyari_etkisi(d, kesim, gun=60, min_cagri=5, bugun=datetime.date(2026, 10, 14))
+        self.assertEqual(r2["yanlar"]["sonra"]["gun"], 3)  # bugün (14.10) kısmi gün: dışarıda
+
+    def test_metin_uyari_bolumu_yazar(self):
+        import datetime
+        d = tempfile.mkdtemp()
+        yaz(os.path.join(d, "a.jsonl"), [dict(cagri("m1", 250_000), timestamp="2026-10-01T12:00:00Z")])
+        sd = tempfile.mkdtemp()
+        with mock.patch.object(L, "maliyet_kayitlari", return_value=[]):
+            t = MT.metin(MT.hesapla(sd, d, 1, "2026-10-01", uyari_kesim=datetime.datetime(2026, 10, 1, tzinfo=datetime.timezone.utc)))
+        for parca in ("## Devir uyarısı etkisi", "yetersiz veri", "net devir kazancı $", "eşik üstü okuma fazlası $"):
+            self.assertIn(parca, t)
+
+
 class IsBasina(unittest.TestCase):
     def test_kapanan_is_ve_teslim_kart(self):
         sd = tempfile.mkdtemp()
