@@ -301,7 +301,7 @@ class PlanAlanTesti(unittest.TestCase):
     # K3
     def test_k3_iskelet_zincir_kapilarina_takilmaz_yalniz_doldur(self):
         once = set(_eksikler(self.kok))
-        self.assertTrue(any("G4" in e for e in S.gap_kapsama_eksikleri(self.kok)) is False)
+        soz_once = set(S.sozlesme_baglanti_eksikleri(self.kok))
         r = self._cli("--gap", "G4", "--soz", "S3,S4", "--iddia", "C5", "--onceki", "P2",
                       "--yazma", "plugins/orkestra/scripts/komutlar/plan_alan.py", "--yaz")
         self.assertEqual(r.returncode, 0, r.stderr)
