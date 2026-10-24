@@ -370,6 +370,212 @@ def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
             "kullanıcı onaylamadan işin belgeleri dışında dosya yazılmaz. Kapatma: ORKESTRA_ONAY_KAPISI=0.")
 
 
+def _bagli_is_id(sd: str, oturum):
+    """Oturumun bağlı işi (oturum json'u, yoksa eski is_<oturum>.json); hook._bagli_is ile aynı okuma."""
+    import json
+    yol = os.path.join(sd, "oturumlar", f"{oturum}.json")
+    if os.path.exists(yol):
+        with open(yol, encoding="utf-8") as f:
+            d = json.load(f)
+        if isinstance(d, dict) and d.get("is"):
+            return str(d["is"])
+    try:
+        with open(os.path.join(sd, "oturumlar", f"is_{oturum}.json"), encoding="utf-8") as f:
+            y = json.load(f)
+        return str(y["is"]) if isinstance(y, dict) and y.get("is") else None
+    except OSError:
+        return None
+
+
+def bekleyen_kayit(sd: str, oturum) -> dict | None:
+    """Oturumun bağlı işi `onay: bekliyor` ise iş kaydı (auto ve saklı onay önce uygulanır, hook._onay_kaydi gibi); değilse
+    None. Hatada None (fail-open)."""
+    try:
+        if not oturum or not kapi_acik():
+            return None
+        is_id = _bagli_is_id(sd, oturum)
+        if not is_id:
+            return None
+        import is_kaydi
+        kayit = is_kaydi.is_al(sd, is_id)
+        if otomatik_onay(sd, kayit) or bekleyen_onay_ver(sd, kayit):
+            return None
+        return kayit if bekliyor_mu(kayit) else None
+    except Exception:
+        return None
+
+
+# ---- I-224: kabukla yazım hedefleri (en iyi çaba; betik içinden dosya yazımı, ör. python -c open(), yakalanmaz)
+_KABUK_SOZ = re.compile(
+    r'''"(?:\\.|`.|[^"\\`])*"|'[^']*'|(?:\d|&|\*)?>>?(?:&\d*)?|&&|\|\||[;|&\n()]|<+|[ \t\r]+|[^\s"'<>;|&()]+''')
+_BOS_HEDEF = {"/dev/null", "$null", "nul", "nul:", "con", "/dev/stdout", "/dev/stderr", "/dev/tty"}
+_TUM_ARG = {"tee", "touch", "rm", "rmdir", "mkdir", "unlink", "truncate", "shred", "del", "erase", "rd", "md"}
+_SON_ARG = {"cp", "mv", "install", "ln", "rsync", "copy", "move", "xcopy"}
+_PS_YOL = {"set-content", "add-content", "ac", "out-file", "clear-content", "clc", "new-item", "ni", "remove-item", "ri",
+           "rename-item", "rni", "ren", "tee-object", "export-csv", "export-clixml"}
+_PS_HEDEF = {"copy-item", "cpi", "move-item", "mi"}
+_PS_ANAHTAR = {"force", "append", "nonewline", "recurse", "whatif", "passthru", "noclobber", "confirm", "asbytestream",
+               "container", "verbose", "notypeinformation"}
+_CD = {"cd", "chdir", "set-location", "sl", "pushd", "push-location"}
+_DOTNET_YAZ = re.compile(
+    r"\[(?:System\.)?IO\.File\]::(?:Write|Append)\w*\(\s*(\"(?:\\.|[^\"\\])*\"|'[^']*'|\$[\w:]+)", re.I)
+
+
+def _tirnak_ac(s: str) -> str:
+    return s[1:-1] if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'" else s
+
+
+def _yol_coz(ham: str, taban: str):
+    """Hedef yolu mutlak, normcase'li yola çevirir; çözülemeyen değişken kalırsa None."""
+    y = (ham or "").strip()
+    if not y:
+        return None
+    y = re.sub(r"\$env:(\w+)", lambda m: os.environ.get(m.group(1), m.group(0)), y, flags=re.I)
+    y = re.sub(r"\$\{env:(\w+)\}", lambda m: os.environ.get(m.group(1), m.group(0)), y, flags=re.I)
+    y = re.sub(r"%(\w+)%", lambda m: os.environ.get(m.group(1), m.group(0)), y)
+    if re.match(r"^\$HOME\b", y, re.I):
+        y = os.path.expanduser("~") + y[5:]
+    y = os.path.expandvars(y)
+    if y.startswith("~"):
+        y = os.path.expanduser(y)
+    if "$" in y or re.search(r"%\w+%", y):
+        return None
+    if os.name == "nt":
+        m = re.match(r"^/([a-zA-Z])(?:/|$)(.*)$", y)  # Git Bash: /c/Users/... → C:/Users/...
+        if m:
+            y = f"{m.group(1)}:/{m.group(2)}"
+    return os.path.normcase(os.path.abspath(os.path.join(taban, y)))
+
+
+def _segmentler(metin: str):
+    """[(kelimeler, yönlendirme hedefleri)] — ayraç: ; && || | & ( ) satır sonu. Bitişik parçalar tek kelimedir."""
+    segs, kel, yon = [], [], []
+    bekleyen, son, bitisik = None, None, False
+    for m in _KABUK_SOZ.finditer(metin):
+        t = m.group(0)
+        if t.strip(" \t\r") == "":
+            bitisik = False
+            continue
+        if t in ("&&", "||") or t in ";|&\n()":
+            segs.append((kel, yon))
+            kel, yon, bekleyen, son, bitisik = [], [], None, None, False
+            continue
+        if re.fullmatch(r"(?:\d|&|\*)?>>?(?:&\d*)?", t):
+            bekleyen = None if re.search(r">&", t) else ">"
+            bitisik = False
+            continue
+        if t.startswith("<"):
+            bekleyen, bitisik = "<", False
+            continue
+        parca = _tirnak_ac(t)
+        if bitisik and son is not None:
+            son[0][son[1]] += parca
+        elif bekleyen == ">":
+            yon.append(parca)
+            son, bekleyen = (yon, len(yon) - 1), None
+        elif bekleyen == "<":
+            son, bekleyen = None, None
+            bitisik = True
+            continue
+        else:
+            kel.append(parca)
+            son = (kel, len(kel) - 1)
+        bitisik = True
+    segs.append((kel, yon))
+    return segs
+
+
+def _ps_argumanlar(argv: list[str]) -> tuple[dict, list[str]]:
+    adli, sirali, i = {}, [], 0
+    while i < len(argv):
+        a = argv[i]
+        if a.startswith("-") and len(a) > 1 and not re.match(r"^-\d", a):
+            ad = a[1:].lower()
+            if ":" in ad:
+                ad, deger = ad.split(":", 1)
+                adli[ad] = deger
+            elif ad in _PS_ANAHTAR:
+                pass
+            elif i + 1 < len(argv):
+                adli[ad] = argv[i + 1]
+                i += 1
+        else:
+            sirali.append(a)
+        i += 1
+    return adli, sirali
+
+
+def _segment_hedefleri(kel: list[str]) -> tuple[list[str], str | None]:
+    """(yazım hedefleri, cd hedefi)."""
+    while kel and (re.match(r"^\w+=", kel[0]) or kel[0].lower() in ("sudo", "command", "env", "nohup", "time")):
+        kel = kel[1:]
+    if not kel:
+        return [], None
+    ad = re.sub(r"\.exe$", "", os.path.basename(kel[0].replace("\\", "/")).lower())
+    arg = kel[1:]
+    secenek = re.compile(r"^-|^/[A-Za-z?]{1,2}(?::\S*)?$" if ad in ("del", "erase", "rd", "md", "copy", "move", "xcopy")
+                         else r"^-")
+    duz = [a for a in arg if not secenek.match(a)]
+    if ad in _CD:
+        return [], (duz[0] if duz else "~")
+    if ad in _PS_YOL or ad in _PS_HEDEF:
+        adli, sirali = _ps_argumanlar(arg)
+        if ad in _PS_HEDEF:
+            h = adli.get("destination") or (sirali[1] if len(sirali) > 1 else None)
+        else:
+            h = adli.get("path") or adli.get("literalpath") or adli.get("filepath") or (sirali[0] if sirali else None)
+        return ([p for p in h.split(",") if p.strip()] if h else []), None
+    if ad in _TUM_ARG:
+        if ad == "truncate":
+            duz = [a for a, onceki in zip(arg, [""] + arg) if not secenek.match(a) and onceki not in ("-s", "--size")]
+        return duz, None
+    if ad in _SON_ARG:
+        return (duz[-1:] if len(duz) >= 2 else []), None
+    if ad == "robocopy":
+        return duz[1:2], None
+    if ad in ("sed", "perl") and any(re.match(r"^-[a-zA-Z]*i", a) or a.startswith("--in-place") for a in arg):
+        return duz[-1:], None
+    if ad == "dd":
+        return [a[3:] for a in arg if a.startswith("of=")], None
+    return [], None
+
+
+def kabuk_hedefleri(komut: str, cwd: str | None = None) -> list:
+    """Kabuk komutunun yazdığı/sildiği yollar (mutlak, normcase'li); çözülemeyen değişkenli yol None. Veri heredoc'u ve
+    PowerShell here-string gövdesi atılır; `cd` sırası izlenir."""
+    import izin_politikasi
+    metin = izin_politikasi.heredoc_ayir(komut or "")[0]
+    metin = izin_politikasi._PS_BURADA.sub('""', metin)
+    metin = re.sub(r"\\\r?\n|`\r?\n", " ", metin)  # satır devamı
+    taban = os.path.abspath(cwd or os.getcwd())
+    hedefler = []
+    for m in _DOTNET_YAZ.finditer(metin):
+        hedefler.append(_yol_coz(_tirnak_ac(m.group(1)), taban))
+    for kel, yon in _segmentler(metin):
+        yazilan, cd = _segment_hedefleri(kel)
+        for h in list(yon) + list(yazilan):
+            if h.strip().lower() in _BOS_HEDEF:
+                continue
+            hedefler.append(_yol_coz(h, taban))
+        if cd is not None:
+            yeni = _yol_coz(cd, taban)
+            if yeni:
+                taban = yeni
+    return hedefler
+
+
+def kabuk_yazma_engeli(kayit: dict, proje: str, komut: str, cwd: str | None = None) -> str:
+    """I-224: `bekliyor` iken kabukla yazım, Edit/Write ile aynı kapıdan (yazma_engeli) geçer. Boş döner = izin."""
+    for hedef in kabuk_hedefleri(komut, cwd):
+        if hedef is None:
+            return ("iş onay bekliyor (P-016): kabuk komutunun yazdığı yol çözülemedi (değişkenli yol); proje dışına "
+                    "yazacaksan yolu açık yaz. Kullanıcı onaylamadan proje içinde işin belgeleri dışında dosya yazılmaz.")
+        neden = yazma_engeli(kayit, proje, hedef)
+        if neden:
+            return neden + " (kabukla yazım da aynı kapıdan geçer.)"
+    return ""
+
+
 # ADR-0031: kullanıcı commit/push'u açıkça istediği turda yalnız bu git alt komutları kapıdan geçer.
 GIT_IZINLI = ("commit", "add", "push", "reset", "merge")
 _GIT_EMRI = re.compile(r"\b(?:commit|push)(?:'?l[ae](?!r)\w*|'?[au]\b|\s+(?:et|yap)\w*)", re.I)
