@@ -265,6 +265,8 @@ def ozet(girdi: dict, baslangic=None, oncesi=None, sonrasi=None, bitis=None) -> 
     def eslestir(on_s, son_s):
         out = []
         for a, b in zip(on_s, son_s):
+            if a[0] != b[0]:
+                raise ValueError(f"önce/sonra satırları eşleşmiyor: {a[0]} != {b[0]}")
             on, son = _tek(*a), _tek(*b)
             out.append({"ad": a[0], "birim": a[3], "oncesi": on, "sonrasi": son, **karar(on, son)})
         return out
