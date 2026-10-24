@@ -114,6 +114,66 @@ class Kurallar(unittest.TestCase):
         self.assertEqual(BB.mod({"yazim_kapisi": {"mod": "saçma"}}, "yazim_kapisi"), "golge")
 
 
+class GuvenliDuzelt(unittest.TestCase):
+    """I-224 P9 (b): yalnız anlamı değiştirmeyen dönüşümler; hepsi ya da hiçbiri; idempotent."""
+
+    def duz(self, metin, ad="plan.md"):
+        yeni, uyg = BB.guvenli_duzelt(metin, ad, AYAR)
+        self.assertEqual(BB.guvenli_duzelt(yeni, ad, AYAR), (yeni, []), "idempotent değil")
+        return yeni, [u["donusum"] for u in uyg]
+
+    def test_etiket_ayirma(self):
+        yeni, d = self.duz("# B\n\n**Amaç:** a **Neden:** b `**X:** y`\n")
+        self.assertEqual(yeni, "# B\n\n**Amaç:** a\n\n**Neden:** b `**X:** y`\n")
+        self.assertEqual(d, ["etiket_ayir"])
+        self.assertEqual(BB.yazim_ihlalleri(yeni, "plan.md", AYAR), [])
+
+    def test_bitisik_etiketli_alanlar_arasina_bos_satir(self):
+        yeni, d = self.duz("**Amaç:** a\n**Neden:** b\n**Kanıt:** c\n")
+        self.assertEqual(yeni, "**Amaç:** a\n\n**Neden:** b\n\n**Kanıt:** c\n")
+        self.assertEqual(d, ["bos_satir", "bos_satir"])
+
+    def test_nokta_ayiricili_liste_maddelere_bolunur(self):
+        yeni, d = self.duz("Durum: I-1 · onay bekliyor · sıradaki: plan\nDevam.\n")
+        self.assertEqual(yeni, "Durum:\n\n- I-1\n- onay bekliyor\n- sıradaki: plan\n\nDevam.\n")
+        self.assertEqual(d, ["nokta_liste"])
+        self.assertEqual(self.duz("a · b · c\n")[0], "- a\n- b\n- c\n")
+
+    def test_belirsiz_ayirici_bolunmez(self):
+        uzun = "x" * 130
+        for metin in (f"a · {uzun} · c\n",  # madde çok uzun: cümle olabilir
+                      "a · b · c·d\n",  # boşluksuz '·' da var: ayırıcı kesin değil
+                      "a; b; c; d\n",  # ';' ve (a)(b) listeleri anlam ister
+                      "Şunlar: (a) bir, (b) iki.\n"):
+            with self.subTest(metin=metin):
+                self.assertEqual(self.duz(metin), (metin, []))
+
+    def test_crlf_korunur(self):
+        yeni, d = self.duz("**A:** a **B:** b\r\nson\r\n")
+        self.assertEqual(yeni, "**A:** a\r\n\r\n**B:** b\r\nson\r\n")
+
+    def test_kod_blogu_yorum_tablo_onbilgi_dokunulmaz(self):
+        korunan = ("---\nbaslik: x\n---\n\n```\n**A:** a **B:** b\nx · y · z\n```\n\n<!-- **A:** a **B:** b\nx · y · z\n-->\n\n"
+                   "| **A:** a **B:** b | x · y · z |\n|---|---|\n\n> alıntı\n\n")
+        yeni, d = self.duz(korunan + "**A:** a **B:** b\n")
+        self.assertEqual(yeni, korunan + "**A:** a\n\n**B:** b\n")
+        self.assertEqual(d, ["etiket_ayir"])
+
+    def test_anlamsal_ihlal_duzeltilmez_hepsi_ya_da_hicbiri(self):
+        uzun = "kelime " * 50
+        self.assertEqual(self.duz(uzun + "\n"), (uzun + "\n", []))
+        todo = "- [ ] P1: " + "kelime " * 35 + "\n"
+        self.assertEqual(self.duz(todo, "todo.md"), (todo, []))
+        # düzeltilebilir ihlal + düzeltilemez ihlal: orijinal döner
+        karma = "**A:** a **B:** b\n\n" + uzun + "\n"
+        self.assertEqual(self.duz(karma), (karma, []))
+
+    def test_temiz_ve_liste_maddesi_dokunulmaz(self):
+        self.assertEqual(self.duz(TEMIZ), (TEMIZ, []))
+        madde = "- **A:** a **B:** b\n"  # liste maddesini bölmek yapıyı değiştirir: ret kalır
+        self.assertEqual(self.duz(madde), (madde, []))
+
+
 class Kancalar(unittest.TestCase):
     setUp = TC.Cekirdek.setUp
     tearDown = TC.Cekirdek.tearDown
