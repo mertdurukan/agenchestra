@@ -1631,7 +1631,7 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         if k == "sec":  # belirsiz eşleşme kullanıcıya sorulmaz: en yakın açık işe bağlanır
             for i in deger if isinstance(deger, (list, tuple)) else []:
                 if str(i) in acik_idler:
-                    oto = _otomatik_is_ac(sd, oid, istek, proje, is_id=str(i))
+                    oto = _otomatik_is_ac(sd, oid, istek, proje, is_id=str(i), cwd=cwd)
                     if oto:
                         return oto
                     break
