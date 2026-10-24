@@ -2239,6 +2239,9 @@ def session_start(inp: dict):
     except Exception:
         pass
     satir1, not_satiri = _ss_birinci_satir(sd, bagli, ks)
+    ds = _durum_satiri(sd, inp.get("session_id"))  # I-224 P6: satır sayısı değişmesin diye 1. satırın sonuna eklenir
+    if ds:
+        satir1 = f"{satir1.rstrip('.')}. {ds}"
     uyarilar, onay_ek = _ss_uyarilar(sd, inp)
     satir2 = ("Uyarı: " + "; ".join(uyarilar))[:300] if uyarilar else ""
     ek_satirlar = [not_satiri] if not_satiri else []
