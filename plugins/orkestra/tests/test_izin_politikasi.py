@@ -383,7 +383,8 @@ class OnayKapisiKabuk(unittest.TestCase):
                   "cat <<'EOF' | bash\ngit push origin main\nEOF", "bash <<'EOF'\ngit push\nEOF",
                   "echo '<<X'\ngit push"):
             self.assertEqual(karar("Bash", k), "ask", k)
-        self.assertEqual(self.kabuk("git push origin main"), "deny")
+        self.assertIn(self.kabuk("git push origin main"), ("ask", "deny"))  # hook: izin kapısı (ask) onay kapısından önce
+        self.assertTrue(self.is_onay.kabuk_engeli("git push origin main"))
         self.assertTrue(self.is_onay.kabuk_engeli('cat <<""\nx\nEOF\ngit push origin main'))
 
 
