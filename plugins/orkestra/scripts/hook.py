@@ -349,6 +349,21 @@ def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> 
             "dosya": _rel(proje, tam) or tam, "arac": arac, "is": _oturum_isi(sd, oid),
             "ihlal": [{"satir": i["satir"], "kural": i["kural"]} for i in ihlaller[:8]], "adet": len(ihlaller)})
         satir = BB.ozet_satiri(os.path.basename(tam), ihlaller)
+        if kip == "ihlal" and arac == "Write" and BB.duzelt_acik(sd):
+            # I-224 P9: ihlallerin tümü güvenli dönüşümle gideriliyorsa ret yerine düzeltilmiş içerik (updatedInput).
+            # Yalnız Write: Edit/MultiEdit parçası çevresiz olduğundan (boş satır, önceki satır bilinmez) ret kalır.
+            yeni, uyg = BB.guvenli_duzelt(girdi.get("content") or "", os.path.basename(tam), ayar)
+            if uyg:
+                global _GUNCEL_GIRDI
+                girdi["content"] = yeni  # aynı sözlük: sonraki kapılar (sıra, alan) düzeltilmiş metni görür
+                _GUNCEL_GIRDI = girdi
+                L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
+                    "zaman": L.simdi(), "oturum": oid, "tur": "belge_duzeltme", "kural": "belge_bicim",
+                    "dosya": _rel(proje, tam) or tam, "arac": arac, "is": _oturum_isi(sd, oid),
+                    "ihlal_adet": len(ihlaller), "donusum_adet": len(uyg)})
+                _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" if _BEKLEYEN_UYARI else "") + \
+                    f"orkestra: biçim düzeltildi (K-005): {len(uyg)} dönüşüm, {os.path.basename(tam)} düzeltilmiş içerikle yazılıyor."
+                return
         if kip == "ihlal":
             reddet(satir.replace("(K-005, gölge)", "(K-005)") + " Düzelt, sonra yaz; bilerek ise satır sonuna `<!-- biçim-tamam -->` koy.")
         _BEKLEYEN_UYARI = satir
