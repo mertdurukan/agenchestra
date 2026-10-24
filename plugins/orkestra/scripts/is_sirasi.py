@@ -103,7 +103,7 @@ def mevcut_varlik_eksikleri(klasor: str, metin: str | None = None, bos_say: bool
         return []
     import harita
     if metin is None:
-        metin = _oku(os.path.join(klasor, "plan.md")) or ""
+        metin = _plan_oku(klasor) or ""
     sd = harita.sd_bul(klasor)
     kimlikler = harita.kayit_kimlikleri(sd) if sd else None
     eksik = []
