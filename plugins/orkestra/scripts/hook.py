@@ -1558,7 +1558,8 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
         else:
             projeler = [str(p) for p in ((baglam.esleme_oku(sd) or {}).get("projeler") or []) if str(p).strip()]
             yedek_kok = os.path.join(sd, "isler")
-            kok = (os.path.normpath(os.path.join(L.baglanti_koku(proje or L.proje_dizini()), projeler[is_kaydi.proje_sec(projeler, istek)]))
+            kok = (os.path.normpath(os.path.join(L.baglanti_koku(proje or L.proje_dizini(cwd), cwd),
+                                                 projeler[is_kaydi.proje_sec(projeler, istek)]))
                    if projeler else yedek_kok)
             try:
                 ad = is_kaydi.klasor_ayir(sd, kok, baslik)
