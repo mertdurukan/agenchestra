@@ -424,10 +424,12 @@ def _git_izinli_mi(eslesme: str) -> bool:
 
 
 def kabuk_engeli(tirnaksiz_komut: str, git_izni: bool = False) -> str:
-    yasak = [m.group(0) for m in KABUK_YASAK.finditer(tirnaksiz_komut)]
+    import izin_politikasi
+    metin = izin_politikasi.komut_govdesi(tirnaksiz_komut)  # I-224: veri heredoc gövdesindeki "git push" metni komut değildir
+    yasak = [m.group(0) for m in KABUK_YASAK.finditer(metin)]
     if git_izni:
         yasak = [y for y in yasak if not _git_izinli_mi(y)]
-    if yasak or IS_JSON_YAZIMI.search(tirnaksiz_komut):
+    if yasak or IS_JSON_YAZIMI.search(metin):
         return ("iş onay bekliyor (P-016): commit, ekleme/itme, bağımlılık kurma ve onay komutu kullanıcı onayından önce "
                 "çalıştırılmaz. Mevcut durum → plan → todo'yu bağlantılarıyla göster, kullanıcının onayını bekle.")
     return ""
