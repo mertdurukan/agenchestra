@@ -2441,6 +2441,7 @@ def user_prompt_submit(inp: dict):
                         parcalar.append(satir)
             except Exception:
                 pass
+            parcalar.append(_durum_satiri(sd, inp.get("session_id")))  # I-224 P6: onay işlendikten sonraki güncel durum
             try:  # ADR-0024: göreve özgü ön bağlam; varsayılan kapalı, hata hook'u düşürmez
                 import on_baglam
                 ob = on_baglam.uret(metin, [L.proje_dizini(inp.get("cwd"))], sd)
