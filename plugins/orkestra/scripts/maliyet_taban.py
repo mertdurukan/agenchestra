@@ -372,6 +372,17 @@ def metin(r: dict) -> str:
               "| eşik | aşan çağrı | ücret payı | aşan oturum | devir kazancı üst sınırı $ |", "|---|---|---|---|---|"]
         for x in e["esikler"]:
             s.append(f"| {x['esik'] // 1000} bin | {x['cagri']} (%{100 * x['cagri_orani']:.1f}) | {x['usd']:.2f}$ (%{100 * x['usd_payi']:.1f}) | {x['oturum']} (%{100 * x['oturum_orani']:.1f}) | {x['devir_kazanc_ust_sinir']:.2f} |")
+    q = r.get("istek")
+    if q and q.get("istek"):
+        s += ["", f"## İstek dağılımı (kaynak: transkript, kesin kullanım; zaman.jsonl token alanları tahmindir, burada kullanılmaz): {q['istek']} istek, "
+                  f"toplam {q['toplam_usd']:.2f}$, medyan {q['medyan_usd']:.2f}$, p90 {q['p90_usd']:.2f}$", "",
+              "| grup | istek | ücret | pay |", "|---|---|---|---|"]
+        for ad, g in (("<=3 araç çağrılı istek", q["kucuk"]), ("50+ araç çağrılı istek", q["agir50"]), ("100+ araç çağrılı istek", q["agir100"])):
+            s.append(f"| {ad} | {g['adet']} | {g['usd']:.2f}$ | %{100 * g['pay']:.1f} |")
+        s += ["", "En pahalı 10 istek: " + "; ".join(f"{x['usd']:.2f}$ ({x['arac']} araç, {x['api']} API çağrısı)" for x in q["en_pahali"])]
+    if q is not None:
+        s += ["", f"Sıkıştırma (compact): transkriptte {q['sikistirma']} olay / {q['sikistirma_oturum']} oturum; gunluk.jsonl'da {q.get('sikistirma_gunluk', 0)} olay satırı "
+                  "(kanca kurulumundan sonrası; fark = kancadan önceki olaylar)."]
     i = r["is_basina"]
     s += ["", f"## İş başına $ ({i['basla']}..şimdi): defter {i['toplam_usd']:.2f}$, iş-bağlı {i['is_bagli_usd']:.2f}$"]
     s.append(f"- A (kapanan iş başına): {i['kapanan_is']} iş" + (f" -> {i['a_usd']:.2f}$/iş" if i["a_usd"] is not None else ""))
