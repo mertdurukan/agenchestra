@@ -823,8 +823,6 @@ def plan_yazim_eksikleri(klasor: str, metin: str) -> tuple[list[str], list[str]]
             if not globals()[kapsam](klasor):
                 continue
             e = globals()[islev](klasor)
-            if kapi == "paralellik":
-                e = [f"{x} (ADR-0080)" if not x.endswith("(ADR-0080)") else x for x in e]
             (sert if KM.mod(kapi, klasor) == "ihlal" else golge).extend(e)
     finally:
         if onceki is None:
