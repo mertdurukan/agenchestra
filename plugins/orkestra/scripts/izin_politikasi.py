@@ -11,6 +11,8 @@ Karar (PreToolUse hook'u kullanır): deny | ask | allow | None.
   None   karar yok (mod=kapi'de kapı dışı; mod=kapali).
 Mod: ayarlar/izin_politikasi.json; proje ezmesi <sd>/izin_politikasi.json (üst düzey alanlar); ORKESTRA_IZIN=0|kapi|genis modu ezer.
 Desenler en iyi çabadır: betik içinden API çağrısı yakalanmaz. MCP'de okuma deseni dışındaki her araç kapıya düşer (güvenli varsayılan).
+Veri heredoc'u ve PowerShell here-string gövdesi komut sayılmaz; yorumlayıcıya giden gövde kod sayılır (I-224).
+P-016: onay bekleyen işte kabukla proje içi yazım (>, >>, tee, cp/mv, Set-Content, Out-File …) mod ne olursa olsun deny.
 """
 from __future__ import annotations
 
