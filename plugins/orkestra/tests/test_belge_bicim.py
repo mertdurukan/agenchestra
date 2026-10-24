@@ -251,6 +251,65 @@ class Kancalar(unittest.TestCase):
         c = self.yaz("is1/plan.md", IHLALLI)
         self.assertEqual(self.karar(c), "deny", c)
 
+    # --- I-224 P9 (c): Write'ta güvenli düzeltme updatedInput ile
+    DUZELIR = "# B\n\n**Amaç:** a **Neden:** b\n"
+
+    def test_write_duzeltilebilir_icerik_updatedinput_ile_yazilir(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        yol = os.path.join(self.proje, "is1/plan.md")
+        c = self.hook("PreToolUse", {"tool_name": "Write", "permission_mode": "acceptEdits",
+                                     "tool_input": {"file_path": yol, "content": self.DUZELIR}})
+        ho = c["hookSpecificOutput"]
+        self.assertEqual(ho["permissionDecision"], "allow", c)
+        self.assertEqual(ho["updatedInput"], {"file_path": yol, "content": "# B\n\n**Amaç:** a\n\n**Neden:** b\n"})
+        self.assertIn("biçim düzeltildi (K-005): 1 dönüşüm", ho["additionalContext"])
+        self.assertEqual(self.ihlaller("belge_bicim"), [])  # ret sayılmaz
+        self.assertEqual([g["donusum_adet"] for g in self.gunluk() if g.get("tur") == "belge_duzeltme"], [1])
+
+    def test_varsayilan_kipte_duzeltme_kullaniciya_sorulur(self):
+        """İzin yükseltmesi yok: düzenlemeyi sormadan yapmayan kipte düzeltilmiş girdi ask ile gösterilir."""
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        c = self.yaz("is1/plan.md", self.DUZELIR)
+        self.assertEqual(self.karar(c), "ask", c)
+        self.assertIn("updatedInput", c["hookSpecificOutput"])
+
+    def test_duzeltilemez_icerik_reddedilir(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        c = self.yaz("is1/plan.md", self.DUZELIR + "\n" + "kelime " * 50 + "\n")
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertNotIn("updatedInput", c["hookSpecificOutput"])
+
+    def test_edit_ve_multiedit_duzeltilmez_ret_kalir(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        c = self.yaz("is1/plan.md", "**Amaç:** a **Neden:** b", arac="Edit", alan="new_string")
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertNotIn("updatedInput", c["hookSpecificOutput"])
+
+    def test_golge_modda_duzeltme_yok(self):
+        self.ayar_yaz(yazim_kapisi="golge")
+        c = self.yaz("is1/plan.md", self.DUZELIR)
+        self.assertNotIn("updatedInput", c.get("hookSpecificOutput") or {})
+
+    def test_kapatilinca_eski_ret_davranisi(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        with open(os.path.join(self.sd, "belge_duzelt.json"), "w", encoding="utf-8") as f:
+            json.dump({"mod": "kapali"}, f)
+        c = self.yaz("is1/plan.md", self.DUZELIR)
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertIn("satır 3 coklu_etiket", c["hookSpecificOutput"]["permissionDecisionReason"])
+        os.remove(os.path.join(self.sd, "belge_duzelt.json"))
+        eski = os.environ.get("ORKESTRA_BELGE_DUZELT")
+        os.environ["ORKESTRA_BELGE_DUZELT"] = "0"
+        try:
+            c = self.yaz("is1/plan.md", self.DUZELIR)
+        finally:
+            if eski is None:
+                os.environ.pop("ORKESTRA_BELGE_DUZELT", None)
+            else:
+                os.environ["ORKESTRA_BELGE_DUZELT"] = eski
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertNotIn("updatedInput", c["hookSpecificOutput"])
+
     # --- Ö3 Stop
     def test_stop_golge_baglantisiz_belgeyi_kaydeder_bloklamaz(self):
         self.ayar_yaz(baglanti_kapisi="golge")
