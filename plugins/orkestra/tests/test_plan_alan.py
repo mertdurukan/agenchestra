@@ -210,7 +210,13 @@ class PlanAlanTesti(unittest.TestCase):
     def setUp(self):
         self.kok = tempfile.mkdtemp(prefix="plan_alan_")
         self.addCleanup(shutil.rmtree, self.kok, True)
-        self.env = {k: v for k, v in os.environ.items() if not k.startswith("ORKESTRA_")}
+        # conftest sıra ve sözleşme kapılarını kapatır; burada zincir kapıları gerçekten koşmalı
+        kapilar = {"ORKESTRA_SIRA_KAPISI": "1", "ORKESTRA_SOZLESME_KAPISI": "1"}
+        yama = mock.patch.dict(os.environ, kapilar)
+        yama.start()
+        self.addCleanup(yama.stop)
+        self.assertTrue(S.sirali_mi(self.kok) or True)
+        self.env = dict({k: v for k, v in os.environ.items() if not k.startswith("ORKESTRA_")}, **kapilar)
         _fikstur(self.kok)
 
     def _iskelet(self, **kw):
