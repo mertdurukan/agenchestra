@@ -150,6 +150,8 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "ciktilar": [],
         "gecmis": [{"zaman": L.simdi(), "olay": "olusturuldu", "basamak": basamak}],
     }
+    if iskelet:
+        k["kanit_iskeleti"] = iskelet
     if d.get("genislet_onay") is True:
         k["genislet_onay"] = True
     if risk is not None:
