@@ -268,7 +268,8 @@ def ozet(girdi: dict, baslangic=None, oncesi=None, sonrasi=None, bitis=None) -> 
             on, son = _tek(*a), _tek(*b)
             out.append({"ad": a[0], "birim": a[3], "oncesi": on, "sonrasi": son, **karar(on, son)})
         return out
-    kapi_adlari = set(so["kapi"]) | set(ss["kapi"])
+    kapi_adlari = sorted(set(so["kapi"]) | set(ss["kapi"]),
+                         key=lambda k: (-(so["kapi"].get(k, 0) + ss["kapi"].get(k, 0)), k))
     return {"mod": "karsilastirma",
             "pencere": {"baslangic": baslangic, "oncesi": oncesi if oncesi is not None else sonrasi,
                         "sonrasi": sonrasi if sonrasi is not None else oncesi, "bitis": bitis,
