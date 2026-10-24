@@ -489,6 +489,14 @@ class KaliteCitasi(unittest.TestCase):
         self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
         self.assertTrue(any(x.startswith("P2:") and "Geri alma" in x for x in e), e)
 
+    def test_doldur_yer_tutucusu_bos_sayilir(self):
+        self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(kabul="**Kabul:** <doldur>\n\n**Geri alma:** <doldur> sonra\n"))
+        e = S.plan_eksikleri(self.k)
+        self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
+        self.assertTrue(any(x.startswith("P1:") and "Geri alma" in x for x in e), e)
+        self.assertTrue(S.alan_dolu("**Kabul:** testler geçer; `<doldur>` kalmaz", "Kabul"))  # metin içi alıntı dolu sayılır
+        self.assertFalse(S.alan_dolu("**Kabul:** `<doldur>`", "Kabul"))
+
     def test_todo_bitti_satiri_kanit_ister(self):
         planli = {1, 2}
         self.assertTrue(S.todo_satir_ihlalleri("- [x] P1: iş\n", planli, kanit=True))
