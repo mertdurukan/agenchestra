@@ -330,6 +330,21 @@ def ekran_onayi_isle(sd: str, kayit: dict | None) -> str:
             "verilir. Eksik: " + "; ".join(eksik[:4]))
 
 
+def _worktree_esdeger(klasor: str, proje_n: str, tam: str) -> tuple:
+    """Yazılan `tam` yol `<proje>/.claude/worktrees/<ad>/` altındaysa kaydın `klasor` yolunun o worktree'deki karşılığı
+    (`proje`'ye göreli aynı yol) ve worktree kökü: ((klasor_esdeger, worktree_koku),) ya da (). Worktree ortamdan değil yoldan
+    anlaşılır: uygulama ortamı ana ağaç verirken oturum worktree'dedir ve ana ağaç yoluna yazmak worktree koruması
+    tarafından reddedilir (I-220). Hepsi normcase'li mutlak yoldur."""
+    on_ek = os.path.join(proje_n, ".claude", "worktrees") + os.sep
+    if not klasor or not tam.startswith(on_ek):
+        return ()
+    ad = tam[len(on_ek):].split(os.sep, 1)[0]
+    if not ad or klasor != proje_n and not klasor.startswith(proje_n + os.sep):
+        return ()
+    kok = on_ek + ad
+    return ((kok + klasor[len(proje_n):], kok),)
+
+
 def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
     """`bekliyor` iken yazılan dosya izinli mi: işin klasörü (is.json hariç) ve proje adr/ klasörü izinlidir.
     İş klasörü projenin kökü ya da atası ise yalnız .md dosyaları izinlidir. Boş döner = izin."""
