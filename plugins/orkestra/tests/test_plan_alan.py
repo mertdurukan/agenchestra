@@ -307,6 +307,8 @@ class PlanAlanTesti(unittest.TestCase):
     # K3
     def test_k3_iskelet_zincir_kapilarina_takilmaz_yalniz_doldur(self):
         once = set(_eksikler(self.kok))
+        for kapsam in (S.gapli_mi, S.sozlesmeli_mi, S.uretim_kapsaminda_mi, S.paralellik_kapsaminda_mi, S.kaliteli_mi):
+            self.assertTrue(kapsam(self.kok), kapsam.__name__)  # kapılar açık: test boşa geçmez
         soz_once = set(S.sozlesme_baglanti_eksikleri(self.kok))
         r = self._cli("--gap", "G4", "--soz", "S3,S4", "--iddia", "C5", "--onceki", "P2",
                       "--yazma", "plugins/orkestra/scripts/komutlar/plan_alan.py", "--yaz")
