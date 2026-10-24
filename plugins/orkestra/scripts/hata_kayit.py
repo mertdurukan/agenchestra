@@ -5,6 +5,10 @@ kaydet() asla istisna fırlatmaz: yazılamazsa stderr'e tek satır yazar.
 
 Davranış hatası (ADR-0037): ajanın yanlış klasör, yanlış kabuk, kapı ihlali gibi kod dışı hataları `davranis()` ile
 `sinif: "davranis"` ve `kok` (kaynak, önlenebilir, çözüm) alanlarıyla yazılır; `sinif` alanı olmayan satır kod hatasıdır.
+
+Ret bağlamı (I-224): hook reddi satırı opsiyonel olarak kapi, arac, dosya, ajan, deneme, metin200 ve ret_sinif (R1–R9,
+ret_nedeni.KAPI_SINIF) taşır. R sınıfı `sinif` yerine `ret_sinif` adındadır: `sinif` alanı "davranis" anlamıyla
+okunuyor (hata_en_cok, testler), aynı adı ikinci anlama vermek eski okuyucuları bozar.
 """
 from __future__ import annotations
 
