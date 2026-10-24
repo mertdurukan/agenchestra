@@ -344,8 +344,10 @@ def is_basina_bolumu(sd: str, basla: str) -> dict:
 
 
 def hesapla(sd: str, dizin: str, gun: float, basla: str, sonra=None) -> dict:
+    taban, esik, istek = taban_bolumu(dizin, gun, sonra), esik_bolumu(dizin, gun, sonra=sonra), istek_bolumu(dizin, gun, sonra)
+    istek["sikistirma_gunluk"] = sikistirma_gunluk(sd, basla)
     return {"olcum": datetime.datetime.now().isoformat(timespec="minutes"), "gun": gun, "sonra": sonra.isoformat(timespec="minutes") if sonra else None,
-            "taban": taban_bolumu(dizin, gun, sonra), "esik": esik_bolumu(dizin, gun, sonra=sonra), "is_basina": is_basina_bolumu(sd, basla)}
+            "taban": taban, "esik": esik, "istek": istek, "onek": onek_maliyeti(taban, esik, istek), "is_basina": is_basina_bolumu(sd, basla)}
 
 
 def metin(r: dict) -> str:
