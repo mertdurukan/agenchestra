@@ -581,7 +581,7 @@ def paralellik_eksikleri(klasor: str) -> list[str]:
     plan. Kapsam dışı iş ya da plan.md yok: boş liste."""
     if not paralellik_kapsaminda_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     import paralellik as PAR
