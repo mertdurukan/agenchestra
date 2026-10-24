@@ -67,6 +67,7 @@ def _poisson_cdf(x: int, m: float) -> float:
     return min(1.0, sum(math.exp(k * lm - m - math.lgamma(k + 1)) for k in range(x + 1)))
 
 
+@functools.lru_cache(maxsize=4096)
 def garwood_ust(x: int, guven: float = GUVEN) -> float:
     """Tek yanlı Garwood üst sınırı (olay sayısı cinsinden): P(X <= x; λ) = 1 - guven çözümü. 0 → 2,996; 1 → 4,744."""
     a = 1.0 - guven
