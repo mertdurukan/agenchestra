@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 _KOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 _SCRIPTS = os.path.join(_KOK, "scripts")
