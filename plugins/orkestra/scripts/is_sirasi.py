@@ -764,9 +764,15 @@ def plan_maddeleri(klasor: str) -> set[int]:
 
 def plan_eksikleri(klasor: str) -> list[str]:
     """Boş liste = plan tamam (mevcut durum ayrıca denetlenir)."""
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return ["plan.md yok (`orkestra is belge <id> plan`)"]
+    return (_plan_temel_eksikleri(klasor, metin) + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor)
+            + bic_engeli(klasor) + uretim_engeli(klasor) + paralellik_engeli(klasor))
+
+
+def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
+    """Kapısız (her sıralı işte) plan eksikleri: mevcut durum bağlantısı, P maddeleri, MD dayanağı; kalite işinde Özet/Kabul/Geri alma."""
     eksik = []
     md = mevcut_durum_yolu(klasor)
     if md is not None:
