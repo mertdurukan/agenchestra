@@ -56,8 +56,9 @@ def sablon(ad: str) -> str:
 
 def doldur_slotlar(metin: str) -> str:
     """ADR ve LLM çıktısı yer tutucularını şablonun söylediği biçimde doldurur, bölüm 4'e örnek P maddesi koyar."""
-    metin = re.sub(r"^\*\*ADR:\*\*.*$", "**ADR:** gerekmez — yalnız şablon metni değişiyor, mimari karar yok", metin, flags=re.M)
-    metin = re.sub(r"^\*\*LLM çıktısı:\*\*.*$", "**LLM çıktısı:** yok — iş kullanıcıya giden bir LLM yanıtı üretmiyor",
+    metin = re.sub(r"^(- )?\*\*ADR:\*\*.*$", r"\1**ADR:** gerekmez — yalnız şablon metni değişiyor, mimari karar yok",
+                   metin, flags=re.M)
+    metin = re.sub(r"^(- )?\*\*LLM çıktısı:\*\*.*$", r"\1**LLM çıktısı:** yok — iş kullanıcıya giden bir LLM yanıtı üretmiyor",
                    metin, flags=re.M)
     return re.sub(r"^(## 4\. Plan maddeleri\n)", lambda m: m.group(1) + "\n" + ORNEK_P, metin, flags=re.M)
 
