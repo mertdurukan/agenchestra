@@ -345,7 +345,7 @@ def bic_eksikleri(klasor: str) -> list[str]:
     doldurduğu `## Best in class denetimi` bloğunu taşır (dört soru ✔/✘ ve `**Denetçi:**`). Kapsam dışı iş: boş liste."""
     if not bic_kapsaminda_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     eksik = []
