@@ -234,6 +234,85 @@ def _genis_tarama_uyarisi(sd, k: dict) -> None:
             return
 
 
+KART_KONTROL = "kart_kontrol"
+KART_KONTROL_ORTAM = "ORKESTRA_KART_KONTROL"
+KART_KONTROL_VARSAYILAN = os.path.join(os.path.dirname(BETIK_DIZINI), "ayarlar", KART_KONTROL + ".json")
+_KONTROL_RE = re.compile(r"(?:^|[\s;|,—–-])kontrol\s*:\s*(.*)$", re.I | re.S)
+_KRITER_NO_RE = re.compile(r"\s*K(\d+)\b")
+KRITER_ORNEK = ('örnek: --kabul "Boş girdi reddedilir; kontrol: pytest tests/test_x.py::test_bos -> 1 passed" '
+                '(kontrol: komut, dosya:satır ya da sayı); JSON\'da {"metin": "...", "kontrol": "..."}')
+
+
+def _kart_kontrol_ayar(sd) -> dict:
+    """Eklenti varsayılanı + proje ezmesi (durum dizinindeki kart_kontrol.json); bozuk dosya varsayılana düşer."""
+    ayar = {"olculebilir_kaliplar": [r"\d"], "olcusuz_ifadeler": []}
+    ayar.update(SS._json_oku(KART_KONTROL_VARSAYILAN) or {})
+    if sd:
+        ayar.update(SS._json_oku(os.path.join(sd, KART_KONTROL + ".json")) or {})
+    return ayar
+
+
+def _kriter_metni(x) -> str:
+    """Kriteri saklanan metin biçimine çevirir: metin olduğu gibi kalır (eski kartlarla aynı biçim);
+    {"metin"|"kriter", "kontrol"} nesnesi '<metin>; kontrol: <kontrol>' olur."""
+    if isinstance(x, dict):
+        metin = str(x.get("metin") or x.get("kriter") or "").strip()
+        kontrol = str(x.get("kontrol") or "").strip()
+        return f"{metin}; kontrol: {kontrol}" if kontrol else metin
+    return str(x)
+
+
+def _kriter_kontrolu(metin: str) -> str:
+    m = _KONTROL_RE.search(metin)
+    return m.group(1).strip() if m else ""
+
+
+def _kalip_bul(kaliplar, metin: str):
+    for kalip in kaliplar or []:
+        try:
+            m = re.search(kalip, metin, re.I)
+        except re.error:
+            continue
+        if m:
+            return m
+    return None
+
+
+def _kabul_kontrol_dogrula(d: dict, sd) -> tuple[list, list]:
+    """I-224: her kabul kriteri ölçülebilir 'kontrol:' alanı (komut, dosya:satır ya da sayı) taşır ve ölçüsüz ifade
+    içermez; kriter başına K-iskeleti üretir. Mod kapi_mod ile (ayarlar/kart_kontrol.json; ihlal reddeder, golge uyarır);
+    ORKESTRA_KART_KONTROL=0 kapıyı ve iskeleti kapatır. Yalnız oluşturmada çalışır: eski kartlar okunur kalır."""
+    kriterler = [_kriter_metni(x) for x in (d.get("kabul_kriterleri") or [])]
+    if os.environ.get(KART_KONTROL_ORTAM) == "0" or not kriterler:
+        return kriterler, []
+    ayar = _kart_kontrol_ayar(sd)
+    ad = d.get("baslik") or "(başlıksız)"
+    eksik, iskelet = [], []
+    for i, metin in enumerate(kriterler, 1):
+        m = _KRITER_NO_RE.match(metin)
+        no = int(m.group(1)) if m else i
+        kisa = re.sub(r"\s+", " ", metin).strip()[:60]
+        kontrol = _kriter_kontrolu(metin)
+        bos = SS._normallestir(metin)
+        olcusuz = _kalip_bul(ayar.get("olcusuz_ifadeler"), bos)
+        if olcusuz:
+            eksik.append(f"K{no} '{kisa}': ölçüsüz ifade '{olcusuz.group(0)}' — yerine ölçü (eşik, sayı, komut sonucu) yaz")
+        if not kontrol:
+            eksik.append(f"K{no} '{kisa}': 'kontrol:' alanı yok")
+        elif not _kalip_bul(ayar.get("olculebilir_kaliplar"), kontrol):
+            eksik.append(f"K{no} '{kisa}': 'kontrol: {kontrol[:40]}' ölçülebilir değil (komut, dosya:satır ya da sayı olmalı)")
+        iskelet.append(f"K{no}: <dosya:satır | komut çıktısı | sayı>" + (f" — kontrol: {kontrol}" if kontrol else ""))
+    proje = os.path.dirname(os.path.dirname(sd)) if sd else None
+    if eksik:
+        if proje:
+            red = KM.ret_ver(proje, KART_KONTROL, eksik)
+        else:
+            red = eksik if KM.mod(KART_KONTROL) == "ihlal" else []
+        if red:
+            hata(f"kabul kriteri ölçülebilir değil ({ad}): " + "; ".join(red) + f". {KRITER_ORNEK}")
+    return kriterler, iskelet
+
+
 def _test_alanlari_dogrula(d: dict) -> dict | None:
     """sinif 'kod' ise test_komutu (boş olmayan metin) ve test_alani (boş olmayan glob listesi) zorunlu; değilse None.
     İsteğe bağlı test_koku (var olan mutlak dizin) yalnız kod kartında kabul edilir; test_alani ve test_komutu ona göredir."""
