@@ -136,7 +136,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "baslangic_basamak": basamak,
         "soru": d["soru"].strip(),
         "girdi": d.get("girdi") or "",
-        "kabul_kriterleri": list(d.get("kabul_kriterleri") or []),
+        "kabul_kriterleri": kriterler,
         "yazma_alani": yazma,
         "bagimliliklar": list(d.get("bagimliliklar") or []),
         "oto_teslim": oto_teslim,
