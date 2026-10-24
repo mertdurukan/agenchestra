@@ -221,8 +221,10 @@ def _satirlar(s: dict) -> list[tuple]:
     return out
 
 
-def _kapi_satirlari(s: dict, ek=()) -> list[tuple]:
-    adlar = sorted(set(s["kapi"]) | set(ek), key=lambda k: (-s["kapi"].get(k, 0), k))
+def _kapi_satirlari(s: dict, adlar=None) -> list[tuple]:
+    """Kapı satırları; `adlar` verilirse o sırayla (önce/sonra pencereleri aynı sırayı paylaşmalı, zip ile eşlenir)."""
+    if adlar is None:
+        adlar = sorted(s["kapi"], key=lambda k: (-s["kapi"][k], k))
     out = [(f"kapi:{k}", s["kapi"].get(k, 0), s["tur"], "tur") for k in adlar]
     out.append(("denetci_kb_ky", s["denetci_kb_ky"], s["karar"], "karar"))
     return out
