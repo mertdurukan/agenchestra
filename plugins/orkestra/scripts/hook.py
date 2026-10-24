@@ -2322,7 +2322,8 @@ def user_prompt_submit(inp: dict):
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
             parcalar = [asili_uyari(sd, inp.get("session_id")),
-                        _yonlendirme_ipucu(sd, inp.get("session_id"), metin, L.proje_dizini(inp.get("cwd")))]
+                        _yonlendirme_ipucu(sd, inp.get("session_id"), metin, L.proje_dizini(inp.get("cwd")),
+                                           cwd=inp.get("cwd"))]
             _niyet_otomatik(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), metin)  # iş açıldıktan sonra
             try:  # bilgi sorusu notu (G-120): listenin başına; hata hook'u düşürmez
                 import soru_sinif
