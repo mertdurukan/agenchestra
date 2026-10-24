@@ -1600,7 +1600,7 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
         return ""
 
 
-def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None) -> str:
+def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cwd: str | None = None) -> str:
     """P2-P3: bağsız oturumda her gerçek mesajda eslestir+karar: bagla → bağlar, ac → yeni iş (soru türü 'soru'
     etiketli) açıp bağlar, sec → en yakın iki iş + seçim satırı; devam türünde iş açılmaz. Bağlı oturumda, boş
     mesajda ya da bozuk merkez kayıtta çalışmaz (''). Hata/başarısız açma → '' (çağıran ipucu yoluna düşer)."""
