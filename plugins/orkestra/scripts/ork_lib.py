@@ -520,7 +520,7 @@ _SIR_KALIPLARI = [
 ]
 # Bilinen sağlayıcı önekli anahtarlar: uzunluk/biçim sezgisinden bağımsız her zaman maskelenir.
 _ONEKLI_ANAHTAR = re.compile(
-    r"(?<![A-Za-z0-9_\-])(?:sk-|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|AKIA|AIza)[A-Za-z0-9_\-]{16,}")
+    r"(?<![A-Za-z0-9_\-])(?:sk-|sk_live_|sk_test_|rk_live_|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|AKIA|AIza)[A-Za-z0-9_\-]{16,}")
 # Uzun anahtar adayı. '=' yalnız sondaki base64 dolgusu olarak kabul edilir: eskiden karakter sınıfının içindeydi,
 # bu yüzden 'ORKESTRA_..._KAPISI=0' gibi ad + '=' + rakam tek belirteç olup (rakam koşulunu '=0' sağlıyordu) yutuluyordu.
 _UZUN_ANAHTAR = re.compile(r"(?<![A-Za-z0-9+/_\-])(?=[A-Za-z0-9+/_\-]*\d)(?=[A-Za-z0-9+/_\-]*[A-Za-z])"

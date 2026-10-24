@@ -63,3 +63,9 @@ class GercekSirMaskelenir(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AltCizgiliOnek(unittest.TestCase):
+    def test_stripe_tarzi_anahtar_maskelenir(self):
+        # I-224 denetçi kusuru 2: sk_live_ öneki sk- listesinde yoktu
+        self.assertNotIn("abcdefghijklmnop1234", L.maskele("anahtar sk_live_abcdefghijklmnop1234 bitti"))
