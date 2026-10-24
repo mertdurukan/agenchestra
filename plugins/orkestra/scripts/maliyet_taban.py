@@ -184,6 +184,10 @@ def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None) -> dict:
             "baglam_p90": ctx[int(n * .9)], "esikler": satirlar, "okuma_fiyat_toplam": sum(c[2] for c in cag)}
 
 
+# Kullanıcının yazmadığı, çalışan işin devamı olan sistem mesajları yeni istek sayılmaz (arka plan görevi bildirimi, yerleşik komut çıktısı, kesinti notu).
+_ISTEK_DISI = ("<task-notification", "<local-command", "<command-name>/", "[Request interrupted", "Task (from the session", "Caveat:")
+
+
 def _kullanici_istegi(o: dict) -> bool:
     """Gerçek kullanıcı mesajı (araç sonucu, yan zincir, meta ve sıkıştırma özeti değil): yeni istek başlatır."""
     if o.get("type") != "user" or o.get("isSidechain") or o.get("isMeta") or o.get("isCompactSummary"):
