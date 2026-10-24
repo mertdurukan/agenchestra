@@ -309,7 +309,8 @@ class PlanAlanTesti(unittest.TestCase):
         yeni = [e for e in sonra if e not in once]
         # zincir kapıları: P-017 gap kapsama, sözleşme bağı, MD § dayanağı, paralellik (Önce / Yazma alanı)
         self.assertEqual(S.gap_kapsama_eksikleri(self.kok), [])
-        self.assertEqual(S.sozlesme_baglanti_eksikleri(self.kok), [])
+        # sözleşme bağı: P5 için eksik yok, fikstürün kendi S1/S2/S5–S7 eksikleri değişmez (yeni ret 0)
+        self.assertEqual(set(S.sozlesme_baglanti_eksikleri(self.kok)), soz_once)
         self.assertEqual(S.paralellik_eksikleri(self.kok), [])
         for e in yeni:
             self.assertTrue(e.startswith("P5:"), e)
