@@ -42,6 +42,16 @@ def cmd_liste(a):
         print(f"{str(r.get('zaman', ''))[:19].replace('T', ' ')}  [{r.get('kaynak')}] {r.get('imza')}")
 
 
+def cmd_ozet(a):
+    import ret_olcum as RO
+    o = RO.ozet(RO.yukle(sd_gerekli()), baslangic=a.baslangic, oncesi=a.oncesi, sonrasi=a.sonrasi, bitis=a.bitis)
+    if a.json:
+        print(json.dumps(o, ensure_ascii=False, indent=1))
+        return
+    for s in RO.metin(o):
+        print(s)
+
+
 def kaydet(alt):
     """Bu modülün alt komutlarını ana ayrıştırıcıya ekler."""
     h = alt.add_parser("hata", help="tekrar eden hatalar (hook, CLI, özet, kart reti, kural ihlali)").add_subparsers(dest="alt", required=True)
