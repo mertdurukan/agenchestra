@@ -715,8 +715,10 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
 
 
 def pre_tool_use(inp: dict):
-    global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI
+    global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI, _GUNCEL_GIRDI, _IZIN_KIPI
     _KULLANICI_MESAJI = ""
+    _GUNCEL_GIRDI = None
+    _IZIN_KIPI = str(inp.get("permission_mode") or "")
     _BEKLEYEN_UYARI = ""  # ic_kos işlem içi koşar: önceki çağrının uyarısı sızmasın
     _VARSAYILAN_IZIN = ""
     _DURUM_DIZINI = ""
