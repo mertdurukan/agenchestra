@@ -8,11 +8,13 @@ Davranış hatası (ADR-0037): ajanın yanlış klasör, yanlış kabuk, kapı i
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
 
 import ork_lib as L
+import ret_nedeni as RN
 
 DOSYA = "hata.jsonl"
 ILETI_EN_COK = 300
