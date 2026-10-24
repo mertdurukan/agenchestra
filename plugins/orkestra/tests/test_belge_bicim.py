@@ -92,6 +92,22 @@ class Kurallar(unittest.TestCase):
         self.assertEqual(BB.baglantisiz_belgeler([yol], "yalnız ad: rapor.md", AYAR), [yol.replace("\\", "/")])
         self.assertEqual(BB.baglantisiz_belgeler([yol, yol], "x", AYAR), [yol.replace("\\", "/")])  # tekrar yok
 
+    # --- I-224 P9 (a): çok satırlı HTML yorumunun devam satırları sayılmaz
+    def test_cok_satirli_yorum_icerigi_sayilmaz(self):
+        metin = ("# B\n\n<!-- doldur: her satır ayrı:\n**A:** a **B:** b\nx · y · z ve a; b; c; d\n" + "kelime " * 50
+                 + "\n-->\n\nTemiz paragraf.\n")
+        self.assertEqual(self.tara(metin), [])
+        # yorum kapandıktan sonraki ihlal yine yakalanır; satır numarası metnin kendisine göredir
+        self.assertEqual([(i["satir"], i["kural"]) for i in self.tara("<!-- a\nb -->\n**A:** a **B:** b\n")],
+                         [(3, "coklu_etiket")])
+        # yorumdan önceki metin sayılır, yorum içi sayılmaz
+        self.assertEqual([i["kural"] for i in self.tara("a; b; c; d <!-- not\n**A:** **B:**\n-->\n")], ["sikisik_liste"])
+        self.assertEqual(self.tara("Metin <!-- a; b; c; d --> sonu.\n"), [])
+
+    def test_yorum_icindeki_kod_citi_durumu_bozmaz(self):
+        metin = "<!-- örnek:\n```markdown\n**A:** a **B:** b\n```\nson -->\n\n**A:** x **B:** y\n"
+        self.assertEqual([(i["satir"], i["kural"]) for i in self.tara(metin)], [(7, "coklu_etiket")])
+
     def test_bozuk_ayar_varsayilana_duser(self):
         d = BB.ayar_oku("/yok/olan/dizin")
         self.assertEqual(BB.mod(d, "yazim_kapisi"), "ihlal")  # eklentinin gönderdiği ayar: ihlal (18.10.2026)
