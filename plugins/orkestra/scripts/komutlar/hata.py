@@ -3,6 +3,7 @@
 `orkestra hata en-cok [--gun N] [--kaynak hook|cli|ozet|kart|kural | --tum] [--ilk N] [--json]`
 Varsayılan görünüm kural ihlallerini dışlar (uyum sayacı, hata değil); `--kaynak kural` ya da `--tum` ile görünür.
 `orkestra hata liste [--ilk N] [--json]`   (hata.jsonl'in son satırları)
+`orkestra hata ozet [--baslangic T] [--bitis T] [--oncesi T] [--sonrasi T] [--json]`   (ret_olcum: R1–R9 oranı, I-224 P10)
 """
 from __future__ import annotations
 
