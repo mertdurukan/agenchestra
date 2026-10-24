@@ -14,9 +14,8 @@
 
 [mevcut_durum_{gun}.md](mevcut_durum_{gun}.md)
 
-**ADR:** <ADR-nnnn | gerekmez — neden>
-
-**LLM çıktısı:** <yok — neden | kullanıcıya gider — Doğrulama: kod veya test yolu[::test adı]>
+- **ADR:** <ADR-nnnn | gerekmez — neden>
+- **LLM çıktısı:** <yok — neden | kullanıcıya gider — Doğrulama: kod veya test yolu[::test adı]>
 
 <!-- doldur: iki satırda da açılı yer tutucuyu silip değeri yaz; doldurulmadan kapı reddeder. ADR (P-015): `ADR-nnnn` (adr/ klasöründe dosyası olur) ya da `gerekmez — <neden>`. LLM çıktısı (P-032): `yok — <en az 3 sözcük gerekçe>` ya da `kullanıcıya gider — Doğrulama: <yol>`. -->
 
