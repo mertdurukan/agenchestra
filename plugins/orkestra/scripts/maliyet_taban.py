@@ -181,7 +181,7 @@ def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None) -> dict:
                          "oturum": sum(1 for m in oturum_max if m > e), "oturum_orani": sum(1 for m in oturum_max if m > e) / len(oturum_max),
                          "devir_kazanc_ust_sinir": sum((c[0] - e) * c[2] for c in ust) / 1e6})
     return {"cagri": n, "oturum": len(oturum_max), "toplam_usd": top, "baglam_medyan": int(statistics.median(ctx)),
-            "baglam_p90": ctx[int(n * .9)], "esikler": satirlar}
+            "baglam_p90": ctx[int(n * .9)], "esikler": satirlar, "okuma_fiyat_toplam": sum(c[2] for c in cag)}
 
 
 def _kullanici_istegi(o: dict) -> bool:
