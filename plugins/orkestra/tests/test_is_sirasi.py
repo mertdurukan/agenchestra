@@ -540,5 +540,121 @@ class KaliteCitasi(unittest.TestCase):
         self.assertTrue(metin.startswith("# T: yapılacaklar"))
 
 
+class PlanYazimRaporu(unittest.TestCase):
+    """I-224: plan.md yazım anında planın tüm alan eksikleri tek iletide, düzeltme satırıyla verilir; ret koşulu değişmez."""
+
+    TASLAK = ("# Deneme: plan\n\n## 4. Plan maddeleri\n\n### P1 İlk madde\n\n**Ne:** x\n\n"
+              "### P2 İkinci madde\n\n**Dayanak:** MD §9\n\n## 5. Riskler\n\nYok.\n")
+
+    def setUp(self):
+        import tempfile
+        self.k = tempfile.mkdtemp()
+        self._eski = {a: os.environ.pop(a, None) for a in ("ORKESTRA_KALITE_KAPISI", "ORKESTRA_GAP_KAPISI", "ORKESTRA_SIRA_KAPISI",
+                                                           "ORKESTRA_BIC_KAPISI")}
+        self.is_json({"sira": S.SIRA_ADI, "kalite": True, "gap": True})
+        KaliteCitasi.yaz(os.path.join(self.k, MD_AD), KaliteCitasi.md_metni())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.k, ignore_errors=True)
+        for ad, v in self._eski.items():
+            os.environ.pop(ad, None)
+            if v is not None:
+                os.environ[ad] = v
+
+    def is_json(self, veri):
+        with open(os.path.join(self.k, "is.json"), "w", encoding="utf-8") as f:
+            json.dump(veri, f)
+
+    def hook_yaz(self, icerik):
+        """hook._sira_kapisi işlem içinde: (reddedildi mi, ret nedeni, bilgi bağlamı)."""
+        import contextlib, io
+        import hook
+        yol = os.path.join(self.k, "plan.md")
+        hook._BEKLEYEN_UYARI = ""
+        cikti = io.StringIO()
+        with contextlib.redirect_stdout(cikti):
+            try:
+                hook._sira_kapisi("Write", {"file_path": yol, "content": icerik}, yol)
+            except SystemExit:
+                o = json.loads(cikti.getvalue())
+                return True, o["hookSpecificOutput"]["permissionDecisionReason"], ""
+        return False, "", hook._BEKLEYEN_UYARI
+
+    def test_k1_eski_davranis_tek_eksik_yeni_davranis_tum_eksikler(self):
+        # Eski davranış: plan yazımında ön koşul tamamsa alan eksikleri hiç görünmezdi; ret yalnız bu yazımın getirdiği
+        # `Mevcut varlık` hatasını (tek madde) gösterirdi. Kalanlar todo yazımında / plan dogrula'da parça parça çıkardı.
+        self.assertEqual(S.plan_onkosulu(self.k), [])
+        ret = ["P1: `yok` için aranan şey yazılmalı (`yok — <aranan>`)"]
+        eski = S.mesaj(ret, "plan.md")
+        self.assertNotIn("Kabul", eski)
+        self.assertNotIn("Gap", eski)
+        # Yeni davranış: aynı ret iletisi, diskte henüz olmayan yazılacak metnin tüm eksiklerini sıralı listeler.
+        self.assertFalse(os.path.exists(os.path.join(self.k, "plan.md")))
+        m = S.plan_yazim_mesaji(self.k, ret, self.TASLAK)
+        self.assertTrue(m.startswith("plan.md yazılamaz (P-005"), m)
+        self.assertLess(m.index("Ret nedeni (1):"), m.index("Diğer eksikler"))
+        for parca in ("aranan şey", "bağlantısı yok", "P1: `MD §<k>` dayanağı yok", "P2: dayanak MD §9 geçersiz",
+                      "plan: `## Özet` bölümü yok", "P1: `**Kabul:**`", "P2: `**Geri alma:**`", "P1: `**Gap:** G<n>`",
+                      "P2: `**Gap:** G<n>`", "G1: hiçbir P", "G2: hiçbir P"):
+            self.assertIn(parca, m)
+        self.assertLessEqual(len(m), S.PLAN_MESAJ_SINIR)
+
+    def test_k1_taslak_yazimi_reddedilmez_eksikler_bilgi_olarak_gelir(self):
+        red, neden, bilgi = self.hook_yaz(self.TASLAK)
+        self.assertFalse(red, neden)  # yeni sertlik yok: taslak plan yazılabilir
+        self.assertIn("plan.md yazıldı", bilgi)
+        for parca in ("dayanağı yok", "`## Özet`", "`**Kabul:**`", "`**Gap:** G<n>`", "G2: hiçbir P"):
+            self.assertIn(parca, bilgi)
+        self.assertIn("Bilgi, gölge kapı", bilgi)  # P-030 best in class gölgede: engellemez, yalnız bilgi
+        self.assertIn("Alternatifler", bilgi)
+
+    def test_k1_on_kosul_once_gelir_alan_eksikleri_ayni_iletide(self):
+        KaliteCitasi.yaz(os.path.join(self.k, MD_AD), MD_TAMAM.replace("16.10.2026 10:00 (yerel)", ""))
+        red, neden, _ = self.hook_yaz(self.TASLAK)
+        self.assertTrue(red)
+        self.assertLess(neden.index("Ölçüm saati"), neden.index("Diğer eksikler"))
+        self.assertIn("`**Kabul:**`", neden)
+
+    def test_k2_her_eksik_icin_duzeltme_satiri(self):
+        m = S.plan_yazim_mesaji(self.k, [], self.TASLAK)
+        satirlar = m.splitlines()
+        maddeler = [i for i, s in enumerate(satirlar) if re.match(r"^\d+\. ", s)]
+        self.assertGreaterEqual(len(maddeler), 10)
+        for i in maddeler:
+            self.assertTrue(satirlar[i + 1].startswith("   → "), satirlar[i:i + 2])
+        for duzeltme in ("P1 altına yaz: `**Gap:** G1`", "P1 altına yaz: `**Kabul:** <ölçülebilir ölçüt>`",
+                         "P2 altına yaz: `**Geri alma:**", "P1 altına yaz: `**Dayanak:** MD §3`", "`## Özet` ve 3-4 cümle",
+                         "`- **G2:** Kapsam dışı: <gerekçe>`", "P1 altına yaz: `**Alternatifler:**`"):
+            self.assertIn(duzeltme, m)
+
+    def test_k2_uzun_ileti_sinirda_kesilir(self):
+        cok = "".join(f"### P{n} Madde\n\n**Ne:** x\n\n" for n in range(1, 40))
+        m = S.plan_yazim_mesaji(self.k, [], "# p\n\n## 4. Plan\n\n" + cok)
+        self.assertLessEqual(len(m), S.PLAN_MESAJ_SINIR)
+        self.assertRegex(m.splitlines()[-1], r"^\+\d+ eksik daha: orkestra plan dogrula")
+
+    def test_k3_eksiksiz_plan_etkilenmez(self):
+        self.is_json({"sira": S.SIRA_ADI, "kalite": True, "gap": True})
+        os.environ["ORKESTRA_BIC_KAPISI"] = "0"
+        tam = KaliteCitasi.plan_metni()
+        self.assertEqual(S.plan_yazim_mesaji(self.k, [], tam), "")
+        self.assertEqual(self.hook_yaz(tam), (False, "", ""))
+        KaliteCitasi.yaz(os.path.join(self.k, "plan.md"), tam)
+        self.assertEqual(S.plan_eksikleri(self.k), [])  # diskteki plan_eksikleri davranışı aynı
+
+    def test_yazim_ani_metni_diskteki_plani_degistirmez(self):
+        KaliteCitasi.yaz(os.path.join(self.k, "plan.md"), KaliteCitasi.plan_metni())
+        os.environ["ORKESTRA_BIC_KAPISI"] = "0"
+        self.assertTrue(S.plan_yazim_mesaji(self.k, [], self.TASLAK))
+        self.assertEqual(S.plan_eksikleri(self.k), [])  # geçici metin sızmaz
+
+    def test_kayit_dusmez(self):
+        import kapi_mod as KM
+        with unittest.mock.patch.object(KM, "kaydet") as k1, unittest.mock.patch.object(KM, "ret_kaydet") as k2:
+            S.plan_yazim_mesaji(self.k, [], self.TASLAK)
+        self.assertFalse(k1.called or k2.called)
+
+
 if __name__ == "__main__":
     unittest.main()
