@@ -110,7 +110,7 @@ class SablonKapiUyumu(unittest.TestCase):
             with self.subTest(sablon=ad):
                 metin = sablon(ad)
                 yorumsuz = S._YORUM.sub("", metin)
-                self.assertRegex(yorumsuz, r"(?m)^\*\*ADR:\*\*", f"{ad}: `**ADR:**` satırı yorum dışında yok")
+                self.assertRegex(yorumsuz, r"(?m)^(- )?\*\*ADR:\*\* \S", f"{ad}: `**ADR:**` satırı yorum dışında yok")
                 bos = I._adr_eksigi(self.is_klasoru(metin), self.proje)
                 self.assertIsNotNone(bos, f"{ad}: doldurulmamış yer tutucu kapıdan geçmemeli")
                 self.assertNotIn("satırı yok", bos, f"{ad}: slot var, kapı yalnız doldurulmasını istemeli")
