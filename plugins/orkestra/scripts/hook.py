@@ -2665,6 +2665,11 @@ def pre_compact(inp: dict):
     sd = L.durum_dizini(inp.get("cwd"))
     if not sd:
         gec()
+    try:  # I-222 P2: olay sayısı günlüğe yazılır (maliyet taban sayar); hata sıkıştırmayı engellemez
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "sikistirma",
+                                                         "tetik": inp.get("trigger")})
+    except Exception as e:
+        _hata_yaz(sd, "pre_compact", e)
     try:
         import devir_ozeti
         bagli = None
