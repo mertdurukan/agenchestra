@@ -190,9 +190,13 @@ def _kullanici_istegi(o: dict) -> bool:
         return False
     c = (o.get("message") or {}).get("content")
     if isinstance(c, str):
-        return bool(c.strip())
-    blok = [x for x in (c or []) if isinstance(x, dict)]
-    return any(x.get("type") == "text" for x in blok) and not any(x.get("type") == "tool_result" for x in blok)
+        ilk = c.strip()
+    else:
+        blok = [x for x in (c or []) if isinstance(x, dict)]
+        if any(x.get("type") == "tool_result" for x in blok):
+            return False
+        ilk = " ".join(x.get("text") or "" for x in blok if x.get("type") == "text").strip()
+    return bool(ilk) and not ilk.startswith(_ISTEK_DISI)
 
 
 def istekler(yol: str, tablo: dict) -> dict:
