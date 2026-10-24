@@ -18,6 +18,7 @@ import time
 import ork_lib as L  # noqa: E402
 import plan_modeli_doldur as PM  # noqa: E402
 import duzeltme_kapisi as DK  # noqa: E402
+import kapi_mod as KM  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
 import soru_sinif as SS  # noqa: E402
 from komutlar._ortak import BASAMAKLAR, BETIK_DIZINI, hata, oturum_id, sd_gerekli  # noqa: E402
