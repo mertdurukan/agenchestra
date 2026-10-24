@@ -244,7 +244,7 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
         komut = str(girdi.get("command") or "")
         govde = komut_govdesi(komut)  # veri heredoc'u atılır: gövdedeki "git push" metni kapıya takılmaz (I-224)
         kuru = _tirnaksiz(govde)
-        ic = _ic_ice(_PS_BURADA.sub('""', govde))  # bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
+        ic = _ic_ice(govde)  # here-string `| iex` ile kod olabilir: iç içe denetimde kalır. bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
         for m in cfg.get("kabuk_yasak") or []:
             d = _derle(str(m.get("desen") or ""))
             if d and (d.search(kuru) or (ic and d.search(ic))):
