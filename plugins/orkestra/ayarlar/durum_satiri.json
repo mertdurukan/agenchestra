@@ -1,0 +1,4 @@
+{
+  "mod": "acik",
+  "aciklama": "mod: acik = iş bağlıyken SessionStart ve UserPromptSubmit bağlamına tek satırlık durum özeti (iş kimliği, onay durumu, sıradaki belge/adım; en çok 200 karakter) eklenir; kapali = eklenmez. Kapatma: ORKESTRA_DURUM_SATIRI=0. Proje ezmesi: .claude/orkestra/durum_satiri.json (I-224 P6)."
+}
