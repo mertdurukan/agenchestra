@@ -573,7 +573,7 @@ def _durum_satiri(sd: str, oid) -> str:
             sira = "kullanıcı onayı"
         if not sira:
             t = is_kaydi.todo_ozet(klasor) if klasor else {}
-            ilk = next((m.group(0) for m in (re.match(r"P\d+\b", x) for x in t.get("acik_maddeler") or []) if m), "")
+            ilk = next((m.group(1) for m in (re.match(r"\W*(P\d+)\b", x) for x in t.get("acik_maddeler") or []) if m), "")
             sira = (f"uygulama {ilk}".strip() + f" (todo {t['biten']}/{t['toplam']})") if t.get("toplam") else "uygulama"
         mod = f", mod {kayit[is_onay.MOD_ALANI]}" if kayit.get(is_onay.MOD_ALANI) else ""
         return f"Durum: {is_id} · {onay_m}{mod} · sıradaki: {sira}"[:DURUM_SATIRI_SINIR]
