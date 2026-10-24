@@ -525,6 +525,62 @@ def _onay_kaydi(sd: str, oid):
         return None
 
 
+DURUM_SATIRI_SINIR = 200  # I-224 P6: iş bağlıyken bağlama giren tek satırlık durum özetinin üst sınırı
+_SIRA_ADIMI = {"sozlesme": "sözleşme", "mevcut_durum": "mevcut durum", "plan": "plan.md"}
+
+
+def _durum_satiri_acik(sd: str | None) -> bool:
+    """`ayarlar/durum_satiri.json` mod (`acik` | `kapali`; proje ezmesi `<durum>/durum_satiri.json`); ORKESTRA_DURUM_SATIRI=0 kapatır."""
+    if os.environ.get("ORKESTRA_DURUM_SATIRI") == "0":
+        return False
+    mod = "acik"
+    for yol in (os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ayarlar", "durum_satiri.json"),
+                os.path.join(sd, "durum_satiri.json") if sd else ""):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, dict) and d.get("mod") in ("acik", "kapali"):
+                mod = d["mod"]
+        except (OSError, ValueError):
+            pass
+    return mod == "acik"
+
+
+def _durum_satiri(sd: str, oid) -> str:
+    """I-224 P6 (R6): bağlı işin tek satırlık durumu (iş kimliği, onay, sıradaki belge/adım), en çok 200 karakter.
+    Başlık ve todo metni girmez (sır/ad taşımaz). Bağsız oturum, kapalı ayar ya da hata: ''."""
+    try:
+        if not oid or not _durum_satiri_acik(sd):
+            return ""
+        is_id = _bagli_is(sd, oid)
+        if not is_id:
+            return ""
+        import is_kaydi
+        import is_onay
+        kayit = is_kaydi.is_al(sd, is_id) or {}
+        klasor = str(kayit.get("klasor") or "")
+        od = is_onay.durum(kayit) if is_onay.kapi_acik() else None
+        onay_m = {is_onay.BEKLIYOR: "onay bekliyor", is_onay.VERILDI: "onay verildi"}.get(od, "onay kapısı yok")
+        sira = ""
+        if klasor:
+            import is_sirasi as SR
+            if SR.sirali_mi(klasor):
+                a, _ = SR.adim(klasor)
+                sira = _SIRA_ADIMI.get(a, "")
+                if not sira and not os.path.exists(os.path.join(klasor, "todo.md")):
+                    sira = "todo.md"
+        if not sira and od == is_onay.BEKLIYOR:
+            sira = "kullanıcı onayı"
+        if not sira:
+            t = is_kaydi.todo_ozet(klasor) if klasor else {}
+            ilk = next((m.group(0) for m in (re.match(r"P\d+\b", x) for x in t.get("acik") or []) if m), "")
+            sira = (f"uygulama {ilk}".strip() + f" (todo {t['biten']}/{t['toplam']})") if t.get("toplam") else "uygulama"
+        mod = f", mod {kayit[is_onay.MOD_ALANI]}" if kayit.get(is_onay.MOD_ALANI) else ""
+        return f"Durum: {is_id} · {onay_m}{mod} · sıradaki: {sira}"[:DURUM_SATIRI_SINIR]
+    except Exception:
+        return ""
+
+
 def _onay_kapisi(sd: str, oid, proje: str, tam: str = "", tirnaksiz: str = "") -> None:
     """P-016: iş onay beklerken (ana ve alt ajan) işin belgeleri dışında dosya yazılmaz; kabukta commit, bağımlılık
     kurma ve onay komutu çalışmaz. Hatada serbest; ORKESTRA_ONAY_KAPISI=0 kapatır."""
