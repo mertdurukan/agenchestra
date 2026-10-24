@@ -67,14 +67,24 @@ def belge_mi(yol: str, kapi_ayari: dict) -> bool:
         return False
 
 
+_SATIR_ICI_YORUM = re.compile(r"<!--.*?-->")
+
+
 def _temizle(metin: str) -> str:
-    """Sayımda satır içi kod ve bağlantı hedefi yok sayılır (içindeki ;, · ve ** bağlantıyı bozmaz)."""
-    return _BAGLANTI_HEDEFI.sub("]", _SATIR_ICI_KOD.sub("``", metin))
+    """Sayımda satır içi kod, bağlantı hedefi ve satır içi HTML yorumu yok sayılır (içindeki ;, · ve ** sayılmaz)."""
+    return _BAGLANTI_HEDEFI.sub("]", _SATIR_ICI_KOD.sub("``", _SATIR_ICI_YORUM.sub("", metin)))
+
+
+def _yorum_acar(s: str) -> bool:
+    """Satır kapanmamış bir HTML yorumu açıyor mu (son `<!--`'dan sonra `-->` yok)."""
+    i = s.rfind("<!--")
+    return i >= 0 and "-->" not in s[i + 4:]
 
 
 def _bloklar(metin: str, yok_say: re.Pattern | None):
-    """(ilk_satır_no, metin, tur) — tur: liste | paragraf. Başlık, tablo, kod bloğu ve yok sayılan satırlar atlanır."""
-    cikti, tampon, bas, kod = [], [], None, False
+    """(ilk_satır_no, metin, tur) — tur: liste | paragraf. Başlık, tablo, kod bloğu, HTML yorumu (çok satırlı
+    yorumun devam satırları dahil; I-224 P9) ve yok sayılan satırlar atlanır."""
+    cikti, tampon, bas, kod, yorum = [], [], None, False, False
 
     def bosalt():
         nonlocal tampon, bas
@@ -84,6 +94,20 @@ def _bloklar(metin: str, yok_say: re.Pattern | None):
 
     for no, ham in enumerate(metin.split("\n"), 1):
         s = ham.rstrip("\r")
+        if yorum:  # yorum içi: kod çiti de dahil hiçbir şey sayılmaz; `-->` satırı da atlanır
+            bosalt()
+            if "-->" in s:
+                yorum = _yorum_acar(s[s.index("-->") + 3:])
+            continue
+        if not kod and _yorum_acar(s):
+            yorum = True
+            if s.lstrip().startswith("<!--"):
+                bosalt()
+                continue
+            s = s[:s.rfind("<!--")]  # yorumdan önceki metin sayılır
+            if not s.strip():
+                bosalt()
+                continue
         if s.strip().startswith("```"):
             bosalt()
             kod = not kod
