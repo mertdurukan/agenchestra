@@ -712,7 +712,7 @@ def gap_kapsama_eksikleri(klasor: str) -> list[str]:
     """İkinci geçiş (P-017): MD §6 gap'leri ile plan maddeleri arasında kapsama. Gap'siz işte boş liste."""
     if not gapli_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md")) or ""
+    metin = _plan_oku(klasor) or ""
     gaplar = mevcut_durum_gapleri(klasor)
     if not gaplar:
         return []  # birinci geçiş eksiği mevcut_durum_eksikleri'nde raporlanır
