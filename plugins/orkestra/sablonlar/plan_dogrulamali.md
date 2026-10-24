@@ -57,6 +57,7 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 ## 4. Plan maddeleri
 
 <!-- doldur: her madde ayrı başlık ve zorunlu alanlar:
+```markdown
 ### P1 Başlık
 **Ne:**
 **Dayanak:** MD §n (mevcut durum bölümü)
