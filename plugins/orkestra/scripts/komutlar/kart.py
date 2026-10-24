@@ -387,6 +387,7 @@ def cmd_kart_toplu(a):
     for d in liste:  # hiçbir kart oluşmadan önce hepsini doğrula
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
+        _kabul_kontrol_dogrula(d, sd)
         _sinif_zorunlu(d)
         _soru_zorunlu(d, sd)
         _test_alanlari_dogrula(d)
