@@ -1627,7 +1627,7 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         if k == "ac":
             if tur == "soru":  # I-138 P2: bilgi sorusu iş açmaz
                 return ""
-            return _otomatik_is_ac(sd, oid, istek, proje)
+            return _otomatik_is_ac(sd, oid, istek, proje, cwd=cwd)
         if k == "sec":  # belirsiz eşleşme kullanıcıya sorulmaz: en yakın açık işe bağlanır
             for i in deger if isinstance(deger, (list, tuple)) else []:
                 if str(i) in acik_idler:
