@@ -208,7 +208,7 @@ def sozlesme_eksikleri(klasor: str, baglanti: bool = False) -> list[str]:
 
 def sozlesme_baglanti_eksikleri(klasor: str) -> list[str]:
     """P2: her P maddesi `**Sözleşme:** S<n>` ile sözleşmedeki bir kriteri gösterir; her S bir P'de anılır."""
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     kriterler = sozlesme_kriterleri(klasor)
