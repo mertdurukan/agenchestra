@@ -1623,7 +1623,7 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         k, deger = is_yonlendirme.karar(puanlar, ayar)
         acik_idler = {str(g["id"]) for g in acik}
         if k == "bagla" and deger is not None and str(deger) in acik_idler:
-            return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger))
+            return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger), cwd=cwd)
         if k == "ac":
             if tur == "soru":  # I-138 P2: bilgi sorusu iş açmaz
                 return ""
