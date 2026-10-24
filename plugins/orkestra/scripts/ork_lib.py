@@ -518,8 +518,26 @@ _SIR_KALIPLARI = [
     re.compile(r"(?i)(bearer\s+)([A-Za-z0-9._\-]{12,})"),
     re.compile(r"(postgres(?:ql)?://[^:\s/]+:)([^@\s]+)(@)"),
 ]
-_UZUN_ANAHTAR = re.compile(r"\b(?=[A-Za-z0-9+/=_\-]*\d)(?=[A-Za-z0-9+/=_\-]*[A-Za-z])[A-Za-z0-9+/=_\-]{32,}\b")
+# Bilinen sağlayıcı önekli anahtarlar: uzunluk/biçim sezgisinden bağımsız her zaman maskelenir.
+_ONEKLI_ANAHTAR = re.compile(
+    r"(?<![A-Za-z0-9_\-])(?:sk-|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|AKIA|AIza)[A-Za-z0-9_\-]{16,}")
+# Uzun anahtar adayı. '=' yalnız sondaki base64 dolgusu olarak kabul edilir: eskiden karakter sınıfının içindeydi,
+# bu yüzden 'ORKESTRA_..._KAPISI=0' gibi ad + '=' + rakam tek belirteç olup (rakam koşulunu '=0' sağlıyordu) yutuluyordu.
+_UZUN_ANAHTAR = re.compile(r"(?<![A-Za-z0-9+/_\-])(?=[A-Za-z0-9+/_\-]*\d)(?=[A-Za-z0-9+/_\-]*[A-Za-z])"
+                           r"[A-Za-z0-9+/_\-]{32,}={0,2}(?![A-Za-z0-9+/=_\-])")
+# Tanımlayıcı parçası: kelime (Abc, abc, ABC) ya da sayı, ardından isteğe bağlı rakam (api03, V2, 0080).
+_KELIME_PARCA = re.compile(r"(?:[A-Z]?[a-z]+|[A-Z]+|\d+)\d*")
 _EPOSTA = re.compile(r"\b[\w.+\-]+@[\w\-]+\.[\w.\-]+\b")
+
+
+def _tanimlayici_mi(s: str) -> bool:
+    """Ortam değişkeni adı (BUYUK_ALT_CIZGI), snake_case/kebab tanımlayıcı ya da '/' yolu mu?
+    Ayırıcıyla bölünen her parça kısa (≤20) ve kelime biçimli olmalı; rastgele değerler (karışık harf-rakam,
+    uzun parça, hex) bu sınamayı geçemez ve maskelenir."""
+    if "+" in s or s.endswith("="):
+        return False
+    parcalar = [p for p in re.split(r"[_/\-]", s) if p]
+    return len(parcalar) >= 2 and all(len(p) <= 20 and _KELIME_PARCA.fullmatch(p) for p in parcalar)
 
 
 def maskele(metin: str) -> str:
@@ -527,7 +545,8 @@ def maskele(metin: str) -> str:
         return metin
     for k in _SIR_KALIPLARI:
         metin = k.sub(lambda m: m.group(1) + "<gizli>" + (m.group(3) if m.lastindex and m.lastindex >= 3 else ""), metin)
-    metin = _UZUN_ANAHTAR.sub("<gizli-anahtar>", metin)
+    metin = _ONEKLI_ANAHTAR.sub("<gizli-anahtar>", metin)
+    metin = _UZUN_ANAHTAR.sub(lambda m: m.group(0) if _tanimlayici_mi(m.group(0)) else "<gizli-anahtar>", metin)
     metin = _EPOSTA.sub("<e-posta>", metin)
     return metin
 
