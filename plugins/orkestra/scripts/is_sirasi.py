@@ -609,7 +609,12 @@ def ozet_eksigi(metin: str, ad: str) -> str | None:
 def alan_dolu(blok: str, alan: str) -> bool:
     """P bloğunda `**<alan>:**` etiketi var ve yer tutucu dışında değeri var mı (değer aynı ya da sonraki satırda olabilir)."""
     m = re.search(r"\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
-    return bool(m and m.group(1).strip())
+    deger = m.group(1).strip() if m else ""
+    # `plan alan` iskeletinin `<doldur>` yer tutucusu (değerin tamamı ya da başı) boş sayılır; metin içindeki alıntı sayılmaz.
+    return bool(deger) and not _YER_TUTUCU.match(deger)
+
+
+_YER_TUTUCU = re.compile(r"^`?<doldur\b[^>]*>", re.I)
 
 
 def sirali_mi(klasor: str) -> bool:
