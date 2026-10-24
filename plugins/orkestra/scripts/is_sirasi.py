@@ -849,7 +849,7 @@ _DUZELTMELER = (  # (eksik metninde aranan, düzeltme şablonu); {h} = madde (P<
     (r"^best in class denetimi:", "plan yazarı yazmaz: bu satırı ayrı orkestra:denetci doldurur (`**Denetçi:** <agent_id>`)"),
     (r"LLM çıktısı", "plan.md'ye yaz: `**LLM çıktısı:** yok — <en az 3 sözcük neden>` ya da `kullanıcıya gider — Doğrulama: <test yolu>`"),
     (r"\*\*Kabul:\*\*", "{h} altına yaz: `**Kabul:** <ölçülebilir ölçüt>`"),
-    (r"\*\*Geri alma:\*\*", "{h} altına yaz: `**Geri alma:** <geri alma yolu, örn. git revert <commit>>`"),
+    (r"\*\*Geri alma:\*\*", "{h} altına yaz: `**Geri alma:** <geri alma yolu, örn. git revert>`"),
     (r"yazma alanı kesişiyor", "sonraki maddeye yaz: `**Önce:** P<önceki> — Çakışma: <gerekçe>`"),
     (r"\*\*Yazma alanı:\*\*", "{h} altına yaz: `**Yazma alanı:** scripts/a.py, tests/test_a.py`"),
     (r"\*\*Önce:\*\*", "{h} altına yaz: `**Önce:** yok` ya da `**Önce:** P1 — Çıktı: <gerekçe>`"),
