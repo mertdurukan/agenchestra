@@ -211,19 +211,40 @@ def _onay_kaydi_var(sd, oturum) -> bool:
         return False
 
 
+def _onay_kabuk_kapisi(girdi: dict, sd: str | None, oturum) -> str:
+    """P-016 (I-224): onay bekleyen işte kabukla proje içi yazım Edit/Write ile aynı kapıdan (is_onay.yazma_engeli) geçer.
+    İzin modundan bağımsızdır; hata yolunda serbest (hook'un onay kapısı gibi fail-open)."""
+    if not sd or not oturum:
+        return ""
+    try:
+        import is_onay
+        kayit = is_onay.bekleyen_kayit(sd, oturum)
+        if not kayit:
+            return ""
+        proje = os.path.dirname(os.path.dirname(os.path.abspath(sd)))  # <proje>/.claude/orkestra
+        return is_onay.kabuk_yazma_engeli(kayit, proje, str(girdi.get("command") or ""))
+    except Exception:
+        return ""
+
+
 def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None, oturum=None) -> tuple[str | None, str]:
     cfg = cfg or ayar_yukle(sd)
     ned = _kimlik_kapisi(arac, girdi or {}, _kimlik_okuma_acik(cfg))
     if ned:
         return "deny", ned  # mod ne olursa olsun
+    if arac in KABUK_ARACLARI:
+        ned = _onay_kabuk_kapisi(girdi or {}, sd, oturum)
+        if ned:
+            return "deny", ned  # P-016: izin modu ne olursa olsun
     mod = mod_bul(cfg)
     if mod == "kapali":
         return None, ""
     girdi = girdi or {}
     if arac in KABUK_ARACLARI:
         komut = str(girdi.get("command") or "")
-        kuru = _tirnaksiz(komut)
-        ic = _ic_ice(komut)  # bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
+        govde = komut_govdesi(komut)  # veri heredoc'u atılır: gövdedeki "git push" metni kapıya takılmaz (I-224)
+        kuru = _tirnaksiz(govde)
+        ic = _ic_ice(_PS_BURADA.sub('""', govde))  # bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
         for m in cfg.get("kabuk_yasak") or []:
             d = _derle(str(m.get("desen") or ""))
             if d and (d.search(kuru) or (ic and d.search(ic))):
