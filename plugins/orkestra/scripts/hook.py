@@ -202,12 +202,25 @@ _KULLANICI_MESAJI = ""  # K-003: bağlantı satırlarını hook kullanıcıya g�
 _VARSAYILAN_IZIN = ""  # izin politikası (mod=genis): kapı dışı çağrıya hook allow verir; settings deny/ask yine geçerlidir
 
 
+_GUNCEL_GIRDI = None  # I-224 P9: biçim düzeltmesiyle değişen araç girdisi; çıkışta updatedInput olarak gider
+_IZIN_KIPI = ""  # PreToolUse girdisindeki permission_mode
+_KENDILIGINDEN_YAZAN_KIPLER = ("acceptEdits", "bypassPermissions", "auto")
+
+
 def _pre_cikti(ek: str = ""):
-    """PreToolUse çıkışı: varsayılan izin (allow) ve/veya ek bağlam; ikisi de yoksa karar vermeden çıkar."""
+    """PreToolUse çıkışı: varsayılan izin (allow) ve/veya ek bağlam; ikisi de yoksa karar vermeden çıkar.
+    Düzeltilmiş girdi varsa updatedInput eklenir; Claude Code updatedInput'u yalnız allow/ask ile belgeler: izin
+    politikası allow vermediyse, düzenlemeyi zaten sormadan yapan kipte allow, diğer kiplerde ask (kullanıcı
+    düzeltilmiş girdiyi görür; izin yükseltmesi olmaz). settings deny/ask kuralları her durumda geçerlidir."""
     ho = {"hookEventName": "PreToolUse"}
     if _VARSAYILAN_IZIN:
         ho["permissionDecision"] = "allow"
         ho["permissionDecisionReason"] = _VARSAYILAN_IZIN
+    if _GUNCEL_GIRDI is not None:
+        if "permissionDecision" not in ho:
+            ho["permissionDecision"] = "allow" if _IZIN_KIPI in _KENDILIGINDEN_YAZAN_KIPLER else "ask"
+            ho["permissionDecisionReason"] = "orkestra: biçim düzeltildi (K-005)"
+        ho["updatedInput"] = _GUNCEL_GIRDI
     if ek:
         ho["additionalContext"] = ek
     cikti = {"hookSpecificOutput": ho} if len(ho) > 1 else {}
