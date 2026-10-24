@@ -137,6 +137,9 @@ def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None, ek=None, *, kapi=
             pass
 
 
-def davranis(sd, tur: str, ileti: str, baglam=None) -> None:
-    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"` ve kök neden alanı. İstisna fırlatmaz."""
-    kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))})
+def davranis(sd, tur: str, ileti: str, baglam=None, **ret) -> None:
+    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"` ve kök neden alanı. İstisna fırlatmaz.
+
+    `ret`: kaydet()'in ret bağlamı kwargs'ı (kapi, arac, dosya, ajan, metin); hook-red çağrısı bunları geçirebilir.
+    """
+    kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))}, **ret)
