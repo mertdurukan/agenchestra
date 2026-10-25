@@ -66,6 +66,19 @@ class HookArtikModelBazli(unittest.TestCase):
         self.assertEqual([(a["model"], a["giris"]) for a in art], [("claude-opus-5-5", 600_000)])   # haiku fazlası opus'tan düşmez
 
 
+    def test_hook_artigi_is_kimligini_hook_satirindan_tasir(self):
+        """I-222 P7: türetilen satır işsiz görünmez (bağsız harcamanın %80'i bu kaybıydı); işsiz hook satırı işsiz kalır."""
+        def satir(giris, kaynak, is_id, oturum="s1"):
+            return {"oturum": oturum, "agent_id": None, "gorev": "-", "model": "claude-opus-5-5", "giris": giris, "cikis": 0, "onbellek_okuma": 0,
+                    "onbellek_yazma": 0, "kaynak": kaynak, "zaman": "2026-10-16T08:00:00+03:00", "maliyet_usd": 0.0, "is": is_id,
+                    **({} if is_id else {"atif_nedeni": "oturum-isiz"})}
+        rows = [satir(500, "hook", "I-9"), satir(100, "tur", "I-9"), satir(500, "hook", None, "s2"), satir(100, "tur", None, "s2")]
+        art = {a["oturum"]: a for a in L._hook_artigi(rows, {("s1", None), ("s2", None)})}
+        self.assertEqual(art["s1"]["is"], "I-9")
+        self.assertIsNone(art["s2"]["is"])
+        self.assertEqual(art["s2"]["atif_nedeni"], "oturum-isiz")
+
+
 class MaliyetZamanSuzgeci(unittest.TestCase):
     def test_z_ve_yerel_damga_ayni_esikle_karsilastirilir(self):
         import datetime

@@ -43,7 +43,8 @@
 **Dokunulan yer:** MD §3 etki haritasındaki yer
 **Kabul:** ölçülebilir tek ölçüt (komut çıktısı, sayı, dosya:satır); "yapıldı" kabul değildir (kalite kapısında zorunlu)
 **Geri alma:** değişikliği geri almanın yolu (kalite kapısında zorunlu)
-**Önce:** bu maddeden önce bitmesi gereken P maddeleri (varsa)
+**Önce:** zorunlu: `yok` ya da virgülle `P<n> — Çıktı: <o maddenin hangi çıktısını okuduğu>` / `P<n> — Çakışma: <hangi dosyada yazma alanı kesişir>`; yalnız gerçek bağımlılık yaz, "sıra düzgün olsun" gerekçe değildir
+**Yazma alanı:** bu maddenin yazacağı dosyalar (virgülle; glob olabilir); aynı dalgadaki maddelerin alanları kesişmez
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
 **Sözleşme:** S<n> (sözleşmeli işte zorunlu: bu madde sözleşmedeki hangi başarı kriterini sağlar; `sozlesme_<tarih>.md`)
 **Mevcut varlık:** harita kayıt kimliği (virgülle; kimlikten sonra `(not)` ya da `; not` serbest) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
@@ -55,6 +56,10 @@
 (K-006; `uretim: true` işlerde zorunlu, her maddenin metni kendine özgü olur; hata, ret, kusur, tekrar geçen maddede `Yeni yetenek` yazılmaz)
 ```
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
+
+## Dalgalar
+
+<!-- orkestra is dalga <iş> üretir: dalga başına P listesi, kritik yol, genişlik. Tüm plan tek zincirse (≥3 madde, genişlik 1) şu satırı yaz: **Tam sıralı çünkü:** <her madde bir öncekinin çıktısını okur, ≥15 karakter gerekçe> -->
 
 ## Gap kapsama
 

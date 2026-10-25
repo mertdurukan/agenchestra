@@ -308,7 +308,15 @@ def cmd_maliyet_taban(a):
             hata(f"--sonra ISO zaman olmalı: {a.sonra!r}")
         if sonra.tzinfo is None:
             sonra = sonra.astimezone()
-    r = MT.hesapla(sd, dizin, a.gun, basla, sonra)
+    uyari = None
+    if a.uyari_kesim:
+        try:
+            uyari = datetime.datetime.fromisoformat(a.uyari_kesim)
+        except ValueError:
+            hata(f"--uyari-kesim ISO zaman olmalı: {a.uyari_kesim!r}")
+        if uyari.tzinfo is None:
+            uyari = uyari.astimezone()
+    r = MT.hesapla(sd, dizin, a.gun, basla, sonra, uyari)
     print(json.dumps(r, ensure_ascii=False, indent=1) if a.json else MT.metin(r))
 
 
@@ -362,6 +370,7 @@ def kaydet(alt):
     ta.add_argument("--gun", type=float, default=7, help="transkript penceresi (gün)")
     ta.add_argument("--basla", help="iş başına $ penceresi başlangıcı (YYYY-AA-GG; varsayılan: bugün - gün)")
     ta.add_argument("--sonra", help="yalnız bu andan (ISO) sonra başlayan oturumlar (ör. skill kapatma sonrası ölçüm)")
+    ta.add_argument("--uyari-kesim", help="devir uyarısının devreye girdiği an (ISO): uyarı öncesi/sonrası günlük >200 bin çağrı payı karşılaştırması (pencere: 30 gün)")
     ta.add_argument("--transkript-dizini", help=argparse.SUPPRESS)
     ta.add_argument("--json", action="store_true")
     ta.set_defaults(f=cmd_maliyet_taban)

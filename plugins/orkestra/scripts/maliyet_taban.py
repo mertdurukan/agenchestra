@@ -14,12 +14,14 @@ import datetime
 import glob
 import json
 import os
+import random
 import statistics
 import time
 
 import ork_lib as L
 
 ESIKLER = (100_000, 150_000, 200_000)
+DEVIR_BELGESI = (10_000, 5_000, 2_000)  # ADR-0034 / I-159 P4 varsayımı (ölçülmedi): devir belgesinin çıkış tokeni
 KALEMLER = ["sistem istemi", "kural dosyaları", "skill listesi", "ertelenmiş araç adları", "ajan listesi",
             "MCP yönergeleri", "hook ek bağlamı", "oturum bağlamı", "ortam ve model", "ilk kullanıcı mesajı"]
 _ORAN_YOLU = os.path.join(L.PLUGIN_ROOT, "ayarlar", "taban_oranlari.json")
@@ -115,7 +117,7 @@ def oturum_taban(yol: str):
 
 
 def cagrilar(yol: str, tablo: dict) -> list[tuple]:
-    """Ana zincir çağrıları (mesaj kimliği bir kez): (bağlam, tam kullanım usd, okuma fiyatı $/M)."""
+    """Ana zincir çağrıları (mesaj kimliği bir kez): (bağlam, tam kullanım usd, okuma fiyatı $/M, çıkış fiyatı $/M, 1 saatlik yazma fiyatı $/M)."""
     gorulen, out = set(), []
     for o in _satirlar(yol):
         m = o.get("message") or {}
@@ -134,7 +136,7 @@ def cagrilar(yol: str, tablo: dict) -> list[tuple]:
         usd = ((u.get("input_tokens", 0) or 0) * f["giris"] + (u.get("output_tokens", 0) or 0) * f["cikis"]
                + (u.get("cache_read_input_tokens", 0) or 0) * f["onbellek_okuma"]
                + (cw5 or 0) * f["onbellek_yazma_5dk"] + (cw1 or 0) * f["onbellek_yazma_1sa"]) / 1e6
-        out.append((baglam(u), usd, f["onbellek_okuma"]))
+        out.append((baglam(u), usd, f["onbellek_okuma"], f["cikis"], f["onbellek_yazma_1sa"]))
     return out
 
 
@@ -160,14 +162,30 @@ def taban_bolumu(dizin: str, gun: float, sonra=None) -> dict:
     return {"oturum": len(satir), "ilk_medyan": int(med), "ilk_p90": ilkler[int(len(ilkler) * .9)], "kalemler": kalemler}
 
 
-def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None) -> dict:
+def devir_net(oturumlar: list[list[tuple]], esik: int, yeni_taban: int, belge: int) -> tuple[int, float]:
+    """ADR-0034 net devir kazancı: (devir olan oturum, net $). Devir noktası = bağlamın eşiği ilk aştığı çağrı; sonraki her çağrının bağlamı
+    en çok (bağlam - yeni oturum tabanı) küçülür (brüt = küçülen bağlam x okuma fiyatı). Devir maliyeti = belge tokeni x çıkış fiyatı +
+    yeni oturum tabanının (taban + belge) 1 saatlik yazımı. Oturum başına tek devir; belge boyutu varsayımdır."""
+    devir, net = 0, 0.0
+    for c in oturumlar:
+        i = next((k for k, x in enumerate(c) if x[0] > esik), None)
+        if i is None:
+            continue
+        devir += 1
+        brut = sum(max(0, x[0] - yeni_taban) * x[2] for x in c[i + 1:]) / 1e6
+        net += brut - (belge * c[i][3] + (yeni_taban + belge) * c[i][4]) / 1e6
+    return devir, net
+
+
+def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None, yeni_taban: int | None = None) -> dict:
     tablo = L.fiyat_tablosu()
-    cag, oturum_max = [], []
+    cag, oturum_max, oturumlar = [], [], []
     for f in dosyalar(dizin, gun, sonra):
         c = cagrilar(f, tablo)
         cag += c
         if c:
             oturum_max.append(max(x[0] for x in c))
+            oturumlar.append(c)
     if not cag:
         return {"cagri": 0}
     top = sum(c[1] for c in cag)
@@ -180,12 +198,87 @@ def esik_bolumu(dizin: str, gun: float, esikler=ESIKLER, sonra=None) -> dict:
         satirlar.append({"esik": e, "cagri": len(ust), "cagri_orani": len(ust) / n, "usd": usd, "usd_payi": usd / top if top else 0,
                          "oturum": sum(1 for m in oturum_max if m > e), "oturum_orani": sum(1 for m in oturum_max if m > e) / len(oturum_max),
                          "devir_kazanc_ust_sinir": sum((c[0] - e) * c[2] for c in ust) / 1e6})
+        if yeni_taban:
+            satirlar[-1]["devir_net"] = {b: devir_net(oturumlar, e, yeni_taban, b) for b in DEVIR_BELGESI}
     return {"cagri": n, "oturum": len(oturum_max), "toplam_usd": top, "baglam_medyan": int(statistics.median(ctx)),
             "baglam_p90": ctx[int(n * .9)], "esikler": satirlar, "okuma_fiyat_toplam": sum(c[2] for c in cag)}
 
 
 # Kullanıcının yazmadığı, çalışan işin devamı olan sistem mesajları yeni istek sayılmaz (arka plan görevi bildirimi, yerleşik komut çıktısı, kesinti notu).
 _ISTEK_DISI = ("<task-notification", "<local-command", "<command-name>/", "[Request interrupted", "Task (from the session", "Caveat:")
+
+
+def gunluk_asim(dizin: str, gun: float, esik: int = 200_000) -> dict:
+    """Yerel gün -> {"n": ana zincir çağrısı, "asan": bağlamı eşiği aşan çağrı, "oturum_asan": {oturum dosyası: aşan çağrı}}. Kaynak: transkript zaman damgası."""
+    out: dict = {}
+    for f in dosyalar(dizin, gun):
+        gorulen = set()
+        for o in _satirlar(f):
+            m = o.get("message") or {}
+            u = m.get("usage")
+            if o.get("type") != "assistant" or not u or o.get("isSidechain") or not o.get("timestamp"):
+                continue
+            mid = m.get("id") or o.get("uuid")
+            if mid in gorulen:
+                continue
+            gorulen.add(mid)
+            try:
+                g = datetime.datetime.fromisoformat(str(o["timestamp"]).replace("Z", "+00:00")).astimezone().date()
+            except ValueError:
+                continue
+            d = out.setdefault(g, {"n": 0, "asan": 0, "oturum_asan": {}})
+            d["n"] += 1
+            if baglam(u) > esik:
+                d["asan"] += 1
+                d["oturum_asan"][f] = d["oturum_asan"].get(f, 0) + 1
+    return out
+
+
+def _araligi(oranlar: list, tohum: int, tekrar: int = 2000) -> tuple:
+    """Gün oranlarının ortalaması ve günler üzerinden bootstrap %95 aralığı (sabit tohum; kümeleme birimi gün, çünkü bir günün çağrıları bağımlıdır)."""
+    rng = random.Random(tohum)
+    ort = sorted(statistics.fmean(rng.choices(oranlar, k=len(oranlar))) for _ in range(tekrar))
+    return statistics.fmean(oranlar), ort[int(0.025 * tekrar)], ort[int(0.975 * tekrar) - 1]
+
+
+def uyari_etkisi(dizin: str, kesim: datetime.datetime, gun: float = 30, esik: int = 200_000, min_gun: int = 7,
+                 min_cagri: int = 1000, min_fark: float = 0.05, tohum: int = 1, bugun: datetime.date | None = None) -> dict:
+    """Devir uyarısı (kesim anı) öncesi/sonrası günlük "bağlamı eşiği aşan çağrı payı" karşılaştırması (ADR-0034 etki ölçümü).
+    Kural (ölçümden ÖNCE sabit): her iki yanda >= `min_gun` tam gün (kesim günü ve bugün kısmi gün: dışarıda; çağrısı < `min_cagri` olan gün dışarıda);
+    fark >= `min_fark` (5 puan) ve gün-bootstrap %95 aralıkları örtüşmüyorsa "etki var"; örtüşüyorsa ya da fark küçükse "etki görülmedi"; günler yetmezse "yetersiz veri".
+    Karıştırıcı: aşan çağrıların oturumlara dağılımı (az sayıda uzun oturum günlük payı tek başına oynatır) ayrıca gösterilir."""
+    bugun = bugun or datetime.date.today()
+    kd = kesim.astimezone().date()
+    gunler = gunluk_asim(dizin, gun, esik)
+    yan = {"once": {}, "sonra": {}}
+    elenen = {"once": 0, "sonra": 0}
+    for g, d in sorted(gunler.items()):
+        if g == kd or g >= bugun:
+            continue
+        k = "once" if g < kd else "sonra"
+        if d["n"] < min_cagri:
+            elenen[k] += 1
+            continue
+        yan[k][g] = d
+    r = {"kesim": kesim.isoformat(timespec="minutes"), "esik": esik, "min_gun": min_gun, "min_cagri": min_cagri, "min_fark": min_fark, "tohum": tohum, "yanlar": {}}
+    for k, v in yan.items():
+        oran = [d["asan"] / d["n"] for d in v.values()]
+        oturum_asan = [c for d in v.values() for c in d["oturum_asan"].values()]
+        y = {"gun": len(v), "elenen_gun": elenen[k], "cagri": sum(d["n"] for d in v.values()), "asan": sum(d["asan"] for d in v.values()),
+             "asan_oturum": len(oturum_asan), "oturum_asan_medyan": statistics.median(oturum_asan) if oturum_asan else 0}
+        if oran:
+            y["ort"], y["alt"], y["ust"] = _araligi(oran, tohum)
+        r["yanlar"][k] = y
+    o, s_ = r["yanlar"]["once"], r["yanlar"]["sonra"]
+    if o["gun"] < min_gun or s_["gun"] < min_gun:
+        r["karar"] = "yetersiz veri"
+        r["neden"] = f"günler yetmiyor: önce {o['gun']}, sonra {s_['gun']} (gerekli >= {min_gun} + >= {min_gun})"
+    else:
+        r["fark"] = o["ort"] - s_["ort"]
+        ortusmuyor = s_["ust"] < o["alt"]
+        r["karar"] = "etki var" if (r["fark"] >= min_fark and ortusmuyor) else "etki görülmedi"
+        r["neden"] = f"düşüş {100 * r['fark']:.1f} puan; aralıklar " + ("örtüşmüyor" if ortusmuyor else "örtüşüyor")
+    return r
 
 
 def _kullanici_istegi(o: dict) -> bool:
@@ -351,11 +444,53 @@ def is_basina_bolumu(sd: str, basla: str) -> dict:
     return sonuc
 
 
-def hesapla(sd: str, dizin: str, gun: float, basla: str, sonra=None) -> dict:
-    taban, esik, istek = taban_bolumu(dizin, gun, sonra), esik_bolumu(dizin, gun, sonra=sonra), istek_bolumu(dizin, gun, sonra)
+def hiz_bolumu(sd: str, basla: str) -> dict | None:
+    """Tur süresi kırılımı (kaynak: zaman.jsonl). Tur = `ana` satırının sure_ms'i (kullanıcı isteğinden yanıtın bitişine). Araç süresi = aynı istek_id'li `arac` satırları toplamı
+    (paralel araçlar toplamı turu aşabilir: tura kırpılır, `kirpilan` sayılır). Kalan = tur - araç: model üretimi, ağ ve izin onayı beklemesi; bunlar ayrılamaz.
+    AskUserQuestion süresi kullanıcı bekleme olarak ayrı verilir. istek_id taşımayan ana satırlar (eski kayıtlar) kırılıma girmez, sayısı yazılır."""
+    yol = os.path.join(sd, "zaman.jsonl")
+    if not os.path.isfile(yol):
+        return None
+    turlar, araclar = {}, {}
+    toplam_ana, alt_sn = 0, 0.0
+    for o in _satirlar(yol):
+        if str(o.get("zaman", ""))[:10] < basla:
+            continue
+        if o.get("tur") == "ana" and o.get("sure_ms"):
+            toplam_ana += 1
+            if o.get("istek_id"):
+                turlar[o["istek_id"]] = o["sure_ms"] / 1000
+        elif o.get("tur") == "alt" and o.get("sure_ms"):
+            alt_sn += o["sure_ms"] / 1000
+        elif o.get("tur") == "arac" and o.get("istek_id") and o.get("sure_ms") is not None:
+            araclar.setdefault(o["istek_id"], []).append((o.get("arac") or "?", o["sure_ms"] / 1000))
+    if not turlar:
+        return None
+    kirpilan, bekleme, arac_top, kalan = 0, 0.0, {}, 0.0
+    for kid, t in turlar.items():
+        satir = araclar.get(kid, [])
+        top = sum(x[1] for x in satir)
+        k = min(1.0, t / top) if top else 1.0
+        kirpilan += top > t
+        for ad, sn in satir:
+            arac_top[ad] = arac_top.get(ad, 0.0) + sn * k
+        bekleme += sum(sn for ad, sn in satir if ad == "AskUserQuestion") * k
+        kalan += max(0.0, t - min(top, t))
+    sureler = sorted(turlar.values())
+    toplam = sum(sureler)
+    ana_arac = sum(arac_top.values())
+    return {"basla": basla, "tur": len(sureler), "ana_toplam": toplam_ana, "istek_id_yok": toplam_ana - len(sureler), "medyan_sn": statistics.median(sureler),
+            "p90_sn": sureler[int(0.9 * (len(sureler) - 1))], "toplam_sn": toplam, "arac_sn": ana_arac, "kalan_sn": kalan, "bekleme_sn": bekleme, "kirpilan": kirpilan, "alt_sn": alt_sn,
+            "araclar": sorted(arac_top.items(), key=lambda x: -x[1])[:8]}
+
+
+def hesapla(sd: str, dizin: str, gun: float, basla: str, sonra=None, uyari_kesim=None) -> dict:
+    taban = taban_bolumu(dizin, gun, sonra)
+    esik, istek = esik_bolumu(dizin, gun, sonra=sonra, yeni_taban=taban.get("ilk_medyan")), istek_bolumu(dizin, gun, sonra)
     istek["sikistirma_gunluk"] = sikistirma_gunluk(sd, basla)
     return {"olcum": datetime.datetime.now().isoformat(timespec="minutes"), "gun": gun, "sonra": sonra.isoformat(timespec="minutes") if sonra else None,
-            "taban": taban, "esik": esik, "istek": istek, "onek": onek_maliyeti(taban, esik, istek), "is_basina": is_basina_bolumu(sd, basla)}
+            "taban": taban, "esik": esik, "istek": istek, "onek": onek_maliyeti(taban, esik, istek), "is_basina": is_basina_bolumu(sd, basla), "hiz": hiz_bolumu(sd, basla),
+            "uyari": uyari_etkisi(dizin, uyari_kesim) if uyari_kesim else None}
 
 
 def metin(r: dict) -> str:
@@ -377,9 +512,14 @@ def metin(r: dict) -> str:
     e = r["esik"]
     if e.get("cagri"):
         s += ["", f"## Eşikler: {e['cagri']} çağrı, {e['oturum']} oturum; liste maliyeti {e['toplam_usd']:.2f}$; bağlam medyan {e['baglam_medyan']}, p90 {e['baglam_p90']}", "",
-              "| eşik | aşan çağrı | ücret payı | aşan oturum | devir kazancı üst sınırı $ |", "|---|---|---|---|---|"]
+              "| eşik | aşan çağrı | ücret payı | aşan oturum | eşik üstü okuma fazlası $ (brüt üst sınır; devir değil) | net devir kazancı $ (belge 10k–2k token; ADR-0034) |",
+              "|---|---|---|---|---|---|"]
         for x in e["esikler"]:
-            s.append(f"| {x['esik'] // 1000} bin | {x['cagri']} (%{100 * x['cagri_orani']:.1f}) | {x['usd']:.2f}$ (%{100 * x['usd_payi']:.1f}) | {x['oturum']} (%{100 * x['oturum_orani']:.1f}) | {x['devir_kazanc_ust_sinir']:.2f} |")
+            n = x.get("devir_net")
+            net = f"{n[DEVIR_BELGESI[0]][1]:+.2f} … {n[DEVIR_BELGESI[-1]][1]:+.2f} ({n[DEVIR_BELGESI[0]][0]} oturum)" if n else "-"
+            s.append(f"| {x['esik'] // 1000} bin | {x['cagri']} (%{100 * x['cagri_orani']:.1f}) | {x['usd']:.2f}$ (%{100 * x['usd_payi']:.1f}) | {x['oturum']} (%{100 * x['oturum_orani']:.1f}) | {x['devir_kazanc_ust_sinir']:.2f} | {net} |")
+        s += ["", "Okuma: iki sütun aynı şeyi ölçmez. \"Okuma fazlası\" eşik üstündeki bağlamın tamamını sayar ve hiç devir maliyeti içermez; \"net devir\" "
+                  "devirden sonra kalan çağrılardaki küçülmeyi sayar, devir belgesi ve yeni oturum tabanı maliyetini düşer. Belge boyutu varsayımdır (ölçülmedi); kalite etkisi ölçülmedi."]
     q = r.get("istek")
     if q and q.get("istek"):
         s += ["", f"## İstek dağılımı (kaynak: transkript, kesin kullanım; zaman.jsonl token alanları tahmindir, burada kullanılmaz): {q['istek']} istek, "
@@ -391,6 +531,25 @@ def metin(r: dict) -> str:
     if q is not None:
         s += ["", f"Sıkıştırma (compact): transkriptte {q['sikistirma']} olay / {q['sikistirma_oturum']} oturum; gunluk.jsonl'da {q.get('sikistirma_gunluk', 0)} olay satırı "
                   "(kanca kurulumundan sonrası; fark = kancadan önceki olaylar)."]
+    u = r.get("uyari")
+    if u:
+        s += ["", f"## Devir uyarısı etkisi (kesim {u['kesim']}; ölçüt: günlük >{u['esik'] // 1000} bin bağlamlı çağrı payı)",
+              f"Karar: **{u['karar']}** ({u['neden']}). Kural ölçümden önce sabit: her yanda >= {u['min_gun']} tam gün, günde >= {u['min_cagri']} çağrı, fark >= {100 * u['min_fark']:.0f} puan ve gün-bootstrap %95 aralıkları örtüşmüyor (tohum {u['tohum']}).", "",
+              "| yan | gün | elenen gün | çağrı | aşan | günlük pay ort. (%95 aralık) | aşan oturum | oturum başına aşan çağrı medyanı |", "|---|---|---|---|---|---|---|---|"]
+        for k, ad in (("once", "uyarı öncesi"), ("sonra", "uyarı sonrası")):
+            y = u["yanlar"][k]
+            aralik = f"%{100 * y['ort']:.1f} (%{100 * y['alt']:.1f}..%{100 * y['ust']:.1f})" if "ort" in y else "-"
+            s.append(f"| {ad} | {y['gun']} | {y['elenen_gun']} | {y['cagri']} | {y['asan']} | {aralik} | {y['asan_oturum']} | {y['oturum_asan_medyan']:g} |")
+        s.append("Karıştırıcı: iş yükü ve uzun oturum sayısı iki yanda aynı değildir; aşan oturum sütunu payın birkaç oturumdan mı geldiğini gösterir. Nedensellik iddia edilmez.")
+    h = r.get("hiz")
+    if h:
+        pay = lambda x: f"%{100 * x / h['toplam_sn']:.1f}"  # noqa: E731
+        s += ["", f"## Hız: tur süresi kırılımı ({h['basla']}..şimdi, kaynak zaman.jsonl; {h['tur']} tur, istek_id'siz {h['istek_id_yok']} ana kayıt dışarıda)",
+              f"- Tur süresi: medyan {h['medyan_sn']:.0f} sn, p90 {h['p90_sn']:.0f} sn, toplam {h['toplam_sn'] / 3600:.1f} saat",
+              f"- Araç zamanı {pay(h['arac_sn'])} (Bash dahil aşağıda); kullanıcı bekleme (AskUserQuestion) {pay(h['bekleme_sn'])}; kalan {pay(h['kalan_sn'])} = model üretimi + ağ + izin onayı + alt ajan beklemesi (ayrılamadı)",
+              f"- Alt ajan satırları (tur=alt) toplamı {h['alt_sn'] / 3600:.1f} saat: ana turla örtüşebilir (arka plan ajanlar dahil); toplama eklenmez",
+              "- Araç dağılımı: " + "; ".join(f"{ad} {sn / 3600:.1f} sa ({pay(sn)})" for ad, sn in h["araclar"]),
+              f"- Paralel araçlar tur süresini aşan tur: {h['kirpilan']} (araç süresi tura kırpıldı)"]
     i = r["is_basina"]
     s += ["", f"## İş başına $ ({i['basla']}..şimdi): defter {i['toplam_usd']:.2f}$, iş-bağlı {i['is_bagli_usd']:.2f}$"]
     s.append(f"- A (kapanan iş başına): {i['kapanan_is']} iş" + (f" -> {i['a_usd']:.2f}$/iş" if i["a_usd"] is not None else ""))

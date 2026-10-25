@@ -39,6 +39,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra kural tasi ID --katman proje|plugin [--kimligi-koru] | kapat ID [--not N] | ac ID | esitle   (katmanlar: KURALLAR.md, Kural katmanları)
   orkestra standart liste | goster AD | yol AD | ekle AD   (ekip yapı standartları: PR, commit, dal, review, Jira yorumu; ADR-0006)
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
+  orkestra is dalga I-nnn|KLASÖR|plan.md [--yaz] [--json-cikti DOSYA] [--basamak T2]   plan → dalgalar, kritik yol, `## Dalgalar`, kart JSON'u
   orkestra plan dogrula I-nnn|PLAN.md [--yaz] [--json] [--kok DİZİN]... [--komut-kosma] [--ac]   (plan.md iddialarını kanıtla doğrular, ✅/❌ koyar;
         çıkış 0 uygulanabilir, 1 koşullu, 2 uygulanamaz, 3 tamamlanmamış)
 `--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
@@ -70,9 +71,10 @@ if hasattr(sys.stdout, "reconfigure"):
 from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum  # noqa: E402
 from komutlar import hata as hata_komut  # noqa: E402  (ad `_ortak.hata` işlevini gölgelemesin)
 from komutlar import plan_alan  # noqa: E402  (`plan` grubuna `alan` ekler; plan'dan sonra kaydedilir)
+from komutlar import dalga  # noqa: E402  (`is dalga`; isler'den SONRA kaydedilir)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, hata_komut, plan_alan)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, hata_komut, plan_alan, dalga)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

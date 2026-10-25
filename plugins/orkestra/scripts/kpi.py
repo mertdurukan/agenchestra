@@ -144,6 +144,22 @@ def _ornekler(kartlar: list[dict], tum_mal: list[dict]) -> dict:
     }
 
 
+def _usd(satirlar) -> float:
+    return sum(float(r.get("maliyet_usd") or 0) for r in satirlar)
+
+
+def _kapsam(pencere_satir: list[dict], mal_kart: dict, ana: list[dict], alt: list[dict], kartlar: list[dict]) -> dict:
+    """basari_basina_maliyet paydasının (onaylı kartlara bağlı harcama) pencere harcamasındaki payı. Tanım değişmez; kalan harcama (ana ajan, kartsız alt ajan,
+    kartı olmayan ya da onaylanmamış karta bağlı satırlar) KPI'ya girmez, burada görünür kılınır."""
+    toplam = _usd(pencere_satir)
+    onayli = {k["id"] for k in kartlar if k.get("durum") in ONAYLI}
+    payda = _usd([r for g, rs in mal_kart.items() if g in onayli for r in rs])
+    kartli = _usd([r for rs in mal_kart.values() for r in rs])
+    ana_usd, alt_usd = _usd(ana), _usd(alt)
+    return {"toplam_usd": toplam, "payda_usd": payda, "kapsam": (payda / toplam) if toplam else None, "kartli_onaysiz_usd": kartli - payda,
+            "ana_ajan_usd": ana_usd, "kartsiz_alt_ajan_usd": alt_usd, "diger_usd": toplam - kartli - ana_usd - alt_usd}
+
+
 def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dict:
     """aralik=(bas, bit): tz'li datetime çifti, yarı açık [bas, bit); verilmezse davranış değişmez.
     Çıktıda 'ornek' (KPI başına payda sayısı) da döner."""
@@ -210,6 +226,7 @@ def olcum(sd: str, gun: float | None = None, aralik: tuple | None = None) -> dic
         "kartsiz_alt_ajan": {"maliyet_usd": sum(float(r.get("maliyet_usd") or 0) for r in alt),
                              "token": sum(_tok(r) for r in alt)},
         "ana_ajan_dagilimi": L.ana_ajan_dagilimi(pencere_satir),
+        "kapsam": _kapsam(pencere_satir, mal_kart, ana, alt, kartlar),
         "sinif": {},
         "basamak": {},
     }
@@ -263,6 +280,10 @@ def tablo(s: dict) -> str:
     b = s.get("kartsiz_alt_ajan")
     if b:
         satir.append(f"  kartsiz_alt_ajan         maliyet_usd {b['maliyet_usd']:.4f}, token {b['token']} (ana ajana yazılmaz)")
+    c = s.get("kapsam")
+    if c and c["toplam_usd"]:
+        satir.append(f"  kapsam                   basari_basina_maliyet paydası harcamanın %{100 * c['kapsam']:.1f}'i ({c['payda_usd']:.2f}$ / {c['toplam_usd']:.2f}$); "
+                     f"onaysız kartlı {c['kartli_onaysiz_usd']:.2f}$, ana ajan {c['ana_ajan_usd']:.2f}$, kartsız alt ajan {c['kartsiz_alt_ajan_usd']:.2f}$, diğer {c['diger_usd']:.2f}$")
     for r in s.get("planlayici") or []:
         satir.append(f"  planlayici {r['planlayici']:<10} kabul_usd {_f(r['kabul_usd'])} (n={r['n']}, onaylı {r['onaylanan']})"
                      + ("" if r["yeterli"] else " [yetersiz veri]"))
