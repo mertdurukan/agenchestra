@@ -2185,7 +2185,7 @@ def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
             if not any(art.values()):
                 continue
             son = max(h, key=lambda r: r.get("zaman") or "")
-            satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model")}
+            satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "is", "atif_nedeni")}  # I-222 P7: iş kimliği türetilen satıra da geçer
             satir.update(art)
             satir["kaynak"] = "hook-artik"
             satir["maliyet_usd"] = _satir_usd(satir)

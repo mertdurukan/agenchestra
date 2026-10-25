@@ -2,7 +2,7 @@
 
 ## Özet
 
-<!-- doldur (3-4 cümle): ne istendi, ne bitince iş tamam sayılır, kapsam dışı ne. Kullanıcı bu belgeyi mevcut durum, plan ve todo ile birlikte tek onayla kabul eder. -->
+<!-- doldur (3-4 kısa cümle; paragraf en çok 300 karakter (biçim kapısı daha uzununu reddeder), uzunsa ayrı paragraflara böl): ne istendi, ne bitince iş tamam sayılır, kapsam dışı ne. Kullanıcı bu belgeyi mevcut durum, plan ve todo ile birlikte tek onayla kabul eder. -->
 
 ## Problem
 

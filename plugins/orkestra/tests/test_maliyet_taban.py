@@ -229,10 +229,10 @@ class DevirTanimi(unittest.TestCase):
         import datetime
         d = tempfile.mkdtemp()
         self._gunler(d, datetime.date(2026, 10, 10), 7, 7, [4], [1])
-        yaz(os.path.join(d, "kisa.jsonl"), [dict(cagri("k1", 250_000), timestamp="2026-10-09T12:00:00Z")])
+        yaz(os.path.join(d, "kisa.jsonl"), [dict(cagri("k1", 250_000), timestamp="2026-09-25T12:00:00Z")])
         kesim = datetime.datetime(2026, 10, 10, 12, 0, tzinfo=datetime.timezone.utc)
         r = MT.uyari_etkisi(d, kesim, gun=60, min_cagri=5, bugun=datetime.date(2026, 10, 30))
-        self.assertEqual(r["yanlar"]["once"]["gun"], 7)  # 09.10 günü 11 çağrıdır: elenmez; kesim günü ve sonrası ayrı
+        self.assertEqual((r["yanlar"]["once"]["gun"], r["yanlar"]["once"]["elenen_gun"]), (7, 1))  # 25.09: tek çağrı, elenir
         self.assertEqual(r["yanlar"]["sonra"]["gun"], 7)
         r2 = MT.uyari_etkisi(d, kesim, gun=60, min_cagri=5, bugun=datetime.date(2026, 10, 14))
         self.assertEqual(r2["yanlar"]["sonra"]["gun"], 3)  # bugün (14.10) kısmi gün: dışarıda
@@ -246,6 +246,41 @@ class DevirTanimi(unittest.TestCase):
             t = MT.metin(MT.hesapla(sd, d, 1, "2026-10-01", uyari_kesim=datetime.datetime(2026, 10, 1, tzinfo=datetime.timezone.utc)))
         for parca in ("## Devir uyarısı etkisi", "yetersiz veri", "net devir kazancı $", "eşik üstü okuma fazlası $"):
             self.assertIn(parca, t)
+
+
+class Hiz(unittest.TestCase):
+    """I-222 P8: tur süresi kırılımı (zaman.jsonl; sentetik)."""
+
+    def _sd(self, satirlar):
+        sd = tempfile.mkdtemp()
+        yaz(os.path.join(sd, "zaman.jsonl"), satirlar)
+        return sd
+
+    def test_kirilim_arac_bekleme_ve_kalan(self):
+        z = "2026-10-20T10:00:00+03:00"
+        sd = self._sd([
+            {"zaman": z, "tur": "ana", "sure_ms": 100_000, "istek_id": "a"},
+            {"zaman": z, "tur": "ana", "sure_ms": 40_000, "istek_id": "b"},
+            {"zaman": z, "tur": "ana", "sure_ms": 999_000},  # istek_id yok: kırılıma girmez
+            {"zaman": z, "tur": "arac", "arac": "Bash", "istek_id": "a", "sure_ms": 30_000},
+            {"zaman": z, "tur": "arac", "arac": "AskUserQuestion", "istek_id": "a", "sure_ms": 10_000},
+            {"zaman": z, "tur": "arac", "arac": "Bash", "istek_id": "b", "sure_ms": 60_000},  # tur 40 sn: 40 sn'ye kırpılır
+            {"zaman": z, "tur": "alt", "sure_ms": 7_200_000},
+            {"zaman": "2026-10-01T10:00:00+03:00", "tur": "ana", "sure_ms": 5_000, "istek_id": "eski"},  # pencere dışı
+        ])
+        h = MT.hiz_bolumu(sd, "2026-10-17")
+        self.assertEqual((h["tur"], h["istek_id_yok"], h["kirpilan"]), (2, 1, 1))
+        self.assertAlmostEqual(h["toplam_sn"], 140)
+        self.assertAlmostEqual(h["arac_sn"], 30 + 10 + 40)
+        self.assertAlmostEqual(h["bekleme_sn"], 10)
+        self.assertAlmostEqual(h["kalan_sn"], 60)
+        self.assertAlmostEqual(h["arac_sn"] + h["kalan_sn"], h["toplam_sn"])
+        self.assertEqual(h["alt_sn"], 7200)
+        self.assertEqual(h["araclar"][0][0], "Bash")
+
+    def test_dosya_yoksa_ya_da_tur_yoksa_none(self):
+        self.assertIsNone(MT.hiz_bolumu(tempfile.mkdtemp(), "2026-10-17"))
+        self.assertIsNone(MT.hiz_bolumu(self._sd([{"zaman": "2026-10-20", "tur": "ana", "sure_ms": 5}]), "2026-10-17"))
 
 
 class IsBasina(unittest.TestCase):
