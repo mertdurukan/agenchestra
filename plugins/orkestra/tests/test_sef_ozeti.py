@@ -1,10 +1,13 @@
-"""I-209: çalışma özeti Şef Özeti biçimi (şablon, kapanış kapısı, iş anlatısı); eski biçim geriye uyumlu kalır."""
+"""I-209: çalışma özeti Şef Özeti biçimi (şablon, kapanış kapısı, iş anlatısı); eski biçim geriye uyumlu kalır.
+I-227 (ADR-0085): iki katman: kısa `## Özet` ve kapsamlı `## Harita`; `sef_ozeti` gölge kapısı."""
 import importlib
+import json
 import os
 import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 AD = os.path.dirname(os.path.abspath(__file__))
 KOK = os.path.join(AD, "..")
