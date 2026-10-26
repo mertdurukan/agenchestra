@@ -112,12 +112,11 @@ class KapanisBirlestirTest(unittest.TestCase):
     def test_ana_worktree_main_degil(self):
         commit(self.wt, "x.txt")
         git(self.depo, "checkout", "-q", "-b", "baska")
-        once = git(self.depo, "rev-parse", "baska")
+        main_once, baska_once = self.main_uc(), git(self.depo, "rev-parse", "baska")
         s = dal_temizle.kapanis_birlestir(self.wt, "ihlal", "I-1")
         self.assertEqual(s["sonuc"], "ana-dal-degil", s)
-        self.assertEqual(git(self.depo, "rev-parse", "baska"), once)
-        self.assertEqual(git(self.depo, "rev-parse", "main"), git(self.depo, "rev-parse", "main"))
-        self.assertNotEqual(git(self.depo, "merge-base", "--is-ancestor", "oturum", "main") if False else "x", "")
+        self.assertEqual((self.main_uc(), git(self.depo, "rev-parse", "baska")), (main_once, baska_once))
+        self.assertFalse(os.path.exists(os.path.join(self.depo, "x.txt")))
 
     def test_birlestirme_hatasi_abort(self):
         commit(self.wt, "x.txt")
@@ -134,6 +133,69 @@ class KapanisBirlestirTest(unittest.TestCase):
         self.assertEqual(s["sonuc"], "hata", s)
         self.assertEqual(self.main_uc(), once)
         self.assertEqual(self.ana_durum(), "")
+
+    def test_ana_worktree_yarim_merge_silinmez(self):
+        # ana worktree'de çözülmemiş kullanıcı birleştirmesi: dalın dosyasına dokunmaz, ama MERGE_HEAD var
+        git(self.depo, "checkout", "-q", "-b", "diger")
+        commit(self.depo, "a.txt", "diger\n")
+        git(self.depo, "checkout", "-q", "main")
+        commit(self.depo, "a.txt", "ana\n")
+        subprocess.run(["git", "-C", self.depo, "merge", "diger"], capture_output=True)   # çakışır, yarım kalır
+        self.assertTrue(os.path.exists(os.path.join(self.depo, ".git", "MERGE_HEAD")))
+        commit_wt = os.path.join(self.wt, "x.txt")
+        yaz(self.wt, "x.txt", "x")
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "x")
+        durum_once = self.ana_durum()
+        with open(os.path.join(self.depo, "a.txt"), encoding="utf-8") as f:
+            icerik_once = f.read()
+        s = dal_temizle.kapanis_birlestir(self.wt, "ihlal", "I-1")
+        self.assertEqual(s["sonuc"], "ana-yarim-islem", s)
+        self.assertTrue(os.path.exists(os.path.join(self.depo, ".git", "MERGE_HEAD")))     # kullanıcının merge'ü silinmedi
+        self.assertEqual(self.ana_durum(), durum_once)
+        with open(os.path.join(self.depo, "a.txt"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), icerik_once)
+        self.assertFalse(os.path.exists(commit_wt.replace(self.wt, self.depo)))
+
+    def test_merge_istisnasinda_kendi_merge_geri_alinir(self):
+        commit(self.wt, "x.txt")
+        gercek = dal_temizle._git
+        sayac = {"merge": 0}
+
+        def sahte(depo, *a):
+            if a[:2] == ("merge", "--no-ff"):
+                gercek(depo, *a)                                     # birleştirme gerçekten başlar ve biter
+                git(self.depo, "reset", "-q", "--hard", "HEAD~1")    # sonra "yarım" duruma getir: MERGE_HEAD bırak
+                with open(os.path.join(self.depo, ".git", "MERGE_HEAD"), "w") as f:
+                    f.write(git(self.wt, "rev-parse", "oturum") + "\n")
+                raise subprocess.TimeoutExpired("git", 60)
+            if a[:2] == ("merge", "--abort"):
+                sayac["merge"] += 1
+            return gercek(depo, *a)
+
+        with mock.patch.object(dal_temizle, "_git", sahte):
+            s = dal_temizle.kapanis_birlestir(self.wt, "ihlal", "I-1")
+        self.assertEqual(s["sonuc"], "hata", s)
+        self.assertEqual(sayac["merge"], 1)
+
+    def test_ortusme_buyuk_kucuk_harf_ve_klasor(self):
+        from dal_temizle import _ortusme
+        self.assertEqual(_ortusme(["A.txt"], ["a.txt"]) if os.name == "nt" else ["A.txt"], ["A.txt"])
+        self.assertEqual(_ortusme(["foo"], ["foo/bar"]), ["foo"])        # izlenmeyen dosya ↔ dalın aynı adlı klasörü
+        self.assertEqual(_ortusme(["foo/bar"], ["foo"]), ["foo/bar"])
+        self.assertEqual(_ortusme(["baska"], ["foo/bar"]), [])
+
+    def test_yeniden_adlandirmada_eski_yol_da_sayilir(self):
+        yaz(self.depo, "eski.txt", "içerik uzun bir içerik\n" * 5)
+        git(self.depo, "add", "-A")
+        git(self.depo, "commit", "-q", "-m", "eski")
+        git(self.wt, "merge", "-q", "main")
+        git(self.wt, "mv", "eski.txt", "yeni.txt")
+        git(self.wt, "commit", "-q", "-m", "ad")
+        yaz(self.depo, "eski.txt", "içerik uzun bir içerik\n" * 5 + "commitsiz\n")      # ana worktree'de eski adla commit'siz değişiklik
+        self.assertIn("eski.txt", dal_temizle._dal_dosyalari(self.depo, "oturum"))
+        s = dal_temizle.kapanis_birlestir(self.wt, "ihlal", "I-1")
+        self.assertEqual(s["sonuc"], "ortusme", s)
 
     def test_kapat_golge(self):
         commit(self.wt, "x.txt")
@@ -196,6 +258,20 @@ class KapanisBirlestirTest(unittest.TestCase):
         metin = cikti.getvalue()
         self.assertIn("Kapanış birleştirme: birlestirirdi ×1", metin)
         self.assertIn("yanlış-pozitif bildirimi: 1", metin)
+
+    def test_yanlis_pozitif_komutu(self):
+        import argparse
+        from komutlar import isler
+        sd = os.path.join(self.depo, ".claude", "orkestra")
+        commit(self.wt, "x.txt")
+        dal_temizle.kapanis_birlestir(self.wt, "golge", "I-7")
+        with mock.patch.object(isler, "sd_gerekli", lambda: sd), mock.patch.object(isler, "_is_gerekli", lambda sd_, i: {"id": i}):
+            isler.cmd_is_yanlis_pozitif(argparse.Namespace(is_id="I-7", not_="elle birleştirirken a.txt çakıştı"))
+            k = self.gunluk()[-1]
+            self.assertEqual((k["tur"], k["is"], k["kayit_sonuc"]), ("kapanis_yanlis_pozitif", "I-7", "birlestirirdi"))
+            self.assertEqual(k["uc"], git(self.wt, "rev-parse", "oturum"))
+            with self.assertRaises(SystemExit):                                  # kapanış kaydı olmayan iş
+                isler.cmd_is_yanlis_pozitif(argparse.Namespace(is_id="I-8", not_="x"))
 
 
 if __name__ == "__main__":
