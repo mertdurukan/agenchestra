@@ -228,6 +228,7 @@ def kapanis_birlestir(cwd: str, kip: str = "golge", is_id: str = "") -> dict | N
     if os.environ.get("ORKESTRA_KAPANIS_BIRLESTIRME") == "0":
         return None
     s = {"kip": kip, "is": is_id, "dal": "", "uc": "", "sonuc": "", "dosyalar": [], "hata": ""}
+    basladi, ana_yol = False, ""
     try:
         dal = _git(cwd, "symbolic-ref", "--short", "-q", "HEAD").stdout.strip()
         ana_yol, _ = _worktree_dallari(cwd)
