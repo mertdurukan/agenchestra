@@ -16,8 +16,6 @@
   "ilgisiz_kabuk_kalibi": "^\\s*orkestra\\s+(niyet|is\\s+(todo|onayla|serit|aktif)|kota)\\b",
   "mcp_okuma_kalibi": "(get|read|search|list|fetch|query|find)",
   "mcp_ilgisiz_kalibi": "update_plan|wrap_up|mark_chapter",
-  "not_zamani": "2026-10-20T13:06",
-  "desen": "~/.claude/projects/C--Mert-McD*/*.jsonl",
   "istem_max_karakter": 300,
   "yanit_max_karakter": 600,
   "jeffreys_cekilis": 200000
