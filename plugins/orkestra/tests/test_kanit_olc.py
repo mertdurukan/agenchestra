@@ -113,6 +113,20 @@ class OlcumCekirdek(unittest.TestCase):
         say, _, _, _ = self.olc(tur(SORU, "Dosya yok."), ekstra=(sonuc, sistem))
         self.assertEqual(say["notsuz:soru"], 1)
 
+    def test_etiketleyiciye_mekanik_baglam_verilir(self):
+        # B ('bağlama dayanır') kararı için önceki turların istem ve kanıt çağrıları örneğe yazılır; ilgisiz çağrı yazılmaz
+        _, ic, _, _ = self.olc(
+            tur("hook.py dosyasına bak", "Baktım.", [("Read", {"file_path": "scripts/hook.py"}),
+                                                    ("Bash", {"command": "orkestra niyet yaz x"})]),
+            tur(SORU, "Dosya yok."),
+        )
+        self.assertEqual(len(ic), 1)
+        b = ic[0]["baglam"]
+        self.assertIn("K: hook.py dosyasına bak", b)
+        self.assertIn("Ç: Read scripts/hook.py", b)
+        self.assertNotIn("niyet", b)
+        self.assertEqual(ic[0]["bu_tur"], "")
+
     def test_ornek_tohumla_yeniden_uretilir(self):
         havuz = [{"oturum": "o", "zaman": f"t{i:03d}", "istem": str(i)} for i in range(50)]
         a = K.ornekle(havuz, 10, 42)
