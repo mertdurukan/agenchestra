@@ -203,6 +203,9 @@ def _onkosul(cwd: str, ana_yol: str, dal: str) -> tuple[str, list[str], str]:
     ana_dal = _git(ana_yol, "symbolic-ref", "--short", "-q", "HEAD").stdout.strip()
     if ana_dal != ANA:
         return "ana-dal-degil", [], f"ana worktree '{ana_dal or 'detached'}' dalında"
+    yarim = _yarim_islem(ana_yol)
+    if yarim:
+        return "ana-yarim-islem", [], f"ana worktree'de yarım işlem var ({yarim})"
     durum, dosyalar, hata = _kuru_birlestirme(ana_yol, dal)
     if durum == "catisma":
         return "catisma", dosyalar, ""
