@@ -1,0 +1,17 @@
+{
+  "_aciklama": "ADR-0085 / P-021: kanıtsız iddia kapısı. Bilgi sorusu turunda kanıt aracı çağrılmadan, kaynak türü anılmadan yazılmış olgu iddiasını yakalar. Kanıt sayılan araçlar kanit_rubrik.json'dadır. Proje durum dizinindeki kanitsiz_iddia.json anahtar bazında ezer. ORKESTRA_KANIT_KAPISI=0 kapatır. Tetik kalıpları kalibrasyon örneğinde seçilir, holdout'ta ölçülür (kalibrasyon belgesi).",
+  "mod": "golge",
+  "uyari_acik": false,
+  "kuyruk_bayt": 2000000,
+  "tetik_kaliplari": [],
+  "muaf_kaliplari": [
+    "doğrulanmad[ıi]",
+    "genel bilgi",
+    "kesin bilgim yok",
+    "hafızadan",
+    "tahminim"
+  ],
+  "alinti_max_karakter": 120,
+  "uyari_sablonu": "Orkestra: bu yanıtta bu turda kaynağa bakılmadan yazılmış olgu iddiası olabilir: «{alinti}» — doğrulanmadı.",
+  "hatirlatma": "Orkestra (P-021): bu bilgi sorusunda kaynağa bakmadan olgu iddiası yazdın. Dosya, ayar ya da kayda bu turda bak ve kaynağı an; bakamıyorsan iddianın yanına 'doğrulanmadı' yaz."
+}
