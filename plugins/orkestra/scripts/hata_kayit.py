@@ -5,14 +5,20 @@ kaydet() asla istisna fırlatmaz: yazılamazsa stderr'e tek satır yazar.
 
 Davranış hatası (ADR-0037): ajanın yanlış klasör, yanlış kabuk, kapı ihlali gibi kod dışı hataları `davranis()` ile
 `sinif: "davranis"` ve `kok` (kaynak, önlenebilir, çözüm) alanlarıyla yazılır; `sinif` alanı olmayan satır kod hatasıdır.
+
+Ret bağlamı (I-224): hook reddi satırı opsiyonel olarak kapi, arac, dosya, ajan, deneme, metin200 ve ret_sinif (R1–R9,
+ret_nedeni.KAPI_SINIF) taşır. R sınıfı `sinif` yerine `ret_sinif` adındadır: `sinif` alanı "davranis" anlamıyla
+okunuyor (hata_en_cok, testler), aynı adı ikinci anlama vermek eski okuyucuları bozar.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
 
 import ork_lib as L
+import ret_nedeni as RN
 
 DOSYA = "hata.jsonl"
 ILETI_EN_COK = 300
@@ -59,16 +65,76 @@ def _oturum() -> str:
     return os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or "-"
 
 
-def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None, ek=None) -> None:
-    """sd/hata.jsonl'e tek satır ekler; hiçbir koşulda istisna fırlatmaz. `ek`: satıra eklenen ek alanlar."""
+# Ret bağlamı (I-224, R7): hook reddi kaydına araç, hedef dosya, ajan, deneme sayısı, maskeli metin parçası ve R1–R9
+# sınıfı. Alanlar opsiyoneldir; verilmeyen satır eski biçimdedir. Okuyucular ret_baglami() ile eksik alanı None alır.
+RET_ALANLARI = ("kapi", "arac", "dosya", "ajan", "deneme", "metin200", "ret_sinif")
+METIN_EN_COK = 200
+_DENEME_PENCERE = 256 * 1024   # deneme sayımı için hata.jsonl'in yalnız son 256 KB'ı okunur (hook hızlı kalır)
+
+
+def kapi_kimligi(ileti: str):
+    """İletideki ilk kapı kimliği (K-nnn, P-nnn, ADR-nnnn); yoksa None."""
+    m = _KAPI_KIMLIGI.search(ileti or "")
+    return m.group(0) if m else None
+
+
+def _onceki_ret(sd, oturum: str, kapi) -> int:
+    """Aynı oturumda aynı kapının hata.jsonl'deki önceki ret sayısı; okunamazsa 0. Eski (kapisiz) satırlar sayılmaz."""
+    if not kapi:
+        return 0
+    try:
+        with open(os.path.join(sd, DOSYA), "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - _DENEME_PENCERE))
+            veri = f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return 0
+    n = 0
+    for s in veri.splitlines():
+        if f'"{kapi}"' not in s:
+            continue
+        try:
+            k = json.loads(s)
+        except ValueError:
+            continue   # pencerenin başında yarım kalan satır
+        if isinstance(k, dict) and k.get("kapi") == kapi and k.get("oturum") == oturum:
+            n += 1
+    return n
+
+
+def _ret_alanlari(sd, oturum: str, ileti: str, kapi, arac, dosya, ajan, metin) -> dict:
+    kapi = kapi or kapi_kimligi(ileti)
+    return {"kapi": kapi, "arac": arac, "dosya": dosya,
+            "ajan": ajan if ajan in ("ana", "alt") else None,
+            "deneme": _onceki_ret(sd, oturum, kapi) + 1,
+            "metin200": L.maskele(str(metin))[:METIN_EN_COK] if metin else None,   # önce maske: kesim sırrı bölmesin
+            "ret_sinif": RN.ret_sinifi(kapi)}
+
+
+def ret_baglami(satir: dict) -> dict:
+    """Satırın ret bağlamı; eski biçimli satırda alanlar None (okuyucular bu yardımcıyla iki biçimi de okur)."""
+    satir = satir if isinstance(satir, dict) else {}
+    return {k: satir.get(k) for k in RET_ALANLARI}
+
+
+def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None, ek=None, *, kapi=None, arac=None, dosya=None,
+           ajan=None, metin=None) -> None:
+    """sd/hata.jsonl'e tek satır ekler; hiçbir koşulda istisna fırlatmaz. `ek`: satıra eklenen ek alanlar.
+
+    Ret bağlamı (opsiyonel): kapi, arac, dosya, ajan ('ana'|'alt'), metin (ret edilen metin; maskelenip ilk 200
+    karakteri yazılır). Biri verilirse satır RET_ALANLARI'nın hepsini taşır; hiçbiri verilmezse satır eski biçimdir.
+    """
     try:
         ileti = str(ileti or "")
+        oturum = _oturum()
         satir = {"kaynak": kaynak, "imza": imza(tur, ileti), "tur": tur,
-                 "ileti": ileti[:ILETI_EN_COK], "zaman": L.simdi(), "oturum": _oturum()}
+                 "ileti": ileti[:ILETI_EN_COK], "zaman": L.simdi(), "oturum": oturum}
         if baglam:
             satir["baglam"] = baglam
         if ek:
             satir.update(ek)
+        if any(v is not None for v in (kapi, arac, dosya, ajan, metin)):
+            satir.update(_ret_alanlari(sd, oturum, ileti, kapi, arac, dosya, ajan, metin))
         L.jsonl_ekle(os.path.join(sd, DOSYA), satir)
     except Exception as e:  # noqa: BLE001
         try:
@@ -77,6 +143,9 @@ def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None, ek=None) -> None:
             pass
 
 
-def davranis(sd, tur: str, ileti: str, baglam=None) -> None:
-    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"` ve kök neden alanı. İstisna fırlatmaz."""
-    kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))})
+def davranis(sd, tur: str, ileti: str, baglam=None, **ret) -> None:
+    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"` ve kök neden alanı. İstisna fırlatmaz.
+
+    `ret`: kaydet()'in ret bağlamı kwargs'ı (kapi, arac, dosya, ajan, metin); hook-red çağrısı bunları geçirebilir.
+    """
+    kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))}, **ret)

@@ -153,5 +153,82 @@ class Davranis(unittest.TestCase):
             self.assertTrue(any(x["kaynak"] == "davranis" for x in HE.birlestir(sd)))
 
 
+class RetBaglami(unittest.TestCase):
+    """I-224: hook reddi satırı araç, dosya, ajan, deneme, maskeli metin parçası ve R1–R9 sınıfı taşır."""
+
+    def test_yeni_ret_kaydi_alanlari(self):
+        with tempfile.TemporaryDirectory() as sd, mock.patch.dict(os.environ, {"CLAUDE_CODE_SESSION_ID": "o1"}):
+            HK.davranis(sd, "hook-red", "orkestra: P-016: onay bekleniyor", arac="Write", dosya="a/plan.md",
+                        ajan="alt", metin="x" * 500)
+            (s,) = satirlar(sd)
+            self.assertEqual((s["arac"], s["dosya"], s["ajan"], s["deneme"]), ("Write", "a/plan.md", "alt", 1))
+            self.assertEqual(len(s["metin200"]), 200)
+            self.assertEqual((s["kapi"], s["ret_sinif"]), ("P-016", "R6"))
+            self.assertEqual(s["sinif"], "davranis")   # eski anlam korunur
+
+    def test_deneme_ayni_oturum_ayni_kapi(self):
+        with tempfile.TemporaryDirectory() as sd:
+            with mock.patch.dict(os.environ, {"CLAUDE_CODE_SESSION_ID": "o1"}):
+                for _ in range(2):
+                    HK.davranis(sd, "hook-red", "orkestra: K-003: x", arac="Write")
+                HK.davranis(sd, "hook-red", "orkestra: P-005: sıra", arac="Write")
+            with mock.patch.dict(os.environ, {"CLAUDE_CODE_SESSION_ID": "o2"}):
+                HK.davranis(sd, "hook-red", "orkestra: K-003: x", arac="Write")
+            self.assertEqual([(s["kapi"], s["deneme"]) for s in satirlar(sd)],
+                             [("K-003", 1), ("K-003", 2), ("P-005", 1), ("K-003", 1)])
+
+    def test_metin_maskelenir(self):
+        with tempfile.TemporaryDirectory() as sd:
+            sir = "password=Aa1" + "b" * 20
+            HK.kaydet(sd, "hook", "hook-red", "orkestra: K-005", metin="önce " + sir)
+            (s,) = satirlar(sd)
+            self.assertNotIn("b" * 20, s["metin200"])
+            self.assertIn("<gizli>", s["metin200"])
+
+    def test_sinif_eslemesi(self):
+        import ret_nedeni as RN
+        self.assertEqual(RN.ret_sinifi("K-003"), "R1")
+        self.assertEqual(RN.ret_sinifi("P-010"), "R8")
+        self.assertEqual(RN.ret_sinifi("X-999"), RN.SINIFLANMAMIS)
+        self.assertEqual(RN.ret_sinifi(None), RN.SINIFLANMAMIS)
+        self.assertTrue(set(RN.KAPI_SINIF.values()) <= set(RN.RET_SINIFLARI))
+
+    def test_gecersiz_ajan_null(self):
+        with tempfile.TemporaryDirectory() as sd:
+            HK.kaydet(sd, "hook", "hook-red", "m", ajan="baska")
+            (s,) = satirlar(sd)
+            self.assertIsNone(s["ajan"])
+            self.assertEqual(s["ret_sinif"], "siniflanmamis")
+
+
+class EskiBicim(unittest.TestCase):
+    """I-224: ret bağlamsız eski satırlar okunur kalır; deneme sayımı onları saymaz, birleştirici bozulmaz."""
+
+    def test_eski_satir_okunur(self):
+        import hata_en_cok as HE
+        eski = {"v": 1, "kaynak": "davranis", "imza": "hook-red: orkestra: K-N: x", "tur": "hook-red",
+                "ileti": "orkestra: K-003: x", "zaman": "2026-10-22T10:00:00", "oturum": "o1", "sinif": "davranis",
+                "kok": {"kaynak": "kural", "onlenebilir": None, "cozum": ""}}
+        with tempfile.TemporaryDirectory() as sd:
+            with open(os.path.join(sd, "hata.jsonl"), "w", encoding="utf-8") as f:
+                f.write(json.dumps(eski, ensure_ascii=False) + "\n")
+            self.assertEqual(HK.ret_baglami(eski), {k: None for k in HK.RET_ALANLARI})
+            with mock.patch.dict(os.environ, {"CLAUDE_CODE_SESSION_ID": "o1"}):
+                HK.davranis(sd, "hook-red", "orkestra: K-003: x", arac="Edit")
+            eski_s, yeni_s = satirlar(sd)
+            self.assertEqual(eski_s, eski)
+            self.assertEqual(yeni_s["deneme"], 1)
+            self.assertEqual(HK.ret_baglami(yeni_s)["arac"], "Edit")
+            r = list(HE.birlestir(sd, kaynak="davranis"))
+            self.assertEqual(sum(x["sayi"] for x in r), 2)
+
+    def test_kwargssiz_cagri_eski_bicim(self):
+        with tempfile.TemporaryDirectory() as sd:
+            HK.davranis(sd, "hook-red", "orkestra: K-003: x")
+            (s,) = satirlar(sd)
+            for k in HK.RET_ALANLARI:
+                self.assertNotIn(k, s)
+
+
 if __name__ == "__main__":
     unittest.main()

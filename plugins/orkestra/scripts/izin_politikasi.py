@@ -11,6 +11,8 @@ Karar (PreToolUse hook'u kullanır): deny | ask | allow | None.
   None   karar yok (mod=kapi'de kapı dışı; mod=kapali).
 Mod: ayarlar/izin_politikasi.json; proje ezmesi <sd>/izin_politikasi.json (üst düzey alanlar); ORKESTRA_IZIN=0|kapi|genis modu ezer.
 Desenler en iyi çabadır: betik içinden API çağrısı yakalanmaz. MCP'de okuma deseni dışındaki her araç kapıya düşer (güvenli varsayılan).
+Veri heredoc'u ve PowerShell here-string gövdesi komut sayılmaz; yorumlayıcıya giden gövde kod sayılır (I-224).
+P-016: onay bekleyen işte kabukla proje içi yazım (>, >>, tee, cp/mv, Set-Content, Out-File …) mod ne olursa olsun deny.
 """
 from __future__ import annotations
 
@@ -81,9 +83,70 @@ def gecersiz_desenler(cfg: dict) -> list[str]:
     return kotu
 
 
+_PS_BURADA = re.compile(r"@(['\"])[ \t]*\r?\n.*?\r?\n\1@", re.S)  # PowerShell here-string: @' … '@ / @" … "@
+
+
 def _tirnaksiz(komut: str) -> str:
-    """Tırnak içi metin veridir (commit mesajı, echo argümanı): kapı desenleri yalnız komutun kendisine bakar."""
-    return _TIRNAK.sub('""', komut)
+    """Tırnak içi metin veridir (commit mesajı, echo argümanı, PowerShell here-string): kapı desenleri yalnız komutun
+    kendisine bakar."""
+    return _TIRNAK.sub('""', _PS_BURADA.sub('""', komut))
+
+
+# Heredoc (I-224): gövde, komutu besleyen veridir (commit mesajı, dosya içeriği); yorumlayıcıya (bash, python …) giden
+# gövde ise koddur ve denetimde kalır. Sözcük çözücü tırnak içindeki `<<` işaretini açılış saymaz.
+_HD_SOZ = re.compile(r"""<<<|<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|\\?([A-Za-z_][\w.-]*))|"(?:\\.|[^"\\])*"|'[^']*'|\n""")
+_YORUMLAYICI = re.compile(
+    r"(?<![\w.-])(?:bash|sh|zsh|dash|ksh|pwsh|powershell|cmd|python[\d.]*|py|node|perl|ruby|ssh|xargs|eval|iex"
+    r"|Invoke-Expression|source)(?:\.exe)?\b", re.I)
+
+
+def _heredoc_bitti(satir: str, ad: str, tire: bool) -> bool:
+    s = satir.rstrip("\r")
+    if tire:
+        s = s.lstrip("\t")
+    if not ad:  # ad tırnak maskesiyle silinmiş (`<<""`): sonlandırıcı tek sözcüklü satırdır; erken biterse kalan komut sayılır
+        return bool(re.fullmatch(r"\s*[A-Za-z_][\w.-]*\s*", s))
+    return s.strip() == ad
+
+
+def heredoc_ayir(komut: str) -> tuple[str, list[tuple[str, str]]]:
+    """(gövdeleri atılmış komut, [(açılış satırı, gövde)]). Açılış satırı komutta kalır; gövde sonlandırıcısıyla çıkar."""
+    out, govdeler, bekleyen = [], [], []
+    i = satir_bas = 0
+    while True:
+        m = _HD_SOZ.search(komut, i)
+        if not m:
+            out.append(komut[i:])
+            break
+        t = m.group(0)
+        out.append(komut[i:m.end()])
+        i = m.end()
+        if t == "\n":
+            if bekleyen:
+                acilis = komut[satir_bas:m.start()]
+                for ad, tire in bekleyen:
+                    govde = []
+                    while i < len(komut):
+                        k = komut.find("\n", i)
+                        satir = komut[i:] if k < 0 else komut[i:k]
+                        i = len(komut) if k < 0 else k + 1
+                        if _heredoc_bitti(satir, ad, tire):
+                            break
+                        govde.append(satir)
+                    govdeler.append((acilis, "\n".join(govde)))
+                bekleyen = []
+            satir_bas = i
+        elif t.startswith("<<") and t != "<<<":
+            ad = next(g for g in m.group(2, 3, 4) if g is not None)
+            bekleyen.append((ad, m.group(1) == "-"))
+    return "".join(out), govdeler
+
+
+def komut_govdesi(komut: str) -> str:
+    """Denetlenecek metin: veri heredoc gövdeleri atılır, yorumlayıcıya giden gövdeler (kod) sona eklenir."""
+    kuru, govdeler = heredoc_ayir(komut or "")
+    kod = [g for a, g in govdeler if _YORUMLAYICI.search(a)]
+    return kuru + ("\n" + "\n".join(kod) if kod else "")
 
 
 # İç içe çalıştırma: tırnak içi kod başka bir kabuğa/yorumlayıcıya veriliyorsa o kod gerçekten çalışır (veri değildir).
@@ -150,19 +213,40 @@ def _onay_kaydi_var(sd, oturum) -> bool:
         return False
 
 
+def _onay_kabuk_kapisi(girdi: dict, sd: str | None, oturum) -> str:
+    """P-016 (I-224): onay bekleyen işte kabukla proje içi yazım Edit/Write ile aynı kapıdan (is_onay.yazma_engeli) geçer.
+    İzin modundan bağımsızdır; hata yolunda serbest (hook'un onay kapısı gibi fail-open)."""
+    if not sd or not oturum:
+        return ""
+    try:
+        import is_onay
+        kayit = is_onay.bekleyen_kayit(sd, oturum)
+        if not kayit:
+            return ""
+        proje = os.path.dirname(os.path.dirname(os.path.abspath(sd)))  # <proje>/.claude/orkestra
+        return is_onay.kabuk_yazma_engeli(kayit, proje, str(girdi.get("command") or ""))
+    except Exception:
+        return ""
+
+
 def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None, oturum=None) -> tuple[str | None, str]:
     cfg = cfg or ayar_yukle(sd)
     ned = _kimlik_kapisi(arac, girdi or {}, _kimlik_okuma_acik(cfg))
     if ned:
         return "deny", ned  # mod ne olursa olsun
+    if arac in KABUK_ARACLARI:
+        ned = _onay_kabuk_kapisi(girdi or {}, sd, oturum)
+        if ned:
+            return "deny", ned  # P-016: izin modu ne olursa olsun
     mod = mod_bul(cfg)
     if mod == "kapali":
         return None, ""
     girdi = girdi or {}
     if arac in KABUK_ARACLARI:
         komut = str(girdi.get("command") or "")
-        kuru = _tirnaksiz(komut)
-        ic = _ic_ice(komut)  # bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
+        govde = komut_govdesi(komut)  # veri heredoc'u atılır: gövdedeki "git push" metni kapıya takılmaz (I-224)
+        kuru = _tirnaksiz(govde)
+        ic = _ic_ice(govde)  # here-string `| iex` ile kod olabilir: iç içe denetimde kalır. bash -c "git push", python -c "subprocess.run(['git','push'])" gibi iç içe kod
         for m in cfg.get("kabuk_yasak") or []:
             d = _derle(str(m.get("desen") or ""))
             if d and (d.search(kuru) or (ic and d.search(ic))):

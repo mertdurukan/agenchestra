@@ -92,10 +92,86 @@ class Kurallar(unittest.TestCase):
         self.assertEqual(BB.baglantisiz_belgeler([yol], "yalnız ad: rapor.md", AYAR), [yol.replace("\\", "/")])
         self.assertEqual(BB.baglantisiz_belgeler([yol, yol], "x", AYAR), [yol.replace("\\", "/")])  # tekrar yok
 
+    # --- I-224 P9 (a): çok satırlı HTML yorumunun devam satırları sayılmaz
+    def test_cok_satirli_yorum_icerigi_sayilmaz(self):
+        metin = ("# B\n\n<!-- doldur: her satır ayrı:\n**A:** a **B:** b\nx · y · z ve a; b; c; d\n" + "kelime " * 50
+                 + "\n-->\n\nTemiz paragraf.\n")
+        self.assertEqual(self.tara(metin), [])
+        # yorum kapandıktan sonraki ihlal yine yakalanır; satır numarası metnin kendisine göredir
+        self.assertEqual([(i["satir"], i["kural"]) for i in self.tara("<!-- a\nb -->\n**A:** a **B:** b\n")],
+                         [(3, "coklu_etiket")])
+        # yorumdan önceki metin sayılır, yorum içi sayılmaz
+        self.assertEqual([i["kural"] for i in self.tara("a; b; c; d <!-- not\n**A:** **B:**\n-->\n")], ["sikisik_liste"])
+        self.assertEqual(self.tara("Metin <!-- a; b; c; d --> sonu.\n"), [])
+
+    def test_yorum_icindeki_kod_citi_durumu_bozmaz(self):
+        metin = "<!-- örnek:\n```markdown\n**A:** a **B:** b\n```\nson -->\n\n**A:** x **B:** y\n"
+        self.assertEqual([(i["satir"], i["kural"]) for i in self.tara(metin)], [(7, "coklu_etiket")])
+
     def test_bozuk_ayar_varsayilana_duser(self):
         d = BB.ayar_oku("/yok/olan/dizin")
         self.assertEqual(BB.mod(d, "yazim_kapisi"), "ihlal")  # eklentinin gönderdiği ayar: ihlal (18.10.2026)
         self.assertEqual(BB.mod({"yazim_kapisi": {"mod": "saçma"}}, "yazim_kapisi"), "golge")
+
+
+class GuvenliDuzelt(unittest.TestCase):
+    """I-224 P9 (b): yalnız anlamı değiştirmeyen dönüşümler; hepsi ya da hiçbiri; idempotent."""
+
+    def duz(self, metin, ad="plan.md"):
+        yeni, uyg = BB.guvenli_duzelt(metin, ad, AYAR)
+        self.assertEqual(BB.guvenli_duzelt(yeni, ad, AYAR), (yeni, []), "idempotent değil")
+        return yeni, [u["donusum"] for u in uyg]
+
+    def test_etiket_ayirma(self):
+        yeni, d = self.duz("# B\n\n**Amaç:** a **Neden:** b `**X:** y`\n")
+        self.assertEqual(yeni, "# B\n\n**Amaç:** a\n\n**Neden:** b `**X:** y`\n")
+        self.assertEqual(d, ["etiket_ayir"])
+        self.assertEqual(BB.yazim_ihlalleri(yeni, "plan.md", AYAR), [])
+
+    def test_bitisik_etiketli_alanlar_arasina_bos_satir(self):
+        yeni, d = self.duz("**Amaç:** a\n**Neden:** b\n**Kanıt:** c\n")
+        self.assertEqual(yeni, "**Amaç:** a\n\n**Neden:** b\n\n**Kanıt:** c\n")
+        self.assertEqual(d, ["bos_satir", "bos_satir"])
+
+    def test_nokta_ayiricili_liste_maddelere_bolunur(self):
+        yeni, d = self.duz("Durum: I-1 · onay bekliyor · sıradaki: plan\nDevam.\n")
+        self.assertEqual(yeni, "Durum:\n\n- I-1\n- onay bekliyor\n- sıradaki: plan\n\nDevam.\n")
+        self.assertEqual(d, ["nokta_liste"])
+        self.assertEqual(self.duz("a · b · c\n")[0], "- a\n- b\n- c\n")
+
+    def test_belirsiz_ayirici_bolunmez(self):
+        uzun = "x" * 130
+        for metin in (f"a · {uzun} · c\n",  # madde çok uzun: cümle olabilir
+                      "a · b · c·d\n",  # boşluksuz '·' da var: ayırıcı kesin değil
+                      "a; b; c; d\n",  # ';' ve (a)(b) listeleri anlam ister
+                      "Şunlar: (a) bir, (b) iki.\n"):
+            with self.subTest(metin=metin):
+                self.assertEqual(self.duz(metin), (metin, []))
+
+    def test_crlf_korunur(self):
+        yeni, d = self.duz("**A:** a **B:** b\r\nson\r\n")
+        self.assertEqual(yeni, "**A:** a\r\n\r\n**B:** b\r\nson\r\n")
+
+    def test_kod_blogu_yorum_tablo_onbilgi_dokunulmaz(self):
+        korunan = ("---\nbaslik: x\n---\n\n```\n**A:** a **B:** b\nx · y · z\n```\n\n<!-- **A:** a **B:** b\nx · y · z\n-->\n\n"
+                   "| **A:** a **B:** b | x · y · z |\n|---|---|\n\n> alıntı\n\n")
+        yeni, d = self.duz(korunan + "**A:** a **B:** b\n")
+        self.assertEqual(yeni, korunan + "**A:** a\n\n**B:** b\n")
+        self.assertEqual(d, ["etiket_ayir"])
+
+    def test_anlamsal_ihlal_duzeltilmez_hepsi_ya_da_hicbiri(self):
+        uzun = "kelime " * 50
+        self.assertEqual(self.duz(uzun + "\n"), (uzun + "\n", []))
+        todo = "- [ ] P1: " + "kelime " * 35 + "\n"
+        self.assertEqual(self.duz(todo, "todo.md"), (todo, []))
+        # düzeltilebilir ihlal + düzeltilemez ihlal: orijinal döner
+        karma = "**A:** a **B:** b\n\n" + uzun + "\n"
+        self.assertEqual(self.duz(karma), (karma, []))
+
+    def test_temiz_ve_liste_maddesi_dokunulmaz(self):
+        self.assertEqual(self.duz(TEMIZ), (TEMIZ, []))
+        madde = "- **A:** a **B:** b\n"  # liste maddesini bölmek yapıyı değiştirir: ret kalır
+        self.assertEqual(self.duz(madde), (madde, []))
 
 
 class Kancalar(unittest.TestCase):
@@ -174,6 +250,65 @@ class Kancalar(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         c = self.yaz("is1/plan.md", IHLALLI)
         self.assertEqual(self.karar(c), "deny", c)
+
+    # --- I-224 P9 (c): Write'ta güvenli düzeltme updatedInput ile
+    DUZELIR = "# B\n\n**Amaç:** a **Neden:** b\n"
+
+    def test_write_duzeltilebilir_icerik_updatedinput_ile_yazilir(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        yol = os.path.join(self.proje, "is1/plan.md")
+        c = self.hook("PreToolUse", {"tool_name": "Write", "permission_mode": "acceptEdits",
+                                     "tool_input": {"file_path": yol, "content": self.DUZELIR}})
+        ho = c["hookSpecificOutput"]
+        self.assertEqual(ho["permissionDecision"], "allow", c)
+        self.assertEqual(ho["updatedInput"], {"file_path": yol, "content": "# B\n\n**Amaç:** a\n\n**Neden:** b\n"})
+        self.assertIn("biçim düzeltildi (K-005): 1 dönüşüm", ho["additionalContext"])
+        self.assertEqual(self.ihlaller("belge_bicim"), [])  # ret sayılmaz
+        self.assertEqual([g["donusum_adet"] for g in self.gunluk() if g.get("tur") == "belge_duzeltme"], [1])
+
+    def test_varsayilan_kipte_duzeltme_kullaniciya_sorulur(self):
+        """İzin yükseltmesi yok: düzenlemeyi sormadan yapmayan kipte düzeltilmiş girdi ask ile gösterilir."""
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        c = self.yaz("is1/plan.md", self.DUZELIR)
+        self.assertEqual(self.karar(c), "ask", c)
+        self.assertIn("updatedInput", c["hookSpecificOutput"])
+
+    def test_duzeltilemez_icerik_reddedilir(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        c = self.yaz("is1/plan.md", self.DUZELIR + "\n" + "kelime " * 50 + "\n")
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertNotIn("updatedInput", c["hookSpecificOutput"])
+
+    def test_edit_ve_multiedit_duzeltilmez_ret_kalir(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        c = self.yaz("is1/plan.md", "**Amaç:** a **Neden:** b", arac="Edit", alan="new_string")
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertNotIn("updatedInput", c["hookSpecificOutput"])
+
+    def test_golge_modda_duzeltme_yok(self):
+        self.ayar_yaz(yazim_kapisi="golge")
+        c = self.yaz("is1/plan.md", self.DUZELIR)
+        self.assertNotIn("updatedInput", c.get("hookSpecificOutput") or {})
+
+    def test_kapatilinca_eski_ret_davranisi(self):
+        self.ayar_yaz(yazim_kapisi="ihlal")
+        with open(os.path.join(self.sd, "belge_duzelt.json"), "w", encoding="utf-8") as f:
+            json.dump({"mod": "kapali"}, f)
+        c = self.yaz("is1/plan.md", self.DUZELIR)
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertIn("satır 3 coklu_etiket", c["hookSpecificOutput"]["permissionDecisionReason"])
+        os.remove(os.path.join(self.sd, "belge_duzelt.json"))
+        eski = os.environ.get("ORKESTRA_BELGE_DUZELT")
+        os.environ["ORKESTRA_BELGE_DUZELT"] = "0"
+        try:
+            c = self.yaz("is1/plan.md", self.DUZELIR)
+        finally:
+            if eski is None:
+                os.environ.pop("ORKESTRA_BELGE_DUZELT", None)
+            else:
+                os.environ["ORKESTRA_BELGE_DUZELT"] = eski
+        self.assertEqual(self.karar(c), "deny", c)
+        self.assertNotIn("updatedInput", c["hookSpecificOutput"])
 
     # --- Ö3 Stop
     def test_stop_golge_baglantisiz_belgeyi_kaydeder_bloklamaz(self):

@@ -89,6 +89,8 @@ class Kanca(unittest.TestCase):
             r = kos("PreCompact", trigger="auto")
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertTrue(os.path.isfile(DO._yol(sd, OTURUM, "md")))
+            gunluk = [json.loads(s) for s in open(os.path.join(sd, "gunluk.jsonl"), encoding="utf-8")]  # I-222 P2: olay sayılır
+            self.assertEqual([(x["tur"], x["tetik"], x["oturum"]) for x in gunluk if x["tur"] == "sikistirma"], [("sikistirma", "auto", OTURUM)])
             r = kos("SessionStart", source="compact")
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn("kanca deneme mesajı", json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"])

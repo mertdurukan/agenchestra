@@ -13,6 +13,7 @@ import argparse
 import collections
 import contextlib
 import datetime
+import re
 import io
 import json
 import os
@@ -89,9 +90,13 @@ def _plan_dolu(yol: str) -> bool:
     """plan.md'de başlık dışında yazılmış içerik var mı (`is ac` şablonu yalnız başlık içerir; o boş sayılır)."""
     try:
         with open(yol, encoding="utf-8") as f:
-            return any(x.strip() and not x.lstrip().startswith("#") for x in f)
+            metin = f.read()
     except OSError:
         return False
+    metin = re.sub(r"<!--.*?-->", "", metin, flags=re.S)  # şablon yorumları (doldur ipuçları) içerik değildir
+    # şablonun doldurulmamış slotları ('- **ADR:** <ADR-nnnn | gerekmez — neden>') yazılmış içerik sayılmaz
+    slot = re.compile(r"^\s*[-*]\s*\*\*[^*]+:\*\*\s*<[^<>]*>\s*$")
+    return any(x.strip() and not x.lstrip().startswith("#") and not slot.match(x) for x in metin.splitlines())
 
 
 def bos_isler(sd: str, saat: float, simdi: datetime.datetime | None = None) -> list[dict]:

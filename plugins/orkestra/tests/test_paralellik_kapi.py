@@ -180,24 +180,27 @@ class ParalellikKapisi(unittest.TestCase):
         self.assertFalse([o for o in self.olaylar() if o.get("tur") == "kapi_ret" and o.get("kapi") == "paralellik"])
 
     def test_yeni_is_paralel_bayragi_alir(self):
-        r = TC.kos([TC.CLI, "is", "ac", "Paralel bayrak denemesi", "--klasor", "Claude_Orkestrasyon"], self.proje,
-                   ortam={"ORKESTRA_PARALELLIK_KAPISI": "1"})
+        r = TC.kos([TC.CLI, "is", "ac", "Paralel bayrak denemesi", "--klasor", "Claude_Orkestrasyon/001-deneme"], self.proje,
+                   ortam={"ORKESTRA_SIRA_KAPISI": "1", "ORKESTRA_PARALELLIK_KAPISI": "1"})
         self.assertEqual(r.returncode, 0, r.stderr)
         kayitlar = glob.glob(os.path.join(self.proje, "**", "is.json"), recursive=True)
         self.assertTrue(kayitlar, r.stdout)
         with open(kayitlar[0], encoding="utf-8") as f:
             d = json.load(f)
-        if d.get("sira") == S.SIRA_ADI:
-            self.assertIs(d.get("paralel"), True, d)
+        self.assertEqual(d.get("sira"), S.SIRA_ADI, d)
+        self.assertIs(d.get("paralel"), True, d)
+        self.assertIs(d.get("uretim"), None, d)  # kos() üretim kapısını kapatır; bayraklar bağımsız
 
     def test_kapali_iken_yeni_is_bayraksiz(self):
-        r = TC.kos([TC.CLI, "is", "ac", "Bayraksız deneme", "--klasor", "Claude_Orkestrasyon"], self.proje,
-                   ortam={"ORKESTRA_PARALELLIK_KAPISI": "0"})
+        r = TC.kos([TC.CLI, "is", "ac", "Bayraksız deneme", "--klasor", "Claude_Orkestrasyon/001-deneme"], self.proje,
+                   ortam={"ORKESTRA_SIRA_KAPISI": "1", "ORKESTRA_PARALELLIK_KAPISI": "0"})
         self.assertEqual(r.returncode, 0, r.stderr)
         kayitlar = glob.glob(os.path.join(self.proje, "**", "is.json"), recursive=True)
         self.assertTrue(kayitlar, r.stdout)
         with open(kayitlar[0], encoding="utf-8") as f:
-            self.assertNotIn("paralel", json.load(f))
+            d = json.load(f)
+        self.assertEqual(d.get("sira"), S.SIRA_ADI, d)
+        self.assertNotIn("paralel", d)
 
 
 if __name__ == "__main__":

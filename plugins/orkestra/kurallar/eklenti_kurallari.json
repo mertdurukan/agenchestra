@@ -904,6 +904,24 @@
         }
       ],
       "etkinlesme": "2026-10-23T15:24:23+03:00"
+    },
+    {
+      "id": "P-035",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Sıralı işte bağımsız plan maddeleri paralel koşar; sıralılık gerekçelendirilir (taban ölçüm: kayıp plan ve kart aşamasında). (1) Her plan maddesi '**Önce:**' (yok | P<n> — Çıktı:/Çakışma: gerekçe) ve '**Yazma alanı:**' alanlarını taşır. (2) Bağımsız maddeler dalgalara ayrılır: 'orkestra is dalga <iş> [--yaz] [--json-cikti DOSYA]' dalgayı, kritik yolu, kart JSON'unu ve 'Workflow orkestra:calistir' args'ını üretir. (3) Gerekçesiz sıralılık ve aynı dalgada kesişen yazma alanı reddedilir; genişlik-1 plan 'Tam sıralı çünkü:' satırı ister. (4) Her dalganın işçileri tek mesajda birlikte dağıtılır. (5) Kapanışta kartlar yüklenmemişse ya da gerçekleşen/planlanan eşzamanlılık oranı 0,5'in altındaysa çalışma özeti '## Paralellik sapması' bölümünü taşır. Kural P-028'in gölge ilkesinin bilinçli istisnasıdır: plan kapısı kullanıcı kararıyla gölge dönemi olmadan ihlal modundadır; kapanış kapısı ilk 20 işte golge. Kapsam yalnız is.json 'paralel: true' taşıyan yeni sıralı işlerdir; eski işler muaftır. Zorlama: is_sirasi.paralellik_eksikleri, ayarlar/paralellik.json (mod ihlal), ayarlar/paralellik_kapanis.json (ilk 20 işte golge); ORKESTRA_PARALELLIK_KAPISI=0 ve ORKESTRA_PARALELLIK_KAPANIS_KAPISI=0 kapatır. (ADR-0080)",
+      "neden": "I-216: taban ölçümde (C9) paralellik kaybı plan ve kart aşamasında doğdu; sıralılık gerekçesiz yazılabiliyordu (kullanıcı kararı 23.10.2026: gölge dönemi yok).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-23T18:46:32+03:00",
+      "guncelleme": "2026-10-23T18:46:32+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-23T18:46:32+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Sıralı işte bağımsız plan maddeleri paralel koşar; sıralılık gerekçelendirilir (taban ölçüm: kayıp plan ve kart aşamasında). (1) Her plan maddesi '**Önce:**' (yok | P<n> — Çıktı:/Çakışma: gerekçe) ve '**Yazma alanı:**' alanlarını taşır. (2) Bağımsız maddeler dalgalara ayrılır: 'orkestra is dalga <iş> [--yaz] [--json-cikti DOSYA]' dalgayı, kritik yolu, kart JSON'unu ve 'Workflow orkestra:calistir' args'ını üretir. (3) Gerekçesiz sıralılık ve aynı dalgada kesişen yazma alanı reddedilir; genişlik-1 plan 'Tam sıralı çünkü:' satırı ister. (4) Her dalganın işçileri tek mesajda birlikte dağıtılır. (5) Kapanışta kartlar yüklenmemişse ya da gerçekleşen/planlanan eşzamanlılık oranı 0,5'in altındaysa çalışma özeti '## Paralellik sapması' bölümünü taşır. Kural P-028'in gölge ilkesinin bilinçli istisnasıdır: plan kapısı kullanıcı kararıyla gölge dönemi olmadan ihlal modundadır; kapanış kapısı ilk 20 işte golge. Kapsam yalnız is.json 'paralel: true' taşıyan yeni sıralı işlerdir; eski işler muaftır. Zorlama: is_sirasi.paralellik_eksikleri, ayarlar/paralellik.json (mod ihlal), ayarlar/paralellik_kapanis.json (ilk 20 işte golge); ORKESTRA_PARALELLIK_KAPISI=0 ve ORKESTRA_PARALELLIK_KAPANIS_KAPISI=0 kapatır. (ADR-0080)"
+        }
+      ],
+      "etkinlesme": "2026-10-23T18:46:32+03:00"
     }
   ]
 }

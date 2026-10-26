@@ -3,6 +3,7 @@
 `orkestra hata en-cok [--gun N] [--kaynak hook|cli|ozet|kart|kural | --tum] [--ilk N] [--json]`
 Varsayılan görünüm kural ihlallerini dışlar (uyum sayacı, hata değil); `--kaynak kural` ya da `--tum` ile görünür.
 `orkestra hata liste [--ilk N] [--json]`   (hata.jsonl'in son satırları)
+`orkestra hata ozet [--baslangic T] [--bitis T] [--oncesi T] [--sonrasi T] [--json]`   (ret_olcum: R1–R9 oranı, I-224 P10)
 """
 from __future__ import annotations
 
@@ -42,6 +43,16 @@ def cmd_liste(a):
         print(f"{str(r.get('zaman', ''))[:19].replace('T', ' ')}  [{r.get('kaynak')}] {r.get('imza')}")
 
 
+def cmd_ozet(a):
+    import ret_olcum as RO
+    o = RO.ozet(RO.yukle(sd_gerekli()), baslangic=a.baslangic, oncesi=a.oncesi, sonrasi=a.sonrasi, bitis=a.bitis)
+    if a.json:
+        print(json.dumps(o, ensure_ascii=False, indent=1))
+        return
+    for s in RO.metin(o):
+        print(s)
+
+
 def kaydet(alt):
     """Bu modülün alt komutlarını ana ayrıştırıcıya ekler."""
     h = alt.add_parser("hata", help="tekrar eden hatalar (hook, CLI, özet, kart reti, kural ihlali)").add_subparsers(dest="alt", required=True)
@@ -57,3 +68,10 @@ def kaydet(alt):
     li.add_argument("--ilk", type=int, default=20, help="son N satır (0 = tümü)")
     li.add_argument("--json", action="store_true")
     li.set_defaults(f=cmd_liste)
+    oz = h.add_parser("ozet", help="R1–R9 ret/100 tur, Garwood üst sınırı, önce/sonra kararı (salt okuma)")
+    oz.add_argument("--baslangic", help="pencere başı (YYYY-MM-DD ya da ISO zaman; yoksa başından)")
+    oz.add_argument("--bitis", help="pencere sonu (yoksa şimdi)")
+    oz.add_argument("--oncesi", help="öncesi penceresinin sonu (karşılaştırma)")
+    oz.add_argument("--sonrasi", help="sonrası penceresinin başı (karşılaştırma; yoksa --oncesi)")
+    oz.add_argument("--json", action="store_true")
+    oz.set_defaults(f=cmd_ozet)

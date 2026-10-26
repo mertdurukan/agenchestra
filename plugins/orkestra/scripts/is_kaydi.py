@@ -197,6 +197,45 @@ def belge_olustur(klasor: str, baslik: str, tur: str, simdi: datetime.datetime |
     return yol, True
 
 
+_PLAN_ALAN_ADI = re.compile(r"^\*\*([^*\n:]+):\*\*", re.M)
+_PLAN_CIT = re.compile(r"```markdown\n(.*?)```", re.S)
+
+
+def plan_alan_sirasi(klasor: str) -> list[str]:
+    """P maddesi alan sırası: iş için `belge_olustur`un seçeceği plan şablonunun §4 örnek bloğundan (tek kaynak; şablon
+    değişince sıra kendiliğinden izler). Şablonda blok yoksa boş liste."""
+    sablon = "plan_dogrulamali.md" if _dogrulamali(klasor) else "plan_sirali.md"
+    m = _PLAN_CIT.search(sablon_metni(sablon, ""))
+    sira: list[str] = []
+    for ad in _PLAN_ALAN_ADI.findall(m.group(1) if m else ""):
+        if ad.strip() not in sira:
+            sira.append(ad.strip())
+    return sira
+
+
+def plan_madde_ekle(klasor: str, no: int, blok: str) -> str:
+    """plan.md'de `## 4.` bölümünün sonuna (yoksa dosya sonuna) P maddesi bloğu ekler (kilit altında, atomik; todo_ekle
+    ile aynı yazım yolu). Aynı numaralı madde varsa ValueError. Dönüş: plan.md yolu."""
+    yol = os.path.join(klasor, "plan.md")
+    if not os.path.exists(yol):
+        raise ValueError("plan.md yok (`orkestra is belge <id> plan`)")
+    with L.kilit(yol):
+        metin = _todo_oku(yol)
+        if no in SIRA._p_bloklari(metin):
+            raise ValueError(f"P{no} plan.md'de zaten var")
+        eol = "\r\n" if "\r\n" in metin else "\n"
+        satirlar = metin.splitlines(keepends=True)
+        bas = next((i for i, s in enumerate(satirlar) if re.match(r"^##\s+4\.", s)), None)
+        hedef = len(satirlar)
+        if bas is not None:
+            hedef = next((i for i in range(bas + 1, len(satirlar)) if re.match(r"^##\s", satirlar[i])), len(satirlar))
+        once = "".join(satirlar[:hedef]).rstrip("\r\n") + eol + eol
+        sonra = "".join(satirlar[hedef:])
+        govde = eol.join(blok.strip("\n").split("\n")) + eol
+        L.atomik_yaz(yol, once + govde + (eol + sonra if sonra else ""))
+    return yol
+
+
 def baglanti_satiri(etiket: str, yol: str, proje_koku: str) -> str:
     """'<etiket>: [<ad>](<proje köküne göre yol>)'. Yol her zaman '/' ile yazılır; kök dışındaysa mutlaktır."""
     mutlak = os.path.abspath(yol)

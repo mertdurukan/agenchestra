@@ -100,9 +100,10 @@ def proje_dizini(cwd: str | None = None) -> str:
 
 
 def oturum_koku(cwd: str | None = None) -> str:
-    """Oturumun klasörü: CLAUDE_PROJECT_DIR > cwd'den yukarı ilk `.git` içeren klasör bağlı bir git worktree'siyse o
-    klasör (uygulama göreli bağlantıyı buna göre çözer); değilse `proje_dizini` (ana ağaçta ikisi aynıdır). ADR-0035."""
-    baslangic = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
+    """Oturumun klasörü: açık `cwd` > CLAUDE_PROJECT_DIR > süreç cwd'si; oradan yukarı ilk `.git` içeren klasör bağlı bir
+    git worktree'siyse o klasör (uygulama göreli bağlantıyı buna göre çözer); değilse `proje_dizini` (ana ağaçta ikisi
+    aynıdır). Açık `cwd` ortamdan önce gelir: uygulama ortamı ana ağaç verirken hook girdisi oturum worktree'sidir (I-220)."""
+    baslangic = cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     d = os.path.abspath(baslangic)
     while True:
         if os.path.exists(os.path.join(d, ".git")):  # klasör: ana ağaç; dosya: bağlı worktree
@@ -517,8 +518,26 @@ _SIR_KALIPLARI = [
     re.compile(r"(?i)(bearer\s+)([A-Za-z0-9._\-]{12,})"),
     re.compile(r"(postgres(?:ql)?://[^:\s/]+:)([^@\s]+)(@)"),
 ]
-_UZUN_ANAHTAR = re.compile(r"\b(?=[A-Za-z0-9+/=_\-]*\d)(?=[A-Za-z0-9+/=_\-]*[A-Za-z])[A-Za-z0-9+/=_\-]{32,}\b")
+# Bilinen sağlayıcı önekli anahtarlar: uzunluk/biçim sezgisinden bağımsız her zaman maskelenir.
+_ONEKLI_ANAHTAR = re.compile(
+    r"(?<![A-Za-z0-9_\-])(?:sk-|sk_live_|sk_test_|rk_live_|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|AKIA|AIza)[A-Za-z0-9_\-]{16,}")
+# Uzun anahtar adayı. '=' yalnız sondaki base64 dolgusu olarak kabul edilir: eskiden karakter sınıfının içindeydi,
+# bu yüzden 'ORKESTRA_..._KAPISI=0' gibi ad + '=' + rakam tek belirteç olup (rakam koşulunu '=0' sağlıyordu) yutuluyordu.
+_UZUN_ANAHTAR = re.compile(r"(?<![A-Za-z0-9+/_\-])(?=[A-Za-z0-9+/_\-]*\d)(?=[A-Za-z0-9+/_\-]*[A-Za-z])"
+                           r"[A-Za-z0-9+/_\-]{32,}={0,2}(?![A-Za-z0-9+/=_\-])")
+# Tanımlayıcı parçası: kelime (Abc, abc, ABC) ya da sayı, ardından isteğe bağlı rakam (api03, V2, 0080).
+_KELIME_PARCA = re.compile(r"(?:[A-Z]?[a-z]+|[A-Z]+|\d+)\d*")
 _EPOSTA = re.compile(r"\b[\w.+\-]+@[\w\-]+\.[\w.\-]+\b")
+
+
+def _tanimlayici_mi(s: str) -> bool:
+    """Ortam değişkeni adı (BUYUK_ALT_CIZGI), snake_case/kebab tanımlayıcı ya da '/' yolu mu?
+    Ayırıcıyla bölünen her parça kısa (≤20) ve kelime biçimli olmalı; rastgele değerler (karışık harf-rakam,
+    uzun parça, hex) bu sınamayı geçemez ve maskelenir."""
+    if "+" in s or s.endswith("="):
+        return False
+    parcalar = [p for p in re.split(r"[_/\-]", s) if p]
+    return len(parcalar) >= 2 and all(len(p) <= 20 and _KELIME_PARCA.fullmatch(p) for p in parcalar)
 
 
 def maskele(metin: str) -> str:
@@ -526,7 +545,8 @@ def maskele(metin: str) -> str:
         return metin
     for k in _SIR_KALIPLARI:
         metin = k.sub(lambda m: m.group(1) + "<gizli>" + (m.group(3) if m.lastindex and m.lastindex >= 3 else ""), metin)
-    metin = _UZUN_ANAHTAR.sub("<gizli-anahtar>", metin)
+    metin = _ONEKLI_ANAHTAR.sub("<gizli-anahtar>", metin)
+    metin = _UZUN_ANAHTAR.sub(lambda m: m.group(0) if _tanimlayici_mi(m.group(0)) else "<gizli-anahtar>", metin)
     metin = _EPOSTA.sub("<e-posta>", metin)
     return metin
 
@@ -2184,7 +2204,7 @@ def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
             if not any(art.values()):
                 continue
             son = max(h, key=lambda r: r.get("zaman") or "")
-            satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model")}
+            satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "is", "atif_nedeni")}  # I-222 P7: iş kimliği türetilen satıra da geçer
             satir.update(art)
             satir["kaynak"] = "hook-artik"
             satir["maliyet_usd"] = _satir_usd(satir)

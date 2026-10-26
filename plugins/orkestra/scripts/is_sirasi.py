@@ -103,7 +103,7 @@ def mevcut_varlik_eksikleri(klasor: str, metin: str | None = None, bos_say: bool
         return []
     import harita
     if metin is None:
-        metin = _oku(os.path.join(klasor, "plan.md")) or ""
+        metin = _plan_oku(klasor) or ""
     sd = harita.sd_bul(klasor)
     kimlikler = harita.kayit_kimlikleri(sd) if sd else None
     eksik = []
@@ -208,7 +208,7 @@ def sozlesme_eksikleri(klasor: str, baglanti: bool = False) -> list[str]:
 
 def sozlesme_baglanti_eksikleri(klasor: str) -> list[str]:
     """P2: her P maddesi `**Sözleşme:** S<n>` ile sözleşmedeki bir kriteri gösterir; her S bir P'de anılır."""
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     kriterler = sozlesme_kriterleri(klasor)
@@ -345,7 +345,7 @@ def bic_eksikleri(klasor: str) -> list[str]:
     doldurduğu `## Best in class denetimi` bloğunu taşır (dört soru ✔/✘ ve `**Denetçi:**`). Kapsam dışı iş: boş liste."""
     if not bic_kapsaminda_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     eksik = []
@@ -501,7 +501,7 @@ def uretim_eksikleri(klasor: str) -> list[str]:
     `**Üretim noktası:** ✔` satırını (kayıtlı denetçi kimliğiyle) taşır. Kapsam dışı iş: boş liste."""
     if not uretim_kapsaminda_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     eksik: list[str] = []
@@ -581,7 +581,7 @@ def paralellik_eksikleri(klasor: str) -> list[str]:
     plan. Kapsam dışı iş ya da plan.md yok: boş liste."""
     if not paralellik_kapsaminda_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return []
     import paralellik as PAR
@@ -609,7 +609,12 @@ def ozet_eksigi(metin: str, ad: str) -> str | None:
 def alan_dolu(blok: str, alan: str) -> bool:
     """P bloğunda `**<alan>:**` etiketi var ve yer tutucu dışında değeri var mı (değer aynı ya da sonraki satırda olabilir)."""
     m = re.search(r"\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
-    return bool(m and m.group(1).strip())
+    deger = m.group(1).strip() if m else ""
+    # `plan alan` iskeletinin `<doldur>` yer tutucusu (değerin tamamı ya da başı) boş sayılır; metin içindeki alıntı sayılmaz.
+    return bool(deger) and not _YER_TUTUCU.match(deger)
+
+
+_YER_TUTUCU = re.compile(r"^`?<doldur\b[^>]*>", re.I)
 
 
 def sirali_mi(klasor: str) -> bool:
@@ -639,6 +644,19 @@ def _oku(yol: str) -> str | None:
             return f.read()
     except OSError:
         return None
+
+
+_PLAN_ESI: dict[str, str] = {}  # I-224: yazım anında denetlenecek plan metni (klasör → yazılacak metin); diskteki plan.md yerine
+
+
+def _anahtar(klasor: str) -> str:
+    return os.path.normcase(os.path.abspath(klasor))
+
+
+def _plan_oku(klasor: str) -> str | None:
+    """plan.md metni: yazım anı denetiminde yazılacak metin (`_PLAN_ESI`), yoksa diskteki dosya."""
+    k = _anahtar(klasor)
+    return _PLAN_ESI[k] if k in _PLAN_ESI else _oku(os.path.join(klasor, "plan.md"))
 
 
 def _bolumler(metin: str) -> dict[int, str]:
@@ -699,7 +717,7 @@ def gap_kapsama_eksikleri(klasor: str) -> list[str]:
     """İkinci geçiş (P-017): MD §6 gap'leri ile plan maddeleri arasında kapsama. Gap'siz işte boş liste."""
     if not gapli_mi(klasor):
         return []
-    metin = _oku(os.path.join(klasor, "plan.md")) or ""
+    metin = _plan_oku(klasor) or ""
     gaplar = mevcut_durum_gapleri(klasor)
     if not gaplar:
         return []  # birinci geçiş eksiği mevcut_durum_eksikleri'nde raporlanır
@@ -751,9 +769,15 @@ def plan_maddeleri(klasor: str) -> set[int]:
 
 def plan_eksikleri(klasor: str) -> list[str]:
     """Boş liste = plan tamam (mevcut durum ayrıca denetlenir)."""
-    metin = _oku(os.path.join(klasor, "plan.md"))
+    metin = _plan_oku(klasor)
     if metin is None:
         return ["plan.md yok (`orkestra is belge <id> plan`)"]
+    return (_plan_temel_eksikleri(klasor, metin) + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor)
+            + bic_engeli(klasor) + uretim_engeli(klasor) + paralellik_engeli(klasor))
+
+
+def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
+    """Kapısız (her sıralı işte) plan eksikleri: mevcut durum bağlantısı, P maddeleri, MD dayanağı; kalite işinde Özet/Kabul/Geri alma."""
     eksik = []
     md = mevcut_durum_yolu(klasor)
     if md is not None:
@@ -777,8 +801,115 @@ def plan_eksikleri(klasor: str) -> list[str]:
             for alan in ("Kabul", "Geri alma"):
                 if not alan_dolu(blok, alan):
                     eksik.append(f"P{n}: `**{alan}:**` alanı yok ya da boş (P-018)")
-    return (eksik + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor) + bic_engeli(klasor) + uretim_engeli(klasor)
-            + paralellik_engeli(klasor))
+    return eksik
+
+
+# I-224: plan.md yazım anı raporu. Ret koşulu değişmez (ön koşul ya da bu yazımın getirdiği `Mevcut varlık` hatası);
+# değişen, aynı yazımda planın todo / `plan dogrula` anında ret verecek tüm alan eksiklerinin tek iletide, düzeltme
+# satırıyla görünmesidir. Gölgedeki kapılar yalnız bilgi satırı olur. Kayıt (kapi_ret / kapi_golge) düşmez: metin henüz yazılmadı.
+PLAN_MESAJ_SINIR = 2000
+_MODLU_KAPILAR = (("best_in_class", "bic_kapsaminda_mi", "bic_eksikleri"),
+                  ("uretim_noktasi", "uretim_kapsaminda_mi", "uretim_eksikleri"),
+                  ("paralellik", "paralellik_kapsaminda_mi", "paralellik_eksikleri"),
+                  ("sozlesme", "sozlesmeli_mi", "sozlesme_baglanti_eksikleri"))
+
+
+def plan_yazim_eksikleri(klasor: str, metin: str) -> tuple[list[str], list[str]]:
+    """Yazılacak plan metni için (ret veren, gölge) eksikler: ret veren = kapısız alanlar + ihlal modundaki kapılar
+    (todo yazımında ve `plan dogrula`da reddedilir); gölge = gölge modundaki kapıların eksikleri (engellemez)."""
+    import kapi_mod as KM
+    k = _anahtar(klasor)
+    onceki = _PLAN_ESI.get(k)
+    _PLAN_ESI[k] = metin
+    try:
+        sert = _plan_temel_eksikleri(klasor, metin) + mevcut_varlik_eksikleri(klasor, metin) + gap_kapsama_eksikleri(klasor)
+        golge: list[str] = []
+        for kapi, kapsam, islev in _MODLU_KAPILAR:
+            if not globals()[kapsam](klasor):
+                continue
+            e = globals()[islev](klasor)
+            (sert if KM.mod(kapi, klasor) == "ihlal" else golge).extend(e)
+    finally:
+        if onceki is None:
+            _PLAN_ESI.pop(k, None)
+        else:
+            _PLAN_ESI[k] = onceki
+    return sert, golge
+
+
+_DUZELTMELER = (  # (eksik metninde aranan, düzeltme şablonu); {h} = madde (P<n>) ya da "plan.md"; ilk eşleşen kullanılır
+    (r"^G(\d+): hiçbir P", "bir P'nin `**Gap:**` alanına G{1} ekle ya da `## Gap kapsama` altına `- **G{1}:** Kapsam dışı: <gerekçe>` yaz"),
+    (r"^P\d+: G(\d+) mevcut durum", "{h} `**Gap:**` alanından G{1}'i çıkar ya da mevcut durum §6'ya `- **G{1}:** …` ekle"),
+    (r"\*\*Gap:\*\*", "{h} altına yaz: `**Gap:** G1` (mevcut durum §6'daki gap)"),
+    (r"^S(\d+): hiçbir", "bir P'nin `**Sözleşme:**` alanına S{1} ekle"),
+    (r"\*\*Sözleşme:\*\*", "{h} altına yaz: `**Sözleşme:** S1` (sözleşmedeki başarı kriteri)"),
+    (r"Mevcut varlık|haritada yok|`yok` için aranan|sistem haritası yok",
+     "{h} altına yaz: `**Mevcut varlık:** <harita kimliği>` ya da `**Mevcut varlık:** yok — <aranan>` (kimlik: `orkestra harita oku`)"),
+    (r"\*\*Alternatifler:\*\*", "{h} altına yaz: `**Alternatifler:**` ve alt satırlarda `- Seçilen: …` ile `- Elenen: … Neden elendi: …`"),
+    (r"^P\d+: `\*\*Üretim noktası:\*\*|^P\d+: `Yeni yetenek`",
+     "{h} altına yaz: `**Üretim noktası:** Düzeltme: <yer> — <önleme, en az 15 karakter>` (ya da `Kontrol: … ; Kaynakta çözülmedi çünkü: …`)"),
+    (r"Best in class denetimi` bloğu yok", "plan sonuna `## Best in class denetimi` bloğunu aç; satırlarını ayrı orkestra:denetci doldurur"),
+    (r"^best in class denetimi:", "plan yazarı yazmaz: bu satırı ayrı orkestra:denetci doldurur (`**Denetçi:** <agent_id>`)"),
+    (r"LLM çıktısı", "plan.md'ye yaz: `**LLM çıktısı:** yok — <en az 3 sözcük neden>` ya da `kullanıcıya gider — Doğrulama: <test yolu>`"),
+    (r"\*\*Kabul:\*\*", "{h} altına yaz: `**Kabul:** <ölçülebilir ölçüt>`"),
+    (r"\*\*Geri alma:\*\*", "{h} altına yaz: `**Geri alma:** <geri alma yolu, örn. git revert>`"),
+    (r"yazma alanı kesişiyor", "sonraki maddeye yaz: `**Önce:** P<önceki> — Çakışma: <gerekçe>`"),
+    (r"\*\*Yazma alanı:\*\*", "{h} altına yaz: `**Yazma alanı:** scripts/a.py, tests/test_a.py`"),
+    (r"\*\*Önce:\*\*", "{h} altına yaz: `**Önce:** yok` ya da `**Önce:** P1 — Çıktı: <gerekçe>`"),
+    (r"dayanağı yok|dayanak MD", "{h} altına yaz: `**Dayanak:** MD §3` (geçerli mevcut durum bölümü)"),
+    (r"bağlantısı yok", "plan.md'nin ilk satırlarına eksikte verilen `[mevcut_durum_….md](…)` bağlantısını yaz"),
+    (r"`P<n>` maddesi yok", "plan.md'ye `### P1 <başlık>` maddesi ekle"),
+    (r"`## Özet`", "belgenin en üstüne `## Özet` ve 3-4 cümle yaz"),
+    (r"^mevcut durum|^mevcut_durum", "mevcut durum belgesinde eksik bölüm ya da alanı doldur (`orkestra is sira <id>`)"),
+    (r"sözleşme|sozlesme_", "sözleşme belgesinde eksik bölümü doldur (`orkestra is belge <id> sozlesme`)"),
+)
+
+
+def duzeltme_satiri(eksik: str) -> str:
+    """Eksik satırı için hazır düzeltme: hangi madde, hangi alan, ne yazılacak (örnek biçimle)."""
+    m = re.match(r"^(P\d+):", eksik)
+    h = m.group(1) if m else "plan.md"
+    for desen, sablon in _DUZELTMELER:
+        d = re.search(desen, eksik)
+        if d:
+            return sablon.replace("{h}", h).replace("{1}", d.group(1) if d.groups() else "")
+    return "ayrıntı: `orkestra plan dogrula <iş>`"
+
+
+def plan_yazim_mesaji(klasor: str, ret: list[str], metin: str | None) -> str:
+    """Tek ileti: önce ret nedenleri (ön koşul ya da bu yazımın getirdiği eksik), sonra planın todo/`plan dogrula`da ret
+    verecek diğer alan eksikleri, en sonda gölge kapı bilgisi; her madde bir satır + düzeltme satırı, toplam en çok
+    PLAN_MESAJ_SINIR karakter. `ret` boşsa ileti bilgi amaçlıdır (yazım engellenmez). Eksik yoksa boş metin."""
+    sert, golge = plan_yazim_eksikleri(klasor, metin) if metin is not None else ([], [])
+    sert = [e for e in sert if e not in ret]
+    if not (ret or sert or golge):
+        return ""
+    if ret:
+        bas = "plan.md yazılamaz (P-005; kapatma: ORKESTRA_SIRA_KAPISI=0)."
+    else:
+        bas = "plan.md yazıldı; todo yazımında ve `orkestra plan dogrula`da ret verecek eksikler (bu yazımı engellemez):"
+    gruplar = [(f"Ret nedeni ({len(ret)}):", ret), (f"Diğer eksikler ({len(sert)}):" if ret else "", sert),
+               (f"Bilgi, gölge kapı ({len(golge)}; engellemez):", golge)]
+    satirlar, kalan, no = [bas], 0, 0
+    kuyruk = "+{} eksik daha: orkestra plan dogrula <iş>"
+    for baslik, liste in gruplar:
+        if not liste:
+            continue
+        if kalan:
+            kalan += len(liste)
+            continue
+        if baslik:
+            satirlar.append(baslik)
+        for i, e in enumerate(liste):
+            no += 1
+            parca = [f"{no}. {e}", f"   → {duzeltme_satiri(e)}"]
+            if len("\n".join(satirlar + parca)) + len(kuyruk) + 8 > PLAN_MESAJ_SINIR:
+                kalan = len(liste) - i
+                break
+            satirlar += parca
+    if kalan:
+        satirlar.append(kuyruk.format(kalan))
+    return "\n".join(satirlar)
 
 
 def adim(klasor: str) -> tuple[str, list[str]]:

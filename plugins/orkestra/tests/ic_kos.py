@@ -34,6 +34,7 @@ os.environ.setdefault("ORKESTRA_SOZLESME_KAPISI", "0")  # görev sözleşmesi (A
 os.environ.setdefault("ORKESTRA_TESLIM_KAPISI", "0")  # teslim kapısı (ADR-0035): testler gerçek gh/PR aramasın; test_teslim.py "1" yapar
 os.environ.setdefault("ORKESTRA_IZOLE_UYARI", "0")  # izole ortam uyarısı (ADR-0035): on_kontrol testleri uyarısız koşar
 os.environ.setdefault("ORKESTRA_DOGRULAMA_KAPISI", "0")  # plan ✅/❌ kapısı: yeni testler açıkça '1' yapar
+os.environ.setdefault("ORKESTRA_KART_KONTROL", "0")  # kart `kontrol:` alanı (I-224 P8): eski kart fikstürleri taşımaz; test_kart_kontrol_alani '1' yapar
 # Eklenti kural katmanı: testler gerçek depoyu görmesin (conftest.py ile aynı varsayılan; unittest ile koşulunca da geçerli)
 import tempfile as _tempfile  # noqa: E402
 os.environ.setdefault("ORKESTRA_EKLENTI_KURALLARI",

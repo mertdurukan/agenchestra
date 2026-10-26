@@ -1,7 +1,6 @@
 """I-216 P4: `orkestra is dalga` plan→kart köprüsü (ADR-0080, sözleşme S4). Kendi fixture'ıyla."""
 import json
 import os
-import shutil
 import sys
 import unittest
 

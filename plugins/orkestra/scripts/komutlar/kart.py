@@ -18,6 +18,7 @@ import time
 import ork_lib as L  # noqa: E402
 import plan_modeli_doldur as PM  # noqa: E402
 import duzeltme_kapisi as DK  # noqa: E402
+import kapi_mod as KM  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
 import soru_sinif as SS  # noqa: E402
 from komutlar._ortak import BASAMAKLAR, BETIK_DIZINI, hata, oturum_id, sd_gerekli  # noqa: E402
@@ -119,6 +120,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     effort = _effort_dogrula(d)
     butce = _butce_dogrula(d)
     oto_teslim = _oto_teslim_dogrula(d)
+    kriterler, iskelet = _kabul_kontrol_dogrula(d, sd)  # I-224: kart sayacından önce; ret yarım kart bırakmaz
     _merkez_saglamla(sd)  # K2: bozuk/eksik isler.json bağ çözümünü düşürmez
     _acik_is_dogrula(sd, d.get("is"))  # doğrulama kart sayacından önce: hata sayacı ilerletmez
     gid = d.get("id") or L.yeni_kart_id(sd)
@@ -134,7 +136,7 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "baslangic_basamak": basamak,
         "soru": d["soru"].strip(),
         "girdi": d.get("girdi") or "",
-        "kabul_kriterleri": list(d.get("kabul_kriterleri") or []),
+        "kabul_kriterleri": kriterler,
         "yazma_alani": yazma,
         "bagimliliklar": list(d.get("bagimliliklar") or []),
         "oto_teslim": oto_teslim,
@@ -148,6 +150,8 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
         "ciktilar": [],
         "gecmis": [{"zaman": L.simdi(), "olay": "olusturuldu", "basamak": basamak}],
     }
+    if iskelet:
+        k["kanit_iskeleti"] = iskelet
     if d.get("genislet_onay") is True:
         k["genislet_onay"] = True
     if risk is not None:
@@ -230,6 +234,85 @@ def _genis_tarama_uyarisi(sd, k: dict) -> None:
             return
 
 
+KART_KONTROL = "kart_kontrol"
+KART_KONTROL_ORTAM = "ORKESTRA_KART_KONTROL"
+KART_KONTROL_VARSAYILAN = os.path.join(os.path.dirname(BETIK_DIZINI), "ayarlar", KART_KONTROL + ".json")
+_KONTROL_RE = re.compile(r"(?:^|[\s;|,—–-])kontrol\s*:\s*(.*)$", re.I | re.S)
+_KRITER_NO_RE = re.compile(r"\s*K(\d+)\b")
+KRITER_ORNEK = ('örnek: --kabul "Boş girdi reddedilir; kontrol: pytest tests/test_x.py::test_bos -> 1 passed" '
+                '(kontrol: komut, dosya:satır ya da sayı); JSON\'da {"metin": "...", "kontrol": "..."}')
+
+
+def _kart_kontrol_ayar(sd) -> dict:
+    """Eklenti varsayılanı + proje ezmesi (durum dizinindeki kart_kontrol.json); bozuk dosya varsayılana düşer."""
+    ayar = {"olculebilir_kaliplar": [r"\d"], "olcusuz_ifadeler": []}
+    ayar.update(SS._json_oku(KART_KONTROL_VARSAYILAN) or {})
+    if sd:
+        ayar.update(SS._json_oku(os.path.join(sd, KART_KONTROL + ".json")) or {})
+    return ayar
+
+
+def _kriter_metni(x) -> str:
+    """Kriteri saklanan metin biçimine çevirir: metin olduğu gibi kalır (eski kartlarla aynı biçim);
+    {"metin"|"kriter", "kontrol"} nesnesi '<metin>; kontrol: <kontrol>' olur."""
+    if isinstance(x, dict):
+        metin = str(x.get("metin") or x.get("kriter") or "").strip()
+        kontrol = str(x.get("kontrol") or "").strip()
+        return f"{metin}; kontrol: {kontrol}" if kontrol else metin
+    return str(x)
+
+
+def _kriter_kontrolu(metin: str) -> str:
+    m = _KONTROL_RE.search(metin)
+    return m.group(1).strip() if m else ""
+
+
+def _kalip_bul(kaliplar, metin: str):
+    for kalip in kaliplar or []:
+        try:
+            m = re.search(kalip, metin, re.I)
+        except re.error:
+            continue
+        if m:
+            return m
+    return None
+
+
+def _kabul_kontrol_dogrula(d: dict, sd) -> tuple[list, list]:
+    """I-224: her kabul kriteri ölçülebilir 'kontrol:' alanı (komut, dosya:satır ya da sayı) taşır ve ölçüsüz ifade
+    içermez; kriter başına K-iskeleti üretir. Mod kapi_mod ile (ayarlar/kart_kontrol.json; ihlal reddeder, golge uyarır);
+    ORKESTRA_KART_KONTROL=0 kapıyı ve iskeleti kapatır. Yalnız oluşturmada çalışır: eski kartlar okunur kalır."""
+    kriterler = [_kriter_metni(x) for x in (d.get("kabul_kriterleri") or [])]
+    if os.environ.get(KART_KONTROL_ORTAM) == "0" or not kriterler:
+        return kriterler, []
+    ayar = _kart_kontrol_ayar(sd)
+    ad = d.get("baslik") or "(başlıksız)"
+    eksik, iskelet = [], []
+    for i, metin in enumerate(kriterler, 1):
+        m = _KRITER_NO_RE.match(metin)
+        no = int(m.group(1)) if m else i
+        kisa = re.sub(r"\s+", " ", metin).strip()[:60]
+        kontrol = _kriter_kontrolu(metin)
+        bos = SS._normallestir(metin)
+        olcusuz = _kalip_bul(ayar.get("olcusuz_ifadeler"), bos)
+        if olcusuz:
+            eksik.append(f"K{no} '{kisa}': ölçüsüz ifade '{olcusuz.group(0)}' — yerine ölçü (eşik, sayı, komut sonucu) yaz")
+        if not kontrol:
+            eksik.append(f"K{no} '{kisa}': 'kontrol:' alanı yok")
+        elif not _kalip_bul(ayar.get("olculebilir_kaliplar"), kontrol):
+            eksik.append(f"K{no} '{kisa}': 'kontrol: {kontrol[:40]}' ölçülebilir değil (komut, dosya:satır ya da sayı olmalı)")
+        iskelet.append(f"K{no}: <dosya:satır | komut çıktısı | sayı>" + (f" — kontrol: {kontrol}" if kontrol else ""))
+    proje = os.path.dirname(os.path.dirname(sd)) if sd else None
+    if eksik:
+        if proje:
+            red = KM.ret_ver(proje, KART_KONTROL, eksik)
+        else:
+            red = eksik if KM.mod(KART_KONTROL) == "ihlal" else []
+        if red:
+            hata(f"kabul kriteri ölçülebilir değil ({ad}): " + "; ".join(red) + f". {KRITER_ORNEK}")
+    return kriterler, iskelet
+
+
 def _test_alanlari_dogrula(d: dict) -> dict | None:
     """sinif 'kod' ise test_komutu (boş olmayan metin) ve test_alani (boş olmayan glob listesi) zorunlu; değilse None.
     İsteğe bağlı test_koku (var olan mutlak dizin) yalnız kod kartında kabul edilir; test_alani ve test_komutu ona göredir."""
@@ -304,6 +387,7 @@ def cmd_kart_toplu(a):
     for d in liste:  # hiçbir kart oluşmadan önce hepsini doğrula
         if not d.get("kabul_kriterleri"):
             hata(f"kabul kriteri eksik: {d.get('baslik')}")
+        _kabul_kontrol_dogrula(d, sd)
         _sinif_zorunlu(d)
         _soru_zorunlu(d, sd)
         _test_alanlari_dogrula(d)
@@ -1668,7 +1752,8 @@ def kaydet(alt):
     y.add_argument("--soru", help="zorunlu: kartın cevaplayacağı tek soru (tek cümle)")
     y.add_argument("--genislet-onay", dest="genislet_onay", action="store_true",
                    help="analiz kartında geniş tarama uyarısını kullanıcı onayıyla kaldırır")
-    y.add_argument("--kabul", action="append", default=[])
+    y.add_argument("--kabul", action="append", default=[],
+                   help='tekrarlanır: "<ne doğrulanır>; kontrol: <komut | dosya:satır | sayı>" (ölçüsüz ifade reddedilir)')
     y.add_argument("--yazma", action="append", default=[])
     y.add_argument("--bagimli", action="append", default=[])
     y.add_argument("--test-komutu", dest="test_komutu", help="kod kartında zorunlu: proje kökünde kabukla koşulan test komutu")

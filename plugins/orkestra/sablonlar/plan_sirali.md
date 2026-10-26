@@ -2,7 +2,7 @@
 
 ## Özet
 
-<!-- doldur (ilk bakışta okunur, 3-4 cümle): hedef, seçilen yol, kaç madde, karar ya da onay gereken tek konu. Belgeyi bitirince yaz. -->
+<!-- doldur (ilk bakışta okunur, 3-4 kısa cümle; paragraf en çok 300 karakter (biçim kapısı daha uzununu reddeder), uzunsa ayrı paragraflara böl): hedef, seçilen yol, kaç madde, karar ya da onay gereken tek konu. Belgeyi bitirince yaz. -->
 
 **Sıra:**
 
@@ -12,7 +12,10 @@
 
 [mevcut_durum_{gun}.md](mevcut_durum_{gun}.md)
 
-<!-- doldur (P-032): `**LLM çıktısı:** yok — <neden>` ya da `**LLM çıktısı:** kullanıcıya gider — Doğrulama: <kod veya test yolu>[::<test adı>]`; yer tutucu yorum sayılmaz, satırı yorumsuz yaz. -->
+- **ADR:** <ADR-nnnn | gerekmez — neden>
+- **LLM çıktısı:** <yok — neden | kullanıcıya gider — Doğrulama: kod veya test yolu[::test adı]>
+
+<!-- doldur: iki satırda da açılı yer tutucuyu silip değeri yaz; doldurulmadan kapı reddeder. ADR (P-015): `ADR-nnnn` (adr/ klasöründe dosyası olur) ya da `gerekmez — <neden>`. LLM çıktısı (P-032): `yok — <en az 3 sözcük gerekçe>` ya da `kullanıcıya gider — Doğrulama: <yol>`. -->
 
 **Hazırlanma saati:**
 
@@ -33,19 +36,30 @@
 ## 4. Plan maddeleri
 
 <!-- doldur: her madde ayrı başlık ve zorunlu alanlar:
+```markdown
 ### P1 Başlık
 **Ne:**
 **Dayanak:** MD §n (mevcut durum bölümü)
 **Dokunulan yer:** MD §3 etki haritasındaki yer
 **Kabul:** ölçülebilir tek ölçüt (komut çıktısı, sayı, dosya:satır); "yapıldı" kabul değildir (kalite kapısında zorunlu)
 **Geri alma:** değişikliği geri almanın yolu (kalite kapısında zorunlu)
-**Önce:** bu maddeden önce bitmesi gereken P maddeleri (varsa)
+**Önce:** zorunlu: `yok` ya da virgülle `P<n> — Çıktı: <o maddenin hangi çıktısını okuduğu>` / `P<n> — Çakışma: <hangi dosyada yazma alanı kesişir>`; yalnız gerçek bağımlılık yaz, "sıra düzgün olsun" gerekçe değildir
+**Yazma alanı:** bu maddenin yazacağı dosyalar (virgülle; glob olabilir); aynı dalgadaki maddelerin alanları kesişmez
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
 **Sözleşme:** S<n> (sözleşmeli işte zorunlu: bu madde sözleşmedeki hangi başarı kriterini sağlar; `sozlesme_<tarih>.md`)
 **Mevcut varlık:** harita kayıt kimliği (virgülle; kimlikten sonra `(not)` ya da `; not` serbest) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
 **Alternatifler:** en az iki uygulanabilir yaklaşım, madde işaretli ayrı satırlarda: `- Seçilen: … Neden: …` ve `- Elenen: … Neden elendi: …` (P-030; `orkestra standart goster best_in_class`)
-**Üretim noktası:** sorunun doğduğu yer ve orada önleme, üç türden biri: `Düzeltme: <kural|şablon|skill|betik|kart|istem|hook|ayar|standart ya da yol> — <orada önleme>` · `Kontrol: <yer> — <ne kontrol edilir>; Kaynakta çözülmedi çünkü: <neden>` · `Yeni yetenek — <düzeltilecek kusur olmadığının gerekçesi>` (K-006; `uretim: true` işlerde zorunlu, her maddenin metni kendine özgü olur; hata, ret, kusur, tekrar geçen maddede `Yeni yetenek` yazılmaz)
+**Üretim noktası:** sorunun doğduğu yer ve orada önleme, üç türden biri, her tür ayrı satırda (tek satıra ' · ' ile sıkıştırma: biçim kapısı reddeder):
+- `Düzeltme: <kural|şablon|skill|betik|kart|istem|hook|ayar|standart ya da yol> — <orada önleme>`
+- `Kontrol: <yer> — <ne kontrol edilir>; Kaynakta çözülmedi çünkü: <neden>`
+- `Yeni yetenek — <düzeltilecek kusur olmadığının gerekçesi>`
+(K-006; `uretim: true` işlerde zorunlu, her maddenin metni kendine özgü olur; hata, ret, kusur, tekrar geçen maddede `Yeni yetenek` yazılmaz)
+```
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
+
+## Dalgalar
+
+<!-- orkestra is dalga <iş> üretir: dalga başına P listesi, kritik yol, genişlik. Tüm plan tek zincirse (≥3 madde, genişlik 1) şu satırı yaz: **Tam sıralı çünkü:** <her madde bir öncekinin çıktısını okur, ≥15 karakter gerekçe> -->
 
 ## Gap kapsama
 

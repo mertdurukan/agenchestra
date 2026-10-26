@@ -2,7 +2,7 @@
 
 ## Özet
 
-<!-- doldur (ilk bakışta okunur, 3-4 cümle): bu belge neyi gösteriyor, ana sonuç ne, karar ya da onay gereken tek konu ne. Belgeyi bitirince yaz. -->
+<!-- doldur (ilk bakışta okunur, 3-4 kısa cümle; paragraf en çok 300 karakter (biçim kapısı daha uzununu reddeder), uzunsa ayrı paragraflara böl): bu belge neyi gösteriyor, ana sonuç ne, karar ya da onay gereken tek konu ne. Belgeyi bitirince yaz. -->
 
 **Amaç:**
 

@@ -1,0 +1,22 @@
+{
+  "mod": "ihlal",
+  "aciklama": "Kart açılışında her kabul kriteri ölçülebilir 'kontrol:' alanı taşır (komut, dosya:satır ya da sayı) ve ölçüsüz ifade içermez. mod: ihlal = eksik kriterli kart açılmaz (gunluk.jsonl'a kapi_ret); golge = uyarılır ve gunluk.jsonl'a kapi_golge düşer, kart açılır. Kapatma: ORKESTRA_KART_KONTROL=0. Proje ezmesi: .claude/orkestra/kart_kontrol.json. Kriter biçimi: '<ne doğrulanır>; kontrol: <komut | dosya:satır | sayı>'; JSON'da {\"metin\": ..., \"kontrol\": ...} da kabul edilir.",
+  "olculebilir_kaliplar": [
+    "\\d",
+    "`[^`]+`",
+    "^\\s*(\\$\\s*)?(python3?|py|pytest|orkestra|git|rg|grep|npm|npx|node|pwsh|powershell|bash|sh|make|curl|jq|sqlite3|psql|ls|test)\\b",
+    "[\\w./\\\\-]+\\.[A-Za-z0-9]+:\\w+"
+  ],
+  "olcusuz_ifadeler": [
+    "\\byeterince\\b",
+    "\\byeterli\\b",
+    "\\buygun\\w*",
+    "\\bdüzgün\\w*",
+    "\\bmakul\\w*",
+    "\\bgerektiği gibi\\b",
+    "\\bsorunsuz\\w*",
+    "\\bkaliteli\\b",
+    "\\bdüzgünce\\b",
+    "\\bdoğru (şekilde|biçimde|çalış\\w*)"
+  ]
+}

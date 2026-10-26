@@ -219,6 +219,25 @@ class IptalVeAnaAjan(Temel):
         self.assertAlmostEqual(s["genel"]["basari_basina_maliyet"], 0.80 / 3, places=4)
         self.assertLess(s["genel"]["basari_basina_maliyet"], 0.5)
 
+    def test_kapsam_payda_harcamasinin_toplamdaki_payi(self):
+        """I-222 P4: tanım değişmez (payda 0.80), kapsam = payda / pencere toplamı; kalemler toplamı tutar."""
+        durum_kur(self.sd)
+        s = olcum(self.sd)
+        import ork_lib
+        toplam = sum(float(r.get("maliyet_usd") or 0) for r in ork_lib.maliyet_kayitlari(self.sd))  # rapor ile aynı kaynak (düzeltme/yalıtım uygulanmış)
+        c = s["kapsam"]
+        self.assertAlmostEqual(c["toplam_usd"], toplam, places=6)
+        self.assertAlmostEqual(c["payda_usd"], 0.80, places=6)
+        self.assertAlmostEqual(c["kapsam"], 0.80 / toplam, places=6)
+        self.assertAlmostEqual(c["ana_ajan_usd"], 2.00, places=6)
+        self.assertAlmostEqual(c["payda_usd"] + c["kartli_onaysiz_usd"] + c["ana_ajan_usd"] + c["kartsiz_alt_ajan_usd"] + c["diger_usd"], toplam, places=6)
+        import kpi
+        self.assertIn("kapsam", kpi.tablo(s))
+
+    def test_kapsam_bos_durumda_none(self):
+        import kpi
+        self.assertIsNone(kpi.olcum(self.sd)["kapsam"]["kapsam"])
+
     def test_ana_ajan_maliyeti_sinif_ve_basamak_kirilimina_girmez(self):
         durum_kur(self.sd)
         s = olcum(self.sd)
