@@ -161,6 +161,61 @@ def ozet_baslik_eksigi(metin: str) -> str | None:
     return None
 
 
+_SEF_KATMAN1 = ("Amaç neydi?", "Ne yapıldı?", "Amaca tamamen ulaşıldı mı?", "Tamamen yapılanlar", "Açık kalanlar")
+_SEF_HARITA_ZORUNLU = ("Denenenler", "Doğrulanmayanlar", "Kararlar")
+_ALAN_SONU = re.compile(r"^(?:\*\*[^*\n]+[:?]\*\*|#)")
+_TABLO_AYRAC = re.compile(r"^\s*\|[\s|:\-]*\|\s*$")
+
+
+def _alan_govdesi(metin: str, ad: str) -> str | None:
+    """`**<ad>:**` (ya da soru etiketi) altındaki yorum dışı metin: madde işareti, tablo başlığı ve boş tablo satırı atılır.
+    Etiket yoksa None; bir sonraki kalın etikete ya da başlığa kadar okunur."""
+    satirlar = metin.splitlines()
+    for i, s in enumerate(satirlar):
+        m = re.match(r"^\*\*%s:?\*\*[ \t]*(.*)$" % re.escape(ad), s)
+        if not m:
+            continue
+        parca = [m.group(1)]
+        for t in satirlar[i + 1:]:
+            if _ALAN_SONU.match(t):
+                break
+            parca.append(t)
+        temiz = []
+        for j, t in enumerate(parca):
+            if _TABLO_AYRAC.match(t) or (t.strip().startswith("|") and j + 1 < len(parca) and _TABLO_AYRAC.match(parca[j + 1])):
+                continue  # tablo başlığı ve ayracı
+            if t.strip().startswith("|") and not t.replace("|", "").strip():
+                continue  # boş hücreli satır
+            temiz.append(re.sub(r"^\s*[-*]\s*", "", t))
+        return re.sub(r"\s+", " ", " ".join(temiz)).strip()
+    return None
+
+
+def sef_ozeti_eksigi(metin: str, katman1_azami: int = 1000) -> list[str]:
+    """İki katmanlı Şef Özeti (ADR-0085): `**Amaç neydi?**` taşıyan özette `## Harita` bölümü, içinde dolu Denenenler,
+    Doğrulanmayanlar ve Kararlar alanları olmalı; katman 1 (5 Şef Özeti alanı) gövdesi `katman1_azami` karakteri aşmamalı.
+    Eski biçimli özet (`Amaç neydi?` yok) etkilenmez. Eksik nedenlerinin listesini döner; tamamsa boş liste."""
+    govde = re.sub(r"<!--.*?-->", "", metin or "", flags=re.S)
+    if not re.search(r"^\*\*Amaç neydi\?\*\*", govde, re.M):
+        return []
+    eksik: list[str] = []
+    m = re.search(r"^##[ \t]+Harita[ \t]*$(.*?)(?=^##[ \t]|\Z)", govde, re.M | re.S)
+    if not m or not m.group(1).strip():
+        eksik.append("`## Harita` bölümü yok ya da boş: yöntem, katman, sayı ve kanıt oraya yazılır")
+    else:
+        for ad in _SEF_HARITA_ZORUNLU:
+            d = _alan_govdesi(m.group(1), ad)
+            if d is None:
+                eksik.append(f"`## Harita` altında `**{ad}:**` alanı yok")
+            elif not d:
+                eksik.append(f"`## Harita` altında `**{ad}:**` boş (yoksa 'Yok' yaz)")
+    uzunluk = sum(len(_alan_govdesi(govde, ad) or "") for ad in _SEF_KATMAN1)
+    if uzunluk > katman1_azami:
+        eksik.append(f"Şef Özeti (katman 1) gövdesi {uzunluk} karakter, en çok {katman1_azami}: "
+                     "yöntem ve ayrıntıyı `## Harita`ya taşı")
+    return eksik
+
+
 def _dogrulamali(klasor: str) -> bool:
     try:
         import plan_dogrulama as PD
