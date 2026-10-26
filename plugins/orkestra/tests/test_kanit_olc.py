@@ -18,7 +18,7 @@ import kanit_olcum as K  # noqa: E402
 import soru_sinif  # noqa: E402
 
 SORU = "fallback ne demek?"
-IS = "şunu düzelt"
+IS = "raporu güncelle ve testleri çalıştır"
 
 
 def _simdi_z():
