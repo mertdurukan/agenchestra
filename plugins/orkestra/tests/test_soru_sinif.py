@@ -200,6 +200,36 @@ class TestK4Ezme(_Ayarli):
         self.assertEqual(a, self.ayar)
 
 
+class KaynakSozlesmesi(_Ayarli):
+    """ADR-0085 P1: canlı durum ve ürün iddiasına bak ya da 'doğrulanmadı' yaz; her mesajda, ayardan, sınırlı boyda."""
+
+    def test_ayar_metni_ve_sinir(self):
+        m = self.ayar["kaynak_sozlesmesi"]
+        for parca in ("bu turda bak", "doğrulanmadı", "çalıştır", "resmi belge"):
+            self.assertIn(parca, m)
+        self.assertNotIn("\n", m)
+        self.assertLessEqual(len(m), self.ayar["kaynak_max_karakter"])
+
+    def test_her_mesaj_turunde_verilir(self):
+        for metin in ("fallback ne demek?", "şunu düzelt", "devam"):
+            with self.subTest(metin=metin):
+                self.assertEqual(soru_sinif.kaynak_metni(metin, self.sd), self.ayar["kaynak_sozlesmesi"])
+
+    def test_bos_mesajda_yok(self):
+        self.assertEqual(soru_sinif.kaynak_metni("  \n", self.sd), "")
+        self.assertEqual(soru_sinif.kaynak_metni(None, self.sd), "")
+
+    def test_sinir_asilinca_verilmez(self):
+        self.proje_ayari({"kaynak_max_karakter": 10})
+        self.assertEqual(soru_sinif.kaynak_metni("şunu düzelt", self.sd), "")
+
+    def test_proje_ezmesi_ve_kapatma(self):
+        self.proje_ayari({"kaynak_sozlesmesi": "OZEL  KAYNAK"})
+        self.assertEqual(soru_sinif.kaynak_metni("şunu düzelt", self.sd), "OZEL KAYNAK")
+        self.proje_ayari({"kaynak_sozlesmesi": ""})
+        self.assertEqual(soru_sinif.kaynak_metni("şunu düzelt", self.sd), "")
+
+
 class TestK5Hook(unittest.TestCase):
     def setUp(self):
         self.proje = tempfile.mkdtemp(prefix="ork_soruhook_")
@@ -277,6 +307,21 @@ class TestK5Hook(unittest.TestCase):
                 mock.patch.object(soru_sinif, "not_metni", side_effect=ValueError("x")):
             ctx = self.istek("fallback ne demek?")
         self.assertIn("IPUCU-X", ctx)
+
+    def test_kaynak_sozlesmesi_sorudan_sonra_iste_ilk(self):
+        km = soru_sinif.ayar_oku(self.sd)["kaynak_sozlesmesi"]
+        satirlar = self.istek("fallback ne demek?").split("\n")
+        self.assertEqual(satirlar[:2], [self.not_, km])
+        self.assertEqual(self.istek("şunu düzelt").split("\n")[0], km)
+
+    def test_kaynak_sozlesmesi_sistem_iletisinde_yok(self):
+        km = soru_sinif.ayar_oku(self.sd)["kaynak_sozlesmesi"]
+        self.assertNotIn(km, self.istek("<task-notification>ne demek?</task-notification>"))
+
+    def test_kaynak_hatasi_notu_bozmaz(self):
+        with mock.patch.object(soru_sinif, "kaynak_metni", side_effect=RuntimeError("x")):
+            ctx = self.istek("fallback ne demek?")
+        self.assertEqual(ctx.split("\n")[0], self.not_)
 
     def test_not_diger_parcalardan_once(self):
         with mock.patch.object(hook, "_yonlendirme_ipucu", return_value="IPUCU-X"):

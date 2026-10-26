@@ -1287,6 +1287,37 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
+    """P-021 / ADR-0085: bilgi sorusu turunda kanıt aracı çağrılmadan, kaynak türü anılmadan olgu iddiası yazıldıysa
+    her kipte günlüğe `kural_ihlal / kanitsiz_iddia` yazılır. Kullanıcıya deterministik (model çağrısız) `systemMessage`
+    uyarısı yalnız ayarda `uyari_acik` iken (holdout kesinliği eşiği geçince) ya da `block` kipinde gider; `block` kipinde
+    tur başına bir kez block (`stop_hook_active` döngüyü keser). Ayar `ayarlar/kanitsiz_iddia.json`; hatada sessiz geçer."""
+    global _KULLANICI_MESAJI
+    try:
+        import kanitsiz_iddia as KI
+        ayar = KI.ayar_oku(sd)
+        kip = KI.mod(ayar)
+        if kip == "kapali":
+            return
+        bulgu = KI.degerlendir(inp.get("transcript_path"), inp.get("last_assistant_message"), sd)
+        if not bulgu:
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                         "kural": KI.KURAL, "mod": kip, "is": _oturum_isi(sd, oid)})
+        if KI.uyari_acik(ayar):
+            uyari = KI.uyari_metni(bulgu["alinti"], ayar)
+            _KULLANICI_MESAJI = chr(10).join(x for x in (_KULLANICI_MESAJI, uyari) if x)
+        if kip == "block" and not inp.get("stop_hook_active"):
+            blok = {"decision": "block", "reason": ayar.get("hatirlatma", "")}
+            if _KULLANICI_MESAJI:
+                blok["systemMessage"] = _KULLANICI_MESAJI
+            L.hook_cikti(blok)
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
     """P-001 / ADR-0075: turun sohbet metni ölçülür. Her turda günlüğe `cikti_olcum` (rapor ortanca ve p90'ı bundan hesaplar),
     sınır aşımında `kapi_golge / cikti_butce` düşer; gölge modda engellemez. Ayar `ayarlar/cikti_butce.json`; hatada sessiz geçer."""
@@ -1479,6 +1510,7 @@ def stop(inp: dict):
         _baglanti_kapisi(sd, oid, inp, ozet)
         _kimlik_kapisi_yanit(sd, oid, inp)
         _secim_kapisi_yanit(sd, oid, inp)
+        _kanitsiz_iddia_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
@@ -2422,6 +2454,12 @@ def user_prompt_submit(inp: dict):
                 sn = soru_sinif.not_metni(metin, sd)
                 if sn:
                     parcalar.insert(0, " ".join(sn.split()))
+            except Exception:
+                sn = ""
+            try:  # ADR-0085: kaynak türü sözleşmesi her mesajda, bilgi sorusu notunun hemen ardından
+                km = soru_sinif.kaynak_metni(metin, sd)
+                if km:
+                    parcalar.insert(1 if sn else 0, km)
             except Exception:
                 pass
             try:  # ADR-0009: `/plan` ya da `/auto` mesajı bağlı işin modunu yazar; iş yoksa oturum bekleyen modu tutar

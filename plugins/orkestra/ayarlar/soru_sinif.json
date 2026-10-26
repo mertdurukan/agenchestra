@@ -1,5 +1,7 @@
 {
-  "not": "BİLGİ SORUSU: yanıtlamadan önce iddiayı soruyla ilgili dosya/kod/kayıtta hedefli doğrula (P-021), hafızadan yanıtlama; yanıt en çok 5 cümle; iş durumu, tablo, geniş kaynak taraması yok; ayrıntı ancak istenirse.",
+  "not": "BİLGİ SORUSU: iddiayı hedefli doğrula (P-021); yanıt en çok 5 cümle; iş durumu, tablo, geniş kaynak taraması yok; ayrıntı ancak istenirse.",
+  "kaynak_sozlesmesi": "KAYNAK: dosya, ayar, bulut, geçmiş kayıt, başka oturum ya da ürün/araç davranışı iddiasına bu turda bak, kaynağı an (ürün: resmi belge); bakamadıysan 'doğrulanmadı' yaz; 'geçti' demeden çalıştır.",
+  "kaynak_max_karakter": 200,
   "kisa_max_karakter": 120,
   "uzun_max_karakter": 300,
   "soru_kaliplari": [
