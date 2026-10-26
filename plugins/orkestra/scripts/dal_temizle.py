@@ -251,9 +251,11 @@ def kapanis_birlestir(cwd: str, kip: str = "golge", is_id: str = "") -> dict | N
                 s["sonuc"], s["dosyalar"], s["hata"] = sonuc, dosyalar[:50], hata
             else:
                 mesaj = f"Birleştir: {dal}" + (f" ({is_id} kapanışı)" if is_id else "")
+                basladi = True  # ikinci önkoşul ana worktree'de yarım işlem olmadığını doğruladı: bundan sonraki MERGE_HEAD bizimdir
                 r = _git(ana_yol, "merge", "--no-ff", "--no-edit", "-m", mesaj, dal)
                 if r.returncode != 0:
                     _git(ana_yol, "merge", "--abort")
+                    basladi = False
                     s["sonuc"], s["hata"] = "hata", (r.stderr or r.stdout).strip()[:200]
                 elif _git(ana_yol, "merge-base", "--is-ancestor", dal, ANA).returncode == 0:
                     s["sonuc"] = "birlesti"
