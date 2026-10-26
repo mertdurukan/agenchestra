@@ -1287,6 +1287,37 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
+    """P-021 / ADR-0085: bilgi sorusu turunda kanıt aracı çağrılmadan, kaynak türü anılmadan olgu iddiası yazıldıysa
+    her kipte günlüğe `kural_ihlal / kanitsiz_iddia` yazılır. Kullanıcıya deterministik (model çağrısız) `systemMessage`
+    uyarısı yalnız ayarda `uyari_acik` iken (holdout kesinliği eşiği geçince) ya da `block` kipinde gider; `block` kipinde
+    tur başına bir kez block (`stop_hook_active` döngüyü keser). Ayar `ayarlar/kanitsiz_iddia.json`; hatada sessiz geçer."""
+    global _KULLANICI_MESAJI
+    try:
+        import kanitsiz_iddia as KI
+        ayar = KI.ayar_oku(sd)
+        kip = KI.mod(ayar)
+        if kip == "kapali":
+            return
+        bulgu = KI.degerlendir(inp.get("transcript_path"), inp.get("last_assistant_message"), sd)
+        if not bulgu:
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                         "kural": KI.KURAL, "mod": kip, "is": _oturum_isi(sd, oid)})
+        if KI.uyari_acik(ayar):
+            uyari = KI.uyari_metni(bulgu["alinti"], ayar)
+            _KULLANICI_MESAJI = chr(10).join(x for x in (_KULLANICI_MESAJI, uyari) if x)
+        if kip == "block" and not inp.get("stop_hook_active"):
+            blok = {"decision": "block", "reason": ayar.get("hatirlatma", "")}
+            if _KULLANICI_MESAJI:
+                blok["systemMessage"] = _KULLANICI_MESAJI
+            L.hook_cikti(blok)
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
     """P-001 / ADR-0075: turun sohbet metni ölçülür. Her turda günlüğe `cikti_olcum` (rapor ortanca ve p90'ı bundan hesaplar),
     sınır aşımında `kapi_golge / cikti_butce` düşer; gölge modda engellemez. Ayar `ayarlar/cikti_butce.json`; hatada sessiz geçer."""
