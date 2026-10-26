@@ -70,7 +70,7 @@ def cumleler(yanit: str):
 
 def ilk_eslesme(yanit: str, ayar: dict):
     """Tetik kalıbına uyan ilk cümle (alıntı için kısaltılmış), yoksa None. Yanıtın herhangi bir yerinde kaynak türü
-    işareti (muaf kalıp: 'doğrulanmadı', 'genel bilgi', dosya:satır atfı) varsa kapı susar: iddia işaretlenmiş sayılır."""
+    işareti (ayardaki muaf kalıplar) varsa kapı susar: iddia işaretlenmiş sayılır."""
     if _eslesir(ayar.get("muaf_kaliplari"), _normallestir(yanit)):
         return None
     sinir = ayar.get("alinti_max_karakter", 0) or 0
