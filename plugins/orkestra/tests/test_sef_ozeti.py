@@ -37,6 +37,11 @@ class Sablon(unittest.TestCase):
                 "**Tamamen yapılanlar:**", "**Açık kalanlar:**"]
         yerler = [t.index("\n" + s + "\n") for s in sira]
         self.assertEqual(yerler, sorted(yerler))
+        harita = ["## Harita", "**Ölçüm saati:**", "**Denenenler:**", "**Sayılar:**", "**Doğrulanmayanlar:**",
+                  "**Kararlar:**", "**Açık işlerin ayrıntısı:**", "**İlgili dosyalar:**", "## Plana göre gerçekleşen"]
+        yerler = [t.index("\n" + s + "\n") for s in harita]
+        self.assertEqual(yerler, sorted(yerler))
+        self.assertGreater(yerler[0], t.index("\n**Açık kalanlar:**\n"))
         for eski in ("**Amaç:**", "**Ana bulgu:**", "**Açık işler:**"):
             self.assertNotIn(eski, t)
 
