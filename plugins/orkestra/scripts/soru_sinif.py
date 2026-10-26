@@ -80,6 +80,17 @@ def not_metni(metin, sd=None) -> str:
     return ayar.get("not", "") if bilgi_sorusu_mu(metin, ayar) else ""
 
 
+def kaynak_metni(metin, sd=None) -> str:
+    """ADR-0085: boş olmayan her kullanıcı mesajına kaynak türü sözleşmesi (canlı durum ve ürün iddiasına bak ya da
+    'doğrulanmadı' yaz). Metin ve boy sınırı ayardan; sınırı aşan metin bağlamı şişirmesin diye verilmez."""
+    if not _normallestir((metin or "").strip()):
+        return ""
+    ayar = ayar_oku(sd)
+    m = " ".join(str(ayar.get("kaynak_sozlesmesi") or "").split())
+    sinir = ayar.get("kaynak_max_karakter")
+    return m if not sinir or len(m) <= sinir else ""
+
+
 def tur(metin, sd=None) -> str:
     """Hız için model yok: 'soru' (bilgi sorusu), 'devam' (kısa/atıflı mesaj) ya da 'is'. Kararsızsa 'devam'."""
     ayar = ayar_oku(sd)
