@@ -651,16 +651,21 @@
     {
       "id": "P-021",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Kullanıcının sorusuna yanıt vermeden önce yanıt mevcut duruma ve kod tabanına göre doğrulanır. 'Var', 'yok', 'yapılabilir', 'yapılmadı', 'şöyle çalışıyor' türü her iddia yazılmadan önce ilgili dosyaya, kurala, koda ya da canlı kayda bakılır; hafızadan ya da varsayımdan yanıt verilmez. Bakma hedefli ve kısadır (yalnız soruyla ilgili dosya, kod ya da kayıt; geniş tarama yok) ve yanıt P-001 kadar kısa kalır: P-001 yanıt boyunu sınırlar, bakmayı değil. Bakılamadıysa yanıt bunu açıkça söyler ('doğrulanmadı'). Zorlama: bu kural ve bilgi sorusu anındaki hatırlatma (soru_sinif ayarı); bakıldığı yanıt metninden mekanik ölçülemediği için sonradan denetleyen bir kapı yoktur.",
+      "metin": "ZORUNLU, istisnasız: Kullanıcının sorusuna yanıt vermeden önce yanıt mevcut duruma ve kod tabanına göre doğrulanır. 'Var', 'yok', 'yapılabilir', 'yapılmadı', 'şöyle çalışıyor' türü her iddia yazılmadan önce ilgili dosyaya, kurala, koda ya da canlı kayda bakılır; hafızadan ya da varsayımdan yanıt verilmez. Bakma hedefli ve kısadır (yalnız soruyla ilgili dosya, kod ya da kayıt; geniş tarama yok) ve yanıt P-001 kadar kısa kalır: P-001 yanıt boyunu sınırlar, bakmayı değil. Bakılamadıysa yanıt bunu açıkça söyler ('doğrulanmadı'). Her iddia bir kaynak türüyle anılır (dosya:satır, komut çıktısı, bu sohbette okunan, kullanıcı sözü, genel bilgi, tahmin) ya da 'doğrulanmadı' diye işaretlenir; kaynağı olmayan ve işaretsiz iddia yazılmaz. Zorlama: (1) kaynak sözleşmesi her kullanıcı mesajında yanıt üretilmeden önce bağlama konur (soru_sinif.kaynak_sozlesmesi); (2) `orkestra kanit olc` kanıtsız iddia oranını iki etiketleyici ve hakemle ölçer (ana ölçü, Jeffreys üst sınırı); (3) Stop hook'undaki kanıtsız iddia kapısı (scripts/kanitsiz_iddia.py, ayarlar/kanitsiz_iddia.json) bilgi sorusu turunda kanıt aracı çağrılmadan yazılmış iddiayı gunluk.jsonl'a kural_ihlal / kanitsiz_iddia olarak yazar; kullanıcıya deterministik uyarı yalnız holdout kesinliği %60'ı geçince (uyari_acik), bloklama yalnız Wilson alt sınırı %75'i geçince ve yeni ADR ile açılır; ORKESTRA_KANIT_KAPISI=0 kapatır. Kapı sınırlı kesinlikle çalışan bir algılayıcıdır (kalibrasyon: kesinlik %29, holdout 40); asıl önleme sözleşmedir, başarı ölçüsü kapı sayısı değil ana ölçüdür. (ADR-0085)",
       "neden": "Kural katmanında yazılı olan bir şey koda bakılmadan 'yapılabilir' diye önerilip kullanıcı yanlış çerçeveyle onaya götürüldü",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-20T16:06:14+03:00",
-      "guncelleme": "2026-10-20T16:06:14+03:00",
+      "guncelleme": "2026-10-26T10:23:06+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-20T16:06:14+03:00",
           "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcının sorusuna yanıt vermeden önce yanıt mevcut duruma ve kod tabanına göre doğrulanır. 'Var', 'yok', 'yapılabilir', 'yapılmadı', 'şöyle çalışıyor' türü her iddia yazılmadan önce ilgili dosyaya, kurala, koda ya da canlı kayda bakılır; hafızadan ya da varsayımdan yanıt verilmez. Bakma hedefli ve kısadır (yalnız soruyla ilgili dosya, kod ya da kayıt; geniş tarama yok) ve yanıt P-001 kadar kısa kalır: P-001 yanıt boyunu sınırlar, bakmayı değil. Bakılamadıysa yanıt bunu açıkça söyler ('doğrulanmadı'). Zorlama: bu kural ve bilgi sorusu anındaki hatırlatma (soru_sinif ayarı); bakıldığı yanıt metninden mekanik ölçülemediği için sonradan denetleyen bir kapı yoktur."
+        },
+        {
+          "zaman": "2026-10-26T10:23:06+03:00",
+          "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Kullanıcının sorusuna yanıt vermeden önce yanıt mevcut duruma ve kod tabanına göre doğrulanır. 'Var', 'yok', 'yapılabilir', 'yapılmadı', 'şöyle çalışıyor' türü her iddia yazılmadan önce ilgili dosyaya, kurala, koda ya da canlı kayda bakılır; hafızadan ya da varsayımdan yanıt verilmez. Bakma hedefli ve kısadır (yalnız soruyla ilgili dosya, kod ya da kayıt; geniş tarama yok) ve yanıt P-001 kadar kısa kalır: P-001 yanıt boyunu sınırlar, bakmayı değil. Bakılamadıysa yanıt bunu açıkça söyler ('doğrulanmadı'). Zorlama: bu kural ve bilgi sorusu anındaki hatırlatma (soru_sinif ayarı); bakıldığı yanıt metninden mekanik ölçülemediği için sonradan denetleyen bir kapı yoktur."
         }
       ],

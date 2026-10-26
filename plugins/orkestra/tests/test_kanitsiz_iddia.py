@@ -171,9 +171,19 @@ class TestDegerlendir(_Proje):
                 yol = self.transkript([kullanici(), arac(ad, girdi), arac_sonucu(), metin(IDDIALI)])
                 self.assertIsNotNone(KI.degerlendir(yol, IDDIALI, self.sd))
 
-    def test_onceki_turdaki_cagri_sayilmaz(self):
-        self.proje_ayari()
+    def test_onceki_turdaki_cagri_bu_turun_kanitu_sayilmaz(self):
+        self.proje_ayari({"onceki_tur_kanitliysa_sus": False})
         yol = self.transkript([kullanici("bir"), arac("Read"), arac_sonucu(), kullanici(), metin(IDDIALI)])
+        self.assertIsNotNone(KI.degerlendir(yol, IDDIALI, self.sd))
+
+    def test_onceki_tur_kanitliysa_sus_ayari_kapiyi_susturur(self):
+        self.proje_ayari({"onceki_tur_kanitliysa_sus": True})
+        yol = self.transkript([kullanici("bir"), arac("Read"), arac_sonucu(), kullanici(), metin(IDDIALI)])
+        self.assertIsNone(KI.degerlendir(yol, IDDIALI, self.sd))
+
+    def test_onceki_tur_kanitsizsa_sus_ayari_kapiyi_susturmaz(self):
+        self.proje_ayari({"onceki_tur_kanitliysa_sus": True})
+        yol = self.transkript([kullanici("bir"), metin("tamam"), kullanici(), metin(IDDIALI)])
         self.assertIsNotNone(KI.degerlendir(yol, IDDIALI, self.sd))
 
     def test_is_istegi_kapsam_disi(self):
@@ -233,6 +243,31 @@ class TestSonTur(_Proje):
         turlar = list(K.tur_satirlari(["{bozuk", json.dumps(kullanici("a")), json.dumps(metin("b"))]))
         self.assertEqual(len(turlar), 1)
         self.assertEqual(turlar[0]["yanit"], "b")
+
+
+class TestVarsayilanAyar(unittest.TestCase):
+    """Eklentiyle gelen varsayılan ayar (kalibrasyon belgesindeki seçim): sentetik cümlelerle davranış sınanır."""
+
+    def setUp(self):
+        self.ayar = KI.ayar_oku(None)
+
+    def test_varsayilan_golge_ve_uyari_kapali(self):
+        self.assertEqual(KI.mod(self.ayar), "golge")
+        self.assertFalse(KI.uyari_acik(self.ayar))
+
+    def test_komut_ve_arac_adi_iceren_cumle_tetikler(self):
+        for c in ("`settings.json` içinde bu anahtar tanımlı.", "Cursor bu ayarı sunuyor.", "Hook her mesajda çalışır."):
+            with self.subTest(c=c):
+                self.assertIsNotNone(KI.ilk_eslesme(c, self.ayar))
+
+    def test_duz_gorus_cumlesi_tetiklemez(self):
+        self.assertIsNone(KI.ilk_eslesme("İki yaklaşım da olur; ikincisi daha sade.", self.ayar))
+
+    def test_kaynak_turu_anilirsa_susar(self):
+        self.assertIsNone(KI.ilk_eslesme("`settings.json` içinde tanımlı (doğrulanmadı).", self.ayar))
+
+    def test_onceki_tur_kanitliysa_sus_acik(self):
+        self.assertTrue(self.ayar.get("onceki_tur_kanitliysa_sus"))
 
 
 class TestStopKapisi(_Proje):

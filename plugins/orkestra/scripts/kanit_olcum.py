@@ -92,24 +92,27 @@ def turlar(yol):
         yield from tur_satirlari(f)
 
 
-def son_tur(yol, kuyruk_bayt: int = 2_000_000):
-    """Dökümün son kullanıcı turu (yalnız dosya sonundan `kuyruk_bayt` okunur; Stop kancasında tüm dökümü okumamak için).
-    Kuyruk turu tam içermiyorsa (tur kuyruktan uzunsa) yine de kuyruktaki en son turu verir. Okunamazsa None."""
+def son_turlar(yol, n: int = 2, kuyruk_bayt: int = 2_000_000):
+    """Dökümün son `n` kullanıcı turu (eskiden yeniye; yalnız dosya sonundan `kuyruk_bayt` okunur, Stop kancasında tüm
+    dökümü okumamak için). Kuyruk bir turu tam içermiyorsa kuyruktaki turlar verilir. Okunamazsa boş liste."""
     try:
         with open(yol, "rb") as f:
             f.seek(0, os.SEEK_END)
             boy = f.tell()
             f.seek(max(0, boy - kuyruk_bayt))
             ham = f.read().decode("utf-8", errors="replace")
-        satirlar = ham.split("\n")
+        satirlar = ham.split(chr(10))
         if boy > kuyruk_bayt:
             satirlar = satirlar[1:]  # ilk satır kesik olabilir
-        son = None
-        for son in tur_satirlari(satirlar):
-            pass
-        return son
+        return list(deque(tur_satirlari(satirlar), maxlen=max(1, n)))
     except Exception:
-        return None
+        return []
+
+
+def son_tur(yol, kuyruk_bayt: int = 2_000_000):
+    """Dökümün son kullanıcı turu; okunamazsa None."""
+    turlar_ = son_turlar(yol, 1, kuyruk_bayt)
+    return turlar_[-1] if turlar_ else None
 
 
 def kanit_cagrisi(cagri, r: dict) -> bool:

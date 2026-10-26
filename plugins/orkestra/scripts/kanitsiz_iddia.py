@@ -89,10 +89,14 @@ def degerlendir(transcript_path, yanit=None, sd=None):
         ayar = ayar_oku(sd)
         if mod(ayar) == "kapali":
             return None
-        tur = K.son_tur(transcript_path, ayar.get("kuyruk_bayt", 2_000_000))
+        turlar = K.son_turlar(transcript_path, 2, ayar.get("kuyruk_bayt", 2_000_000))
+        tur = turlar[-1] if turlar else None
         if not tur or soru_sinif.tur(tur["istem"], sd) != "soru":
             return None
-        if K.kanitli_mi(tur, K.rubrik_oku(sd)):
+        r = K.rubrik_oku(sd)
+        if K.kanitli_mi(tur, r):
+            return None
+        if ayar.get("onceki_tur_kanitliysa_sus") and len(turlar) > 1 and K.kanitli_mi(turlar[-2], r):
             return None
         alinti = ilk_eslesme(yanit if yanit else tur["yanit"], ayar)
         return {"alinti": alinti} if alinti else None

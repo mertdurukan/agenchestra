@@ -3,7 +3,10 @@
   "mod": "golge",
   "uyari_acik": false,
   "kuyruk_bayt": 2000000,
-  "tetik_kaliplari": [],
+  "tetik_kaliplari": [
+    "`",
+    "\\b(claude code|cursor|conductor|marketplace|hook|skill|eklenti|plugin|orkestra|langfuse|cosmos|azure)\\b"
+  ],
   "muaf_kaliplari": [
     "doğrulanmad[ıi]",
     "genel bilgi",
@@ -13,5 +16,6 @@
   ],
   "alinti_max_karakter": 120,
   "uyari_sablonu": "Orkestra: bu yanıtta bu turda kaynağa bakılmadan yazılmış olgu iddiası olabilir: «{alinti}» — doğrulanmadı.",
-  "hatirlatma": "Orkestra (P-021): bu bilgi sorusunda kaynağa bakmadan olgu iddiası yazdın. Dosya, ayar ya da kayda bu turda bak ve kaynağı an; bakamıyorsan iddianın yanına 'doğrulanmadı' yaz."
+  "hatirlatma": "Orkestra (P-021): bu bilgi sorusunda kaynağa bakmadan olgu iddiası yazdın. Dosya, ayar ya da kayda bu turda bak ve kaynağı an; bakamıyorsan iddianın yanına 'doğrulanmadı' yaz.",
+  "onceki_tur_kanitliysa_sus": true
 }
