@@ -369,8 +369,8 @@ def _ozet_eksigi(klasor):
         m = re.search(r"\*\*(?:Ne yapıldı\?|Ana bulgu:)\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+[:?]\*\*|^#|\Z)", yorumsuz, re.S | re.M)
         govde = re.sub(r"^\s*[-*]\s*$", "", m.group(1), flags=re.M) if m else ""
         if govde.strip():
-            return (_ozet_baslik_kapisi(klasor, metin) or _ozet_kalite_eksigi(klasor, metin)
-                    or _paralellik_kapanis_eksigi(klasor, metin))
+            return (_ozet_baslik_kapisi(klasor, metin) or _sef_ozeti_kapisi(klasor, metin)
+                    or _ozet_kalite_eksigi(klasor, metin) or _paralellik_kapanis_eksigi(klasor, metin))
     return "calisma_ozeti dosyasında 'Ne yapıldı?' (eski biçimde 'Ana bulgu') boş (şablon doldurulmamış)"
 
 
