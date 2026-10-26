@@ -2423,6 +2423,12 @@ def user_prompt_submit(inp: dict):
                 if sn:
                     parcalar.insert(0, " ".join(sn.split()))
             except Exception:
+                sn = ""
+            try:  # ADR-0085: kaynak türü sözleşmesi her mesajda, bilgi sorusu notunun hemen ardından
+                km = soru_sinif.kaynak_metni(metin, sd)
+                if km:
+                    parcalar.insert(1 if sn else 0, km)
+            except Exception:
                 pass
             try:  # ADR-0009: `/plan` ya da `/auto` mesajı bağlı işin modunu yazar; iş yoksa oturum bekleyen modu tutar
                 import is_onay
