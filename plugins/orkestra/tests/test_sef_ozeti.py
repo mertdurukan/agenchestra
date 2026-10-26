@@ -14,6 +14,8 @@ KOK = os.path.join(AD, "..")
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 
 import is_anlati as IA  # noqa: E402
+import is_kaydi as IK  # noqa: E402
+import test_cekirdek as TC  # noqa: E402
 
 SABLON = os.path.join(KOK, "sablonlar", "calisma_ozeti.md")
 YENI = ("# T: çalışma özeti\n\n## Özet\n\n***Şef Özeti***\n\n**Amaç neydi?**\n\nÖzet biçimini düzeltmek.\n\n"
