@@ -214,7 +214,7 @@ def _onkosul(cwd: str, ana_yol: str, dal: str) -> tuple[str, list[str], str]:
     ana_kirli = _kirli(ana_yol)
     if ana_kirli is None:
         return "ana-durum-hata", [], "ana worktree durumu okunamadı"
-    ortusen = sorted(set(ana_kirli) & set(_dal_dosyalari(ana_yol, dal)))
+    ortusen = _ortusme(ana_kirli, _dal_dosyalari(ana_yol, dal))
     if ortusen:
         return "ortusme", ortusen, ""
     return "", [], ""
