@@ -474,6 +474,30 @@ def _ozet_baslik_kapisi(klasor, metin):
     return kalan[0] if kalan else None
 
 
+def _sef_ozeti_ayar(klasor):
+    """`ayarlar/sef_ozeti.json`, proje ezmesi (durum klasöründeki aynı ad) önceliklidir. Bozuk dosya atlanır."""
+    kok = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ayar = {"katman1_azami": 1000}
+    sd = L.durum_dizini(klasor)
+    for yol in [os.path.join(kok, "ayarlar", "sef_ozeti.json")] + ([os.path.join(sd, "sef_ozeti.json")] if sd else []):
+        ayar.update({k: v for k, v in _json_oku(yol).items() if k == "katman1_azami"})
+    return ayar
+
+
+def _sef_ozeti_kapisi(klasor, metin):
+    """ADR-0085: iki katmanlı Şef Özeti (`## Harita` ve zorunlu alanları, katman 1 uzunluğu); kapı `sef_ozeti`
+    (gölge: uyarır ve kaydeder, ihlal: reddeder). Eski biçimli özet etkilenmez."""
+    if os.environ.get("ORKESTRA_SEF_OZETI_KAPISI") == "0":
+        return None
+    import kapi_mod as KM
+    try:
+        azami = int(_sef_ozeti_ayar(klasor).get("katman1_azami"))
+    except (TypeError, ValueError):
+        azami = 1000
+    kalan = KM.ihlal_ver(klasor, "sef_ozeti", _ik().sef_ozeti_eksigi(metin, azami))
+    return "calisma_ozeti: " + "; ".join(kalan) + " (ADR-0085)" if kalan else None
+
+
 def _ozet_kalite_eksigi(klasor, metin):
     """P-018 (kalite bayraklı iş): özet `## Özet` taşır; `## Plana göre gerçekleşen` plandaki her P'yi ve mevcut durum
     §6'daki her G'yi anar. Tamamsa ya da iş bayraksızsa None."""
