@@ -1510,6 +1510,7 @@ def stop(inp: dict):
         _baglanti_kapisi(sd, oid, inp, ozet)
         _kimlik_kapisi_yanit(sd, oid, inp)
         _secim_kapisi_yanit(sd, oid, inp)
+        _kanitsiz_iddia_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
