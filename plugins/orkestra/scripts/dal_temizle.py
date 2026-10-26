@@ -263,6 +263,12 @@ def kapanis_birlestir(cwd: str, kip: str = "golge", is_id: str = "") -> dict | N
                     s["sonuc"], s["hata"] = "hata", "birleştirme sonrası dal main'in atası değil"
     except Exception as e:  # kapanışı asla düşürme
         s["sonuc"], s["hata"] = s["sonuc"] or "hata", str(e)[:200]
+        if basladi:  # zaman aşımı/hook istisnası: yarım kalan kendi birleştirmemizi geri al
+            try:
+                if _yarim_islem(ana_yol) == "MERGE_HEAD":
+                    _git(ana_yol, "merge", "--abort")
+            except Exception:
+                pass
     try:
         ana_yol, _ = _worktree_dallari(cwd)
         sd = L.durum_dizini(cwd) or (L.durum_dizini(ana_yol) if ana_yol else None)
