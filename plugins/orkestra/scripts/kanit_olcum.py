@@ -57,34 +57,59 @@ def _gercek_istem(m):
     return t
 
 
-def turlar(yol):
-    """Dökümü kullanıcı turlarına böler: {istem, zaman, cagrilar[(ad, girdi)], yanit(son metin)}. Yan zincirler atlanır."""
+def tur_satirlari(satirlar):
+    """Döküm satırlarını (JSONL metni) kullanıcı turlarına böler: {istem, zaman, cagrilar[(ad, girdi)], yanit(son metin)}.
+    Yan zincirler atlanır."""
     tur = None
-    with open(yol, encoding="utf-8", errors="replace") as f:
-        for satir in f:
-            try:
-                e = json.loads(satir)
-            except Exception:
-                continue
-            if e.get("isSidechain"):
-                continue
-            m = e.get("message") or {}
-            if e.get("type") == "user":
-                t = _gercek_istem(m)
-                if t is not None:
-                    if tur:
-                        yield tur
-                    tur = {"istem": t, "zaman": e.get("timestamp", ""), "cagrilar": [], "yanit": ""}
-            elif e.get("type") == "assistant" and tur is not None:
-                for b in m.get("content") or []:
-                    if not isinstance(b, dict):
-                        continue
-                    if b.get("type") == "tool_use":
-                        tur["cagrilar"].append((b.get("name", ""), b.get("input") or {}))
-                    elif b.get("type") == "text" and b.get("text", "").strip():
-                        tur["yanit"] = b["text"]
+    for satir in satirlar:
+        try:
+            e = json.loads(satir)
+        except Exception:
+            continue
+        if e.get("isSidechain"):
+            continue
+        m = e.get("message") or {}
+        if e.get("type") == "user":
+            t = _gercek_istem(m)
+            if t is not None:
+                if tur:
+                    yield tur
+                tur = {"istem": t, "zaman": e.get("timestamp", ""), "cagrilar": [], "yanit": ""}
+        elif e.get("type") == "assistant" and tur is not None:
+            for b in m.get("content") or []:
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "tool_use":
+                    tur["cagrilar"].append((b.get("name", ""), b.get("input") or {}))
+                elif b.get("type") == "text" and b.get("text", "").strip():
+                    tur["yanit"] = b["text"]
     if tur:
         yield tur
+
+
+def turlar(yol):
+    with open(yol, encoding="utf-8", errors="replace") as f:
+        yield from tur_satirlari(f)
+
+
+def son_tur(yol, kuyruk_bayt: int = 2_000_000):
+    """Dökümün son kullanıcı turu (yalnız dosya sonundan `kuyruk_bayt` okunur; Stop kancasında tüm dökümü okumamak için).
+    Kuyruk turu tam içermiyorsa (tur kuyruktan uzunsa) yine de kuyruktaki en son turu verir. Okunamazsa None."""
+    try:
+        with open(yol, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            boy = f.tell()
+            f.seek(max(0, boy - kuyruk_bayt))
+            ham = f.read().decode("utf-8", errors="replace")
+        satirlar = ham.split("\n")
+        if boy > kuyruk_bayt:
+            satirlar = satirlar[1:]  # ilk satır kesik olabilir
+        son = None
+        for son in tur_satirlari(satirlar):
+            pass
+        return son
+    except Exception:
+        return None
 
 
 def kanit_cagrisi(cagri, r: dict) -> bool:
