@@ -308,6 +308,21 @@ class TestK5Hook(unittest.TestCase):
             ctx = self.istek("fallback ne demek?")
         self.assertIn("IPUCU-X", ctx)
 
+    def test_kaynak_sozlesmesi_sorudan_sonra_iste_ilk(self):
+        km = soru_sinif.ayar_oku(self.sd)["kaynak_sozlesmesi"]
+        satirlar = self.istek("fallback ne demek?").split("\n")
+        self.assertEqual(satirlar[:2], [self.not_, km])
+        self.assertEqual(self.istek("şunu düzelt").split("\n")[0], km)
+
+    def test_kaynak_sozlesmesi_sistem_iletisinde_yok(self):
+        km = soru_sinif.ayar_oku(self.sd)["kaynak_sozlesmesi"]
+        self.assertNotIn(km, self.istek("<task-notification>ne demek?</task-notification>"))
+
+    def test_kaynak_hatasi_notu_bozmaz(self):
+        with mock.patch.object(soru_sinif, "kaynak_metni", side_effect=RuntimeError("x")):
+            ctx = self.istek("fallback ne demek?")
+        self.assertEqual(ctx.split("\n")[0], self.not_)
+
     def test_not_diger_parcalardan_once(self):
         with mock.patch.object(hook, "_yonlendirme_ipucu", return_value="IPUCU-X"):
             ctx = self.istek("fallback ne demek?")
