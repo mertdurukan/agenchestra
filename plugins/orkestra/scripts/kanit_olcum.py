@@ -14,7 +14,7 @@ import os
 import random
 import re
 import time
-from collections import Counter
+from collections import Counter, deque
 
 _KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VARSAYILAN_YOL = os.path.join(_KOK, "ayarlar", "kanit_rubrik.json")
