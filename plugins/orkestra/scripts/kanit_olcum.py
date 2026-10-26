@@ -136,6 +136,25 @@ def tur_ozeti(tur: dict, r: dict, sinif: str) -> dict:
             "iddia": iddia_var(tur["yanit"], r), "atif": bool(re.search(r.get("atif_kalibi") or r"(?!x)x", tur["yanit"]))}
 
 
+def _hedef(girdi: dict) -> str:
+    for k in ("file_path", "path", "command", "pattern", "url", "query", "skill", "description"):
+        v = girdi.get(k)
+        if v:
+            return " ".join(str(v).split())[:70]
+    return ""
+
+
+def baglam_metni(gecmis, r: dict) -> str:
+    """Etiketleyiciye 'bağlama dayanır' (B) kararı için kanıt: son turlarda kullanıcının yazdığı kısa istem ve yapılan
+    kanıt sayılan çağrılar (araç + hedef). Metin dökümden mekanik çıkarılır; etiketleyici döküm aramak zorunda kalmaz."""
+    n = r.get("baglam_tur", 6)
+    satirlar = []
+    for t in list(gecmis)[-n:]:
+        cag = [f"{a} {_hedef(g)}".strip() for a, g in t["cagrilar"] if kanit_cagrisi((a, g), r)][:10]
+        satirlar.append(f"K: {' '.join(t['istem'].split())[:140]}" + (f" | Ç: {'; '.join(cag)}" if cag else ""))
+    return "\n".join(satirlar)[: r.get("baglam_max_karakter", 1400)]
+
+
 def olc(dosyalar, sinif_fn, r: dict, sinir_zaman: str, donem_sinir: str | None = None):
     """Dökümleri tarar. Dönüş: (sayac, ic_havuz, dis_havuz, kapanis_havuzu).
     ic_havuz = çerçeve içi soru turları, dis_havuz = çerçeve dışı soru turları; her kayıt etiketleme için istem+yanıt taşır.
