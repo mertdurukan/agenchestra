@@ -118,6 +118,9 @@ class SefEksigi(unittest.TestCase):
         self.assertTrue(any("katman 1" in x for x in IK.sef_ozeti_eksigi(sisik)))
 
 
+IHLAL_SEF = lambda kapi, klasor=None: "ihlal" if kapi == "sef_ozeti" else "golge"  # noqa: E731
+
+
 class SefKapi(unittest.TestCase):
     """isler._ozet_eksigi içindeki sef_ozeti kapısı: gölge uyarır ve kaydeder, ihlal reddeder."""
     setUp = TC.Cekirdek.setUp
@@ -141,18 +144,18 @@ class SefKapi(unittest.TestCase):
         import kapi_mod as KM
         isler = importlib.import_module("komutlar.isler")
         k = self.klasor(YENI)
-        with mock.patch.object(KM, "mod", return_value="ihlal"):
+        with mock.patch.object(KM, "mod", side_effect=IHLAL_SEF):
             self.assertIn("## Harita", isler._ozet_eksigi(k) or "")
         os.rename(os.path.join(self.proje, "Claude_Orkestrasyon"), os.path.join(self.proje, "eski"))
         k2 = self.klasor(IKI)
-        with mock.patch.object(KM, "mod", return_value="ihlal"):
+        with mock.patch.object(KM, "mod", side_effect=IHLAL_SEF):
             self.assertIsNone(isler._ozet_eksigi(k2))
 
     def test_kapi_kapatilabilir(self):
         import kapi_mod as KM
         isler = importlib.import_module("komutlar.isler")
         k = self.klasor(YENI)
-        with mock.patch.object(KM, "mod", return_value="ihlal"), \
+        with mock.patch.object(KM, "mod", side_effect=IHLAL_SEF), \
                 mock.patch.dict(os.environ, {"ORKESTRA_SEF_OZETI_KAPISI": "0"}):
             self.assertIsNone(isler._ozet_eksigi(k))
 
