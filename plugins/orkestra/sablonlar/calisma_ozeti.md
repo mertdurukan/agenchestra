@@ -44,7 +44,7 @@
 
 **Denenenler:**
 
-<!-- doldur: neyi hangi yöntemle denedik; satır başına bir yöntem ya da yöntem ailesi. Sütunlar: katman ya da bileşen, yöntem, sonuç (işe yaradı | kısmen | yaramadı), kanıt (dosya:satır, komut ya da sayı). Boş satırı doldur, gerekirse satır ekle. -->
+<!-- doldur: neyi hangi yöntemle denedik; satır başına bir yöntem ya da yöntem ailesi. Sütunlar: katman ya da bileşen, yöntem, sonuç (işe yaradı | kısmen | yaramadı | ölçülmedi), kanıt (dosya:satır, komut ya da sayı). Boş satırı doldur, gerekirse satır ekle. -->
 
 | Katman ya da bileşen | Yöntem | Sonuç | Kanıt |
 | --- | --- | --- | --- |
