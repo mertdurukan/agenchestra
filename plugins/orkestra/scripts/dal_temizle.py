@@ -363,6 +363,8 @@ def agaclar_temizle(cwd: str, oturum_dali: str = "", kip: str = "golge", simdi: 
                 neden = "kirli"
             elif any(k == _yol(yol) or k.startswith(_yol(yol) + os.sep) for k in acik):
                 neden = "acik-is"
+            elif ana_yol and L.oturum_devralinmamis(ana_yol, yol) > 0:
+                neden = "devralinmamis"  # git dışı durum kopyası ana klasöre devredilmeden worktree silinirse kaybolur
             else:
                 ct = _git(cwd, "log", "-1", "--format=%ct", dal).stdout.strip()
                 if simdi - _son_etkinlik(yol, float(ct) if ct.isdigit() else 0.0) < esik:
