@@ -191,8 +191,15 @@ def wilson(a: int, n: int, z: float = 1.96):
     return max(0.0, m - h), min(1.0, m + h)
 
 
-def dosya_listesi(gun: int, kok: str | None = None, simdi: float | None = None):
-    """Son `gun` günde değişen sohbet dökümleri; kök yoksa ~/.claude/projects/<kodlu proje>/*.jsonl, desen proje önekine göre."""
+def dosya_listesi(gun: int, desen: str, simdi: float | None = None):
+    """Son `gun` günde değişen sohbet dökümleri (`desen`: jsonl dosyalarına glob; ~ açılır). Dönüş (sınır_epoch, dosyalar)."""
     simdi = simdi if simdi is not None else time.time()
     sinir = simdi - gun * 86400
-    return sinir, [p for p in glob.glob(os.path.join(kok, "*.jsonl")) if os.path.getmtime(p) >= sinir]
+    return sinir, sorted(p for p in glob.glob(os.path.expanduser(desen)) if os.path.getmtime(p) >= sinir)
+
+
+def ana_olcu(ic_a: int, ic_n: int, dis_a: int, dis_n: int, soru_n: int, ic_toplam: int, **kw):
+    """Ana ölçü: tüm bilgi sorusu turlarındaki A oranı (nokta, Jeffreys %95 üst). w = çerçeve içi tur / tüm soru turu."""
+    if soru_n <= 0:
+        raise ValueError("soru turu yok")
+    return jeffreys_ust(ic_a, ic_n, ic_toplam / soru_n, dis_a, dis_n, **kw)
