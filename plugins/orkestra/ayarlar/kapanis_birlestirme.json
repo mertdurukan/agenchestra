@@ -1,0 +1,10 @@
+{
+  "mod": "golge",
+  "atil_saat": 24,
+  "gecis_olcutu": {
+    "kapanis_sayisi": 30,
+    "yanlis_pozitif": 0,
+    "aciklama": "Gölgede 30 kapanışta 0 yanlış-pozitif (tek yanlı %95 üst sınır 3/30 = %10). Yanlış-pozitif: kuru koşu 'birlestirirdi' dedi, sonra aynı dal elle birleştirilirken çakışma çıktı ya da elle düzeltme gerekti; `orkestra is yanlis-pozitif <iş> --not ...` ile bildirilir ve `orkestra gunluk ozet` sayar."
+  },
+  "aciklama": "Kapanışta güvenli birleştirme ve biten worktree temizliği (I-225, ADR-0086). mod: golge = oturum dalı için kuru koşu (git merge-tree) ve sonuç gunluk.jsonl'a kapanis_birlestirme olarak yazılır, birleştirme yapılmaz; biten worktree'ler için 'kaldırırdı' kaydı worktree_temizle olarak yazılır, kaldırılmaz. ihlal = önkoşullar sağlanınca main'e --no-ff birleştirir; birleşmiş, temiz, kilitsiz, açık işi olmayan ve atil_saat saattir değişmeyen worktree'leri git bundle yedeğinden sonra kaldırır. Önkoşul: ana worktree main'de, çakışma yok, main'deki commit'siz dosyalarla örtüşme yok, oturum dalı temiz. atil_saat birincil sinyal değil, ikincil emniyettir (birincil: kilit ve açık iş kaydı). Kapatma: ORKESTRA_KAPANIS_BIRLESTIRME=0. Proje ezmesi: .claude/orkestra/kapanis_birlestirme.json. Geçiş P-028 gereği ölçümden sonra ayrı kararla ve ADR ile yapılır."
+}

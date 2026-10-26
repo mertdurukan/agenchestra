@@ -28,6 +28,10 @@ def cmd_gunluk_ozet(a):
     skill = collections.Counter(r.get("skill") for r in kayitlar if r.get("tur") == "skill")
     ajan = collections.Counter(r.get("ajan") for r in kayitlar if r.get("tur") == "ajan")
     print(f"Son {a.gun} gün: {len(kayitlar)} olay — " + ", ".join(f"{k}: {v}" for k, v in tur.items()))
+    kb = collections.Counter(r.get("sonuc") for r in kayitlar if r.get("tur") == "kapanis_birlestirme")
+    if kb:
+        print("Kapanış birleştirme: " + ", ".join(f"{k} ×{v}" for k, v in kb.most_common())
+              + f"; yanlış-pozitif bildirimi: {tur.get('kapanis_yanlis_pozitif', 0)}")
     print("Skill kullanımı: " + (", ".join(f"{k} ×{v}" for k, v in skill.most_common()) or "-"))
     print("Ajan kullanımı: " + (", ".join(f"{k} ×{v}" for k, v in ajan.most_common()) or "-"))
     print("\nİstekler (maskeli, en yeni 40):")

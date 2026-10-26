@@ -2,6 +2,8 @@
 
 <!-- başlık: Jira kodu varsa "KOD Jira başlığı" (Jira'dan çekilen başlık); Jira'dan çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık. Yalnız kod ("PE-635") ya da genel ifade yazma; yukarıdaki {baslik} yerini bu başlıkla değiştir. -->
 
+<!-- iki katman (ADR-0085): `## Özet` yalnız kısa Şef Özeti'dir (gövde ≤ 1000 karakter); yöntem listesi, katman ayrıntısı, sayı tablosu ve kanıt ona girmez, hemen altındaki `## Harita`ya yazılır. -->
+
 ## Özet
 
 ***Şef Özeti***
@@ -12,7 +14,7 @@
 
 **Ne yapıldı?**
 
-<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar. Somut ad ve sayı ver (dosya, komut çıktısı, ölçüm saati); süreç anlatma. -->
+<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar, en çok ~150 karakter. Somut ad ve sayı ver; yöntem ve katman ayrıntısı `## Harita`ya. -->
 
 - 
 
@@ -28,21 +30,47 @@
 
 **Açık kalanlar:**
 
-<!-- doldur: yapılmayan ya da doğrulanamayan her iş tek satır ve nedeniyle; kullanıcıdan karar ya da onay gerekiyorsa tek cümleyle burada; yoksa "Yok". -->
+<!-- doldur: yapılmayan ya da doğrulanamayan her iş tek satır ve nedeniyle; kullanıcıdan karar ya da onay gerekiyorsa tek cümleyle burada; ayrıntı `## Harita`daki "Açık işlerin ayrıntısı"nda; yoksa "Yok". -->
 
 - 
+
+## Harita
+
+<!-- harita (ADR-0085): kapsamlı katman. Denenenler, Doğrulanmayanlar ve Kararlar zorunludur (kapı bunları sınar); diğer alanlar işe göre. -->
 
 **Ölçüm saati:**
 
 {tarih} {saat} (yerel). Her sayının yanına komutu ve ölçüm saatini yaz.
 
-**Kapsam kararı:**
+**Denenenler:**
 
-**Durum (komutla ölçülen):**
+<!-- doldur: neyi hangi yöntemle denedik; satır başına bir yöntem ya da yöntem ailesi. Sütunlar: katman ya da bileşen, yöntem, sonuç (işe yaradı | kısmen | yaramadı | ölçülmedi), kanıt (dosya:satır, komut ya da sayı). Boş satırı doldur, gerekirse satır ekle. -->
+
+| Katman ya da bileşen | Yöntem | Sonuç | Kanıt |
+| --- | --- | --- | --- |
+| | | | |
+
+**Sayılar:**
+
+<!-- doldur: komutla ölçülen her sayı ayrı satır: komut → sayı (ölçüm saati). Sayı belgenin başka yerinde de geçiyorsa aynı olur (K-002). -->
 
 - 
 
 **Doğrulanmayanlar:**
+
+<!-- doldur: denenmeyen ya da ölçülemeyen her şey ayrı satır ve nedeniyle (erişim, süre, kapsam dışı); yoksa "Yok". -->
+
+- 
+
+**Kararlar:**
+
+<!-- doldur: alınan karar ve bilerek kapsam dışı bırakılan her şey ayrı satır; neden ve ADR ya da kimlik ile; yoksa "Yok". -->
+
+- 
+
+**Açık işlerin ayrıntısı:**
+
+<!-- doldur: `Açık kalanlar`daki her iş için neden bekliyor, kimde ve sonraki adım; yoksa "Yok". -->
 
 - 
 

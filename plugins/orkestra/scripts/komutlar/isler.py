@@ -369,8 +369,8 @@ def _ozet_eksigi(klasor):
         m = re.search(r"\*\*(?:Ne yapıldı\?|Ana bulgu:)\*\*[ \t]*\n(.*?)(?=^\*\*[^\n]+[:?]\*\*|^#|\Z)", yorumsuz, re.S | re.M)
         govde = re.sub(r"^\s*[-*]\s*$", "", m.group(1), flags=re.M) if m else ""
         if govde.strip():
-            return (_ozet_baslik_kapisi(klasor, metin) or _ozet_kalite_eksigi(klasor, metin)
-                    or _paralellik_kapanis_eksigi(klasor, metin))
+            return (_ozet_baslik_kapisi(klasor, metin) or _sef_ozeti_kapisi(klasor, metin)
+                    or _ozet_kalite_eksigi(klasor, metin) or _paralellik_kapanis_eksigi(klasor, metin))
     return "calisma_ozeti dosyasında 'Ne yapıldı?' (eski biçimde 'Ana bulgu') boş (şablon doldurulmamış)"
 
 
@@ -472,6 +472,30 @@ def _ozet_baslik_kapisi(klasor, metin):
     e = _ik().ozet_baslik_eksigi(metin)
     kalan = KM.ihlal_ver(klasor, "ozet_baslik", [e]) if e else []
     return kalan[0] if kalan else None
+
+
+def _sef_ozeti_ayar(klasor):
+    """`ayarlar/sef_ozeti.json`, proje ezmesi (durum klasöründeki aynı ad) önceliklidir. Bozuk dosya atlanır."""
+    kok = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ayar = {"katman1_azami": 1000}
+    sd = L.durum_dizini(klasor)
+    for yol in [os.path.join(kok, "ayarlar", "sef_ozeti.json")] + ([os.path.join(sd, "sef_ozeti.json")] if sd else []):
+        ayar.update({k: v for k, v in _json_oku(yol).items() if k == "katman1_azami"})
+    return ayar
+
+
+def _sef_ozeti_kapisi(klasor, metin):
+    """ADR-0085: iki katmanlı Şef Özeti (`## Harita` ve zorunlu alanları, katman 1 uzunluğu); kapı `sef_ozeti`
+    (gölge: uyarır ve kaydeder, ihlal: reddeder). Eski biçimli özet etkilenmez."""
+    if os.environ.get("ORKESTRA_SEF_OZETI_KAPISI") == "0":
+        return None
+    import kapi_mod as KM
+    try:
+        azami = int(_sef_ozeti_ayar(klasor).get("katman1_azami"))
+    except (TypeError, ValueError):
+        azami = 1000
+    kalan = KM.ihlal_ver(klasor, "sef_ozeti", _ik().sef_ozeti_eksigi(metin, azami))
+    return "calisma_ozeti: " + "; ".join(kalan) + " (ADR-0085)" if kalan else None
 
 
 def _ozet_kalite_eksigi(klasor, metin):
@@ -604,13 +628,27 @@ def kapat_uygula(sd, is_id):
     _harita_yenile(sd)
     _ik().is_durum(sd, is_id, "kapandi")
     _teknik_detay_yaz(sd, is_id)
-    try:  # I-201, ADR-0050: artık dal temizliği (gölge kipte yalnız günlüğe yazar); kapanışı asla bozmaz
+    try:  # I-201, ADR-0050; I-225, ADR-0086: kapanışta birleştirme ve dal/worktree temizliği (kipler ayarda); kapanışı asla bozmaz
         import dal_temizle
-        uyari = dal_temizle.kapanis(os.getcwd())
+        uyari = dal_temizle.kapanis(os.getcwd(), is_id)
         if uyari:
             print(f"orkestra: {uyari}", file=sys.stderr)
     except Exception:
         pass
+
+
+def cmd_is_yanlis_pozitif(a):
+    """Gölge kapanış birleştirme kaydı 'birlestirirdi' dedi ama dal elle birleştirilirken çakışma/düzeltme çıktı: bildirimi
+    gunluk.jsonl'a `kapanis_yanlis_pozitif` olarak yazar (ADR-0086 geçiş ölçütü; `orkestra gunluk ozet` sayar)."""
+    sd = sd_gerekli()
+    _is_gerekli(sd, a.is_id)
+    yol = os.path.join(sd, "gunluk.jsonl")
+    son = [r for r in L.jsonl_oku(yol) if r.get("tur") == "kapanis_birlestirme" and r.get("is") == a.is_id]
+    if not son:
+        hata(f"{a.is_id} için kapanis_birlestirme kaydı yok; yanlış-pozitif bağlanacak kayıt bulunamadı")
+    L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapanis_yanlis_pozitif", "is": a.is_id, "dal": son[-1].get("dal", ""),
+                       "uc": son[-1].get("uc", ""), "kayit_sonuc": son[-1].get("sonuc", ""), "not": (a.not_ or "")[:300]})
+    print(f"{a.is_id}: yanlış-pozitif kaydedildi (kapanış kaydı: {son[-1].get('sonuc', '-')}, dal {son[-1].get('dal', '-')})")
 
 
 def cmd_is_teslim(a):
@@ -1264,6 +1302,10 @@ def kaydet(alt):
     ite.add_argument("--pr", metavar="BAĞLANTI")
     ite.add_argument("--inceleme", metavar="NOT")
     ite.set_defaults(f=cmd_is_teslim)
+    iyp = is_.add_parser("yanlis-pozitif", help="gölge kapanış birleştirme kaydı yanlış çıktıysa bildirir (ADR-0086 ihlale geçiş ölçütü)")
+    iyp.add_argument("is_id")
+    iyp.add_argument("--not", dest="not_", required=True, metavar="NE_OLDU", help="elle birleştirirken ne çıktı (çakışma, düzeltme gereği...)")
+    iyp.set_defaults(f=cmd_is_yanlis_pozitif)
     it_ = is_.add_parser("todo")
     it_.add_argument("is_id")
     it_.add_argument("--ekle", action="append", metavar="METİN", help="todo.md sonuna açık madde ekler (tekrarlanabilir; --bitti'den sonra uygulanır)")
