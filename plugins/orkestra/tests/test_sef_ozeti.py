@@ -21,6 +21,11 @@ SABLON = os.path.join(KOK, "sablonlar", "calisma_ozeti.md")
 YENI = ("# T: çalışma özeti\n\n## Özet\n\n***Şef Özeti***\n\n**Amaç neydi?**\n\nÖzet biçimini düzeltmek.\n\n"
         "**Ne yapıldı?**\n\n- Şablonu yeniledim.\n\n**Amaca tamamen ulaşıldı mı?**\n\nEvet.\n\n"
         "**Tamamen yapılanlar:**\n\n- Şablon.\n\n**Açık kalanlar:**\n\n- Yok\n\n**Ölçüm saati:**\n\nx\n")
+HARITA = ("\n## Harita\n\n**Ölçüm saati:**\n\n26.10 10:00\n\n**Denenenler:**\n\n"
+          "| Katman ya da bileşen | Yöntem | Sonuç | Kanıt |\n| --- | --- | --- | --- |\n"
+          "| Şablon | İki bölüm | işe yaradı | test_sef_ozeti.py |\n\n**Sayılar:**\n\n- 5 alan\n\n"
+          "**Doğrulanmayanlar:**\n\n- Yok\n\n**Kararlar:**\n\n- Kapı gölgede açıldı (ADR-0085)\n")
+IKI = YENI.replace("**Ölçüm saati:**\n\nx\n", "") + HARITA
 ESKI = "# T: çalışma özeti\n\n**Amaç:**\n\nEski amaç.\n\n**Ana bulgu:**\n\nEski bulgu.\n\n**Açık işler:**\n\n- Eski açık iş\n"
 
 
