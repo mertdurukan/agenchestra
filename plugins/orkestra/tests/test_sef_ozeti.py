@@ -78,6 +78,85 @@ class Kapi(unittest.TestCase):
         self.assertIn("Ne yapıldı?", self.isler._ozet_eksigi(self.k) or "")
 
 
+class SefEksigi(unittest.TestCase):
+    """is_kaydi.sef_ozeti_eksigi: saf işlev (ADR-0085)."""
+
+    def test_tam_iki_katman_gecer(self):
+        self.assertEqual(IK.sef_ozeti_eksigi(IKI), [])
+
+    def test_eski_bicim_etkilenmez_haritasiz_yeni_bicim_uyarilir(self):
+        self.assertEqual(IK.sef_ozeti_eksigi(ESKI), [])
+        e = IK.sef_ozeti_eksigi(YENI)
+        self.assertTrue(any("`## Harita` bölümü yok" in x for x in e), e)
+
+    def test_bos_sablon_uc_zorunlu_alan_icin_uyarir(self):
+        with open(SABLON, encoding="utf-8") as f:
+            e = IK.sef_ozeti_eksigi(f.read())
+        for ad in ("Denenenler", "Doğrulanmayanlar", "Kararlar"):
+            self.assertTrue(any(ad in x and "boş" in x for x in e), e)
+
+    def test_zorunlu_alan_eksik_ya_da_bos(self):
+        yok = IKI.replace("**Kararlar:**\n\n- Kapı gölgede açıldı (ADR-0085)\n", "")
+        self.assertTrue(any("Kararlar" in x and "yok" in x for x in IK.sef_ozeti_eksigi(yok)))
+        bos = IKI.replace("- Kapı gölgede açıldı (ADR-0085)", "<!-- doldur -->")
+        self.assertTrue(any("Kararlar" in x and "boş" in x for x in IK.sef_ozeti_eksigi(bos)))
+        bos_tablo = IKI.replace("| Şablon | İki bölüm | işe yaradı | test_sef_ozeti.py |\n", "| | | | |\n")
+        self.assertTrue(any("Denenenler" in x and "boş" in x for x in IK.sef_ozeti_eksigi(bos_tablo)))
+
+    def test_katman1_uzunluk_esigi(self):
+        uzun = IKI.replace("Özet biçimini düzeltmek.", "x" * 1100)
+        e = IK.sef_ozeti_eksigi(uzun)
+        self.assertTrue(any("katman 1" in x for x in e), e)
+        self.assertEqual(IK.sef_ozeti_eksigi(uzun, katman1_azami=2000), [])
+
+    def test_harita_icerigi_katman1_uzunlugunu_sismirmez(self):
+        self.assertEqual(IK.sef_ozeti_eksigi(IKI.replace("- 5 alan", "- " + "y" * 3000)), [])
+
+    def test_yontem_ayrintisi_ozete_yazilirsa_yakalanir(self):
+        """PE-635 olayı: yöntem ve katman ayrıntısı Şef Özeti'ne yazılınca özet kısa kalmaz."""
+        sisik = IKI.replace("- Şablonu yeniledim.", "- " + "Yöntem ve katman ayrıntısı. " * 40)
+        self.assertTrue(any("katman 1" in x for x in IK.sef_ozeti_eksigi(sisik)))
+
+
+class SefKapi(unittest.TestCase):
+    """isler._ozet_eksigi içindeki sef_ozeti kapısı: gölge uyarır ve kaydeder, ihlal reddeder."""
+    setUp = TC.Cekirdek.setUp
+    tearDown = TC.Cekirdek.tearDown
+
+    def klasor(self, metin):
+        k = os.path.join(self.proje, "Claude_Orkestrasyon", "001-deneme")
+        os.makedirs(k)
+        with open(os.path.join(k, "calisma_ozeti_20261026.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(metin)
+        return k
+
+    def test_golge_engellemez_ama_kaydeder(self):
+        isler = importlib.import_module("komutlar.isler")
+        self.assertIsNone(isler._ozet_eksigi(self.klasor(YENI)))
+        with open(os.path.join(self.sd, "gunluk.jsonl"), encoding="utf-8") as f:
+            olaylar = [json.loads(s) for s in f if s.strip()]
+        self.assertTrue(any(o.get("tur") == "kapi_golge" and o.get("kapi") == "sef_ozeti" for o in olaylar), olaylar)
+
+    def test_ihlal_modunda_haritasiz_reddedilir_tam_ozet_gecer(self):
+        import kapi_mod as KM
+        isler = importlib.import_module("komutlar.isler")
+        k = self.klasor(YENI)
+        with mock.patch.object(KM, "mod", return_value="ihlal"):
+            self.assertIn("## Harita", isler._ozet_eksigi(k) or "")
+        os.rename(os.path.join(self.proje, "Claude_Orkestrasyon"), os.path.join(self.proje, "eski"))
+        k2 = self.klasor(IKI)
+        with mock.patch.object(KM, "mod", return_value="ihlal"):
+            self.assertIsNone(isler._ozet_eksigi(k2))
+
+    def test_kapi_kapatilabilir(self):
+        import kapi_mod as KM
+        isler = importlib.import_module("komutlar.isler")
+        k = self.klasor(YENI)
+        with mock.patch.object(KM, "mod", return_value="ihlal"), \
+                mock.patch.dict(os.environ, {"ORKESTRA_SEF_OZETI_KAPISI": "0"}):
+            self.assertIsNone(isler._ozet_eksigi(k))
+
+
 class Anlati(unittest.TestCase):
     def paket(self, ozet):
         k = tempfile.mkdtemp()
