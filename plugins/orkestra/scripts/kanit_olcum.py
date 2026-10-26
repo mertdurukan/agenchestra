@@ -168,16 +168,21 @@ def olc(dosyalar, sinif_fn, r: dict, sinir_zaman: str, donem_sinir: str | None =
     ist_max, yan_max = r.get("istem_max_karakter", 300), r.get("yanit_max_karakter", 600)
     for p in dosyalar:
         onceki = False
+        gecmis = deque(maxlen=r.get("baglam_tur", 6))
         for t in turlar(p):
             if t["zaman"] and t["zaman"] < sinir_zaman:
                 onceki = kanitli_mi(t, r)
+                gecmis.append(t)
                 continue
             donem = "notlu" if (donem_sinir and t["zaman"] >= donem_sinir) else "notsuz"
             kanitli = kanitli_mi(t, r)
             sinif = sinif_fn(t["istem"])
             kayit = {"oturum": os.path.basename(p)[:8], "zaman": t["zaman"][:16], "donem": donem,
                      "onceki_tur_kanitli": onceki, "istem": t["istem"][:ist_max], "yanit": t["yanit"][:yan_max],
+                     "baglam": baglam_metni(gecmis, r),
+                     "bu_tur": "; ".join(f"{a} {_hedef(g)}".strip() for a, g in t["cagrilar"])[:300],
                      "atif": bool(re.search(r.get("atif_kalibi") or r"(?!x)x", t["yanit"]))}
+            gecmis.append(t)
             if sinif == "soru":
                 say[f"{donem}:soru"] += 1
                 if not kanitli and iddia_var(t["yanit"], r):
