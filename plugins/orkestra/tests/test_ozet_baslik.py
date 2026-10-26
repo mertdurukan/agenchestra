@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.join(KOK, "scripts"))
 import is_kaydi as IK  # noqa: E402
 
 GOVDE = ("\n## Özet\n\n***Şef Özeti***\n\n**Amaç neydi?**\n\nx\n\n**Ne yapıldı?**\n\n- Yaptım.\n\n"
-         "**Amaca tamamen ulaşıldı mı?**\n\nEvet.\n\n**Tamamen yapılanlar:**\n\n- x\n\n**Açık kalanlar:**\n\n- Yok\n")
+         "**Amaca tamamen ulaşıldı mı?**\n\nEvet.\n\n**Tamamen yapılanlar:**\n\n- x\n\n**Açık kalanlar:**\n\n- Yok\n"
+         "\n## Harita\n\n**Denenenler:**\n\n- x\n\n**Doğrulanmayanlar:**\n\n- Yok\n\n**Kararlar:**\n\n- Yok\n")
 
 
 class Baslik(unittest.TestCase):
