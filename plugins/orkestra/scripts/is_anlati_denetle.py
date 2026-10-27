@@ -148,9 +148,14 @@ def _durum(baglam):
 def main(argv=None):
     a = list(sys.argv[1:] if argv is None else argv)
     guclu = "--guclu-fiil" in a
+    durum = ""
+    if "--durum" in a:
+        i = a.index("--durum")
+        durum = a[i + 1] if i + 1 < len(a) else ""
+        del a[i:i + 2]
     dosyalar = [x for x in a if not x.startswith("--")]
     if len(dosyalar) != 1:
-        print("kullanım: is_anlati_denetle.py <dosya> [--guclu-fiil]")
+        print("kullanım: is_anlati_denetle.py <dosya> [--guclu-fiil] [--durum Tamam|Kısmen|Engelli]")
         return 2
     try:
         with open(dosyalar[0], encoding="utf-8") as f:
