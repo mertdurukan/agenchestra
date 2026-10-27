@@ -102,7 +102,7 @@ def kaydet(alt):
     o.add_argument("--tohum", type=int, default=42)
     o.add_argument("--cikti", help="örnek JSONL yolu (verilmezse yalnız sayılar)")
     o.set_defaults(f=cmd_olc)
-    m = s.add_parser("ana-olcu", help="etiketli JSONL'den ana ölçüyü ve Jeffreys %95 üst sınırını hesapla")
+    m = s.add_parser("ana-olcu", help="etiketli JSONL'den ana ölçüyü ve Jeffreys %%95 üst sınırını hesapla")
     m.add_argument("dosya")
     m.add_argument("--json", action="store_true")
     m.set_defaults(f=cmd_ana_olcu)
