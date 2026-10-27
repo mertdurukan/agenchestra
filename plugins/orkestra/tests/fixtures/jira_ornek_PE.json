@@ -1,0 +1,294 @@
+{
+ "okuma_saati": "2026-10-27T10:30:00",
+ "_kaynak": "searchJiraIssuesUsingJql: project = PE AND issueLinkType = \"Blocks\" (rnvanalyticsx.atlassian.net, 27.10.2026 salt okuma); getJiraIssue PE-720. Alanlar kısaltıldı, biçim değişmedi. Bağlantı her iki uçta da görünür: A'daki outwardIssue=B 'A, B'yi bloklar'; A'daki inwardIssue=B 'A, B tarafından bloklanır'.",
+ "_durum_notu": "Durum adları Türkçe ve özel (ör. 'CSCA’dan yanıt bekleniyor', 'PE içi bağımlılık bekleniyor'); kapalılık yalnız status.statusCategory.key == 'done' ile anlaşılır.",
+ "issues": [
+  {
+   "key": "PE-452",
+   "fields": {
+    "status": {
+     "name": "PE içi bağımlılık bekleniyor",
+     "statusCategory": {
+      "key": "indeterminate"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "15669",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "outwardIssue": {
+       "key": "PE-780",
+       "fields": {
+        "status": {
+         "name": "To Do",
+         "statusCategory": {
+          "key": "new"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-780",
+   "fields": {
+    "status": {
+     "name": "To Do",
+     "statusCategory": {
+      "key": "new"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "15669",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "inwardIssue": {
+       "key": "PE-452",
+       "fields": {
+        "status": {
+         "name": "PE içi bağımlılık bekleniyor",
+         "statusCategory": {
+          "key": "indeterminate"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-770",
+   "fields": {
+    "status": {
+     "name": "To Do",
+     "statusCategory": {
+      "key": "new"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "15671",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "inwardIssue": {
+       "key": "PE-783",
+       "fields": {
+        "status": {
+         "name": "To Do",
+         "statusCategory": {
+          "key": "new"
+         }
+        }
+       }
+      }
+     },
+     {
+      "id": "15672",
+      "type": {
+       "name": "Relates",
+       "inward": "relates to",
+       "outward": "relates to"
+      },
+      "outwardIssue": {
+       "key": "PE-200",
+       "fields": {
+        "status": {
+         "name": "Done",
+         "statusCategory": {
+          "key": "done"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-783",
+   "fields": {
+    "status": {
+     "name": "To Do",
+     "statusCategory": {
+      "key": "new"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "15671",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "outwardIssue": {
+       "key": "PE-770",
+       "fields": {
+        "status": {
+         "name": "To Do",
+         "statusCategory": {
+          "key": "new"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-772",
+   "fields": {
+    "status": {
+     "name": "To Do",
+     "statusCategory": {
+      "key": "new"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "15670",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "inwardIssue": {
+       "key": "PE-782",
+       "fields": {
+        "status": {
+         "name": "To Do",
+         "statusCategory": {
+          "key": "new"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-782",
+   "fields": {
+    "status": {
+     "name": "To Do",
+     "statusCategory": {
+      "key": "new"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "15670",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "outwardIssue": {
+       "key": "PE-772",
+       "fields": {
+        "status": {
+         "name": "To Do",
+         "statusCategory": {
+          "key": "new"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-490",
+   "fields": {
+    "status": {
+     "name": "CSCA’dan yanıt bekleniyor",
+     "statusCategory": {
+      "key": "indeterminate"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "14308",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "outwardIssue": {
+       "key": "PE-171",
+       "fields": {
+        "status": {
+         "name": "To Do",
+         "statusCategory": {
+          "key": "new"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-171",
+   "fields": {
+    "status": {
+     "name": "To Do",
+     "statusCategory": {
+      "key": "new"
+     }
+    },
+    "issuelinks": [
+     {
+      "id": "14308",
+      "type": {
+       "name": "Blocks",
+       "inward": "is blocked by",
+       "outward": "blocks"
+      },
+      "inwardIssue": {
+       "key": "PE-490",
+       "fields": {
+        "status": {
+         "name": "CSCA’dan yanıt bekleniyor",
+         "statusCategory": {
+          "key": "indeterminate"
+         }
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "key": "PE-720",
+   "fields": {
+    "status": {
+     "name": "CSCA’dan yanıt bekleniyor",
+     "statusCategory": {
+      "key": "indeterminate"
+     }
+    },
+    "issuelinks": []
+   }
+  }
+ ]
+}

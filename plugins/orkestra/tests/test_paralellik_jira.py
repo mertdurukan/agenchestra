@@ -72,18 +72,18 @@ class JiraEksikleri(unittest.TestCase):
         self.assertEqual(PR.jira_eksikleri(md, _fixture()), [])
 
     def test_kapali_oncul_kumede_olmasa_da_gecer(self):
-        md = PR.maddeler(plan((1, "B", "yok", "a.py")))
-        self.assertEqual(PR.jira_eksikleri(md, _graf(("A", "B", True))), [])
+        md = PR.maddeler(plan((1, "PE-2", "yok", "a.py")))
+        self.assertEqual(PR.jira_eksikleri(md, _graf(("PE-1", "PE-2", True))), [])
 
     def test_dongu_ret(self):
-        g = _graf(("A", "B"), ("B", "A"))
-        md = PR.maddeler(plan((1, "A", "yok", "a.py"), (2, "B", "yok", "b.py")))
+        g = _graf(("PE-1", "PE-2"), ("PE-2", "PE-1"))
+        md = PR.maddeler(plan((1, "PE-1", "yok", "a.py"), (2, "PE-2", "yok", "b.py")))
         e = PR.jira_eksikleri(md, g)
-        self.assertTrue(any("döngü" in x and "A" in x and "B" in x for x in e), e)
+        self.assertTrue(any("döngü" in x and "PE-1" in x and "PE-2" in x for x in e), e)
 
     def test_dongu_plan_disi_anahtarlar_sayilmaz(self):
-        g = _graf(("A", "B"), ("B", "A"))
-        md = PR.maddeler(plan((1, "Z", "yok", "a.py")))
+        g = _graf(("PE-1", "PE-2"), ("PE-2", "PE-1"))
+        md = PR.maddeler(plan((1, "PE-9", "yok", "a.py")))
         self.assertEqual(PR.jira_eksikleri(md, g), [])
 
     def test_jira_alani_olmayan_eski_plan_degismez(self):
@@ -99,20 +99,20 @@ class JiraEksikleri(unittest.TestCase):
 class JiraSatirlari(unittest.TestCase):
     def test_cok_dalgali_kume_dogru_dalga_ve_once(self):
         # A → B → C ve A → D
-        g = _graf(("A", "B"), ("A", "D"), ("B", "C"))
-        s = D.jira_satirlari(g, ["A", "B", "C", "D"])
-        self.assertEqual(s["dalgalar"], [["A"], ["B", "D"], ["C"]])
-        self.assertEqual(s["numara"], {"A": 1, "B": 2, "D": 3, "C": 4})
+        g = _graf(("PE-1", "PE-2"), ("PE-1", "PE-4"), ("PE-2", "PE-3"))
+        s = D.jira_satirlari(g, ["PE-1", "PE-2", "PE-3", "PE-4"])
+        self.assertEqual(s["dalgalar"], [["PE-1"], ["PE-2", "PE-4"], ["PE-3"]])
+        self.assertEqual(s["numara"], {"PE-1": 1, "PE-2": 2, "PE-4": 3, "PE-3": 4})
         md = PR.maddeler("\n\n".join(s["bloklar"]))
         self.assertEqual([m["once_hatalari"] for m in md.values()], [[], [], [], []])
         self.assertEqual(md[1]["once"], [])
         self.assertEqual([d for d, _, _ in md[2]["once"]], [1])
         self.assertEqual([d for d, _, _ in md[4]["once"]], [2])  # C ← B
-        self.assertEqual(md[4]["jira"], "C")
+        self.assertEqual(md[4]["jira"], "PE-3")
         self.assertEqual(s["eksik"], [])
 
     def test_kapali_oncul_once_yazilmaz(self):
-        s = D.jira_satirlari(_graf(("A", "B", True)), ["B"])
+        s = D.jira_satirlari(_graf(("PE-1", "PE-2", True)), ["PE-2"])
         self.assertIn("**Önce:** yok", s["bloklar"][0])
 
     def test_acik_oncul_kumede_yoksa_eksik(self):
