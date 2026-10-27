@@ -378,6 +378,10 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
             uyarilar.append(f"{adr[0][8:]} dosyası adr/ altında bulunamadı")
         else:
             yontem += adr
+    # Şef Özeti (B1) alanları: Durum → "Ne yaptım?", Nasıl karar verildi? → "Nasıl yaptım?". Alan yoksa eski kaynak.
+    durum = " ".join(_etiket(ozet, "Durum"))
+    nasil_karar = _etiket(ozet, "Nasıl karar verildi?") or list(yontem)
+    ana_sayi = _etiket(ozet, "Ana sayı")
     sinirlar = ["Doğrulanmayanlar: " + x for x in _etiket(metin["calisma_ozeti"], "Doğrulanmayanlar")
                 if x.strip(" .").lower() not in ("yok", "-")]
     sinirlar += ["Açık iş: " + x for x in (_etiket(ozet, "Açık kalanlar") + _etiket(ozet, "Açık işler"))
