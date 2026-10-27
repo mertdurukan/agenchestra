@@ -75,6 +75,28 @@ def _todo_satiri(klasor):
     return t, f"todo {t['biten']}/{t['toplam']}"
 
 
+TODO_LISTE_BUTCE = 2400  # varsayılan açık madde listesi en çok bu kadar karakter (ADR-0086: bağlama büyük çıktı girmesin)
+
+
+def _acik_maddeleri_yaz(satirlar, tum):
+    """Hazır açık madde satırlarını basar. tum=False iken toplam TODO_LISTE_BUTCE'yi aşmayan ilk satırlar basılır
+    (en az biri), kalan için sayı ve --tum ipucu yazılır; tum=True eski çıktıyla birebir aynıdır."""
+    if tum:
+        gosterilen = satirlar
+    else:
+        gosterilen, kullanilan = [], 0
+        for s in satirlar:
+            if gosterilen and kullanilan + len(s) + 1 > TODO_LISTE_BUTCE:
+                break
+            gosterilen.append(s)
+            kullanilan += len(s) + 1
+    for s in gosterilen:
+        print(s)
+    kalan = len(satirlar) - len(gosterilen)
+    if kalan:
+        print(f"  … {kalan} açık madde daha; tümü için `--tum`.")
+
+
 def _klasor_kok_disi(sd, yol):
     """Bağlı worktree oturumunda iş klasörü oturum kökü dışındaysa hata metni, değilse ''. Uygulama göreli bağlantıyı
     oturum klasörüne göre çözdüğü için kök dışı belge açılmaz (ADR-0035). ORKESTRA_IS_KLASOR_KOK=0 kapatır."""
@@ -527,7 +549,8 @@ def _ozet_kalite_eksigi(klasor, metin):
 
 
 def _auto_ozet_eksigi(klasor, metin):
-    """ADR-0009: `mod: auto` işin özeti `## Plandan sapmalar` ve `## Kullanıcıya kalanlar` bölümlerini taşır."""
+    """ADR-0009: `mod: auto` işin özeti `## Plandan sapmalar` ve `## Kullanıcıya kalanlar` bölümlerini taşır; ADR-0086: ayrıca
+    `## Otomatik kararlar` (kapı auto_kararlar, gölge)."""
     try:
         with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
             auto = json.load(f).get("mod") == "auto"
@@ -539,6 +562,13 @@ def _auto_ozet_eksigi(klasor, metin):
         m = re.search(rf"^##[ 	]+{ad}[ 	]*$(.*?)(?=^##[ 	]|\Z)", metin, re.M | re.S)
         if not m or not re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip():
             return f"calisma_ozeti: `## {ad}` bölümü yok ya da boş (/auto, ADR-0009); yoksa 'Yok' yaz"
+    # ADR-0086: auto modda sorulmayan kararlar özette görünür; gölge modunda yalnız uyarır (P-028)
+    m = re.search(r"^##[ 	]+Otomatik kararlar[ 	]*$(.*?)(?=^##[ 	]|\Z)", metin, re.M | re.S)
+    if not m or not re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip():
+        import kapi_mod as KM
+        kalan = KM.ihlal_ver(klasor, "auto_kararlar", ["calisma_ozeti: `## Otomatik kararlar` bölümü yok ya da boş (/auto, ADR-0086); yoksa 'Yok' yaz"])
+        if kalan:
+            return kalan[0]
     return None
 
 
