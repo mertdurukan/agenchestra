@@ -368,6 +368,12 @@ def yaz(c):
     s = c["simulasyon"]
     p(f"simülasyon (tavan {c['tavan']}): toplam bağlam %{s['toplam_baglam_azalma'] * 100:.1f}, bash karakteri %{s['bash_karakter_azalma'] * 100:.1f}"
       + (f", bootstrap95 [{s['bootstrap_bash_azalma_95'][0] * 100:.1f}; {s['bootstrap_bash_azalma_95'][1] * 100:.1f}]" if "bootstrap_bash_azalma_95" in s else ""))
+    ce = c["cat_sed_ek"]
+    p(f"cat/sed tavan sonrası kalan pay (Bash karakterinde): %{ce['tavan_sonrasi_pay'] * 100:.1f} ({ce['adet']} sonuç)")
+    for ek, v in ce["ek_tavan"].items():
+        b = v["bootstrap_95"]
+        p(f"  cat/sed ek tavan {ek}: tavan sonrası Bash karakterinde ek azalma %{v['azalma'] * 100:.1f}"
+          + (f", bootstrap95 [{b[0] * 100:.1f}; {b[1] * 100:.1f}]" if b else ""))
     for ad in ("tekrar_tum", "tekrar_buyuk", "tekrar_kesilen"):
         t = c[ad]
         p(f"{ad}: {t['k']}/{t['n']} (%{t['oran'] * 100:.2f}), Jeffreys95 üst %{t['jeffreys_ust'] * 100:.2f}")
