@@ -333,7 +333,8 @@ def main(argv=None):
     ap.add_argument("--json", action="store_true", help="sonucu JSON basar")
     a = ap.parse_args(argv)
     kesit = _utc(a.kesit) if a.kesit else None
-    c = hesapla(dizin_tara(a.dizin, kesit), a.tavan, a.onizleme, a.bootstrap)
+    bas = _utc(a.bas) if a.bas else None
+    c = hesapla(dizin_tara(a.dizin, kesit, bas), a.tavan, a.onizleme, a.bootstrap)
     if a.json:
         print(json.dumps(c, ensure_ascii=False, indent=2))
     else:
