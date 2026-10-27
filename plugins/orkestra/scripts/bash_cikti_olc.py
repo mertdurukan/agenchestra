@@ -297,6 +297,32 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
     return cikti
 
 
+def cagri_basina(oturumlar):
+    """Çağrı başına ağırlıklı Bash sonuç karakteri (S1 ölçüsü)."""
+    c = sum(o["cagri"] for o in oturumlar)
+    return sum(r["ch"] * r["w"] for o in oturumlar for r in o["bash"]) / c if c else 0.0
+
+
+def karsilastir(once, sonra, bootstrap=1000, tohum=0):
+    """S1: sonra penceresinin çağrı başına Bash karakteri öncekine göre göreli azalma; oturum bazlı bootstrap %95 aralığı."""
+    a, b = cagri_basina(once), cagri_basina(sonra)
+    sonuc = {"once": {"oturum": len(once), "api_cagri": sum(o["cagri"] for o in once), "cagri_basina": a},
+             "sonra": {"oturum": len(sonra), "api_cagri": sum(o["cagri"] for o in sonra), "cagri_basina": b},
+             "azalma": (1 - b / a) if a else 0.0}
+    rng = random.Random(tohum)
+    oranlar = []
+    if once and sonra and bootstrap:
+        for _ in range(bootstrap):
+            ao = cagri_basina([once[rng.randrange(len(once))] for _ in once])
+            bo = cagri_basina([sonra[rng.randrange(len(sonra))] for _ in sonra])
+            if ao:
+                oranlar.append(1 - bo / ao)
+    oranlar.sort()
+    if oranlar:
+        sonuc["bootstrap_95"] = [oranlar[int(0.025 * len(oranlar))], oranlar[int(0.975 * len(oranlar)) - 1]]
+    return sonuc
+
+
 def yaz(c):
     p = lambda *a: print(*a)  # noqa: E731
     p(f"oturum {c['oturum']}  api_çağrı {c['api_cagri']}  bash_sonuç {c['bash_sonuc']}  >{c['tavan']}: {c['buyuk']}")
