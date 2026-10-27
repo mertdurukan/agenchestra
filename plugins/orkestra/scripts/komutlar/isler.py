@@ -308,6 +308,29 @@ def cmd_is_rapor(a):
     print(IR.metin(r))
 
 
+def cmd_is_jira_yorum(a):
+    """Jira Done yorumu (ADR-0091): en yeni calisma_ozeti*.md'den altı alanı türetir; eksikte çıkış 1, yazma yok."""
+    import is_anlati as AN
+    import is_jira_yorum as JY
+    sd = sd_gerekli()
+    bulunan = AN.coz(sd, a.kimlik)
+    if not bulunan:
+        hata(f"iş yok: {a.kimlik}")
+    if len(bulunan) > 1:
+        for b in bulunan:
+            print(f"{b.get('id')}\t{b.get('baslik')}")
+        sys.exit(2)
+    yol = JY.ozet_dosyasi(bulunan[0].get("klasor") or "")
+    if not yol:
+        hata("yorum üretilmedi: iş klasöründe calisma_ozeti*.md yok")
+    with open(yol, encoding="utf-8") as f:
+        yorum, neden = JY.uret(f.read())
+    if neden:
+        print(neden)
+        sys.exit(1)
+    sys.stdout.write(yorum)
+
+
 def cmd_is_anlati(a):
     """İş anlatısı: kanıt paketi, toplu liste, taslak denetimi ve --yaz (yalnız denetimi geçen taslağı yazar)."""
     import is_anlati as AN
