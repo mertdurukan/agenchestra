@@ -88,6 +88,48 @@ class Kapi(unittest.TestCase):
         self.assertIn("Ne yapıldı?", self.isler._ozet_eksigi(self.k) or "")
 
 
+YENI_B1 = ("# T: çalışma özeti\n\n## Özet\n\n***Şef Özeti***\n\n"
+           "**Durum:** Kısmen. Kod, test ve ölçüm tamam; entegrasyon testi VPN kapalı olduğu için koşulmadı ve sütun anlamı "
+           "platform sahibinden teyit bekliyor.\n\n"
+           "**Amaç neydi?** PE-640: `query_forecast` aracının nihai (after-process) tahmin değerlerini okuması ve \"bu tahmin "
+           "nasıl üretildi\" sorularının kodla reddedilmesi.\n\n"
+           "**Ne yapıldı?**\n\n"
+           "- [Doğrulandı] Araç `fact_replenishment_report.forecast_quantity_1/2` ve `replenishment_quantity` alanlarını okur; "
+           "model alanları kaldırıldı. 3912 test geçti.\n"
+           "- [Doğrulandı] Metodoloji sorusu modele gitmeden sabit yanıtla reddedilir; sızıntı yapan yanıt tablo yanıtına düşer.\n"
+           "- [Planlandı] Jira yorumu taslağı yazıldı; Jira'ya yazılmadı.\n\n"
+           "**Nasıl karar verildi?** Nihai değerin yeri 33 şemalık katalog ve prosedür gövdeleriyle bulundu, dört şemada eşleşti. "
+           "Ret, giriş sınıflandırması ve çıkış doğrulamasıyla kodda zorlandı; üç kör turda yakalama yaklaşık %60 kaldı, bu sınır "
+           "açıkça yazıldı.\n\n"
+           "**Ana sayı:** `pytest tests/unit tests/contract` → 3912 passed, 1 skipped (27.10.2026).\n\n"
+           "**Senden beklenen:** Entegrasyon testi için VPN bağlantısı; Jira yorumu, push ve PR kararı.\n\n"
+           "**Açık kalanlar:**\n\n- Entegrasyon testi: kopya sunucuya bağlanılamadı (VPN).\n"
+           "- Sütun anlamı teyidi: platform sahibi; ADR-0011 bu teyide kadar Önerildi.\n")
+TESLIM_B1 = ("\n**Teslim:**\n\n- **Değişiklik:** PR açılmadı; push ve PR kararı kullanıcıda.\n"
+             "- **Test:** `pytest tests/unit tests/contract` 3912 passed, 1 skipped; entegrasyon testi çalışmadı.\n"
+             "- **Deploy:** çıkmadı; PR ve sütun anlamı teyidi bekliyor.\n- **Geri alma:** canlıya değişiklik çıkmadı.\n")
+
+
+class YeniBicim(unittest.TestCase):
+    """ADR-0091 (S1): PE-640 B1 biçimli, yedi alanlı Özet + Teslim bloğu mevcut kapıdan boş uyarı listesiyle geçer."""
+
+    def test_b1_ozet_kapidan_temiz_gecer(self):
+        metin = YENI_B1 + HARITA.rstrip("\n") + "\n" + TESLIM_B1
+        self.assertEqual(IK.sef_ozeti_eksigi(metin, 1200), [])
+
+    def test_b1_ozet_1200_icinde(self):
+        n = sum(len(IK._alan_govdesi(YENI_B1, ad) or "") for ad in
+                ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen", "Açık kalanlar"))
+        self.assertLessEqual(n, 1200, n)
+
+    def test_b1_kapanis_kapisindan_gecer(self):
+        isler = importlib.import_module("komutlar.isler")
+        k = tempfile.mkdtemp()
+        with open(os.path.join(k, "calisma_ozeti_20261027.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(YENI_B1 + HARITA + TESLIM_B1)
+        self.assertIsNone(isler._ozet_eksigi(k))
+
+
 class SefEksigi(unittest.TestCase):
     """is_kaydi.sef_ozeti_eksigi: saf işlev (ADR-0085)."""
 
