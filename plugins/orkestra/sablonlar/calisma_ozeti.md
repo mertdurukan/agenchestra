@@ -74,6 +74,15 @@
 
 - 
 
+**Teslim:**
+
+<!-- doldur (ADR-0091): Jira Done yorumu bu dört satırdan türetilir. Her satır somut ad, sürüm ya da bağlantı taşır; yapılmadıysa "yok" ve nedeni. -->
+
+- **Değişiklik:** PR bağlantısı ve birleşen commit.
+- **Test:** hangi testler koştu, sonuç.
+- **Deploy:** hangi ortama, ne zaman; ya da "çıkmadı, neden".
+- **Geri alma:** geri alma yolu.
+
 **Açık işlerin ayrıntısı:**
 
 <!-- doldur: `Açık kalanlar`daki her iş için neden bekliyor, kimde ve sonraki adım; yoksa "Yok". -->
