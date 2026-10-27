@@ -177,8 +177,7 @@ def cmd_is_devam(a):
     if os.path.exists(os.path.join(klasor, "plan.md")) or not kayit.get("sira"):
         print(f"plan: {os.path.join(klasor, 'plan.md')}")
     print(satir)
-    for m in t["acik_maddeler"]:
-        print(f"  [ ] {m}")
+    _acik_maddeleri_yaz([f"  [ ] {m}" for m in t["acik_maddeler"]], getattr(a, "tum", False))
     son = ""
     yol = os.path.join(klasor, "oturumlar.md")
     if os.path.exists(yol):
