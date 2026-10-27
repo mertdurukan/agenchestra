@@ -112,7 +112,6 @@ def oturum_tara(satirlar, kesit=None):
     sira = []       # [(ad, anahtar)] araç çağrıları sırasıyla
     ogeler = []
     bash = []
-    segment_bash = []
 
     def kapat(bitis, canli=False):
         for kat, kar, nc, kayit in bekleyen:
