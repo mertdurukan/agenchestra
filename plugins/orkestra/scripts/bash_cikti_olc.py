@@ -287,6 +287,9 @@ def yaz(c):
         p(f"  {a}: {v['adet']} adet, karakter payı %{v['kar_payi'] * 100:.1f}, ort {v['ort']:.0f}")
     og = c["okuma_grubu"]
     p(f"dosya/dizin okuma grubu: {og['adet']} adet, karakter payı %{og['kar_payi'] * 100:.1f}")
+    cb = c["cat_sed_birlesik"]
+    p(f"cat/sed birleşik (tek + boru): {cb['adet']} adet, karakter payı %{cb['kar_payi'] * 100:.1f}"
+      + (" — %30 yeniden değerlendirme eşiğini aşıyor" if cb["kar_payi"] > 0.30 else ""))
     s = c["simulasyon"]
     p(f"simülasyon (tavan {c['tavan']}): toplam bağlam %{s['toplam_baglam_azalma'] * 100:.1f}, bash karakteri %{s['bash_karakter_azalma'] * 100:.1f}"
       + (f", bootstrap95 [{s['bootstrap_bash_azalma_95'][0] * 100:.1f}; {s['bootstrap_bash_azalma_95'][1] * 100:.1f}]" if "bootstrap_bash_azalma_95" in s else ""))
