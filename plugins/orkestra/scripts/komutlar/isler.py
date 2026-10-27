@@ -815,10 +815,12 @@ def cmd_is_todo(a):
             hata(str(e))
     t, satir = _todo_satiri(kayit["klasor"])
     print(f"{a.is_id} {satir}")
+    satirlar = []
     for n, m in enumerate(t["acik_maddeler"], 1):
         if yazildi and len(m) > TODO_KISA:  # yazma sonrası kısa liste: ana ajan bağlamına her seferinde tüm todo girmesin
             m = m[:TODO_KISA - 1] + "…"
-        print(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
+        satirlar.append(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
+    _acik_maddeleri_yaz(satirlar, getattr(a, "tum", False))
     if bitti and t["toplam"] and not t["acik_maddeler"]:
         _ozet_tetikle(kayit)
 
