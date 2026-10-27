@@ -12,6 +12,7 @@ import os
 import re
 import sys
 
+import jira_bagimlilik as JB  # noqa: E402
 import paralellik as PR  # noqa: E402
 from komutlar._ortak import hata, sd_gerekli  # noqa: E402
 
