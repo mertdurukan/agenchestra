@@ -355,6 +355,7 @@ def main(argv=None):
     ap.add_argument("--dizin", default=os.path.join(os.path.expanduser("~"), ".claude", "projects", "C--Mert-McD"))
     ap.add_argument("--kesit", help="bu zamandan (ISO; saat dilimi yoksa yerel) sonraki günlük satırları sayılmaz")
     ap.add_argument("--bas", help="yalnız ilk günlük satırı bu zamandan (ISO) sonra olan oturumlar taranır (uygulama sonrası pencere)")
+    ap.add_argument("--once-kesit", help="S1 karşılaştırması: önceki pencere bu zamana kadar; sonraki pencere --bas'tan başlar")
     ap.add_argument("--tavan", type=int, default=VARSAYILAN_TAVAN)
     ap.add_argument("--onizleme", type=int, default=VARSAYILAN_ONIZLEME)
     ap.add_argument("--bootstrap", type=int, default=1000)
