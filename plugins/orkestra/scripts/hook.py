@@ -1307,6 +1307,9 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
     bir kez block (`stop_hook_active` döngüyü keser). Kalıplar ayarda (`ayarlar/secim_ekrani_hatirlatma.json`); hatada sessiz geçer."""
     try:
         import secim_ekrani_hatirlatma as SH
+        import izin_politikasi
+        if izin_politikasi._auto_modu(sd, oid):  # ADR-0086: /auto kullanıcıya seçim yaptırmaz, ekran hatırlatması susar
+            return
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
             return
         kip = SH.mod(SH.ayar_oku(sd))
