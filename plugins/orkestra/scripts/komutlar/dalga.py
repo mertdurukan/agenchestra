@@ -149,8 +149,78 @@ def ozet_metni(an: dict) -> str:
     return "\n".join(s)
 
 
+def jira_satirlari(g: dict, anahtarlar: list[str], mevcut: dict[str, int] | None = None) -> dict:
+    """Jira grafiğinden dalgalar ve her anahtar için hazır `**Jira:**` / `**Önce:**` satırları (ADR-0086).
+
+    `mevcut`: plan.md'de `**Jira:**` taşıyan maddelerin {anahtar: P numarası}; kalan anahtarlar dalga sırasıyla ilk boş
+    numaralardan alır. Dönen: {dalgalar, numara, bloklar, eksik}; `eksik` açık öncülü kümede olmayan anahtar çiftleridir."""
+    dalgalar = JB.dalgalar(g, anahtarlar)
+    sira = [k for kat in dalgalar for k in kat]
+    numara = dict(mevcut or {})
+    kullanilan = set(numara.values())
+    sayac = max(kullanilan, default=0)
+    for k in sira:
+        if k not in numara:
+            sayac += 1
+            numara[k] = sayac
+    kume = set(anahtarlar)
+    bloklar, eksik = [], []
+    for k in sira:
+        oncul = sorted(JB.acik_onculler(g, k))
+        eksik += [(k, o) for o in oncul if o not in kume]
+        girdiler = [f"P{numara[o]} — Çıktı: {o} bloklar (Jira Blocks)" for o in oncul if o in kume]
+        bloklar.append(f"### P{numara[k]} {k}\n\n**Jira:** {k}\n\n**Önce:** " + (", ".join(girdiler) if girdiler else "yok"))
+    return {"dalgalar": dalgalar, "numara": numara, "bloklar": bloklar, "eksik": eksik}
+
+
+def cmd_is_dalga_jira(a, sd):
+    """`is dalga <iş> --jira [ANAHTARLAR]`: iş klasöründeki `jira_bagimlilik.json` grafiğinden dalga ve P satırları basar."""
+    yol, _ = plan_yolu_coz_serbest(sd, a.hedef)
+    klasor = os.path.dirname(yol)
+    try:
+        g = JB.yukle(klasor)
+    except ValueError as e:
+        hata(str(e))
+    if g is None:
+        hata(f"{JB.DOSYA} yok: {klasor} (ana ajan Atlassian bağlayıcısından bağlantıları okuyup yazmalı)")
+    metin = open(yol, encoding="utf-8").read() if os.path.isfile(yol) else ""
+    md = PR.maddeler(metin)
+    mevcut = {m["jira"]: n for n, m in md.items() if m.get("jira")}
+    verilen = [x.strip() for x in (a.jira or "").split(",") if x.strip()]
+    anahtarlar = verilen or sorted(mevcut)
+    if not anahtarlar:
+        hata("Jira anahtarı yok: plan maddelerinde `**Jira:**` yok ve `--jira PE-1,PE-2` verilmedi")
+    okunmamis = [k for k in anahtarlar if not JB.okundu_mu(g, k)]
+    if okunmamis:
+        hata(f"{JB.DOSYA} içinde kaydı olmayan anahtar (bağlantıları okunmamış, bağımsız sayılamaz): " + ", ".join(okunmamis))
+    d = JB.dongu(g)
+    if d and any(k in set(anahtarlar) for k in d):
+        hata("Jira bağımlılık döngüsü: " + " → ".join(d))
+    s = jira_satirlari(g, anahtarlar, mevcut)
+    for k, kat in enumerate(s["dalgalar"], 1):
+        print(f"Jira dalga {k}: " + ", ".join(kat))
+    print("\nPlana yapıştır (P numaraları öneridir; plandaki madde numarası farklıysa `**Önce:**` satırlarını ona göre düzelt):\n")
+    print("\n\n".join(s["bloklar"]))
+    if s["eksik"]:
+        print("orkestra: açık öncül kümede yok (plana eklenmeden bu görev tek başına seçilemez):", file=sys.stderr)
+        for k, o in s["eksik"]:
+            print(f"  - {k} ← {o}", file=sys.stderr)
+        sys.exit(1)
+
+
+def plan_yolu_coz_serbest(sd: str, hedef: str) -> tuple[str, dict | None]:
+    """`plan_yolu_coz` gibi, ama plan.md henüz yoksa hata vermez (alım adımında plan sonra yazılır)."""
+    from komutlar.plan import _plan_yolu
+    yol, kayit = _plan_yolu(sd, hedef)
+    if os.path.isdir(yol):
+        yol = os.path.join(yol, "plan.md")
+    return yol, kayit
+
+
 def cmd_is_dalga(a):
     sd = sd_gerekli()
+    if a.jira is not None:
+        return cmd_is_dalga_jira(a, sd)
     yol, kayit = plan_yolu_coz(sd, a.hedef)
     with open(yol, encoding="utf-8") as f:
         metin = f.read()
