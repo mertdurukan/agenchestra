@@ -33,17 +33,27 @@ class Sablon(unittest.TestCase):
     def test_etiket_sirasi_ve_eski_etiketler_yok(self):
         with open(SABLON, encoding="utf-8") as f:
             t = f.read()
-        sira = ["***Şef Özeti***", "**Amaç neydi?**", "**Ne yapıldı?**", "**Amaca tamamen ulaşıldı mı?**",
-                "**Tamamen yapılanlar:**", "**Açık kalanlar:**"]
+        sira = ["***Şef Özeti***", "**Durum:**", "**Amaç neydi?**", "**Ne yapıldı?**", "**Nasıl karar verildi?**",
+                "**Ana sayı:**", "**Senden beklenen:**", "**Açık kalanlar:**"]
         yerler = [t.index("\n" + s + "\n") for s in sira]
         self.assertEqual(yerler, sorted(yerler))
         harita = ["## Harita", "**Ölçüm saati:**", "**Denenenler:**", "**Sayılar:**", "**Doğrulanmayanlar:**",
-                  "**Kararlar:**", "**Açık işlerin ayrıntısı:**", "**İlgili dosyalar:**", "## Plana göre gerçekleşen"]
+                  "**Kararlar:**", "**Teslim:**", "**Açık işlerin ayrıntısı:**", "**İlgili dosyalar:**",
+                  "## Plana göre gerçekleşen"]
         yerler = [t.index("\n" + s + "\n") for s in harita]
         self.assertEqual(yerler, sorted(yerler))
         self.assertGreater(yerler[0], t.index("\n**Açık kalanlar:**\n"))
-        for eski in ("**Amaç:**", "**Ana bulgu:**", "**Açık işler:**"):
+        for eski in ("**Amaç:**", "**Ana bulgu:**", "**Açık işler:**", "**Amaca tamamen ulaşıldı mı?**",
+                     "**Tamamen yapılanlar:**"):
             self.assertNotIn(eski, t)
+
+    def test_teslim_bloku_dort_satir(self):
+        """ADR-0091 (S1): Jira yorumunun beslendiği Teslim bloğu şablonda dört alanla durur."""
+        with open(SABLON, encoding="utf-8") as f:
+            t = f.read()
+        self.assertGreaterEqual(t.count("Teslim"), 1)
+        for ad in ("Değişiklik", "Test", "Deploy", "Geri alma"):
+            self.assertIn(f"- **{ad}:**", t)
 
 
 class Kapi(unittest.TestCase):
