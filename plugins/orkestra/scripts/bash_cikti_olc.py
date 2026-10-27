@@ -78,7 +78,7 @@ def aile(cmd):
         return "grep/rg"
     if re.search(r"\b(ls|find|dir|tree)\b", cmd):
         return "ls/find"
-    if re.search(r"python|py\s", cmd):
+    if re.search(r"(^|[\s;&|(])(python3?|py)(\.exe)?\s", cmd):
         return "python betik"
     if re.search(r"curl|az |gh |wget|Invoke-", cmd):
         return "ağ/CLI (curl,az,gh)"
