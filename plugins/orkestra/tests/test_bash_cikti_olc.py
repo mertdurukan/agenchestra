@@ -134,6 +134,15 @@ class Hesap(unittest.TestCase):
             self.assertLess(u, 1)
         self.assertGreater(B.jeffreys_ust(11, 381), B.jeffreys_ust(110, 3810))  # örnek büyüdükçe daralır
 
+    def test_karsilastir_azalma_ve_aralik(self):
+        once = [self.oturum([30000, 100]) for _ in range(5)]
+        sonra = [self.oturum([2500, 100]) for _ in range(5)]
+        r = B.karsilastir(once, sonra, bootstrap=200)
+        self.assertGreater(r["azalma"], 0.8)
+        self.assertLessEqual(r["bootstrap_95"][0], r["azalma"] + 1e-9)
+        self.assertLessEqual(r["azalma"], r["bootstrap_95"][1] + 1e-9)
+        self.assertAlmostEqual(B.karsilastir(once, once, bootstrap=0)["azalma"], 0.0)
+
     def test_bas_oncesi_baslayan_oturum_atlanir(self):
         with tempfile.TemporaryDirectory() as d:
             for ad, ts in (("eski.jsonl", "2026-10-20T08:00:00.000Z"), ("yeni.jsonl", "2026-10-28T08:00:00.000Z")):
