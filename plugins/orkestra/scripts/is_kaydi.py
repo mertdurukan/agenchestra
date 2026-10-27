@@ -161,8 +161,11 @@ def ozet_baslik_eksigi(metin: str) -> str | None:
     return None
 
 
-_SEF_KATMAN1 = ("Amaç neydi?", "Ne yapıldı?", "Amaca tamamen ulaşıldı mı?", "Tamamen yapılanlar", "Açık kalanlar")
+_SEF_KATMAN1 = ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen",
+                "Amaca tamamen ulaşıldı mı?", "Tamamen yapılanlar", "Açık kalanlar")
 _SEF_HARITA_ZORUNLU = ("Denenenler", "Doğrulanmayanlar", "Kararlar")
+_SEF_TESLIM = ("Değişiklik", "Test", "Deploy", "Geri alma")
+_SEF_DURUM_ILK = re.compile(r"^(?:Tamam|Kısmen|Engelli)(?![^\W_])")
 _ALAN_SONU = re.compile(r"^(?:\*\*[^*\n]+[:?]\*\*|#)")
 _TABLO_AYRAC = re.compile(r"^\s*\|[\s|:\-]*\|\s*$")
 
