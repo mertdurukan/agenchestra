@@ -237,6 +237,8 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
         kar_ail[a] += r["ch"]
     kar_top = sum(kar_ail.values()) or 1
     cikti["aileler"] = {a: {"adet": n, "kar_payi": kar_ail[a] / kar_top, "ort": kar_ail[a] / n} for a, n in sayac.most_common()}
+    cs = ("cat/sed/head/tail tek", "cat/sed/awk boru")
+    cikti["cat_sed_birlesik"] = {"adet": sum(sayac[a] for a in cs), "kar_payi": sum(kar_ail[a] for a in cs) / kar_top}
     oku_n = sum(sayac[a] for a in OKU_AILELERI)
     cikti["okuma_grubu"] = {"adet": oku_n, "kar_payi": sum(kar_ail[a] for a in OKU_AILELERI) / kar_top}
     # simülasyon
