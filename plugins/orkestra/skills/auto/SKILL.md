@@ -24,9 +24,15 @@ description: "Orkestra'da /auto modunu açar: kullanıcının mesajı onay yerin
 
 `/auto` aşağıdakileri gevşetmez; hepsi aynen geçerlidir:
 
-- Push yalnız kullanıcının açık isteğiyle yapılır.
-- Sır değeri hiçbir çıktıya girmez.
+- Zorla, silme ve ayna push ile kalıcı silme (`gh ... delete`, Atlassian `executeDestructive`) reddedilir.
+- Sır değeri hiçbir çıktıya girmez; kimlik klasörü okuma kapısı kapalı kalır.
 - Veritabanı salt okunurdur.
-- İzin hook'u, denetçi, ADR, gap ve kanıt kapıları çalışır.
+- İzin hook'unun `deny` sınıfı, denetçi, ADR, gap ve kanıt kapıları çalışır.
 
-Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz. Diğer maddeler tamamlanır, bunlar çalışma özetinde "Kullanıcıya kalanlar" altında sıralanır.
+## Yetki ve soru yasağı (ADR-0086)
+
+- `/auto` mesajı Jira ve GitHub dahil kapsamdaki her eylem için açık yetkidir: `git push`, `gh` yazma, GitHub/Jira REST ve MCP yazma çağrıları sorulmadan çalışır (`ask` → `allow`, yalnız bağlı işin modu `auto` iken).
+- Kullanıcıya soru sorulmaz: `AskUserQuestion` ve `ask` alanı dolu `wrap_up` reddedilir. Kararı en iyi uygulamayla kendin ver, çalışma özetinin "Otomatik kararlar" bölümüne yaz.
+- Mod okunamazsa `plan` davranışı geçerlidir. `ORKESTRA_AUTO_YETKI=0` bu yetkiyi kapatır.
+
+Değeri yalnız kullanıcıda olan işler (parola, hesap açma, başka ekibin işi) koşuyu durdurmaz. Diğer maddeler tamamlanır, bunlar çalışma özetinde "Kullanıcıya kalanlar" altında sıralanır.
