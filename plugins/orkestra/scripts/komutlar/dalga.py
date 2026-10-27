@@ -264,6 +264,9 @@ def kaydet(alt):
     d.add_argument("--yardım", action="help", help="bu yardımı gösterir")
     d.add_argument("hedef", help="iş kimliği (I-nnn), iş klasörü ya da plan.md yolu")
     d.add_argument("--yaz", action="store_true", help="plan.md'deki `## Dalgalar` bölümünü betik çıktısıyla günceller/ekler")
+    d.add_argument("--jira", nargs="?", const="", default=None, metavar="ANAHTARLAR",
+                   help="iş klasöründeki jira_bagimlilik.json'dan Jira dalgalarını ve hazır `**Jira:**`/`**Önce:**` satırlarını basar "
+                        "(virgülle ayrılmış anahtarlar; verilmezse plandaki `**Jira:**` alanları)")
     d.add_argument("--json-cikti", dest="json_cikti", metavar="DOSYA", help="kart JSON'unu dosyaya yazar ({\"gorevler\": [...]})")
     d.add_argument("--basamak", default=VARSAYILAN_BASAMAK, choices=("T0", "T1", "T2", "T3", "T4"),
                    help="kartların başlangıç basamağı (varsayılan T2)")
