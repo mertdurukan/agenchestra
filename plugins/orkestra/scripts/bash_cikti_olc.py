@@ -176,7 +176,6 @@ def oturum_tara(satirlar, kesit=None):
                                     kayit["pos"] = i
                                     break
                             bash.append(kayit)
-                            segment_bash.append(kayit)
                         bekleyen.append((kat, kar, ncall, kayit))
                     elif b.get("type") == "text":
                         bekleyen.append(("user_text", len(b.get("text", "")), ncall, None))
