@@ -114,12 +114,13 @@ def oturum_tara(satirlar, kesit=None):
     bash = []
     segment_bash = []
 
-    def kapat(bitis):
+    def kapat(bitis, canli=False):
         for kat, kar, nc, kayit in bekleyen:
             w = max(bitis - nc, 0)
             ogeler.append((kat, kar, w))
             if kayit is not None:
                 kayit["w"] = w
+                kayit["canli"] = canli  # oturum sonunda hâlâ bağlamda duran (compact_boundary'den sonra gelen) sonuç
         bekleyen.clear()
 
     for l in satirlar:
