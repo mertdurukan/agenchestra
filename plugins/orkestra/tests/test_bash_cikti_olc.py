@@ -134,6 +134,17 @@ class Hesap(unittest.TestCase):
             self.assertLess(u, 1)
         self.assertGreater(B.jeffreys_ust(11, 381), B.jeffreys_ust(110, 3810))  # örnek büyüdükçe daralır
 
+    def test_kesilen_cikti_ayri_sayilir_ve_tekrari_olculur(self):
+        onizleme = "<persisted-output>\nOutput too large (22KB). Full output saved to: C:/t/x.txt\n" + "y" * 100
+        satirlar = [asistan("a1", arac("t1", "Bash", command="cat log.txt")), sonuc("t1", onizleme),
+                    asistan("a2", arac("t2", "Read", file_path="C:/t/x.txt")),
+                    asistan("a3", arac("t3", "Bash", command="pwd")), sonuc("t3", "ok")]
+        o = B.oturum_tara(satirlar)
+        self.assertEqual([r["kesildi"] for r in o["bash"]], [True, False])
+        c = B.hesapla([o], bootstrap=0)
+        self.assertEqual((c["tekrar_kesilen"]["k"], c["tekrar_kesilen"]["n"]), (1, 1))
+        self.assertEqual(c["buyuk"], 0)  # önizleme 10.000 altında: ham uzunluk değil kesilme işareti sayılır
+
     def test_karsilastir_azalma_ve_aralik(self):
         once = [self.oturum([30000, 100]) for _ in range(5)]
         sonra = [self.oturum([2500, 100]) for _ in range(5)]
