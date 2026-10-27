@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 
 SIRA_ADI = "mevcut-durum-plan-todo"
 BOLUM_SAYISI = 5
