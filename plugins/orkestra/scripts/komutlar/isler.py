@@ -537,7 +537,7 @@ def _sef_ozeti_kapisi(klasor, metin):
     try:
         azami = int(_sef_ozeti_ayar(klasor).get("katman1_azami"))
     except (TypeError, ValueError):
-        azami = 1000
+        azami = 1200
     kalan = KM.ihlal_ver(klasor, "sef_ozeti", _ik().sef_ozeti_eksigi(metin, azami))
     return "calisma_ozeti: " + "; ".join(kalan) + " (ADR-0085)" if kalan else None
 
