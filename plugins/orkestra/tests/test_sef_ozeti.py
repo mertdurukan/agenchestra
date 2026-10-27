@@ -156,7 +156,7 @@ class SefEksigi(unittest.TestCase):
         self.assertTrue(any("Denenenler" in x and "boş" in x for x in IK.sef_ozeti_eksigi(bos_tablo)))
 
     def test_katman1_uzunluk_esigi(self):
-        uzun = IKI.replace("Özet biçimini düzeltmek.", "x" * 1100)
+        uzun = IKI.replace("Özet biçimini düzeltmek.", "x" * 1300)  # varsayılan eşik 1200 (ADR-0091)
         e = IK.sef_ozeti_eksigi(uzun)
         self.assertTrue(any("katman 1" in x for x in e), e)
         self.assertEqual(IK.sef_ozeti_eksigi(uzun, katman1_azami=2000), [])
