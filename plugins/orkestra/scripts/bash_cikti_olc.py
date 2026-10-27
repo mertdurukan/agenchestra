@@ -363,6 +363,12 @@ def main(argv=None):
     a = ap.parse_args(argv)
     kesit = _utc(a.kesit) if a.kesit else None
     bas = _utc(a.bas) if a.bas else None
+    if a.once_kesit:
+        if not bas:
+            ap.error("--once-kesit için --bas gerekli")
+        r = karsilastir(dizin_tara(a.dizin, _utc(a.once_kesit)), dizin_tara(a.dizin, kesit, bas), a.bootstrap)
+        print(json.dumps(r, ensure_ascii=False, indent=2))
+        return 0
     c = hesapla(dizin_tara(a.dizin, kesit, bas), a.tavan, a.onizleme, a.bootstrap)
     if a.json:
         print(json.dumps(c, ensure_ascii=False, indent=2))
