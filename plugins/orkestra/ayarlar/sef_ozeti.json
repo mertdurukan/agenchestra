@@ -1,5 +1,10 @@
 {
   "mod": "golge",
-  "katman1_azami": 1000,
-  "aciklama": "İki katmanlı Şef Özeti kapısı (ADR-0085). mod: golge = `## Harita` yok, Denenenler/Doğrulanmayanlar/Kararlar boş ya da katman 1 gövdesi katman1_azami karakteri aşıyorsa uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = özet doldurulmuş sayılmaz. İhlal geçişi: gölgede en az 20 farklı kapanış, kısalık uyarılarında yanlış pozitif ≤ %10, harita eksiği uyarılarında 0 (ayrı karar, P-028). Kapatma: ORKESTRA_SEF_OZETI_KAPISI=0. Proje ezmesi: .claude/orkestra/sef_ozeti.json."
+  "katman1_azami": 1200,
+  "gecis_esikleri": {
+    "en_az_farkli_kapanis": 20,
+    "kisalik_yanlis_pozitif_azami_oran": 0.10,
+    "alan_eksigi_yanlis_pozitif_azami": 0
+  },
+  "aciklama": "İki katmanlı Şef Özeti kapısı (ADR-0085, ADR-0091). mod: golge = `## Harita` yok, Denenenler/Doğrulanmayanlar/Kararlar boş, yeni biçimde (Amaca tamamen ulaşıldı mı? etiketi yok) Durum (ilk sözcük Tamam|Kısmen|Engelli), Nasıl karar verildi? ya da Harita altındaki Teslim bloğunun dört satırı (Değişiklik, Test, Deploy, Geri alma) eksik ya da katman 1 gövdesi katman1_azami karakteri aşıyorsa uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = özet doldurulmuş sayılmaz. İhlal geçişi (gecis_esikleri): gölgede en az 20 farklı kapanış, kısalık uyarılarında yanlış pozitif ≤ %10, harita ve alan eksiği uyarılarında 0 (ayrı karar, P-028). Kapatma: ORKESTRA_SEF_OZETI_KAPISI=0. Proje ezmesi: .claude/orkestra/sef_ozeti.json."
 }
