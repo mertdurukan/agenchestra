@@ -145,6 +145,19 @@ class Hesap(unittest.TestCase):
         self.assertEqual((c["tekrar_kesilen"]["k"], c["tekrar_kesilen"]["n"]), (1, 1))
         self.assertEqual(c["buyuk"], 0)  # önizleme 10.000 altında: ham uzunluk değil kesilme işareti sayılır
 
+    def test_cat_sed_ek_tavan_kazanci(self):
+        # 8000 karakterlik cat sonucu genel tavan (10.000) altında kalır; ek tavan 5000 onu önizlemeye (2500) indirir
+        satirlar = [asistan("a0", arac("t0", "Bash", command="cat a.txt")), sonuc("t0", "x" * 8000),
+                    asistan("a1", arac("t1", "Bash", command="pwd")), sonuc("t1", "y" * 2000),
+                    asistan("a2", {"type": "text", "text": "."})]
+        o = B.oturum_tara(satirlar)
+        c = B.hesapla([o], tavan=10000, onizleme=2500, bootstrap=0)
+        w0, w1 = (r["w"] for r in o["bash"])
+        beklenen = (8000 - 2500) * w0 / (8000 * w0 + 2000 * w1)
+        self.assertAlmostEqual(c["cat_sed_ek"]["ek_tavan"][5000]["azalma"], beklenen)
+        self.assertAlmostEqual(c["cat_sed_ek"]["tavan_sonrasi_pay"], 8000 * w0 / (8000 * w0 + 2000 * w1))
+        self.assertEqual(c["cat_sed_ek"]["adet"], 1)
+
     def test_karsilastir_azalma_ve_aralik(self):
         once = [self.oturum([30000, 100]) for _ in range(5)]
         sonra = [self.oturum([2500, 100]) for _ in range(5)]
