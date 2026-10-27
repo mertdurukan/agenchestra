@@ -166,7 +166,7 @@ class SefEksigi(unittest.TestCase):
 
     def test_yontem_ayrintisi_ozete_yazilirsa_yakalanir(self):
         """PE-635 olayı: yöntem ve katman ayrıntısı Şef Özeti'ne yazılınca özet kısa kalmaz."""
-        sisik = IKI.replace("- Şablonu yeniledim.", "- " + "Yöntem ve katman ayrıntısı. " * 40)
+        sisik = IKI.replace("- Şablonu yeniledim.", "- " + "Yöntem ve katman ayrıntısı. " * 50)
         self.assertTrue(any("katman 1" in x for x in IK.sef_ozeti_eksigi(sisik)))
 
 
