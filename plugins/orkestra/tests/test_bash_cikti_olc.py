@@ -134,6 +134,15 @@ class Hesap(unittest.TestCase):
             self.assertLess(u, 1)
         self.assertGreater(B.jeffreys_ust(11, 381), B.jeffreys_ust(110, 3810))  # örnek büyüdükçe daralır
 
+    def test_bas_oncesi_baslayan_oturum_atlanir(self):
+        with tempfile.TemporaryDirectory() as d:
+            for ad, ts in (("eski.jsonl", "2026-10-20T08:00:00.000Z"), ("yeni.jsonl", "2026-10-28T08:00:00.000Z")):
+                with open(os.path.join(d, ad), "w", encoding="utf-8") as f:
+                    f.write(asistan("a1", {"type": "text", "text": "."}, ts=ts) + "\n")
+            self.assertEqual(len(B.dizin_tara(d)), 2)
+            sonuc = B.dizin_tara(d, bas=B._utc("2026-10-25T00:00:00Z"))
+            self.assertEqual([o["oturum"] for o in sonuc], ["yeni.jsonl"])
+
     def test_klasorden_okur_ve_cli(self):
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "s1.jsonl"), "w", encoding="utf-8") as f:
