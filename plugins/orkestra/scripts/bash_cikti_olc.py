@@ -330,6 +330,7 @@ def yaz(c):
     p(f"bash payı (ağırlıklı): %{c['bash_payi'] * 100:.1f}; bash içinde >{c['tavan']} çıktıların payı: %{c['buyuk_pay_bash_icinde'] * 100:.1f}")
     for k, v in sorted(c["pay"].items(), key=lambda x: -x[1]):
         p(f"  {k}: %{v * 100:.1f}")
+    p(f"çağrı başına ağırlıklı Bash karakteri: {c['cagri_basina_bash_karakter']:.0f}")
     p(f"aile dökümü (>{c['tavan']}):")
     for a, v in c["aileler"].items():
         p(f"  {a}: {v['adet']} adet, karakter payı %{v['kar_payi'] * 100:.1f}, ort {v['ort']:.0f}")
