@@ -209,5 +209,36 @@ class KararKaydi(unittest.TestCase):
         self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, "## Özet\nx\n"))
 
 
+class UcAdim(_Onay):
+    """Hook düzeyinde uçtan uca (S6): /auto mesajı → push allow, soru deny; /plan mesajı → push ask."""
+
+    def setUp(self):
+        super().setUp()
+        os.environ["ORKESTRA_IZIN"] = "genis"
+        os.environ.pop("ORKESTRA_AUTO_YETKI", None)
+        is_onay.yaz(self.sd, self.kayit["id"], "verildi", "test")
+
+    def karar_(self, arac, **kw):
+        self.pre(arac, **kw)
+        return self.son_cikti.get("hookSpecificOutput", {}).get("permissionDecision")
+
+    def test_auto_akisi(self):
+        ctx = self.mesaj("/auto bir iş yap")
+        self.assertIn("ADR-0086", ctx)
+        self.assertEqual(self.karar_("Bash", komut="git push origin main"), "allow")
+        self.assertEqual(self.karar_("Bash", komut="gh pr create --title x"), "allow")
+        self.assertEqual(self.karar_("Bash", komut="git push --" + "force origin main"), "deny")
+        self.assertEqual(self.karar_("AskUserQuestion"), "deny")
+
+    def test_plan_akisi(self):
+        ctx = self.mesaj("/plan bir iş yap")
+        self.assertNotIn("ADR-0086", ctx)
+        self.assertEqual(self.karar_("Bash", komut="git push origin main"), "ask")
+        self.assertNotEqual(self.karar_("AskUserQuestion"), "deny")
+
+    def test_modsuz_varsayilan_plan(self):
+        self.assertEqual(self.karar_("Bash", komut="git push origin main"), "ask")
+
+
 if __name__ == "__main__":
     unittest.main()
