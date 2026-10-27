@@ -17,6 +17,8 @@ import hook as H  # noqa: E402
 import is_onay  # noqa: E402
 import izin_politikasi as IP  # noqa: E402
 from komutlar import isler  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_is_onay import _Onay  # noqa: E402
 
 MCP_YAZ = "mcp__github__create_pull_request"
 MCP_JIRA = "mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__createJiraIssue"
@@ -75,7 +77,7 @@ class IzinKapisi(unittest.TestCase):
         self.assertEqual(kabuk(enc("Get-Date"), False, "PowerShell"), "ask")
 
     def test_okuma_araci_etkilenmez(self):
-        self.assertIsNone(mcp("mcp__github__list_issues", True))
+        self.assertEqual(mcp("mcp__github__list_issues", True), mcp("mcp__github__list_issues", False))
         self.assertEqual(kabuk("git status", True), "allow")
 
 
@@ -183,14 +185,17 @@ class KararKaydi(unittest.TestCase):
 
     def test_eksik_bolum_golgede_engellemez(self):
         metin = "## Plandan sapmalar\nYok\n\n## Kullanıcıya kalanlar\nYok\n"
-        self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, metin))
-        with open(os.path.join(self.klasor, "gunluk.jsonl"), encoding="utf-8") as f:
-            self.assertIn("auto_kararlar", f.read())
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", return_value="golge"), mock.patch.object(KM, "kaydet", return_value=False) as k:
+            self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, metin))
+        self.assertEqual(k.call_args[0][1], "auto_kararlar")
 
     def test_bolum_varsa_gunluk_yazilmaz(self):
         metin = "## Plandan sapmalar\nYok\n\n## Kullanıcıya kalanlar\nYok\n\n## Otomatik kararlar\n- push edildi\n"
-        self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, metin))
-        self.assertFalse(os.path.exists(os.path.join(self.klasor, "gunluk.jsonl")))
+        import kapi_mod as KM
+        with mock.patch.object(KM, "kaydet") as k:
+            self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, metin))
+        k.assert_not_called()
 
     def test_ihlal_modunda_engeller(self):
         import kapi_mod as KM
