@@ -3,11 +3,12 @@
 Asıl kaynak eklentidir (plugins/orkestra/scripts); test: tests/test_is_anlati_denetle.py.
 
 Kullanım:
-  python -I is_anlati_denetle.py <dosya> [--guclu-fiil]
+  python -I is_anlati_denetle.py <dosya> [--guclu-fiil] [--durum Tamam|Kısmen|Engelli]
 
 Çıktı: ihlal yoksa `temiz` (çıkış 0); varsa her satır `KOD: ileti` (çıkış 1).
 Kodlar: A01 paragraf sayısı, A02 etiket, A03 kelime aralığı, A04 yasak biçim, A05 sır, A06 şahıs,
-A07 abartı, A08 iç süreç sızıntısı, A09 tekrar. Salt okur; dosya yazmaz.
+A07 abartı, A08 iç süreç sızıntısı, A09 tekrar, A10 Durum Kısmen/Engelli iken sınır ifadesi yok
+(baglam["durum"] boşsa ya da Tamam ise atlanır). Salt okur; dosya yazmaz.
 """
 import re
 import sys
