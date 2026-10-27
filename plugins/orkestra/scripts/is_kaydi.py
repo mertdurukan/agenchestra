@@ -194,14 +194,48 @@ def _alan_govdesi(metin: str, ad: str) -> str | None:
     return None
 
 
-def sef_ozeti_eksigi(metin: str, katman1_azami: int = 1000) -> list[str]:
-    """İki katmanlı Şef Özeti (ADR-0085): `**Amaç neydi?**` taşıyan özette `## Harita` bölümü, içinde dolu Denenenler,
-    Doğrulanmayanlar ve Kararlar alanları olmalı; katman 1 (5 Şef Özeti alanı) gövdesi `katman1_azami` karakteri aşmamalı.
-    Eski biçimli özet (`Amaç neydi?` yok) etkilenmez. Eksik nedenlerinin listesini döner; tamamsa boş liste."""
+def _teslim_eksigi(harita: str) -> list[str]:
+    """ADR-0091: `## Harita` altındaki `**Teslim:**` bloğu ve dört `- **<alt>:** <değer>` satırı; eksik ya da boş alt
+    satırı adıyla döner."""
+    satirlar = harita.splitlines()
+    bas = next((i for i, s in enumerate(satirlar) if re.match(r"^\*\*Teslim:?\*\*", s)), None)
+    if bas is None:
+        return ["`## Harita` altında `**Teslim:**` bloğu yok (Değişiklik, Test, Deploy, Geri alma)"]
+    blok: list[str] = []
+    for t in satirlar[bas + 1:]:
+        if _ALAN_SONU.match(t):
+            break
+        blok.append(t)
+    eksik: list[str] = []
+    for alt in _SEF_TESLIM:
+        m = next((re.match(r"^\s*[-*]\s*\*\*%s:\*\*[ \t]*(.*)$" % re.escape(alt), t) for t in blok
+                  if re.match(r"^\s*[-*]\s*\*\*%s:\*\*" % re.escape(alt), t)), None)
+        if m is None:
+            eksik.append(f"`**Teslim:**` altında `- **{alt}:**` satırı yok")
+        elif not m.group(1).strip():
+            eksik.append(f"`**Teslim:**` altında `- **{alt}:**` boş (yapılmadıysa 'yok' ve nedeni)")
+    return eksik
+
+
+def sef_ozeti_eksigi(metin: str, katman1_azami: int = 1200) -> list[str]:
+    """İki katmanlı Şef Özeti (ADR-0085, ADR-0091): `**Amaç neydi?**` taşıyan özette `## Harita` bölümü, içinde dolu
+    Denenenler, Doğrulanmayanlar ve Kararlar alanları olmalı; katman 1 (Şef Özeti alanları) gövdesi `katman1_azami`
+    karakteri aşmamalı. Yeni biçim (`**Amaca tamamen ulaşıldı mı?**` yok) ayrıca dolu `Durum` (ilk sözcük Tamam, Kısmen
+    ya da Engelli), dolu `Nasıl karar verildi?` ve Harita altında dört satırı dolu `Teslim` bloğu ister; o etiketi
+    taşıyan eski biçim bu uyarıları almaz. `Amaç neydi?` taşımayan özet etkilenmez. Eksik nedenleri döner; tamamsa []."""
     govde = re.sub(r"<!--.*?-->", "", metin or "", flags=re.S)
     if not re.search(r"^\*\*Amaç neydi\?\*\*", govde, re.M):
         return []
+    yeni_bicim = not re.search(r"^\*\*Amaca tamamen ulaşıldı mı\?\*\*", govde, re.M)
     eksik: list[str] = []
+    if yeni_bicim:
+        durum = _alan_govdesi(govde, "Durum")
+        if not durum:
+            eksik.append("Şef Özeti `**Durum:**` alanı yok ya da boş: ilk sözcük Tamam, Kısmen ya da Engelli")
+        elif not _SEF_DURUM_ILK.match(durum):
+            eksik.append("Şef Özeti `**Durum:**` ilk sözcüğü Tamam, Kısmen ya da Engelli olmalı")
+        if not _alan_govdesi(govde, "Nasıl karar verildi?"):
+            eksik.append("Şef Özeti `**Nasıl karar verildi?**` alanı yok ya da boş")
     m = re.search(r"^##[ \t]+Harita[ \t]*$(.*?)(?=^##[ \t]|\Z)", govde, re.M | re.S)
     if not m or not m.group(1).strip():
         eksik.append("`## Harita` bölümü yok ya da boş: yöntem, katman, sayı ve kanıt oraya yazılır")
@@ -212,6 +246,8 @@ def sef_ozeti_eksigi(metin: str, katman1_azami: int = 1000) -> list[str]:
                 eksik.append(f"`## Harita` altında `**{ad}:**` alanı yok")
             elif not d:
                 eksik.append(f"`## Harita` altında `**{ad}:**` boş (yoksa 'Yok' yaz)")
+        if yeni_bicim:
+            eksik.extend(_teslim_eksigi(m.group(1)))
     uzunluk = sum(len(_alan_govdesi(govde, ad) or "") for ad in _SEF_KATMAN1)
     if uzunluk > katman1_azami:
         eksik.append(f"Şef Özeti (katman 1) gövdesi {uzunluk} karakter, en çok {katman1_azami}: "
