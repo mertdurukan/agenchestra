@@ -1285,6 +1285,7 @@ def kaydet(alt):
     ia.set_defaults(f=cmd_is_ac)
     idv = is_.add_parser("devam")
     idv.add_argument("is_id")
+    idv.add_argument("--tum", action="store_true", help="tüm açık maddeleri basar (varsayılan: en çok ~2.400 karakterlik liste)")
     idv.set_defaults(f=cmd_is_devam)
     ibg = is_.add_parser("belge", help="şablondan belge açar (sozlesme, mevcut_durum, plan, ozet, bulgu, jira, rapor; var olanı ezmez) ve sohbet bağlantı satırlarını basar")
     ibg.add_argument("is_id")
