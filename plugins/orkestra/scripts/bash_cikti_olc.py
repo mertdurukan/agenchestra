@@ -291,6 +291,8 @@ def yaz(c):
     for ad in ("tekrar_tum", "tekrar_buyuk"):
         t = c[ad]
         p(f"{ad}: {t['k']}/{t['n']} (%{t['oran'] * 100:.2f}), Jeffreys95 üst %{t['jeffreys_ust'] * 100:.2f}")
+    cl = c["canli"]
+    p(f"canlı küme (compaction sonrası bağlamda): {cl['bash_sonuc']} sonuç; >5K {cl['>5000']}, >10K {cl['>10000']}, >20K {cl['>20000']}, >30K {cl['>30000']}")
     p("en büyük 12 çıktı:", c["en_buyuk_12"])
 
 
