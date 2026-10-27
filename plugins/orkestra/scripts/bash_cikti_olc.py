@@ -183,16 +183,9 @@ def oturum_tara(satirlar, kesit=None):
                         bekleyen.append(("user_text", len(b.get("text", "")), ncall, None))
         elif t == "attachment":
             bekleyen.append(("user_text", len(json.dumps(d.get("attachment", ""), ensure_ascii=False)), ncall, None))
-    kapat(ncall)
+    kapat(ncall, canli=True)
     for r in bash:
         r["tekrar"] = _tekrar_mi(r, sira)
-        r["canli"] = False
-    # canlı küme: son compact_boundary'den sonra eklenenler (bağlamda hâlâ duranlar) — w sıfırlanmayan son segment
-    if bash:
-        son_w = [r for r in bash]
-        # segment sınırı yoksa tümü canlıdır; varsa son segmentte kalanlar
-        for r in son_w:
-            r["canli"] = r.get("_son", False)
     return {"cagri": ncall, "ogeler": ogeler, "bash": bash}
 
 
