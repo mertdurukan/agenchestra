@@ -2505,6 +2505,8 @@ def user_prompt_submit(inp: dict):
                     else:
                         is_onay.bekleyen_mod_yaz(sd, inp.get("session_id"), yeni_mod)
                     parcalar.append(f"Orkestra: çalışma modu {yeni_mod} (ADR-0009).")
+                    if yeni_mod == "auto":
+                        parcalar.append(_AUTO_SOZLESME)
             except Exception:
                 pass
             try:  # P-023: kimlik gerektiren servis anılıyorsa 'yok' demeden önce klasöre bak ipucu
