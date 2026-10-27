@@ -288,12 +288,14 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
     def kalan(r):
         return onizleme if r["ch"] > tavan else r["ch"]
 
+    cs_rs = [r for r in bash if aile(r["cmd"]).startswith("cat/sed")]
+    cs_kimlik = {id(r) for r in cs_rs}  # bootstrap döngüsünde aile() yeniden hesaplanmasın
+
     def cs_ek(bs, ek):
         sonrasi = sum(kalan(r) * r["w"] for r in bs)
-        kz = sum((kalan(r) - onizleme) * r["w"] for r in bs if aile(r["cmd"]).startswith("cat/sed") and kalan(r) > ek)
+        kz = sum((kalan(r) - onizleme) * r["w"] for r in bs if id(r) in cs_kimlik and kalan(r) > ek)
         return kz / sonrasi if sonrasi else 0.0
 
-    cs_rs = [r for r in bash if aile(r["cmd"]).startswith("cat/sed")]
     tavan_sonrasi = sum(kalan(r) * r["w"] for r in bash) or 1
     cikti["cat_sed_ek"] = {"adet": len(cs_rs), "tavan_sonrasi_pay": sum(kalan(r) * r["w"] for r in cs_rs) / tavan_sonrasi, "ek_tavan": {}}
     for ek in EK_TAVANLAR:
