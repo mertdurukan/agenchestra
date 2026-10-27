@@ -163,7 +163,7 @@ def main(argv=None):
     except OSError as e:
         print(f"HATA: dosya okunamadı: {e}")
         return 2
-    ihlal = denetle(metin, {"guclu_fiil_izni": guclu})
+    ihlal = denetle(metin, {"guclu_fiil_izni": guclu, "durum": durum})
     if not ihlal:
         print("temiz")
         return 0
