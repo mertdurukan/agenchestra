@@ -360,9 +360,9 @@ def cmd_is_anlati(a):
         kayit = tek(kimlik) if kimlik else None
         if a.yaz and not kayit:
             hata("--yaz için iş kimliği gerekli")
-        izin = AN.paket(kayit, sd)["guclu_fiil_izni"] if kayit else False
+        baglam = AN.denetim_baglami(AN.paket(kayit, sd)) if kayit else {"guclu_fiil_izni": False}
         metin = oku(taslak)
-        ihlal = DN.denetle(metin, {"guclu_fiil_izni": izin})
+        ihlal = DN.denetle(metin, baglam)
         if ihlal:
             for kod, ileti in ihlal:
                 print(f"{kod}: {ileti}")
