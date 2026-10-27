@@ -128,7 +128,20 @@ def denetle(metin, baglam=None):
         if any(tuple(b[i:i + TEKRAR_N]) in gram for i in range(len(b) - TEKRAR_N + 1)):
             ihlal.append(("A09", f"iki paragrafta aynı {TEKRAR_N} kelimelik dizi"))
 
+    durum = _durum(baglam)
+    if durum in _SINIR_DURUMLARI:
+        kucuk = metin.lower()
+        if not any(s in kucuk for s in _SINIR_IFADELERI):
+            ihlal.append(("A10", f"Durum {durum.capitalize()} ama taslakta sınır ifadesi yok "
+                                 f"({', '.join(_SINIR_IFADELERI)})"))
+
     return ihlal
+
+
+def _durum(baglam):
+    """baglam['durum'] metninin ilk sözcüğü küçük harfle ('' = yok)."""
+    m = re.match(r"\s*(\w+)", str((baglam or {}).get("durum") or ""))
+    return m.group(1).lower() if m else ""
 
 
 def main(argv=None):
