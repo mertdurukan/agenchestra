@@ -15,8 +15,8 @@ sys.path.insert(0, SCRIPTS)
 
 import is_anlati as IA  # noqa: E402
 
-ANAHTARLAR = {"is", "belgeler", "ne_icin", "sonuc", "yontem", "maddeler", "gapler", "sinirlar",
-              "guclu_fiil_izni", "uyarilar"}
+ANAHTARLAR = {"is", "belgeler", "ne_icin", "sonuc", "yontem", "durum", "nasil_karar", "ana_sayi", "maddeler",
+              "gapler", "sinirlar", "guclu_fiil_izni", "uyarilar"}
 
 MD = """# mevcut durum
 
