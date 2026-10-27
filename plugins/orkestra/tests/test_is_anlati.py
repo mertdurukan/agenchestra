@@ -331,5 +331,51 @@ class MetinTest(unittest.TestCase):
         self.assertEqual((sonuc[0]["madde_say"], sonuc[0]["dogrulandi_say"]), (2, 2))
 
 
+class SefOzetiAlanlariTest(unittest.TestCase):
+    """B1 biçimli Özet: Durum, Nasıl karar verildi?, Ana sayı pakete girer; eski biçimde paket eskisi gibi kalır."""
+
+    def setUp(self):
+        self.o = Ortam()
+        self.addCleanup(self.o.kapat)
+        sys.path.insert(0, AD)
+        from test_sef_ozeti import HARITA, YENI_B1  # noqa: E402
+        self.b1 = YENI_B1
+        self.yeni = YENI_B1 + HARITA
+
+    def alan(self, ad):
+        import re
+        m = re.search(r"^\*\*%s:?\*\*\s*(.*?)\n\n" % re.escape(ad), self.b1, re.M | re.S)
+        return " ".join(m.group(1).split())
+
+    def test_yeni_bicim_alanlari_b1_ile_ayni(self):
+        p = IA.paket(tam_is(self.o, ozet=self.yeni), self.o.sd)
+        self.assertEqual(p["durum"], self.alan("Durum"))
+        self.assertTrue(p["durum"].startswith("Kısmen. Kod, test ve ölçüm tamam"))
+        self.assertEqual(p["nasil_karar"], [self.alan("Nasıl karar verildi?")])
+        self.assertEqual(p["ana_sayi"], [self.alan("Ana sayı")])
+        self.assertNotEqual(p["nasil_karar"], p["yontem"])
+        self.assertEqual(IA.denetim_baglami(p), {"guclu_fiil_izni": p["guclu_fiil_izni"], "durum": "Kısmen"})
+        t = IA.metin(p)
+        for b in ("DURUM", "ANA SAYI", "NASIL KARAR"):
+            self.assertIn(b, t)
+
+    def test_eski_bicim_paket_eskisi_gibi(self):
+        p = IA.paket(tam_is(self.o), self.o.sd)
+        self.assertEqual(p["durum"], "")
+        self.assertEqual(p["ana_sayi"], [])
+        self.assertEqual(p["nasil_karar"], p["yontem"])
+        self.assertEqual(p["sonuc"], ["Sahte sonuç.", "Sahte bulgu."])
+        self.assertEqual(p["ne_icin"], ["Sahte hedef cümlesi.", "Sahte amaç."])
+        self.assertEqual(IA.denetim_baglami(p)["durum"], "")
+        t = IA.metin(p)
+        for b in ("DURUM", "ANA SAYI", "NASIL KARAR"):
+            self.assertNotIn(b + "\n", t)
+
+    def test_durum_degeri(self):
+        for metin, beklenen in (("Tamam.", "Tamam"), ("Kısmen. neden", "Kısmen"), ("KISMEN", "Kısmen"),
+                                ("Engelli: VPN", "Engelli"), ("", ""), ("Belirsiz", "")):
+            self.assertEqual(IA.durum_degeri(metin), beklenen, metin)
+
+
 if __name__ == "__main__":
     unittest.main()
