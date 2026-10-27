@@ -28,12 +28,22 @@ POZITIF = ["Bu iki yoldan birini seçmen gerekiyor. Hangisini istersiniz?",
            "Hangisini yapayım?",
            "Devam edeyim mi yoksa önce testleri mi koşayım?",
            "Push'u da yapmamı ister misiniz?",
-           "HANGİSİNİ İSTERSİNİZ"]
+           "HANGİSİNİ İSTERSİNİZ",
+           'Numaralandırmayı eklememi isterseniz "yap" demeniz yeterli.',
+           'Hazır olduğunda "yap" demen yeterli.',
+           "Başlamam için onaylıyorum ya da yap yazman yeterli.",
+           "Onay verirsen git push çalıştırırım.",
+           "Bu üç kararı onaylarsan plan.md'ye işlerim.",
+           "İstersen ikisini de yaparım.",
+           "Bu iki dosyayı şimdi commit edeyim mi?"]
 NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Bu sözcük bir kod örneğidir: `hangisini istersiniz`.",
            "```\nHangisini istersiniz?\n```",
            "P-029 kuralı 'hangisini istersiniz' kalıbını yakalar.",
            "Hangisi daha hızlı? Birincisi, çünkü indeks kullanıyor.",
+           "Sen \"yap\" demeden başlamıyorum.",
+           "Onay bekleyen iş yok; testler geçti.",
+           "Kullanıcı onayladı, iş başladı.",
            "",
            None]
 
@@ -72,8 +82,10 @@ def arac_sonucu():
     return {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}}
 
 
-def arac(ad):
-    return {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": ad, "input": {}}]}}
+def arac(ad, girdi=None):
+    if girdi is None:
+        girdi = {"AskUserQuestion": {"questions": [{"question": "x"}]}}.get(ad, {"actions": [{"label": "Yap"}]} if ad.endswith("wrap_up") else {})
+    return {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": ad, "input": girdi}]}}
 
 
 def metin(m):
@@ -92,13 +104,16 @@ class TestDosyalarVeKural(unittest.TestCase):
         self.assertIn("kapsam İÇİNDEDİR", kayit["P-029"]["metin"])
         self.assertIn("secim_ekrani_hatirlatma", kayit["P-029"]["metin"])
         self.assertIn("ADR-0037", kayit["P-029"]["metin"])
+        self.assertIn("ADR-0043", kayit["P-029"]["metin"])
+        self.assertIn("yap demen yeterli", kayit["P-029"]["metin"])
 
     def test_ayar_anahtarlari(self):
         with open(AYAR, encoding="utf-8") as f:
             a = json.load(f)
-        for k in ("mod", "hatirlatma", "secim_araclari", "yanit_kaliplari", "yanit_muaf_kaliplari"):
+        for k in ("mod", "hatirlatma", "secim_araclari", "yanit_kaliplari", "yanit_muaf_kaliplari", "buton_alanlari"):
             self.assertIn(k, a)
-        self.assertEqual(a["mod"], "golge")
+        self.assertEqual(a["mod"], "block")
+        self.assertEqual(a["buton_alanlari"]["wrap_up"], "actions")
         self.assertIn(a["mod"], SH.MODLAR)
         self.assertIn("AskUserQuestion", a["secim_araclari"])
 
@@ -132,7 +147,7 @@ class TestKaliplar(_Proje):
 
     def test_bozuk_proje_ayari_varsayilana_duser(self):
         self.proje_ayari("{bozuk json")
-        self.assertEqual(SH.mod(SH.ayar_oku(self.sd)), "golge")
+        self.assertEqual(SH.mod(SH.ayar_oku(self.sd)), "block")
         self.assertTrue(SH.yanit_ihlali(POZITIF[0], self.sd))
 
     def test_bilinmeyen_mod_kapali_sayilir(self):
@@ -158,6 +173,18 @@ class TestTranskriptMuafiyeti(_Proje):
 
     def test_tool_result_yeni_tur_sayilmaz(self):
         yol = self.transkript([kullanici(), arac("AskUserQuestion"), arac_sonucu(), arac("Bash")])
+        self.assertTrue(SH.secim_ekrani_sunuldu(yol, self.sd))
+
+    def test_bos_dugmeli_cagri_secim_ekrani_degil(self):
+        # Düğmesiz wrap_up (yalnız özet) ya da sorusuz AskUserQuestion, düz metin onay isteğini aklamaz.
+        for ad, girdi in (("mcp__ccd_turn__wrap_up", {"recap": "bitti"}), ("mcp__ccd_turn__wrap_up", {"actions": []}),
+                          ("AskUserQuestion", {"questions": []})):
+            with self.subTest(ad=ad, girdi=girdi):
+                yol = self.transkript([kullanici(), arac(ad, girdi), metin('Başlamam için "yap" demen yeterli.')])
+                self.assertFalse(SH.secim_ekrani_sunuldu(yol, self.sd))
+
+    def test_dolu_dugme_yeter(self):
+        yol = self.transkript([kullanici(), arac("mcp__ccd_turn__wrap_up", {"recap": "x", "ask": "Yapayım mı?", "actions": [{"label": "Yap"}]})])
         self.assertTrue(SH.secim_ekrani_sunuldu(yol, self.sd))
 
     def test_baska_arac_yetmez(self):
@@ -196,7 +223,8 @@ class TestStopKapisi(_Proje):
     def ihlaller(self):
         return [g for g in self.gunluk() if g.get("kural") == "secim_ekrani"]
 
-    def test_varsayilan_golge_yalniz_gunluk(self):
+    def test_golge_yalniz_gunluk(self):
+        self.proje_ayari({"mod": "golge"})
         kod, cikti = self.kos(POZITIF[0])
         self.assertIsNone(kod)
         self.assertIsNone(cikti)
@@ -205,12 +233,12 @@ class TestStopKapisi(_Proje):
         self.assertEqual(kayit[0]["tur"], "kural_ihlal")
         self.assertEqual(kayit[0]["mod"], "golge")
 
-    def test_block_ve_hatirlatma(self):
-        self.proje_ayari({"mod": "block"})
+    def test_varsayilan_block_ve_hatirlatma(self):
         kod, cikti = self.kos(POZITIF[0])
         self.assertEqual(kod, 0)
         self.assertEqual(cikti["decision"], "block")
         self.assertIn("AskUserQuestion", cikti["reason"])
+        self.assertIn("wrap_up", cikti["reason"])
         self.assertEqual(self.ihlaller()[0]["mod"], "block")
 
     def test_stop_hook_active_blok_etmez(self):
@@ -219,6 +247,14 @@ class TestStopKapisi(_Proje):
         self.assertIsNone(kod)
         self.assertIsNone(cikti)
         self.assertEqual(len(self.ihlaller()), 1)
+
+    def test_yap_demen_yeterli_butonsuz_bloklanir_butonluysa_gecer(self):
+        yanit = 'Numaralandırmayı eklemek için "yap" demen yeterli.'
+        kod, cikti = self.kos(yanit)
+        self.assertEqual(cikti["decision"], "block")
+        yol = self.transkript([kullanici(), arac("mcp__ccd_turn__wrap_up"), metin(yanit)])
+        kod, cikti = self.kos(yanit, transcript_path=yol)
+        self.assertIsNone(cikti)
 
     def test_secim_ekrani_sunulduysa_sessiz(self):
         self.proje_ayari({"mod": "block"})

@@ -1,6 +1,6 @@
 {
-  "mod": "golge",
-  "hatirlatma": "Orkestra (P-029): yanıt kullanıcıya düz metinle seçim yaptırıyor (iki yoldan birini seçtirme, 'hangisini istersiniz' gibi) ama bu turda seçim ekranı (AskUserQuestion ya da wrap_up butonları) çağrılmadı. Seçenekleri 2-4 adet, önerilen ilk sırada ve '(Recommended)' etiketli olarak AskUserQuestion ile sun; yanıt kısa kalır ama seçim ekranıyla biter. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
+  "mod": "block",
+  "hatirlatma": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Cümleyi yanıttan çıkar ve butonla sun: wrap_up (ask = tek karar cümlesi; actions[0] = önerilen, tek öneri varsa 'Yap' düğmesi, gerekirse tek alternatif) ya da AskUserQuestion (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). Kullanıcı yalnız tıklar; yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
   "secim_araclari": [
     "AskUserQuestion",
     "wrap_up"
@@ -11,9 +11,18 @@
     "\\b(iki|üç|birkaç)\\s+(yol|seçenek|yöntem)(dan|den|lardan|lerden)?\\s+birini\\s+seç\\w*",
     "\\b(yollardan|seçeneklerden|yöntemlerden)\\s+birini\\s+seç\\w*",
     "\\bister\\s+misin(iz)?\\s*\\?",
-    "\\byoksa\\b[^.\\n?]{0,100}\\?"
+    "\\byoksa\\b[^.\\n?]{0,100}\\?",
+    "\\byap\\W{0,3}\\s*(de|dem|dey|ders|yaz)\\w*[^.\\n]{0,30}\\byeter\\w*",
+    "\\bonay\\s+ver(irsen|irseniz|in|ir\\s+misin\\w*)\\b",
+    "\\bonaylarsan(ız)?\\b",
+    "\\b(isterseniz|istersen)\\b[^.\\n]{0,80}\\b(yapay[ıi]m|yaparım|yapabilirim|ekley\\w+|uygulay\\w+|başlat\\w+|yazay\\w+|çalıştır\\w+)",
+    "\\b\\w+(ay[ıi]m|ey[ıi]m)\\s+m[ıi]\\s*\\?"
   ],
   "yanit_muaf_kaliplari": [
     "\\bp-029\\b"
-  ]
+  ],
+  "buton_alanlari": {
+    "AskUserQuestion": "questions",
+    "wrap_up": "actions"
+  }
 }

@@ -1,6 +1,6 @@
 # ADR-0037: P-029 kapsamı karar anını içerir; düz metin seçtirme Stop hook'unda gölgede ölçülür
 
-**Durum:** Kabul edildi
+**Durum:** Yerine geçildi: ADR-0043 (yalnız golge kipi kararı; kalıp, kapsam ve geri alma geçerli)
 
 **Tarih:** 22.10.2026
 

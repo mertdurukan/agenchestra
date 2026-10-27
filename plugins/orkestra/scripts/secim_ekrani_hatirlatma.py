@@ -84,9 +84,21 @@ def _gercek_kullanici_mesaji(o: dict) -> bool:
     return any(isinstance(b, dict) and b.get("type") == "text" for b in icerik or [])
 
 
+def _buton_dolu(blok: dict, alanlar: dict) -> bool:
+    """Araç çağrısı kullanıcıya düğme sunuyor mu? `buton_alanlari` bir aracın düğme taşıyan girdi alanını adlandırır; alan
+    boşsa (ör. yalnız özet içeren kapanış kutusu) çağrı seçim ekranı sayılmaz. Alanı tanımsız araç çağrıldıysa yeter."""
+    ad = next((a for a in alanlar if str(blok.get("name") or "").endswith(a)), None)
+    if ad is None:
+        return True
+    girdi = blok.get("input")
+    return bool(isinstance(girdi, dict) and girdi.get(alanlar[ad]))
+
+
 def secim_ekrani_sunuldu(transkript, sd=None) -> bool:
-    """Son kullanıcı mesajından sonra ayardaki seçim araçlarından biri çağrıldı mı? Okunamazsa False."""
-    araclar = tuple(str(a) for a in (ayar_oku(sd).get("secim_araclari") or []))
+    """Son kullanıcı mesajından sonra ayardaki seçim araçlarından biri düğmeleriyle çağrıldı mı? Okunamazsa False."""
+    ayar = ayar_oku(sd)
+    alanlar = ayar.get("buton_alanlari") if isinstance(ayar.get("buton_alanlari"), dict) else {}
+    araclar = tuple(str(a) for a in (ayar.get("secim_araclari") or []))
     if not transkript or not araclar:
         return False
     try:
@@ -112,7 +124,7 @@ def secim_ekrani_sunuldu(transkript, sd=None) -> bool:
             continue
         icerik = (o.get("message") or {}).get("content")
         for b in icerik if isinstance(icerik, list) else []:
-            if isinstance(b, dict) and b.get("type") == "tool_use" and str(b.get("name") or "").endswith(araclar):
+            if isinstance(b, dict) and b.get("type") == "tool_use" and str(b.get("name") or "").endswith(araclar) and _buton_dolu(b, alanlar):
                 bulundu = True
     return bulundu
 
