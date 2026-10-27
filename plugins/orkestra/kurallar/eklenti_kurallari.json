@@ -633,16 +633,21 @@
     {
       "id": "P-020",
       "katman": "plugin",
-      "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto altında kesin sınırlar (push, sır, DB salt okunur), izin hook'u, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır.",
+      "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto mesajı Jira ve GitHub dahil kapsamdaki her eylem için açık yetkidir (push, gh ve GitHub/Jira yazma sorulmadan çalışır) ve ajan kullanıcıya soru sormaz (AskUserQuestion ve dolu ask'lı wrap_up reddedilir); kararlarını çalışma özetindeki 'Otomatik kararlar' bölümüne yazar. Zorla/silme/ayna push, kalıcı silme, sır okuma ve DB yazma yasak kalır; izin hook'u deny sınıfı, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, hesap açma, değeri yalnız onda olan sır, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır; yetki ve soru yasağı izin_politikasi._auto_modu, hook._auto_soru_kapisi (ADR-0086), ORKESTRA_AUTO_YETKI=0 kapatır.",
       "neden": "Onay beklemeden koşu isteyen işler için iş bazında kayıtlı, denetlenebilir mod (adr klasöründeki 9 numaralı karar)",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-20T15:44:52+03:00",
-      "guncelleme": "2026-10-20T15:44:52+03:00",
+      "guncelleme": "2026-10-27T10:28:48+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-20T15:44:52+03:00",
           "olay": "eklendi",
+          "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto altında kesin sınırlar (push, sır, DB salt okunur), izin hook'u, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır."
+        },
+        {
+          "zaman": "2026-10-27T10:28:48+03:00",
+          "olay": "duzenlendi",
           "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto altında kesin sınırlar (push, sır, DB salt okunur), izin hook'u, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır."
         }
       ],

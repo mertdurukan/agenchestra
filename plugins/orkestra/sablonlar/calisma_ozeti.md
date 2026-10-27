@@ -93,6 +93,10 @@ Planın dışına çıkılan işler ve kalan işler de ayrı satırlarla yazıl�
 
 <!-- yalnız /auto işlerinde zorunlu (ADR-0009): koşu sırasında plandan ayrılan her karar ayrı satır; yoksa "Yok". -->
 
+## Otomatik kararlar
+
+<!-- yalnız /auto işlerinde (ADR-0086): kullanıcıya sorulmadan verilen her karar ayrı satır: karar, seçilen, elenen, neden; yoksa "Yok". -->
+
 ## Kullanıcıya kalanlar
 
 <!-- yalnız /auto işlerinde zorunlu (ADR-0009): yalnız kullanıcının yapabileceği işler, sıralı ve uygulanabilir; yoksa "Yok". -->

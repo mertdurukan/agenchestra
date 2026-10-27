@@ -2,7 +2,7 @@
   "surum": 1,
   "mod": "genis",
   "kimlik_okuma": true,
-  "aciklama": "genis: kapı dışındaki her araç çağrısı onaysız (hook allow; kullanıcının settings deny/ask kuralları yine geçerli). kapi: yalnız kapı ve yasaklar, gerisi Claude Code varsayılanında. kapali: politika yok. ORKESTRA_IZIN=0|kapi|genis ortam değişkeni modu ezer.",
+  "aciklama": "genis: kapı dışındaki her araç çağrısı onaysız (hook allow; kullanıcının settings deny/ask kuralları yine geçerli). kapi: yalnız kapı ve yasaklar, gerisi Claude Code varsayılanında. kapali: politika yok. ORKESTRA_IZIN=0|kapi|genis ortam değişkeni modu ezer. auto_acilan: bağlı işin modu auto iken ask yerine allow olan kapı sınıfları (kabuk_kapi, rest_kapi, mcp, kodlanmis); auto_yasak: auto modda da deny kalan kalıcı silme desenleri (ADR-0086). ORKESTRA_AUTO_YETKI=0 auto yetkisini kapatır.",
   "kabuk_yasak": [
     {
       "ad": "git push (zorla, silme ya da ayna)",
@@ -57,6 +57,22 @@
       "ad": "Atlassian execute-yazma (sunucu kimliğinden bağımsız)",
       "arac": "(?i)^mcp__.*__execute(?:Write|Destructive)$",
       "okuma": "(?!)"
+    }
+  ],
+  "auto_acilan": [
+    "kabuk_kapi",
+    "rest_kapi",
+    "mcp",
+    "kodlanmis"
+  ],
+  "auto_yasak": [
+    {
+      "ad": "gh ile silme",
+      "desen": "\\bgh\\s+(?:issue|repo|release|gist|label|secret|variable)\\s+delete\\b|\\bgh\\s+api\\b[^;&|\\n]*(?:-X|--method)[\\s=]*\\\"?DELETE"
+    },
+    {
+      "ad": "Atlassian kalıcı silme (executeDestructive)",
+      "desen": "(?i)__executeDestructive$"
     }
   ]
 }
