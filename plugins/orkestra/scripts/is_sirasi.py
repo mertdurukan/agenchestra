@@ -896,6 +896,7 @@ PLAN_MESAJ_SINIR = 2000
 _MODLU_KAPILAR = (("best_in_class", "bic_kapsaminda_mi", "bic_eksikleri"),
                   ("uretim_noktasi", "uretim_kapsaminda_mi", "uretim_eksikleri"),
                   ("paralellik", "paralellik_kapsaminda_mi", "paralellik_eksikleri"),
+                  ("jira_bagimlilik", "jira_bagimlilik_kapsaminda_mi", "jira_bagimlilik_eksikleri"),
                   ("sozlesme", "sozlesmeli_mi", "sozlesme_baglanti_eksikleri"))
 
 
