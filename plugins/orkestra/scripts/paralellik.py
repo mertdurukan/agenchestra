@@ -11,6 +11,8 @@ from __future__ import annotations
 import fnmatch
 import re
 
+import jira_bagimlilik as JB
+
 # is_sirasi._p_bloklari / _alan_degeri ile aynı mantık. is_sirasi bu modülü çağıracağı için (P3) döngüsel import
 # yerine kopyalandı; desen değişirse ikisi birlikte güncellenir.
 _YORUM = re.compile(r"<!--.*?-->", re.S)
@@ -26,6 +28,7 @@ _GIRDI = re.compile(r"^P(\d+)" + _AYRAC + r"(Çıktı|Çakışma)\s*:\s*(.*)$", 
 _BOL = re.compile(r"\s*[,;]\s*(?=P\d+" + _AYRAC + r"(?:Çıktı|Çakışma)\s*:)")
 _TAM_SIRALI = re.compile(r"^[ \t]*(?:[-*][ \t]+)?(?:\*\*)?Tam sıralı çünkü:(?:\*\*)?[ \t]*(.*)$", re.M)
 _GLOB = re.compile(r"[*?\[]")
+_JIRA = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
 
 
 def _p_bloklari(metin: str) -> dict[int, str]:
@@ -89,14 +92,17 @@ def yazma_ayristir(deger: str) -> set[str]:
 
 
 def maddeler(plan_metni: str) -> dict[int, dict]:
-    """{n: {n, once, once_ham, once_hatalari, yazma, yazma_ham}} — her P bloğu için ayrıştırılmış alanlar."""
+    """{n: {n, once, once_ham, once_hatalari, yazma, yazma_ham, jira}} — her P bloğu için ayrıştırılmış alanlar.
+
+    `jira`: `**Jira:**` alanındaki ilk anahtar (PE-770); alan yoksa '' (ADR-0086)."""
     sonuc = {}
     for n, blok in sorted(_p_bloklari(plan_metni).items()):
         once_ham = _alan_degeri(blok, "Önce")
         yazma_ham = _alan_degeri(blok, "Yazma alanı")
         once, hatalar = once_ayristir(once_ham) if once_ham else ([], [])
+        jira = _JIRA.search(_alan_degeri(blok, "Jira"))
         sonuc[n] = {"n": n, "once": once, "once_ham": once_ham, "once_hatalari": hatalar,
-                    "yazma": yazma_ayristir(yazma_ham), "yazma_ham": yazma_ham}
+                    "yazma": yazma_ayristir(yazma_ham), "yazma_ham": yazma_ham, "jira": jira.group(0) if jira else ""}
     return sonuc
 
 
@@ -275,3 +281,28 @@ def analiz(plan_metni: str, ileri_yasak: bool = True) -> dict:
             "genislik": dalga["genislik"], "agirlikli_kritik_yol": dalga["agirlikli_kritik_yol"],
             "planlanan_agirliksiz": dalga["planlanan_agirliksiz"],
             "planlanan_agirlikli": dalga["planlanan_agirlikli"], "eksikler": eksikler}
+
+
+def jira_eksikleri(md: dict[int, dict], g: dict) -> list[str]:
+    """`**Jira:**` taşıyan maddelerde açık Jira öncülünün plan kümesinde ve `**Önce:**` içinde olmasını sınar (ADR-0086).
+
+    Kapalı öncül kümede olmak zorunda değildir; plan anahtarlarını içeren Jira döngüsü ret sebebidir. Bilerek `analiz()`
+    içinde değil: `is_sirasi.paralellik_eksikleri` o listeyi ihlal modunda döndürür, Jira kontrolü gölgeden başlar
+    (P-028); yalnız `is_sirasi.jira_bagimlilik_eksikleri` çağırır. `g`: `jira_bagimlilik.coz/yukle` çıktısı."""
+    anahtar_p = {m["jira"]: n for n, m in md.items() if m.get("jira")}
+    hatalar = []
+    dongu = JB.dongu(g)
+    if dongu and any(k in anahtar_p for k in dongu):
+        hatalar.append("Jira bağımlılık döngüsü: " + " → ".join(dongu))
+    for n, m in sorted(md.items()):
+        j = m.get("jira")
+        if not j:
+            continue
+        onceki = {d for d, _, _ in m["once"]}
+        for o in sorted(JB.acik_onculler(g, j)):
+            k = anahtar_p.get(o)
+            if k is None:
+                hatalar.append(f"P{n} ({j}): açık öncülü {o} plan kümesinde yok; {o} plana eklenmeden {j} tek başına seçilemez")
+            elif k not in onceki:
+                hatalar.append(f"P{n} ({j}): açık öncülü {o} (P{k}) **Önce:** içinde anılmıyor (`P{k} — Çıktı: {o}`)")
+    return hatalar

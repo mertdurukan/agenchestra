@@ -45,6 +45,7 @@
 **Geri alma:** değişikliği geri almanın yolu (kalite kapısında zorunlu)
 **Önce:** zorunlu: `yok` ya da virgülle `P<n> — Çıktı: <o maddenin hangi çıktısını okuduğu>` / `P<n> — Çakışma: <hangi dosyada yazma alanı kesişir>`; yalnız gerçek bağımlılık yaz, "sıra düzgün olsun" gerekçe değildir
 **Yazma alanı:** bu maddenin yazacağı dosyalar (virgülle; glob olabilir); aynı dalgadaki maddelerin alanları kesişmez
+**Jira:** Jira'dan gelen görevde görev anahtarı (örn. `PE-770`); isteğe bağlı, yalnız Jira görevinde yaz. Öncülleri `jira_bagimlilik.json`dan okunur: açık öncül plan kümesinde olmalı ve `**Önce:**` içinde anılmalıdır (ADR-0086; `orkestra is dalga <iş> --jira` satırları üretir)
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
 **Sözleşme:** S<n> (sözleşmeli işte zorunlu: bu madde sözleşmedeki hangi başarı kriterini sağlar; `sozlesme_<tarih>.md`)
 **Mevcut varlık:** harita kayıt kimliği (virgülle; kimlikten sonra `(not)` ya da `; not` serbest) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
