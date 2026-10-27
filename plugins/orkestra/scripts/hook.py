@@ -674,6 +674,38 @@ def _izin_karari(arac: str, girdi: dict, sd: str, oturum=None):
         return None, ""
 
 
+_AUTO_SOZLESME = (
+    "Orkestra /auto sözleşmesi (ADR-0086): bu mesaj Jira ve GitHub dahil kapsamdaki her eylem için açık yetkidir. "
+    "Kullanıcıya soru sorma (AskUserQuestion ve wrap_up 'ask' reddedilir); kararı en iyi uygulamayla kendin ver ve "
+    "çalışma özetindeki '## Otomatik kararlar' bölümüne yaz. Zorla/silme/ayna push, kalıcı silme, sır okuma ve veritabanı "
+    "yazma yasak kalır; değeri yalnız kullanıcıda olan işler 'Kullanıcıya kalanlar' altına yazılır, koşu durmaz."
+)
+
+
+def _auto_soru_kapisi(arac: str, girdi: dict, sd: str, oturum, aid) -> None:
+    """ADR-0086: bağlı işin modu `auto` ise ana ajan kullanıcıya soru soramaz: AskUserQuestion ve dolu `ask` alanlı wrap_up
+    reddedilir (kutu yalnız özetle açılabilir). Mod okunamıyorsa serbest (plan davranışı). ORKESTRA_AUTO_YETKI=0 kapatır."""
+    if aid or not oturum:
+        return
+    if arac == "AskUserQuestion":
+        pass
+    elif arac == "wrap_up" or arac.endswith("__wrap_up"):
+        if not str((girdi or {}).get("ask") or "").strip():
+            return
+    else:
+        return
+    try:
+        import izin_politikasi
+        auto = izin_politikasi._auto_modu(sd, oturum)
+    except Exception:
+        return
+    if auto:
+        reddet("auto modunda kullanıcıya soru sorulmaz (ADR-0086): kararı en iyi uygulamayla kendin ver ve plan.md'deki "
+               "'Otomatik kararlar' bölümüne yaz. Kullanıcıya ait engel (parola, değeri yalnız onda olan sır) soru olmaz; "
+               "çalışma özetinde 'Kullanıcıya kalanlar'a yaz. Onay bekleyen işte belgeleri tamamla, onay hook'tan gelir. "
+               "wrap_up'ı ask alanı olmadan çağır.")
+
+
 def _kapi_uygula(kar, neden: str):
     if kar == "deny":
         reddet(neden)
@@ -740,6 +772,7 @@ def pre_tool_use(inp: dict):
         _VARSAYILAN_IZIN = kneden
     elif arac not in KABUK_ARACLARI:
         _kapi_uygula(kar, kneden)
+    _auto_soru_kapisi(arac, girdi, sd, inp.get("session_id"), aid)
 
     try:
         import is_onay as _io
@@ -1274,6 +1307,9 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
     bir kez block (`stop_hook_active` döngüyü keser). Kalıplar ayarda (`ayarlar/secim_ekrani_hatirlatma.json`); hatada sessiz geçer."""
     try:
         import secim_ekrani_hatirlatma as SH
+        import izin_politikasi
+        if izin_politikasi._auto_modu(sd, oid):  # ADR-0086: /auto kullanıcıya seçim yaptırmaz, ekran hatırlatması susar
+            return
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
             return
         kip = SH.mod(SH.ayar_oku(sd))
@@ -2472,6 +2508,8 @@ def user_prompt_submit(inp: dict):
                     else:
                         is_onay.bekleyen_mod_yaz(sd, inp.get("session_id"), yeni_mod)
                     parcalar.append(f"Orkestra: çalışma modu {yeni_mod} (ADR-0009).")
+                    if yeni_mod == "auto":
+                        parcalar.append(_AUTO_SOZLESME)
             except Exception:
                 pass
             try:  # P-023: kimlik gerektiren servis anılıyorsa 'yok' demeden önce klasöre bak ipucu

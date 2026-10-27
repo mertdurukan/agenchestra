@@ -33,17 +33,27 @@ class Sablon(unittest.TestCase):
     def test_etiket_sirasi_ve_eski_etiketler_yok(self):
         with open(SABLON, encoding="utf-8") as f:
             t = f.read()
-        sira = ["***Şef Özeti***", "**Amaç neydi?**", "**Ne yapıldı?**", "**Amaca tamamen ulaşıldı mı?**",
-                "**Tamamen yapılanlar:**", "**Açık kalanlar:**"]
+        sira = ["***Şef Özeti***", "**Durum:**", "**Amaç neydi?**", "**Ne yapıldı?**", "**Nasıl karar verildi?**",
+                "**Ana sayı:**", "**Senden beklenen:**", "**Açık kalanlar:**"]
         yerler = [t.index("\n" + s + "\n") for s in sira]
         self.assertEqual(yerler, sorted(yerler))
         harita = ["## Harita", "**Ölçüm saati:**", "**Denenenler:**", "**Sayılar:**", "**Doğrulanmayanlar:**",
-                  "**Kararlar:**", "**Açık işlerin ayrıntısı:**", "**İlgili dosyalar:**", "## Plana göre gerçekleşen"]
+                  "**Kararlar:**", "**Teslim:**", "**Açık işlerin ayrıntısı:**", "**İlgili dosyalar:**",
+                  "## Plana göre gerçekleşen"]
         yerler = [t.index("\n" + s + "\n") for s in harita]
         self.assertEqual(yerler, sorted(yerler))
         self.assertGreater(yerler[0], t.index("\n**Açık kalanlar:**\n"))
-        for eski in ("**Amaç:**", "**Ana bulgu:**", "**Açık işler:**"):
+        for eski in ("**Amaç:**", "**Ana bulgu:**", "**Açık işler:**", "**Amaca tamamen ulaşıldı mı?**",
+                     "**Tamamen yapılanlar:**"):
             self.assertNotIn(eski, t)
+
+    def test_teslim_bloku_dort_satir(self):
+        """ADR-0091 (S1): Jira yorumunun beslendiği Teslim bloğu şablonda dört alanla durur."""
+        with open(SABLON, encoding="utf-8") as f:
+            t = f.read()
+        self.assertGreaterEqual(t.count("Teslim"), 1)
+        for ad in ("Değişiklik", "Test", "Deploy", "Geri alma"):
+            self.assertIn(f"- **{ad}:**", t)
 
 
 class Kapi(unittest.TestCase):
@@ -78,6 +88,48 @@ class Kapi(unittest.TestCase):
         self.assertIn("Ne yapıldı?", self.isler._ozet_eksigi(self.k) or "")
 
 
+YENI_B1 = ("# T: çalışma özeti\n\n## Özet\n\n***Şef Özeti***\n\n"
+           "**Durum:** Kısmen. Kod, test ve ölçüm tamam; entegrasyon testi VPN kapalı olduğu için koşulmadı ve sütun anlamı "
+           "platform sahibinden teyit bekliyor.\n\n"
+           "**Amaç neydi?** PE-640: `query_forecast` aracının nihai (after-process) tahmin değerlerini okuması ve \"bu tahmin "
+           "nasıl üretildi\" sorularının kodla reddedilmesi.\n\n"
+           "**Ne yapıldı?**\n\n"
+           "- [Doğrulandı] Araç `fact_replenishment_report.forecast_quantity_1/2` ve `replenishment_quantity` alanlarını okur; "
+           "model alanları kaldırıldı. 3912 test geçti.\n"
+           "- [Doğrulandı] Metodoloji sorusu modele gitmeden sabit yanıtla reddedilir; sızıntı yapan yanıt tablo yanıtına düşer.\n"
+           "- [Planlandı] Jira yorumu taslağı yazıldı; Jira'ya yazılmadı.\n\n"
+           "**Nasıl karar verildi?** Nihai değerin yeri 33 şemalık katalog ve prosedür gövdeleriyle bulundu, dört şemada eşleşti. "
+           "Ret, giriş sınıflandırması ve çıkış doğrulamasıyla kodda zorlandı; üç kör turda yakalama yaklaşık %60 kaldı, bu sınır "
+           "açıkça yazıldı.\n\n"
+           "**Ana sayı:** `pytest tests/unit tests/contract` → 3912 passed, 1 skipped (27.10.2026).\n\n"
+           "**Senden beklenen:** Entegrasyon testi için VPN bağlantısı; Jira yorumu, push ve PR kararı.\n\n"
+           "**Açık kalanlar:**\n\n- Entegrasyon testi: kopya sunucuya bağlanılamadı (VPN).\n"
+           "- Sütun anlamı teyidi: platform sahibi; ADR-0011 bu teyide kadar Önerildi.\n")
+TESLIM_B1 = ("\n**Teslim:**\n\n- **Değişiklik:** PR açılmadı; push ve PR kararı kullanıcıda.\n"
+             "- **Test:** `pytest tests/unit tests/contract` 3912 passed, 1 skipped; entegrasyon testi çalışmadı.\n"
+             "- **Deploy:** çıkmadı; PR ve sütun anlamı teyidi bekliyor.\n- **Geri alma:** canlıya değişiklik çıkmadı.\n")
+
+
+class YeniBicim(unittest.TestCase):
+    """ADR-0091 (S1): PE-640 B1 biçimli, yedi alanlı Özet + Teslim bloğu mevcut kapıdan boş uyarı listesiyle geçer."""
+
+    def test_b1_ozet_kapidan_temiz_gecer(self):
+        metin = YENI_B1 + HARITA.rstrip("\n") + "\n" + TESLIM_B1
+        self.assertEqual(IK.sef_ozeti_eksigi(metin, 1200), [])
+
+    def test_b1_ozet_1200_icinde(self):
+        n = sum(len(IK._alan_govdesi(YENI_B1, ad) or "") for ad in
+                ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen", "Açık kalanlar"))
+        self.assertLessEqual(n, 1200, n)
+
+    def test_b1_kapanis_kapisindan_gecer(self):
+        isler = importlib.import_module("komutlar.isler")
+        k = tempfile.mkdtemp()
+        with open(os.path.join(k, "calisma_ozeti_20261027.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(YENI_B1 + HARITA + TESLIM_B1)
+        self.assertIsNone(isler._ozet_eksigi(k))
+
+
 class SefEksigi(unittest.TestCase):
     """is_kaydi.sef_ozeti_eksigi: saf işlev (ADR-0085)."""
 
@@ -104,7 +156,7 @@ class SefEksigi(unittest.TestCase):
         self.assertTrue(any("Denenenler" in x and "boş" in x for x in IK.sef_ozeti_eksigi(bos_tablo)))
 
     def test_katman1_uzunluk_esigi(self):
-        uzun = IKI.replace("Özet biçimini düzeltmek.", "x" * 1100)
+        uzun = IKI.replace("Özet biçimini düzeltmek.", "x" * 1300)  # varsayılan eşik 1200 (ADR-0091)
         e = IK.sef_ozeti_eksigi(uzun)
         self.assertTrue(any("katman 1" in x for x in e), e)
         self.assertEqual(IK.sef_ozeti_eksigi(uzun, katman1_azami=2000), [])
@@ -114,8 +166,54 @@ class SefEksigi(unittest.TestCase):
 
     def test_yontem_ayrintisi_ozete_yazilirsa_yakalanir(self):
         """PE-635 olayı: yöntem ve katman ayrıntısı Şef Özeti'ne yazılınca özet kısa kalmaz."""
-        sisik = IKI.replace("- Şablonu yeniledim.", "- " + "Yöntem ve katman ayrıntısı. " * 40)
+        sisik = IKI.replace("- Şablonu yeniledim.", "- " + "Yöntem ve katman ayrıntısı. " * 50)
         self.assertTrue(any("katman 1" in x for x in IK.sef_ozeti_eksigi(sisik)))
+
+
+class YeniAlanEksigi(unittest.TestCase):
+    """ADR-0091 (K7): `Amaca tamamen ulaşıldı mı?` taşımayan yeni biçim Durum, Nasıl karar verildi? ve Teslim ister."""
+    TAM = YENI_B1 + HARITA.rstrip("\n") + "\n" + TESLIM_B1
+
+    def test_varsayilan_esik_1200(self):
+        self.assertEqual(IK.sef_ozeti_eksigi(self.TAM), [])
+
+    def test_durumsuz_yeni_bicim_uyarilir(self):
+        e = IK.sef_ozeti_eksigi(re.sub(r"\*\*Durum:\*\*[^\n]*\n\n", "", self.TAM))
+        self.assertTrue(any("Durum" in x for x in e), e)
+
+    def test_durum_ilk_sozcuk(self):
+        e = IK.sef_ozeti_eksigi(self.TAM.replace("**Durum:** Kısmen.", "**Durum:** Bitti."))
+        self.assertTrue(any("Durum" in x and "ilk sözcüğü" in x for x in e), e)
+        for ilk in ("Tamam", "Engelli"):
+            self.assertEqual(IK.sef_ozeti_eksigi(self.TAM.replace("Kısmen.", ilk + ".", 1)), [])
+
+    def test_nasil_karar_bos_uyarilir(self):
+        e = IK.sef_ozeti_eksigi(re.sub(r"(\*\*Nasıl karar verildi\?\*\*)[^\n]*", r"\1", self.TAM))
+        self.assertTrue(any("Nasıl karar verildi?" in x for x in e), e)
+
+    def test_teslim_bos_alan_adiyla_uyarilir(self):
+        e = IK.sef_ozeti_eksigi(self.TAM.replace("- **Deploy:** çıkmadı; PR ve sütun anlamı teyidi bekliyor.",
+                                                 "- **Deploy:** <!-- doldur -->"))
+        self.assertEqual([x for x in e if "Teslim" in x], [x for x in e if "Deploy" in x])
+        self.assertTrue(any("Deploy" in x and "boş" in x for x in e), e)
+        self.assertFalse(any(a in x for x in e for a in ("Değişiklik", "Geri alma", "- **Test")), e)
+
+    def test_teslim_satiri_ya_da_blok_yok(self):
+        e = IK.sef_ozeti_eksigi(self.TAM.replace("- **Geri alma:** canlıya değişiklik çıkmadı.\n", ""))
+        self.assertTrue(any("Geri alma" in x and "yok" in x for x in e), e)
+        e = IK.sef_ozeti_eksigi(YENI_B1 + HARITA)
+        self.assertTrue(any("**Teslim:**" in x and "bloğu yok" in x for x in e), e)
+
+    def test_eski_etiketli_yeni_alan_uyarisi_almaz(self):
+        yeni_alan = ("Durum", "Nasıl karar verildi?", "Teslim")
+        for metin in (YENI, IKI):
+            e = IK.sef_ozeti_eksigi(metin)
+            self.assertFalse(any(a in x for x in e for a in yeni_alan), e)
+        self.assertEqual(IK.sef_ozeti_eksigi(IKI), [])
+
+    def test_yeni_alanlar_katman1_toplamina_girer(self):
+        uzun = self.TAM.replace("**Senden beklenen:** ", "**Senden beklenen:** " + "z" * 1200)
+        self.assertTrue(any("katman 1" in x for x in IK.sef_ozeti_eksigi(uzun)))
 
 
 IHLAL_SEF = lambda kapi, klasor=None: "ihlal" if kapi == "sef_ozeti" else "golge"  # noqa: E731

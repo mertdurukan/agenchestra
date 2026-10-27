@@ -47,6 +47,14 @@ Paketteki her madde bir durum, bir kanıt düzeyi ve izinli fiiller taşır. Dur
 - Sonuç uydurma yok: kanıtı olmayan sonuç yerine kapsamı kesin söyle ("düzeltmeyi hazırladım", "sahte kayıtla doğruladım, gerçek ortamda gözlemedim").
 - Paketteki **SINIRLAR** (doğrulanmayanlar, açık işler) varsa önemlisi ikinci paragrafın sonunda sınır olarak geçer; gizlenmez.
 
+## Paragrafların kaynağı
+
+Çalışma özeti yeni (Şef Özeti) biçimindeyse paket şu alanları taşır; eski biçimde alan yoksa paket eski kaynağa düşer (SONUÇ, YÖNTEM).
+
+- **Ne yaptım?** ← **DURUM** (Durum: Tamam, Kısmen ya da Engelli ve nedeni) + **SONUÇ** (Ne yapıldı?); **ANA SAYI** gerekiyorsa sözle anlatılır.
+- **Nasıl yaptım?** ← **NASIL KARAR** (Nasıl karar verildi?); yoksa **YÖNTEM**.
+- **A10:** Durum Kısmen ya da Engelli iken taslak en az bir sınır ifadesi taşır (kısmen, henüz, bekliyor, yapılmadı, teyit, engel, açık); yoksa denetim reddeder. Durum Tamam ya da boşsa kural atlanır.
+
 ## Katkı ve yön ayrımı
 
 - Kullanıcının verdiği yön ile agent'ın gerçekten yaptığı işlemi karıştırma. Kullanıcının agent'ı yönlendirip doğruladığı süreci birinci tekil anlatabilirsin; "agent ile" ifadesi doğal ve gerekiyorsa bir kez geçer.

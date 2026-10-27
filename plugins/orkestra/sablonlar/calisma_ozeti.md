@@ -2,11 +2,15 @@
 
 <!-- başlık: Jira kodu varsa "KOD Jira başlığı" (Jira'dan çekilen başlık); Jira'dan çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık. Yalnız kod ("PE-635") ya da genel ifade yazma; yukarıdaki {baslik} yerini bu başlıkla değiştir. -->
 
-<!-- iki katman (ADR-0085): `## Özet` yalnız kısa Şef Özeti'dir (gövde ≤ 1000 karakter); yöntem listesi, katman ayrıntısı, sayı tablosu ve kanıt ona girmez, hemen altındaki `## Harita`ya yazılır. -->
+<!-- iki katman (ADR-0085, ADR-0091): `## Özet` yalnız kısa Şef Özeti'dir (gövde ≤ 1200 karakter); yöntem listesi, katman ayrıntısı, sayı tablosu ve kanıt ona girmez, hemen altındaki `## Harita`ya yazılır. Bu özet tek kaynaktır: yönetici anlatısı (`orkestra is anlati`) ve Jira Done yorumu (`orkestra is jira-yorum`) buradaki alanlardan türetilir, ayrıca yazılmaz. -->
 
 ## Özet
 
 ***Şef Özeti***
+
+**Durum:**
+
+<!-- doldur: ilk sözcük Tamam, Kısmen ya da Engelli; ardından tek cümle neden. Sonuç önce okunur; aşağıdaki alanlar bununla tutarlı olur. -->
 
 **Amaç neydi?**
 
@@ -14,19 +18,21 @@
 
 **Ne yapıldı?**
 
-<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar, en çok ~150 karakter. Somut ad ve sayı ver; yöntem ve katman ayrıntısı `## Harita`ya. -->
+<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar, en çok ~150 karakter. Her maddeye etiket koy: [Doğrulandı] (kanıtla sınandı), [Tamamlandı] (yapıldı, sınanmadı) ya da [Planlandı] (yapılmadı). Somut ad ve sayı ver; yöntem ve katman ayrıntısı `## Harita`ya. -->
 
 - 
 
-**Amaca tamamen ulaşıldı mı?**
+**Nasıl karar verildi?**
 
-<!-- doldur: ilk sözcük Evet, Kısmen ya da Hayır; ardından en çok bir cümle neden. Aşağıdaki iki liste bununla tutarlı olur. -->
+<!-- doldur: en çok 2 cümle; neyi kanıtlayıp eledik, neden bu yol, kontrolün sınırı. Ayrıntı `## Harita`daki Denenenler ve Kararlar'da. -->
 
-**Tamamen yapılanlar:**
+**Ana sayı:**
 
-<!-- doldur: kanıtı olan işler, madde başına tek satır; yoksa "Yok". -->
+<!-- doldur: tek sayı + komut + ölçüm saati; yoksa "Yok". -->
 
-- 
+**Senden beklenen:**
+
+<!-- doldur: kullanıcıdan gereken tek karar ya da onay; yoksa "Yok". -->
 
 **Açık kalanlar:**
 
@@ -68,6 +74,15 @@
 
 - 
 
+**Teslim:**
+
+<!-- doldur (ADR-0091): Jira Done yorumu bu dört satırdan türetilir; satır başına bir değer, somut ad, sürüm ya da bağlantı ile. Değişiklik: PR bağlantısı ve birleşen commit. Test: hangi testler koştu, sonuç. Deploy: hangi ortama, ne zaman; ya da "çıkmadı, neden". Geri alma: geri alma yolu. Yapılmadıysa "yok" ve nedeni. -->
+
+- **Değişiklik:** 
+- **Test:** 
+- **Deploy:** 
+- **Geri alma:** 
+
 **Açık işlerin ayrıntısı:**
 
 <!-- doldur: `Açık kalanlar`daki her iş için neden bekliyor, kimde ve sonraki adım; yoksa "Yok". -->
@@ -92,6 +107,10 @@ Planın dışına çıkılan işler ve kalan işler de ayrı satırlarla yazıl�
 ## Plandan sapmalar
 
 <!-- yalnız /auto işlerinde zorunlu (ADR-0009): koşu sırasında plandan ayrılan her karar ayrı satır; yoksa "Yok". -->
+
+## Otomatik kararlar
+
+<!-- yalnız /auto işlerinde (ADR-0086): kullanıcıya sorulmadan verilen her karar ayrı satır: karar, seçilen, elenen, neden; yoksa "Yok". -->
 
 ## Kullanıcıya kalanlar
 

@@ -75,6 +75,28 @@ def _todo_satiri(klasor):
     return t, f"todo {t['biten']}/{t['toplam']}"
 
 
+TODO_LISTE_BUTCE = 2400  # varsayılan açık madde listesi en çok bu kadar karakter (ADR-0086: bağlama büyük çıktı girmesin)
+
+
+def _acik_maddeleri_yaz(satirlar, tum):
+    """Hazır açık madde satırlarını basar. tum=False iken toplam TODO_LISTE_BUTCE'yi aşmayan ilk satırlar basılır
+    (en az biri), kalan için sayı ve --tum ipucu yazılır; tum=True eski çıktıyla birebir aynıdır."""
+    if tum:
+        gosterilen = satirlar
+    else:
+        gosterilen, kullanilan = [], 0
+        for s in satirlar:
+            if gosterilen and kullanilan + len(s) + 1 > TODO_LISTE_BUTCE:
+                break
+            gosterilen.append(s)
+            kullanilan += len(s) + 1
+    for s in gosterilen:
+        print(s)
+    kalan = len(satirlar) - len(gosterilen)
+    if kalan:
+        print(f"  … {kalan} açık madde daha; tümü için `--tum`.")
+
+
 def _klasor_kok_disi(sd, yol):
     """Bağlı worktree oturumunda iş klasörü oturum kökü dışındaysa hata metni, değilse ''. Uygulama göreli bağlantıyı
     oturum klasörüne göre çözdüğü için kök dışı belge açılmaz (ADR-0035). ORKESTRA_IS_KLASOR_KOK=0 kapatır."""
@@ -155,8 +177,7 @@ def cmd_is_devam(a):
     if os.path.exists(os.path.join(klasor, "plan.md")) or not kayit.get("sira"):
         print(f"plan: {os.path.join(klasor, 'plan.md')}")
     print(satir)
-    for m in t["acik_maddeler"]:
-        print(f"  [ ] {m}")
+    _acik_maddeleri_yaz([f"  [ ] {m}" for m in t["acik_maddeler"]], getattr(a, "tum", False))
     son = ""
     yol = os.path.join(klasor, "oturumlar.md")
     if os.path.exists(yol):
@@ -287,6 +308,29 @@ def cmd_is_rapor(a):
     print(IR.metin(r))
 
 
+def cmd_is_jira_yorum(a):
+    """Jira Done yorumu (ADR-0091): en yeni calisma_ozeti*.md'den altı alanı türetir; eksikte çıkış 1, yazma yok."""
+    import is_anlati as AN
+    import is_jira_yorum as JY
+    sd = sd_gerekli()
+    bulunan = AN.coz(sd, a.kimlik)
+    if not bulunan:
+        hata(f"iş yok: {a.kimlik}")
+    if len(bulunan) > 1:
+        for b in bulunan:
+            print(f"{b.get('id')}\t{b.get('baslik')}")
+        sys.exit(2)
+    yol = JY.ozet_dosyasi(bulunan[0].get("klasor") or "")
+    if not yol:
+        hata("yorum üretilmedi: iş klasöründe calisma_ozeti*.md yok")
+    with open(yol, encoding="utf-8") as f:
+        yorum, neden = JY.uret(f.read())
+    if neden:
+        print(neden)
+        sys.exit(1)
+    sys.stdout.write(yorum)
+
+
 def cmd_is_anlati(a):
     """İş anlatısı: kanıt paketi, toplu liste, taslak denetimi ve --yaz (yalnız denetimi geçen taslağı yazar)."""
     import is_anlati as AN
@@ -316,9 +360,9 @@ def cmd_is_anlati(a):
         kayit = tek(kimlik) if kimlik else None
         if a.yaz and not kayit:
             hata("--yaz için iş kimliği gerekli")
-        izin = AN.paket(kayit, sd)["guclu_fiil_izni"] if kayit else False
+        baglam = AN.denetim_baglami(AN.paket(kayit, sd)) if kayit else {"guclu_fiil_izni": False}
         metin = oku(taslak)
-        ihlal = DN.denetle(metin, {"guclu_fiil_izni": izin})
+        ihlal = DN.denetle(metin, baglam)
         if ihlal:
             for kod, ileti in ihlal:
                 print(f"{kod}: {ileti}")
@@ -477,7 +521,7 @@ def _ozet_baslik_kapisi(klasor, metin):
 def _sef_ozeti_ayar(klasor):
     """`ayarlar/sef_ozeti.json`, proje ezmesi (durum klasöründeki aynı ad) önceliklidir. Bozuk dosya atlanır."""
     kok = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    ayar = {"katman1_azami": 1000}
+    ayar = {"katman1_azami": 1200}
     sd = L.durum_dizini(klasor)
     for yol in [os.path.join(kok, "ayarlar", "sef_ozeti.json")] + ([os.path.join(sd, "sef_ozeti.json")] if sd else []):
         ayar.update({k: v for k, v in _json_oku(yol).items() if k == "katman1_azami"})
@@ -493,7 +537,7 @@ def _sef_ozeti_kapisi(klasor, metin):
     try:
         azami = int(_sef_ozeti_ayar(klasor).get("katman1_azami"))
     except (TypeError, ValueError):
-        azami = 1000
+        azami = 1200
     kalan = KM.ihlal_ver(klasor, "sef_ozeti", _ik().sef_ozeti_eksigi(metin, azami))
     return "calisma_ozeti: " + "; ".join(kalan) + " (ADR-0085)" if kalan else None
 
@@ -527,7 +571,8 @@ def _ozet_kalite_eksigi(klasor, metin):
 
 
 def _auto_ozet_eksigi(klasor, metin):
-    """ADR-0009: `mod: auto` işin özeti `## Plandan sapmalar` ve `## Kullanıcıya kalanlar` bölümlerini taşır."""
+    """ADR-0009: `mod: auto` işin özeti `## Plandan sapmalar` ve `## Kullanıcıya kalanlar` bölümlerini taşır; ADR-0086: ayrıca
+    `## Otomatik kararlar` (kapı auto_kararlar, gölge)."""
     try:
         with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
             auto = json.load(f).get("mod") == "auto"
@@ -539,6 +584,13 @@ def _auto_ozet_eksigi(klasor, metin):
         m = re.search(rf"^##[ 	]+{ad}[ 	]*$(.*?)(?=^##[ 	]|\Z)", metin, re.M | re.S)
         if not m or not re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip():
             return f"calisma_ozeti: `## {ad}` bölümü yok ya da boş (/auto, ADR-0009); yoksa 'Yok' yaz"
+    # ADR-0086: auto modda sorulmayan kararlar özette görünür; gölge modunda yalnız uyarır (P-028)
+    m = re.search(r"^##[ 	]+Otomatik kararlar[ 	]*$(.*?)(?=^##[ 	]|\Z)", metin, re.M | re.S)
+    if not m or not re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip():
+        import kapi_mod as KM
+        kalan = KM.ihlal_ver(klasor, "auto_kararlar", ["calisma_ozeti: `## Otomatik kararlar` bölümü yok ya da boş (/auto, ADR-0086); yoksa 'Yok' yaz"])
+        if kalan:
+            return kalan[0]
     return None
 
 
@@ -786,10 +838,12 @@ def cmd_is_todo(a):
             hata(str(e))
     t, satir = _todo_satiri(kayit["klasor"])
     print(f"{a.is_id} {satir}")
+    satirlar = []
     for n, m in enumerate(t["acik_maddeler"], 1):
         if yazildi and len(m) > TODO_KISA:  # yazma sonrası kısa liste: ana ajan bağlamına her seferinde tüm todo girmesin
             m = m[:TODO_KISA - 1] + "…"
-        print(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
+        satirlar.append(f"  {n}. [ ] {m}" if yazildi else f"  [ ] {m}")
+    _acik_maddeleri_yaz(satirlar, getattr(a, "tum", False))
     if bitti and t["toplam"] and not t["acik_maddeler"]:
         _ozet_tetikle(kayit)
 
@@ -1254,6 +1308,7 @@ def kaydet(alt):
     ia.set_defaults(f=cmd_is_ac)
     idv = is_.add_parser("devam")
     idv.add_argument("is_id")
+    idv.add_argument("--tum", action="store_true", help="tüm açık maddeleri basar (varsayılan: en çok ~2.400 karakterlik liste)")
     idv.set_defaults(f=cmd_is_devam)
     ibg = is_.add_parser("belge", help="şablondan belge açar (sozlesme, mevcut_durum, plan, ozet, bulgu, jira, rapor; var olanı ezmez) ve sohbet bağlantı satırlarını basar")
     ibg.add_argument("is_id")
@@ -1291,6 +1346,9 @@ def kaydet(alt):
     ian.add_argument("--denetle", metavar="DOSYA", help="taslağı denetle; ihlalde çıkış 1")
     ian.add_argument("--yaz", metavar="DOSYA", help="denetimi geçen taslağı işin klasörüne anlati_<tarih>.md yaz")
     ian.set_defaults(f=cmd_is_anlati)
+    ijy = is_.add_parser("jira-yorum", help="Jira Done yorumu: çalışma özetinin Özet ve Teslim alanlarından türetir (model çağrısı yok)")
+    ijy.add_argument("kimlik", help="I-nnn, Jira anahtarı ya da klasör no")
+    ijy.set_defaults(f=cmd_is_jira_yorum)
     ik_ = is_.add_parser("kapat")
     ik_.add_argument("is_id")
     ik_.add_argument("--ozetsiz", metavar="NEDEN", help="görev bitiş raporu (çalışma özeti) olmadan kapat; neden zorunlu (P-009)")
@@ -1311,6 +1369,7 @@ def kaydet(alt):
     it_.add_argument("--ekle", action="append", metavar="METİN", help="todo.md sonuna açık madde ekler (tekrarlanabilir; --bitti'den sonra uygulanır)")
     it_.add_argument("--bitti", action="append", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize; tekrarlanabilir, özgün listeye göre çözülür)")
     it_.add_argument("--not", dest="not_", action="append", metavar="METİN", help="--bitti ile satır sonuna tarihli not (1 değer tümüne; --bitti sayısı kadar değer sırayla)")
+    it_.add_argument("--tum", action="store_true", help="tüm açık maddeleri basar (varsayılan: en çok ~2.400 karakterlik liste)")
     it_.set_defaults(f=cmd_is_todo)
     itd = is_.add_parser("todo-denetle", help="isler.json'a bağlı olmayan todo.md kopyalarını ve worktree kopyalarını listeler (salt okuma)")
     itd.add_argument("--kok", help="taranacak dizin (varsayılan: proje)")

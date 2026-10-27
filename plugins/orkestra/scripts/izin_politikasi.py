@@ -12,6 +12,8 @@ Karar (PreToolUse hook'u kullanır): deny | ask | allow | None.
 Mod: ayarlar/izin_politikasi.json; proje ezmesi <sd>/izin_politikasi.json (üst düzey alanlar); ORKESTRA_IZIN=0|kapi|genis modu ezer.
 Desenler en iyi çabadır: betik içinden API çağrısı yakalanmaz. MCP'de okuma deseni dışındaki her araç kapıya düşer (güvenli varsayılan).
 Veri heredoc'u ve PowerShell here-string gövdesi komut sayılmaz; yorumlayıcıya giden gövde kod sayılır (I-224).
+ADR-0086: bağlı işin modu `auto` ise halka açık eylem kapıları (`ask`) `allow` döner; `deny` sınıfı, kimlik kapısı ve kalıcı silme
+(gh/Jira) açılmaz, kodlanmış PowerShell çözülüp denetlenir, çözülemezse deny. Mod okunamazsa plan davranışı. ORKESTRA_AUTO_YETKI=0 kapatır.
 P-016: onay bekleyen işte kabukla proje içi yazım (>, >>, tee, cp/mv, Set-Content, Out-File …) mod ne olursa olsun deny.
 """
 from __future__ import annotations
@@ -35,6 +37,10 @@ _TIRNAK = re.compile(r'"(?:\\.|[^"\\])*"|\'[^\']*\'')
 # Ayar dosyası yok/bozuksa son çare: yalnız push kapısı, geniş yetki yok.
 _YEDEK = {"surum": 1, "mod": "kapi", "kabuk_yasak": [], "rest_kapi": [], "mcp": [],
           "kabuk_kapi": [{"ad": "git push", "desen": r"\bgit\b(?:\s+(?:-[Cc]\s+\S+|--[\w-]+=\S+|-\S+))*\s+push\b"}]}
+
+
+AUTO_ACILAN = ("kabuk_kapi", "rest_kapi", "mcp", "kodlanmis")  # ayar `auto_acilan` yoksa varsayılan (ADR-0086)
+_KODLU_ARG = re.compile(r"\s-(?:EncodedCommand|enc|ec)\s+['\"]?([A-Za-z0-9+/=]+)", re.I)
 
 
 def _json_sozluk(yol: str):
@@ -200,6 +206,31 @@ def _kimlik_kapisi(arac: str, girdi: dict, okuma_acik: bool = False) -> str | No
     return None
 
 
+def _auto_modu(sd, oturum) -> bool:
+    """ADR-0086: oturumun bağlı işi `auto` modda mı (yalnız is.json `mod`; oturum bekleyen modu okunmaz). Okunamazsa False."""
+    if os.environ.get("ORKESTRA_AUTO_YETKI") == "0" or not sd or not oturum:
+        return False
+    try:
+        import is_kaydi
+        import is_onay
+        is_id = is_onay._bagli_is_id(sd, oturum)
+        return bool(is_id) and is_onay.mod(is_kaydi.is_al(sd, is_id)) == is_onay.MOD_AUTO
+    except Exception:
+        return False
+
+
+def _kodlanmis_coz(komut: str):
+    """-EncodedCommand değerinin (base64, UTF-16LE) düz metni; çözülemezse None."""
+    import base64
+    m = _KODLU_ARG.search(komut or "")
+    if not m:
+        return None
+    try:
+        return base64.b64decode(m.group(1), validate=True).decode("utf-16-le")
+    except Exception:
+        return None
+
+
 PUSH_AD = "git push"
 PUSH_SORU = ("git push: halka açık eylem. Seçenekler: bu push için izin ver (Allow once); sonraki push'lar da sorulmasın "
              "diye sohbete 'push serbest' yaz; ya da vazgeç. 'pushla' dersen bu soru çıkmaz.")
@@ -242,6 +273,23 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
     if mod == "kapali":
         return None, ""
     girdi = girdi or {}
+    auto = None  # tembel: yalnız `ask` sonucu çıkacakken okunur
+
+    def sor(sinif: str, neden: str):
+        """`ask` yerine: `auto` modda ve sınıf açıksa allow, değilse ask (ADR-0086)."""
+        nonlocal auto
+        if sinif in (cfg.get("auto_acilan") or AUTO_ACILAN):
+            if auto is None:
+                auto = _auto_modu(sd, oturum)
+            if auto:
+                hedef = arac if arac.startswith("mcp__") else str(girdi.get("command") or "")
+                for y in cfg.get("auto_yasak") or []:
+                    d = _derle(str(y.get("desen") or ""))
+                    if d and d.search(hedef):
+                        return "deny", f"{y.get('ad')}: kalıcı silme auto modda da açılmaz (ADR-0086)."
+                return "allow", f"orkestra auto modu (ADR-0086): {neden}"
+        return "ask", neden
+
     if arac in KABUK_ARACLARI:
         komut = str(girdi.get("command") or "")
         govde = komut_govdesi(komut)  # veri heredoc'u atılır: gövdedeki "git push" metni kapıya takılmaz (I-224)
@@ -257,21 +305,33 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
                 if m.get("ad") == PUSH_AD:  # ADR-0036: kullanıcı push'u istediyse sorulmaz; yoksa seçenekli tek soru
                     if _onay_kaydi_var(sd, oturum):
                         return "allow", "orkestra onay kaydı: kullanıcı push'u istedi (ADR-0036)"
-                    return "ask", PUSH_SORU
-                return "ask", f"{m.get('ad')}: halka açık eylem, onay gerekir."
+                    return sor("kabuk_kapi", PUSH_SORU)
+                return sor("kabuk_kapi", f"{m.get('ad')}: halka açık eylem, onay gerekir.")
         if _KODLANMIS.search(komut):
+            if auto is None:
+                auto = _auto_modu(sd, oturum)
+            if auto and "kodlanmis" in (cfg.get("auto_acilan") or AUTO_ACILAN):
+                cozulen = _kodlanmis_coz(komut)
+                if cozulen is None:
+                    return "deny", "auto modu: kodlanmış PowerShell çözülemedi, içeriği denetlenemez (ADR-0086)."
+                ic_kod = _tirnaksiz(cozulen)
+                for m in cfg.get("kabuk_yasak") or []:
+                    d = _derle(str(m.get("desen") or ""))
+                    if d and (d.search(ic_kod) or d.search(cozulen)):
+                        return "deny", f"{m.get('ad')}: kodlanmış komutun içinde; halka açık ve geri alınamaz."
+                return "allow", "orkestra auto modu (ADR-0086): kodlanmış PowerShell çözüldü, yasak desen yok"
             return "ask", "kodlanmış PowerShell komutu: içeriği denetlenemez, onay gerekir."
         for m in cfg.get("rest_kapi") or []:
             a, h, y = (_derle(str(m.get(k) or "")) for k in ("arac", "adres", "yazma"))
             if a and h and y and a.search(komut) and h.search(komut) and y.search(komut):
-                return "ask", f"{m.get('ad')}: halka açık eylem, onay gerekir."
+                return sor("rest_kapi", f"{m.get('ad')}: halka açık eylem, onay gerekir.")
     elif arac.startswith("mcp__"):
         for m in cfg.get("mcp") or []:
             d, o = _derle(str(m.get("arac") or "")), _derle(str(m.get("okuma") or ""))
             if d and d.search(arac):
                 if o and o.search(arac):
                     break  # okuma aracı: kapı dışı
-                return "ask", f"{m.get('ad')} yazma aracı ({arac}): halka açık eylem, onay gerekir."
+                return sor("mcp", f"{m.get('ad')} yazma aracı ({arac}): halka açık eylem, onay gerekir.")
     if mod == "genis":
         return "allow", "orkestra izin politikası (geniş yetki; kapı: push, GitHub/Jira yazma)"
     return None, ""

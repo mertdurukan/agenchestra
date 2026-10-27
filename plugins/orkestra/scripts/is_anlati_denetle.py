@@ -3,11 +3,12 @@
 Asıl kaynak eklentidir (plugins/orkestra/scripts); test: tests/test_is_anlati_denetle.py.
 
 Kullanım:
-  python -I is_anlati_denetle.py <dosya> [--guclu-fiil]
+  python -I is_anlati_denetle.py <dosya> [--guclu-fiil] [--durum Tamam|Kısmen|Engelli]
 
 Çıktı: ihlal yoksa `temiz` (çıkış 0); varsa her satır `KOD: ileti` (çıkış 1).
 Kodlar: A01 paragraf sayısı, A02 etiket, A03 kelime aralığı, A04 yasak biçim, A05 sır, A06 şahıs,
-A07 abartı, A08 iç süreç sızıntısı, A09 tekrar. Salt okur; dosya yazmaz.
+A07 abartı, A08 iç süreç sızıntısı, A09 tekrar, A10 Durum Kısmen/Engelli iken sınır ifadesi yok
+(baglam["durum"] boşsa ya da Tamam ise atlanır). Salt okur; dosya yazmaz.
 """
 import re
 import sys
@@ -39,6 +40,10 @@ COGUL_EDILGEN = re.compile(
 
 ABARTI = re.compile(r"\b(çözdüm|çözüldü|başarıyla|sorunsuz|kusursuz|tamamen|eksiksiz|mükemmel)\b", re.I)
 ABARTI_SERBEST = {"çözdüm", "başarıyla"}
+
+# A10: Durum Kısmen/Engelli iken taslak en az birini taşır (küçük harfle alt dize araması).
+_SINIR_IFADELERI = ("kısmen", "henüz", "bekliyor", "yapılmadı", "teyit", "engel", "açık")
+_SINIR_DURUMLARI = {"kısmen", "kismen", "engelli"}
 
 SIZINTI = [
     (re.compile(r"\b[PKGC]-?\d{1,3}\b"), "madde/kural kimliği"),
@@ -124,15 +129,33 @@ def denetle(metin, baglam=None):
         if any(tuple(b[i:i + TEKRAR_N]) in gram for i in range(len(b) - TEKRAR_N + 1)):
             ihlal.append(("A09", f"iki paragrafta aynı {TEKRAR_N} kelimelik dizi"))
 
+    durum = _durum(baglam)
+    if durum in _SINIR_DURUMLARI:
+        kucuk = metin.lower()
+        if not any(s in kucuk for s in _SINIR_IFADELERI):
+            ihlal.append(("A10", f"Durum {durum.capitalize()} ama taslakta sınır ifadesi yok "
+                                 f"({', '.join(_SINIR_IFADELERI)})"))
+
     return ihlal
+
+
+def _durum(baglam):
+    """baglam['durum'] metninin ilk sözcüğü küçük harfle ('' = yok)."""
+    m = re.match(r"\s*(\w+)", str((baglam or {}).get("durum") or ""))
+    return m.group(1).lower() if m else ""
 
 
 def main(argv=None):
     a = list(sys.argv[1:] if argv is None else argv)
     guclu = "--guclu-fiil" in a
+    durum = ""
+    if "--durum" in a:
+        i = a.index("--durum")
+        durum = a[i + 1] if i + 1 < len(a) else ""
+        del a[i:i + 2]
     dosyalar = [x for x in a if not x.startswith("--")]
     if len(dosyalar) != 1:
-        print("kullanım: is_anlati_denetle.py <dosya> [--guclu-fiil]")
+        print("kullanım: is_anlati_denetle.py <dosya> [--guclu-fiil] [--durum Tamam|Kısmen|Engelli]")
         return 2
     try:
         with open(dosyalar[0], encoding="utf-8") as f:
@@ -140,7 +163,7 @@ def main(argv=None):
     except OSError as e:
         print(f"HATA: dosya okunamadı: {e}")
         return 2
-    ihlal = denetle(metin, {"guclu_fiil_izni": guclu})
+    ihlal = denetle(metin, {"guclu_fiil_izni": guclu, "durum": durum})
     if not ihlal:
         print("temiz")
         return 0

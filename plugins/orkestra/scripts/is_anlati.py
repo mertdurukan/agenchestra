@@ -266,6 +266,20 @@ def _madde_durumu(satirlar: list[dict], ozet: str | None, engelli: bool) -> tupl
     return durum, duzey, celiski
 
 
+_DURUM_DEGERLERI = {"tamam": "Tamam", "kısmen": "Kısmen", "kismen": "Kısmen", "engelli": "Engelli"}
+
+
+def durum_degeri(durum: str) -> str:
+    """`**Durum:**` metninin ilk sözcüğü: Tamam | Kısmen | Engelli; tanınmazsa ''."""
+    m = re.match(r"\s*(\w+)", durum or "")
+    return _DURUM_DEGERLERI.get(m.group(1).lower(), "") if m else ""
+
+
+def denetim_baglami(paket: dict) -> dict:
+    """Taslak denetçisine (is_anlati_denetle.denetle) verilecek bağlam: güçlü fiil izni + Durum değeri (A10)."""
+    return {"guclu_fiil_izni": bool(paket.get("guclu_fiil_izni")), "durum": durum_degeri(paket.get("durum", ""))}
+
+
 def guclu_fiil_izni(paket: dict) -> bool:
     """Kapanmış + tüm madde Doğrulandı + 'Doğrulanmayanlar' öğesi yok + çalışma özeti var."""
     if paket["is"].get("durum") != "kapandi":
@@ -378,6 +392,10 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
             uyarilar.append(f"{adr[0][8:]} dosyası adr/ altında bulunamadı")
         else:
             yontem += adr
+    # Şef Özeti (B1) alanları: Durum → "Ne yaptım?", Nasıl karar verildi? → "Nasıl yaptım?". Alan yoksa eski kaynak.
+    durum = " ".join(_etiket(ozet, "Durum"))
+    nasil_karar = _etiket(ozet, "Nasıl karar verildi?") or list(yontem)
+    ana_sayi = _etiket(ozet, "Ana sayı")
     sinirlar = ["Doğrulanmayanlar: " + x for x in _etiket(metin["calisma_ozeti"], "Doğrulanmayanlar")
                 if x.strip(" .").lower() not in ("yok", "-")]
     sinirlar += ["Açık iş: " + x for x in (_etiket(ozet, "Açık kalanlar") + _etiket(ozet, "Açık işler"))
@@ -392,6 +410,9 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
         "ne_icin": ne_icin[:3],
         "sonuc": sonuc,
         "yontem": yontem,
+        "durum": durum,
+        "nasil_karar": nasil_karar,
+        "ana_sayi": ana_sayi,
         "maddeler": maddeler,
         "gapler": gapler,
         "sinirlar": sinirlar,
@@ -419,7 +440,11 @@ def metin(p: dict) -> str:
         s.extend("- " + _kes(x, 250) for x in liste[:en_cok])
 
     blok("NE İÇİN", p["ne_icin"], 3)
+    blok("DURUM", [p["durum"]] if p.get("durum") else [], 1)
     blok("SONUÇ", p["sonuc"], 4)
+    blok("ANA SAYI", p.get("ana_sayi") or [], 2)
+    if p.get("nasil_karar") and p["nasil_karar"] != p["yontem"]:
+        blok("NASIL KARAR", p["nasil_karar"], 3)
     blok("YÖNTEM", p["yontem"], 5)
     if p["maddeler"]:
         s.append("MADDELER")

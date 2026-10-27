@@ -128,5 +128,58 @@ class DenetleTest(unittest.TestCase):
         self.assertTrue(cikti.getvalue().startswith("A07: "))
 
 
+SINIRSIZ_P1 = ("**Ne yaptım?** Orkestra panelindeki arka plan görevleri şeridinde görevin ne kadar süredir "
+               "çalıştığının görünmemesi sorununu ele aldım. Süreyi her görevin yanında gösteren ve sayfada "
+               "kendiliğinden ilerleyen bir yardımcı ekledim; şeritte görülen ham tarih metninin nedenini bulup "
+               "düzelttim. Her şey bitti, değişiklik iki sayfada çalışıyor ve kullanıma hazır.")
+SINIRSIZ = SINIRSIZ_P1 + "\n\n" + P2.replace("Gerçek görevle denemeyi bilerek sınır olarak bıraktım.",
+                                             "Sonuçtan memnun kaldım ve işi kapattım.")
+
+
+class SinirIfadesiTest(unittest.TestCase):
+    """A10: Durum Kısmen/Engelli iken taslak sınır ifadesi taşır; Tamam ya da bağlamsız iken kural atlanır."""
+
+    def test_sinirsiz_taslak_baska_ihlal_tasimaz(self):
+        self.assertFalse(any(s in SINIRSIZ.lower() for s in ad._SINIR_IFADELERI))
+        self.assertEqual(ad.denetle(SINIRSIZ), [])
+
+    def test_kismen_ve_engelli_sinirsiz_red(self):
+        for durum in ("Kısmen", "Engelli", "KISMEN", "Kısmen. Entegrasyon testi koşulmadı."):
+            with self.subTest(durum=durum):
+                ihlal = ad.denetle(SINIRSIZ, {"durum": durum})
+                self.assertEqual([k for k, _ in ihlal], ["A10"])
+
+    def test_kismen_ve_engelli_sinirli_temiz(self):
+        for durum in ("Kısmen", "Engelli"):
+            for metin in (IYI, SINIRSIZ.replace("Her şey bitti", "Entegrasyon testi henüz koşulmadı"),
+                          SINIRSIZ.replace("Her şey bitti", "Sütun anlamı teyit bekliyor")):
+                with self.subTest(durum=durum, metin=metin[-60:]):
+                    self.assertEqual(ad.denetle(metin, {"durum": durum}), [])
+
+    def test_tamam_sinirsiz_temiz(self):
+        self.assertEqual(ad.denetle(SINIRSIZ, {"durum": "Tamam"}), [])
+        self.assertEqual(ad.denetle(SINIRSIZ, {"durum": "Tamam", "guclu_fiil_izni": True}), [])
+
+    def test_baglamsiz_ya_da_bos_durum_atlanir(self):
+        self.assertEqual(ad.denetle(SINIRSIZ, None), [])
+        self.assertEqual(ad.denetle(SINIRSIZ, {}), [])
+        self.assertEqual(ad.denetle(SINIRSIZ, {"durum": ""}), [])
+        self.assertEqual(ad.denetle(SINIRSIZ, {"durum": None}), [])
+
+    def test_cli_durum_bayragi(self):
+        with tempfile.TemporaryDirectory() as d:
+            yol = os.path.join(d, "t.md")
+            with open(yol, "w", encoding="utf-8") as f:
+                f.write(SINIRSIZ)
+            for arg, beklenen in ((["--durum", "Kısmen"], 1), (["--durum", "Tamam"], 0), ([], 0)):
+                cikti = io.StringIO()
+                with contextlib.redirect_stdout(cikti):
+                    kod = ad.main([yol] + arg)
+                with self.subTest(arg=arg):
+                    self.assertEqual(kod, beklenen, cikti.getvalue())
+                    if beklenen:
+                        self.assertTrue(cikti.getvalue().startswith("A10: "))
+
+
 if __name__ == "__main__":
     unittest.main()
