@@ -266,6 +266,20 @@ def _madde_durumu(satirlar: list[dict], ozet: str | None, engelli: bool) -> tupl
     return durum, duzey, celiski
 
 
+_DURUM_DEGERLERI = {"tamam": "Tamam", "kısmen": "Kısmen", "kismen": "Kısmen", "engelli": "Engelli"}
+
+
+def durum_degeri(durum: str) -> str:
+    """`**Durum:**` metninin ilk sözcüğü: Tamam | Kısmen | Engelli; tanınmazsa ''."""
+    m = re.match(r"\s*(\w+)", durum or "")
+    return _DURUM_DEGERLERI.get(m.group(1).lower(), "") if m else ""
+
+
+def denetim_baglami(paket: dict) -> dict:
+    """Taslak denetçisine (is_anlati_denetle.denetle) verilecek bağlam: güçlü fiil izni + Durum değeri (A10)."""
+    return {"guclu_fiil_izni": bool(paket.get("guclu_fiil_izni")), "durum": durum_degeri(paket.get("durum", ""))}
+
+
 def guclu_fiil_izni(paket: dict) -> bool:
     """Kapanmış + tüm madde Doğrulandı + 'Doğrulanmayanlar' öğesi yok + çalışma özeti var."""
     if paket["is"].get("durum") != "kapandi":
