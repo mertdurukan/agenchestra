@@ -203,11 +203,32 @@ def _tekrar_mi(r, sira):
     return False
 
 
-def dizin_tara(dizin, kesit=None):
+def ilk_zaman(satirlar):
+    """Günlükteki ilk zaman damgası (UTC) ya da None."""
+    for l in satirlar:
+        try:
+            ts = json.loads(l).get("timestamp")
+        except Exception:
+            continue
+        if ts:
+            try:
+                return _utc(ts)
+            except ValueError:
+                continue
+    return None
+
+
+def dizin_tara(dizin, kesit=None, bas=None):
+    """bas verilirse yalnız ilk zaman damgası bas'tan sonra olan oturumlar taranır (önce/sonra pencereleri karışmasın)."""
     sonuc = []
     for f in sorted(glob.glob(os.path.join(dizin, "*.jsonl"))):
         with open(f, encoding="utf-8", errors="replace") as fh:
-            o = oturum_tara(fh, kesit)
+            satirlar = fh.readlines()
+        if bas is not None:
+            z = ilk_zaman(satirlar)
+            if z is None or z < bas:
+                continue
+        o = oturum_tara(satirlar, kesit)
         o["oturum"] = os.path.basename(f)
         sonuc.append(o)
     return sonuc
