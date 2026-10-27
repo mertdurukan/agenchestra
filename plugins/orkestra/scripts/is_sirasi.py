@@ -596,6 +596,90 @@ def paralellik_engeli(klasor: str) -> list[str]:
     return KM.ret_ver(klasor, "paralellik", paralellik_eksikleri(klasor))
 
 
+# ADR-0086: Jira görev bağımlılığı girdi kapısı (`**Jira:**` taşıyan plan, işin klasöründeki `jira_bagimlilik.json` ile sınanır).
+_HAZIRLANMA = re.compile(r"\*\*Hazırlanma saati:\*\*\s*(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})")
+
+
+def jira_bagimlilik_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_JIRA_BAGIMLILIK_KAPISI") != "0"
+
+
+def _jira_maddeleri(klasor: str) -> dict[int, dict]:
+    metin = _plan_oku(klasor)
+    if metin is None:
+        return {}
+    import paralellik as PAR
+    return PAR.maddeler(metin)
+
+
+def jira_bagimlilik_kapsaminda_mi(klasor: str) -> bool:
+    """ADR-0086: sıralı iş ve plan.md'de en az bir `**Jira:**` alanı var (alanı olmayan eski planlar muaf)."""
+    if not jira_bagimlilik_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    return any(m.get("jira") for m in _jira_maddeleri(klasor).values())
+
+
+def jira_bagimlilik_eksikleri(klasor: str) -> list[str]:
+    """ADR-0086 (K4a/K4b + açık öncül sınaması): `**Jira:**` alanı var ama `jira_bagimlilik.json` yok ya da bozuk; plandaki
+    bir anahtarın kendi kaydı dosyada yok (bağlantısı okunmamış görev 'bağımsız' sayılamaz); açık öncül plan kümesinde
+    ya da `**Önce:**` içinde yok; Jira döngüsü. Eski okuma saati (K4c) eksik sayılmaz, `jira_bagimlilik_engeli` uyarır."""
+    md = _jira_maddeleri(klasor)
+    anahtarlar = sorted({m["jira"] for m in md.values() if m.get("jira")})
+    if not anahtarlar:
+        return []
+    import jira_bagimlilik as JB
+    import paralellik as PAR
+    try:
+        g = JB.yukle(klasor)
+    except ValueError as e:
+        return [f"{e} (ADR-0086)"]
+    if g is None:
+        return [f"plan `**Jira:**` alanı taşıyor ama {JB.DOSYA} yok: Jira bağlantıları okunmadan öncül sınanamaz; "
+                f"Atlassian bağlayıcısındaki tek JQL yanıtı bu dosyaya yazılır (`orkestra is dalga <iş> --jira`) (ADR-0086)"]
+    okunmayan = [k for k in anahtarlar if not JB.okundu_mu(g, k)]
+    if okunmayan:
+        return [f"{', '.join(okunmayan)}: {JB.DOSYA} içinde kendi kaydı yok; bağlantıları okunmamış görev bağımsız sayılamaz, "
+                f"JQL'e ekleyip dosyayı yenile (ADR-0086)"]
+    return [f"{e} (ADR-0086)" for e in PAR.jira_eksikleri(md, g)]
+
+
+def _jira_referans_saati(klasor: str):
+    """Plan `**Hazırlanma saati:**` (GG.AA.YYYY SS:DD); okunamazsa şimdi."""
+    from datetime import datetime
+    m = _HAZIRLANMA.search(_plan_oku(klasor) or "")
+    if m:
+        g, a, y, s, d = (int(x) for x in m.groups())
+        try:
+            return datetime(y, a, g, s, d)
+        except ValueError:
+            pass
+    return datetime.now()
+
+
+def _jira_eski_uyari(klasor: str) -> None:
+    """K4c: okuma saati plan hazırlanma saatinden 24 saatten eskiyse iki modda da yalnız uyarır (`kapi_golge` olarak kaydeder)."""
+    import jira_bagimlilik as JB
+    import kapi_mod as KM
+    try:
+        g = JB.yukle(klasor)
+    except ValueError:
+        return
+    if g is None or not JB.eski_mi(g, _jira_referans_saati(klasor)):
+        return
+    neden = f"{JB.DOSYA} okuma saati ({g.get('okuma_saati') or 'yok'}) plan hazırlanma saatinden {JB.ESKI_SAAT} saatten eski; bağlantıları yeniden oku (ADR-0086)"
+    if KM.kaydet(klasor, "jira_bagimlilik", neden):
+        print(f"orkestra (uyarı, jira_bagimlilik): {neden}", file=sys.stderr)
+
+
+def jira_bagimlilik_engeli(klasor: str) -> list[str]:
+    """`plan_eksikleri` bağlantısı: ihlal modunda eksikleri döndürür ve her reddi `kapi_ret` olarak kaydeder (gölgede `kapi_golge`)."""
+    if not jira_bagimlilik_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    _jira_eski_uyari(klasor)
+    return KM.ret_ver(klasor, "jira_bagimlilik", jira_bagimlilik_eksikleri(klasor))
+
+
 def ozet_eksigi(metin: str, ad: str) -> str | None:
     """Belgede `## Özet` bölümü var ve yer tutucu dışında içerik taşıyor mu; değilse neden."""
     m = _OZET_BOLUMU.search(metin or "")
