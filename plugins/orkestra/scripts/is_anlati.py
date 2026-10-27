@@ -440,7 +440,11 @@ def metin(p: dict) -> str:
         s.extend("- " + _kes(x, 250) for x in liste[:en_cok])
 
     blok("NE İÇİN", p["ne_icin"], 3)
+    blok("DURUM", [p["durum"]] if p.get("durum") else [], 1)
     blok("SONUÇ", p["sonuc"], 4)
+    blok("ANA SAYI", p.get("ana_sayi") or [], 2)
+    if p.get("nasil_karar") and p["nasil_karar"] != p["yontem"]:
+        blok("NASIL KARAR", p["nasil_karar"], 3)
     blok("YÖNTEM", p["yontem"], 5)
     if p["maddeler"]:
         s.append("MADDELER")
