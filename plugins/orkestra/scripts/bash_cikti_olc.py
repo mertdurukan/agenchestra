@@ -283,6 +283,27 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
     oranlar.sort()
     if oranlar:
         cikti["simulasyon"]["bootstrap_bash_azalma_95"] = [oranlar[int(0.025 * len(oranlar))], oranlar[int(0.975 * len(oranlar)) - 1]]
+    # cat/sed ek önlem tavanı: genel tavan uygulandıktan sonra kalan Bash karakterinde cat/sed payı ve ek tavanın göreli kazancı
+    def kalan(r):
+        return onizleme if r["ch"] > tavan else r["ch"]
+
+    def cs_ek(bs, ek):
+        sonrasi = sum(kalan(r) * r["w"] for r in bs)
+        kz = sum((kalan(r) - onizleme) * r["w"] for r in bs if aile(r["cmd"]).startswith("cat/sed") and kalan(r) > ek)
+        return kz / sonrasi if sonrasi else 0.0
+
+    cs_rs = [r for r in bash if aile(r["cmd"]).startswith("cat/sed")]
+    tavan_sonrasi = sum(kalan(r) * r["w"] for r in bash) or 1
+    cikti["cat_sed_ek"] = {"adet": len(cs_rs), "tavan_sonrasi_pay": sum(kalan(r) * r["w"] for r in cs_rs) / tavan_sonrasi, "ek_tavan": {}}
+    for ek in EK_TAVANLAR:
+        oran = []
+        if oturumlar and bootstrap:
+            rng2 = random.Random(tohum)
+            for _ in range(bootstrap):
+                oran.append(cs_ek([r for o in [oturumlar[rng2.randrange(len(oturumlar))] for _ in oturumlar] for r in o["bash"]], ek))
+        oran.sort()
+        cikti["cat_sed_ek"]["ek_tavan"][ek] = {"azalma": cs_ek(bash, ek),
+                                               "bootstrap_95": [oran[int(0.025 * len(oran))], oran[int(0.975 * len(oran)) - 1]] if oran else None}
     # tekrar
     def tekrar(rs):
         k_ = sum(1 for r in rs if r["tekrar"])
