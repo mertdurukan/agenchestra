@@ -88,7 +88,7 @@ def aile(cmd):
 
 
 def _bas(cmd):
-    return re.split(r"(?<!\|)\|(?!\|)", cmd.strip(), 1)[0].strip()
+    return re.split(r"(?<!\|)\|(?!\|)", cmd.strip(), maxsplit=1)[0].strip()
 
 
 def jeffreys_ust(k, n):
