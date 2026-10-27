@@ -40,6 +40,10 @@ COGUL_EDILGEN = re.compile(
 ABARTI = re.compile(r"\b(çözdüm|çözüldü|başarıyla|sorunsuz|kusursuz|tamamen|eksiksiz|mükemmel)\b", re.I)
 ABARTI_SERBEST = {"çözdüm", "başarıyla"}
 
+# A10: Durum Kısmen/Engelli iken taslak en az birini taşır (küçük harfle alt dize araması).
+_SINIR_IFADELERI = ("kısmen", "henüz", "bekliyor", "yapılmadı", "teyit", "engel", "açık")
+_SINIR_DURUMLARI = {"kısmen", "kismen", "engelli"}
+
 SIZINTI = [
     (re.compile(r"\b[PKGC]-?\d{1,3}\b"), "madde/kural kimliği"),
     (re.compile(r"\bADR-\d+", re.I), "ADR kimliği"),
