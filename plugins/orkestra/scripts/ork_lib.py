@@ -2311,10 +2311,16 @@ def sohbetler(sd: str | None, proje: str, limit: int = 12, tahmin: bool | None =
     return out
 
 
+def _proje_adi(yol: str) -> str:
+    """Claude'un ~/.claude/projects altındaki klasör adı: yolun harf-rakam dışı her karakteri `-` olur."""
+    return re.sub(r"[^A-Za-z0-9]", "-", yol)
+
+
 def calisma_alanlari() -> list[dict]:
     """Bu bilgisayardaki Claude çalışma alanları (~/.claude/projects): ad, gerçek yol, orkestra kurulu mu, son etkinlik.
 
-    Gerçek yol transkriptteki `cwd`dan okunur (önbellekli). Geçici klasörler (Temp altındakiler) listelenmez.
+    Gerçek yol transkriptteki `cwd`dan okunur (önbellekli). Klasör adını üreten `cwd` seçilir; önbellekteki yol
+    klasör adını üretmiyorsa yeniden okunur. Geçici klasörler (Temp altındakiler) listelenmez.
     """
     kok = os.path.join(os.path.expanduser("~"), ".claude", "projects")
     onb_yolu = os.path.join(GENEL_DIZIN, "alanlar.json")
@@ -2333,11 +2339,13 @@ def calisma_alanlari() -> list[dict]:
         aid = os.path.basename(d)
         son = max(dosyalar, key=os.path.getmtime)
         yol = (onb.get(aid) or {}).get("yol")
+        if yol and _proje_adi(yol) != aid:
+            yol = None  # önbellek bu klasöre ait değil (yeniden adlandırma, yanlış ilk okuma): yeniden oku
         if not yol:
             with open(son, "rb") as f:
                 bas = f.read(400_000)
-            m = re.search(rb'"cwd":"((?:[^"\\]|\\.)*)"', bas)
-            yol = json.loads(b'"' + m.group(1) + b'"') if m else None
+            adaylar = [json.loads(b'"' + m + b'"') for m in re.findall(rb'"cwd":"((?:[^"\\]|\\.)*)"', bas)]
+            yol = next((c for c in adaylar if _proje_adi(c) == aid), adaylar[0] if adaylar else None)
             if yol:
                 onb[aid] = {"yol": yol}
                 degisti = True
