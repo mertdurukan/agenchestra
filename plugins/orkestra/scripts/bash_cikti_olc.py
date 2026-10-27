@@ -169,8 +169,10 @@ def oturum_tara(satirlar, kesit=None):
                         kat = "res:" + ("Bash" if ad in BASH_ADLARI else "Read" if ad == "Read" else "other")
                         kayit = None
                         if ad in BASH_ADLARI:
+                            govde = metin(b.get("content"))
                             kayit = {"cmd": anahtar, "ch": kar, "w": 0, "pos": None,
-                                     "kayit_yolu": (KAYIT_YOLU.search(metin(b.get("content"))) or [None, None])[1]}
+                                     "kayit_yolu": (KAYIT_YOLU.search(govde) or [None, None])[1],
+                                     "kesildi": "Output too large" in govde[:200]}
                             for i in range(len(sira) - 1, -1, -1):
                                 if sira[i] == (ad, anahtar):
                                     kayit["pos"] = i
@@ -288,6 +290,8 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
     cikti["cagri_basina_bash_karakter"] = cagri_basina(oturumlar)
     cikti["tekrar_tum"] = tekrar(bash)
     cikti["tekrar_buyuk"] = tekrar(buyuk)
+    kesilen = [r for r in bash if r["kesildi"]]
+    cikti["tekrar_kesilen"] = tekrar(kesilen)  # tavan açıkken: önizlemeye inen sonuçlar (S2 zarar ölçüsü)
     canli = [r for r in bash if r["canli"]]
     cikti["canli"] = {"bash_sonuc": len(canli), ">5000": sum(1 for r in canli if r["ch"] > 5000),
                       ">10000": sum(1 for r in canli if r["ch"] > 10000),
@@ -342,7 +346,7 @@ def yaz(c):
     s = c["simulasyon"]
     p(f"simülasyon (tavan {c['tavan']}): toplam bağlam %{s['toplam_baglam_azalma'] * 100:.1f}, bash karakteri %{s['bash_karakter_azalma'] * 100:.1f}"
       + (f", bootstrap95 [{s['bootstrap_bash_azalma_95'][0] * 100:.1f}; {s['bootstrap_bash_azalma_95'][1] * 100:.1f}]" if "bootstrap_bash_azalma_95" in s else ""))
-    for ad in ("tekrar_tum", "tekrar_buyuk"):
+    for ad in ("tekrar_tum", "tekrar_buyuk", "tekrar_kesilen"):
         t = c[ad]
         p(f"{ad}: {t['k']}/{t['n']} (%{t['oran'] * 100:.2f}), Jeffreys95 üst %{t['jeffreys_ust'] * 100:.2f}")
     cl = c["canli"]
