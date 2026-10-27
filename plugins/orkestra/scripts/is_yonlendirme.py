@@ -167,15 +167,16 @@ def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
     bagli = ("bağlı iş %s %s" % (bagli_id, bagli_baslik)).strip() if bagli_id is not None else "bağlı iş yok"
     if bagli_id is not None and zorunlu:
         konu = (' Güncel konu: "%s".' % _tek_satir(guncel_konu, 80)) if guncel_konu else ""
-        kural = ("Yeni görev (%s): ZORUNLU (K-004): mesaj bağlı işe açıkça bağlı değil.%s Cevabından ÖNCE, ilk araçtan önce karar ver: "
-                 "kullanıcıya SORMA: aynı işin devamıysa devam et; başka açık işe aitse `orkestra is devam <id>`, hiçbirine uymuyorsa "
-                 "`orkestra is ac \"<başlık>\" --klasor <klasör>` ile kendin geç, ardından `orkestra niyet --ne ...` ile "
-                 "güncel konuyu yaz ve işe koyul." % (bagli, konu))
+        kural = ("Yeni görev (%s): ZORUNLU (K-004): mesaj bağlı işe açıkça bağlı değil.%s Cevabından ÖNCE karar ver, kullanıcıya SORMA: "
+                 "aynı işin devamıysa devam et; FARKLI konuysa bu sohbette yapma: ilk araç `mcp__ccd_session__start_session` "
+                 "(initiation user_asked, brief: önce `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
+                 "ardından `detach_session`; bu sohbette bağlı işe devam et ve kullanıcıya yalnız yeni sohbetin bağlantısını ver."
+                 % (bagli, konu))
     elif bagli_id is not None:
-        # K-004: bağlı işten farklı konuda oturum kullanıcıya sormadan uygun işe geçer.
-        kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa kullanıcıya sorma, kendin geç: "
-                 "başka açık işe aitse `orkestra is devam <id>`, değilse `orkestra is ac \"<başlık>\" --klasor <klasör>`."
-                 % bagli)
+        # K-004: bağlı işten farklı konu ayrı sohbette, ayrı işte yürür; kullanıcıya sorulmaz.
+        kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa sorma, ayrı sohbete aç: "
+                 "`start_session` (user_asked, brief: `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
+                 "sonra `detach_session`; bu sohbet bağlı işte kalır." % bagli)
     else:
         kural = ("Yeni görev (%s): başka açık işe aitse `orkestra is devam <id>`; "
                  "hiçbirine uymuyorsa `orkestra is ac \"<başlık>\" --klasor <klasör>`." % bagli)

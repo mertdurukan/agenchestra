@@ -60,12 +60,12 @@
     },
     {
       "id": "K-004",
-      "metin": "ZORUNLU, istisnasız: İş bağlama, yeni iş açma ve oturum bölme kararları kullanıcıya sorulmaz; orkestra en iyi uygulamayla kendisi karar verir ve devam eder. Oturum bir işe bağlıyken bağlı işten farklı bir konu gelirse (başka açık iş, yeni iş ya da yan konu) ana ajan yeni oturum önermez ve sormaz: başka açık işe aitse orkestra is devam <id>, hiçbirine uymuyorsa orkestra is ac ile kendisi işe geçer, orkestra niyet ile güncel konuyu yazar ve işe koyulur. Bağsız oturumda belirsiz eşleşme en yakın açık işe kendiliğinden bağlanır. Hook (is_yonlendirme.yonlendir) bu kuralı her yeni görev mesajında hatırlatır.",
+      "metin": "ZORUNLU, istisnasız: İş bağlama ve yeni iş açma kararları kullanıcıya sorulmaz; orkestra en iyi uygulamayla kendisi karar verir. Oturum bir işe bağlıyken bağlı işten farklı bir konu gelirse (başka açık iş, yeni iş ya da yan konu) o konu bu sohbette yapılmaz: ana ajan kullanıcıya sormadan mcp__ccd_session__start_session ile (initiation user_asked) yeni oturum açar; brief'te önce orkestra is devam <id> (başka açık işe aitse) ya da orkestra is ac (hiçbirine uymuyorsa) bulunur, ardından K-007 gereği detach_session çağrılır. Bu sohbet bağlı işte kalır; her sohbet tek konu ve tek iş olarak izlenir, kullanıcıya yalnız yeni sohbetin bağlantısı verilir. Bağsız oturumda belirsiz eşleşme en yakın açık işe kendiliğinden bağlanır, oturum bölünmez. Hook (is_yonlendirme.yonlendir) bu kuralı her yeni görev mesajında hatırlatır. (ADR-0044)",
       "neden": "Kullanıcı 23.10.2026: iş bağlansın mı, yeni iş mi açılsın gibi soruların hiçbiri kullanıcıya sorulmamalı; orkestra kendisi devam etmeli (I-196). Önceki metin (16.10.2026): konu değişiminde start_session ile yeni oturum önerilirdi.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-16T09:24:32+03:00",
-      "guncelleme": "2026-10-23T08:16:08+03:00",
+      "guncelleme": "2026-10-27T14:49:13+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-16T09:24:32+03:00",
@@ -86,6 +86,11 @@
           "zaman": "2026-10-23T08:16:08+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Oturum bir işe bağlıyken bağlı işten farklı bir konu gelirse (başka açık iş, yeni iş ya da yan konu) o konu bu sohbette yapılmaz; yanıtın ilk mesajında, başka hiçbir araçtan önce, başlıkla yeni oturum önerilir (start_session, initiation offer). Kullanıcı 'burada yap' derse o zaman orkestra is devam <id> ya da orkestra is ac ile işe bağlanıp yapılır. Bağlı işin parçası olan devam, soru ve düzeltme mesajları öneri tetiklemez. Hook (is_yonlendirme.yonlendir) bu kuralı her yeni görev mesajında hatırlatır."
+        },
+        {
+          "zaman": "2026-10-27T14:49:13+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: İş bağlama, yeni iş açma ve oturum bölme kararları kullanıcıya sorulmaz; orkestra en iyi uygulamayla kendisi karar verir ve devam eder. Oturum bir işe bağlıyken bağlı işten farklı bir konu gelirse (başka açık iş, yeni iş ya da yan konu) ana ajan yeni oturum önermez ve sormaz: başka açık işe aitse orkestra is devam <id>, hiçbirine uymuyorsa orkestra is ac ile kendisi işe geçer, orkestra niyet ile güncel konuyu yazar ve işe koyulur. Bağsız oturumda belirsiz eşleşme en yakın açık işe kendiliğinden bağlanır. Hook (is_yonlendirme.yonlendir) bu kuralı her yeni görev mesajında hatırlatır."
         }
       ],
       "etkinlesme": "2026-10-16T09:24:32+03:00",

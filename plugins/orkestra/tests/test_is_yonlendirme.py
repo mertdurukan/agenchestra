@@ -58,13 +58,15 @@ class YonlendirTest(unittest.TestCase):
         self._kontrol(s)
         self.assertIn("bağlı iş I-2 Kampanya takvimi", s)
 
-    def test_bagli_oturumda_farkli_konu_sormadan_gecer(self):
-        # K-004: bağlı işten farklı konuda oturum kullanıcıya sormadan işe geçer; yeni oturum önerilmez.
-        s = iy.yonlendir(self.ISLER, "I-2")
-        self.assertNotIn("start_session", s)
-        self.assertIn("FARKLI", s)
-        self.assertIn("sorma", s)
-        self.assertIn("orkestra is devam", s)
+    def test_bagli_oturumda_farkli_konu_ayri_sohbette_acilir(self):
+        # K-004: bağlı işten farklı konu sormadan ayrı oturumda, ayrı işte yürür; bu oturum bağlı işte kalır.
+        for zorunlu in (False, True):
+            s = iy.yonlendir(self.ISLER, "I-2", zorunlu=zorunlu)
+            self.assertIn("start_session", s)
+            self.assertIn("detach_session", s)
+            self.assertIn("FARKLI", s)
+            self.assertIn("sorma", s.lower())
+            self.assertIn("orkestra is ac", s)
 
     def test_baglisiz_oturumda_yeni_oturum_onerisi_yok(self):
         self.assertNotIn("start_session", iy.yonlendir(self.ISLER, None))
@@ -387,7 +389,7 @@ class ZorunluYonergeTest(unittest.TestCase):
         s = iy.yonlendir(self.ISLER, "I-061", zorunlu=True, guncel_konu="dal temizliği")
         self.assertTrue(s.startswith("Yeni görev ("), s)
         self.assertIn("ZORUNLU", s)
-        self.assertNotIn("start_session", s)
+        self.assertIn("start_session", s)
         self.assertIn("SORMA", s)
         self.assertIn("dal temizliği", s)
         self.assertLessEqual(len(s), iy.SATIR_SINIR)

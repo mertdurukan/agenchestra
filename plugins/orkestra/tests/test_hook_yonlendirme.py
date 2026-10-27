@@ -547,7 +547,7 @@ class OtomatikYonlendirme(_Ortak):
         self.assertEqual(karsilastirilacak(), onceki)
         self.assertEqual(karsilastirilacak().get("is"), self.fatura["id"])
         self.assertIn("bağlı iş " + self.fatura["id"], m)
-        self.assertNotIn("start_session", m)  # K-004: yeni oturum önerilmez, oturum kendisi geçer
+        self.assertIn("start_session", m)  # K-004: farklı konu ayrı sohbette açılır
 
     # --- K3 klasör
     def test_klasor_esleme_ilk_projesi_altinda_NNN_tarih_slug(self):
