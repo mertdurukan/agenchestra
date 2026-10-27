@@ -285,6 +285,7 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
     def tekrar(rs):
         k_ = sum(1 for r in rs if r["tekrar"])
         return {"k": k_, "n": len(rs), "oran": k_ / len(rs) if rs else 0.0, "jeffreys_ust": jeffreys_ust(k_, len(rs))}
+    cikti["cagri_basina_bash_karakter"] = cagri_basina(oturumlar)
     cikti["tekrar_tum"] = tekrar(bash)
     cikti["tekrar_buyuk"] = tekrar(buyuk)
     canli = [r for r in bash if r["canli"]]
