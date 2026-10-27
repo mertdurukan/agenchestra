@@ -54,7 +54,7 @@ class UcTanUca(unittest.TestCase):
         p = cli(self.kok, "anlati", "I-001", "--json")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         paket = json.loads(p.stdout)
-        self.assertEqual(paket["durum"], "Kısmen")
+        self.assertTrue(paket["durum"].startswith("Kısmen. Kod, test ve ölçüm tamam"), paket["durum"])
         self.assertIn("üç kör turda yakalama", paket["nasil_karar"] if isinstance(paket["nasil_karar"], str)
                       else " ".join(paket["nasil_karar"]))
         y = cli(self.kok, "jira-yorum", "I-001")
