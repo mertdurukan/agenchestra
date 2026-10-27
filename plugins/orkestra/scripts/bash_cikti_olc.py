@@ -264,6 +264,11 @@ def hesapla(oturumlar, tavan=VARSAYILAN_TAVAN, onizleme=VARSAYILAN_ONIZLEME, boo
         return {"k": k_, "n": len(rs), "oran": k_ / len(rs) if rs else 0.0, "jeffreys_ust": jeffreys_ust(k_, len(rs))}
     cikti["tekrar_tum"] = tekrar(bash)
     cikti["tekrar_buyuk"] = tekrar(buyuk)
+    canli = [r for r in bash if r["canli"]]
+    cikti["canli"] = {"bash_sonuc": len(canli), ">5000": sum(1 for r in canli if r["ch"] > 5000),
+                      ">10000": sum(1 for r in canli if r["ch"] > 10000),
+                      ">20000": sum(1 for r in canli if r["ch"] > 20000),
+                      ">30000": sum(1 for r in canli if r["ch"] > 30000)}
     en_buyuk = sorted((r["ch"] for r in bash), reverse=True)[:12]
     cikti["en_buyuk_12"] = en_buyuk
     return cikti
