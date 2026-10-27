@@ -204,6 +204,13 @@ Eşik 8 ajan; 14 günde 32 kez çıktı. Kök neden: kartlar tek soruya bölünm
 - Parçalar: `scripts/is_anlati.py` (paket, durum, izinli fiil), `scripts/is_anlati_denetle.py` (A01-A09), `orkestra is anlati` (`komutlar/isler.py`), `skills/is-anlati/SKILL.md`.
 - Testler: `test_is_anlati*.py`; `ORKESTRA_IC_KOS=0` altında `test_guclu_fiil_izni_isin_paketinden` mock'u görmediği için kırılır (bilinen).
 
+## Çalışma özeti tek kaynak (I-239, ADR-0091)
+
+- `sablonlar/calisma_ozeti.md` Özet alanları: Durum, Amaç neydi?, Ne yapıldı?, Nasıl karar verildi?, Ana sayı, Senden beklenen, Açık kalanlar; Harita'da `Teslim` (Değişiklik, Test, Deploy, Geri alma). `Amaç neydi?` ve `Ne yapıldı?` etiketleri kapanış kapısı (`isler._ozet_eksigi`) ve `is_anlati.py` tarafından okunur, yeniden adlandırılmaz.
+- Eski/yeni biçim: `Amaca tamamen ulaşıldı mı?` taşıyan özet eski biçimdir, yeni alan uyarısı almaz (`is_kaydi.sef_ozeti_eksigi`). Katman 1 sınırı 1200 (`ayarlar/sef_ozeti.json`); kapı gölgede, ihlal geçişi `gecis_esikleri` ölçülünce ayrı kararla.
+- Yönetici anlatısı `orkestra is anlati` (paket alanları `durum`, `nasil_karar`, `ana_sayi`; A10: Durum Kısmen/Engelli iken taslakta sınır ifadesi şart), Jira Done yorumu `orkestra is jira-yorum` (LLM yok) özetten türetilir; ayrıca yazılmaz.
+- Test: `tests/test_birlesik_ozet.py` alan adı uyumunu parçalar arası sınar.
+
 ## Standartlar
 
 PR, commit, dal, review ve Jira yorumu gibi yapı standartları kural değil dosyadır (ADR-0006): eklentide `standartlar/*.md` varsayılan kalıplar, projede `.claude/orkestra/standartlar/<ad>.md` varsa o önceliklidir. `orkestra standart liste|goster|yol|ekle` okur ve yazar, `orkestra:standart` skill'i PR/commit/Jira yazarken ve incelerken ilgili dosyayı okutur. Kod: `scripts/standart.py`, `scripts/komutlar/standart.py`; test: `tests/test_standart.py`. Hook denetimi bu sürümde yoktur.
