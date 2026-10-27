@@ -521,7 +521,7 @@ def _ozet_baslik_kapisi(klasor, metin):
 def _sef_ozeti_ayar(klasor):
     """`ayarlar/sef_ozeti.json`, proje ezmesi (durum klasöründeki aynı ad) önceliklidir. Bozuk dosya atlanır."""
     kok = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    ayar = {"katman1_azami": 1000}
+    ayar = {"katman1_azami": 1200}
     sd = L.durum_dizini(klasor)
     for yol in [os.path.join(kok, "ayarlar", "sef_ozeti.json")] + ([os.path.join(sd, "sef_ozeti.json")] if sd else []):
         ayar.update({k: v for k, v in _json_oku(yol).items() if k == "katman1_azami"})
