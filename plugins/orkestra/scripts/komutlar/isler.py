@@ -1343,6 +1343,7 @@ def kaydet(alt):
     it_.add_argument("--ekle", action="append", metavar="METİN", help="todo.md sonuna açık madde ekler (tekrarlanabilir; --bitti'den sonra uygulanır)")
     it_.add_argument("--bitti", action="append", metavar="SEÇİCİ", help="açık maddeyi [x] yapar (sıra no ya da alt dize; tekrarlanabilir, özgün listeye göre çözülür)")
     it_.add_argument("--not", dest="not_", action="append", metavar="METİN", help="--bitti ile satır sonuna tarihli not (1 değer tümüne; --bitti sayısı kadar değer sırayla)")
+    it_.add_argument("--tum", action="store_true", help="tüm açık maddeleri basar (varsayılan: en çok ~2.400 karakterlik liste)")
     it_.set_defaults(f=cmd_is_todo)
     itd = is_.add_parser("todo-denetle", help="isler.json'a bağlı olmayan todo.md kopyalarını ve worktree kopyalarını listeler (salt okuma)")
     itd.add_argument("--kok", help="taranacak dizin (varsayılan: proje)")
