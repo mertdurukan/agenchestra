@@ -25,6 +25,7 @@ import sys
 
 VARSAYILAN_TAVAN = 10000
 VARSAYILAN_ONIZLEME = 2519
+EK_TAVANLAR = (3000, 5000)  # cat/sed'e ek önlem senaryoları (I-238)
 BASH_ADLARI = ("Bash", "PowerShell")
 SONRAKI_CAGRI = 3
 KAYIT_YOLU = re.compile(r"Full output saved to:\s*(\S+)")
