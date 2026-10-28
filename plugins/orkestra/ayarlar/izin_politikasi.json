@@ -57,6 +57,11 @@
       "ad": "Atlassian execute-yazma (sunucu kimliğinden bağımsız)",
       "arac": "(?i)^mcp__.*__execute(?:Write|Destructive)$",
       "okuma": "(?!)"
+    },
+    {
+      "ad": "postgres-mcp (eklenti sarmalayıcısı; execute_sql okuma sayılmaz)",
+      "arac": "^mcp__(?:plugin_orkestra_)?postgres__",
+      "okuma": "^mcp__(?:plugin_orkestra_)?postgres__(?:list_|get_|explain_|analyze_)"
     }
   ],
   "auto_acilan": [
