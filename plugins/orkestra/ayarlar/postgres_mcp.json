@@ -1,0 +1,10 @@
+{
+  "aciklama": "postgres-mcp sarmalayıcısı (scripts/postgres_mcp.py) varsayılanları. Proje ezmesi: .claude/orkestra/postgres_mcp.json (üst düzey anahtarlar yerine konur). Kapı ayarı db_olcum.json'dadır; ortam adı oradaki ortamlardan biridir.",
+  "ortam": "kopya",
+  "kimlik_servisi": "",
+  "anahtarlar": {"host": "", "port": "", "kullanici": "", "parola": ""},
+  "veritabani": "",
+  "sslmode": "require",
+  "izleme_sn": 60,
+  "sunucu_komutu": ["postgres-mcp", "--access-mode=restricted"]
+}
