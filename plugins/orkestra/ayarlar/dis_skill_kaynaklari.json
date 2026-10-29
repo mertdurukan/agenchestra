@@ -1,0 +1,93 @@
+{
+  "_aciklama": "Dış kaynaklı skill'ler (ADR-0095). SKILL.md bayt bayt özgündür; sha256 değişirse test kırılır, güncelleme bilinçli yapılır.",
+  "skiller": [
+    {
+      "ad": "literature-review",
+      "dizin_no": 89,
+      "indirme": "https://mcp.directory/api/skills/download/89",
+      "kaynak": "https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/literature-review",
+      "sha256": "f095277515363d5d55d0e3ceb8c84ae7413f46f0b764be06249a440f8ee454cb",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "frontend-design",
+      "dizin_no": 1,
+      "indirme": "https://mcp.directory/api/skills/download/1",
+      "kaynak": "https://github.com/anthropics/skills/tree/main/skills/frontend-design",
+      "sha256": "328452d6d428fc664edb8230ced3592c331ff775dc9f5fcb2bd9198f99c63cbd",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "competitive-analysis",
+      "dizin_no": 856,
+      "indirme": "https://mcp.directory/api/skills/download/856",
+      "kaynak": "https://github.com/anthropics/knowledge-work-plugins/tree/main/product-management/skills/competitive-analysis",
+      "sha256": "3ffe2f3d359165522f27f41e4d833d2dcdbcab088a436ac7e175030f53462c0c",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "senior-architect",
+      "dizin_no": 208,
+      "indirme": "https://mcp.directory/api/skills/download/208",
+      "kaynak": "https://github.com/alirezarezvani/claude-skills/tree/main/engineering-team/senior-architect",
+      "sha256": "df8f76d56248f4f2d190cda78e010d6c8fc8afeb181422659b073e6dd6201704",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "find-skills",
+      "dizin_no": 827,
+      "indirme": "https://mcp.directory/api/skills/download/827",
+      "kaynak": "https://github.com/openstatusHQ/openstatus/tree/main/.agents/skills/find-skills",
+      "sha256": "4e8ebf7388e1388446cde524aeec24d74a472e7659afcc07a0798505dda8ea9a",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "architect-review",
+      "dizin_no": 1491,
+      "indirme": "https://mcp.directory/api/skills/download/1491",
+      "kaynak": "https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/architect-review",
+      "sha256": "9e401cfad23464a4b6d1c0b91775cea65d5cd91bcf080fda1a923a2ca4b11cc8",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "sequential-thinking",
+      "dizin_no": 3,
+      "indirme": "https://mcp.directory/api/skills/download/3",
+      "kaynak": "https://github.com/mrgoonie/claudekit-skills/tree/main/.claude/skills/sequential-thinking",
+      "sha256": "53cabf7a0f4f50856b4fc945a7fba0437f33fe947658a17ff6baf83e74fe17ff",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "software-architecture",
+      "dizin_no": 658,
+      "indirme": "https://mcp.directory/api/skills/download/658",
+      "kaynak": "https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/skills/development/software-architecture",
+      "sha256": "1976b6b4f251f43f1a2ecf4f71a7ad5f7bc592af810f5c9ce491e024bff28459",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "textual",
+      "dizin_no": 122,
+      "indirme": "https://mcp.directory/api/skills/download/122",
+      "kaynak": "https://github.com/KyleKing/vcr-tui/tree/main/.claude/skills/textual",
+      "sha256": "4da751f505c5b0a8e2cbc69d49a406197e790f82e97ce3ba1a3f4da884b06802",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "scientific-brainstorming",
+      "dizin_no": 370,
+      "indirme": "https://mcp.directory/api/skills/download/370",
+      "kaynak": "https://github.com/davila7/claude-code-templates/tree/main/cli-tool/components/skills/scientific/scientific-brainstorming",
+      "sha256": "669500b3ac6104bac3c4b58ddea2f00ef66d3710f2eef44df5147f2c41f3069c",
+      "indirme_tarihi": "2026-10-30"
+    },
+    {
+      "ad": "ui-ux-pro-max",
+      "dizin_no": 191,
+      "indirme": "https://mcp.directory/api/skills/download/191",
+      "kaynak": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/main/.claude/skills/ui-ux-pro-max",
+      "sha256": "2715e8cf9289095bbd42153b4944c8b379964601cc07dd87ad132a67610f1321",
+      "indirme_tarihi": "2026-10-30"
+    }
+  ]
+}

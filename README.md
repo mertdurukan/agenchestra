@@ -36,7 +36,7 @@ Claude ekosistemini kullanan kişisel bir ajan orkestrasyon sistemi. Hepsi Claud
 .claude-plugin/marketplace.json     yerel klasör marketplace'i (claude-orchestration)
 plugins/orkestra/                   çekirdek plugin
   agents/      triyaj, isci-t1..t4, denetci, arastirmaci, hafiza-bakimcisi, skill-avcisi, arsivci
-  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, is-anlati, update, sade-excel, toplu-etiketle, auto, root-cause-first, db-olcum, iddia-dogrula  →  /orkestra:<ad>
+  skills/      is, baslat, maliyet, defter, perspektif, ruya, skill-avi, onay, close, devir, neredeyiz, is-anlati, update, sade-excel, toplu-etiketle, auto, root-cause-first, db-olcum, iddia-dogrula, literature-review, frontend-design, competitive-analysis, senior-architect, find-skills, architect-review, sequential-thinking, software-architecture, textual, scientific-brainstorming, ui-ux-pro-max (dış kaynaklı, ADR-0095)  →  /orkestra:<ad>
   workflows/   calistir.js   (DAG yürütme, işçi → ayrı denetçi, 2 ret → basamak yükseltme)
   hooks/       hooks.json → scripts/hook.py (9 olay); sayac.ts (turn.complete → kesin token kaydı)
   scripts/     ork_lib.py, orkestra.py (CLI), hook.py, perspektif.py, ozet.py (anlık görüntü), panel.py (HTML sunucusu: sekiz sayfa, /analitik → /verim; sunulan dosyalar STATIK),
