@@ -102,7 +102,8 @@ class PerspektifDogrulama(unittest.TestCase):
         with open(os.path.join(os.path.dirname(self.rapor), "girdi.json"), "w", encoding="utf-8") as f:
             json.dump({"gunluk": {"kapi_ret": {"uretim_noktasi": 44}, "denetim_payi": 0.0284},
                        "anomali": {"ilk": [{"pay": 0.8723}]}, "trend": {"kpi": {"a": 1, "b": 2}},
-                       "kpi": {"ret_orani": 0.13731}}, f)
+                       "kpi": {"ret_orani": 0.13731},
+                       "trend2": {"zaman": {"olcum.oturum.p95": {"simdi": 262495.0}}}, "hata": {"kok": {"?": 22}}}, f)
 
     def _girdi_sonuc(self, satirlar):
         self._girdi()
@@ -114,6 +115,10 @@ class PerspektifDogrulama(unittest.TestCase):
                                "girdi anomali.ilk[0].pay => 0.87", "girdi gunluk.denetim_payi => %2,84",
                                "girdi trend.kpi => 2", "girdi gunluk.kapi_ret.uretim_noktasi => >=40"])
         self.assertEqual((o["toplam"], o["tutan"], o["tutmayan"]), (6, 6, []))
+
+    def test_girdi_kaniti_noktali_anahtar_ve_soru_isareti(self):
+        o = self._girdi_sonuc(["girdi trend2.zaman.olcum.oturum.p95.simdi => 262495,0", "girdi hata.kok.? => 22"])
+        self.assertEqual((o["tutan"], o["tutmayan"]), (2, []))
 
     def test_girdi_kaniti_yanlis_deger_tutmaz(self):
         o = self._girdi_sonuc(["girdi gunluk.kapi_ret.uretim_noktasi => 41", "girdi kpi.ret_orani => 0,1517"])

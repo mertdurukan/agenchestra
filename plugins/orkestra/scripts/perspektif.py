@@ -419,21 +419,36 @@ _ISARET_SATIRI = re.compile(r"^\s*" + re.escape(ISARET))
 _KOSULMAYAN = ("komut koşulmadı", "komut çalıştırılmadı")
 
 
-_GIRDI_KANIT = re.compile(r'^(?P<yol>[A-Za-z_][\w.\[\]-]*)\s*=>\s*(?P<bek>.+?)\s*$')
+_GIRDI_KANIT = re.compile(r'^(?P<yol>[A-Za-z_?][\w.?\[\]-]*)\s*=>\s*(?P<bek>.+?)\s*$')
 _GIRDI_ADIM = re.compile(r'([^.\[\]]+)|\[(\d+)\]')
 
 
 def _girdi_deger(veri, yol: str):
-    """`gunluk.kapi_ret.uretim_noktasi`, `anomali.ilk[0].pay` biçimli yolu çözer; yoksa KeyError."""
-    d = veri
-    for ad, sira in _GIRDI_ADIM.findall(yol):
+    """`gunluk.kapi_ret.uretim_noktasi`, `anomali.ilk[0].pay` biçimli yolu çözer; yoksa KeyError.
+    Sözlükte noktalı tek anahtar da bulunur (trend.zaman'daki `olcum.oturum.p95` gibi): en uzun eşleşen anahtar seçilir."""
+    adimlar = [(ad, sira) for ad, sira in _GIRDI_ADIM.findall(yol)]
+
+    def coz(d, i):
+        if i == len(adimlar):
+            return d
+        ad, sira = adimlar[i]
         if sira:
-            d = d[int(sira)]
-        elif isinstance(d, dict):
-            d = d[ad]
-        else:
+            return coz(d[int(sira)], i + 1)
+        if not isinstance(d, dict):
             raise KeyError(ad)
-    return d
+        j = i
+        while j < len(adimlar) and not adimlar[j][1]:
+            j += 1
+        for son in range(j, i, -1):  # en uzun noktalı anahtar önce
+            anahtar = ".".join(a for a, _ in adimlar[i:son])
+            if anahtar in d:
+                try:
+                    return coz(d[anahtar], son)
+                except (KeyError, IndexError, TypeError):
+                    continue
+        raise KeyError(ad)
+
+    return coz(veri, 0)
 
 
 def _sayi(metin: str):
