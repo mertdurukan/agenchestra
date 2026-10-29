@@ -68,13 +68,13 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, kanit  # noqa: E402
+from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam  # noqa: E402
 from komutlar import hata as hata_komut  # noqa: E402  (ad `_ortak.hata` işlevini gölgelemesin)
 from komutlar import plan_alan  # noqa: E402  (`plan` grubuna `alan` ekler; plan'dan sonra kaydedilir)
 from komutlar import dalga  # noqa: E402  (`is dalga`; isler'den SONRA kaydedilir)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, kanit, hata_komut, plan_alan, dalga)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

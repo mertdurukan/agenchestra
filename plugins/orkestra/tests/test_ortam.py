@@ -19,7 +19,7 @@ class Kurucu(unittest.TestCase):
         with open(os.path.join(self.kok, "api", "uv.lock"), "w") as f:
             f.write("v1")
         self.yol = os.path.join(self.kok, "_v", "api")
-        self.kayit = {"ad": "api", "yer": "api", "tur": "python", "kilit_turu": "uv", "kilit_dosyasi": "uv.lock",
+        self.kayit = {"ad": "api", "dizin": "api", "tur": "python", "kilit_turu": "uv", "kilit_dosyasi": "uv.lock",
                       "manifestler": ["requirements.txt"], "ortam_yolu": self.yol}
         self.komutlar = []
 
@@ -38,7 +38,7 @@ class Kurucu(unittest.TestCase):
     def test_uv_varsa_uv_sync_locked(self):
         s = O.kur(self.kayit, self.kok, self.runner(), uv_var=True)
         self.assertEqual(s["arac"], "uv")
-        self.assertEqual(self.komutlar[0][0], ["uv", "sync", "--locked"])
+        self.assertEqual(self.komutlar[0][0], ["uv", "sync", "--locked", "--all-extras"])
         self.assertEqual(self.komutlar[0][2]["UV_PROJECT_ENVIRONMENT"], self.yol)
         self.assertEqual(O.dogrula(self.kayit, self.kok)["durum"], "guncel")
 
@@ -46,6 +46,12 @@ class Kurucu(unittest.TestCase):
         s = O.kur(self.kayit, self.kok, self.runner(), uv_var=False)
         self.assertEqual(s["arac"], "pip")
         self.assertIn("-r", self.komutlar[1][0])
+
+    def test_pip_yedegi_dev_ekleri_de_kurar(self):
+        with open(os.path.join(self.kok, "api", "pyproject.toml"), "w") as f:
+            f.write('[project]\nname = "a"\n[project.optional-dependencies]\ndev = ["pytest>=8"]\n')
+        O.kur(self.kayit, self.kok, self.runner(), uv_var=False)
+        self.assertEqual(self.komutlar[2][0][-1], "pytest>=8")
 
     def test_kilit_degisince_eski(self):
         O.kur(self.kayit, self.kok, self.runner(), uv_var=True)
@@ -71,6 +77,31 @@ class Kurucu(unittest.TestCase):
                  ortam_yolu=os.path.join(self.kok, "api", "node_modules"))
         O.kur(k, self.kok, self.runner())
         self.assertEqual(self.komutlar[0][0], ["npm", "ci"])
+
+
+class Runner(unittest.TestCase):
+    def test_bulunamayan_arac_127_doner(self):
+        kod, cikti = O.varsayilan_runner(["yok-boyle-arac-orkestra"], tempfile.gettempdir(), dict(os.environ))
+        self.assertEqual(kod, 127)
+        self.assertIn("başlatılamadı", cikti)
+
+    def test_var_olan_arac_calisir(self):
+        kod, cikti = O.varsayilan_runner([sys.executable, "-c", "print(1)"], tempfile.gettempdir(), dict(os.environ))
+        self.assertEqual((kod, cikti.strip()), (0, "1"))
+
+
+class Yorumlayici(unittest.TestCase):
+    def test_dockerfile_surumu_once_sonra_tercih(self):
+        d = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(d, "Dockerfile"), "w") as f:
+                f.write("FROM python:3.11-slim\n")
+            self.assertEqual(O.istenen_surumler(d, ["3.13", "3.11"]), ["3.11", "3.13"])
+            bulunan = {"3.13": "/py313"}
+            self.assertEqual(O.yorumlayici_sec(d, ["3.13"], bulunan.get), ("/py313", "3.13"))
+            self.assertEqual(O.yorumlayici_sec(d, ["3.99"], bulunan.get), (sys.executable, "varsayilan"))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 class Profil(unittest.TestCase):

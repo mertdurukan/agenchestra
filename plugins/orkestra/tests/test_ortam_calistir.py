@@ -41,7 +41,7 @@ class Calistir(unittest.TestCase):
         komut, cwd, env = C.hazirla(self.kayit, self.kok, ["python", "-m", "pytest"])
         self.assertEqual(komut[0], O.python_yolu(self.yol))
         self.assertEqual(komut[1], "-I")
-        self.assertEqual(komut[2:], ["-m", "pytest"])
+        self.assertEqual(komut[2:], ["-X", "utf8", "-m", "pytest"])
         self.assertEqual(cwd, os.path.join(self.kok, "api"))
         self.assertTrue(env["PATH"].startswith(os.path.dirname(O.python_yolu(self.yol))))
 
@@ -76,6 +76,8 @@ class Calistir(unittest.TestCase):
         # sahte python.exe boş dosya: gerçek koşu yerine subprocess çağrısını sına
         with mock.patch("subprocess.run") as m:
             m.return_value.returncode = 7
+            m.return_value.stdout = b""
+            m.return_value.stderr = b""
             self.assertEqual(C.calistir(self.kayit, self.kok, ["python", "-V"]), 7)
         self.assertEqual(m.call_args[0][0][0], O.python_yolu(self.yol))
 

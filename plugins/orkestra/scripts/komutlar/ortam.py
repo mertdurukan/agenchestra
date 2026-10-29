@@ -38,14 +38,15 @@ def cmd_liste(a):
 
 
 def cmd_kur(a):
+    import harita_ortam as HO
     import ortam as O
     sd = sd_gerekli()
     kok, kayitlar = _secili(a, sd)
     basarisiz = 0
     for r in kayitlar:
         try:
-            s = O.kur(r, kok)
-            print(f"{s['codebase']}: {s['durum']} ({s['arac']}) -> {s['ortam_yolu']}")
+            s = O.kur(r, kok, tercih=HO.ayar_oku(sd)["python_tercih"])
+            print(f"{s['codebase']}: {s['durum']} ({s['arac']}{', python ' + s['python'] if s['python'] else ''}) -> {s['ortam_yolu']}")
         except O.OrtamHata as e:
             basarisiz += 1
             print(f"HATA {e}")
