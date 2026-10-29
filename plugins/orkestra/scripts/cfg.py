@@ -36,6 +36,7 @@ ORTAM = {
     "claude_exe": "CLAUDE_CODE_EXECPATH",
     "bash": "ORKESTRA_BASH",
     "panel_port": "ORKESTRA_PANEL_PORT",
+    "bildirim": "ORKESTRA_BILDIRIM",
 }
 
 PANEL_PORT_VARSAYILAN = 8765

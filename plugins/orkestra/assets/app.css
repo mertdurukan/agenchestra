@@ -441,3 +441,12 @@ dialog.onay .eylemler { display: flex; justify-content: flex-end; gap: var(--a2)
 /* Tüm çalışma alanları kipi (ADR-0030): kaydın çalışma alanı rozeti ve birleşik kip notları */
 .alan-rozet { background: var(--vurgu-zemin, var(--yuzey-2)); color: var(--vurgu, var(--metin-2)); max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .birlesik-not { color: var(--metin-3, var(--metin-2)); font-size: var(--y12, 12px); }
+
+/* ayarlar: açma/kapama anahtarı */
+.ayar-satir { justify-content: space-between; align-items: center; gap: var(--a4); }
+.anahtar { position: relative; min-width: 84px; padding: 0 var(--a3) 0 44px; border-radius: 999px; border: 1px solid var(--cizgi, currentColor); background: transparent; color: inherit; cursor: pointer; text-align: right; }
+.anahtar::before { content: ""; position: absolute; left: 4px; top: 50%; width: 20px; height: 20px; margin-top: -10px; border-radius: 50%; background: currentColor; opacity: .5; }
+.anahtar[aria-checked="true"] { background: var(--iyi); border-color: var(--iyi); color: #fff; padding: 0 44px 0 var(--a3); text-align: left; }
+.anahtar[aria-checked="true"]::before { left: auto; right: 4px; opacity: 1; background: #fff; }
+.anahtar:disabled { opacity: .5; cursor: not-allowed; }
+.anahtar:focus-visible { outline: 2px solid var(--vurgu, currentColor); outline-offset: 2px; }

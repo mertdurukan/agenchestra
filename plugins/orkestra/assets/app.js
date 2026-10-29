@@ -1,7 +1,7 @@
 /* Orkestra paneli v2: karar odaklı kontrol odası.
-   Görünümler: Gelen kutusu (açılış) · İşler (liste + ayrıntı) · Koşular · Kart izi · Maliyet · Kurallar.
+   Görünümler: Gelen kutusu (açılış) · İşler (liste + ayrıntı) · Koşular · Kart izi · Maliyet · Kurallar · Yapılacaklar · Ayarlar.
    Veri: mevcut JSON uçları; canlı güncelleme /akis (SSE). Harici kitaplık yok.
-   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=…  #/yapilacaklar */
+   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=…  #/yapilacaklar  #/ayarlar */
 (() => {
   'use strict';
 
@@ -86,6 +86,7 @@
     kosular: '<path d="M1.5 8h3l2-5 3 10 2-5h3"/>',
     maliyet: '<path d="M2.5 13.5h11"/><path d="M4 11V8"/><path d="M7 11V4"/><path d="M10 11V6.5"/><path d="M13 11V2.5"/>',
     kurallar: '<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 6.5h5M5.5 9h5M5.5 11.5h3"/>',
+    ayarlar: '<path d="M3 4.5h5M11 4.5h2M3 11.5h2M8 11.5h5"/><circle cx="9.5" cy="4.5" r="1.5"/><circle cx="6.5" cy="11.5" r="1.5"/>',
     yapilacaklar: '<path d="M6.5 4.5h7M6.5 8h7M6.5 11.5h7"/><path d="m2 4.5 1 1 1.6-2M2 8l1 1 1.6-2M2 11.5l1 1 1.6-2"/>',
     onay: '<path d="m3 8.5 3 3 7-7"/>',
     sohbet: '<path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/>',
@@ -178,6 +179,7 @@
   const GUNC_ARALIK = 1000;             // ms: koşu sürerken ilerleme yoklaması
   const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json', GUNC_YOL];
   const YAP_YOL = '/api/kullanici-todo';
+  const AYAR_YOL = '/api/ayarlar';   // kullanıcı ayarları (bildirim): makine düzeyi, çalışma alanından bağımsız
 
   // Güncelleme koşusu sürerken durumu saniyede bir yeniler; koşu bitince (ya da sunucu 'çalışıyor' demeyince) kendiliğinden durur.
   function guncellemeIzle() {
@@ -234,7 +236,7 @@
     if (!p.length || p[0] === 'gelen') return { ad: 'gelen', q };
     if (p[0] === 'is' && p[1]) return { ad: 'isler', id: p[1], q };
     if (p[0] === 'kart' && p[1]) return { ad: 'kart', id: p[1], q };
-    if (['isler', 'kosular', 'maliyet', 'kurallar', 'yapilacaklar'].includes(p[0])) return { ad: p[0], q };
+    if (['isler', 'kosular', 'maliyet', 'kurallar', 'yapilacaklar', 'ayarlar'].includes(p[0])) return { ad: p[0], q };
     return { ad: 'gelen', q };
   }
   const git = h => { if (location.hash !== h) location.hash = h; };
@@ -288,6 +290,7 @@
       case 'maliyet': return ['/analitik.json', '/ozet.json'];
       case 'kurallar': return ['/kurallar.json'];
       case 'yapilacaklar': return [YAP_YOL];
+      case 'ayarlar': return [AYAR_YOL];
       default: return [];
     }
   }
@@ -807,6 +810,30 @@
     return { baslik: 'Kurallar', sag: tumMu() ? '' : H`<a class="dugme kucuk" href="/onaylar?alan=${enc(V.alan)}#kurallar">Kural ekle ya da düzenle</a>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
   }
 
+  // ================================================================ 10a. Görünüm: Ayarlar (makine düzeyi, çalışma alanından bağımsız)
+  function gAyarlar() {
+    const yuk = bekle(AYAR_YOL);
+    const b = d(AYAR_YOL).veri?.bildirim;
+    const ortam = b?.kaynak === 'ortam';
+    const neden = !b ? '' : !b.destek ? 'Bildirim yalnız Windows’ta çalışır.' : ortam ? 'ORKESTRA_BILDIRIM ortam değişkeni belirliyor; ayarı değiştirmek için önce onu kaldır.' : '';
+    const govde = yuk || (b ? H`
+      <section class="kart"><div class="kart-ic yatay ayar-satir">
+        <div class="yigin"><b id="ayarBildirimAd">Bildirim</b>
+          <span class="soluk kucuk-y" id="ayarBildirimAcik">İş bitince, yanıtın ya da onayın gerekince Windows bildirimi gönderir. Veri dışarı gitmez.</span>
+          ${neden ? H`<span class="soluk kucuk-y">${neden}</span>` : ''}</div>
+        <button type="button" class="anahtar" role="switch" data-eylem="ayar-bildirim" aria-checked="${b.acik}" aria-labelledby="ayarBildirimAd" aria-describedby="ayarBildirimAcik" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${b.acik ? 'Açık' : 'Kapalı'}</span></button>
+      </div></section>` : bos('Ayarlar okunamadı', '', 'uyari'));
+    return { baslik: 'Ayarlar', sag: H`<span class="soluk kucuk-y">bu bilgisayar için geçerli</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
+  }
+  async function ayarBildirim(b) {
+    const hedef = b.getAttribute('aria-checked') !== 'true';
+    b.disabled = true;
+    try { await gonder(AYAR_YOL, { bildirim: hedef }); bildir(hedef ? 'Bildirim açıldı.' : 'Bildirim kapatıldı.'); }
+    catch (x) { bildir('Ayar kaydedilemedi: ' + x.message, { hata: true, sure: 8000 }); }
+    await getir(AYAR_YOL, { taze: true });
+    planla();
+  }
+
   // ================================================================ 10b. Görünüm: Yapılacaklar (kullanıcının kendi listesi)
   // Taslak ve bekleyen tamamlamalar yeniden çizimde kaybolmasın diye görünümün dışında tutulur.
   const YAP = { taslak: '', bekleyen: new Set(), alan: '' };   // alan: birleşik kipte yeni maddenin gideceği çalışma alanı
@@ -863,8 +890,8 @@
 
   // ================================================================ 11. Kabuk ve çizim
   const SAYFALAR = [['gelen', 'Gelen kutusu', '#/gelen', 'gelen', 'g'], ['isler', 'İşler', '#/isler', 'isler', 'i'], ['kosular', 'Koşular', '#/kosular', 'kosular', 'k'],
-    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r'], ['yapilacaklar', 'Yapılacaklar', '#/yapilacaklar', 'yapilacaklar', 'y']];
-  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar, yapilacaklar: gYapilacaklar };
+    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r'], ['yapilacaklar', 'Yapılacaklar', '#/yapilacaklar', 'yapilacaklar', 'y'], ['ayarlar', 'Ayarlar', '#/ayarlar', 'ayarlar', 'a']];
+  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar, yapilacaklar: gYapilacaklar, ayarlar: gAyarlar };
 
   function rayCiz() {
     const r = rota(), aktif = r.ad === 'kart' ? 'kosular' : r.ad;
@@ -992,6 +1019,7 @@
     if (!b) return;
     const ey = b.dataset.eylem;
     if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
+    else if (ey === 'ayar-bildirim') ayarBildirim(b);
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
     else if (ey === 'uygula') {
       b.disabled = true;
@@ -1074,7 +1102,7 @@
     }
     if (e.key === 'g') { gBekliyor = Date.now(); return; }
     if ((e.key === 'p' || e.key === 'u') && kontrolVar()) { e.preventDefault(); if (e.key === 'u') olcuKoy(); else if (r.ad !== 'kart') pencereSonraki(); return; }
-    if (/^[1-6]$/.test(e.key)) { git(SAYFALAR[+e.key - 1][2]); return; }
+    if (/^[1-7]$/.test(e.key)) { git(SAYFALAR[+e.key - 1][2]); return; }
     if (e.key === '/') { const a = document.querySelector('#ana .arama'); if (a) { e.preventDefault(); a.focus(); a.select(); } else { e.preventDefault(); paletAc(); } return; }
     if (e.key === 'Escape') {
       if (r.ad === 'isler' && r.id) git('#/isler' + ek(r.q));

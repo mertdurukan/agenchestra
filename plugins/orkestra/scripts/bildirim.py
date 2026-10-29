@@ -1,7 +1,7 @@
 """Windows toast bildirimi: insan aksiyonu gereken anlarda (iş bitti, yanıt/onay bekleniyor) kullanıcıyı sisteme geri çağırır.
 
 Kanal yalnız yerel toast'tır; dışarı veri gitmez. Toast'a tıklayınca `claude://` ile Claude uygulaması öne gelir.
-Kapatma: ORKESTRA_BILDIRIM=0. Tur bildirimi için en kısa tur süresi: ORKESTRA_BILDIRIM_MIN_S (varsayılan 30 sn).
+Kapatma: panelde Ayarlar > Bildirim (makine config'i, cfg 'bildirim') ya da ORKESTRA_BILDIRIM=0 (ortam değişkeni önceliklidir). Tur bildirimi için en kısa tur süresi: ORKESTRA_BILDIRIM_MIN_S (varsayılan 30 sn).
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 
+import cfg
 import ork_lib as L
 
 TUR_ESIK_S = 30
@@ -30,8 +31,19 @@ $app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell
 """
 
 
+def ayar() -> tuple[bool, str]:
+    """(açık mı, kaynak): kaynak ortam | makine | varsayilan. Ortam değişkeni (ORKESTRA_BILDIRIM) panel ayarından önce gelir."""
+    deger, kaynak = cfg.kaynakli_al("bildirim", None, "1")
+    return str(deger).strip() != "0", kaynak
+
+
+def ayar_yaz(acik: bool) -> str:
+    """Panel ayarını makine config'ine yazar ('1' | '0'); yazılan dosyanın yolunu döner."""
+    return cfg.makine_yaz({"bildirim": "1" if acik else "0"}, kaynak="panel")
+
+
 def aktif() -> bool:
-    return sys.platform == "win32" and os.environ.get("ORKESTRA_BILDIRIM", "1") != "0" and not os.environ.get("ORKESTRA_PERSPEKTIF")
+    return sys.platform == "win32" and ayar()[0] and not os.environ.get("ORKESTRA_PERSPEKTIF")
 
 
 def tek_satir(metin, en_cok: int = 140) -> str:

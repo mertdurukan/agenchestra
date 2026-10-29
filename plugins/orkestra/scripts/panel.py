@@ -34,6 +34,8 @@ POST /perspektif-calistir?alan=<id> → Claude uygulamasında yeni sohbet açıp
 POST /api/isler-sifirla?alan=<id> → {onay: true}: Dashboard iş verisini yedeğe alıp sıfırlar (X-Orkestra: 1, yerel Host)
 POST /api/kullanici-todo?alan=<id> → {eylem: ekle|sil, metin | id} (X-Orkestra: 1, yerel Host, ≤64 KB)
 GET /api/guncelleme            → eklenti güncelleme durumu: {durum: yok|yeni|calisiyor|bitti|hata, ertelendi, kontrol, kosu}; alan almaz, alan=* kabul eder
+GET /api/ayarlar              → kullanıcı ayarları: {bildirim: {acik, kaynak: ortam|makine|varsayilan, destek}}; alan almaz, alan=* kabul eder
+POST /api/ayarlar             → {bildirim: true|false} Windows bildirimini açar/kapatır (makine config'i; ortam değişkeni varsa 409; X-Orkestra: 1, yerel Host, ≤1 KB)
 POST /api/guncelle             → eklenti güncellemesini arka planda başlatır (aynı anda tek koşu, çalışıyorsa 409; X-Orkestra: 1, yerel Host)
 POST /api/guncelle-ertele      → kartı şu anki yeni sürüm için gizler ("Sonra"; daha yeni sürümde döner; X-Orkestra: 1, yerel Host)
 POST /onay?alan=<id>           → karar / simdi-uygula / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
@@ -158,7 +160,23 @@ TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_AL
 TUM_ALAN_YOLLARI = frozenset({"/simdi.json", "/onaylar.json", "/isler.json", "/kurallar.json", "/ozet.json",
                               "/analitik.json", "/api/kullanici-todo", "/teknik.json"})   # yalnız GET; yazma her zaman tek alan
 _TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kayıtlı alana ister (liste kipi birleşir)
-KULLANICI_YOLLARI = frozenset({"/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
+KULLANICI_YOLLARI = frozenset({"/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
+
+
+def _ayarlar_durum() -> dict:
+    """Kullanıcı ayarları (makine düzeyi, çalışma alanından bağımsız). Bildirim: Windows toast'u (bildirim.py)."""
+    import bildirim  # noqa: PLC0415
+    acik, kaynak = bildirim.ayar()
+    return {"bildirim": {"acik": acik, "kaynak": kaynak, "destek": sys.platform == "win32"}}
+
+
+def _ayarlar_yaz(acik: bool) -> dict:
+    import bildirim  # noqa: PLC0415
+    _, kaynak = bildirim.ayar()
+    if kaynak == "ortam":
+        return {"tamam": False, "hata": "ORKESTRA_BILDIRIM ortam değişkeni ayarı belirliyor; önce onu kaldır."}
+    bildirim.ayar_yaz(acik)
+    return {"tamam": True, **_ayarlar_durum()}
 
 
 def _tum_alan_reddi(yol: str, q: dict, yazma: bool = False) -> bytes | None:
@@ -769,6 +787,24 @@ def _isleyici():
         def _post_onay(self, q):
             return self._post_yaz(q)
 
+        def _post_ayarlar(self):
+            if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
+                return self._gonder(403, "text/plain", b"yasak", kapat=True)
+            try:
+                uzun = int(self.headers.get("Content-Length") or 0)
+                if not 0 < uzun <= 1024:
+                    raise ValueError("Gövde 1 KB'ı geçmemeli.")
+                g = json.loads(self.rfile.read(uzun).decode("utf-8"))
+                if not isinstance(g, dict) or not isinstance(g.get("bildirim"), bool):
+                    raise ValueError("Gövde {\"bildirim\": true|false} olmalı.")
+            except (ValueError, UnicodeDecodeError) as e:
+                return self._json(400, {"tamam": False, "hata": f"Geçersiz istek: {e}"}, kapat=True)
+            try:
+                sonuc = _ayarlar_yaz(g["bildirim"])
+            except Exception as e:  # noqa: BLE001
+                return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
+            return self._json(200 if sonuc.get("tamam") else 409, sonuc, kapat=True)
+
         def _post_yaz(self, q, todo=False, dosya=False):
             if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
                 return self._gonder(403, "text/plain", b"yasak")
@@ -967,6 +1003,8 @@ def _isleyici():
                     return self._json(200, {"tamam": True}, kapat=True)
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
+            if u.path == "/api/ayarlar":
+                return self._post_ayarlar()
             if u.path in ("/api/guncelle", "/api/guncelle-ertele"):
                 # Kullanıcı düzeyi: alan almaz. Gövde okunmaz; yanıt sonrası temiz kapatılır.
                 if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
@@ -1091,6 +1129,8 @@ def _isleyici():
                     return self._json(404, {"tamam": False, "hata": str(e)})
                 except ValueError as e:
                     return self._json(400, {"tamam": False, "hata": str(e)})
+            if u.path == "/api/ayarlar":
+                return self._json(200, _ayarlar_durum())
             if u.path == "/api/guncelleme":
                 try:
                     return self._json(200, GUNCELLEME.durum())
