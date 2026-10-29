@@ -91,5 +91,45 @@ class CalistirTest(unittest.TestCase):
         self.assertEqual(oturum_bakim.onbellek(self.sd), {})
 
 
+class SureGunluguTest(unittest.TestCase):
+    """P3: SessionStart süresi gunluk.jsonl'a yazılır; eşik aşımı gölge uyarıdır."""
+
+    def setUp(self):
+        self.sd = tempfile.mkdtemp(prefix="ork_sure_")
+        import hook
+        self.hook = hook
+
+    def _satirlar(self):
+        with open(os.path.join(self.sd, "gunluk.jsonl"), encoding="utf-8") as f:
+            return [json.loads(x) for x in f if x.strip()]
+
+    def test_hizli_acilis_yalniz_sure_satiri_yazar(self):
+        self.hook._sure_yaz(self.sd, "o1", 350.4)
+        s = self._satirlar()
+        self.assertEqual([x["tur"] for x in s], ["hook_sure"])
+        self.assertEqual(s[0]["sure_ms"], 350)
+
+    def test_esik_asimi_kapi_golge_yazar(self):
+        self.hook._sure_yaz(self.sd, "o1", 2500)
+        s = self._satirlar()
+        self.assertEqual([x["tur"] for x in s], ["hook_sure", "kapi_golge"])
+        self.assertEqual(s[1]["kapi"], "sessionstart_sure")
+
+
+class WorktreeAlgilamaTest(unittest.TestCase):
+    """P1/S2: devral ipucu ana depoda git alt süreci açmaz; yalnız `.git` DOSYASI (worktree) git'e düşer."""
+
+    def test_git_klasoru_ana_depo_dosyasi_worktree(self):
+        import is_kaydi
+        k = tempfile.mkdtemp(prefix="ork_wt_")
+        os.makedirs(os.path.join(k, "ana", ".git"))
+        os.makedirs(os.path.join(k, "wt", "alt"))
+        with open(os.path.join(k, "wt", ".git"), "w", encoding="utf-8") as f:
+            f.write("gitdir: x")
+        self.assertFalse(is_kaydi._worktree_icinde_mi(os.path.join(k, "ana")))
+        self.assertTrue(is_kaydi._worktree_icinde_mi(os.path.join(k, "wt", "alt")))
+        self.assertFalse(is_kaydi._worktree_icinde_mi(k))
+
+
 if __name__ == "__main__":
     unittest.main()

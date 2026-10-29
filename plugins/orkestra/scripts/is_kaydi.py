@@ -1033,9 +1033,26 @@ def _worktree_kopyasi_gecerli_mi(yol: str, kok: str) -> bool:
         return False
 
 
+def _worktree_icinde_mi(cwd: str) -> bool:
+    """Üst dizinlerde en yakın `.git` bir DOSYA ise (bağlı worktree) True; klasör (ana depo) ya da yoksa False. Alt süreçsiz."""
+    d = os.path.abspath(cwd)
+    while True:
+        g = os.path.join(d, ".git")
+        if os.path.isfile(g):
+            return True
+        if os.path.isdir(g):
+            return False
+        ust = os.path.dirname(d)
+        if ust == d:
+            return False
+        d = ust
+
+
 def devral_ipucu(sd: str, cwd: str | None = None) -> str:
     """Oturum ağacındaki durum kopyasında ana durum klasöründe olmayan kayıt varsa TEK satır öneri, yoksa boş metin."""
     try:
+        if not _worktree_icinde_mi(cwd or os.getcwd()):  # I-255: ana ağaç/depo dışı için git alt süreci açılmaz
+            return ""
         agac = L.git_koku(cwd or os.getcwd())
         if not agac:
             return ""

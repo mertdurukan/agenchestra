@@ -8,6 +8,8 @@ import tempfile
 os.environ.setdefault("ORKESTRA_DOKTOR_OTOMATIK", "0")
 # SessionStart'ta panel görevi otomatik kurulmasın (gerçek Task Scheduler kaydı; ADR-0034). panel_servis testleri kendisi açar.
 os.environ.setdefault("ORKESTRA_PANEL_SERVIS", "0")
+# SessionStart bakım işleri testte ayrık süreç başlatmasın (ADR-0092); test_oturum_bakim.py kendisi açar.
+os.environ.setdefault("ORKESTRA_OTURUM_BAKIM", "0")
 os.environ.setdefault("ORKESTRA_HOME", os.path.join(tempfile.gettempdir(), "orkestra_test_ev"))
 os.environ.setdefault("ORKESTRA_EKLENTI_KURALLARI",
                       os.path.join(tempfile.gettempdir(), "orkestra_test_eklenti_yok", "kurallar", "eklenti_kurallari.json"))
