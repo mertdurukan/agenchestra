@@ -18,6 +18,7 @@ import time
 import ork_lib as L  # noqa: E402
 import plan_modeli_doldur as PM  # noqa: E402
 import duzeltme_kapisi as DK  # noqa: E402
+import gorev_turleri as GT  # noqa: E402
 import kapi_mod as KM  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
 import soru_sinif as SS  # noqa: E402
@@ -110,10 +111,13 @@ def _oto_teslim_gecerli(k: dict) -> bool:
 
 
 def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
-    basamak = (d.get("basamak") or "T2").upper()
+    _sinif_zorunlu(d)
+    # ADR-0092: basamak verilmezse görev türü kataloğundan türer; katalogda yoksa eski varsayılan T2.
+    basamak = (d.get("basamak") or GT.varsayilan_basamak(d.get("sinif")) or "T2").upper()
     if basamak not in BASAMAKLAR:
         hata(f"basamak T0..T4 olmalı: {basamak}")
-    _sinif_zorunlu(d)
+    basamak_neden = (d.get("basamak_neden") or "").strip() or None
+    tur_eksik = GT.kapi_eksikleri(d.get("sinif"), basamak, basamak_neden)
     _soru_zorunlu(d, sd)
     test_alanlari = _test_alanlari_dogrula(d)
     risk = _risk_dogrula(d)
@@ -152,6 +156,10 @@ def _kart_kur(sd, d: dict, onbellek: dict | None = None) -> dict:
     }
     if iskelet:
         k["kanit_iskeleti"] = iskelet
+    if basamak_neden:
+        k["basamak_neden"] = basamak_neden
+    if tur_eksik:
+        GT.golge_yaz(sd, k.get("is") or d.get("is"), tur_eksik)
     if d.get("genislet_onay") is True:
         k["genislet_onay"] = True
     if risk is not None:
@@ -348,7 +356,7 @@ def cmd_kart_yeni(a):
     sd = sd_gerekli()
     if not a.kabul:  # iş/klasör açılmadan önce
         hata("en az bir --kabul kriteri gerekli (denetçi buna göre karar verir).")
-    k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "girdi": a.girdi,
+    k = _kart_kur(sd, {"baslik": a.baslik, "sinif": a.sinif, "basamak": a.basamak, "basamak_neden": a.basamak_neden, "girdi": a.girdi,
                        "soru": a.soru, "genislet_onay": a.genislet_onay or None,
                        "kabul_kriterleri": a.kabul, "yazma_alani": a.yazma, "bagimliliklar": a.bagimli,
                        "test_komutu": a.test_komutu, "test_alani": a.test_alani, "test_koku": a.test_koku,
@@ -1746,7 +1754,8 @@ def kaydet(alt):
     kart = alt.add_parser("kart").add_subparsers(dest="alt", required=True)
     y = kart.add_parser("yeni")
     y.add_argument("--baslik", required=True)
-    y.add_argument("--basamak", default="T2")
+    y.add_argument("--basamak", default=None, help="verilmezse görev türü kataloğundan türer (yoksa T2)")
+    y.add_argument("--basamak-neden", dest="basamak_neden", help="T3/T4 için gerekçe (golge kapı)")
     y.add_argument("--sinif")
     y.add_argument("--girdi")
     y.add_argument("--soru", help="zorunlu: kartın cevaplayacağı tek soru (tek cümle)")

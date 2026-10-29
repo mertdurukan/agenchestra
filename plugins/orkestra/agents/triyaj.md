@@ -30,6 +30,14 @@ Plan yolu rehberi (`skills/is/plan_yolu.json` eşiklerine göre; sayıları sabi
 - **triyaj**: ikisinin arası ya da istek belirsiz.
 - `okunacak_dosya_tahmini`: işi planlamak için açılması gereken dosya sayısı.
 
+Önce T0: betik ya da deterministik kural işi çözüyorsa model basamağı önerme. Sınıf adı `ayarlar/gorev_turleri.json` kataloğundan seçilir; basamak verilmezse katalog varsayılanı uygulanır.
+
+- **Opus kapıları (ADR-0092):** T3/T4 yalnız dört kapıdan girer, kartta `--basamak-neden` ile yazılır.
+  - K1: belirsiz ya da çok modüllü plan.
+  - K2: iki ret sonrası yükseltme.
+  - K3: geri alınamaz ya da dışa dönük karar.
+  - K4: plan best-in-class denetimi.
+
 Şüphede DAHA DÜŞÜK basamağı öner; yükseltmeyi denetçinin reddi tetikler.
 Her alt işin kabul kriterleri ölçülebilir olsun (bir denetçi kanıtla doğrulayabilmeli).
 Yazma alanları kesişmeyen ve birbirinin çıktısını beklemeyen alt işler paralel koşar: bağımlılığı yalnız gerçekten gerekiyorsa yaz.

@@ -1,0 +1,213 @@
+{
+  "mod": "golge",
+  "aciklama": "Görev türü kataloğu (v2 ataması, ADR-0092). varsayilan: basamaksız açılan kartın basamağı (sinif listesindeki sınıf adlarından); aday_basamak yalnız ölçüm adayıdır, uygulanmaz (T1 kanarya sonrası). mod: golge = katalog dışı sınıf, katalogdan yüksek basamak ve gerekçesiz (basamak_neden yok) T3/T4 uyarılır ve gunluk.jsonl'a kapi_golge (kapi=gorev_turleri) olarak düşer, kart açılır. Kapatma: ORKESTRA_GOREV_TURU_KAPISI=0. Proje ezmesi: .claude/orkestra/gorev_turleri.json (mod).",
+  "kanarya": {
+    "min_n": 60,
+    "marj": 0.1,
+    "guven": 0.95
+  },
+  "opus_kapilari": {
+    "K1": "plan, belirsiz ya da çok modüllü işte",
+    "K2": "işçi aynı basamakta iki kez reddedildi",
+    "K3": "geri alınamaz ya da dışa dönük karar",
+    "K4": "plan best-in-class denetimi"
+  },
+  "turler": {
+    "bilgi_sorusu": {
+      "baslik": "Bilgi sorusu",
+      "sinif": [],
+      "varsayilan": null,
+      "aday_basamak": null,
+      "denetim": "yok",
+      "t0": "grep/CLI ile hedefli doğrulama",
+      "opus_kapi": null
+    },
+    "kesif": {
+      "baslik": "Kod/belge keşfi",
+      "sinif": [
+        "arastirma"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "T0 kanıt kapısı; yargıda T2",
+      "t0": "arama",
+      "opus_kapi": null
+    },
+    "web_arastirma": {
+      "baslik": "Web/dış kaynak araştırması",
+      "sinif": [
+        "analitik",
+        "analiz"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "T2",
+      "t0": "yok",
+      "opus_kapi": "K3"
+    },
+    "iddia_dogrulama": {
+      "baslik": "İddia doğrulama",
+      "sinif": [
+        "dogrulama"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "ayrı T2, örneklemeli",
+      "t0": "kanıt toplama",
+      "opus_kapi": null
+    },
+    "db_olcum": {
+      "baslik": "Veritabanı ölçümü",
+      "sinif": [
+        "olcum"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "sayı yeniden hesabı T0 (K-002); yorumda T2",
+      "t0": "kapi.py, sorgu koşusu",
+      "opus_kapi": null
+    },
+    "prod_teyit": {
+      "baslik": "Prod teyidi",
+      "sinif": [
+        "teyit"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "T2",
+      "t0": "paket koşusu, fark karşılaştırması",
+      "opus_kapi": null
+    },
+    "maliyet_kpi": {
+      "baslik": "Maliyet/KPI analizi",
+      "sinif": [],
+      "varsayilan": null,
+      "aday_basamak": null,
+      "denetim": "sayı kontrolü T0",
+      "t0": "orkestra kpi, maliyet",
+      "opus_kapi": null
+    },
+    "kod": {
+      "baslik": "Kod geliştirme",
+      "sinif": [
+        "kod",
+        "kod-duzenleme"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "T0 kapı + T2 denetçi",
+      "t0": "on_kontrol.py, test",
+      "opus_kapi": "K3"
+    },
+    "hata_cozum": {
+      "baslik": "Hata, olay, regresyon çözümü",
+      "sinif": [
+        "hata"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "T2",
+      "t0": "kanıt toplama",
+      "opus_kapi": "K3"
+    },
+    "test_yazma": {
+      "baslik": "Test yazma",
+      "sinif": [
+        "test"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "T2 test kalitesi merceği",
+      "t0": "yok",
+      "opus_kapi": null
+    },
+    "arayuz": {
+      "baslik": "Arayüz/panel",
+      "sinif": [
+        "arayuz"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "T2",
+      "t0": "görsel/DOM doğrulama betiği",
+      "opus_kapi": null
+    },
+    "belge": {
+      "baslik": "Belge, rapor, plan, ADR",
+      "sinif": [
+        "belge"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "ayrı denetçi",
+      "t0": "şablon, belge_bicim",
+      "opus_kapi": "K3"
+    },
+    "jira_story": {
+      "baslik": "Jira story/Confluence içeriği",
+      "sinif": [
+        "jira"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "ayrı denetçi",
+      "t0": "md/CSV/xlsx dökümü",
+      "opus_kapi": null
+    },
+    "toplu_donusum": {
+      "baslik": "Toplu dönüşüm",
+      "sinif": [
+        "toplu"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "örneklem + T0 tutarlılık",
+      "t0": "kural uygulaması",
+      "opus_kapi": null
+    },
+    "dis_sistem_yazma": {
+      "baslik": "Dış sisteme yazma",
+      "sinif": [
+        "dis-sistem"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "onay seçim ekranı (P-029)",
+      "t0": "izin hook'u",
+      "opus_kapi": "K3"
+    },
+    "altyapi": {
+      "baslik": "Altyapı, kimlik, yapılandırma",
+      "sinif": [
+        "altyapi"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": "T1",
+      "denetim": "T2",
+      "t0": "keşif",
+      "opus_kapi": "K3"
+    },
+    "orkestra_yonetimi": {
+      "baslik": "Orkestra yönetimi",
+      "sinif": [
+        "orkestra"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "kullanıcı onayı",
+      "t0": "CLI komutları",
+      "opus_kapi": null
+    },
+    "cok_parcali": {
+      "baslik": "Çok parçalı/belirsiz iş",
+      "sinif": [
+        "birlestirme"
+      ],
+      "varsayilan": "T2",
+      "aday_basamak": null,
+      "denetim": "her kart ayrı denetçi",
+      "t0": "triyaj",
+      "opus_kapi": "K1"
+    }
+  }
+}

@@ -10,5 +10,6 @@
     "T4": {"model": "opus", "effort": "xhigh"}
   },
   "karar": {"min_n": 20, "ilk_gecis_fark": 0.05, "usd_fark": 0.10, "dk_fark": 0.10},
+  "denetci": {"azami_model": "sonnet", "opus_ret_esigi": 2, "baslangic": "2026-10-29"},
   "yukseltme_sirasi": ["effort", "model"]
 }

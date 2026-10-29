@@ -179,13 +179,23 @@ function basamakModeli(basamak, kart, politika) {
   return { model, ...(effort ? { effort } : {}) }
 }
 
-// Denetçi modeli (saf): basamak modeli; toplam ret eşiğinden sonra opus (T4'te xhigh). Kart effort'u geçerlidir.
+// Denetçi modeli (saf): politikada `denetci` bloğu varsa en çok `azami_model` (Sonnet); opus yalnız toplam ret eşiğinde
+// (blok `opus_ret_esigi`) ya da kartta denetim_opus === true iken (T4'te xhigh). Blok yoksa eski davranış: işçi basamağı,
+// ret eşiğinden sonra opus. Kart effort'u geçerlidir. (ADR-0092)
 function denetciModeli(basamak, toplamRet, kart, politika) {
   const d = basamakModeli(basamak, kart, politika)
   const p = politika === undefined ? POLITIKA : politika
-  if (toplamRet >= DENETCI_OPUS_RET_ESIGI && d.model !== 'opus' && !yasakMi('opus', p)) {
-    const kartEffort = kart && GECERLI_EFFORT.includes(kart.effort) ? kart.effort : null
+  const blok = p && p.denetci && p.denetci.azami_model ? p.denetci : null
+  const esik = blok && Number.isInteger(blok.opus_ret_esigi) ? blok.opus_ret_esigi : DENETCI_OPUS_RET_ESIGI
+  const kartEffort = kart && GECERLI_EFFORT.includes(kart.effort) ? kart.effort : null
+  const opusIste = toplamRet >= esik || (blok && kart && kart.denetim_opus === true)
+  if (opusIste && d.model !== 'opus' && !yasakMi('opus', p)) {
     return { model: 'opus', effort: kartEffort || (basamak === 'T4' ? 'xhigh' : 'high') }
+  }
+  if (opusIste && blok && d.model === 'opus' && !yasakMi('opus', p)) return d
+  if (blok && blok.azami_model === 'sonnet' && d.model === 'opus' && !opusIste) {
+    // xhigh'ın Sonnet'te geçerliliği doğrulanmadı: T4 işçide denetçi 'high'.
+    return { model: 'sonnet', effort: kartEffort || (basamak === 'T4' ? 'high' : 'medium') }
   }
   return d
 }

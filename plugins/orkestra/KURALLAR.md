@@ -26,14 +26,20 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 ## Maliyet basamakları
 - T0: hazır betik; T1-T4 basamak→model/effort tablosu tek yerde: ayarlar/model_politikasi.json (`orkestra politika goster`). Planlama T3 basamağında yapılır.
 - Bir işe izin veren en düşük basamakla başla.
+- Önce T0 (betik ya da deterministik kural), model yalnız kalan belirsizlikte. Sınıf adı görev türü kataloğundan (`ayarlar/gorev_turleri.json`) seçilir; basamak verilmezse katalog varsayılanı uygulanır. Katalog dışı sınıf, katalogdan yüksek basamak ve gerekçesiz T3/T4 golge uyarır (`ORKESTRA_GOREV_TURU_KAPISI=0` kapatır).
+- **Opus kapıları (ADR-0092):** T3/T4 yalnız dört kapıdan girer, kartta `--basamak-neden` ile yazılır.
+  - K1: belirsiz ya da çok modüllü plan.
+  - K2: iki ret sonrası yükseltme.
+  - K3: geri alınamaz ya da dışa dönük karar.
+  - K4: plan best-in-class denetimi.
 - Yükseltmeyi denetçi reddi tetikler.
 - Kart başına ajan tavanı vardır (varsayılan 8; workflow `args.kart_ajan_tavani`). Tavan dolan kart `tavan` sonucuyla durur; ana ajan nedeni okuyup kartı `beklemede` yapar, yeniden koşturmaz.
 - Kart kilidi: teslim/onaylı/iptal kart ve başka ajanda işlenen kart yeniden işlenmez (`kart durum isleniyor` çıkış 6). Aynı kartı iki koşuya verme.
 
 ## Denetim
 - Her işçi çıktısını ayrı bir denetçi (`orkestra:denetci`) incelesin. Kimse kendi işini onaylamaz.
-- Denetçi işçiyle aynı modelde koşsun (T2 işi, Sonnet denetçi).
-- Opus denetçi yalnız T3-T4 işlerinde ve kartta ikinci retten sonra kullan.
+- Denetçi işçiyle aynı modelde koşsun (T2 işi, Sonnet denetçi); T3/T4 işçide denetçi en çok Sonnet'tir (`model_politikasi.json` `denetci` bloğu).
+- Opus denetçi yalnız toplam ret ≥ 2 ya da kartta `denetim_opus: true` iken kullan; sonuç `denetim_politika.py tablo --kesim` ile izlenir.
 - Test ve T0 ön kontrol (`on_kontrol.py`: yeni test hatası, CRLF/BOM, kapsam dışı yazma, eksik token) ajan değildir: işçinin `kart durum is-bitti` çağrısında CLI koşar. Geçmezse is-bitti kaydedilmez ve işçi aynı oturumda düzeltir; denetçi çağrılmaz.
 - Denetçi testi yeniden koşmaz; CLI kaydına ve diff'e bakar.
 - Kayıtlı ön kontroller (`ayarlar/on_kontrol.json`, proje ezmesi `.claude/orkestra/on_kontrol.json`): `kanit-satiri` (`K<n>:` kanıt satırı) ve `sayi-tutarli` kontrolü yalnız bağlı etkin bir kural varsa koşar (`kural bagla K-xxx --kontrol <kimlik>`; kural kaldırılınca kapanır). İlk mod `golge` (uyarı + kayıt); `mod: ihlal` is-bitti'yi reddeder ve kullanıcı kararıdır. İşçi her kriter için `--kanit "K<n>: ..."` verir.

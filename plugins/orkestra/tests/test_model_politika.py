@@ -191,3 +191,37 @@ class KuralMetinleri(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DenetciSinirTest(unittest.TestCase):
+    """ADR-0092: denetçi T3/T4 işçide en çok Sonnet; Opus yalnız ret eşiği ya da denetim_opus."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(AYAR, encoding="utf-8") as f:
+            cls.dosya = json.load(f)
+
+    def test_ayar_blogu_ve_baslangic(self):
+        d = self.dosya["denetci"]
+        self.assertEqual((d["azami_model"], d["opus_ret_esigi"]), ("sonnet", 2))
+        self.assertRegex(d["baslangic"], r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_t3_sonnet_ret_ikide_opus(self):
+        self.assertEqual(js_calistir("denetciModeli('T3', 0, {}, politika)", self.dosya)["model"], "sonnet")
+        self.assertEqual(js_calistir("denetciModeli('T3', 2, {}, politika)", self.dosya)["model"], "opus")
+
+    def test_denetim_opus_bayragi(self):
+        self.assertEqual(js_calistir("denetciModeli('T3', 0, {denetim_opus: true}, politika)", self.dosya)["model"], "opus")
+
+    def test_t4_sonnet_high(self):
+        self.assertEqual(js_calistir("denetciModeli('T4', 0, {}, politika)", self.dosya), {"model": "sonnet", "effort": "high"})
+
+    def test_blok_yoksa_eski_davranis(self):
+        pol = copy.deepcopy(self.dosya)
+        del pol["denetci"]
+        self.assertEqual(js_calistir("denetciModeli('T3', 0, {}, politika)", pol)["model"], "opus")
+        self.assertEqual(js_calistir("denetciModeli('T3', 0, {denetim_opus: true}, politika)", pol)["model"], "opus")
+
+    def test_t1_t2_etkilenmez(self):
+        self.assertEqual(js_calistir("denetciModeli('T2', 0, {}, politika)", self.dosya)["model"], "sonnet")
+        self.assertEqual(js_calistir("denetciModeli('T1', 0, {}, politika)", self.dosya)["model"], "haiku")
