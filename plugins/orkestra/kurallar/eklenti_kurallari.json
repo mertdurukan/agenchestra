@@ -942,6 +942,24 @@
         }
       ],
       "etkinlesme": "2026-10-23T18:46:32+03:00"
+    },
+    {
+      "id": "P-036",
+      "katman": "plugin",
+      "metin": "ZORUNLU: Bir MCP'nin anahtarı ya da kimliği config'e (env, args, url) düz metin yazılmaz; yalnız kimlik klasöründe (~\\.orkestra\\credentials\\<proje>\\<servis>.env) durur ve MCP, sarmalayıcı scripts/mcp_kimlik.py <ad> üzerinden başlatılır. Yeni MCP, ayarlar/mcp_kimlik.json (proje ezmesi .claude/orkestra/mcp_kimlik.json) kaydına yalnız ad olarak (ORTAM_DEGISKENI: kimlik anahtarı adı) eklenir; config 'orkestra mcp config|kur' ile üretilir, elle yazılmaz. Değer sohbete, belgeye, komut satırına yazılmaz.",
+      "neden": "ADR-0096: sır ~/.claude.json içinde düz metin kalmasın; her MCP aynı yoldan geçsin",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-30T01:09:45+03:00",
+      "guncelleme": "2026-10-30T01:09:45+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-30T01:09:45+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU: Bir MCP'nin anahtarı ya da kimliği config'e (env, args, url) düz metin yazılmaz; yalnız kimlik klasöründe (~\\.orkestra\\credentials\\<proje>\\<servis>.env) durur ve MCP, sarmalayıcı scripts/mcp_kimlik.py <ad> üzerinden başlatılır. Yeni MCP, ayarlar/mcp_kimlik.json (proje ezmesi .claude/orkestra/mcp_kimlik.json) kaydına yalnız ad olarak (ORTAM_DEGISKENI: kimlik anahtarı adı) eklenir; config 'orkestra mcp config|kur' ile üretilir, elle yazılmaz. Değer sohbete, belgeye, komut satırına yazılmaz."
+        }
+      ],
+      "etkinlesme": "2026-10-30T01:09:45+03:00"
     }
   ]
 }
