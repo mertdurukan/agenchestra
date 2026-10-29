@@ -16,8 +16,11 @@ import sys
 
 EKLENTI = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 AYAR_AD = "mcp_kimlik"
-IZINLI_ALAN = {"aciklama", "komut", "kimlik_servisi", "ortam"}
+IZINLI_ALAN = {"aciklama", "komut", "kimlik_servisi", "ortam", "gerek"}
+PROJE_YER_TUTUCU = "${CLAUDE_PROJECT_DIR}"
 _ORTAM_ADI = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_GEREK_ADI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
+_SERVIS_ADI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
 class KayitHata(Exception):
@@ -60,27 +63,51 @@ def dogrula(ad: str, girdi) -> None:
     ortam = girdi.get("ortam", {})
     if not isinstance(ortam, dict):
         raise KayitHata(f"{ad}: ortam nesne olmalı")
+    servissiz = False
     for ortam_adi, anahtar in ortam.items():
-        if not (_ORTAM_ADI.match(ortam_adi) and isinstance(anahtar, str) and _ORTAM_ADI.match(anahtar)):
-            raise KayitHata(f"{ad}: ortam girdileri 'ORTAM_ADI: kimlik anahtarı adı' olmalı (değer yazılamaz)")
-    if ortam and not girdi.get("kimlik_servisi"):
-        raise KayitHata(f"{ad}: ortam varsa kimlik_servisi gerekir")
+        servis, nokta, ad_ = anahtar.partition(".") if isinstance(anahtar, str) else ("", "", "")
+        anahtar_adi = ad_ if nokta else servis
+        if not (_ORTAM_ADI.match(ortam_adi) and isinstance(anahtar, str) and _ORTAM_ADI.match(anahtar_adi)
+                and (not nokta or _SERVIS_ADI.match(servis))):
+            raise KayitHata(f"{ad}: ortam girdileri 'ORTAM_ADI: ANAHTAR' ya da 'ORTAM_ADI: servis.ANAHTAR' olmalı (değer yazılamaz)")
+        servissiz = servissiz or not nokta
+    if servissiz and not girdi.get("kimlik_servisi"):
+        raise KayitHata(f"{ad}: servis öneksiz ortam girdisi için kimlik_servisi gerekir")
+    gerek = girdi.get("gerek", [])
+    if not (isinstance(gerek, list) and all(isinstance(x, str) and _GEREK_ADI.match(x) for x in gerek)):
+        raise KayitHata(f"{ad}: gerek komut adları listesi olmalı (yol ayracı içeremez)")
+    for parca in komut:
+        artik = parca.replace(PROJE_YER_TUTUCU, "")
+        if "${" in artik:
+            raise KayitHata(f"{ad}: komutta yalnız {PROJE_YER_TUTUCU} yer tutucusu desteklenir")
 
 
-def komut_ac(komut: list) -> list:
-    """Komut başındaki ~ kullanıcı klasörüne açılır."""
+def komut_ac(komut: list, ad: str = "") -> list:
+    """Komut başındaki ~ kullanıcı klasörüne açılır; ${CLAUDE_PROJECT_DIR} ortam değişkeniyle değiştirilir (yoksa hata, cwd'ye düşülmez)."""
+    if any(PROJE_YER_TUTUCU in x for x in komut):
+        kok = os.environ.get("CLAUDE_PROJECT_DIR")
+        if not kok:
+            raise KayitHata(f"{ad}: {PROJE_YER_TUTUCU} için CLAUDE_PROJECT_DIR tanımlı değil")
+        komut = [x.replace(PROJE_YER_TUTUCU, kok) for x in komut]
     return [os.path.expanduser(komut[0])] + list(komut[1:])
+
+
+def anahtar_coz(girdi: dict, anahtar: str) -> tuple:
+    """'servis.ANAHTAR' ya da 'ANAHTAR' (girdinin kimlik_servisi'yle) -> (servis, anahtar)."""
+    servis, nokta, ad_ = anahtar.partition(".")
+    return (servis, ad_) if nokta else (girdi["kimlik_servisi"], anahtar)
 
 
 def ortam_kur(ad: str, girdi: dict, al, taban: dict | None = None) -> dict:
     """Alt sürecin ortamı: taban + kimlikten gelen değerler. `al(servis, anahtar)` değeri verir; yoksa KayitHata (adlı, değersiz)."""
     env = dict(os.environ if taban is None else taban)
     for ortam_adi, anahtar in (girdi.get("ortam") or {}).items():
+        servis, ad_ = anahtar_coz(girdi, anahtar)
         try:
-            env[ortam_adi] = al(girdi["kimlik_servisi"], anahtar)
+            env[ortam_adi] = al(servis, ad_)
         except Exception:
-            raise KayitHata(f"{ad}: kimlik klasöründe karşılığı yok: {girdi['kimlik_servisi']}.{anahtar} "
-                            f"(orkestra kimlik ekle {girdi['kimlik_servisi']} {anahtar})") from None
+            raise KayitHata(f"{ad}: kimlik klasöründe karşılığı yok: {servis}.{ad_} "
+                            f"(orkestra kimlik ekle {servis} {ad_})") from None
     return env
 
 
@@ -106,9 +133,9 @@ def main(argv: list | None = None) -> int:
             raise KayitHata(f"{ad}: kayıtta yok (kayıtlı: {', '.join(sorted(kayit)) or '-'})")
         girdi = kayit[ad]
         env = ortam_kur(ad, girdi, _kimlik_al())
+        komut = komut_ac(girdi["komut"], ad)
     except KayitHata as e:
         hata(str(e), 3)
-    komut = komut_ac(girdi["komut"])
     yol = shutil.which(komut[0])
     if not yol:
         hata(f"{ad}: {komut[0]} bulunamadı (kurulum için mevcut_durum ve ayarlar/{AYAR_AD}.json açıklamasına bak)", 4)

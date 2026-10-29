@@ -1,23 +1,189 @@
 {
-  "aciklama": "MCP kimlik kaydı (ADR-0096). Her MCP için çalıştırma komutu ve kimlik klasöründen hangi anahtarların hangi ortam değişkenine verileceği. Bu dosyada DEĞER yoktur, yalnız ad: `ortam` her girdisi `ORTAM_DEGISKENI: kimlik anahtarı adı` biçimindedir, şema başka alanı ve ad dışı değeri reddeder. Proje ezmesi: .claude/orkestra/mcp_kimlik.json (aynı adlı MCP girdisi yerine konur). Komut başındaki ~ kullanıcı klasörüne açılır. Sarmalayıcı: scripts/mcp_kimlik.py <ad>; config üretimi: orkestra mcp config.",
+  "aciklama": "MCP kimlik kaydı (ADR-0096, ADR-0097). Her MCP için çalıştırma komutu ve kimlik klasöründen hangi anahtarların hangi ortam değişkenine verileceği. Bu dosyada DEĞER yoktur, yalnız ad: `ortam` her girdisi `ORTAM_DEGISKENI: ANAHTAR` ya da `ORTAM_DEGISKENI: servis.ANAHTAR` biçimindedir; `gerek` = ön koşul komut adları, şema başka alanı ve ad dışı değeri reddeder. Proje ezmesi: .claude/orkestra/mcp_kimlik.json (aynı adlı MCP girdisi yerine konur). Komut başındaki ~ kullanıcı klasörüne açılır. Sarmalayıcı: scripts/mcp_kimlik.py <ad>; config üretimi: orkestra mcp config.",
   "mcp": {
     "markitdown": {
       "aciklama": "Belgeleri (pdf, docx, xlsx, html...) Markdown'a çevirir. Anahtar gerekmez. Ayrı venv: ~/.orkestra/mcp/markitdown (pip install --pre markitdown-mcp; PyPI'da yalnız alfa sürüm var).",
-      "komut": ["~/.orkestra/mcp/markitdown/Scripts/markitdown-mcp.exe"],
+      "komut": [
+        "~/.orkestra/mcp/markitdown/Scripts/markitdown-mcp.exe"
+      ],
       "kimlik_servisi": "",
       "ortam": {}
     },
     "sequential-thinking": {
       "aciklama": "Adım adım düşünme aracı. Anahtar gerekmez; Node 24 ve üstü ister.",
-      "komut": ["npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "komut": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
       "kimlik_servisi": "",
       "ortam": {}
     },
     "firecrawl": {
       "aciklama": "Web tarama ve kazıma. Anahtar kimlik klasöründe firecrawl servisinde FIRECRAWL_API_KEY adıyla durur (orkestra kimlik ekle firecrawl FIRECRAWL_API_KEY).",
-      "komut": ["npx", "-y", "firecrawl-mcp"],
+      "komut": [
+        "npx",
+        "-y",
+        "firecrawl-mcp"
+      ],
       "kimlik_servisi": "firecrawl",
-      "ortam": {"FIRECRAWL_API_KEY": "FIRECRAWL_API_KEY"}
+      "ortam": {
+        "FIRECRAWL_API_KEY": "FIRECRAWL_API_KEY"
+      }
+    },
+    "memory": {
+      "aciklama": "Bilgi grafiği belleği. Anahtar gerekmez; isteğe bağlı MEMORY_FILE_PATH. Node 24+.",
+      "komut": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "filesystem": {
+      "aciklama": "Dosya sistemi erişimi; yalnız proje dizini (${CLAUDE_PROJECT_DIR}) açılır. Anahtar gerekmez. Node 24+.",
+      "komut": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${CLAUDE_PROJECT_DIR}"
+      ]
+    },
+    "context7": {
+      "aciklama": "Kütüphane belgeleri. doğrulanmadı: stdio komutu README'de yok, npm paketi var (4.4.4). İsteğe bağlı API anahtarı eşlenmedi.",
+      "komut": [
+        "npx",
+        "-y",
+        "@upstash/context7-mcp"
+      ]
+    },
+    "playwright": {
+      "aciklama": "Tarayıcı otomasyonu (Playwright). Anahtar gerekmez. Tarayıcı kurulumu doğrulanmadı.",
+      "komut": [
+        "npx",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "chrome-devtools": {
+      "aciklama": "Chrome DevTools erişimi. Anahtar gerekmez; güncel Chrome ister.",
+      "komut": [
+        "npx",
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "github": {
+      "aciklama": "GitHub MCP (Docker stdio). Docker ve GITHUB_PERSONAL_ACCESS_TOKEN gerekir (orkestra kimlik ekle github GITHUB_PERSONAL_ACCESS_TOKEN).",
+      "komut": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "gerek": [
+        "docker"
+      ],
+      "ortam": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "github.GITHUB_PERSONAL_ACCESS_TOKEN"
+      }
+    },
+    "repomix": {
+      "aciklama": "Depoyu tek dosyada paketler. Anahtar gerekmez. --sandbox dizin kısıtı doğrulanmadığı için eklenmedi.",
+      "komut": [
+        "npx",
+        "-y",
+        "repomix",
+        "--mcp"
+      ]
+    },
+    "serena": {
+      "aciklama": "Kod tabanı anlama (LSP). doğrulanmadı: komut README'den; önce `uv tool install -p 3.13 serena-agent` gerekir.",
+      "komut": [
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "claude-code",
+        "--project-from-cwd"
+      ],
+      "gerek": [
+        "uv",
+        "serena"
+      ]
+    },
+    "beads": {
+      "aciklama": "Beads görev takibi. bd ikilisi ve Dolt gerekir; PyPI beads-mcp.",
+      "komut": [
+        "beads-mcp"
+      ],
+      "gerek": [
+        "bd",
+        "beads-mcp"
+      ]
+    },
+    "mcp-chrome": {
+      "aciklama": "Chrome eklentisi + `npm i -g mcp-chrome-bridge` ister (elle). doğrulanmadı: stdio köprü komut adı.",
+      "komut": [
+        "mcp-chrome-stdio"
+      ],
+      "gerek": [
+        "mcp-chrome-stdio"
+      ]
+    },
+    "git-mcp": {
+      "aciklama": "Uzak GitMCP'ye mcp-remote köprüsü (genel docs sunucusu). Depo başına ayrı kayıt eklenebilir. Anahtar gerekmez.",
+      "komut": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://gitmcp.io/docs"
+      ]
+    },
+    "browsermcp": {
+      "aciklama": "Tarayıcı kontrolü; Browser MCP Chrome eklentisi elle kurulur. Node 24+.",
+      "komut": [
+        "npx",
+        "@browsermcp/mcp@latest"
+      ]
+    },
+    "desktop-commander": {
+      "aciklama": "YÜKSEK YETKİ: tüm dosya sistemi ve kabuk erişimi. Bilinçli kur.",
+      "komut": [
+        "npx",
+        "-y",
+        "@wonderwhy-er/desktop-commander@latest"
+      ]
+    },
+    "claude-context": {
+      "aciklama": "Kod aramasında vektör dizini. İki dış hesap: Zilliz (MILVUS_*) ve OpenAI. doğrulanmadı: MILVUS_ADDRESS zorunluluğu.",
+      "komut": [
+        "npx",
+        "@zilliz/claude-context-mcp@latest"
+      ],
+      "ortam": {
+        "MILVUS_TOKEN": "zilliz.MILVUS_TOKEN",
+        "MILVUS_ADDRESS": "zilliz.MILVUS_ADDRESS",
+        "OPENAI_API_KEY": "openai.OPENAI_API_KEY"
+      }
+    },
+    "windows-mcp": {
+      "aciklama": "YÜKSEK YETKİ: Windows masaüstü kontrolü. doğrulanmadı: komut ikincil kaynaktan; uv ve Python 3.13 ister.",
+      "komut": [
+        "uvx",
+        "windows-mcp"
+      ],
+      "gerek": [
+        "uvx"
+      ]
+    },
+    "task-master": {
+      "aciklama": "Görev yönetimi. En az bir sağlayıcı anahtarı gerekir (ANTHROPIC_API_KEY, OPENAI_API_KEY...); hangisinin kullanılacağı kullanıcı kararı, anahtar eşlemesi eklenmedi.",
+      "komut": [
+        "npx",
+        "-y",
+        "task-master-ai"
+      ]
     }
   }
 }

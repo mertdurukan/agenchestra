@@ -85,13 +85,13 @@ def test_kur_argv_sir_icermez_ve_kayitliyi_atlar():
     def sahte(komut, **kw):
         cagrilar.append(komut)
         # `claude mcp get`: markitdown kayıtlı (0), diğerleri değil (1); `add` başarılı
-        if komut[:3] == ["claude", "mcp", "get"]:
+        if komut[1:3] == ["mcp", "get"]:
             return R(0 if komut[3] == "markitdown" else 1)
         return R(0)
 
     sonuc = dict(M.kur(["markitdown", "firecrawl"], calistir=sahte))
     assert sonuc == {"markitdown": "zaten kayıtlı", "firecrawl": "eklendi"}
-    ekle = [c for c in cagrilar if c[:3] == ["claude", "mcp", "add"]]
+    ekle = [c for c in cagrilar if c[1:3] == ["mcp", "add"]]
     assert len(ekle) == 1 and ekle[0][3:6] == ["--scope", "user", "firecrawl"]
     assert SIR not in " ".join(" ".join(c) for c in cagrilar)
 
@@ -109,3 +109,42 @@ def test_kur_hata_kodu_raporlanir():
             self.returncode = k
     sonuc = M.kur(["firecrawl"], calistir=lambda c, **k: R(1))
     assert sonuc[0][1].startswith("hata")
+
+
+# --- ön koşul (gerek, ADR-0097) ---
+KAYIT_GEREK = {"uvli": {"komut": ["x"], "gerek": ["uv-yok-boyle"]}, "duz": {"komut": ["x"]}}
+
+
+class _R:
+    def __init__(self, k):
+        self.returncode = k
+
+
+def _sahte_kayit_icin(cagrilar):
+    def sahte(komut, **kw):
+        cagrilar.append(komut)
+        return _R(1 if komut[1:3] == ["mcp", "get"] else 0)
+    return sahte
+
+
+def test_liste_eksik_gerek_yazar(tmp_path):
+    env, proje = ortam(tmp_path)
+    (proje / ".claude" / "orkestra" / "mcp_kimlik.json").write_text(
+        json.dumps({"mcp": {"uvli": {"komut": ["x"], "gerek": ["uv-yok-boyle"]}}}), encoding="utf-8")
+    p = cli(env, "liste")
+    assert "uvli: kimlik gerekmez; komut x; gerek: uv-yok-boyle yok" in p.stdout
+    assert SIR not in p.stdout + p.stderr
+
+
+def test_kur_hepsi_eksik_gerekli_atlar_ve_add_cagirmaz():
+    cagrilar = []
+    sonuc = dict(M.kur(["uvli", "duz"], calistir=_sahte_kayit_icin(cagrilar), kayit=KAYIT_GEREK, hepsi=True))
+    assert sonuc["uvli"] == "atlandı: uv-yok-boyle yok" and sonuc["duz"] == "eklendi"
+    assert not [c for c in cagrilar if "uvli" in c]
+
+
+def test_kur_tek_tek_istenince_uyarir_ve_kaydeder():
+    cagrilar = []
+    sonuc = dict(M.kur(["uvli"], calistir=_sahte_kayit_icin(cagrilar), kayit=KAYIT_GEREK, hepsi=False))
+    assert sonuc["uvli"] == "eklendi (uyarı: uv-yok-boyle yok)"
+    assert [c for c in cagrilar if c[1:3] == ["mcp", "add"]]

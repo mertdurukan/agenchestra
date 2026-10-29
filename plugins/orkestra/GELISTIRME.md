@@ -105,6 +105,12 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - Test sunucusu: `python plugins/orkestra/scripts/panel.py _kos <port> --test` panel.json dosyasını **yazmaz** (satır 641–644; G-096). Gerçek panelin durum dosyası `~/.claude/orkestra-panel/panel.json` yerinde kalır. Bayraksız `_kos <port>` bu dosyanın üzerine yazar; testte bayrağı kullan.
 - POST `/ac` gerçek ya da uydurma oturum kimliğiyle denenmez; masaüstü süreci başlatır.
 
+## MCP kimliği (ADR-0096)
+- Sarmalayıcı `scripts/mcp_kimlik.py <ad>`; kayıt `ayarlar/mcp_kimlik.json` (proje ezmesi `.claude/orkestra/mcp_kimlik.json`). Kayıtta değer yok, yalnız `ORTAM_DEGISKENI: kimlik anahtarı adı`; şema bilinmeyen alanı ve ad dışı değeri reddeder.
+- Sarmalayıcı değeri yalnız MCP alt sürecinin ortamına koyar ve stdio'yu aktarır (`orkestra kimlik calistir` çıktıyı topladığı için stdio MCP'ye uymaz).
+- Komutlar: `orkestra mcp liste|config|kur` (`scripts/komutlar/mcp.py`). Yeni MCP = kayıta bir girdi; kod gerekmez. Testler: `tests/test_mcp_kimlik.py`, `tests/test_mcp_komut.py`.
+- Şema genişlemesi (ADR-0097): `ortam` değeri `ANAHTAR` ya da `servis.ANAHTAR`; `gerek` = ön koşul komut adları (`liste` gösterir, `kur --hepsi` atlar); `komut` içinde yalnız `${CLAUDE_PROJECT_DIR}` açılır (tanımsızsa hata, başka `${...}` reddedilir).
+
 ## İzin politikası (hook)
 - Karar mantığı `scripts/izin_politikasi.py`, desenler `ayarlar/izin_politikasi.json`; hook'a bağlantı `hook.py` içinde `_izin_karari` / `_kapi_uygula` / `gec()` (varsayılan allow). Eşleşme `hooks/hooks.json` PreToolUse `matcher`ındadır: yeni bir araç ailesi kapıya girecekse eşleşmeye de ekle (`orkestra doktor` MCP kapsamını denetler).
 - Karar sırası: kilitli test `deny` > yasak `deny` > kapı `ask` > `orkestra` CLI `allow` > geniş `allow`. Kabukta kapı, kilitli test denetiminden sonra uygulanır (kilidi onayla aşamasın).

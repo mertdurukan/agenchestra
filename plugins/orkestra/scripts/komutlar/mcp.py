@@ -49,12 +49,23 @@ def kimlik_durumu(girdi: dict, yukle) -> str:
     ortam = girdi.get("ortam") or {}
     if not ortam:
         return "gerekmez"
-    try:
-        d = yukle(girdi["kimlik_servisi"])
-    except Exception:
-        d = {}
-    eksik = [f"{girdi['kimlik_servisi']}.{a}" for a in ortam.values() if a not in d]
+    MK = _mk()
+    onbellek, eksik = {}, []
+    for a in ortam.values():
+        servis, ad_ = MK.anahtar_coz(girdi, a)
+        if servis not in onbellek:
+            try:
+                onbellek[servis] = yukle(servis)
+            except Exception:
+                onbellek[servis] = {}
+        if ad_ not in onbellek[servis]:
+            eksik.append(f"{servis}.{ad_}")
     return "var" if not eksik else "yok: " + ", ".join(eksik)
+
+
+def eksik_gerek(girdi: dict, bul=shutil.which) -> list:
+    """Kayıttaki `gerek` komutlarından PATH'te bulunmayanlar (ADR-0097)."""
+    return [g for g in girdi.get("gerek") or [] if not bul(g)]
 
 
 def _kayit():
@@ -78,7 +89,9 @@ def cmd_liste(a):
     kayit = _kayit()
     import kimlik as K
     for ad in sorted(kayit):
-        print(f"{ad}: kimlik {kimlik_durumu(kayit[ad], K.yukle)}; komut {kayit[ad]['komut'][0]}")
+        eksik = eksik_gerek(kayit[ad])
+        gerek = "; gerek: " + ", ".join(f"{g} yok" for g in eksik) if eksik else ""
+        print(f"{ad}: kimlik {kimlik_durumu(kayit[ad], K.yukle)}; komut {kayit[ad]['komut'][0]}{gerek}")
 
 
 def cmd_config(a):
@@ -91,19 +104,33 @@ def cmd_config(a):
         print(json.dumps(config_json(kayit, adlar), indent=2, ensure_ascii=False))
 
 
-def kur(adlar: list, calistir=subprocess.run, kuru: bool = False) -> list:
-    """(ad, durum) listesi. Zaten kayıtlıysa dokunmaz ('zaten kayıtlı'); `calistir` testte yerine konur."""
+def _calistirilabilir(komut: list) -> list:
+    """Windows'ta `claude` bir .cmd kısayolu olabilir; subprocess düz adı bulamaz, PATHEXT ile çözülen yol kullanılır."""
+    yol = shutil.which(komut[0])
+    return [yol or komut[0]] + list(komut[1:])
+
+
+def kur(adlar: list, calistir=subprocess.run, kuru: bool = False, kayit: dict | None = None,
+        hepsi: bool = False, bul=shutil.which) -> list:
+    """(ad, durum) listesi. Zaten kayıtlıysa dokunmaz ('zaten kayıtlı'); `calistir` testte yerine konur.
+    Ön koşulu (`gerek`) eksik MCP: `hepsi` ise atlanır ('atlandı: uv yok'), tek tek istenmişse uyarıp yine kaydedilir."""
     sonuc = []
     for ad in adlar:
+        eksik = eksik_gerek((kayit or {}).get(ad, {}), bul)
+        yok = ", ".join(f"{g} yok" for g in eksik)
+        if eksik and hepsi:
+            sonuc.append((ad, f"atlandı: {yok}"))
+            continue
         komut = ekle_komutu(ad)
         if kuru:
             sonuc.append((ad, "kuru: " + " ".join(shlex.quote(x) for x in komut)))
             continue
-        if calistir(["claude", "mcp", "get", ad], capture_output=True).returncode == 0:
+        if calistir(_calistirilabilir(["claude", "mcp", "get", ad]), capture_output=True).returncode == 0:
             sonuc.append((ad, "zaten kayıtlı"))
             continue
-        r = calistir(komut, capture_output=True)
-        sonuc.append((ad, "eklendi" if r.returncode == 0 else f"hata (çıkış kodu {r.returncode})"))
+        r = calistir(_calistirilabilir(komut), capture_output=True)
+        durum = "eklendi" if r.returncode == 0 else f"hata (çıkış kodu {r.returncode})"
+        sonuc.append((ad, durum + (f" (uyarı: {yok})" if eksik and r.returncode == 0 else "")))
     return sonuc
 
 
@@ -112,7 +139,7 @@ def cmd_kur(a):
     adlar = _adlar(a, kayit)
     if not a.kuru and not shutil.which("claude"):
         hata("claude komutu bulunamadı (Claude Code kurulu ve PATH'te olmalı)")
-    sonuc = kur(adlar, kuru=a.kuru)
+    sonuc = kur(adlar, kuru=a.kuru, kayit=kayit, hepsi=bool(a.hepsi or not a.mcp))
     for ad, durum in sonuc:
         print(f"{ad}: {durum}")
     if any(d.startswith("hata") for _, d in sonuc):

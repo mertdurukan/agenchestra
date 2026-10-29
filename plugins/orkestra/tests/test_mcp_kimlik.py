@@ -123,3 +123,55 @@ def test_ortam_kur_hata_iletisi_alttaki_istisnayi_tasimaz():
     with pytest.raises(mk.KayitHata) as e:
         mk.ortam_kur("t", g, al, taban={})
     assert SIR not in str(e.value) and "s.B" in str(e.value)
+
+
+def test_servis_onekli_anahtar_iki_servisten_alinir():
+    g = {"komut": ["x"], "ortam": {"A": "s1.K1", "B": "s2.K2"}}
+    mk.dogrula("t", g)
+    gelen = []
+
+    def al(s, a):
+        gelen.append((s, a))
+        return "d-" + s
+    env = mk.ortam_kur("t", g, al, taban={})
+    assert env == {"A": "d-s1", "B": "d-s2"} and gelen == [("s1", "K1"), ("s2", "K2")]
+
+
+@pytest.mark.parametrize("ortam", [{"A": "s1."}, {"A": ".K"}, {"A": "s 1.K"}, {"A": "s1.K.X"}])
+def test_bozuk_servis_anahtar_reddedilir(ortam):
+    with pytest.raises(mk.KayitHata):
+        mk.dogrula("t", {"komut": ["x"], "kimlik_servisi": "s", "ortam": ortam})
+
+
+@pytest.mark.parametrize("gerek", ["uv", ["a/b"], ["a\b"], [""], [1]])
+def test_gerek_gecersiz_tur_ve_yol_ayraci_reddedilir(gerek):
+    with pytest.raises(mk.KayitHata):
+        mk.dogrula("t", {"komut": ["x"], "gerek": gerek})
+
+
+def test_gerek_gecerli_kabul_edilir():
+    mk.dogrula("t", {"komut": ["x"], "gerek": ["uv", "docker"]})
+
+
+def test_proje_yer_tutucusu_acilir_ve_yoksa_hata(monkeypatch, tmp_path):
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert mk.komut_ac(["npx", "${CLAUDE_PROJECT_DIR}"], "t") == ["npx", str(tmp_path)]
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR")
+    with pytest.raises(mk.KayitHata):
+        mk.komut_ac(["npx", "${CLAUDE_PROJECT_DIR}"], "t")
+
+
+def test_baska_yer_tutucu_reddedilir():
+    with pytest.raises(mk.KayitHata):
+        mk.dogrula("t", {"komut": ["x", "${HOME}"]})
+    mk.dogrula("t", {"komut": ["x", "${CLAUDE_PROJECT_DIR}/a"]})
+
+
+def test_servis_onekli_hata_iletisi_degersiz():
+    g = {"komut": ["x"], "ortam": {"A": "s1.K1"}}
+
+    def al(s, a):
+        raise RuntimeError(SIR)
+    with pytest.raises(mk.KayitHata) as e:
+        mk.ortam_kur("t", g, al, taban={})
+    assert "s1.K1" in str(e.value) and SIR not in str(e.value)
