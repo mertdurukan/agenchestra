@@ -31,7 +31,7 @@ def _basliktan(yol: str, varsayilan: str) -> tuple:
     except OSError:
         return varsayilan, ""
     m = re.match(r"---\s*\n(.*?)\n---", metin, re.S)
-    alanlar = dict(_ALAN.findall(m.group(1))) if m else {}
+    alanlar = _alanlar(m.group(1)) if m else {}
     return (alanlar.get("name") or varsayilan).strip("'\""), (alanlar.get("description") or "").strip("'\"")
 
 
