@@ -34,6 +34,8 @@ Eklenti varsayılanı `ayarlar/db_olcum.json`, proje ezmesi `.claude/orkestra/db
 
 Kimlik (şifre, bağlantı dizesi) için `orkestra kimlik liste` ile kimlik klasörüne bakılır; değer okunmaz, yazılmaz.
 
+**postgres MCP:** Eklentinin `postgres` sunucusu (`mcp__plugin_orkestra_postgres__*`) araç listesinde varsa tek seferlik şema ve satır soruları için önce o kullanılır; aynı kapı ve salt okuma uygulanır. Kalıcı betik, CSV ve saatli bulgu gereken ölçüm bu skill'in akışıyla yapılır. Yazma yalnız `postgres-yazma` sunucusuyla, kullanıcı isterse yapılır.
+
 ## Kapılar (biri kalırsa DUR, kullanıcıya söyle)
 - **Kapı betiği (T0):** `python -I "${CLAUDE_SKILL_DIR}/scripts/kapi.py" --ortam kopya|prod --db-py <kimlik dosyası klasörü>`. Çıkış 1 ise devam etme. Betik şunları denetler:
   - **Saat:** Ortamın `yasak_saatler` aralıklarında sorgu çalışmaz. Prod'da `--seviye agir` ile mesai içinde uyarı verir.
