@@ -2314,25 +2314,31 @@ def session_start(inp: dict):
     """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600, en kötü durumda ≤700 karakter.
     Perspektif, panel açma, etki izleme ve onay yönergesi yalnız koşul sağlanınca ayrı satır olarak eklenir."""
     _doktor_hizli_yol(inp)
-    try:  # ADR-0034: Windows'ta panel görevi (oturum açılışında başlar) yoksa kurulur; hata hook'u düşürmez
-        import panel_servis
-        panel_servis.otomatik_kur()
-    except Exception:
-        pass
+    import oturum_bakim
+    bakim = oturum_bakim.etkin()  # ADR-0092: ağır bakım ayrık koşucuda; kapalıysa eski eşzamanlı yol
+    if not bakim:
+        try:  # ADR-0034: Windows'ta panel görevi (oturum açılışında başlar) yoksa kurulur; hata hook'u düşürmez
+            import panel_servis
+            panel_servis.otomatik_kur()
+        except Exception:
+            pass
     sd = L.durum_dizini(inp.get("cwd")) or _otomatik_ac(inp)
     if not sd:
         gec()
     import perspektif
     perspektif.oturum_say(sd, inp.get("source"))
-    try:  # çöken yazımlardan kalan eski .tmp_* dosyaları (1 saatten eski) silinir
-        L.tmp_temizle(sd)
-    except Exception:
-        pass
-    try:  # I-201, ADR-0050: main'e birleşmiş artık dallar (gölge kipte yalnız günlüğe yazar); hook'u asla düşürmez
-        import dal_temizle
-        dal_temizle.calistir(inp.get("cwd") or os.getcwd(), kaynak="session_start")
-    except Exception:
-        pass
+    if bakim:
+        oturum_bakim.baslat(sd, inp.get("cwd") or os.getcwd())  # tmp temizliği, artık dal, etki izleme, bayatlık, panel görevi
+    else:
+        try:  # çöken yazımlardan kalan eski .tmp_* dosyaları (1 saatten eski) silinir
+            L.tmp_temizle(sd)
+        except Exception:
+            pass
+        try:  # I-201, ADR-0050: main'e birleşmiş artık dallar (gölge kipte yalnız günlüğe yazar); hook'u asla düşürmez
+            import dal_temizle
+            dal_temizle.calistir(inp.get("cwd") or os.getcwd(), kaynak="session_start")
+        except Exception:
+            pass
     ks = [k for k in L.kartlar(sd) if L.kart_durumu_hesapla(k) in L.ACIK_DURUMLAR + ("beklemede",)]
     bagli = None
     try:
