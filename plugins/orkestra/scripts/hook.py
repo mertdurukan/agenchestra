@@ -2400,9 +2400,25 @@ def session_start(inp: dict):
             ek = ek + chr(10) + dv
     except Exception:
         pass
+    _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000)
     import baglam_kaydi
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
+
+
+SESSIONSTART_SURE_ESIK_MS = 2000  # I-255 P3: üstü gölge uyarı (P-028); ihlal geçişi ölçümden sonra ayrı kararla
+
+
+def _sure_yaz(sd: str, oid, ms: float) -> None:
+    """SessionStart süresini gunluk.jsonl'a yazar (tur=hook_sure); eşik aşımı ayrıca kapi_golge olur. Hatada sessiz."""
+    try:
+        yol = os.path.join(sd, "gunluk.jsonl")
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "hook_sure", "olay": "SessionStart", "sure_ms": round(ms)})
+        if ms > SESSIONSTART_SURE_ESIK_MS:
+            L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "kapi": "sessionstart_sure",
+                               "neden": f"SessionStart {round(ms)} ms > {SESSIONSTART_SURE_ESIK_MS} ms"})
+    except Exception:
+        pass
 
 
 def _etki_bekleyenler(sd: str) -> tuple[int, list[str]]:
