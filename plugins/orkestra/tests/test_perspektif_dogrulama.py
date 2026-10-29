@@ -97,6 +97,45 @@ class PerspektifDogrulama(unittest.TestCase):
         self.yaz_rapor("   Kanıt: uydurma xyz\n")
         self.assertEqual(len(P.rapor_dogrula(self.rapor, self.hafiza, self.proje)["tutmayan"]), 1)
 
+    # ---- girdi Kanıt türü (ADR-0094)
+    def _girdi(self):
+        with open(os.path.join(os.path.dirname(self.rapor), "girdi.json"), "w", encoding="utf-8") as f:
+            json.dump({"gunluk": {"kapi_ret": {"uretim_noktasi": 44}, "denetim_payi": 0.0284},
+                       "anomali": {"ilk": [{"pay": 0.8723}]}, "trend": {"kpi": {"a": 1, "b": 2}},
+                       "kpi": {"ret_orani": 0.13731}}, f)
+
+    def _girdi_sonuc(self, satirlar):
+        self._girdi()
+        self.yaz_rapor("".join(f"   Kanıt: {s}\n" for s in satirlar))
+        return P.rapor_dogrula(self.rapor, self.hafiza, self.proje)
+
+    def test_girdi_kaniti_tam_sayi_ve_ondalik_tutar(self):
+        o = self._girdi_sonuc(["girdi gunluk.kapi_ret.uretim_noktasi => 44", "girdi kpi.ret_orani => 0,1373",
+                               "girdi anomali.ilk[0].pay => 0.87", "girdi gunluk.denetim_payi => %2,84",
+                               "girdi trend.kpi => 2", "girdi gunluk.kapi_ret.uretim_noktasi => >=40"])
+        self.assertEqual((o["toplam"], o["tutan"], o["tutmayan"]), (6, 6, []))
+
+    def test_girdi_kaniti_yanlis_deger_tutmaz(self):
+        o = self._girdi_sonuc(["girdi gunluk.kapi_ret.uretim_noktasi => 41", "girdi kpi.ret_orani => 0,1517"])
+        self.assertEqual(len(o["tutmayan"]), 2)
+        self.assertIn("beklenen 41", o["tutmayan"][0]["mesaj"])
+
+    def test_girdi_kaniti_olmayan_alan_ve_bozuk_bicim(self):
+        o = self._girdi_sonuc(["girdi gunluk.yok => 1", "girdi gunluk.kapi_ret.uretim_noktasi => 44 (n=28); 52",
+                               "girdi anomali.ilk[5].pay => 1"])
+        self.assertEqual(len(o["tutmayan"]), 3)
+        self.assertIn("alan yok", o["tutmayan"][0]["mesaj"])
+
+    def test_girdi_json_yoksa_tutmaz(self):
+        self.yaz_rapor("   Kanıt: girdi gunluk.kapi_ret.uretim_noktasi => 44\n")
+        o = P.rapor_dogrula(self.rapor, self.hafiza, self.proje)
+        self.assertIn("okunamadı", o["tutmayan"][0]["mesaj"])
+
+    def test_talimat_girdi_bicimini_ve_tek_ifade_kuralini_tasir(self):
+        md = open(os.path.join(KOK, "agents", "perspektif-ajani.md"), encoding="utf-8").read()
+        self.assertIn("Kanıt: girdi alan.yolu => değer", md)
+        self.assertIn("tek ifade", md)
+
     def test_kanitsiz_rapor_sifir(self):
         self.yaz_rapor("# Rapor\n1. öneri\n")
         self.assertEqual(P.rapor_dogrula(self.rapor, self.hafiza, self.proje)["toplam"], 0)

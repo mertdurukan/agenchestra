@@ -419,6 +419,71 @@ _ISARET_SATIRI = re.compile(r"^\s*" + re.escape(ISARET))
 _KOSULMAYAN = ("komut koşulmadı", "komut çalıştırılmadı")
 
 
+_GIRDI_KANIT = re.compile(r'^(?P<yol>[A-Za-z_][\w.\[\]-]*)\s*=>\s*(?P<bek>.+?)\s*$')
+_GIRDI_ADIM = re.compile(r'([^.\[\]]+)|\[(\d+)\]')
+
+
+def _girdi_deger(veri, yol: str):
+    """`gunluk.kapi_ret.uretim_noktasi`, `anomali.ilk[0].pay` biçimli yolu çözer; yoksa KeyError."""
+    d = veri
+    for ad, sira in _GIRDI_ADIM.findall(yol):
+        if sira:
+            d = d[int(sira)]
+        elif isinstance(d, dict):
+            d = d[ad]
+        else:
+            raise KeyError(ad)
+    return d
+
+
+def _sayi(metin: str):
+    """'0,1373', '%15,02', '1.083,50' gibi metni (değer, ondalık hane) olarak döner; sayı değilse None."""
+    t = metin.strip().lstrip("%").rstrip("%").replace(" ", "")
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    try:
+        float(t)
+    except ValueError:
+        return None
+    return float(t), (len(t.split(".", 1)[1]) if "." in t else 0)
+
+
+def girdi_kanit_dogrula(deger: str, girdi_yolu: str):
+    """`girdi <yol> => <beklenen>` Kanıt türü (ADR-0094): girdi.json'daki değer beklenenle karşılaştırılır.
+    Sayıda yazılan ondalık haneye yuvarlanmış eşitlik aranır; `>=N` desteklenir; liste ya da sözlükte uzunluk sınanır.
+    (ok, mesaj) döner."""
+    m = _GIRDI_KANIT.match(deger.strip())
+    if not m:
+        return False, 'bozuk: `girdi <alan.yolu> => <değer>` olmalı (tek ifade, açıklama yok)'
+    try:
+        with open(girdi_yolu, encoding="utf-8") as f:
+            veri = json.load(f)
+    except (OSError, ValueError):
+        return False, f"girdi.json okunamadı: {girdi_yolu}"
+    try:
+        gercek = _girdi_deger(veri, m.group("yol"))
+    except (KeyError, IndexError, TypeError):
+        return False, f"girdi.json'da alan yok: {m.group('yol')}"
+    bek = m.group("bek").strip()
+    if isinstance(gercek, (list, dict)):
+        gercek = len(gercek)
+    if isinstance(gercek, bool) or not isinstance(gercek, (int, float)):
+        ok = str(gercek).strip() == bek.strip('"')
+        return ok, f"{m.group('yol')} = {gercek}; beklenen {bek}"
+    en_az = bek.startswith(">=")
+    b = _sayi(bek[2:] if en_az else bek)
+    if b is None:
+        return False, f"{m.group('yol')} = {gercek}; beklenen sayı değil: {bek}"
+    hedef, hane = b
+    if en_az:
+        ok = gercek >= hedef
+    else:
+        ok = abs(gercek - hedef) <= 0.5 * 10 ** -hane + 1e-12
+        if not ok and bek.startswith("%"):
+            ok = abs(gercek * 100 - hedef) <= 0.5 * 10 ** -hane + 1e-12
+    return ok, f"{m.group('yol')} = {gercek}; beklenen {bek}"
+
+
 def rapor_dogrula(rapor: str, hafiza: str, proje: str) -> dict:
     """{toplam, tutan, dogrulanmadi, tutmayan: [{satir (1 tabanlı), tur, mesaj}]}. Rapor okunamazsa ValueError."""
     import plan_dogrulama as PD
@@ -428,6 +493,7 @@ def rapor_dogrula(rapor: str, hafiza: str, proje: str) -> dict:
     except OSError as e:
         raise ValueError(f"rapor okunamadı: {rapor}") from e
     kokler = [k for k in (hafiza, proje) if k]
+    girdi_yolu = os.path.join(os.path.dirname(os.path.abspath(rapor)), "girdi.json")
     sonuc = {"toplam": 0, "tutan": 0, "dogrulanmadi": 0, "tutmayan": []}
     for no, satir in enumerate(satirlar, 1):
         if _ISARET_SATIRI.match(satir):
@@ -438,7 +504,10 @@ def rapor_dogrula(rapor: str, hafiza: str, proje: str) -> dict:
         bol = m.group("deger").split(None, 1)
         tur, deger = (bol[0] if bol else "").lower(), (bol[1] if len(bol) > 1 else "")
         sonuc["toplam"] += 1
-        ok, _, mesaj = PD.kanit_dogrula({"tur": tur, "deger": deger}, kokler, proje, kos=False)
+        if tur == "girdi":
+            ok, mesaj = girdi_kanit_dogrula(deger, girdi_yolu)
+        else:
+            ok, _, mesaj = PD.kanit_dogrula({"tur": tur, "deger": deger}, kokler, proje, kos=False)
         if ok is True:
             sonuc["tutan"] += 1
         elif ok is None or mesaj.startswith(_KOSULMAYAN):

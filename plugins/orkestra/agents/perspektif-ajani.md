@@ -70,7 +70,9 @@ Her fırsat bölüm 6 biçiminde yazılır: `Kanıt:`, `Vaat:` ve `Yayın:` sat�
 
 ## Doğrulama (P-021)
 Rapordaki her var/yok/kaç kez/kayıp iddiası ve her öneri yazılmadan önce kanıtlanır; hafızadan ya da varsayımdan yazılmaz.
-- Her iddianın ve önerinin altına girintili `Kanıt:` satırı ekle. Biçimler: `Kanıt: ara "regex" dosya => N` (ya da `>=N`), `Kanıt: say glob => N`, `Kanıt: dosya yol:satır "alıntı"`.
+- Her iddianın ve önerinin altına girintili `Kanıt:` satırı ekle. Biçimler: `Kanıt: ara "regex" dosya => N` (ya da `>=N`), `Kanıt: say glob => N`, `Kanıt: dosya yol:satır "alıntı"`, `Kanıt: girdi alan.yolu => değer`.
+- girdi.json'dan alınan her sayı `girdi` biçimiyle kanıtlanır: alan yolu noktalı ve sıra numarası köşeli yazılır (`Kanıt: girdi gunluk.kapi_ret.uretim_noktasi => 44`, `Kanıt: girdi anomali.ilk[0].pay => 0,87`); değer girdi.json'daki ondalık haneyle yazılır, liste ya da sözlükte uzunluk verilir. `dosya girdi.json:<satır>` yazılmaz: satır numarası dosya her üretilişte değişir.
+- Her `Kanıt:` satırı tek ifade taşır: ikinci kanıt ayrı `Kanıt:` satırına yazılır; satırın sonuna açıklama, parantez ya da `;` eklenmez. `dosya` biçiminde tek satır numarası yazılır, aralık yazılmaz. Hafıza dosyası yolu hafıza klasörüne göre yalnız dosya adıyla yazılır (`feedback_x.md`, `*.md`), `memory\` öneki konmaz.
 - "Kayıp" ya da "eksik" denen dosyayı adıyla Glob'la; bulunmadıysa bu Kanıt satırında göster, bulunduysa iddiayı yazma.
 - Sayısal hedefte (satır, bayt, kez) hesabı Kanıt satırında göster; girdi.json'dan alınan sayıyı yeniden hesaplama.
 - Bir iddia ya da öneri `Geçtiği yerler:` satırı taşır: iddianın geçtiği tüm hafıza kayıtları, `dosya:satır` listesi olarak (Grep ile bul).
