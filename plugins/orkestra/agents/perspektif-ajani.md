@@ -45,10 +45,28 @@ Türkçe, kısa cümleler:
    - kullanılan mevcut betik.
 8. **Orkestra sağlığı:**
    - Etiketsiz ajan oranı.
-   - Reddedilen ve yükseltilen kartlar.
-   - Denetimin maliyet payı (hedef %15-30).
+   - Reddedilen ve yükseltilen kartlar: yükseltilen kart sayısı girdi.json `gunluk.yukseltilen_kart` alanından alınır; alan yoksa ya da boşsa "doğrulanamadı" yaz.
+   - Denetimin maliyet payı (hedef %15-30): girdi.json `gunluk.denetim_payi` alanından alınır; alan yoksa ya da boşsa "doğrulanamadı" yaz.
    - Dikkat çeken maliyet.
    - Maliyet anomalileri: girdi.json `anomali` alanındaki her kural için kök neden ve somut düzeltme önerisi (kural, betik ya da eşik). Bunlar da bölüm 6 biçiminde `Vaat:` satırı taşır. Gözlemi öneriye çevirmeden bırakma.
+
+## 9. Zaman maliyeti
+Kaynak: girdi.json `zaman` ve `trend` alanları. Sayıları yeniden hesaplama; alanlardan al.
+1. **Uzun turlar:** `zaman` alanındaki uzun tur sayısı ve istek bekleme p50/p95.
+2. **Oturum maratonları:** oturum süresi p50/p95 ve alışılmadık uzun oturumlar.
+3. **Sürünen işler:** iş süresi (açılış→kapanış) uzayan ya da kapanmayan işler.
+4. **Anomaliler:** `zaman` ve `trend` alanındaki her zaman anomalisi için kök neden ve somut düzeltme önerisi. Öneri bölüm 6 biçimindedir: `Kanıt:`, `Vaat:` ve `Yayın:` satırlarını taşır. `trend` alanındaki bir önceki 14 güne göre kötüleşen (yön) her değer de öneriye çevrilir.
+5. **Yeni kural notu (K6):** K8-K10 anomali kuralları yenidir; bir kuralın ilk raporda çıkan bulgusu "yeni kural, eşik doğrulanmadı" notuyla verilir ve kesin hüküm gibi yazılmaz.
+Gözlemi öneriye çevirmeden bırakma.
+
+## 10. Fırsatlar
+Kaynak: girdi.json `gunluk` alanı (ve `hata`, `atif`). Sayıları yeniden hesaplama.
+1. **Kural ihlal eğilimi:** kural başına ihlal sayısı ve `trend` yönü; artan kural için öneri.
+2. **Kapı gölge/ret:** kapı başına `kapi_golge` ve `kapi_ret` sayısı, tekrarlayan ret payı (aynı kapının yinelenen reddi); yanlış pozitif şüphesi varsa belirt.
+3. **Kullanılmayan skill'ler:** skill listesinde olup günlükte hiç kullanılmayan skill'ler; sil, birleştir ya da tetik cümlesini iyileştir.
+4. **Ret nedeni sınıfları:** ret nedenlerinin sınıflara göre dağılımı; en büyük sınıfın kaynakta çözümü.
+5. **Hata sınıfları:** `hata` ve `atif` alanlarındaki hata sınıfları; tekrarlayan sınıf için kök neden.
+Her fırsat bölüm 6 biçiminde yazılır: `Kanıt:`, `Vaat:` ve `Yayın:` satırlarını taşır (girintili, `N.` ile başlamaz).
 
 ## Doğrulama (P-021)
 Rapordaki her var/yok/kaç kez/kayıp iddiası ve her öneri yazılmadan önce kanıtlanır; hafızadan ya da varsayımdan yazılmaz.

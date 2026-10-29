@@ -2356,6 +2356,10 @@ def session_start(inp: dict):
         ek_satirlar.append("PERSPEKTİF ZAMANI: kullanıcının ilk isteğini yanıtlarken AYNI mesajda, kullanıcıyı bölmeden, Agent aracıyla "
                            "`orkestra:perspektif-ajani` ajanını run_in_background: true ile başlat; istem: "
                            f"`#SUREC:perspektif hafıza klasörü: {hafiza}`. Kullanıcıya yalnız tek satırla bildir.")
+    else:  # K4 (ADR-0094): oto kapalıyken eşik aşımı görünür olsun; yan etkisiz, hata yutulur
+        zu = perspektif.zaman_uyarisi(sd, _perspektif_oto(), r)
+        if zu:
+            ek_satirlar.append(zu)
     try:  # eklenti kural katmanı değiştiyse bu projenin kural dosyası yenilenir; hata hook'u düşürmez
         import onay
         onay.kural_dosyasi_esitle(sd)

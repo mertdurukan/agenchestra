@@ -7,7 +7,9 @@ Rapor: <durum>/perspektif/perspektif_<tarih>.md ; bir sonraki oturumda ana ajan 
 Maliyet (BIC-3): mekanik ölçümler (hafıza boyutu, ölü yollar, maliyet anomalileri, KPI, günlük ve defter özeti) LLM'e
 yaptırılmaz; `girdi_yaz` bunları tek bir perspektif/girdi.json dosyasına yazar. Ajan ve başsız koşu ham kaynakları
 taramak yerine bu dosyayı okur. Değişim kapısı: süre/oturum eşiği dolsa bile girdi imzası (hafıza, kurallar, skill'ler,
-anomali kümesi, istek kovası) son rapordakiyle aynıysa koşu atlanır ve sayaç sıfırlanır.
+anomali kümesi, K8-K10 zaman anomalileri, istek kovası) son rapordakiyle aynıysa koşu atlanır ve sayaç sıfırlanır.
+Girdi ADR-0094 ile `zaman` (perspektif_zaman), genişletilmiş `gunluk`, `hata`, `atif` (perspektif_gunluk) ve `trend`
+(perspektif_trend) taşır; 64 KB tavanı `_kisalt`. Başsız istem `istem()` agents/perspektif-ajani.md'den türetilir.
 """
 from __future__ import annotations
 
@@ -119,6 +121,9 @@ def girdi(sd: str, proje: str, hafiza: str) -> dict:
     import collections
     import kpi
     import maliyet_anomali as MA
+    import perspektif_gunluk as PG
+    import perspektif_trend as PT
+    import perspektif_zaman as PZ
     dosyalar, olu, belirsiz, h_imza = _hafiza_ozeti(hafiza, proje)
     kurallar = _metin(os.path.join(proje, "CLAUDE.md")) + "".join(
         _metin(y) for y in sorted(glob.glob(os.path.join(proje, ".claude", "rules", "*.md"))))
@@ -139,12 +144,16 @@ def girdi(sd: str, proje: str, hafiza: str) -> dict:
     skiller = _skiller(proje)
     duzeltme = _duzeltme_tekrari(hafiza)
     memory = next((x for x in dosyalar if x["ad"] == "MEMORY.md"), None)
+    zaman = _guvenli(lambda: PZ.ozet(sd, esik, None))
+    pg = _guvenli(lambda: PG.ozet(sd, esik, None))
+    trend = _guvenli(lambda: PT.hesapla(sd, GIRDI_GUN))
     imza_kaynagi = {"hafiza": h_imza, "kurallar": hashlib.sha256(kurallar.encode("utf-8")).hexdigest()[:16],
                     "skiller": skiller, "anomali": sorted({f"{a['kural']}:{a['kart']}" for a in anomali}),
                     "istek_kovasi": len(istekler) // ISTEK_KOVASI,
-                    "duzeltme": sorted(b["not"] for b in duzeltme["bulgular"])}
-    return {
-        "zaman": L.simdi(), "gun": GIRDI_GUN,
+                    "duzeltme": sorted(b["not"] for b in duzeltme["bulgular"]),
+                    "zaman_anomali": sorted({f"{a.get('kural')}:{a.get('hedef')}" for a in zaman.get("anomali") or []})}
+    g = {
+        "uretim_zamani": L.simdi(), "gun": GIRDI_GUN,  # "zaman" anahtarı zaman ölçümüdür (perspektif_zaman)
         "imza": hashlib.sha256(json.dumps(imza_kaynagi, sort_keys=True).encode("utf-8")).hexdigest()[:20],
         "hafiza": {"klasor": hafiza, "dosyalar": dosyalar, "memory_md": memory,
                    "olu_yollar": olu[:60], "olu_yol_sayisi": len(olu), "belirsiz_yollar": belirsiz[:60]},
@@ -155,11 +164,62 @@ def girdi(sd: str, proje: str, hafiza: str) -> dict:
         "gunluk": {"olay": len(gun), "tur": dict(collections.Counter(r.get("tur") for r in gun)),
                    "skill": dict(collections.Counter(r.get("skill") for r in gun if r.get("tur") == "skill").most_common(20)),
                    "ajan": dict(collections.Counter(r.get("ajan") for r in gun if r.get("tur") == "ajan").most_common(20)),
-                   "istekler": [f"{r.get('zaman', '')[:16]} {str(r.get('metin', ''))[:160]}" for r in istekler[-40:]]},
+                   "istekler": [f"{r.get('zaman', '')[:16]} {str(r.get('metin', ''))[:160]}" for r in istekler[-40:]],
+                   **{k: v for k, v in pg.items() if k != "pencere"}},
+        "hata": pg.get("hata") or {},
+        "atif": pg.get("atif") or {},
         "defter": {"kayit": len(defter), "etiketsiz_ajan": etiketsiz,
                    "son": [{"gorev": r.get("gorev"), "surec": r.get("surec"), "ajan": r.get("ajan"),
                             "sonuc": str(r.get("sonuc", ""))[:200]} for r in defter[-30:]]},
     }
+    g["zaman"] = zaman  # §9: olcum, anomali (K8-K10), esik
+    g["trend"] = trend  # bu 14 gün ile önceki 14 gün: kpi, anomali, zaman, gunluk
+    return _kisalt(g)
+
+
+GIRDI_TAVANI = 65536  # K5: ajan tek dosyayı okur; aşılırsa listeler kısaltılır, sayımlar korunur
+
+
+def _guvenli(f) -> dict:
+    """Ölçüm modülü hatası girdiyi düşürmez: boş sözlük döner."""
+    try:
+        r = f()
+        return r if isinstance(r, dict) else {}
+    except Exception:
+        return {}
+
+
+def _bayt(g) -> int:
+    return len(L.maskele(json.dumps(g, ensure_ascii=False, indent=1)).encode("utf-8"))
+
+
+def _listeler(nesne, yol=""):
+    """(üst, anahtar, liste, yol) — iç içe sözlüklerdeki tüm listeler (liste içindeki listeler hariç)."""
+    if isinstance(nesne, dict):
+        for k, v in nesne.items():
+            alt = f"{yol}.{k}" if yol else str(k)
+            if isinstance(v, list):
+                yield nesne, k, v, alt
+            else:
+                yield from _listeler(v, alt)
+
+
+def _kisalt(g: dict, tavan: int = GIRDI_TAVANI) -> dict:
+    """Serileştirilmiş girdi `tavan` baytı aşıyorsa en uzun (bayt) listeyi yarıya indirir (ilk N kalır) ve yineler.
+    Sayımlar (sözlük değerleri, *_sayisi alanları) dokunulmadan kalır; kısaltılan liste `_kisaltma`ya
+    `yol: özgün uzunluk` olarak yazılır. Kısaltılacak liste kalmazsa olduğu gibi döner."""
+    if _bayt(g) <= tavan:
+        return g
+    ozgun: dict = {}
+    while _bayt(g) > tavan:
+        adaylar = [(len(json.dumps(v, ensure_ascii=False)), u, k, v, y) for u, k, v, y in _listeler(g) if len(v) > 1]
+        if not adaylar:
+            break
+        _, u, k, v, y = max(adaylar, key=lambda x: x[0])
+        ozgun.setdefault(y, len(v))
+        u[k] = v[: max(1, len(v) // 2)]
+        g["_kisaltma"] = {"tavan": tavan, "ozgun_uzunluk": ozgun}
+    return g
 
 
 def hafiza_projeye_ait(proje: str, hafiza: str) -> bool:
@@ -245,6 +305,24 @@ def yoksay(sd) -> None:
         _yaz(sd, d)
 
 
+def zaman_uyarisi(sd: str, oto_acik: bool, d: dict | None = None) -> str | None:
+    """K4 ikamesi (ADR-0094): eşik dolmuş, otomatik koşu kapalı ve yoksayılmamışsa oturum açılışı için tek satır.
+    `d` verilirse durum() yeniden çağrılmaz. Yan etkisiz; her hatada None."""
+    try:
+        if oto_acik or os.environ.get("ORKESTRA_PERSPEKTIF"):
+            return None
+        d = durum(sd) if d is None else d
+        if not d.get("zamani_geldi") or d.get("calisiyor") or d.get("okunmamis_rapor"):
+            return None
+        gun = d.get("gun_once")
+        if gun is None and d.get("oturum_sayaci", 0) < OTURUM_ESIGI:  # hiç koşmamış yeni proje: oturum eşiği beklenir
+            return None
+        return (f"perspektif zamanı geldi ({d.get('oturum_sayaci', 0)} oturum / "
+                f"{str(gun) + ' gün' if gun is not None else 'hiç koşmadı'}): /orkestra:perspektif şimdi")
+    except Exception:
+        return None
+
+
 def bitti_isaretle(sd):
     with L.kilit(_durum_yolu(sd)):
         d = _oku(sd)
@@ -264,40 +342,21 @@ def claude_exe() -> str | None:
     return cfg.al("claude_exe")
 
 
-ISTEM = """#SUREC:perspektif
-Sen orkestra sisteminin PERSPEKTİF (hafıza bakımı) koşusunsun. Kullanıcı yok; YALNIZ OKU, hiçbir dosyayı değiştirme.
-Görev: aşağıdaki kaynakları oku ve tek bir Markdown rapor üret (yanıtın yalnız rapor olsun).
-
-Kaynaklar (önce 1'i oku; sayıları yeniden hesaplama, oradan al):
-1. Mekanik girdi: {sd}\\perspektif\\girdi.json — hafıza dosya boyutları ve MEMORY.md satır/bayt, ölü yollar, maliyet
-   anomalileri (kural tabanlı, 14 gün), KPI, günlük özeti (istekler, skill/ajan kullanımı), ortak defter özeti.
-2. Otomatik hafıza: {hafiza}  (MEMORY.md + konu dosyaları) — yalnız içerik yargısı için (kopya, çelişki, eskimiş iş).
-3. Proje kuralları: {proje}\\CLAUDE.md ve {proje}\\.claude\\rules\\ (varsa).
-
-Rapor bölümleri (Türkçe, kısa cümleler):
-## 1. Özet — 3-5 madde.
-## 2. Birleştirilecek kopyalar — aynı bilgiyi taşıyan hafıza kayıtları; hangi dosyada kalsın.
-## 3. Çelişkiler — iki kaydın birbirini yalanladığı yerler; hangisi güncel (tarih/kanıt).
-## 4. Eskimiş veya doğrulanamayan — girdi.json'daki ölü yollar; "devam ediyor" denip bitmiş işler.
-## 5. Boyut — girdi.json'daki MEMORY.md satır/bayt; 200 satır sınırına yakınsa hangi kayıtlar konu dosyalarına bölünmeli.
-## 6. Önerilen değişiklikler — her biri için dosya, ne değişecek, gerekçe; uygulanabilir kısa diff blokları; her önerinin altında Kanıt:, Geçtiği yerler: ve Vaat: satırları.
-## 7. Skill adayları — girdi.json günlük isteklerinde skill'siz tekrarlanan (≥3) istek türleri; her aday için ad, tetik cümleleri, girdi→çıktı, başlangıç basamağı (T0-T4), mevcut betik.
-## 8. Orkestra sağlığı — ortak defterde etiketsiz (#GOREV yok) ajan oranı, reddedilen/yükseltilen kartlar, dikkat çeken maliyet; girdi.json'daki her anomali kuralı için kök neden ve Vaat satırlı düzeltme önerisi.
+def istem(hafiza: str, proje: str, sd: str) -> str:
+    """Başsız koşu istemi; tek kaynak agents/perspektif-ajani.md (ADR-0094, perspektif_talimat.uret)."""
+    import perspektif_talimat as T
+    return T.uret(hafiza, proje, sd)
 
 
-## Doğrulama (P-021)
-Rapordaki her var/yok/kaç kez/kayıp iddiası ve her öneri yazılmadan önce kanıtlanır; hafızadan ya da varsayımdan yazılmaz.
-- Her iddianın ve önerinin altına girintili `Kanıt:` satırı ekle. Biçimler: `Kanıt: ara "regex" dosya => N` (ya da `>=N`), `Kanıt: say glob => N`, `Kanıt: dosya yol:satır "alıntı"`.
-- "Kayıp" ya da "eksik" denen dosyayı adıyla Glob'la; bulunmadıysa bu Kanıt satırında göster, bulunduysa iddiayı yazma.
-- Sayısal hedefte (satır, bayt, kez) hesabı Kanıt satırında göster; girdi.json'dan alınan sayıyı yeniden hesaplama.
-- Bir iddia ya da öneri `Geçtiği yerler:` satırı taşır: iddianın geçtiği tüm hafıza kayıtları, `dosya:satır` listesi olarak (Grep ile bul).
-- Düzeltme biçimi: kaynakta yeniden yaz, not ekleme. Düzeltilecek iddia asıl anlatıldığı kayıtta olgu cümlesi olarak yeniden yazılır; geçtiği diğer yerlerde olgu doğru yazılır ya da cümle silinip kaynak kayda bağlantı verilir. Düzeltme notu eklemek öneri sayılmaz.
-- girdi.json `duzeltme_tekrari` alanındaki her bulgu (aynı düzeltme notunun birden çok kayıtta tekrarı) bölüm 6'da bir öneri olur.
-- Bölüm 2-5'teki her bulgu bölüm 6'daki bir öneriye bağlanır ya da `Öneri yok: <neden>` satırı taşır.
-- Rapor yazıldıktan sonra `orkestra perspektif dogrula <rapor yolu>` çalıştırılır; ❌ ile işaretlenen Kanıt satırı düzeltilir ya da iddia "doğrulanamadı" diye işaretlenir. Komut çalıştıramıyorsan atla: `kaydet` aynı doğrulamayı kendisi yapar.
-
-Kurallar: sır değeri, şifre, çalışan adı yazma. Emin olmadığın şeyi "doğrulanamadı" diye işaretle. Değişiklik UYGULAMA.
-"""
+def __getattr__(ad: str):
+    """Geriye uyum: `perspektif.ISTEM` md'den türetilen `str.format` şablonudur ({hafiza}, {proje}, {sd})."""
+    if ad != "ISTEM":
+        raise AttributeError(ad)
+    yer = {"hafiza": "\x00H\x00", "proje": "\x00P\x00", "sd": "\x00S\x00"}
+    metin = istem(yer["hafiza"], yer["proje"], yer["sd"]).replace("{", "{{").replace("}", "}}")
+    for k, v in yer.items():
+        metin = metin.replace(v, "{" + k + "}")
+    return metin
 
 
 def headless_mumkun(sd: str, exe: str | None) -> bool:
@@ -463,13 +522,12 @@ def baslat(sd: str, proje: str, transkript: str | None = None, zorla: bool = Fal
 
 def _kos(sd: str, proje: str, hafiza: str, exe: str):
     ortam = dict(os.environ, ORKESTRA_PERSPEKTIF="1", PYTHONUTF8="1")
-    istem = ISTEM.format(hafiza=hafiza, proje=proje, sd=sd)
     damga = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     rapor = os.path.join(sd, "perspektif", f"perspektif_{damga}.md")
-    komut = [exe, "-p", istem, "--model", "sonnet", "--effort", "medium", "--max-turns", "60",
-             "--allowedTools", "Read", "Glob", "Grep", "--add-dir", hafiza, "--add-dir", sd, "--output-format", "text"]
     basarili = False
     try:
+        komut = [exe, "-p", istem(hafiza, proje, sd), "--model", "sonnet", "--effort", "medium", "--max-turns", "60",
+                 "--allowedTools", "Read", "Glob", "Grep", "--add-dir", hafiza, "--add-dir", sd, "--output-format", "text"]
         r = subprocess.run(komut, cwd=proje, env=ortam, capture_output=True, text=True, encoding="utf-8", timeout=3600, **cfg.PENCERESIZ)
         metin = r.stdout.strip()
         basarili = r.returncode == 0 and len(metin) > 200 and "Not logged in" not in metin

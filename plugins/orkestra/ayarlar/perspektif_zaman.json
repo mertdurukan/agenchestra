@@ -1,0 +1,11 @@
+{
+  "_aciklama": "Perspektif zaman ölçümü tabanları (scripts/perspektif_zaman.py). Önceki pencerede örnek < min_n ise bu taban kullanılır.",
+  "uzun_tur_sn": 1800,
+  "oturum_sn": 14400,
+  "surunme_gun": 7,
+  "beklenen_pay": 0.05,
+  "anomali_pay": 0.10,
+  "min_n": 30,
+  "varsayilan_gun": 14,
+  "uzun_tur_liste": 10
+}
