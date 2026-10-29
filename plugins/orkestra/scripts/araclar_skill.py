@@ -24,6 +24,25 @@ class SkillHata(ValueError):
     """İstemciye gösterilebilir doğrulama hatası."""
 
 
+def _alanlar(baslik: str) -> dict:
+    """name/description değerleri; `>-`, `|` gibi blok değerler girintili satırlarından birleştirilir."""
+    sonuc, satirlar, i = {}, baslik.splitlines(), 0
+    while i < len(satirlar):
+        m = _ALAN.match(satirlar[i])
+        i += 1
+        if not m:
+            continue
+        ad, deger = m.group(1), m.group(2)
+        if re.fullmatch(r"[>|][+-]?", deger):
+            parca = []
+            while i < len(satirlar) and (not satirlar[i].strip() or satirlar[i][:1] in " \t"):
+                parca.append(satirlar[i].strip())
+                i += 1
+            deger = " ".join(p for p in parca if p)
+        sonuc[ad] = deger
+    return sonuc
+
+
 def _basliktan(yol: str, varsayilan: str) -> tuple:
     try:
         with open(yol, encoding="utf-8") as f:
