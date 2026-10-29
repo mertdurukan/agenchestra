@@ -1,7 +1,7 @@
 /* Orkestra paneli v2: karar odaklı kontrol odası.
    Görünümler: Gelen kutusu (açılış) · İşler (liste + ayrıntı) · Koşular · Kart izi · Maliyet · Kurallar · Yapılacaklar · Ayarlar.
    Veri: mevcut JSON uçları; canlı güncelleme /akis (SSE). Harici kitaplık yok.
-   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=…  #/yapilacaklar  #/ayarlar */
+   Adresler: #/gelen  #/isler?f=acik&q=…  #/is/I-003  #/kosular?b=T2&s=sure  #/kart/G-127  #/maliyet?p=son_3_gun  #/kurallar?q=…  #/yapilacaklar  #/araclar  #/ayarlar */
 (() => {
   'use strict';
 
@@ -86,6 +86,7 @@
     kosular: '<path d="M1.5 8h3l2-5 3 10 2-5h3"/>',
     maliyet: '<path d="M2.5 13.5h11"/><path d="M4 11V8"/><path d="M7 11V4"/><path d="M10 11V6.5"/><path d="M13 11V2.5"/>',
     kurallar: '<path d="M3.5 2.5h7l2 2v9h-9z"/><path d="M5.5 6.5h5M5.5 9h5M5.5 11.5h3"/>',
+    araclar: '<path d="M9.5 2.5 13.5 6.5 6.5 13.5 2.5 13.5 2.5 9.5z"/><path d="m8 4 4 4"/>',
     ayarlar: '<path d="M3 4.5h5M11 4.5h2M3 11.5h2M8 11.5h5"/><circle cx="9.5" cy="4.5" r="1.5"/><circle cx="6.5" cy="11.5" r="1.5"/>',
     yapilacaklar: '<path d="M6.5 4.5h7M6.5 8h7M6.5 11.5h7"/><path d="m2 4.5 1 1 1.6-2M2 8l1 1 1.6-2M2 11.5l1 1 1.6-2"/>',
     onay: '<path d="m3 8.5 3 3 7-7"/>',
@@ -179,6 +180,8 @@
   const GUNC_ARALIK = 1000;             // ms: koşu sürerken ilerleme yoklaması
   const TEMEL = ['/onaylar.json', '/simdi.json', '/ozet.json', '/isler.json', GUNC_YOL];
   const YAP_YOL = '/api/kullanici-todo';
+  const ARAC_MCP = '/api/araclar-mcp';       // hazır MCP'ler: kullanıcı düzeyi (claude mcp add/remove --scope user)
+  const ARAC_SKILL = '/api/araclar-skill';   // skill'ler: seçili çalışma alanının .claude/settings.local.json'u
   const AYAR_YOL = '/api/ayarlar';   // kullanıcı ayarları (bildirim): makine düzeyi, çalışma alanından bağımsız
 
   // Güncelleme koşusu sürerken durumu saniyede bir yeniler; koşu bitince (ya da sunucu 'çalışıyor' demeyince) kendiliğinden durur.
@@ -236,7 +239,7 @@
     if (!p.length || p[0] === 'gelen') return { ad: 'gelen', q };
     if (p[0] === 'is' && p[1]) return { ad: 'isler', id: p[1], q };
     if (p[0] === 'kart' && p[1]) return { ad: 'kart', id: p[1], q };
-    if (['isler', 'kosular', 'maliyet', 'kurallar', 'yapilacaklar', 'ayarlar'].includes(p[0])) return { ad: p[0], q };
+    if (['isler', 'kosular', 'maliyet', 'kurallar', 'yapilacaklar', 'araclar', 'ayarlar'].includes(p[0])) return { ad: p[0], q };
     return { ad: 'gelen', q };
   }
   const git = h => { if (location.hash !== h) location.hash = h; };
@@ -290,6 +293,7 @@
       case 'maliyet': return ['/analitik.json', '/ozet.json'];
       case 'kurallar': return ['/kurallar.json'];
       case 'yapilacaklar': return [YAP_YOL];
+      case 'araclar': return tumMu() ? [ARAC_MCP] : [ARAC_MCP, ARAC_SKILL];
       case 'ayarlar': return [AYAR_YOL];
       default: return [];
     }
@@ -834,6 +838,57 @@
     planla();
   }
 
+  // ================================================================ 10c. Görünüm: Araçlar (MCP ve skill aç/kapat; ADR-0098)
+  // MCP: kullanıcı düzeyi kayıt (claude mcp add/remove). Skill: seçili çalışma alanının yerel ayarı; eklenti skill'i yalnız çağrıya kapanır.
+  const ARAC_KAYNAK = { eklenti: 'Eklenti', kullanici: 'Kullanıcı', proje: 'Proje' };
+  function gAraclar(r) {
+    const t = r.q.get('t') === 'skill' ? 'skill' : 'mcp', q = r.q.get('q') || '';
+    const yuk = bekle(t === 'skill' && !tumMu() ? ARAC_SKILL : ARAC_MCP);
+    const mcp = d(ARAC_MCP).veri?.mcp || [], skill = d(ARAC_SKILL).veri?.skill || [];
+    const satir = (tur, o) => {
+      const mcpMi = tur === 'mcp', ac = o.durum === 'acik';
+      const eksik = mcpMi && o.eksik_gerek.length;
+      const neden = eksik && !ac ? `Önce kurulmalı: ${o.eksik_gerek.join(', ')}` : '';
+      const ad = mcpMi ? 'MCP' : 'Skill';
+      return H`<article class="kart" data-gez><div class="kart-ic yatay ayar-satir">
+        <div class="yigin sik"><div class="yatay"><b id="ar-${tur}-${o.ad}">${o.ad}</b>
+          ${mcpMi ? '' : H`<span class="etiket">${ARAC_KAYNAK[o.kaynak] || o.kaynak}</span>`}
+          ${mcpMi && o.yuksek_yetki ? H`<span class="rozet r-uyari" title="Dosya sistemi, kabuk ya da masaüstü denetimi verir">Yüksek yetki</span>` : ''}
+          ${eksik ? H`<span class="rozet r-uyari">Ön koşul eksik: ${o.eksik_gerek.join(', ')}</span>` : ''}
+          ${mcpMi && String(o.kimlik).startsWith('yok') ? H`<span class="rozet r-notr" title="Anahtar değeri bu sayfadan girilmez: orkestra kimlik ekle">Anahtar eksik</span>` : ''}
+          ${!mcpMi && o.mekanizma === 'deny' ? H`<span class="etiket" title="Kapatınca çağrı engellenir; skill listede görünmeye devam eder">çağrıya kapanır</span>` : ''}</div>
+          <span class="soluk kucuk-y">${o.aciklama || ''}</span>
+          ${neden ? H`<span class="soluk kucuk-y">${neden}</span>` : ''}</div>
+        <button type="button" class="anahtar" role="switch" data-eylem="arac-degistir" data-tur="${tur}" data-ad="${o.ad}" data-acik="${ac ? 'true' : 'false'}" aria-checked="${ac ? 'true' : 'false'}" aria-labelledby="ar-${tur}-${o.ad}" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${ac ? 'Açık' : 'Kapalı'}</span></button>
+      </div></article>`;
+    };
+    const liste = (t === 'mcp' ? mcp : skill).filter(o => !q || eslesir(o.ad + ' ' + (o.aciklama || ''), q));
+    const sayi = a => a.filter(o => o.durum === 'acik').length;
+    const sekme = [['mcp', 'MCP', mcp], ['skill', 'Skill', skill]].map(([k, ad, a]) =>
+      H`<button class="cip" data-eylem="sorgu" data-k="t" data-v="${k}" aria-pressed="${t === k ? 'true' : 'false'}">${ad}<span class="say">${a.length ? sayi(a) + '/' + a.length : ''}</span></button>`);
+    const tumNot = t === 'skill' && tumMu() ? bos('Skill için bir çalışma alanı seç', 'Skill ayarı seçili çalışma alanına yazılır; üstteki alan seçiciden birini seç.', 'uyari') : null;
+    const govde = tumNot || yuk || H`
+      <div class="yatay">${sekme}<input class="arama" id="aracAra" type="search" placeholder="${t === 'mcp' ? 'MCP' : 'Skill'} ara…  /" value="${q}" data-sorgu="q" aria-label="Ara"></div>
+      <p class="soluk kucuk-y">${t === 'mcp' ? 'Açık = kullanıcı kapsamında kayıtlı; yeni oturumda başlar. Kapatmak kaydı siler, ayar kayıt dosyasında kalır.' : 'Değişiklik seçili çalışma alanının yerel ayarına (.claude/settings.local.json) yazılır; yeni oturumda geçerli olur.'}</p>
+      <div class="yigin sik" aria-live="polite">${liste.length ? liste.map(o => satir(t, o)) : bos('Eşleşen ' + (t === 'mcp' ? 'MCP' : 'skill') + ' yok', '', 'ara')}</div>`;
+    return { baslik: 'Araçlar', sag: H`<span class="soluk kucuk-y">${t === 'mcp' ? 'bu bilgisayar için geçerli' : (tumMu() ? '' : alanAd(V.alan))}</span>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
+  }
+  async function aracDegistir(b) {
+    const tur = b.dataset.tur, ad = b.dataset.ad, hedef = b.dataset.acik !== 'true';
+    const yol = tur === 'mcp' ? ARAC_MCP : ARAC_SKILL;
+    b.disabled = true;
+    try {
+      const govde = { ad, durum: hedef ? 'acik' : 'kapali' };
+      const s = tur === 'mcp' ? await gonder(ARAC_MCP, govde) : await gonder(ARAC_SKILL, govde);
+      bildir(`${ad} ${s.durum === 'acik' ? 'açıldı' : 'kapatıldı'}.`);
+    } catch (x) {
+      const m = x.veri && x.veri.durum ? 'komut uygulanamadı, durum değişmedi' : x.message;
+      bildir(`${ad} değiştirilemedi: ${m}`, { hata: true, sure: 8000 });
+    }
+    await getir(yol, { taze: true });
+    planla();
+  }
+
   // ================================================================ 10b. Görünüm: Yapılacaklar (kullanıcının kendi listesi)
   // Taslak ve bekleyen tamamlamalar yeniden çizimde kaybolmasın diye görünümün dışında tutulur.
   const YAP = { taslak: '', bekleyen: new Set(), alan: '' };   // alan: birleşik kipte yeni maddenin gideceği çalışma alanı
@@ -890,8 +945,8 @@
 
   // ================================================================ 11. Kabuk ve çizim
   const SAYFALAR = [['gelen', 'Gelen kutusu', '#/gelen', 'gelen', 'g'], ['isler', 'İşler', '#/isler', 'isler', 'i'], ['kosular', 'Koşular', '#/kosular', 'kosular', 'k'],
-    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r'], ['yapilacaklar', 'Yapılacaklar', '#/yapilacaklar', 'yapilacaklar', 'y'], ['ayarlar', 'Ayarlar', '#/ayarlar', 'ayarlar', 'a']];
-  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar, yapilacaklar: gYapilacaklar, ayarlar: gAyarlar };
+    ['maliyet', 'Maliyet', '#/maliyet', 'maliyet', 'm'], ['kurallar', 'Kurallar', '#/kurallar', 'kurallar', 'r'], ['yapilacaklar', 'Yapılacaklar', '#/yapilacaklar', 'yapilacaklar', 'y'], ['araclar', 'Araçlar', '#/araclar', 'araclar', 'c'], ['ayarlar', 'Ayarlar', '#/ayarlar', 'ayarlar', 'a']];
+  const GORUNUM = { gelen: gGelen, isler: gIsler, kosular: gKosular, kart: gKart, maliyet: gMaliyet, kurallar: gKurallar, yapilacaklar: gYapilacaklar, araclar: gAraclar, ayarlar: gAyarlar };
 
   function rayCiz() {
     const r = rota(), aktif = r.ad === 'kart' ? 'kosular' : r.ad;
@@ -1020,6 +1075,7 @@
     const ey = b.dataset.eylem;
     if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
     else if (ey === 'ayar-bildirim') ayarBildirim(b);
+    else if (ey === 'arac-degistir') aracDegistir(b);
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
     else if (ey === 'uygula') {
       b.disabled = true;

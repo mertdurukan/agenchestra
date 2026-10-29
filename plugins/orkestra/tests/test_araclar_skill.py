@@ -109,3 +109,11 @@ def test_yedek_olusur_ve_gecici_dosya_kalmaz(ortam):
     S.degistir("yerel", "kapali", **kw)
     assert json.loads((yol.parent / "settings.local.json.orkestra.bak").read_text(encoding="utf-8")) == {"a": 1}
     assert not (yol.parent / "settings.local.json.orkestra.tmp").exists()
+
+
+def test_blok_aciklama_birlestirilir(tmp_path):
+    d = tmp_path / "ek" / "uzun"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\nname: uzun\ndescription: >-\n  ilk satır\n  ikinci satır\nlicense: x\n---\nGövde\n", encoding="utf-8")
+    s = S.liste(proje=str(tmp_path / "p"), kullanici_dizin=str(tmp_path / "yok"), eklenti_dizin=str(tmp_path / "ek"))
+    assert s[0]["aciklama"] == "ilk satır ikinci satır"

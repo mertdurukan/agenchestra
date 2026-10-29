@@ -111,6 +111,13 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - Komutlar: `orkestra mcp liste|config|kur` (`scripts/komutlar/mcp.py`). Yeni MCP = kayıta bir girdi; kod gerekmez. Testler: `tests/test_mcp_kimlik.py`, `tests/test_mcp_komut.py`.
 - Şema genişlemesi (ADR-0097): `ortam` değeri `ANAHTAR` ya da `servis.ANAHTAR`; `gerek` = ön koşul komut adları (`liste` gösterir, `kur --hepsi` atlar); `komut` içinde yalnız `${CLAUDE_PROJECT_DIR}` açılır (tanımsızsa hata, başka `${...}` reddedilir).
 
+## Panel: Araçlar sayfası (MCP ve skill aç/kapat, McD ADR-0098, iş I-254)
+
+- **Sayfa:** `#/araclar` (assets/app.js bölüm 10c). MCP: `scripts/araclar_mcp.py` (kayıt ekle/sil, `komutlar/mcp.py kur`'u kullanır). Skill: `scripts/araclar_skill.py` (çalışma alanının `.claude/settings.local.json`'u).
+- **Uçlar:** `POST/GET /api/araclar-mcp` (kullanıcı düzeyi, `alan=*` kabul), `/api/araclar-skill?alan=<id>` (alan zorunlu).
+- **Eklenti skill'i** yalnız çağrıya kapanır (`permissions.deny`); `skillOverrides` yalnız kullanıcı/proje skill'inde etkilidir.
+- **Test:** `tests/test_araclar_mcp.py`, `test_araclar_skill.py`, `test_panel_araclar.py`, `test_panel_araclar_duman.py` (sahte tarayıcı).
+
 ## İzin politikası (hook)
 - Karar mantığı `scripts/izin_politikasi.py`, desenler `ayarlar/izin_politikasi.json`; hook'a bağlantı `hook.py` içinde `_izin_karari` / `_kapi_uygula` / `gec()` (varsayılan allow). Eşleşme `hooks/hooks.json` PreToolUse `matcher`ındadır: yeni bir araç ailesi kapıya girecekse eşleşmeye de ekle (`orkestra doktor` MCP kapsamını denetler).
 - Karar sırası: kilitli test `deny` > yasak `deny` > kapı `ask` > `orkestra` CLI `allow` > geniş `allow`. Kabukta kapı, kilitli test denetiminden sonra uygulanır (kilidi onayla aşamasın).

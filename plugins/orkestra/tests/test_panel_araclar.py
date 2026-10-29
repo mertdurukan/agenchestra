@@ -13,7 +13,7 @@ from unittest import mock
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 import araclar_mcp  # noqa: E402
-import lib as L  # noqa: E402
+import ork_lib as L  # noqa: E402
 import panel  # noqa: E402
 
 SIR = "SAHTE-sir-77x"
