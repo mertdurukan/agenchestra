@@ -125,6 +125,11 @@ def otomatik_kur() -> str | None:
     if m.get("durum") in ("kuruldu", "hata") and m.get("betik") == PANEL_BETIGI:
         return None
     try:
+        # I-255: iki eklenti kopyası (kaynak ve yayın) dönüşümlü çalışınca işaretteki yol her seferinde farklı olur;
+        # eski yol hâlâ varsa ve görev kuruluysa görev çalışıyordur, yeniden kurmak paneli boşuna yeniden başlatır.
+        eski = m.get("betik")
+        if m.get("durum") == "kuruldu" and eski and eski != PANEL_BETIGI and os.path.isfile(eski) and kurulu():
+            return None
         if kurulu() and _gorev_betigi_guncel():
             _isaret_yaz("kuruldu")
             return None
