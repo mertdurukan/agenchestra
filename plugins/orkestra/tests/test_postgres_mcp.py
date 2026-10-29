@@ -31,7 +31,7 @@ class SahteSurec:
 
 
 def ayar_ornek():
-    return {"ortam": "kopya", "kimlik_servisi": "db", "veritabani": "klibre", "sslmode": "require",
+    return {"ortam": "kopya", "kapi": True, "kimlik_servisi": "db", "veritabani": "klibre", "sslmode": "require",
             "anahtarlar": {"host": "H", "port": "P", "kullanici": "U", "parola": "S"},
             "sunucu_komutu": ["postgres-mcp", "--access-mode=restricted"]}
 
@@ -59,6 +59,100 @@ def test_ayar_eksik_reddedilir():
     a["veritabani"] = ""
     with pytest.raises(SystemExit):
         pm.ayar_denetle(a)
+
+
+def test_database_uri_ile_kimlik_ve_kapi_olmadan_baslar(monkeypatch, capsys):
+    a = {"ortam": "kopya", "kimlik_servisi": "", "anahtarlar": {}, "veritabani": "", "kapi": False,
+         "sunucu_komutu": ["postgres-mcp", "--access-mode=restricted"]}
+    monkeypatch.setenv("DATABASE_URI", "postgresql://u:p@h/d")
+    monkeypatch.setattr(pm, "ayar_oku", lambda proje=None: a)
+    monkeypatch.setattr(pm, "kapi_gecti", lambda *x: pytest.fail("kapı çağrılmamalı"))
+    monkeypatch.setattr(pm, "kimlik_degeri", lambda ayar: pytest.fail("kimlik okunmamalı"))
+    monkeypatch.setattr(pm.shutil, "which", lambda ad: "/bin/postgres-mcp")
+    yakalanan = {}
+
+    class P(SahteSurec):
+        def __init__(self, komut, env=None, **k):
+            super().__init__()
+            yakalanan["env"] = env
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(pm.subprocess, "Popen", P)
+    monkeypatch.setattr(pm, "sonlandir", lambda proc: None)
+    assert pm.main() == 0
+    assert "default_transaction_read_only=on" in yakalanan["env"]["PGOPTIONS"]
+
+
+def test_kapi_kapaliyken_kapi_cagrilmaz(monkeypatch):
+    a = ayar_ornek()
+    a["kapi"] = False
+    monkeypatch.setattr(pm, "ayar_oku", lambda proje=None: a)
+    monkeypatch.setattr(pm, "kapi_gecti", lambda *x: pytest.fail("kapı çağrılmamalı"))
+    monkeypatch.setattr(pm, "kimlik_degeri", lambda ayar: DEGERLER.__getitem__)
+    monkeypatch.setattr(pm.shutil, "which", lambda ad: "/bin/postgres-mcp")
+
+    class P(SahteSurec):
+        def __init__(self, *a, **k):
+            super().__init__()
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(pm.subprocess, "Popen", P)
+    monkeypatch.setattr(pm, "sonlandir", lambda proc: None)
+    assert pm.main() == 0
+
+
+def _yazma_calistir(monkeypatch, **ayar_ek):
+    a = {**ayar_ornek(), **ayar_ek}
+    monkeypatch.setattr(pm, "ayar_oku", lambda proje=None: a)
+    monkeypatch.setattr(pm, "kapi_gecti", lambda *x: (True, "geçti"))
+    monkeypatch.setattr(pm, "kimlik_degeri", lambda ayar: DEGERLER.__getitem__)
+    monkeypatch.setattr(pm.shutil, "which", lambda ad: "/bin/postgres-mcp")
+    yakalanan = {}
+
+    class P(SahteSurec):
+        def __init__(self, komut, env=None, **k):
+            super().__init__()
+            yakalanan["komut"], yakalanan["env"] = komut, env
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(pm.subprocess, "Popen", P)
+    monkeypatch.setattr(pm, "sonlandir", lambda proc: None)
+    return yakalanan
+
+
+def test_yazma_izni_yoksa_yazma_sunucusu_baslamaz(monkeypatch):
+    yak = _yazma_calistir(monkeypatch)
+    with pytest.raises(SystemExit) as e:
+        pm.main(["--yazma"])
+    assert e.value.code == 4 and yak == {}
+
+
+def test_prod_ortaminda_yazma_sunucusu_baslamaz(monkeypatch):
+    yak = _yazma_calistir(monkeypatch, yazma_izni=True, ortam="prod")
+    with pytest.raises(SystemExit) as e:
+        pm.main(["--yazma"])
+    assert e.value.code == 4 and yak == {}
+
+
+def test_yazma_sunucusu_unrestricted_ve_salt_okunursuz(monkeypatch):
+    yak = _yazma_calistir(monkeypatch, yazma_izni=True)
+    assert pm.main(["--yazma"]) == 0
+    assert "--access-mode=unrestricted" in yak["komut"] and "--access-mode=restricted" not in yak["komut"]
+    assert "default_transaction_read_only" not in yak["env"]["DATABASE_URI"]
+    assert "statement_timeout" in yak["env"]["DATABASE_URI"] or "statement_timeout%3D60000" in yak["env"]["DATABASE_URI"]
+
+
+def test_okuma_sunucusu_yazma_izni_olsa_da_restricted(monkeypatch):
+    yak = _yazma_calistir(monkeypatch, yazma_izni=True)
+    assert pm.main([]) == 0
+    assert "--access-mode=restricted" in yak["komut"]
+    assert "default_transaction_read_only%3Don" in yak["env"]["DATABASE_URI"]
 
 
 def test_kapi_kaldi_ise_sunucu_baslatilmaz(monkeypatch, capsys):
@@ -122,7 +216,7 @@ def test_izleyici_kapi_gecerse_dokunmaz(monkeypatch):
 
 def _kapi_calistir(tmp_path, saat):
     ayar = tmp_path / ".claude" / "orkestra"
-    ayar.mkdir(parents=True)
+    ayar.mkdir(parents=True, exist_ok=True)
     (ayar / "db_olcum.json").write_text(json.dumps(
         {"ortamlar": {"kopya": {"host": "", "port": 5432, "yasak_saatler": [["17:15", "23:15"]]}}}), encoding="utf-8")
     return subprocess.run([sys.executable, "-I", pm.KAPI, "--ortam", "kopya", "--ag-atla", "--saat", saat,
@@ -152,16 +246,65 @@ def test_izin_kurali_okuma_ve_execute_sql_ayrimi():
 
 @pytest.mark.skipif(os.environ.get("ORKESTRA_POSTGRES_CANLI") != "1", reason="canlı kopya testi; ORKESTRA_POSTGRES_CANLI=1")
 def test_canli_kopyada_yazma_reddedilir_select_gecer():
-    psycopg = pytest.importorskip("psycopg")
+    psycopg2 = pytest.importorskip("psycopg2")
+    from psycopg2 import errors
     ayar = pm.ayar_oku()
     pm.ayar_denetle(ayar)
     gecti, ozet = pm.kapi_gecti(ayar.get("ortam", "kopya"))
     assert gecti, ozet
-    with psycopg.connect(pm.uri_kur(ayar, pm.kimlik_degeri(ayar)), connect_timeout=15) as c:
-        assert c.execute("select 1").fetchone() == (1,)
-        for sql in ("create table postgres_mcp_deneme(x int)",
-                    "insert into postgres_mcp_deneme values (1)",
-                    "update pg_catalog.pg_class set relname = relname where false"):
-            with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
-                c.execute(sql)
+    c = psycopg2.connect(pm.uri_kur(ayar, pm.kimlik_degeri(ayar)), connect_timeout=15)
+    try:
+        cur = c.cursor()
+        cur.execute("select 1")
+        assert cur.fetchone() == (1,)
+        cur.execute("show transaction_read_only")
+        assert cur.fetchone() == ("on",)
+        c.rollback()
+        with pytest.raises(errors.ReadOnlySqlTransaction):
+            cur.execute("create table postgres_mcp_deneme(x int)")
+        c.rollback()
+        # INSERT ve UPDATE: kullanıcının yazma yetkisi olduğu bir tablo seçilir (yetki hatası ret sayılmaz)
+        cur.execute(
+            "select p.table_schema, p.table_name, k.column_name from information_schema.table_privileges p "
+            "join information_schema.table_privileges u on u.table_schema = p.table_schema and u.table_name = p.table_name "
+            "and u.grantee = p.grantee and u.privilege_type = 'UPDATE' "
+            "join information_schema.columns k on k.table_schema = p.table_schema and k.table_name = p.table_name "
+            "where p.grantee = current_user and p.privilege_type = 'INSERT' "
+            "and p.table_schema not in ('pg_catalog', 'information_schema') limit 1")
+        satir = cur.fetchone()
+        c.rollback()
+        if not satir:
+            pytest.skip("kullanıcının INSERT+UPDATE yetkisi olduğu tablo yok; yalnız CREATE reddi sınandı")
+        sema, tablo, kolon = satir
+        for sql in (f'insert into "{sema}"."{tablo}" default values',
+                    f'update "{sema}"."{tablo}" set "{kolon}" = "{kolon}" where false'):
+            with pytest.raises(errors.ReadOnlySqlTransaction):
+                cur.execute(sql)
             c.rollback()
+    finally:
+        c.close()
+
+
+@pytest.mark.skipif(os.environ.get("ORKESTRA_POSTGRES_CANLI") != "1", reason="canlı kopya testi; ORKESTRA_POSTGRES_CANLI=1")
+def test_canli_yazma_modunda_gecici_tabloda_insert_update_delete():
+    psycopg2 = pytest.importorskip("psycopg2")
+    ayar = pm.ayar_oku()
+    pm.ayar_denetle(ayar)
+    assert ayar.get("ortam", "kopya") != "prod"
+    gecti, ozet = pm.kapi_gecti(ayar.get("ortam", "kopya"))
+    assert gecti, ozet
+    c = psycopg2.connect(pm.uri_kur(ayar, pm.kimlik_degeri(ayar), yazma=True), connect_timeout=15)
+    try:
+        cur = c.cursor()
+        cur.execute("show transaction_read_only")
+        assert cur.fetchone() == ("off",)
+        cur.execute("create temp table postgres_mcp_yazma_deneme(x int)")  # oturumla gider, kalıcı iz bırakmaz
+        cur.execute("insert into postgres_mcp_yazma_deneme values (1), (2)")
+        assert cur.rowcount == 2
+        cur.execute("update postgres_mcp_yazma_deneme set x = x + 10 where x = 1")
+        assert cur.rowcount == 1
+        cur.execute("delete from postgres_mcp_yazma_deneme")
+        assert cur.rowcount == 2
+        c.rollback()
+    finally:
+        c.close()

@@ -1,6 +1,8 @@
 {
-  "aciklama": "postgres-mcp sarmalayıcısı (scripts/postgres_mcp.py) varsayılanları. Proje ezmesi: .claude/orkestra/postgres_mcp.json (üst düzey anahtarlar yerine konur). Kapı ayarı db_olcum.json'dadır; ortam adı oradaki ortamlardan biridir.",
+  "aciklama": "postgres-mcp sarmalayıcısı (scripts/postgres_mcp.py) varsayılanları. Proje ezmesi: .claude/orkestra/postgres_mcp.json (üst düzey anahtarlar yerine konur). `kapi: true` ise önce db-olcum kapısı çalışır (ayarı db_olcum.json'dadır); ortamda DATABASE_URI varsa kimlik klasörü gerekmez; `yazma_izni: true` postgres-yazma sunucusunu (INSERT/UPDATE/DELETE) açar, prod ortamında hiç açılmaz; ortam adı oradaki ortamlardan biridir.",
   "ortam": "kopya",
+  "kapi": false,
+  "yazma_izni": false,
   "kimlik_servisi": "",
   "anahtarlar": {"host": "", "port": "", "kullanici": "", "parola": ""},
   "veritabani": "",

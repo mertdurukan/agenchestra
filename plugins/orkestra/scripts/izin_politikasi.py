@@ -275,9 +275,11 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
     girdi = girdi or {}
     auto = None  # tembel: yalnız `ask` sonucu çıkacakken okunur
 
-    def sor(sinif: str, neden: str):
-        """`ask` yerine: `auto` modda ve sınıf açıksa allow, değilse ask (ADR-0086)."""
+    def sor(sinif: str, neden: str, her_zaman: bool = False):
+        """`ask` yerine: `auto` modda ve sınıf açıksa allow, değilse ask (ADR-0086). `her_zaman`: kural auto modda da sorar (ADR-0093)."""
         nonlocal auto
+        if her_zaman:
+            return "ask", neden
         if sinif in (cfg.get("auto_acilan") or AUTO_ACILAN):
             if auto is None:
                 auto = _auto_modu(sd, oturum)
@@ -331,7 +333,8 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
             if d and d.search(arac):
                 if o and o.search(arac):
                     break  # okuma aracı: kapı dışı
-                return sor("mcp", f"{m.get('ad')} yazma aracı ({arac}): halka açık eylem, onay gerekir.")
+                return sor("mcp", f"{m.get('ad')} yazma aracı ({arac}): halka açık eylem, onay gerekir.",
+                           bool(m.get("her_zaman_sor")))
     if mod == "genis":
         return "allow", "orkestra izin politikası (geniş yetki; kapı: push, GitHub/Jira yazma)"
     return None, ""

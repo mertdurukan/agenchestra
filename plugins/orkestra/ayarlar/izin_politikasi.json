@@ -62,6 +62,12 @@
       "ad": "postgres-mcp (eklenti sarmalayıcısı; execute_sql okuma sayılmaz)",
       "arac": "^mcp__(?:plugin_orkestra_)?postgres__",
       "okuma": "^mcp__(?:plugin_orkestra_)?postgres__(?:list_|get_|explain_|analyze_)"
+    },
+    {
+      "ad": "postgres-mcp yazma sunucusu (postgres-yazma; auto modda da her çağrı sorulur, ADR-0093)",
+      "arac": "^mcp__(?:plugin_orkestra_)?postgres-yazma__",
+      "okuma": "(?!)",
+      "her_zaman_sor": true
     }
   ],
   "auto_acilan": [

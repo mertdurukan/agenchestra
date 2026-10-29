@@ -2,7 +2,16 @@
   "mcpServers": {
     "postgres": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/postgres_mcp.py"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/postgres_mcp.py"
+      ]
+    },
+    "postgres-yazma": {
+      "command": "python",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/postgres_mcp.py",
+        "--yazma"
+      ]
     }
   }
 }

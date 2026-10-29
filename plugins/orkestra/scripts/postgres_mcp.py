@@ -1,8 +1,9 @@
 """postgres-mcp sarmalayıcısı: kapı, kimlik ve salt okunur oturum.
 
-Sırayla: (1) db-olcum kapısını (VPN, saat penceresi) çağırır, KALDI ise çıkar; (2) parolayı kimlik klasöründen okuyup
-bağlantı adresini yalnız bu süreçte kurar (dosyaya, komut satırına, çıktıya yazılmaz); (3) oturumu
-default_transaction_read_only=on ile açtırır; (4) postgres-mcp'yi --access-mode=restricted ile alt süreç olarak
+Sırayla: (1) ayarda `kapi: true` ise db-olcum kapısını (VPN, saat penceresi) çağırır, KALDI ise çıkar; (2) ortamda
+DATABASE_URI yoksa parolayı kimlik klasöründen okuyup bağlantı adresini yalnız bu süreçte kurar (dosyaya, komut satırına, çıktıya yazılmaz); (3) oturumu
+default_transaction_read_only=on ile açtırır; (4) postgres-mcp'yi --access-mode=restricted ile (`--yazma` argümanıyla: `yazma_izni: true` ve ortam prod değilken
+unrestricted, salt okunur oturum ayarı olmadan; ADR-0093) alt süreç olarak
 başlatır; (5) sunucu çalışırken kapıyı izleme_sn aralıkla yeniden çağırır, KALDI olursa alt süreci sonlandırır.
 
 Ayar: eklenti ayarlar/postgres_mcp.json + proje .claude/orkestra/postgres_mcp.json (üst düzey anahtarlar yerine konur).
@@ -19,7 +20,8 @@ from urllib.parse import quote
 EKLENTI = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 KAPI = os.path.join(EKLENTI, "skills", "db-olcum", "scripts", "kapi.py")
 AYAR_AD = "postgres_mcp"
-SALT_OKUNUR = "-c default_transaction_read_only=on -c statement_timeout=60000"
+ZAMAN_ASIMI = "-c statement_timeout=60000"
+SALT_OKUNUR = "-c default_transaction_read_only=on " + ZAMAN_ASIMI
 
 
 def hata(mesaj: str, kod: int = 2):
@@ -52,23 +54,41 @@ def ayar_oku(proje: str | None = None) -> dict:
     return sonuc
 
 
-def ayar_denetle(ayar: dict):
-    eksik = [a for a in ("kimlik_servisi", "veritabani") if not ayar.get(a)]
-    eksik += [f"anahtarlar.{a}" for a in ("host", "kullanici", "parola") if not (ayar.get("anahtarlar") or {}).get(a)]
-    if eksik:
-        hata(f"ayar eksik: {', '.join(eksik)} (.claude/orkestra/{AYAR_AD}.json)")
+def dogrudan_uri() -> str:
+    """Ortamda DATABASE_URI varsa kimlik klasörü yerine o kullanılır."""
+    return os.environ.get("DATABASE_URI", "").strip()
+
+
+def ayar_denetle(ayar: dict, yazma: bool = False):
+    if not dogrudan_uri():
+        eksik = [a for a in ("kimlik_servisi", "veritabani") if not ayar.get(a)]
+        eksik += [f"anahtarlar.{a}" for a in ("host", "kullanici", "parola") if not (ayar.get("anahtarlar") or {}).get(a)]
+        if eksik:
+            hata(f"ayar eksik: {', '.join(eksik)} ya da ortamda DATABASE_URI (.claude/orkestra/{AYAR_AD}.json)")
     komut = ayar.get("sunucu_komutu")
     if not (isinstance(komut, list) and komut and "--access-mode=restricted" in komut):
         hata("sunucu_komutu --access-mode=restricted içermeli")
+    if yazma:
+        if not ayar.get("yazma_izni"):
+            hata(f"yazma kapalı: .claude/orkestra/{AYAR_AD}.json içinde yazma_izni: true gerekir (ADR-0093)", 4)
+        if ayar.get("ortam", "kopya") == "prod":
+            hata("prod ortamında yazma sunucusu başlatılmaz (ADR-0093)", 4)
 
 
-def uri_kur(ayar: dict, deger) -> str:
+def sunucu_komutu(ayar: dict, yazma: bool) -> list:
+    komut = list(ayar["sunucu_komutu"])
+    if yazma:
+        komut = ["--access-mode=unrestricted" if a == "--access-mode=restricted" else a for a in komut]
+    return komut
+
+
+def uri_kur(ayar: dict, deger, yazma: bool = False) -> str:
     """Bağlantı adresi; `deger(anahtar_adi)` parolayı ve diğer değerleri verir. Yalnız bellekte tutulur."""
     a = ayar["anahtarlar"]
     port = deger(a["port"]) if a.get("port") else "5432"
     return (f"postgresql://{quote(deger(a['kullanici']), safe='')}:{quote(deger(a['parola']), safe='')}"
             f"@{deger(a['host'])}:{port}/{quote(ayar['veritabani'], safe='')}"
-            f"?sslmode={ayar.get('sslmode', 'require')}&options={quote(SALT_OKUNUR, safe='')}")
+            f"?sslmode={ayar.get('sslmode', 'require')}&options={quote(ZAMAN_ASIMI if yazma else SALT_OKUNUR, safe='')}")
 
 
 def kimlik_degeri(ayar: dict):
@@ -119,24 +139,31 @@ def izle(proc: subprocess.Popen, ortam: str, aralik: float, proje: str, durdur: 
     return False
 
 
-def main() -> int:
+def main(argv: list | None = None) -> int:
+    yazma = "--yazma" in (sys.argv[1:] if argv is None else argv)
     proje = proje_koku()
     ayar = ayar_oku(proje)
-    ayar_denetle(ayar)
+    ayar_denetle(ayar, yazma)
     ortam = ayar.get("ortam", "kopya")
-    gecti, ozet = kapi_gecti(ortam, proje)
-    if not gecti:
-        hata(f"kapı KALDI, sunucu başlatılmadı: {ozet}", 3)
-    komut = list(ayar["sunucu_komutu"])
+    kapi_var = bool(ayar.get("kapi"))
+    if kapi_var:
+        gecti, ozet = kapi_gecti(ortam, proje)
+        if not gecti:
+            hata(f"kapı KALDI, sunucu başlatılmadı: {ozet}", 3)
+    komut = sunucu_komutu(ayar, yazma)
     yol = shutil.which(komut[0])
     if not yol:
         hata(f"{komut[0]} bulunamadı (pipx install postgres-mcp ya da sunucu_komutu'nu uvx ile değiştir)")
     env = dict(os.environ)
-    env["DATABASE_URI"] = uri_kur(ayar, kimlik_degeri(ayar))
+    if dogrudan_uri():
+        env["PGOPTIONS"] = (env.get("PGOPTIONS", "") + " " + (ZAMAN_ASIMI if yazma else SALT_OKUNUR)).strip()
+    else:
+        env["DATABASE_URI"] = uri_kur(ayar, kimlik_degeri(ayar), yazma)
     proc = subprocess.Popen([yol] + komut[1:], env=env)
     durdur = threading.Event()
-    t = threading.Thread(target=izle, args=(proc, ortam, float(ayar.get("izleme_sn", 60)), proje, durdur), daemon=True)
-    t.start()
+    if kapi_var:
+        threading.Thread(target=izle, args=(proc, ortam, float(ayar.get("izleme_sn", 60)), proje, durdur),
+                         daemon=True).start()
     try:
         kod = proc.wait()
     finally:
