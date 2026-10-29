@@ -77,6 +77,34 @@ def grup_tablosu(kartlar, cfg: dict) -> dict:
     return t
 
 
+def denetci_baslangic() -> str | None:
+    """`model_politikasi.json` `denetci.baslangic` (Sonnet denetçi sınırının devreye alma tarihi, ADR-0092) ya da None."""
+    d = _json_sozluk(os.path.join(L.PLUGIN_ROOT, "ayarlar", "model_politikasi.json")) or {}
+    b = (d.get("denetci") or {}).get("baslangic")
+    return b if isinstance(b, str) and b else None
+
+
+def kesim_tablosu(kartlar, cfg: dict, baslangic: str) -> dict:
+    """Yalnız `tablo` için: T3/T4 işçili kartlar ilk denetimin `zaman` değerine göre baslangic öncesi/sonrası ayrı gruplanır
+    (grup_anahtari içinde, sınıf düzeyinde). `karar()` bu tabloyu kullanmaz; örnekleme grupları değişmez. Öncesi/sonrası
+    iş türü karmasıyla karışır; sonuç nedensel değil kaba göstergedir."""
+    t: dict = {}
+    for k in kartlar:
+        if _ilk_karar(k) is None or (k.get("basamak") not in ("T3", "T4")):
+            continue
+        z = (k["denetimler"][0] or {}).get("zaman")
+        if not isinstance(z, str) or not z:
+            continue
+        donem = "oncesi" if z[:10] < baslangic[:10] else "sonrasi"
+        g = t.setdefault(_grup(k, cfg) + "|" + donem, {"n": 0, "ilk_ret": 0, "oran": 0.0})
+        g["n"] += 1
+        if _ilk_karar(k) == "ret":
+            g["ilk_ret"] += 1
+    for g in t.values():
+        g["oran"] = g["ilk_ret"] / g["n"] if g["n"] else 0.0
+    return t
+
+
 def _ornekleme_degeri(tuz: str, kid: str) -> float:
     return int(hashlib.sha256((tuz + kid).encode("utf-8")).hexdigest()[:8], 16) / 0xFFFFFFFF
 
@@ -156,6 +184,7 @@ def main(argv=None) -> int:
     t = s.add_parser("tablo")
     t.add_argument("--sd")
     t.add_argument("--json", action="store_true")
+    t.add_argument("--kesim", action="store_true", help="T3/T4 kartlarını denetci.baslangic öncesi/sonrası ayrı gösterir")
     k = s.add_parser("karar")
     k.add_argument("id")
     k.add_argument("--sd")
@@ -168,11 +197,15 @@ def main(argv=None) -> int:
     kartlar = L.kartlar(sd)
     if a.komut == "tablo":
         tablo = grup_tablosu(kartlar, cfg)
+        bas = denetci_baslangic()
+        kesim = kesim_tablosu(kartlar, cfg, bas) if (a.kesim and bas) else None
         if a.json:
-            print(json.dumps(tablo, ensure_ascii=False, indent=2))
+            print(json.dumps({**tablo, "kesim": kesim} if kesim is not None else tablo, ensure_ascii=False, indent=2))
         else:
             for ad, v in sorted(tablo.items()):
                 print(f"{ad}\tn={v['n']}\tilk_ret={v['ilk_ret']}\toran={v['oran']:.3f}")
+            for ad, v in sorted((kesim or {}).items()):
+                print(f"kesim:{ad}\tn={v['n']}\tilk_ret={v['ilk_ret']}\toran={v['oran']:.3f}")
         return 0
     if a.komut == "gecit":
         print(json.dumps(gecit_kontrol(kartlar, cfg), ensure_ascii=False))
