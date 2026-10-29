@@ -2429,7 +2429,9 @@ def _etki_ipucu(sd: str) -> str:
         except Exception:
             once = []
         try:
-            etki.izle(sd)
+            import oturum_bakim
+            if not oturum_bakim.etkin():  # ADR-0092: etkinleştirilmişse izleme bakım koşucusunda
+                etki.izle(sd)
         except Exception:
             pass
         izlenen, sonra = _etki_bekleyenler(sd)
