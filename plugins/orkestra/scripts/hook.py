@@ -2314,6 +2314,7 @@ _CEKIRDEK = ("Çekirdek: çok adımlı, 3+ dosyalı ya da hatası pahalı iş �
 def session_start(inp: dict):
     """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600, en kötü durumda ≤700 karakter.
     Perspektif, panel açma, etki izleme ve onay yönergesi yalnız koşul sağlanınca ayrı satır olarak eklenir."""
+    _t0 = time.perf_counter()
     _doktor_hizli_yol(inp)
     import oturum_bakim
     bakim = oturum_bakim.etkin()  # ADR-0092: ağır bakım ayrık koşucuda; kapalıysa eski eşzamanlı yol
