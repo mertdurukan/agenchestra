@@ -2269,7 +2269,8 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
     if ms:
         u.append(_kisa(ms, 120))
     try:
-        b = L.bayatlik()
+        import oturum_bakim
+        b = oturum_bakim.onbellek(sd).get("bayatlik") if oturum_bakim.etkin() else L.bayatlik()  # ADR-0092
         if b:
             u.append(f"UYARI: çalışan orkestra kopyası kaynaktan {b['farkli']} dosya farklı; `orkestra guncelle`")
     except Exception:
