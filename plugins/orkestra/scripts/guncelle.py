@@ -264,6 +264,140 @@ class Kosu:
                     "sure": round(bit - self._bas, 1) if self._bas is not None else None, "bitis": self._bit}
 
 
+_EKLENTI_KOKU = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BUDA_AYAR = os.path.join(_EKLENTI_KOKU, "ayarlar", "onbellek_buda.json")
+BUDA_VARSAYILAN = 3
+BUDA_MANIFEST = "onbellek_buda.jsonl"
+
+
+def buda_esigi(yol: str = BUDA_AYAR) -> int:
+    """ayarlar/onbellek_buda.json `tutulacak_son_surum` (etkin sürüm hariç tutulacak en yeni sürüm sayısı); okunamazsa 3."""
+    try:
+        with open(yol, encoding="utf-8") as f:
+            n = int(json.load(f).get("tutulacak_son_surum", BUDA_VARSAYILAN))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return BUDA_VARSAYILAN
+    return max(n, 0)
+
+
+def _gercek(yol: str) -> str:
+    return os.path.normcase(os.path.realpath(yol))
+
+
+def onbellek_koku(ev: str | None = None, pazar: str = PAZAR) -> str:
+    ev = ev or os.path.expanduser("~")
+    return os.path.join(ev, ".claude", "plugins", "cache", pazar)
+
+
+def onbellek_klasoru_sil(kok: str, yol: str) -> None:
+    """Yalnız önbellek kökünün (`kok`) altındaki sürüm klasörünü siler; kök dışı, kökün kendisi, bağlantı (symlink/junction)
+    ya da klasör olmayan yol ValueError ile reddedilir (budama kök dışına çıkamaz)."""
+    k, y = _gercek(kok), _gercek(yol)
+    if y == k or os.path.commonpath([k, y]) != k:
+        raise ValueError(f"önbellek kökü dışında yol reddedildi: {yol}")
+    if os.path.islink(yol) or not os.path.isdir(yol) or _gercek(os.path.dirname(os.path.dirname(y))) != k:
+        raise ValueError(f"önbellek sürüm klasörü değil: {yol}")
+    shutil.rmtree(yol)
+
+
+def korunan_surumler(ev: str | None = None, ortam: dict | None = None, pazar: str = PAZAR) -> set[str]:
+    """Silinmeyecek sürüm klasörleri (gerçek yol): installed_plugins.json'daki pazar plugin'lerinin installPath'i (etkin sürüm),
+    çalışan oturumların kopyası (CLAUDE_PLUGIN_ROOT ve bu betiğin eklenti kökü). `.in_use` işaretli klasörler ayrıca budamada korunur."""
+    ev = ev or os.path.expanduser("~")
+    ortam = os.environ if ortam is None else ortam
+    korunan = set()
+    try:
+        with open(os.path.join(ev, ".claude", "plugins", "installed_plugins.json"), encoding="utf-8") as f:
+            veri = json.load(f).get("plugins") or {}
+    except (OSError, ValueError, AttributeError):
+        veri = {}
+    for anahtar, girdiler in veri.items():
+        if anahtar.partition("@")[2] != pazar:
+            continue
+        for g in girdiler or []:
+            if isinstance(g, dict) and g.get("installPath"):
+                korunan.add(_gercek(g["installPath"]))
+    for yol in (ortam.get("CLAUDE_PLUGIN_ROOT"), _EKLENTI_KOKU):
+        if yol:
+            korunan.add(_gercek(yol))
+    return korunan
+
+
+def _kullanimda(surum_yolu: str) -> bool:
+    """Claude Code çalışan oturumu `.in_use` (dosya ya da pid dosyalı klasör) ile işaretler."""
+    iu = os.path.join(surum_yolu, ".in_use")
+    if os.path.isfile(iu):
+        return True
+    try:
+        return bool(os.listdir(iu))
+    except OSError:
+        return False
+
+
+def _boyut(yol: str) -> int:
+    toplam = 0
+    for r, _, dosyalar in os.walk(yol):
+        for d in dosyalar:
+            try:
+                toplam += os.path.getsize(os.path.join(r, d))
+            except OSError:
+                pass
+    return toplam
+
+
+def onbellek_buda(ev: str | None = None, ortam: dict | None = None, tut: int | None = None, kuru: bool = False,
+                  yaz=print, manifest_dizini: str | None = None, pazar: str = PAZAR) -> dict:
+    """Her eklenti için etkin/kullanımdaki sürümler + bunlar dışındaki en yeni `tut` sürüm (mtime) kalır, kalanlar silinir.
+    Silmeden önce manifest (ad, boyut, tarih) `<ev>/.claude/orkestra-makine/onbellek_buda.jsonl`e eklenir.
+    Dönüş: {silinen: [kayıt], hata: [metin], manifest: yol|None}. Geri alma: eklentiyi yeniden indirmek."""
+    tut = buda_esigi() if tut is None else max(int(tut), 0)
+    kok = onbellek_koku(ev, pazar)
+    sonuc = {"silinen": [], "hata": [], "manifest": None}
+    if not os.path.isdir(kok):
+        return sonuc
+    korunan = korunan_surumler(ev, ortam, pazar)
+    adaylar = []
+    for eklenti in sorted(os.listdir(kok)):
+        d = os.path.join(kok, eklenti)
+        if os.path.islink(d) or not os.path.isdir(d):
+            continue
+        surumler = []
+        for s in os.listdir(d):
+            y = os.path.join(d, s)
+            if os.path.isdir(y) and not os.path.islink(y):
+                surumler.append((os.path.getmtime(y), s, y))
+        surumler.sort(reverse=True)
+        serbest = [x for x in surumler if _gercek(x[2]) not in korunan and not _kullanimda(x[2])]
+        for mt, s, y in serbest[tut:]:
+            adaylar.append({"eklenti": eklenti, "ad": s, "yol": y, "boyut": _boyut(y),
+                            "tarih": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(mt))})
+    if not adaylar:
+        return sonuc
+    toplam = sum(a["boyut"] for a in adaylar)
+    yaz(f"Önbellek budama: {len(adaylar)} eski sürüm, {toplam / 1e6:.1f} MB" + (" (kuru koşu, silinmedi)" if kuru else ""))
+    if kuru:
+        sonuc["silinen"] = adaylar
+        return sonuc
+    if manifest_dizini is None:
+        manifest_dizini = os.path.join(ev, ".claude", "orkestra-makine") if ev else cfg.ev_dizini()
+    os.makedirs(manifest_dizini, exist_ok=True)
+    mf = os.path.join(manifest_dizini, BUDA_MANIFEST)
+    kayit = {"zaman": time.strftime("%Y-%m-%dT%H:%M:%S"), "onbellek": kok, "tutulan_son": tut,
+             "geri_alma": "eklentiyi yeniden indir: orkestra guncelle / claude plugin install",
+             "klasorler": [{k: a[k] for k in ("eklenti", "ad", "boyut", "tarih")} for a in adaylar]}
+    with open(mf, "a", encoding="utf-8") as f:  # manifest silmeden ÖNCE yazılır; yazılamazsa hiçbir şey silinmez
+        f.write(json.dumps(kayit, ensure_ascii=False) + "\n")
+    sonuc["manifest"] = mf
+    for a in adaylar:
+        try:
+            onbellek_klasoru_sil(kok, a["yol"])
+            sonuc["silinen"].append(a)
+        except (OSError, ValueError) as e:
+            sonuc["hata"].append(f"{a['eklenti']}/{a['ad']}: {e}")
+    yaz(f"  silinen {len(sonuc['silinen'])}; manifest {mf}" + (f"; silinemeyen {len(sonuc['hata'])}" if sonuc["hata"] else ""))
+    return sonuc
+
+
 def _calistir(kuru, yaz, ev, ortam) -> int:
     if not shutil.which("git"):
         raise GuncelleHata("git bulunamadı (PATH'te yok).")
