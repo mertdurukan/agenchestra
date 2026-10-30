@@ -1089,7 +1089,7 @@
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
     else if (ey === 'uygula') {
       b.disabled = true;
-      try { await gonder('/onay', { islem: 'simdi-uygula' }, b.dataset.alan || undefined); bildir('Uygulama başlatıldı: Claude\'da yeni sohbet açılıyor.'); getir('/onaylar.json', { taze: true }); }
+      try { await gonder('/onay', { islem: 'simdi-uygula' }, b.dataset.alan || undefined); bildir('Uygulama arka planda başladı (pencere açılmaz); bitince kart kalkar.'); getir('/onaylar.json', { taze: true }); }
       catch (x) { bildir('Başlatılamadı: ' + x.message, { hata: true }); b.disabled = false; }
     } else if (ey === 'perspektif') {
       b.disabled = true;
