@@ -374,8 +374,69 @@ def bic_eksikleri(klasor: str) -> list[str]:
     llm_eksik, gider = llm_beyan_eksikleri(klasor, metin)
     eksik += llm_eksik
     if gider and m is not None and not re.search(r"\*\*" + BIC_KOSULLU_SORU + r":\*\*\s*[✔✘]", m.group(1)):
-        eksik.append(f"best in class denetimi: `**{BIC_KOSULLU_SORU}:**` satırı `✔`/`✘` ile başlamıyor (LLM çıktısı kullanıcıya gidiyor; P-032)")
+        bekl = f": {BEKLENIYOR}" if _satir_bekliyor(m.group(1), BIC_KOSULLU_SORU) else ""
+        eksik.append(f"best in class denetimi: `**{BIC_KOSULLU_SORU}:**` satırı `✔`/`✘` ile başlamıyor{bekl} (LLM çıktısı kullanıcıya gidiyor; P-032)")
     return eksik
+
+
+# I-271: ayrı denetçinin dolduracağı satır henüz boşsa (`bekliyor` ya da boş değer) bu bir içerik hatası değil, sıranın
+# bir sonraki adımıdır: kapı geçmez (bağımsız denetim özü korunur) ama `kapi_ret` yerine `kapi_bekleniyor` kaydı düşer.
+BEKLENIYOR = "denetçi bekleniyor"
+_BEKLIYOR = re.compile(r"^[ \t]*(?:bekliyor\b.*)?$", re.I)
+
+
+def _satir_bekliyor(govde: str, alan: str) -> bool:
+    """Denetim bloğunda `**<alan>:**` satırı var ve değeri boş ya da `bekliyor` ile başlıyor."""
+    s = re.search(r"\*\*" + re.escape(alan) + r":\*\*[ \t]*([^\n]*)", govde)
+    return s is not None and bool(_BEKLIYOR.match(s.group(1)))
+
+
+def bekleyen_mi(eksik: str) -> bool:
+    return BEKLENIYOR in eksik
+
+
+def kapi_durumu(eksik: list[str]) -> str:
+    """Kapı sonucu: `tamam` (eksik yok), `bekleniyor` (eksiklerin hepsi denetçinin henüz doldurmadığı satırlar), `ret`."""
+    if not eksik:
+        return "tamam"
+    return "bekleniyor" if all(bekleyen_mi(e) for e in eksik) else "ret"
+
+
+def bekleniyor_kaydet(klasor: str, kapi: str, neden: str) -> bool:
+    """`kapi_bekleniyor` olayı (ret sayılmaz); aynı (iş, kapı, neden) bir kez yazılır. Kapıyı hiçbir koşulda bozmaz."""
+    try:
+        import kapi_mod as KM
+        import ork_lib as L
+        sd = L.durum_dizini(klasor)
+        if not sd:
+            return False
+        yol = os.path.join(sd, "gunluk.jsonl")
+        is_ad = os.path.basename(os.path.normpath(klasor))
+        if KM._zaten_kayitli(yol, is_ad, kapi, neden[:300], "kapi_bekleniyor"):
+            return False
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapi_bekleniyor", "kapi": kapi, "is": is_ad, "neden": neden[:300]})
+        return True
+    except Exception:
+        return False
+
+
+def _bekleyenli_ret(klasor: str, kapi: str, eksik: list[str], ret: bool) -> list[str]:
+    """İçerik eksikleri eskisi gibi işlenir (ret=True: `KM.ret_ver` → ihlalde `kapi_ret`; ret=False: `KM.ihlal_ver`).
+    Denetçi bekleyen satırlar `kapi_bekleniyor` olarak kaydedilir ve ihlal modunda yine döndürülür (plan geçmez)."""
+    import kapi_mod as KM
+    icerik = [e for e in eksik if not bekleyen_mi(e)]
+    bekleyen = [e for e in eksik if bekleyen_mi(e)]
+    sonuc = (KM.ret_ver if ret else KM.ihlal_ver)(klasor, kapi, icerik) if icerik else []
+    if bekleyen:
+        bekleniyor_kaydet(klasor, kapi, "; ".join(bekleyen))
+        if KM.mod(kapi, klasor) == "ihlal":
+            sonuc = sonuc + bekleyen
+    return sonuc
+
+
+def bic_durumu(klasor: str) -> str:
+    """Best in class kapısının sonucu: `tamam` | `bekleniyor` | `ret`."""
+    return kapi_durumu(bic_eksikleri(klasor))
 
 
 def bic_engeli(klasor: str) -> list[str]:
