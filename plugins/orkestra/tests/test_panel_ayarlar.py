@@ -60,5 +60,78 @@ class AyarlarTesti(unittest.TestCase):
         self.assertIn("/api/ayarlar", panel.KULLANICI_YOLLARI)
 
 
+class VarsayilanModTesti(unittest.TestCase):
+    """GET/POST /api/ayarlar?alan=<id>: seçili alanın varsayılan çalışma modu (ADR-0103)."""
+
+    def setUp(self):
+        self.ev = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.ev, True)
+        self.sd = os.path.join(self.ev, ".claude", "orkestra")
+        os.makedirs(self.sd)
+        alan = {"id": "a1", "ad": "Proje", "yol": self.ev, "orkestra": True}
+        p = mock.patch.object(panel.L, "calisma_alanlari", return_value=[alan])
+        p.start()
+        self.addCleanup(p.stop)
+        self.dosya = os.path.join(self.sd, "yetki.json")
+
+    def test_get_kaynak_etiketi(self):
+        d = panel._ayarlar_durum("a1")["varsayilan_mod"]
+        self.assertEqual(d["deger"], "plan")
+        self.assertEqual(d["kaynak"], "eklenti")  # eklentinin ayarlar/ dosyası plan der
+        self.assertEqual(d["alan"], "Proje")
+        panel._mod_yaz("a1", "auto")
+        d = panel._ayarlar_durum("a1")["varsayilan_mod"]
+        self.assertEqual((d["deger"], d["kaynak"]), ("auto", "proje"))
+
+    def test_alan_yoksa_mod_yok_bildirim_kalir(self):
+        for alan in (None, "*", "yok"):
+            d = panel._ayarlar_durum(alan)
+            self.assertNotIn("varsayilan_mod", d)
+            self.assertIn("bildirim", d)
+
+    def test_post_yazar_ve_diger_anahtarlari_korur(self):
+        with open(self.dosya, "w", encoding="utf-8") as f:
+            json.dump({"surum": 1, "not": "x"}, f)
+        sonuc = panel._mod_yaz("a1", "auto")
+        self.assertTrue(sonuc["tamam"])
+        veri = json.load(open(self.dosya, encoding="utf-8"))
+        self.assertEqual((veri["varsayilan_mod"], veri["not"]), ("auto", "x"))
+        self.assertFalse(os.path.exists(self.dosya + ".tmp"))
+        import is_onay
+        self.assertEqual(is_onay.varsayilan_mod(self.sd), "auto")
+
+    def test_gecersiz_deger_dosya_yazmaz(self):
+        for v in ("AUTO", "", None, 1, "full"):
+            self.assertFalse(panel._mod_yaz("a1", v)["tamam"])
+        self.assertFalse(os.path.exists(self.dosya))
+
+    def test_bilinmeyen_alan_404(self):
+        self.assertEqual(panel._mod_yaz("yok", "auto")["kod"], 404)
+
+    def test_uc_noktada_400_404_ve_bildirim_eski_govdesi(self):
+        import http.client
+        import threading
+        sunucu = panel.http.server.ThreadingHTTPServer(("127.0.0.1", 0), panel._isleyici())
+        self.addCleanup(sunucu.server_close)
+        threading.Thread(target=sunucu.serve_forever, daemon=True).start()
+        self.addCleanup(sunucu.shutdown)
+        port = sunucu.server_address[1]
+
+        def post(yol, govde):
+            c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            b = json.dumps(govde)
+            c.request("POST", yol, b, {"X-Orkestra": "1", "Content-Type": "application/json", "Content-Length": str(len(b))})
+            r = c.getresponse()
+            return r.status, json.loads(r.read() or b"{}")
+
+        with mock.patch.dict(os.environ, {"ORKESTRA_HOME": self.ev}):
+            os.environ.pop("ORKESTRA_BILDIRIM", None)
+            self.assertEqual(post("/api/ayarlar?alan=a1", {"varsayilan_mod": "auto"})[0], 200)
+            self.assertEqual(post("/api/ayarlar?alan=a1", {"varsayilan_mod": "full"})[0], 400)
+            self.assertEqual(post("/api/ayarlar", {"varsayilan_mod": "auto"})[0], 404)
+            self.assertEqual(post("/api/ayarlar?alan=a1", {"bildirim": False})[0], 200)
+            self.assertEqual(post("/api/ayarlar?alan=a1", {"x": 1})[0], 400)
+
+
 if __name__ == "__main__":
     unittest.main()
