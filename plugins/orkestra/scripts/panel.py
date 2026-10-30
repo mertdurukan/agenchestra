@@ -1273,7 +1273,7 @@ def _isleyici():
                 except ValueError as e:
                     return self._json(400, {"tamam": False, "hata": str(e)})
             if u.path == "/api/ayarlar":
-                return self._json(200, _ayarlar_durum())
+                return self._json(200, _ayarlar_durum((q.get("alan") or [None])[0]))
             if u.path in ("/api/araclar-mcp", "/api/araclar-skill"):
                 try:
                     if u.path.endswith("mcp"):
