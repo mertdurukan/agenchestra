@@ -285,7 +285,7 @@ def rapor(sd: str) -> dict:
     }
     kapi_ret, kapi_bekl = _kapi_olaylari(sd)
     return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": kapi_ret,
-            "kapi_bekleniyor": kapi_bekl, "yontem": _yontem(sd),
+            "kapi_bekleniyor": kapi_bekl, "yontem": _yontem(sd), "ihlal_kanit": _ihlal_kanitlari(sd),
             "cikti": _cikti(sd)}
 
 
