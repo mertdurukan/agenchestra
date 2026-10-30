@@ -1114,6 +1114,7 @@
     if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
     else if (ey === 'olcu-incele' || ey === 'olcu-yoksay') olcuGizle(b.dataset.ad, b.dataset.pencere);   // bağlantı kendi yolunu izler
     else if (ey === 'ayar-bildirim') ayarBildirim(b);
+    else if (ey === 'ayar-mod') ayarMod(b);
     else if (ey === 'arac-degistir') aracDegistir(b);
     else if (ey === 'arac-sirala') { depo.koy('arac-sira', b.dataset.v); planla(); }
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
