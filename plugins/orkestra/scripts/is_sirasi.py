@@ -560,8 +560,12 @@ def uretim_engeli(klasor: str) -> list[str]:
     """`plan_eksikleri` bağlantısı: ihlal modunda eksikleri döndürür ve her reddi `kapi_ret` olarak kaydeder (gölgede `kapi_golge`)."""
     if not uretim_kapsaminda_mi(klasor):
         return []
-    import kapi_mod as KM
-    return KM.ret_ver(klasor, "uretim_noktasi", uretim_eksikleri(klasor))
+    return _bekleyenli_ret(klasor, "uretim_noktasi", uretim_eksikleri(klasor), ret=True)
+
+
+def uretim_durumu(klasor: str) -> str:
+    """Üretim noktası kapısının sonucu: `tamam` | `bekleniyor` (yalnız ayrı denetçinin satırları boş) | `ret`."""
+    return kapi_durumu(uretim_eksikleri(klasor))
 
 
 # ADR-0080: plan paralellik kapısı (`**Önce:**` gerekçeli bağımlılık, `**Yazma alanı:**`, dalga kesişimi, tam sıralı gerekçe).
