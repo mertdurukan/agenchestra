@@ -51,6 +51,7 @@ NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Onay bekleyen iş yok; testler geçti.",
            "Kullanıcı onayladı, iş başladı.",
            "Kullanıcı yap dedi, işi bitirdim.",
+           "Bu cümle bir kod örneğidir: `commit onayınızı bekliyor`.",
            "",
            None]
 
