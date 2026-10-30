@@ -1,0 +1,15 @@
+{
+  "mod": "etkin",
+  "aciklama": "ADR-0101, P-042: sorun/hata anında kök neden önce, çözüm ilk denemede kalıcı. Metin standartlar/kok_neden.md bölümlerinden okunur; model çağırmaz, engellemez. mod: etkin | kapali. arac_hatasi_her: araç hatalarında oturum başına her N. hatada ipucu (ilk hata her zaman). Kapatma: ORKESTRA_KOK_NEDEN=0. Proje ezmesi: .claude/orkestra/kok_neden_enjeksiyonu.json.",
+  "onek": "ORKESTRA KÖK NEDEN (ADR-0101): ",
+  "mesaj_basligi": "Hata anı",
+  "arac_basligi": "Araç hatası anı",
+  "arac_hatasi_her": 3,
+  "sinyaller": [
+    "hata", "bug", "error", "exception", "traceback", "stack ?trace", "fail", "crash", "regress",
+    "çalışmıyor", "çalışmadı", "çalışmaz", "olmuyor", "açılmıyor", "gelmiyor", "bozuk", "bozul", "bozdu",
+    "patla", "çök", "başarısız", "kırıl", "kırmızı", "düşüyor", "düştü", "yanlış sonuç", "beklenmeyen",
+    "sorun", "arıza", "kök neden", "root cause", "neden .{0,40}(olmadı|olmuyor|çalışmadı|çıkmadı)",
+    "not working", "broken", "doesn'?t work", "isn'?t working"
+  ]
+}
