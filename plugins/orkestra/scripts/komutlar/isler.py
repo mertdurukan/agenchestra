@@ -61,8 +61,11 @@ def _oturumu_bagla(sd, is_id):
     L.atif_yaz(sd, oturum_id(), is_id, "cli-is-baglama")  # bağsız maliyet satırları için tek atif olayı (fail-open)
 
 
-def _is_gerekli(sd, is_id):
+def _is_gerekli(sd, is_id, kalici=False):
+    """kalici=True (is devam / is kapat gibi zaten yazan yollar): silinmiş worktree yolunu gösteren kayıt çözülmüş yola yazılır."""
     try:
+        if kalici:
+            _ik().klasor_kalici(sd, is_id)
         kayit = _ik().is_al(sd, is_id)
     except ValueError as e:
         hata(str(e))
@@ -162,7 +165,7 @@ def cmd_is_ac(a):
 
 def cmd_is_devam(a):
     sd = sd_gerekli()
-    kayit = _is_gerekli(sd, a.is_id)
+    kayit = _is_gerekli(sd, a.is_id, kalici=True)
     _oturumu_bagla(sd, a.is_id)
     klasor = kayit["klasor"]
     t, satir = _todo_satiri(klasor)
@@ -714,7 +717,7 @@ def cmd_is_kapat(a):
     ORKESTRA_OZET_KAPISI=0 / ORKESTRA_ADR_KAPISI=0 kapıyı kapatır; hiç iş yapılmadan kapanan iş için `--ozetsiz NEDEN`
     ikisini de atlar."""
     sd = sd_gerekli()
-    kayit = _is_gerekli(sd, a.is_id)
+    kayit = _is_gerekli(sd, a.is_id, kalici=True)
     ozetsiz = (getattr(a, "ozetsiz", None) or "").strip()
     if getattr(a, "pr", None) or getattr(a, "inceleme", None):
         import teslim as _teslim
@@ -1219,10 +1222,27 @@ def cmd_is_bagla(a):
         print(f"{len(satirlar)} fark; uygulamak için --uygula")
 
 
+def _yetim_onar(sd, uygula):
+    """Klasörü okunamayan merkez kayıtları sınıflar (is_kaydi.yetim_onar); --uygula yalnız bağlanabilir olanı yazar."""
+    r = _ik().yetim_onar(sd, uygula)
+    for ad, etiket in (("baglanabilir", "bağlanabilir"), ("yinelenen", "yinelenen"), ("eslesmesiz", "eşleşmesiz")):
+        for x in r[ad]:
+            print(f"{x['id']}	{etiket}	{x['durum']}	{x['baslik']}	{x['yeni'] or '-'}	{x['neden']}")
+    n = sum(len(r[k]) for k in ("baglanabilir", "yinelenen", "eslesmesiz"))
+    print(f"yetim {n}: bağlanabilir {len(r['baglanabilir'])}, yinelenen {len(r['yinelenen'])}, eşleşmesiz {len(r['eslesmesiz'])}")
+    if r["yazildi"]:
+        print(f"{len(r['baglanabilir'])} kayıt bağlandı; yedek: {r['yedek']}")
+    elif r["baglanabilir"]:
+        print("uygulamak için --uygula")
+
+
 def cmd_is_onar(a):
     sd = sd_gerekli()
     if a.kartlar:
         _sahipsiz_kartlar(sd, a.uygula)
+        return
+    if a.yetim:
+        _yetim_onar(sd, a.uygula)
         return
     r = _ik().onar(sd, a.klasor, a.uygula)
     for m in r["farklar"]:
@@ -1384,6 +1404,8 @@ def kaydet(alt):
     io_ = is_.add_parser("onar", help="isler.json'u iş klasörlerindeki is.json'lardan yeniden kur (varsayılan kuru koşu)")
     io_.add_argument("--uygula", action="store_true", help="farkları isler.json'a yaz")
     io_.add_argument("--klasor", action="append", default=[], help="ek iş klasörü (tekrarlanabilir)")
+    io_.add_argument("--yetim", action="store_true",
+                     help="klasörü okunamayan (silinmiş worktree) kayıtları sınıfla: bağlanabilir/yinelenen/eşleşmesiz (--uygula yalnız bağlanabilir olanı yazar)")
     io_.add_argument("--kartlar", action="store_true",
                      help="'is' alanı boş kartları listele ve önerilen işi yaz (--uygula ile bağla, gerekirse iş/klasör aç)")
     io_.set_defaults(f=cmd_is_onar)

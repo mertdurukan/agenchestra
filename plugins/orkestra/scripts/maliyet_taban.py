@@ -399,8 +399,8 @@ def is_basina_bolumu(sd: str, basla: str) -> dict:
     sonuc = {"basla": basla, "toplam_usd": sum(usd(r) for r in rs), "is_bagli_usd": pay}
     kapanan = set()
     try:
-        with open(os.path.join(sd, "isler.json"), encoding="utf-8") as f:
-            isler = json.load(f)["isler"]
+        import is_kaydi as IK  # noqa: PLC0415
+        isler = IK.merkez_isler(sd)   # klasor alanı çözülmüş (I-223)
     except (OSError, ValueError, KeyError):
         isler = {}
     for iid, v in isler.items():
