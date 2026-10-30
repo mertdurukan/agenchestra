@@ -404,6 +404,34 @@ class VarsayilanMod(unittest.TestCase):
         self.assertEqual(self._karar("Bash", {"command": "cat .claude/orkestra/yetki.json"}), "allow")  # okuma serbest
         self.assertEqual(self._karar("Write", {"file_path": os.path.join(self.sd, "baska.json")}), "allow")
 
+    def test_kabukla_panel_ayar_yazimi_reddedilir(self):
+        """ADR-0105: panel /api/ayarlar ucuna POST'a eşdeğer her biçim deny (auto dahil); caydırıcı kapı."""
+        u = "http://127.0.0.1:8765/api/ayarlar?alan=a1"
+        yazimlar = (
+            f"curl -X POST {u} -H 'X-Orkestra: 1' -d '{{\"varsayilan_mod\":\"auto\"}}'",
+            f"curl -d '{{\"varsayilan_mod\":\"auto\"}}' {u}",
+            f"curl --request POST {u}",
+            f"curl --data '{{}}' {u}",
+            f"curl -XPUT {u}",
+            f"iwr -Method Post -Body '{{}}' {u}",
+            f"Invoke-RestMethod -Uri {u} -Method Put -Body '{{}}'",
+            f"python -c \"import requests; requests.post('{u}', json={{}})\"",
+            f"python -c \"import urllib.request as r; r.urlopen(r.Request('{u}', data=b'{{}}'))\"",
+            f"node -e \"fetch('{u}', {{method: 'POST'}})\"",
+        )
+        for komut in yazimlar:
+            self.assertEqual(self._karar("Bash", {"command": komut}), "deny", komut)
+
+    def test_kabukla_panel_okuma_ve_baska_uc_serbest(self):
+        u = "http://127.0.0.1:8765"
+        for komut in (f"curl {u}/api/ayarlar", f"curl -s '{u}/api/ayarlar?alan=a1'", f"iwr {u}/api/ayarlar",
+                      f"curl -X POST {u}/api/panel", f"curl -d x {u}/api/araclar-mcp"):
+            self.assertEqual(self._karar("Bash", {"command": komut}), "allow", komut)
+
+    def test_panel_betik_dosyasi_kacisi_kapsam_disi(self):
+        """BİLİNEN SINIR (ADR-0105): komutta /api/ayarlar geçmeyen betik çalıştırma kapıya takılmaz; kalan risk kabul edildi."""
+        self.assertEqual(self._karar("Bash", {"command": "python x.py"}), "allow")
+
 
 if __name__ == "__main__":
     unittest.main()
