@@ -107,7 +107,8 @@ class Mcp(unittest.TestCase):
         for a in ("createJiraIssue", "editJiraIssue", "transitionJiraIssue", "addCommentToJiraIssue", "addWorklogToJiraIssue",
                   "createConfluencePage", "updateConfluencePage", "createIssueLink"):
             self.assertEqual(karar(p + a), "ask", a)
-        for a in ("getJiraIssue", "searchJiraIssuesUsingJql", "lookupJiraAccountId", "fetch", "search", "atlassianUserInfo"):
+        for a in ("getJiraIssue", "searchJiraIssuesUsingJql", "lookupJiraAccountId", "fetch", "search", "atlassianUserInfo",
+                  "listJiraIssueComments", "discover", "executeRead"):
             self.assertEqual(karar(p + a), "allow", a)
 
     def test_uuid_adli_atlassian_sunucusu_sunucu_bazli_kapida(self):
@@ -116,7 +117,8 @@ class Mcp(unittest.TestCase):
                   "addGraphContext", "yeni_bilinmeyen_arac"):
             self.assertEqual(karar(p + a), "ask", a)
         for a in ("executeRead", "discover", "getJiraIssue", "searchJiraIssuesUsingJql", "atlassianUserInfo",
-                  "getAccessibleAtlassianResources"):
+                  "getAccessibleAtlassianResources",
+                  "listJiraIssueComments"):
             self.assertEqual(karar(p + a), "allow", a)
 
     def test_sunucu_kimligi_degisse_de_execute_yazma_sorulur(self):

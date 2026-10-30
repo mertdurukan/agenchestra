@@ -190,7 +190,7 @@ def teklif_sonu(yanit, sd=None) -> bool:
 
 def yapisal_tetik(transkript, yanit=None, sd=None) -> str:
     """Yapısal kapıyı tetikleyen neden: 'degisiklik' (tur dosya değiştirdi), 'teklif_sonu' (kapanış teklif/soru) ya da ''.
-    İkisinde de turda dolu düğme yoksa ihlal sayılır; ifade çeşitliliği kalıba değil yapıya bağlıdır."""
+    İkisinde de turda dolu düğme sunulmadıysa ihlal sayılır; ifade çeşitliliği kalıba değil yapıya bağlıdır."""
     if yapisal_mod(ayar_oku(sd)) == "kapali" or secim_ekrani_sunuldu(transkript, sd):
         return ""
     if tur_degisiklik_var(transkript, sd):

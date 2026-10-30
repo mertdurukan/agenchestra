@@ -334,6 +334,34 @@ class TestYapisalKapi(TestStopKapisi):
         kod, cikti = self.kos(self.DUZ, transcript_path=yol)
         self.assertEqual(cikti["decision"], "block")
 
+    EKRAN = "Hangi maddelerin kaynağa mı yoksa projeye mi yazılacağına karar verirseniz iş açarım."
+
+    def test_teklif_sonu_dosya_degismese_de_yakalanir(self):
+        yol = self.transkript([kullanici(), arac("Bash"), metin(self.EKRAN)])
+        kod, cikti = self.kos(self.EKRAN, transcript_path=yol)
+        self.assertIsNone(cikti)
+        kayit = self.yapisal()
+        self.assertEqual(len(kayit), 1)
+        self.assertEqual(kayit[0]["tetik"], "teklif_sonu")
+
+    def test_teklif_sonu_dugmeli_tur_sessiz(self):
+        yol = self.transkript([kullanici(), arac("mcp__ccd_turn__wrap_up"), metin(self.EKRAN)])
+        self.kos(self.EKRAN, transcript_path=yol)
+        self.assertEqual(self.yapisal(), [])
+
+    def test_teklifsiz_bilgi_cevabi_sessiz(self):
+        yol = self.transkript([kullanici(), arac("Bash"), metin(self.DUZ)])
+        self.kos(self.DUZ, transcript_path=yol)
+        self.assertEqual(self.yapisal(), [])
+
+    def test_teklif_sonu_koddaki_cumle_sayilmaz(self):
+        yanit = "Komut: `iş açarım` yazmaz." + chr(10) + "Sonuç hazır."
+        self.assertFalse(SH.teklif_sonu(yanit, self.sd))
+
+    def test_teklif_sonu_soru_ve_ek(self):
+        for m in ("Devam edeyim mi?", "Sonra bakarım.", "Hepsini uygularım"):
+            self.assertTrue(SH.teklif_sonu(m, self.sd), m)
+
     def test_degisiklik_yoksa_sessiz(self):
         self.proje_ayari({"yapisal_mod": "block"})
         yol = self.transkript([kullanici(), arac("Bash"), metin(self.DUZ)])

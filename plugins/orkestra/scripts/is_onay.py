@@ -66,9 +66,35 @@ def mod_mesaji(metin: str) -> str | None:
     return m.group(1).lower() if m and mod_kapisi_acik() else None
 
 
-def mod(kayit: dict | None) -> str:
-    """İşin modu; alan yoksa ya da geçersizse `plan`."""
-    return MOD_AUTO if (kayit or {}).get(MOD_ALANI) == MOD_AUTO and mod_kapisi_acik() else MOD_PLAN
+def varsayilan_mod(sd: str | None = None) -> str:
+    """Varsayılan çalışma modu: `ayarlar/yetki.json`, proje ezmesi `<durum klasörü>/yetki.json` (klasör = proje kökü).
+    Dosya yok, bozuk ya da değer tanınmıyorsa `plan`; varsayılan hiçbir zaman kesin sınırları gevşetmez."""
+    import json
+    if not mod_kapisi_acik():
+        return MOD_PLAN
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sonuc = MOD_PLAN
+    for yol in (os.path.join(kok, "ayarlar", "yetki.json"), os.path.join(sd, "yetki.json") if sd else None):
+        if not yol:
+            continue
+        try:
+            with open(yol, encoding="utf-8") as f:
+                v = (json.load(f) or {}).get("varsayilan_mod")
+        except (OSError, ValueError, AttributeError):
+            continue
+        if v in (MOD_PLAN, MOD_AUTO):
+            sonuc = v
+    return sonuc
+
+
+def mod(kayit: dict | None, sd: str | None = None) -> str:
+    """İşin modu; alan yoksa varsayılan mod (`sd` verilmişse proje ezmesi dahil), geçersizse `plan`."""
+    if not mod_kapisi_acik():
+        return MOD_PLAN
+    v = (kayit or {}).get(MOD_ALANI)
+    if v is None:
+        return varsayilan_mod(sd)
+    return MOD_AUTO if v == MOD_AUTO else MOD_PLAN
 
 
 def mod_yaz(sd: str, is_id: str, yeni: str) -> dict:
@@ -121,7 +147,7 @@ def bekleyen_mod_al(sd: str, oturum) -> str | None:
 
 def otomatik_onay(sd: str, kayit: dict | None) -> bool:
     """`auto` modda onay bekleyen işin belgeleri tamamsa onayı `verildi` yapar; yapıldıysa True."""
-    if not kayit or mod(kayit) != MOD_AUTO or durum(kayit) != BEKLIYOR or not kapi_acik():
+    if not kayit or mod(kayit, sd) != MOD_AUTO or durum(kayit) != BEKLIYOR or not kapi_acik():
         return False
     if belge_eksikleri(str(kayit.get("klasor") or "")):
         return False
