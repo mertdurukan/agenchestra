@@ -87,6 +87,11 @@ class Durum(_Onay):
     def test_yeni_sirali_is_bekliyor_dogar(self):
         self.assertEqual(self.durum(), "bekliyor")
 
+    def test_kapanmis_is_onay_kilidi_tasimaz(self):
+        k = {"id": "I-9", "durum": "kapandi", "onay": "bekliyor"}
+        self.assertFalse(is_onay.bekliyor_mu(k))
+        self.assertTrue(is_onay.bekliyor_mu({"id": "I-9", "durum": "acik", "onay": "bekliyor"}))
+
     def test_kapi_kapaliyken_alan_yok(self):
         os.environ["ORKESTRA_ONAY_KAPISI"] = "0"
         k = is_kaydi.is_ac(self.sd, "Başka iş", os.path.join(self.proje, "isler", "002-baska"))

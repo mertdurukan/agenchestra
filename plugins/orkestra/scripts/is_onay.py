@@ -161,7 +161,7 @@ def durum(kayit: dict | None) -> str | None:
 
 
 def bekliyor_mu(kayit: dict | None) -> bool:
-    return kapi_acik() and durum(kayit) == BEKLIYOR
+    return kapi_acik() and (kayit or {}).get("durum") != "kapandi" and durum(kayit) == BEKLIYOR  # kapanmış iş kilit taşımaz
 
 
 def onay_mesaji_mi(metin: str) -> bool:

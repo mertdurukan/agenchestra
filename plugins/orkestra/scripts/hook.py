@@ -2647,7 +2647,7 @@ def user_prompt_submit(inp: dict):
         sistem = metin.lstrip().startswith("<")
         neden = None
         if not sistem:
-            try:  # soğuk önbellek bilgisi: büyük bağlam + uzun ara → systemMessage (ADR-0095, engellemez; hatada sessiz geç)
+            try:  # soğuk önbellek bilgisi: büyük bağlam + uzun ara → systemMessage (ADR-0108, engellemez; hatada sessiz geç)
                 import soguk_onbellek
                 neden = soguk_onbellek.karar(sd, inp.get("session_id"), inp.get("transcript_path"))
             except Exception:
@@ -2780,7 +2780,7 @@ def user_prompt_submit(inp: dict):
                     uyari = soguk_onbellek.devir_uyarisi(sd, inp.get("session_id"), inp.get("transcript_path")) or ""
                 except Exception:
                     uyari = ""
-            uyari = "\n".join(u for u in (neden, uyari) if u)  # önbellek bilgisi önce (ADR-0095)
+            uyari = "\n".join(u for u in (neden, uyari) if u)  # önbellek bilgisi önce (ADR-0108)
             cikti = {"systemMessage": uyari} if uyari else {}
             if ek:  # boş bağlam çıktısı yazılmaz
                 import baglam_kaydi

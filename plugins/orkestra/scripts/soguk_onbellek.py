@@ -3,7 +3,7 @@
 Ölçüm (15.10): ana ajanın önbellek yazımının ~%35'i, kullanıcı 1 saatten uzun ara verip büyük bağlamlı
 sohbete döndüğünde bütün bağlamın yeniden yazılmasından geliyor (önbellek süresi en çok 1 saat).
 Kapı: son ana ajan çağrısı `esik_dk`dan eski VE bağlam `esik_token`dan büyükse kullanıcıya tahmini yeniden yazma
-maliyeti ve ucuz yol (yeni sohbet + `orkestra is devam <id>`) bilgi olarak söylenir; istek ENGELLENMEZ (ADR-0095).
+maliyeti ve ucuz yol (yeni sohbet + `orkestra is devam <id>`) bilgi olarak söylenir; istek ENGELLENMEZ (ADR-0108).
 Proje ezmesi: `.claude/orkestra/onbellek_kapisi.json` ({"acik": false} kapatır). Hata her zaman sessizce geçer.
 """
 from __future__ import annotations
@@ -87,7 +87,7 @@ def karar(sd: str, oid: str | None, transkript: str | None, simdi: D.datetime | 
     ara_dk = (simdi - s["zaman"]).total_seconds() / 60
     if ara_dk < a["esik_dk"] or s["baglam"] < a["esik_token"]:
         return None
-    # Engellemez (ADR-0095): mesaj aynı turda işlenir. Çağrı sonrası son çağrı zamanı güncellenir, aynı soğukluk için ikinci uyarı doğmaz.
+    # Engellemez (ADR-0108): mesaj aynı turda işlenir. Çağrı sonrası son çağrı zamanı güncellenir, aynı soğukluk için ikinci uyarı doğmaz.
     f_ = L.model_fiyati(s["model"])
     usd = s["baglam"] / 1e6 * f_.get("onbellek_yazma_1sa", f_.get("giris", 0) * 2)
     return (f"Orkestra önbellek bilgisi: son çağrıdan bu yana {ara_dk:.0f} dk geçti, önbellek soğudu. "
