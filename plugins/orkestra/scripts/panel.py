@@ -897,11 +897,17 @@ def _isleyici():
                 if not 0 < uzun <= 1024:
                     raise ValueError("Gövde 1 KB'ı geçmemeli.")
                 g = json.loads(self.rfile.read(uzun).decode("utf-8"))
-                if not isinstance(g, dict) or not isinstance(g.get("bildirim"), bool):
-                    raise ValueError("Gövde {\"bildirim\": true|false} olmalı.")
+                mod_mu = isinstance(g, dict) and "varsayilan_mod" in g
+                if not isinstance(g, dict) or not (mod_mu or isinstance(g.get("bildirim"), bool)):
+                    raise ValueError("Gövde {\"bildirim\": true|false} ya da {\"varsayilan_mod\": \"plan\"|\"auto\"} olmalı.")
+                if mod_mu and g["varsayilan_mod"] not in ("plan", "auto"):
+                    raise ValueError("varsayilan_mod \"plan\" ya da \"auto\" olmalı.")
             except (ValueError, UnicodeDecodeError) as e:
                 return self._json(400, {"tamam": False, "hata": f"Geçersiz istek: {e}"}, kapat=True)
             try:
+                if mod_mu:
+                    sonuc = _mod_yaz(((q or {}).get("alan") or [None])[0], g["varsayilan_mod"])
+                    return self._json(200 if sonuc["tamam"] else sonuc.pop("kod", 400), sonuc, kapat=True)
                 sonuc = _ayarlar_yaz(g["bildirim"])
             except Exception as e:  # noqa: BLE001
                 return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
