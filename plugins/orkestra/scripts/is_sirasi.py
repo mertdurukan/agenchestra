@@ -547,7 +547,9 @@ def uretim_eksikleri(klasor: str) -> list[str]:
         eksik.append(f"best in class denetimi: tüm maddeler `Yeni yetenek`; `**{URETIM_ALANI}:**` satırı `tümü yeni yetenek onaylandı` ifadesini taşımalı (ADR-0069)")
     d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
     kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
-    if not kimlik:
+    if not kimlik and d is not None and _BEKLIYOR.match(d.group(1)):
+        eksik.append(f"best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor: {BEKLENIYOR} (ADR-0069)")
+    elif not kimlik:
         eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (ADR-0069)")
     elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
         eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; ADR-0069)")
