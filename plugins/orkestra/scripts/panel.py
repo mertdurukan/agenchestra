@@ -889,7 +889,7 @@ def _isleyici():
         def _post_onay(self, q):
             return self._post_yaz(q)
 
-        def _post_ayarlar(self):
+        def _post_ayarlar(self, q=None):
             if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
                 return self._gonder(403, "text/plain", b"yasak", kapat=True)
             try:
