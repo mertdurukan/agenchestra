@@ -2780,6 +2780,7 @@ def user_prompt_submit(inp: dict):
                     uyari = soguk_onbellek.devir_uyarisi(sd, inp.get("session_id"), inp.get("transcript_path")) or ""
                 except Exception:
                     uyari = ""
+            uyari = "\n".join(u for u in (neden, uyari) if u)  # önbellek bilgisi önce (ADR-0095)
             cikti = {"systemMessage": uyari} if uyari else {}
             if ek:  # boş bağlam çıktısı yazılmaz
                 import baglam_kaydi
