@@ -1334,6 +1334,12 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         import izin_politikasi
         if izin_politikasi._auto_modu(sd, oid):  # ADR-0086: /auto kullanıcıya seçim yaptırmaz, ekran hatırlatması susar
             return
+        if SH.yapisal_ihlal(inp.get("transcript_path"), sd):
+            ykip = SH.yapisal_mod(SH.ayar_oku(sd))
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                             "kural": "secim_ekrani_yapisal", "mod": ykip, "is": _oturum_isi(sd, oid)})
+            if ykip == "block" and not inp.get("stop_hook_active"):
+                L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
             return
         kip = SH.mod(SH.ayar_oku(sd))
