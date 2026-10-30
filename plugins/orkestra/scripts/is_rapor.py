@@ -215,6 +215,17 @@ def _kapi_olaylari(sd: str) -> tuple[dict, dict]:
     return dict(sorted(ret.items())), dict(sorted(bekl.items()))
 
 
+KANIT_SON = 5
+
+
+def _ihlal_kanitlari(sd: str, n: int = KANIT_SON) -> list[dict]:
+    """I-271: `eslesen`/`cumle` taşıyan son n `kural_ihlal` / `kapi_ret` satırı (eski, alansız satırlar atlanır)."""
+    son = [o for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl"))
+           if isinstance(o, dict) and o.get("tur") in ("kural_ihlal", "kapi_ret") and (o.get("eslesen") or o.get("cumle"))]
+    return [{"zaman": o.get("zaman") or "", "tur": o["tur"], "kural": o.get("kural") or o.get("kapi") or "",
+             "eslesen": o.get("eslesen") or "", "cumle": o.get("cumle") or ""} for o in son[-n:]]
+
+
 def _kapi_ret(sd: str) -> dict:
     """gunluk.jsonl'daki gerçek `kapi_ret` olayları (ihlal modundaki içerik reddi) kapı adına göre sayılır (ADR-0069: yanlış
     pozitif ölçümünün paydası). Denetçi bekleyen satırlar sayılmaz (`_kapi_bekleniyor`)."""
