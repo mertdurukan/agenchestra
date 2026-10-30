@@ -1537,6 +1537,12 @@ def stop(inp: dict):
                  "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": perspektif, "kaynak": "hook",
                  **L.is_alanlari(sd, oid, "-"), **kimlik}
         _maliyet_satirlari(sd, ozet, taban)
+        if not perspektif:
+            try:  # I-271: pahalı tur (önbellek okuması eşik üstü) → sonraki mesaja devir ipucu; hata kancayı düşürmez
+                import devir_esigi
+                devir_esigi.tur_kaydet(sd, oid, (ozet.get("toplam") or {}).get("onbellek_okuma", 0))
+            except Exception:
+                pass
     # Ofset en son ilerler: maliyet/zaman satırı yazılamazsa tur bir sonraki durakta yeniden okunur (satır kaybolmaz).
     with L.kilit(ofset_yolu):  # oku-birleştir-yaz kilitli (iş bağıyla kayıp güncelleme yarışı olmasın)
         try:
