@@ -131,3 +131,52 @@ def secim_ekrani_sunuldu(transkript, sd=None) -> bool:
 
 def hatirlatma_metni(sd=None) -> str:
     return ayar_oku(sd).get("hatirlatma", "")
+
+
+def yapisal_mod(ayar: dict) -> str:
+    """Yapısal kapının kipi (`yapisal_mod` anahtarı): 'golge' (yalnız günlük), 'block' ya da 'kapali'. Kalıp kapısının `mod`
+    anahtarından bağımsızdır (P-028: yeni kapı önce gölgede); ortam değişkeni 0 ise kapalı."""
+    if os.environ.get("ORKESTRA_SECIM_HATIRLATMA") == "0":
+        return "kapali"
+    m = ayar.get("yapisal_mod", "kapali")
+    return m if m in MODLAR else "kapali"
+
+
+def tur_degisiklik_var(transkript, sd=None) -> bool:
+    """Son kullanıcı mesajından sonra ayardaki `degisiklik_araclari` araçlarından biri çağrıldı mı? Okunamazsa False."""
+    araclar = tuple(str(a) for a in (ayar_oku(sd).get("degisiklik_araclari") or []))
+    if not transkript or not araclar:
+        return False
+    try:
+        with open(transkript, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            boy = f.tell()
+            f.seek(max(0, boy - _OKUMA_SINIRI))
+            satirlar = f.read().splitlines()
+    except Exception:
+        return False
+    bulundu = False
+    for ham in satirlar:
+        try:
+            o = json.loads(ham)
+        except Exception:
+            continue
+        if not isinstance(o, dict):
+            continue
+        if _gercek_kullanici_mesaji(o):
+            bulundu = False
+            continue
+        if o.get("type") != "assistant" or o.get("isSidechain"):
+            continue
+        icerik = (o.get("message") or {}).get("content")
+        for b in icerik if isinstance(icerik, list) else []:
+            if isinstance(b, dict) and b.get("type") == "tool_use" and str(b.get("name") or "").endswith(araclar):
+                bulundu = True
+    return bulundu
+
+
+def yapisal_ihlal(transkript, sd=None) -> bool:
+    """Tur dosya değiştirdi ama kullanıcıya düğmeli seçim ekranı sunulmadı mı? Yanıt cümlesine bakmaz (ifade çeşitliliği)."""
+    if yapisal_mod(ayar_oku(sd)) == "kapali":
+        return False
+    return tur_degisiklik_var(transkript, sd) and not secim_ekrani_sunuldu(transkript, sd)
