@@ -119,6 +119,100 @@ class ModOkuma(unittest.TestCase):
             self.assertFalse(self._mod({"mod": "auto"}))
 
 
+class BekleyenMod(unittest.TestCase):
+    """ADR-0095: iş bağlanmadan gelen /auto oturumda bekler; izin kapısı silmeden okur."""
+
+    def setUp(self):
+        self.sd = tempfile.mkdtemp()
+        self._ort = os.environ.get("ORKESTRA_IZIN")
+        os.environ["ORKESTRA_IZIN"] = "genis"
+
+    def tearDown(self):
+        if self._ort is None:
+            os.environ.pop("ORKESTRA_IZIN", None)
+        else:
+            os.environ["ORKESTRA_IZIN"] = self._ort
+
+    def _karar(self, arac, girdi, oturum="o"):
+        with mock.patch.object(IP, "_onay_kaydi_var", return_value=False):
+            return IP.karar(arac, girdi, sd=self.sd, oturum=oturum)[0]
+
+    def test_bekleyen_auto_push_allow_dosya_durur(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "auto")
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "allow")
+        self.assertTrue(os.path.exists(is_onay._bekleyen_yol(self.sd, "o")))
+        self.assertEqual(is_onay.bekleyen_mod_al(self.sd, "o"), "auto")  # bağlamada hâlâ tüketilir
+
+    def test_bekleyen_plan_ve_yok_ask(self):
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "plan")
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+
+    def test_bekleyen_auto_deny_siniflari_kalir(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "auto")
+        self.assertEqual(self._karar("Bash", {"command": "git push --force origin x"}), "deny")
+        self.assertEqual(self._karar("Bash", {"command": "gh issue delete 3"}), "deny")
+        self.assertEqual(self._karar("mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__executeDestructive", {}), "deny")
+
+    def test_bekleyen_auto_postgres_yazma_sorar(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "auto")
+        self.assertEqual(self._karar("mcp__postgres-yazma__execute_sql", {}), "ask")
+
+    def test_baska_oturumun_bekleyen_modu_sizmaz(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "A", "auto")
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}, oturum="B"), "ask")
+
+    def test_bagli_plan_isi_bekleyen_autoyu_yok_sayar(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "auto")
+        with mock.patch.object(is_onay, "_bagli_is_id", return_value="I-1"), \
+                mock.patch("is_kaydi.is_al", return_value={"mod": "plan"}):
+            self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+
+    def test_kapatma_degiskeni_ve_bozuk_dosya_ask(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "auto")
+        with mock.patch.dict(os.environ, {"ORKESTRA_AUTO_YETKI": "0"}):
+            self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+        with open(is_onay._bekleyen_yol(self.sd, "o"), "w", encoding="utf-8") as f:
+            f.write("{bozuk")
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+
+    def test_bekleyen_auto_askuserquestion_reddedilir(self):
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "auto")
+
+        def rd(neden):
+            raise Reddedildi(neden)
+        with mock.patch.object(H, "reddet", side_effect=rd), self.assertRaises(Reddedildi):
+            H._auto_soru_kapisi("AskUserQuestion", {}, self.sd, "o", None)
+
+
+class IzinKararGunlugu(unittest.TestCase):
+    """ADR-0095: deny, ask ve auto-allow kararları gunluk.jsonl'a izin_karar olarak yazılır."""
+
+    def _satirlar(self, sd):
+        yol = os.path.join(sd, "gunluk.jsonl")
+        if not os.path.exists(yol):
+            return []
+        return [json.loads(s) for s in open(yol, encoding="utf-8") if s.strip()]
+
+    def test_ask_deny_auto_allow_yazilir(self):
+        sd = tempfile.mkdtemp()
+        H._izin_karar_yaz("Bash", "ask", "git push: onay gerekir.", sd, "o")
+        H._izin_karar_yaz("Bash", "deny", "force", sd, "o")
+        H._izin_karar_yaz("Bash", "allow", "orkestra auto modu (ADR-0086): x", sd, "o")
+        s = [(r["tur"], r["karar"], r["mod"]) for r in self._satirlar(sd)]
+        self.assertEqual(s, [("izin_karar", "ask", "-"), ("izin_karar", "deny", "-"), ("izin_karar", "allow", "auto")])
+
+    def test_olagan_allow_ve_karar_yok_yazilmaz(self):
+        sd = tempfile.mkdtemp()
+        H._izin_karar_yaz("Read", "allow", "orkestra genis", sd, "o")
+        H._izin_karar_yaz("Read", None, "", sd, "o")
+        self.assertEqual(self._satirlar(sd), [])
+
+    def test_yazim_basarisizsa_sessiz(self):
+        with mock.patch.object(H.L, "jsonl_ekle", side_effect=OSError):
+            H._izin_karar_yaz("Bash", "ask", "x", "sd", "o")
+
+
 class Reddedildi(Exception):
     pass
 
