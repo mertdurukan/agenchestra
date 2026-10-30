@@ -200,6 +200,7 @@ def cmd_bakim(a):
                 with contextlib.redirect_stdout(io.StringIO()):  # kapatma çıktısı --json akışını bozmasın
                     isler.cmd_is_kapat(argparse.Namespace(is_id=g["id"], ozetsiz=OZETSIZ_NEDEN))
                 rapor["kapatilan_is"].append(g["id"])
+    olu_yol_ve_terk(sd, a, rapor, uygula)
     if a.json:
         print(json.dumps(rapor, ensure_ascii=False))
         return
