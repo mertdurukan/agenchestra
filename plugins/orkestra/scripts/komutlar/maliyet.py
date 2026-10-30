@@ -308,8 +308,9 @@ def _netle(satirlar: list, kayit: dict):
         son = max(hr, key=lambda r: r.get("zaman") or "")
         if kayit.get("agent_id"):  # alt ajan: birikimli; artım = son - (daha önceki anlık görüntülerin en büyüğü)
             taban = {a: 0 for a in L._TOKEN_ALANLARI}
+            ham_k = set(ham)
             for j, (_b, r) in enumerate(satirlar):
-                if not r or j in ham or (r.get("oturum"), r.get("agent_id"), r.get("model") or "") != (k[0], k[1], k[3]):
+                if not r or j in ham_k or (r.get("oturum"), r.get("agent_id"), r.get("model") or "") != (k[0], k[1], k[3]):
                     continue
                 kaynak = r if r.get("kaynak") == "hook" else r.get("hook_birikim") if isinstance(r.get("hook_birikim"), dict) else None
                 if kaynak is not None and (r.get("zaman") or "") <= (son.get("zaman") or ""):
