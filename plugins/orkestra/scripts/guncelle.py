@@ -375,8 +375,8 @@ def onbellek_buda(ev: str | None = None, ortam: dict | None = None, tut: int | N
         return sonuc
     toplam = sum(a["boyut"] for a in adaylar)
     yaz(f"Önbellek budama: {len(adaylar)} eski sürüm, {toplam / 1e6:.1f} MB" + (" (kuru koşu, silinmedi)" if kuru else ""))
+    sonuc["aday"] = adaylar
     if kuru:
-        sonuc["silinen"] = adaylar
         return sonuc
     if manifest_dizini is None:
         manifest_dizini = os.path.join(ev, ".claude", "orkestra-makine") if ev else cfg.ev_dizini()
