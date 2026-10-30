@@ -376,7 +376,8 @@
     if (an?.onbellek?.katman_5dk_son_24s > 0) g.karar.push({ tur: 'katman5', n: an.onbellek.katman_5dk_son_24s });   // 5 dk önbellek katmanı nöbeti (I-144)
     if (an?.hedef_panosu?.olculer) {   // seçili pencerenin hedef dışı ölçüleri
       const w = B.pencere();
-      Object.entries(an.hedef_panosu.olculer).forEach(([ad, p]) => { if (p[w]?.durum === 'kotu') g.olcu.push({ tur: 'olcu', ad, e: p[w], pencere: w }); });
+      const gizli = olcuGizli();
+      Object.entries(an.hedef_panosu.olculer).forEach(([ad, p]) => { if (p[w]?.durum === 'kotu' && !gizli.has(ad + '|' + w)) g.olcu.push({ tur: 'olcu', ad, e: p[w], pencere: w }); });
     }
     return g;
   }
@@ -872,13 +873,17 @@
         <button type="button" class="anahtar" role="switch" data-eylem="arac-degistir" data-tur="${tur}" data-ad="${o.ad}" data-acik="${ac ? 'true' : 'false'}" aria-checked="${ac ? 'true' : 'false'}" aria-labelledby="ar-${tur}-${o.ad}" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${ac ? 'Açık' : 'Kapalı'}</span></button>
       </div></article>`;
     };
-    const liste = (t === 'mcp' ? mcp : skill).filter(o => !q || eslesir(o.ad + ' ' + (o.aciklama || ''), q));
+    const sira = depo.al('arac-sira') === 'alfa' ? 'alfa' : 'durum';   // varsayılan: açıktan kapalıya
+    const trSira = (a, b) => a.ad.localeCompare(b.ad, 'tr');
+    const liste = (t === 'mcp' ? mcp : skill).filter(o => !q || eslesir(o.ad + ' ' + (o.aciklama || ''), q))
+      .sort((a, b) => sira === 'alfa' ? trSira(a, b) : ((b.durum === 'acik') - (a.durum === 'acik')) || trSira(a, b));
     const sayi = a => a.filter(o => o.durum === 'acik').length;
     const sekme = [['mcp', 'MCP', mcp], ['skill', 'Skill', skill]].map(([k, ad, a]) =>
       H`<button class="cip" data-eylem="sorgu" data-k="t" data-v="${k}" aria-pressed="${t === k ? 'true' : 'false'}">${ad}<span class="say">${a.length ? sayi(a) + '/' + a.length : ''}</span></button>`);
     const tumNot = t === 'skill' && tumMu() ? bos('Skill için bir çalışma alanı seç', 'Skill ayarı seçili çalışma alanına yazılır; üstteki alan seçiciden birini seç.', 'uyari') : null;
     const govde = tumNot || yuk || H`
-      <div class="yatay">${sekme}<input class="arama" id="aracAra" type="search" placeholder="${t === 'mcp' ? 'MCP' : 'Skill'} ara…  /" value="${q}" data-sorgu="q" aria-label="Ara"></div>
+      <div class="yatay">${sekme}<input class="arama" id="aracAra" type="search" placeholder="${t === 'mcp' ? 'MCP' : 'Skill'} ara…  /" value="${q}" data-sorgu="q" aria-label="Ara">
+        ${[['durum', 'Açıktan kapalıya'], ['alfa', 'A–Z']].map(([k, ad]) => H`<button class="cip" data-eylem="arac-sirala" data-v="${k}" aria-pressed="${sira === k ? 'true' : 'false'}">${ad}</button>`)}</div>
       <p class="soluk kucuk-y">${t === 'mcp' ? 'Açık = kullanıcı kapsamında kayıtlı; yeni oturumda başlar. Kapatmak kaydı siler, ayar kayıt dosyasında kalır.' : 'Değişiklik seçili çalışma alanının yerel ayarına (.claude/settings.local.json) yazılır; yeni oturumda geçerli olur.'}</p>
       <div class="yigin sik" aria-live="polite">${liste.length ? liste.map(o => satir(t, o)) : bos('Eşleşen ' + (t === 'mcp' ? 'MCP' : 'skill') + ' yok', '', 'ara')}</div>`;
     return { baslik: 'Araçlar', sag: H`<span class="soluk kucuk-y">${t === 'mcp' ? 'bu bilgisayar için geçerli' : (tumMu() ? '' : alanAd(V.alan))}</span>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
@@ -1086,6 +1091,7 @@
     if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
     else if (ey === 'ayar-bildirim') ayarBildirim(b);
     else if (ey === 'arac-degistir') aracDegistir(b);
+    else if (ey === 'arac-sirala') { depo.koy('arac-sira', b.dataset.v); planla(); }
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
     else if (ey === 'uygula') {
       b.disabled = true;
