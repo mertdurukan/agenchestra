@@ -207,7 +207,7 @@ def _kimlik_kapisi(arac: str, girdi: dict, okuma_acik: bool = False) -> str | No
 
 
 def _auto_modu(sd, oturum) -> bool:
-    """ADR-0086: oturumun bağlı işi `auto` modda mı (yalnız is.json `mod`; oturum bekleyen modu okunmaz). Okunamazsa False."""
+    """ADR-0086/0095: oturumun bağlı işi `auto` modda mı (is.json `mod`); iş bağlı değilse oturumda bekleyen mod. Okunamazsa False."""
     if os.environ.get("ORKESTRA_AUTO_YETKI") == "0" or not sd or not oturum:
         return False
     try:
