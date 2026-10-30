@@ -34,15 +34,15 @@ class SogukOnbellek(unittest.TestCase):
             for s in satirlar:
                 f.write(json.dumps(s) + "\n")
 
-    def test_buyuk_baglam_uzun_ara_bir_kez_durdurur_sonra_gecer(self):
+    def test_buyuk_baglam_uzun_ara_bilgi_verir_engel_islemi_yok(self):
         self.yaz(asistan(90, 300_000))
         n = S.karar(self.sd, "o1", self.tp, SIMDI)
         self.assertIsNotNone(n)
         self.assertIn("300k", n)
         self.assertIn("USD", n)
         self.assertIn("orkestra is devam", n)
-        self.assertIsNone(S.karar(self.sd, "o1", self.tp, SIMDI + D.timedelta(minutes=2)))  # bilerek sürdürüyor
-        self.assertIsNotNone(S.karar(self.sd, "o1", self.tp, SIMDI + D.timedelta(minutes=3)))  # işaret tüketildi
+        self.assertNotIn("yeniden gönder", n)
+        self.assertIsNotNone(S.karar(self.sd, "o1", self.tp, SIMDI + D.timedelta(minutes=2)))  # işaret yok, her seferinde bilgi
 
     def test_kisa_ara_ya_da_kucuk_baglam_gecer(self):
         self.yaz(asistan(30, 300_000))
