@@ -75,11 +75,11 @@ class DurumTest(Ortak):
         self.assertEqual(d["kontrol"]["fark"], 3)
         self.assertEqual(d["kontrol"]["degisiklikler"][0]["konu"], "bir")
 
-    def test_yenilik_yoksa_kart_cikmaz(self):
+    def test_onekli_commit_yoksa_da_surum_farkinda_kart_cikar(self):
         self.sonuclar = [dict(YENI, yenilik_say=0, degisiklikler=[])]
         g = self.yap()
         g.yokla()
-        self.assertEqual(g.durum()["durum"], "yok")
+        self.assertEqual(g.durum()["durum"], "yeni")
 
     def test_guncelse_yok(self):
         self.sonuclar = [GUNCEL]
@@ -312,8 +312,8 @@ class HttpTest(Ortak):
         k, _ = self.istek("GET", "/api/guncelle")
         self.assertEqual(k, 404)
 
-    def test_surum_20(self):
-        self.assertEqual(panel.SURUM, "20")
+    def test_surum_21(self):
+        self.assertEqual(panel.SURUM, "21")
 
 
 if __name__ == "__main__":
