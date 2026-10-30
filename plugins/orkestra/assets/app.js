@@ -494,7 +494,7 @@
         <div class="simge">${simge('hedef')}</div>
         <div class="govde"><div class="baslik">${ad}: ${f(o.e.deger)}</div>
           <div class="meta"><span>Hedef ${o.e.tur === 'ust' ? '≤' : '≥'} ${f(o.e.hedef)}</span><span>·</span><span>${pAd}</span><span>·</span><span>${B.sayi(o.e.ornek)} örnek</span></div></div>
-        <div class="eylemler"><a class="dugme kucuk" href="#/maliyet" data-birincil>İncele</a></div></article>`;
+        <div class="eylemler"><button class="dugme kucuk" data-eylem="olcu-yoksay" data-ad="${o.ad}" data-pencere="${o.pencere}">Yoksay</button> <a class="dugme kucuk" href="#/maliyet" data-eylem="olcu-incele" data-ad="${o.ad}" data-pencere="${o.pencere}" data-birincil>İncele</a></div></article>`;
     }
     return '';
   }
