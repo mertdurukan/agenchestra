@@ -345,6 +345,15 @@
   };
   const ertelenen = new Map();   // onay id → { z: zamanlayıcı, sonuc, secim }  (geri al süresi içindeki kararlar)
 
+  // "Şimdi uygula" kartları: bekleyen karar varsa ya da koşu sürüyorsa (kosu=true → durum gösterir, düğme kapalı)
+  function uygulaOgeleri(ozetler) {
+    const out = [];
+    ozetler.forEach(o => {
+      const n = o.sayac?.panelden_uygulanabilir || 0, kosu = !!o.uygulama;
+      if (n > 0 || kosu) out.push({ tur: 'uygula', n: n || (o.uygulama?.idler || []).length, alan: o.alan, kosu });
+    });
+    return out;
+  }
   function gelenOgeleri() {
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
     const g = { karar: [], sohbet: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
