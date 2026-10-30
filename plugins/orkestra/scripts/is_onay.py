@@ -95,6 +95,17 @@ def bekleyen_mod_yaz(sd: str, oturum, yeni: str) -> None:
         json.dump({MOD_ALANI: yeni}, f)
 
 
+def bekleyen_mod_bak(sd: str, oturum) -> str | None:
+    """Bekleyen modu silmeden okur (izin kapısı, ADR-0095); yoksa ya da okunamazsa None."""
+    import json
+    try:
+        with open(_bekleyen_yol(sd, oturum), encoding="utf-8") as f:
+            v = (json.load(f) or {}).get(MOD_ALANI)
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if v in (MOD_PLAN, MOD_AUTO) and mod_kapisi_acik() else None
+
+
 def bekleyen_mod_al(sd: str, oturum) -> str | None:
     """Bekleyen modu okur ve siler; yoksa None."""
     import json
