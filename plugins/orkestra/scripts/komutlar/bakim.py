@@ -127,6 +127,19 @@ def _goreli(sd: str, yol: str) -> str:
     return os.path.relpath(yol, sd).replace(os.sep, "/")
 
 
+def hook_kural_uyari(sd: str) -> str:
+    """Kural dosyasındaki 'Hook ile yüklenen kurallar' kimlikleri eklentideki etkin yukle=hook kimlikleriyle uyuşmuyorsa tek satır uyarı; uyuşuyorsa ya da dosya yoksa ''."""
+    import onay
+    dosyada = onay.kural_dosyasi_hook_idleri(sd)
+    if dosyada is None:
+        return ""
+    beklenen = onay.hook_yuklenen_idler(sd)
+    if sorted(dosyada) == sorted(beklenen):
+        return ""
+    return (f"uyarı: kural dosyasındaki hook kuralları ({', '.join(dosyada) or '-'}) eklentidekiyle ({', '.join(beklenen) or '-'}) "
+            "uyuşmuyor; dosyayı panelden yeniden üret")
+
+
 def cmd_bakim(a):
     sd = sd_gerekli()
     uygula = bool(a.uygula)
