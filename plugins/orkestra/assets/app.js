@@ -835,6 +835,7 @@
   function gAyarlar() {
     const yuk = bekle(AYAR_YOL);
     const b = d(AYAR_YOL).veri?.bildirim;
+    const mod = d(AYAR_YOL).veri?.varsayilan_mod;
     const ortam = b?.kaynak === 'ortam';
     const neden = !b ? '' : !b.destek ? 'Bildirim yalnız Windows’ta çalışır.' : ortam ? 'ORKESTRA_BILDIRIM ortam değişkeni belirliyor; ayarı değiştirmek için önce onu kaldır.' : '';
     const govde = yuk || (b ? H`
