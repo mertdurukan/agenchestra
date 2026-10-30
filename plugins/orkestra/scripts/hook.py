@@ -343,6 +343,24 @@ def _yazilacak_metin(arac: str, girdi: dict) -> str:
     return ""
 
 
+def _genis_tarama_kapisi(sd: str, oid, komut: str) -> None:
+    """P-012 madde 4 (golge): zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
+    uyarı bağlama gider; komut engellenmez. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
+    global _BEKLEYEN_UYARI
+    try:
+        import genis_tarama_hatirlatma as GT
+        if not GT.ihlal_mi(komut, sd):
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                         "kural": "genis_tarama", "mod": GT.mod(GT.ayar_oku(sd)),
+                                                         "is": _oturum_isi(sd, oid)})
+        _BEKLEYEN_UYARI = GT.hatirlatma_metni(sd)
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> None:
     """Okunacak belgeye (plan/todo/özet/bulgu/jira_onerisi/rapor .md) yazılacak metnin K-005 biçimi (Ö4).
     golge: `gunluk.jsonl`'a kural_ihlal kaydı + tek satır uyarı (yazma engellenmez); ihlal: yazım reddedilir.
@@ -887,6 +905,7 @@ def pre_tool_use(inp: dict):
 
     if arac in KABUK_ARACLARI:
         komut = girdi.get("command") or ""
+        _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
         # Kilitli test denetimi yalnız yazma işleci içeren komutta anlamlı; yalnız-okuma komutunda kartları (125 JSON) okuma.
         kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd)) if _KABUK_YAZMA_ON.search(komut) else None
         if kgid:
@@ -1122,6 +1141,15 @@ _BILDIRIM_BITTI = re.compile(r"<status>\s*(?:completed|failed|killed|stopped)\s*
 ACIK_GOREV_AZAMI = 50
 
 
+def _sonuc_metni(icerik) -> str:
+    """tool_result içeriği (metin ya da blok listesi) düz metin."""
+    if isinstance(icerik, str):
+        return icerik
+    if isinstance(icerik, list):
+        return " ".join(str(x.get("text") or "") for x in icerik if isinstance(x, dict))
+    return ""
+
+
 def _acik_arka_plan(yol, ofset, bitis, onceki) -> list:
     """Transkriptin [ofset, bitis) aralığındaki arka plan görevlerini önceki açık listeye işler; bildirimi gelmemiş araç kimlikleri döner."""
     acik = [str(x) for x in onceki] if isinstance(onceki, list) else []
@@ -1147,6 +1175,12 @@ def _acik_arka_plan(yol, ofset, bitis, onceki) -> list:
                         acik.append(b["id"])
             elif o.get("type") == "user":
                 metin = icerik if isinstance(icerik, str) else json.dumps(icerik, ensure_ascii=False)
+                if isinstance(icerik, list):  # zaman aşımıyla arka plana düşen komut: bildirimi gelene kadar açık görev
+                    import genis_tarama_hatirlatma as _gt
+                    for b in icerik:
+                        kim = b.get("tool_use_id") if isinstance(b, dict) and b.get("type") == "tool_result" else None
+                        if kim and kim not in acik and _gt.arka_plana_dustu_mu(_sonuc_metni(b.get("content"))):
+                            acik.append(kim)
                 if "<task-notification>" in metin and _BILDIRIM_BITTI.search(metin):
                     for kimlik in _BILDIRIM_ID.findall(metin):
                         if kimlik in acik:
