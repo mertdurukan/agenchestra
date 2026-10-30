@@ -843,8 +843,14 @@
           <span class="soluk kucuk-y" id="ayarBildirimAcik">İş bitince, yanıtın ya da onayın gerekince Windows bildirimi gönderir. Veri dışarı gitmez.</span>
           ${neden ? H`<span class="soluk kucuk-y">${neden}</span>` : ''}</div>
         <button type="button" class="anahtar" role="switch" data-eylem="ayar-bildirim" aria-checked="${b.acik}" aria-labelledby="ayarBildirimAd" aria-describedby="ayarBildirimAcik" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${b.acik ? 'Açık' : 'Kapalı'}</span></button>
-      </div></section>` : bos('Ayarlar okunamadı', '', 'uyari'));
-    return { baslik: 'Ayarlar', sag: H`<span class="soluk kucuk-y">bu bilgisayar için geçerli</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
+      </div></section>
+      ${mod ? H`<section class="kart"><div class="kart-ic yatay ayar-satir">
+        <div class="yigin"><b id="ayarModAd">Varsayılan çalışma modu</b>
+          <span class="soluk kucuk-y" id="ayarModAcik">${mod.alan} çalışma alanı için geçerli. Plan: onay beklenir. Auto: mesajın onay sayılır. Kesin sınırlar (sır, zorla push, DB salt okunur) her iki modda korunur. Sohbette /plan ya da /auto bunu aşar.</span>
+          <span class="soluk kucuk-y">Kaynak: ${MOD_KAYNAK[mod.kaynak] || mod.kaynak}</span></div>
+        <div class="yatay" role="radiogroup" aria-labelledby="ayarModAd" aria-describedby="ayarModAcik">${[['plan', 'Plan'], ['auto', 'Auto']].map(([k, ad]) => H`<button type="button" class="cip" role="radio" data-eylem="ayar-mod" data-v="${k}" aria-checked="${mod.deger === k}">${ad}</button>`)}</div>
+      </div></section>` : ''}` : bos('Ayarlar okunamadı', '', 'uyari'));
+    return { baslik: 'Ayarlar', sag: H`<span class="soluk kucuk-y">bildirim bu bilgisayar için, çalışma modu seçili alan için geçerli</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
   }
   async function ayarBildirim(b) {
     const hedef = b.getAttribute('aria-checked') !== 'true';
