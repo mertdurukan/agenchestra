@@ -88,24 +88,12 @@ def karar(sd: str, oid: str | None, transkript: str | None, simdi: D.datetime | 
     ara_dk = (simdi - s["zaman"]).total_seconds() / 60
     if ara_dk < a["esik_dk"] or s["baglam"] < a["esik_token"]:
         return None
-    isaret = _isaret_yolu(sd, oid)
-    try:
-        with open(isaret, encoding="utf-8") as f:
-            onceki = _zaman(f.read().strip())
-        os.remove(isaret)
-        if onceki and 0 <= (simdi - onceki).total_seconds() / 60 < a["tekrar_dk"]:
-            return None  # kullanıcı bilerek sürdürüyor: bir kez geç
-    except OSError:
-        pass
-    os.makedirs(os.path.dirname(isaret), exist_ok=True)
-    with open(isaret, "w", encoding="utf-8") as f:
-        f.write(simdi.isoformat())
+    # Engellemez (ADR-0095): mesaj aynı turda işlenir. Çağrı sonrası son çağrı zamanı güncellenir, aynı soğukluk için ikinci uyarı doğmaz.
     f_ = L.model_fiyati(s["model"])
     usd = s["baglam"] / 1e6 * f_.get("onbellek_yazma_1sa", f_.get("giris", 0) * 2)
-    return (f"Orkestra önbellek kapısı: son çağrıdan bu yana {ara_dk:.0f} dk geçti, önbellek soğudu. "
-            f"Bu sohbetin bağlamı ~{s['baglam'] // 1000}k token; devam etmek bağlamın tamamını yeniden yazar (~{usd:.2f} USD). "
-            "Ucuz yol: yeni sohbet aç ve `orkestra is devam <iş id>` de (sıradaki adımlar işin todo.md'sinde). "
-            f"Yine de burada sürdürmek için mesajını {a['tekrar_dk']} dk içinde yeniden gönder.")
+    return (f"Orkestra önbellek bilgisi: son çağrıdan bu yana {ara_dk:.0f} dk geçti, önbellek soğudu. "
+            f"Bu sohbetin bağlamı ~{s['baglam'] // 1000}k token; bu mesaj bağlamın tamamını yeniden yazar (~{usd:.2f} USD). "
+            "Mesajın işlendi. Ucuz yol: yeni sohbet aç ve `orkestra is devam <iş id>` de (sıradaki adımlar işin todo.md'sinde).")
 
 
 def is_degisimi_uyarisi(sd: str, oid: str | None, transkript: str | None, bagli_is, onerilen_is) -> str | None:
