@@ -115,6 +115,11 @@ class Esik(_Ortak):
 
 
 class HookBaglantisi(_Ortak):
+    def setUp(self):
+        super().setUp()
+        with open(os.path.join(self.sd, "onbellek_kapisi.json"), "w", encoding="utf-8") as f:  # soğuk önbellek kapısı bu testin konusu değil
+            json.dump({"acik": False, "devir_uyarisi": False, "is_degisimi": False}, f)
+
     def calistir(self, fn, girdi):
         g = {"session_id": OTURUM, "cwd": self.proje, "transcript_path": self.tr}
         g.update(girdi)
