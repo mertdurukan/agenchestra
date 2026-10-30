@@ -1478,7 +1478,8 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
             return
         adim = (f"`orkestra is belge {is_id} ozet` ile çalışma özetini doldur, sonra " if isler._ozet_eksigi(g["klasor"]) else "")
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": "kapanis_atlandi", "is": is_id})
+                                                         "kural": "kapanis_atlandi", "is": is_id,
+                                                         **_kanit("todo_tamam_is_acik", f"{is_id} todo {t['biten']}/{t['toplam']} bitti, iş açık")})
         L.hook_cikti({"decision": "block", "reason":
                       f"Orkestra (P-009): {is_id} todo {t['biten']}/{t['toplam']} bitti ama iş açık. Turu bitirmeden önce: "
                       f"{adim}`orkestra is kapat {is_id}`. İş sürecekse `orkestra is todo {is_id} --ekle \"madde\"` ile yeni madde yaz."})
