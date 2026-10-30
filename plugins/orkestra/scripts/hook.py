@@ -966,6 +966,13 @@ def subagent_start(inp: dict):
         yontem = yontem_enjeksiyonu.isci_metni(inp.get("agent_type"), sd, inp.get("session_id"))
     except Exception:
         yontem = ""
+    try:  # ADR-0101: işçi görevde hata görürse kök neden önce yöntemi (denetçi hariç)
+        import kok_neden_enjeksiyonu
+        kok = kok_neden_enjeksiyonu.isci_metni(inp.get("agent_type"), sd, inp.get("session_id"))
+        if kok:
+            yontem = (yontem + "\n" if yontem else "") + kok
+    except Exception:
+        pass
     if out.strip() or yontem:
         ek = (yontem + "\n") if yontem else ""
         if out.strip():
@@ -2585,6 +2592,11 @@ def user_prompt_submit(inp: dict):
                 parcalar.append(yontem_enjeksiyonu.ana_ajan_metni(metin, sd, inp.get("session_id")))
             except Exception:
                 pass
+            try:  # ADR-0101: hata/sorun içeren mesajda kök neden önce yöntemi; hata hook'u düşürmez
+                import kok_neden_enjeksiyonu
+                parcalar.append(kok_neden_enjeksiyonu.ana_ajan_metni(metin, sd, inp.get("session_id")))
+            except Exception:
+                pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez
                 import sir_yakala
                 parcalar.extend(sir_yakala.kaydet(inp.get("prompt") or ""))
@@ -2706,6 +2718,20 @@ def detach_hatirlatmasi(sonuc) -> str:
         komut = "mcp__ccd_session_mgmt__detach_session(session_id=\"<local_… id>\")"
     return ("K-007: " + hedef + komut + " çağır; oturum kenar çubuğunda bu sohbetin altında iç içe değil, "
             "ayrı sohbet olarak görünmeli. Detach edilmeden tur bitirilmez.")
+
+
+def post_tool_use_failure(inp: dict):
+    """ADR-0101: araç başarısızlığında kök neden önce ipucu (seyreltilmiş); engellemez, hata hook'u düşürmez."""
+    try:
+        sd = L.durum_dizini(inp.get("cwd"))
+        if sd:
+            import kok_neden_enjeksiyonu
+            ipucu = kok_neden_enjeksiyonu.arac_metni(inp, sd)
+            if ipucu:
+                L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PostToolUseFailure", "additionalContext": ipucu}})
+    except Exception:
+        pass
+    gec()
 
 
 def post_tool_use(inp: dict):
@@ -2955,6 +2981,7 @@ OLAYLAR = {
     "Notification": notification,
     "PreToolUse": pre_tool_use, "SubagentStart": subagent_start, "SubagentStop": subagent_stop, "Stop": stop,
     "SessionStart": session_start, "UserPromptSubmit": user_prompt_submit, "PostToolUse": post_tool_use,
+    "PostToolUseFailure": post_tool_use_failure,
     "SessionEnd": session_end, "ConfigChange": config_change, "PreCompact": pre_compact,
 }
 
