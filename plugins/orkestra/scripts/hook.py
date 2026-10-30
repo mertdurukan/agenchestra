@@ -2621,6 +2621,15 @@ def user_prompt_submit(inp: dict):
                     parcalar.insert(1 if sn else 0, km)
             except Exception:
                 pass
+            try:  # ADR-0103: aday yol taraması notu kaynak notunun hemen ardına; gölge modda günlüğe yazılır
+                yn = soru_sinif.yol_metni(metin, sd)
+                if yn:
+                    parcalar.insert((1 if sn else 0) + (1 if km else 0), yn)
+                    L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
+                        "zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "yol_notu",
+                        "mod": soru_sinif.ayar_oku(sd).get("yol_mod", "golge"), "uzunluk": len(metin or "")})
+            except Exception:
+                pass
             try:  # ADR-0009: `/plan` ya da `/auto` mesajı bağlı işin modunu yazar; iş yoksa oturum bekleyen modu tutar
                 import is_onay
                 yeni_mod = is_onay.mod_mesaji(metin)

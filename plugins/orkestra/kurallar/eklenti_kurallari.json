@@ -1096,6 +1096,25 @@
         }
       ],
       "etkinlesme": "2026-10-30T15:16:56+03:00"
+    },
+    {
+      "id": "P-045",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcının sohbet sorusuna yanıt vermeden önce aday yollar sayılır: ilgili skill (yaklasim), SearchSkills/ToolSearch ile MCP aracı, kod ya da canlı kayıt, resmi belge; en ucuz yeterli yol seçilir, yanıt doğrudan kod yazmakla başlamaz. Kural üç mevcut kuralı tek akışta bağlar, metinlerini değiştirmez: doğrulama P-021, tara-çelişki-sentez P-031, çözüm kalitesi P-030. Yanıt kısalığı P-001'de kalır (tarama yanıtta uzun liste olarak görünmez). Hook, kapsamdaki mesaja en çok 300 karakterlik YOL notu ekler (soru_sinif.yol_metni); ilk aşama gölge moddur (P-028): not eklenir ve gunluk.jsonl'a yol_notu yazılır, yanıt engellenmez. Zorlama: scripts/soru_sinif.py, ayarlar/soru_sinif.json yol_* anahtarları, skills/yaklasim, tests/test_soru_sinif.py; ORKESTRA_YOL_NOTU=0 kapatır. (ADR-0103)",
+      "neden": "I-273: P-021/P-030/P-031 bağlamda kural metniydi, yanıt öncesi yol taramasını tur başında tetikleyen adım yoktu; iki gerçek soru sınıflayıcıda soru sayılmadı.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-30T15:00:00+03:00",
+      "guncelleme": "2026-10-30T15:00:00+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-30T15:00:00+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcının sohbet sorusuna yanıt vermeden önce aday yollar sayılır: ilgili skill (yaklasim), SearchSkills/ToolSearch ile MCP aracı, kod ya da canlı kayıt, resmi belge; en ucuz yeterli yol seçilir, yanıt doğrudan kod yazmakla başlamaz. Kural üç mevcut kuralı tek akışta bağlar, metinlerini değiştirmez: doğrulama P-021, tara-çelişki-sentez P-031, çözüm kalitesi P-030. Yanıt kısalığı P-001'de kalır (tarama yanıtta uzun liste olarak görünmez). Hook, kapsamdaki mesaja en çok 300 karakterlik YOL notu ekler (soru_sinif.yol_metni); ilk aşama gölge moddur (P-028): not eklenir ve gunluk.jsonl'a yol_notu yazılır, yanıt engellenmez. Zorlama: scripts/soru_sinif.py, ayarlar/soru_sinif.json yol_* anahtarları, skills/yaklasim, tests/test_soru_sinif.py; ORKESTRA_YOL_NOTU=0 kapatır. (ADR-0103)"
+        }
+      ],
+      "etkinlesme": "2026-10-30T15:00:00+03:00"
     }
-  ]
+  ],
+  "etkinlesme": "2026-10-30T15:00:00+03:00"
 }
