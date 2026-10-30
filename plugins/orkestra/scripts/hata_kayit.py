@@ -143,9 +143,38 @@ def kaydet(sd, kaynak: str, tur: str, ileti: str, baglam=None, ek=None, *, kapi=
             pass
 
 
-def davranis(sd, tur: str, ileti: str, baglam=None, **ret) -> None:
-    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"` ve kök neden alanı. İstisna fırlatmaz.
+_OLAY_AYAR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ayarlar", "olay_kategorileri.json")
+
+
+def olay_kategori(tur: str, kategori=None, alt=None) -> tuple:
+    """(kategori, alt): verilen değer önce, yoksa ayardaki tür eşlemesi, yoksa ("belirsiz", tur). Geçersiz kategori belirsiz olur."""
+    try:
+        with open(_OLAY_AYAR, encoding="utf-8") as f:
+            ayar = json.load(f)
+    except (OSError, ValueError):
+        ayar = {}
+    eslesen = (ayar.get("tur_esleme") or {}).get(tur) or ["belirsiz", tur]
+    kategori, alt = kategori or eslesen[0], alt or eslesen[1]
+    gecerli = ayar.get("kategoriler")
+    if gecerli and kategori not in gecerli:
+        kategori = "belirsiz"
+    return kategori, alt
+
+
+def sonuc_birlestir(satir: dict, baglamalar: dict = None) -> dict:
+    """Okuyucu görünümü (I-289 P1/P3): satırın `sonuc` değeri bağlama kaydından gelir; ham satır değişmez."""
+    satir = dict(satir if isinstance(satir, dict) else {})
+    satir["sonuc"] = (baglamalar or {}).get(satir.get("imza")) or satir.get("sonuc")
+    return satir
+
+
+def davranis(sd, tur: str, ileti: str, baglam=None, kategori=None, alt=None, **ret) -> None:
+    """Davranış hatası satırı: kaynak `davranis`, `sinif: "davranis"`, kök neden, olay `kategori`/`alt` ve boş `sonuc`.
+    İstisna fırlatmaz.
 
     `ret`: kaydet()'in ret bağlamı kwargs'ı (kapi, arac, dosya, ajan, metin); hook-red çağrısı bunları geçirebilir.
+    `kategori`/`alt` verilmezse ayarlar/olay_kategorileri.json tür eşlemesinden gelir (I-289).
     """
-    kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))}, **ret)
+    kat, alt_ = olay_kategori(tur, kategori, alt)
+    kaydet(sd, "davranis", tur, ileti, baglam,
+           {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or "")), "kategori": kat, "alt": alt_, "sonuc": None}, **ret)

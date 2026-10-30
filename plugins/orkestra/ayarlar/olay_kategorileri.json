@@ -1,0 +1,11 @@
+{
+  "aciklama": "Olay kaydı (I-289 P1): ana kategori, alt kategori ve sonuç değerleri. Yeni tür koda dokunmadan buraya eklenir.",
+  "kategoriler": ["kapi_ret", "arac_hatasi", "yanlis_oneri", "kullanici_duzeltme", "karar", "belirsiz"],
+  "tur_esleme": {
+    "hook-red": ["kapi_ret", "hook-red"],
+    "is-klasoru-yanlis": ["arac_hatasi", "is-klasoru-yanlis"],
+    "kabuk-sozdizimi": ["arac_hatasi", "kabuk-sozdizimi"]
+  },
+  "sonuclar": ["tekrarladi", "duzeldi"],
+  "duzeldi_sessiz_gun": 14
+}
