@@ -275,7 +275,32 @@ def _kural_dosya_metni(sd: str) -> str:
         satirlar += ["", "Bu projede kapatılmış eklenti kuralları (geçerli değil): "
                      + ", ".join(f"{r['id']}" + (f" ({_tek_satir(kapali[r['id']].get('not'))})" if kapali[r["id"]].get("not") else "")
                                  for r in kapali_etkin) + "."]
+    hook_idler = hook_yuklenen_idler(sd)
+    if hook_idler:
+        satirlar += ["", HOOK_SATIR_ONEK + ", ".join(hook_idler) + "."]
     return "\n".join(satirlar) + "\n"
+
+
+HOOK_SATIR_ONEK = "Hook ile yüklenen kurallar (bu dosyada yok, ilgili anda hook söyler): "
+
+
+def hook_yuklenen_idler(sd: str) -> list[str]:
+    """Kural dosyasının dışında bırakılan etkin `yukle: hook` eklenti kuralları (bu projede kapatılmamış), eklenti kaydından."""
+    kapali = _devre_disi(sd)
+    return [r["id"] for r in _eklenti_oku()
+            if r.get("durum") == "etkin" and r.get("yukle") == "hook" and r.get("id") and r.get("id") not in kapali]
+
+
+def kural_dosyasi_hook_idleri(sd: str) -> list[str] | None:
+    """Üretilmiş kural dosyasındaki 'Hook ile yüklenen kurallar' satırının kimlikleri; dosya yoksa None, satır yoksa []."""
+    try:
+        with open(_kural_dosya_yolu(sd), encoding="utf-8") as f:
+            for s in f.read().splitlines():
+                if s.startswith(HOOK_SATIR_ONEK):
+                    return re.findall(r"[A-Z]-\d+", s[len(HOOK_SATIR_ONEK):])
+    except OSError:
+        return None
+    return []
 
 
 def _kural_dosyasini_yaz(sd: str, liste: list[dict] | None = None) -> None:

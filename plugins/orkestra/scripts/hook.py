@@ -361,6 +361,35 @@ def _genis_tarama_kapisi(sd: str, oid, komut: str) -> None:
         return
 
 
+def _kanit(eslesen=None, cumle=None) -> dict:
+    """I-271: `kural_ihlal` satırının `eslesen`/`cumle` alanları (ortak yardımcı `kapi_mod.kanit_alanlari`: maske + 200 sınırı).
+    Bilinmeyen alan yazılmaz; hatada boş sözlük (kaydı hiçbir zaman bozmaz)."""
+    try:
+        import kapi_mod
+        return kapi_mod.kanit_alanlari(eslesen, cumle)
+    except Exception:
+        return {}
+
+
+def _kalip_kaniti(kaliplar, metin: str, normallestir) -> dict:
+    """Kalıp listesinde `normallestir(metin)` üstünde eşleşen ilk regex ve onu içeren cümle (`_kanit` alanları). Normalleştirme
+    uzunluğu korursa cümle özgün metinden kesilir, korumazsa normalleştirilmiş metinden. Eşleşme yoksa boş sözlük."""
+    metin = metin or ""
+    norm = normallestir(metin)
+    for k in kaliplar or []:
+        try:
+            m = re.search(k, norm)
+        except re.error:
+            continue
+        if not m:
+            continue
+        kaynak = metin if len(metin) == len(norm) else norm
+        bas = max(kaynak.rfind(c, 0, m.start()) for c in ".!?\n") + 1
+        sonlar = [i for i in (kaynak.find(c, m.end()) for c in ".!?\n") if i != -1]
+        return _kanit(k, kaynak[bas:(min(sonlar) + 1 if sonlar else len(kaynak))])
+    return {}
+
+
 def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> None:
     """Okunacak belgeye (plan/todo/özet/bulgu/jira_onerisi/rapor .md) yazılacak metnin K-005 biçimi (Ö4).
     golge: `gunluk.jsonl`'a kural_ihlal kaydı + tek satır uyarı (yazma engellenmez); ihlal: yazım reddedilir.
@@ -390,9 +419,12 @@ def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> 
                 _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" if _BEKLEYEN_UYARI else "") + \
                     f"orkestra: biçim düzeltildi (K-005): {len(uyg)} dönüşüm; {os.path.basename(tam)} düzeltilmiş içerikle yazılıyor."
                 return
+        satirlar_ = _yazilacak_metin(arac, girdi).split("\n")  # belge_bicim._bloklar ile aynı numaralama
+        no = ihlaller[0].get("satir") or 0
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
             **kayit, "tur": "kural_ihlal", "mod": kip,
-            "ihlal": [{"satir": i["satir"], "kural": i["kural"]} for i in ihlaller[:8]], "adet": len(ihlaller)})
+            "ihlal": [{"satir": i["satir"], "kural": i["kural"]} for i in ihlaller[:8]], "adet": len(ihlaller),
+            **_kanit(ihlaller[0].get("kural"), satirlar_[no - 1] if 0 < no <= len(satirlar_) else None)})
         satir = BB.ozet_satiri(os.path.basename(tam), ihlaller)
         if kip == "ihlal":
             reddet(satir.replace("(K-005, gölge)", "(K-005)") + " Düzelt, sonra yaz; bilerek ise satır sonuna `<!-- biçim-tamam -->` koy.")
@@ -1355,9 +1387,12 @@ def _kimlik_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         import kimlik_hatirlatma as KH
         if not KH.yanit_ihlali(inp.get("last_assistant_message"), sd):
             return
-        kip = KH.mod(KH.ayar_oku(sd))
+        kayar = KH.ayar_oku(sd)
+        kip = KH.mod(kayar)
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": "kimlik_once_bak", "mod": kip, "is": _oturum_isi(sd, oid)})
+                                                         "kural": "kimlik_once_bak", "mod": kip, "is": _oturum_isi(sd, oid),
+                                                         **_kalip_kaniti(kayar.get("yanit_kaliplari"), inp.get("last_assistant_message"),
+                                                                         KH._normallestir)})
         if kip == "block" and not inp.get("stop_hook_active"):
             L.hook_cikti({"decision": "block", "reason": KH.hatirlatma_metni(sd)})
     except SystemExit:
@@ -1380,14 +1415,18 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
             ykip = SH.yapisal_mod(SH.ayar_oku(sd))
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
                                                              "kural": "secim_ekrani_yapisal", "mod": ykip, "tetik": tetik,
-                                                             "is": _oturum_isi(sd, oid)})
+                                                             "is": _oturum_isi(sd, oid), **_kanit(tetik)})
             if ykip == "block" and not inp.get("stop_hook_active"):
                 L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
             return
-        kip = SH.mod(SH.ayar_oku(sd))
+        sayar = SH.ayar_oku(sd)
+        kip = SH.mod(sayar)
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": "secim_ekrani", "mod": kip, "is": _oturum_isi(sd, oid)})
+                                                         "kural": "secim_ekrani", "mod": kip, "is": _oturum_isi(sd, oid),
+                                                         **_kalip_kaniti(sayar.get("yanit_kaliplari"),
+                                                                         SH._kodsuz(inp.get("last_assistant_message") or ""),
+                                                                         SH._normallestir)})
         if kip == "block" and not inp.get("stop_hook_active"):
             L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
     except SystemExit:
@@ -1430,7 +1469,9 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
         if not bulgu:
             return
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": KI.KURAL, "mod": kip, "is": _oturum_isi(sd, oid)})
+                                                         "kural": KI.KURAL, "mod": kip, "is": _oturum_isi(sd, oid),
+                                                         **(_kalip_kaniti(ayar.get("tetik_kaliplari"), bulgu.get("alinti"),
+                                                                          KI._normallestir) or _kanit(None, bulgu.get("alinti")))})
         if KI.uyari_acik(ayar):
             uyari = KI.uyari_metni(bulgu["alinti"], ayar)
             _KULLANICI_MESAJI = chr(10).join(x for x in (_KULLANICI_MESAJI, uyari) if x)
@@ -1489,7 +1530,8 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
             return
         adim = (f"`orkestra is belge {is_id} ozet` ile çalışma özetini doldur, sonra " if isler._ozet_eksigi(g["klasor"]) else "")
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": "kapanis_atlandi", "is": is_id})
+                                                         "kural": "kapanis_atlandi", "is": is_id,
+                                                         **_kanit("todo_tamam_is_acik", f"{is_id} todo {t['biten']}/{t['toplam']} bitti, iş açık")})
         L.hook_cikti({"decision": "block", "reason":
                       f"Orkestra (P-009): {is_id} todo {t['biten']}/{t['toplam']} bitti ama iş açık. Turu bitirmeden önce: "
                       f"{adim}`orkestra is kapat {is_id}`. İş sürecekse `orkestra is todo {is_id} --ekle \"madde\"` ile yeni madde yaz."})
@@ -1591,6 +1633,12 @@ def stop(inp: dict):
                  "arac_cagrisi": ozet["arac_cagrisi"], "perspektif": perspektif, "kaynak": "hook",
                  **L.is_alanlari(sd, oid, "-"), **kimlik}
         _maliyet_satirlari(sd, ozet, taban)
+        if not perspektif:
+            try:  # I-271: pahalı tur (önbellek okuması eşik üstü) → sonraki mesaja devir ipucu; hata kancayı düşürmez
+                import devir_esigi
+                devir_esigi.tur_kaydet(sd, oid, (ozet.get("toplam") or {}).get("onbellek_okuma", 0))
+            except Exception:
+                pass
     # Ofset en son ilerler: maliyet/zaman satırı yazılamazsa tur bir sonraki durakta yeniden okunur (satır kaybolmaz).
     with L.kilit(ofset_yolu):  # oku-birleştir-yaz kilitli (iş bağıyla kayıp güncelleme yarışı olmasın)
         try:
@@ -1631,7 +1679,10 @@ def stop(inp: dict):
             import soru_sinif
             if soru_sinif.yanit_ihlali(inp.get("last_assistant_message"), sd):
                 L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                                 "kural": "konu_disi_oneri", "is": _oturum_isi(sd, oid)})
+                                                                 "kural": "konu_disi_oneri", "is": _oturum_isi(sd, oid),
+                                                                 **_kalip_kaniti(soru_sinif.ayar_oku(sd).get("yanit_yasak_kaliplari"),
+                                                                                 inp.get("last_assistant_message"),
+                                                                                 soru_sinif._normallestir)})
         except Exception:
             pass
     if not perspektif:
@@ -2695,6 +2746,11 @@ def user_prompt_submit(inp: dict):
                         _is_klasorunu_commitle(kayit.get("klasor"), inp.get("cwd"))  # ADR-0038: onay yazımı işin is.json'ını kirli bırakmasın
                     if satir:
                         parcalar.append(satir)
+            except Exception:
+                pass
+            try:  # I-271: önceki tur pahalıysa (önbellek okuması eşik üstü) tek satır devir ipucu; engellemez
+                import devir_esigi
+                parcalar.append(devir_esigi.ipucu_al(sd, inp.get("session_id")))
             except Exception:
                 pass
             parcalar.append(_durum_satiri(sd, inp.get("session_id")))  # I-224 P6: onay işlendikten sonraki güncel durum

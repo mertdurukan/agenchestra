@@ -619,7 +619,8 @@ def _ihlal_ver(klasor: str, neden: str) -> str:
         sd = L.durum_dizini(klasor)
         if sd:
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "tur": "kural_ihlal",
-                                                         "kural": "plan_dogrulama", "mod": "golge", "neden": neden[:300]})
+                                                         "kural": "plan_dogrulama", "mod": "golge", "neden": neden[:300],
+                                                         **__import__("kapi_mod").kanit_alanlari(None, neden)})
     except Exception:
         pass
     print(f"orkestra (gölge): {neden}", file=sys.stderr)
