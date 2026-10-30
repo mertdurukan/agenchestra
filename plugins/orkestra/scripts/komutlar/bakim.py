@@ -262,6 +262,7 @@ def cmd_bakim(a):
     _j = jira_izin_uyari(sd)
     if _j:
         print(_j)
+    print(_w) if (_w := worktree_geride_uyari()) else None
     if a.kapat and not uygula:
         print(f"kuru: --kapat yalnız --uygula ile {len(bos)} işi --ozetsiz \"{OZETSIZ_NEDEN}\" ile kapatır")
 
