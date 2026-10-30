@@ -249,7 +249,7 @@ class Detay(Temel):  # kriter 2
 
 class Csv(Temel):  # kriter 3
     BASLIK = ["is", "baslik", "usd", "token", "claude_sn", "alt_sn", "oturum", "kart", "todo_biten", "todo_toplam",
-              "ilk", "son"]
+              "ilk", "son", "etkin_sn"]
 
     def test_csv_metni_basligi_ve_satirlari(self):
         import is_rapor

@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
 import ork_lib as L  # noqa: E402
 import baglam as B  # noqa: E402
+import etkin_sure as ES  # noqa: E402
 
 KORUNAN_ADLAR = {"ortak_defter.md", "ortak_defter.jsonl", "maliyet.jsonl", "gunluk.jsonl", "atif.jsonl"}
 YAZAN_ARACLAR = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
@@ -1488,8 +1489,9 @@ def stop(inp: dict):
     perspektif = bool(os.environ.get("ORKESTRA_PERSPEKTIF"))
     kimlik = {} if perspektif else L.istek_kimlik_alanlari(sd, oid, tur_arttir=True)
     if not perspektif and ozet.get("ilk_zaman"):
+        _sure = L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"])
         _zaman_ekle(sd, {"zaman": L.simdi(), "oturum": oid, **L.is_alanlari(sd, oid, "-"), "tur": "ana",
-                         "sure_ms": L.sure_ms(ozet["ilk_zaman"], ozet["son_zaman"]), "istek_zamani": ozet["ilk_zaman"], **kimlik})
+                         "sure_ms": _sure, "etkin_ms": ES.etkin_ms(_sure, sd), "istek_zamani": ozet["ilk_zaman"], **kimlik})
         _arac_satirlari_ekle(sd, oid, ozet, kimlik, {"is": L.is_alanlari(sd, oid, "-").get("is")})
     ajan = "perspektif-bakimcisi" if perspektif else "ana-ajan"
     surec = "perspektif" if perspektif else "orkestrasyon"
@@ -2762,6 +2764,7 @@ def _oturum_ozet_satiri(sd: str, oid: str) -> str:
     zaman = [r for r in L.zaman_kayitlari(sd) if r.get("oturum") == oid]
     ana = _dk([r.get("sure_ms") for r in zaman if r.get("tur") == "ana"])
     alt = _dk([r.get("sure_ms") for r in zaman if r.get("tur") == "alt"])
+    etkin = _dk([r.get("etkin_ms") if r.get("etkin_ms") is not None else r.get("sure_ms") for r in zaman if r.get("tur") == "ana"])
     mal = [r for r in L.maliyet_kayitlari(sd) if isinstance(r, dict) and r.get("oturum") == oid]
     if mal:
         tok = int(sum(_sayi(r.get(a)) or 0 for r in mal for a in ("giris", "cikis", "onbellek_okuma", "onbellek_yazma")))
@@ -2778,7 +2781,7 @@ def _oturum_ozet_satiri(sd: str, oid: str) -> str:
                 sonuc = k.get("sonuc") or sonuc
     sonuc = sonuc or ne
     an = L.simdi()[:16].replace("T", " ")
-    return (f"- {an} · oturum {oid[:8]} · Claude süresi {ana} · alt ajan süresi {alt} · {tok_s} token · ${usd_s}"
+    return (f"- {an} · oturum {oid[:8]} · Claude süresi {ana} · alt ajan süresi {alt} · etkin süre {etkin} · {tok_s} token · ${usd_s}"
             f" · ne: {_tek_satir(ne)} · sonuç/nerede kalındı: {_tek_satir(sonuc)}\n")
 
 

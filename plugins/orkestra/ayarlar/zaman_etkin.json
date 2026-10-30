@@ -1,0 +1,4 @@
+{
+  "esik_dk": 120,
+  "aciklama": "I-257/I-259: ana tur süresi (zaman.jsonl tur=ana sure_ms) bu eşiği (dakika) aşarsa kullanıcı beklemesi sayılır ve etkin_ms 0 yazılır; eşiğin altındaki turda etkin_ms = sure_ms. Eşik seçimi: 60 dk etkin 277,8 saat, 120 dk 336,0, 240 dk 399,4 (I-257 ölçümü, 15 gün). Proje ezmesi: .claude/orkestra/zaman_etkin.json."
+}

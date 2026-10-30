@@ -19,7 +19,7 @@ import iz
 KOVA = "I-000"
 KOVA_BASLIK = "İşe bağlanmamış"
 CSV_BASLIK = ["is", "baslik", "usd", "token", "claude_sn", "alt_sn", "oturum", "kart", "todo_biten", "todo_toplam",
-              "ilk", "son"]
+              "ilk", "son", "etkin_sn"]
 
 
 def _is_id(v) -> str:
@@ -220,6 +220,7 @@ def rapor(sd: str) -> dict:
             "usd": round(t["usd"], 6),
             "token": t["token"],
             "claude_sn": sum(_sayi(r.get("sure_ms")) for r in z if r.get("tur") == "ana") / 1000,
+            "etkin_sn": sum(_etkin(r) for r in z if r.get("tur") == "ana") / 1000,
             "alt_sn": sum(_sayi(r.get("sure_ms")) for r in z if r.get("tur") == "alt") / 1000,
             "oturum": len(oturum),
             "kart": sum(1 for k in kartlar if k.get("is") == i),
@@ -306,12 +307,14 @@ def detay(sd: str, is_id: str):
     for r in m + z:
         a = og.setdefault((r.get("oturum") or "-", _gun(r) or "-"),
                           {"oturum": r.get("oturum") or "-", "gun": _gun(r) or "-", "usd": 0.0, "token": 0,
-                           "claude_sn": 0.0, "alt_sn": 0.0})
+                           "claude_sn": 0.0, "etkin_sn": 0.0, "alt_sn": 0.0})
         if "maliyet_usd" in r or "giris" in r:
             a["usd"] += _sayi(r.get("maliyet_usd"))
             a["token"] += _token(r)
         if r.get("tur") in ("ana", "alt") and "sure_ms" in r:
             a["claude_sn" if r["tur"] == "ana" else "alt_sn"] += _sayi(r.get("sure_ms")) / 1000
+            if r["tur"] == "ana":
+                a["etkin_sn"] += _etkin(r) / 1000
     kr: dict = {}
     for r in m:
         a = kr.setdefault((r.get("surec") or "-", r.get("ajan") or "-", r.get("model") or "-"),
@@ -350,13 +353,18 @@ def _oran(v, yuzde=False) -> str:
     return f"{v * 100:.1f}%" if not yuzde else f"{v:.1f}%"
 
 
+def _etkin(r: dict) -> float:
+    """Ana tur satırının etkin süresi (ms); `etkin_ms` yazılmamış eski satırda ham süreye düşer (I-259)."""
+    return _sayi(r.get("etkin_ms")) if "etkin_ms" in r and r.get("etkin_ms") is not None else _sayi(r.get("sure_ms"))
+
+
 def metin(r: dict) -> str:
     if not r["satirlar"]:
         govde = "iş yok"
     else:
         govde = _tablo(
-            ["iş", "başlık", "USD", "token", "claude", "alt ajan", "oturum", "kart", "todo", "ilk", "son"],
-            [[s["is"], s["baslik"], f"{s['usd']:.2f}", s["token"], _sure(s["claude_sn"]), _sure(s["alt_sn"]),
+            ["iş", "başlık", "USD", "token", "claude", "etkin", "alt ajan", "oturum", "kart", "todo", "ilk", "son"],
+            [[s["is"], s["baslik"], f"{s['usd']:.2f}", s["token"], _sure(s["claude_sn"]), _sure(s["etkin_sn"]), _sure(s["alt_sn"]),
               s["oturum"], s["kart"], f"{s['todo_biten']}/{s['todo_toplam']}", s["ilk"] or "-", s["son"] or "-"]
              for s in r["satirlar"]])
     k = r["kalite"]
@@ -388,8 +396,8 @@ def metin(r: dict) -> str:
 def metin_detay(d) -> str:
     if not d:
         return "iş yok"
-    og = _tablo(["oturum", "gün", "USD", "token", "claude", "alt ajan"],
-                [[x["oturum"], x["gun"], f"{x['usd']:.2f}", x["token"], _sure(x["claude_sn"]), _sure(x["alt_sn"])]
+    og = _tablo(["oturum", "gün", "USD", "token", "claude", "etkin", "alt ajan"],
+                [[x["oturum"], x["gun"], f"{x['usd']:.2f}", x["token"], _sure(x["claude_sn"]), _sure(x["etkin_sn"]), _sure(x["alt_sn"])]
                  for x in d["oturum_gun"]])
     kr = _tablo(["süreç", "ajan", "model", "USD", "token"],
                 [[x["surec"], x["ajan"], x["model"], f"{x['usd']:.2f}", x["token"]] for x in d["kirilim"]])
