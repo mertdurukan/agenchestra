@@ -97,7 +97,8 @@ class TestKuralIhlal(_Proje):  # K1, K4, K5
         with mock.patch.object(KM, "kanit_alanlari", side_effect=RuntimeError("bozuk")):
             self.kos(hook._kimlik_kapisi_yanit, "Cosmos erişimi bekleniyor.")
         k = self.kayit("kimlik_once_bak")
-        self.assertEqual(set(k), {"zaman", "oturum", "tur", "kural", "mod", "is"})  # yardımcı bozulsa da eski şema
+        # yardımcı bozulsa da eski şema (`v`: jsonl_ekle'nin şema sürümü)
+        self.assertEqual(set(k) - {"v"}, {"zaman", "oturum", "tur", "kural", "mod", "is"})
 
 
 class TestKapiRet(_Proje):  # K2, K3
