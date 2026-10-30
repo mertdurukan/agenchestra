@@ -206,6 +206,27 @@ def _kimlik_kapisi(arac: str, girdi: dict, okuma_acik: bool = False) -> str | No
     return None
 
 
+_YETKI_DOSYASI = re.compile(r"""(?:^|[\\/\s'"])yetki\.json\b""", re.I)
+_YETKI_KABUK_YAZIM = re.compile(
+    r"(?:>|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\bdel\b|\brm\b|\bcopy\b|\bmove\b|Set-Content|Out-File|Add-Content|Remove-Item|"
+    r"Move-Item|Copy-Item|New-Item|Rename-Item|\bopen\s*\(|write_text|json\.dump)", re.I)
+
+
+def _yetki_kapisi(arac: str, girdi: dict) -> str | None:
+    """Varsayılan mod ayarı (`yetki.json`) yalnız kullanıcı tarafından değiştirilir; ajan Edit/Write/kabukla yazamaz (P-020, ADR-0103)."""
+    if arac in ("Edit", "Write", "NotebookEdit"):
+        yol = str(girdi.get("file_path") or girdi.get("notebook_path") or "")
+        hedef = bool(re.search(r"(?:^|[\\/])yetki\.json$", yol, re.I))
+    elif arac in KABUK_ARACLARI:
+        komut = str(girdi.get("command") or "")
+        hedef = bool(_YETKI_DOSYASI.search(komut) and _YETKI_KABUK_YAZIM.search(komut))
+    else:
+        return None
+    if hedef:
+        return "yetki.json (ADR-0103): varsayılan çalışma modunu yalnız kullanıcı değiştirir; ajan yazamaz. Dosyayı kendiniz düzenleyin."
+    return None
+
+
 def _auto_modu(sd, oturum) -> bool:
     """ADR-0086/0095: oturumun bağlı işi `auto` modda mı (is.json `mod`); iş bağlı değilse oturumda bekleyen mod. Okunamazsa False."""
     if os.environ.get("ORKESTRA_AUTO_YETKI") == "0" or not sd or not oturum:
@@ -215,8 +236,9 @@ def _auto_modu(sd, oturum) -> bool:
         import is_onay
         is_id = is_onay._bagli_is_id(sd, oturum)
         if not is_id:  # ADR-0095: iş bağlanmadan gelen /auto oturumda bekler; silmeden okunur
-            return is_onay.bekleyen_mod_bak(sd, oturum) == is_onay.MOD_AUTO
-        return is_onay.mod(is_kaydi.is_al(sd, is_id)) == is_onay.MOD_AUTO
+            bekleyen = is_onay.bekleyen_mod_bak(sd, oturum)  # açık /plan ya da /auto varsayılanı geçer
+            return (bekleyen or is_onay.varsayilan_mod(sd)) == is_onay.MOD_AUTO
+        return is_onay.mod(is_kaydi.is_al(sd, is_id), sd) == is_onay.MOD_AUTO
     except Exception:
         return False
 
@@ -267,6 +289,9 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
     ned = _kimlik_kapisi(arac, girdi or {}, _kimlik_okuma_acik(cfg))
     if ned:
         return "deny", ned  # mod ne olursa olsun
+    ned = _yetki_kapisi(arac, girdi or {})
+    if ned:
+        return "deny", ned  # varsayılan mod ayarı: mod ne olursa olsun
     if arac in KABUK_ARACLARI:
         ned = _onay_kabuk_kapisi(girdi or {}, sd, oturum)
         if ned:

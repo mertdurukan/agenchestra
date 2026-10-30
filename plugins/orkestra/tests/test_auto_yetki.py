@@ -334,5 +334,76 @@ class UcAdim(_Onay):
         self.assertEqual(self.karar_("Bash", komut="git push origin main"), "ask")
 
 
+class VarsayilanMod(unittest.TestCase):
+    """ADR-0103 (I-276): proje ezmesi `yetki.json` varsayılan modu `auto` yapar; kesin sınırlar ve açık /plan korunur."""
+
+    def setUp(self):
+        self.sd = tempfile.mkdtemp()
+        self._ort = os.environ.get("ORKESTRA_IZIN")
+        os.environ["ORKESTRA_IZIN"] = "genis"
+
+    def tearDown(self):
+        if self._ort is None:
+            os.environ.pop("ORKESTRA_IZIN", None)
+        else:
+            os.environ["ORKESTRA_IZIN"] = self._ort
+
+    def _yaz(self, icerik):
+        with open(os.path.join(self.sd, "yetki.json"), "w", encoding="utf-8") as f:
+            f.write(icerik)
+
+    def _karar(self, arac, girdi):
+        with mock.patch.object(IP, "_onay_kaydi_var", return_value=False):
+            return IP.karar(arac, girdi, sd=self.sd, oturum="o")[0]
+
+    def test_ayar_yokken_plan(self):
+        self.assertEqual(is_onay.mod({}, self.sd), "plan")
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+
+    def test_ayar_auto_modsuz_is_auto(self):
+        self._yaz('{"varsayilan_mod": "auto"}')
+        self.assertEqual(is_onay.mod({}, self.sd), "auto")
+        self.assertEqual(is_onay.mod({"mod": "plan"}, self.sd), "plan")  # açık /plan varsayılanı geçer
+        self.assertEqual(is_onay.mod({"mod": "auto"}, self.sd), "auto")
+
+    def test_bagsiz_oturum_auto_ve_plan_geri_alir(self):
+        self._yaz('{"varsayilan_mod": "auto"}')
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "allow")
+        is_onay.bekleyen_mod_yaz(self.sd, "o", "plan")
+        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+
+    def test_kesin_sinirlar_varsayilan_autoda_kalir(self):
+        self._yaz('{"varsayilan_mod": "auto"}')
+        kimlik = os.path.join(os.path.expanduser("~"), "." + "orkestra", "cred" + "entials", "p", "s.env")
+        self.assertEqual(self._karar("Bash", {"command": "git push --force origin x"}), "deny")
+        self.assertEqual(self._karar("Bash", {"command": "gh repo delete x/y --yes"}), "deny")
+        self.assertEqual(self._karar("mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__executeDestructive", {}), "deny")
+        self.assertEqual(self._karar("Write", {"file_path": kimlik}), "deny")
+        self.assertEqual(self._karar("Bash", {"command": "type " + kimlik}), "deny")
+
+    def test_bozuk_ayar_ve_gecersiz_deger_plana_duser(self):
+        for icerik in ("{bozuk", '{"varsayilan_mod": "tam"}', "[]", ""):
+            self._yaz(icerik)
+            self.assertEqual(is_onay.mod({}, self.sd), "plan", icerik)
+
+    def test_kapatma_degiskenleri(self):
+        self._yaz('{"varsayilan_mod": "auto"}')
+        with mock.patch.dict(os.environ, {"ORKESTRA_AUTO_YETKI": "0"}):
+            self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+        with mock.patch.dict(os.environ, {"ORKESTRA_MOD_KAPISI": "0"}):
+            self.assertEqual(is_onay.mod({}, self.sd), "plan")
+
+    def test_ajan_yetki_json_yazamaz(self):
+        self._yaz('{"varsayilan_mod": "auto"}')
+        for yol in (os.path.join(self.sd, "yetki.json"), "C:\\x\\ayarlar\\yetki.json", "/p/.claude/orkestra/yetki.json"):
+            for arac in ("Edit", "Write"):
+                self.assertEqual(self._karar(arac, {"file_path": yol}), "deny", (arac, yol))
+        for komut in ("echo {} > .claude/orkestra/yetki.json", "Set-Content .claude\\orkestra\\yetki.json '{}'",
+                      "python -c \"open('yetki.json','w').write('x')\"", "rm .claude/orkestra/yetki.json"):
+            self.assertEqual(self._karar("Bash", {"command": komut}), "deny", komut)
+        self.assertEqual(self._karar("Bash", {"command": "cat .claude/orkestra/yetki.json"}), "allow")  # okuma serbest
+        self.assertEqual(self._karar("Write", {"file_path": os.path.join(self.sd, "baska.json")}), "allow")
+
+
 if __name__ == "__main__":
     unittest.main()

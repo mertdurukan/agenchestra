@@ -1,0 +1,5 @@
+{
+  "surum": 1,
+  "varsayilan_mod": "plan",
+  "aciklama": "Yeni işlerin ve iş bağlanmamış oturumların varsayılan çalışma modu: plan | auto. Proje ezmesi .claude/orkestra/yetki.json (klasör = proje kökü); açık /plan ve /auto mesajı varsayılanı geçer. Kesin sınırlar (push, kalıcı silme, kimlik, sır) auto'da da geçerlidir. Dosyayı yalnız kullanıcı düzenler; ajan yazımı izin hook'unda kapalıdır. ORKESTRA_MOD_KAPISI=0 ve ORKESTRA_AUTO_YETKI=0 kapatır."
+}
