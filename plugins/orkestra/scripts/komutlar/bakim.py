@@ -186,6 +186,9 @@ def cmd_bakim(a):
     print(f"boş açık iş: {len(bos)} (kartsız, todo'suz, içeriği boş planlı, ≥{a.bos_saat:g} saat)")
     for g in bos:
         print(f"  {g['id']} {g['baslik'][:60]} ({g['yas_saat']} saat)")
+    _u = hook_kural_uyari(sd)
+    if _u:
+        print(_u)
     if a.kapat and not uygula:
         print(f"kuru: --kapat yalnız --uygula ile {len(bos)} işi --ozetsiz \"{OZETSIZ_NEDEN}\" ile kapatır")
 
