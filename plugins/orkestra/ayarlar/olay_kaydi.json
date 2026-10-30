@@ -1,0 +1,16 @@
+{
+  "mod": "golge",
+  "pencere_gun": 7,
+  "oneri_esik": {"n_min": 5, "wilson_alt_min": 0.5},
+  "duzeltme_hedef_wilson_alt": 0.6,
+  "duzeltme_kaliplari": [
+    {"id": "d1", "desen": "^\\s*(hayır|yanlış|yanlis)\\b"},
+    {"id": "d2", "desen": "\\b(bunu|bunu da|böyle)\\s+istemedim\\b"},
+    {"id": "d3", "desen": "\\b(yanlış|hatalı)\\s+(yap|anla|oku|yaz)\\w*"},
+    {"id": "d4", "desen": "\\b(düzelt|düzeltir\\s+misin)\\b.{0,40}\\b(yanlış|hata)\\b"},
+    {"id": "d5", "desen": "\\bböyle\\s+(olmamış|olmaz|değil)\\b"},
+    {"id": "d6", "desen": "\\b(bunu|şunu)\\s+yapma\\b"}
+  ],
+  "yol_sablon": "{alt}: son {n} olayın {duzeldi} tanesi {pencere} gün içinde düzeldi (Wilson alt sınırı {alt_sinir}). Önceki çözüm yolunu yeniden uygula; öneri otomatik uygulanmaz.",
+  "kesit_uzunluk": 120
+}
