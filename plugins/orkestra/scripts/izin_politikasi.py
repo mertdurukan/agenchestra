@@ -214,7 +214,9 @@ def _auto_modu(sd, oturum) -> bool:
         import is_kaydi
         import is_onay
         is_id = is_onay._bagli_is_id(sd, oturum)
-        return bool(is_id) and is_onay.mod(is_kaydi.is_al(sd, is_id)) == is_onay.MOD_AUTO
+        if not is_id:  # ADR-0095: iş bağlanmadan gelen /auto oturumda bekler; silmeden okunur
+            return is_onay.bekleyen_mod_bak(sd, oturum) == is_onay.MOD_AUTO
+        return is_onay.mod(is_kaydi.is_al(sd, is_id)) == is_onay.MOD_AUTO
     except Exception:
         return False
 
