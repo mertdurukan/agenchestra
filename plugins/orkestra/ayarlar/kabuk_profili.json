@@ -1,0 +1,18 @@
+{
+  "mod": "etkin",
+  "aciklama": "ADR-0102, P-043: kullanıcıya verilen komut kullanıcı kabuğunun sözdizimiyle yazılır. Profil metni standartlar/kabuk_profili.md bölümlerinden okunur; model çağırmaz, engellemez. profil: auto | powershell5 | powershell7 | bash | cmd (auto = Windows'ta powershell5, diğerlerinde bash). stop_kip: golge (yalnız günlük) | kapali. Kapatma: ORKESTRA_KABUK_PROFILI=0. Proje ezmesi: .claude/orkestra/kabuk_profili.json.",
+  "profil": "auto",
+  "onek": "ORKESTRA KABUK (ADR-0102): kullanıcıya vereceğin komutlar ",
+  "stop_kip": "golge",
+  "komut_sozcukleri": [
+    "komut", "terminal", "çalıştır", "calistir", "powershell", "bash", "cmd", "shell", "kabuk",
+    "push", "pushla", "commit", "betik", "script", "yapıştır", "kur", "install"
+  ],
+  "kod_etiketleri": ["powershell", "ps1", "pwsh", "bash", "sh", "shell", "zsh", "cmd", "bat", "console"],
+  "yasak": {
+    "powershell5": ["&&", "\\|\\|", "\\bexport\\s+\\w+=", "(?m)^\\s*[A-Z_][A-Z0-9_]*=\\S+\\s+\\w+", "/dev/null", "\\bcd\\s+/[a-z]/"],
+    "powershell7": ["\\bexport\\s+\\w+=", "(?m)^\\s*[A-Z_][A-Z0-9_]*=\\S+\\s+\\w+", "/dev/null", "\\bcd\\s+/[a-z]/"],
+    "bash": ["\\$env:\\w+", "\\bSet-Location\\b", "\\bGet-ChildItem\\b"],
+    "cmd": ["\\$env:\\w+", "\\bexport\\s+\\w+=", "/dev/null"]
+  }
+}
