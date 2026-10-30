@@ -140,6 +140,25 @@ def hook_kural_uyari(sd: str) -> str:
             "uyuşmuyor; dosyayı panelden yeniden üret")
 
 
+def jira_izin_uyari(sd: str) -> str:
+    """Proje izin politikası Jira yazmasını (MCP yazma aracı ya da REST yazması) serbest bırakıyor, geçerli jira_yorum standardı ise
+    hâlâ 'onaya tabidir' diyorsa tek satır uyarı; yoksa ''. Karar izin_politikasi.karar'dan okunur (ask/deny = kapı var)."""
+    import izin_politikasi as IP
+    import standart
+    metin = standart.oku("jira_yorum", sd) or ""
+    if not re.search(r"onaya\s+tabi", metin, re.IGNORECASE):
+        return ""
+    cfg = IP.ayar_yukle(sd)
+    mcp = IP.karar("mcp__atlassian__addCommentToJiraIssue", {}, sd=sd, cfg=cfg)[0]
+    rest = IP.karar("Bash", {"command": "curl -X POST https://x.atlassian.net/rest/api/3/issue/A-1/comment -d @y.json"},
+                    sd=sd, cfg=cfg)[0]
+    serbest = [ad for ad, k in (("MCP yazma", mcp), ("REST yazma", rest)) if k not in ("ask", "deny")]
+    if not serbest:
+        return ""
+    return (f"uyarı: izin politikası Jira yazmasını serbest bırakıyor ({', '.join(serbest)}) ama jira_yorum standardı "
+            "'yazma onaya tabidir' diyor; standardı proje izin politikasına göre düzelt")
+
+
 def olu_yol_ve_terk(sd: str, a, rapor: dict, uygula: bool) -> None:
     """I-271 P4: rapora 'olu_yol' (açık, klasörü diskte yok) ve 'terk_isler' (boş, maliyetsiz, terk_is_saat'ten eski;
     is_esleme.json, varsayılan 24) ekler. --kapat --uygula terk işleri mevcut kapatma yoluyla kapatır; ölü yola dokunmaz."""
@@ -164,6 +183,30 @@ def olu_yol_ve_terk(sd: str, a, rapor: dict, uygula: bool) -> None:
           + ("" if uygula and a.kapat else "; kapatmak için orkestra bakim --kapat --uygula"))
     for g in rapor["terk_isler"]:
         print(f"  {g['id']} {g['baslik'][:60]} ({g['yas_saat']} saat)")
+
+
+def worktree_geride_uyari(kok: str | None = None) -> str:
+    """I-271 P8: oturum bağlı bir git worktree'sindeyse ve ana ağaçta durum klasörü varsa (ADR-0033), worktree'nin
+    .claude/orkestra kopyasındaki gunluk.jsonl ve maliyet.jsonl satır sayısını ana kopyayla karşılaştırır; ana kopya
+    öndeyse tek satır uyarı, değilse (worktree değil, ana kopya yok, fark yok) ''."""
+    kok = kok or L.oturum_koku()
+    ana = L.ana_agac_koku(kok)
+    if not ana:
+        return ""
+    wt_sd, ana_sd = (os.path.join(x, ".claude", "orkestra") for x in (kok, ana))
+    if not (os.path.isdir(wt_sd) and os.path.isdir(ana_sd)):
+        return ""
+
+    def satir(d, ad):
+        try:
+            with open(os.path.join(d, ad), "rb") as f:
+                return sum(1 for s in f if s.strip())
+        except OSError:
+            return 0
+    fark = {ad: satir(ana_sd, ad + ".jsonl") - satir(wt_sd, ad + ".jsonl") for ad in ("gunluk", "maliyet")}
+    if max(fark.values()) <= 0:
+        return ""
+    return f"worktree geride: gunluk {max(fark['gunluk'], 0)}, maliyet {max(fark['maliyet'], 0)} satır"
 
 
 def cmd_bakim(a):
@@ -216,6 +259,9 @@ def cmd_bakim(a):
     _u = hook_kural_uyari(sd)
     if _u:
         print(_u)
+    _j = jira_izin_uyari(sd)
+    if _j:
+        print(_j)
     if a.kapat and not uygula:
         print(f"kuru: --kapat yalnız --uygula ile {len(bos)} işi --ozetsiz \"{OZETSIZ_NEDEN}\" ile kapatır")
 
