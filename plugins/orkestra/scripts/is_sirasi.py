@@ -488,8 +488,7 @@ def bic_uyari(klasor: str) -> list[str]:
     if not bic_kapsaminda_mi(klasor):
         return []
     _bic_olaylari(klasor)
-    import kapi_mod as KM
-    return KM.ihlal_ver(klasor, "best_in_class", bic_eksikleri(klasor))
+    return _bekleyenli_ret(klasor, "best_in_class", bic_eksikleri(klasor), ret=False)
 
 
 # K-006 / ADR-0069: plan maddesinde `**Üretim noktası:**` alanı (sorunun doğduğu yer ve orada önleme).
