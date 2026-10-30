@@ -401,7 +401,7 @@ def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> 
                 _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" if _BEKLEYEN_UYARI else "") + \
                     f"orkestra: biçim düzeltildi (K-005): {len(uyg)} dönüşüm; {os.path.basename(tam)} düzeltilmiş içerikle yazılıyor."
                 return
-        satirlar_ = _yazilacak_metin(arac, girdi).splitlines()
+        satirlar_ = _yazilacak_metin(arac, girdi).split("\n")  # belge_bicim._bloklar ile aynı numaralama
         no = ihlaller[0].get("satir") or 0
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
             **kayit, "tur": "kural_ihlal", "mod": kip,
