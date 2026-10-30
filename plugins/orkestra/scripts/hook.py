@@ -2726,6 +2726,11 @@ def user_prompt_submit(inp: dict):
                 parcalar.extend(sir_yakala.kaydet(inp.get("prompt") or ""))
             except Exception:
                 pass
+            try:  # I-289 P2: kullanıcı düzeltmesi / yanlış öneri olay kaydı (gölge); hata hook'u düşürmez
+                import olay_yakala
+                olay_yakala.kaydet(sd, inp.get("prompt") or "")
+            except Exception:
+                pass
             try:  # P-016: onay bekleyen işte kullanıcı mesajı onaysa durum yazılır; hata hook'u düşürmez
                 import is_onay
                 is_onay.git_izni_isle(sd, inp.get("session_id"), metin)  # ADR-0031: commit/push emri bu tur git komutunu açar
