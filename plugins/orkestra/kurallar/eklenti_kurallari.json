@@ -1073,6 +1073,24 @@
         }
       ],
       "etkinlesme": "2026-10-30T13:39:42+03:00"
+    },
+    {
+      "id": "P-044",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Kullanıcıya görünen yerleşim, hizalama ya da konum değişikliği (ör. düğmenin her kartta aynı yerde durması) kod okumasıyla 'yapıldı' sayılmaz. Kabul ölçütü baştan ölçümdür: gerçek tarayıcıda (headless Chrome/Edge, getBoundingClientRect) ilgili öğelerin konumu ölçülür, düzeltme öncesi kırmızı ve sonrası yeşil çıktı çalışma özetine yazılır; sahte DOM yerleşimi doğrulamaz. Genişlik, renk gibi tek bir özelliği düzeltmek konum düzeltmesi değildir: önce konumu belirleyen kural (flex-wrap, hizalama, taşma) bulunur. Ölçüm yapılamıyorsa özet 'tarayıcıda ölçülmedi' der. Zorlama: yalnız bu kural ve plan Kabul alanı; mekanik kapı yoktur (ADR-0104). Örnek test: tests/test_panel_araclar_yerlesim.py.",
+      "neden": "I-278: Araçlar sayfasında Açık/Kapalı düğmesi genişlik sabitlenerek teslim edildi, konum ölçülmedi; uzun kartlarda düğme alt satıra düştü.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-30T15:09:16+03:00",
+      "guncelleme": "2026-10-30T15:09:16+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-30T15:09:16+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Kullanıcıya görünen yerleşim, hizalama ya da konum değişikliği (ör. düğmenin her kartta aynı yerde durması) kod okumasıyla 'yapıldı' sayılmaz. Kabul ölçütü baştan ölçümdür: gerçek tarayıcıda (headless Chrome/Edge, getBoundingClientRect) ilgili öğelerin konumu ölçülür, düzeltme öncesi kırmızı ve sonrası yeşil çıktı çalışma özetine yazılır; sahte DOM yerleşimi doğrulamaz. Genişlik, renk gibi tek bir özelliği düzeltmek konum düzeltmesi değildir: önce konumu belirleyen kural (flex-wrap, hizalama, taşma) bulunur. Ölçüm yapılamıyorsa özet 'tarayıcıda ölçülmedi' der. Zorlama: yalnız bu kural ve plan Kabul alanı; mekanik kapı yoktur (ADR-0104). Örnek test: tests/test_panel_araclar_yerlesim.py."
+        }
+      ],
+      "etkinlesme": "2026-10-30T15:09:16+03:00"
     }
   ]
 }
