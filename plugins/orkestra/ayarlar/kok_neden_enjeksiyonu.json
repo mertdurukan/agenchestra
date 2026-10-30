@@ -4,6 +4,7 @@
   "onek": "ORKESTRA KÖK NEDEN (ADR-0101): ",
   "mesaj_basligi": "Hata anı",
   "arac_basligi": "Araç hatası anı",
+  "isci_basligi": "İşçi görevi anı",
   "arac_hatasi_her": 3,
   "sinyaller": [
     "hata", "bug", "error", "exception", "traceback", "stack ?trace", "fail", "crash", "regress",
