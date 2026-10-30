@@ -28,4 +28,5 @@ Yorum çalışma özetinin Teslim ve Özet alanlarından `orkestra is jira-yorum
 
 - Okuyan bağlamı bilmez: kısaltma ve belirsiz sahiplik ifadesi yerine somut ad, sürüm ve bağlantı yazılır.
 - Sır, müşteri verisi ve çalışan adı yazılmaz.
-- Yorum yazılmadan Done'a geçilmez; yorum Jira'ya yazılmadan önce kullanıcıya gösterilir (yazma onaya tabidir).
+- Yorum yazılmadan Done'a geçilmez.
+- Yazma onayı proje izin politikasına bağlıdır (`orkestra izin goster`). Varsayılan eklenti politikasında Jira yazma araçları (MCP yazma araçları, REST yazması) onay ister; yorum Jira'ya yazılmadan önce kullanıcıya gösterilir. Bağlı işin modu `auto` ise onay sorulmaz (ADR-0086). Proje politikası Jira yazmasını serbest bırakmışsa yorum önce gösterilmez, doğrudan yazılır.
