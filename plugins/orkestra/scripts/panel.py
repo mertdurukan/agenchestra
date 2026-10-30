@@ -1077,6 +1077,10 @@ def _isleyici():
                 try:
                     import perspektif  # noqa: PLC0415
                     perspektif.yoksay(sd)
+                    # Önbellekteki eski onay verisi kartı 120 sn'ye kadar gösterirdi (eski-değer-ver): hemen düşür.
+                    with kilit:
+                        for k in [k for k in onbellek if (isinstance(k, tuple) and k[0] == "onay") or k == "sayac"]:
+                            onbellek.pop(k, None)
                     return self._json(200, {"tamam": True}, kapat=True)
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
