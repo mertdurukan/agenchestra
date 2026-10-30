@@ -361,10 +361,13 @@ def bic_eksikleri(klasor: str) -> list[str]:
         govde = m.group(1)
         for soru in BIC_SORULAR:
             if not re.search(r"\*\*" + re.escape(soru) + r":\*\*\s*[✔✘]", govde):
-                eksik.append(f"best in class denetimi: `**{soru}:**` satırı `✔`/`✘` ile başlamıyor (ayrı denetçi doldurur; P-030)")
+                bekl = f": {BEKLENIYOR}" if _satir_bekliyor(govde, soru) else ""
+                eksik.append(f"best in class denetimi: `**{soru}:**` satırı `✔`/`✘` ile başlamıyor{bekl} (ayrı denetçi doldurur; P-030)")
         d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
         kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
-        if not kimlik:
+        if not kimlik and d is not None and _BEKLIYOR.match(d.group(1)):
+            eksik.append(f"best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor: {BEKLENIYOR} (`orkestra:denetci <agent_id>`; P-030)")
+        elif not kimlik:
             eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (`orkestra:denetci <agent_id>`; P-030)")
         elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
             eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; P-030)")
