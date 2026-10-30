@@ -175,8 +175,29 @@ def tur_degisiklik_var(transkript, sd=None) -> bool:
     return bulundu
 
 
-def yapisal_ihlal(transkript, sd=None) -> bool:
-    """Tur dosya değiştirdi ama kullanıcıya düğmeli seçim ekranı sunulmadı mı? Yanıt cümlesine bakmaz (ifade çeşitliliği)."""
-    if yapisal_mod(ayar_oku(sd)) == "kapali":
+def teklif_sonu(yanit, sd=None) -> bool:
+    """Yanıtın SON cümlesi kullanıcıdan karar ister ya da eylem teklif eder mi? Kalıp listesi değil kapanış yapısına bakar:
+    soru işaretiyle bitiş ya da 1. tekil teklif eki (`teklif_sonu_kaliplari`, ör. 'açarım', 'yapayım'). Kod blokları atılır."""
+    ayar = ayar_oku(sd)
+    m = _normallestir(_kodsuz(yanit or "")).strip()
+    if not m or _eslesir(ayar.get("yanit_muaf_kaliplari"), m):
         return False
-    return tur_degisiklik_var(transkript, sd) and not secim_ekrani_sunuldu(transkript, sd)
+    son = re.split(r"(?<=[.!?:])\s+|\n+", m)[-1].strip(" \t\"'“”*_)")
+    if not son:
+        return False
+    return son.endswith("?") or _eslesir(ayar.get("teklif_sonu_kaliplari"), son)
+
+
+def yapisal_tetik(transkript, yanit=None, sd=None) -> str:
+    """Yapısal kapıyı tetikleyen neden: 'degisiklik' (tur dosya değiştirdi), 'teklif_sonu' (kapanış teklif/soru) ya da ''.
+    İkisinde de turda dolu düğme yoksa ihlal sayılır; ifade çeşitliliği kalıba değil yapıya bağlıdır."""
+    if yapisal_mod(ayar_oku(sd)) == "kapali" or secim_ekrani_sunuldu(transkript, sd):
+        return ""
+    if tur_degisiklik_var(transkript, sd):
+        return "degisiklik"
+    return "teklif_sonu" if teklif_sonu(yanit, sd) else ""
+
+
+def yapisal_ihlal(transkript, sd=None, yanit=None) -> bool:
+    """Tur dosya değiştirdi ya da kapanışı teklif/soruyla bitti, ama kullanıcıya düğmeli seçim ekranı sunulmadı mı?"""
+    return bool(yapisal_tetik(transkript, yanit, sd))
