@@ -423,7 +423,7 @@
     return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="yeni" style="--renk:var(--vurgu)">
         <div class="simge">${simge('guncelle')}</div>
         <div class="govde"><div class="baslik">Orkestra güncellemesi var</div>
-          <div class="metin">${B.sayi(sayi)} yeni özellik</div>
+          <div class="metin">${sayiMetni}</div>
           ${c.klon_kirli ? H`<div class="meta uyari-satir" role="note">${simge('uyari')}<span>Yayın klonunda commitlenmemiş değişiklik var; güncelleme reddedilebilir.</span></div>` : ''}
           ${liste.length ? H`<details class="degisiklik"><summary>Neler değişti</summary><ul>${liste.map(x => H`<li>${x.konu}</li>`)}${fazla > 0 ? H`<li class="soluk">ve ${B.sayi(fazla)} özellik daha</li>` : ''}</ul></details>` : ''}</div>
         <div class="eylemler"><button class="dugme kucuk" data-eylem="guncelle-ertele" title="Yeni bir sürüm çıkana kadar hatırlatma">Sonra</button> <button class="dugme ana-d kucuk" data-eylem="guncelle">Güncelle</button></div></article>`;
