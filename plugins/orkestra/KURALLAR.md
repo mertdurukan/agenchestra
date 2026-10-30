@@ -20,6 +20,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
     - birden çok dosyaya dokunan kod değişikliğinde;
     - hatası pahalı çıktıda: dış teslim, nihai ya da kanonik belge, DB ölçüm sonucu, iddia kararı, Jira story (bağımsız denetim için);
     - geniş tarama ya da çok dosya okumada (ana ajanın bağlamı şişmesin diye araştırmacıya ver).
+  - Ölçülebilir eşik: bir istekte iş belgesi (plan, todo, mevcut durum, sözleşme, çalışma özeti, ADR) dışında üçüncü ayrı dosyaya yazmak üzereysen ve alt ajan çalıştırmadıysan, PreToolUse hatırlatır (ADR-0099, `ayarlar/devir_hatirlatma.json`); hatırlatma engellemez, kararı sen verirsin.
   - Kuşkuda: ana ajanın bağlamı büyükse (≳150k) işi kısa bir kartla ucuz basamağa ver. Bağlam küçükse ve iş tek adımlıysa doğrudan yap.
   - Doğrudan yapılan işte denetçi yoktur. "Onaylandı" deme; neyi nasıl doğruladığını (test, yeniden okuma) söyle.
 
