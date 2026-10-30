@@ -1386,9 +1386,13 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
                 L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
             return
-        kip = SH.mod(SH.ayar_oku(sd))
+        sayar = SH.ayar_oku(sd)
+        kip = SH.mod(sayar)
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": "secim_ekrani", "mod": kip, "is": _oturum_isi(sd, oid)})
+                                                         "kural": "secim_ekrani", "mod": kip, "is": _oturum_isi(sd, oid),
+                                                         **_kalip_kaniti(sayar.get("yanit_kaliplari"),
+                                                                         SH._kodsuz(inp.get("last_assistant_message") or ""),
+                                                                         SH._normallestir)})
         if kip == "block" and not inp.get("stop_hook_active"):
             L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
     except SystemExit:
