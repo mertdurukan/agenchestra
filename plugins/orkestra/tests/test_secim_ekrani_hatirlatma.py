@@ -155,6 +155,21 @@ class TestKaliplar(_Proje):
             with self.subTest(m=m):
                 self.assertFalse(SH.yanit_ihlali(m, self.sd), repr(m))
 
+    def test_kapanis_yapisi_bilgilendirmeyi_yakalamaz(self):
+        for m in UYARI_DEGIL:
+            with self.subTest(m=m):
+                self.assertFalse(SH.yanit_ihlali(m, self.sd), repr(m))
+
+    def test_kapanis_yapisi_block_eder(self):
+        girdi = {"session_id": OTURUM, "cwd": self.tmp, "last_assistant_message": POZITIF[-6]}
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                hook._secim_kapisi_yanit(self.sd, OTURUM, girdi)
+            except SystemExit:
+                pass
+        self.assertEqual(json.loads(buf.getvalue())["decision"], "block")
+
     def test_kapali_mod_ve_ortam_degiskeni(self):
         self.proje_ayari({"mod": "kapali"})
         self.assertFalse(SH.yanit_ihlali(POZITIF[0], self.sd))
