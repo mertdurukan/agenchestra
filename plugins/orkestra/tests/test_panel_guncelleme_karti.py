@@ -130,6 +130,13 @@ class KartCizimTest(unittest.TestCase):
         self.assertNotIn("<script>", h)
         self.assertIn("&lt;script&gt;", h)
 
+    def test_onekli_commit_yoksa_fark_sayisi_degisiklik_olarak_yazilir(self):
+        g = copy.deepcopy(YENI)
+        g["kontrol"].update(yenilik_say=0, fark=95, degisiklikler=[])
+        k = kart(html(g))
+        self.assertIn("95 değişiklik var", k)
+        self.assertNotIn("yeni özellik", k)
+
     def test_yenilik_sayisi_yoksa_liste_uzunlugu_yazilir(self):
         g = copy.deepcopy(YENI)
         g["kontrol"]["yenilik_say"] = None
