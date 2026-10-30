@@ -1,6 +1,6 @@
 # ADR-0102: Kullanıcıya verilen komut hedef kabuğun sözdizimiyle yazılır
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 2026-10-30
 

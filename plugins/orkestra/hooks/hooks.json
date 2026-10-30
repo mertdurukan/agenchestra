@@ -17,6 +17,9 @@
       { "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
         "hooks": [ { "type": "command", "command": "case \"${ORKESTRA_OTO_COMMIT:-0}\" in 0|\"\") exit 0;; esac; if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/oto_commit.py\"; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/oto_commit.py\"; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/oto_commit.py\"; fi", "timeout": 30 } ] }
     ],
+    "PostToolUseFailure": [
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PostToolUseFailure; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PostToolUseFailure; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PostToolUseFailure; fi", "timeout": 10 } ] }
+    ],
     "SubagentStart": [
       { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; fi", "timeout": 10 } ] }
     ],
