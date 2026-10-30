@@ -539,7 +539,9 @@ def uretim_eksikleri(klasor: str) -> list[str]:
         return eksik
     govde = m.group(1)
     satir = re.search(r"\*\*" + URETIM_ALANI + r":\*\*[ \t]*([^\n]*)", govde)
-    if satir is None or not satir.group(1).lstrip().startswith("✔"):
+    if satir is not None and _BEKLIYOR.match(satir.group(1)):
+        eksik.append(f"best in class denetimi: `**{URETIM_ALANI}:**` satırı `✔` ile başlamıyor: {BEKLENIYOR} (ayrı denetçi doldurur; ADR-0069)")
+    elif satir is None or not satir.group(1).lstrip().startswith("✔"):
         eksik.append(f"best in class denetimi: `**{URETIM_ALANI}:**` satırı `✔` ile başlamıyor (ayrı denetçi doldurur; ADR-0069)")
     elif turler and all(t == "yeni" for t in turler.values()) and "tümü yeni yetenek onaylandı" not in satir.group(1).lower():
         eksik.append(f"best in class denetimi: tüm maddeler `Yeni yetenek`; `**{URETIM_ALANI}:**` satırı `tümü yeni yetenek onaylandı` ifadesini taşımalı (ADR-0069)")
