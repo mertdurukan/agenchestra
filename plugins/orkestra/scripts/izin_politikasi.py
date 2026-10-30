@@ -212,18 +212,31 @@ _YETKI_KABUK_YAZIM = re.compile(
     r"Move-Item|Copy-Item|New-Item|Rename-Item|\bopen\s*\(|write_text|json\.dump)", re.I)
 
 
+# Panel ayar ucuna yazma (POST'a eşdeğer biçimler). CAYDIRICI kapı, kesin değil (ADR-0105): Write ile yazılmış betik
+# ve komutta `/api/ayarlar` geçmeyen dolaylı çağrı kaçar; panel ucunda çağıran ajan mı kullanıcı mı ayırt edilemez.
+_PANEL_AYAR_UCU = re.compile(r"/api/ayarlar\b", re.I)
+_PANEL_YAZIM = re.compile(
+    r"(?:-X\s*['\"]?(?:POST|PUT|PATCH)\b|--request\b|(?<!\S)-d(?=[\s'\"@{])|--data|--json\b|-Method\s+['\"]?(?:POST|PUT|PATCH)\b|"
+    r"-Body\b|\.(?:post|put|patch)\s*\(|method\s*[=:]\s*['\"](?:POST|PUT|PATCH)|\bdata\s*=)", re.I)
+
+
 def _yetki_kapisi(arac: str, girdi: dict) -> str | None:
-    """Varsayılan mod ayarı (`yetki.json`) yalnız kullanıcı tarafından değiştirilir; ajan Edit/Write/kabukla yazamaz (P-020, ADR-0103)."""
+    """Varsayılan mod ayarı (`yetki.json`) yalnız kullanıcı tarafından değiştirilir; ajan Edit/Write/kabukla yazamaz (P-020, ADR-0103).
+    Panel `/api/ayarlar` ucuna kabukla yazma da reddedilir (caydırıcı; kalan risk ADR-0105'te)."""
     if arac in ("Edit", "Write", "NotebookEdit"):
         yol = str(girdi.get("file_path") or girdi.get("notebook_path") or "")
         hedef = bool(re.search(r"(?:^|[\\/])yetki\.json$", yol, re.I))
+        panel = False
     elif arac in KABUK_ARACLARI:
         komut = str(girdi.get("command") or "")
         hedef = bool(_YETKI_DOSYASI.search(komut) and _YETKI_KABUK_YAZIM.search(komut))
+        panel = bool(_PANEL_AYAR_UCU.search(komut) and _PANEL_YAZIM.search(komut))
     else:
         return None
     if hedef:
         return "yetki.json (ADR-0103): varsayılan çalışma modunu yalnız kullanıcı değiştirir; ajan yazamaz. Dosyayı kendiniz düzenleyin."
+    if panel:
+        return "panel ayar ucu (ADR-0105): varsayılan çalışma modunu yalnız kullanıcı panelin Ayarlar sayfasından değiştirir; ajan /api/ayarlar'a yazamaz."
     return None
 
 
