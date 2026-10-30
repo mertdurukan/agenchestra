@@ -2645,14 +2645,13 @@ def user_prompt_submit(inp: dict):
         # Niyet kaydı: kullanıcı yazdı → Claude çalışıyor. Sistem iletileri (<agent-message>, <task-notification>) istek metni sayılmaz.
         import niyet
         sistem = metin.lstrip().startswith("<")
+        neden = None
         if not sistem:
-            try:  # soğuk önbellek kapısı: büyük bağlam + uzun ara → bir kez durdur (hatada sessiz geç)
+            try:  # soğuk önbellek bilgisi: büyük bağlam + uzun ara → systemMessage (ADR-0095, engellemez; hatada sessiz geç)
                 import soguk_onbellek
                 neden = soguk_onbellek.karar(sd, inp.get("session_id"), inp.get("transcript_path"))
             except Exception:
                 neden = None
-            if neden:
-                L.hook_cikti({"decision": "block", "reason": f"{neden}\nMesajın: {metin[:500]}"})
         niyet.olay(inp.get("session_id"), L.proje_dizini(inp.get("cwd")), "istek", metin=None if sistem else metin[:200])
         if not sistem:
             parcalar = [asili_uyari(sd, inp.get("session_id")),
