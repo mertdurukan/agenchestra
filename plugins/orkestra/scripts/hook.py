@@ -668,11 +668,26 @@ def _izin_karari(arac: str, girdi: dict, sd: str, oturum=None):
     push komutunda hata `ask`'tir (ADR-0036: settings ask satırı kalktı, fail-open yok)."""
     try:
         import izin_politikasi
-        return izin_politikasi.karar(arac, girdi, sd, oturum=oturum)
+        kar, neden = izin_politikasi.karar(arac, girdi, sd, oturum=oturum)
     except Exception:
         if arac in KABUK_ARACLARI and re.search(r"\bpush\b", str((girdi or {}).get("command") or "")):
             return "ask", "git push: izin politikası okunamadı, onay gerekir."
         return None, ""
+    _izin_karar_yaz(arac, kar, neden, sd, oturum)
+    return kar, neden
+
+
+def _izin_karar_yaz(arac: str, kar, neden: str, sd: str, oturum) -> None:
+    """ADR-0095: deny, ask ve auto-allow kararlarını gunluk.jsonl'a `izin_karar` olarak yazar (olağan allow yazılmaz).
+    Yazım başarısız olursa sessiz geçer; araç çağrısını engellemez."""
+    try:
+        auto = kar == "allow" and "auto modu" in (neden or "")
+        if kar not in ("deny", "ask") and not auto:
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oturum, "tur": "izin_karar",
+                                                       "arac": arac, "karar": kar, "mod": "auto" if auto else "-"})
+    except Exception:
+        return
 
 
 _AUTO_SOZLESME = (
