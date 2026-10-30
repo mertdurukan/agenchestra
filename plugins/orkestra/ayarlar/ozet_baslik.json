@@ -1,4 +1,4 @@
 {
-  "mod": "golge",
+  "mod": "ihlal",
   "aciklama": "mod: golge = çalışma özeti başlığı yalnız Jira kodu ya da genel ise uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = başlık tamam olmadan özet doldurulmuş sayılmaz. Kapatma: ORKESTRA_OZET_BASLIK_KAPISI=0. Proje ezmesi: .claude/orkestra/ozet_baslik.json (ADR-0074)."
 }

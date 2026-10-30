@@ -1,5 +1,5 @@
 {
-  "_aciklama": "Dış kaynaklı skill'ler (ADR-0095). SKILL.md bayt bayt özgündür; sha256 değişirse test kırılır, güncelleme bilinçli yapılır.",
+  "_aciklama": "Dış kaynaklı skill'ler (ADR-0095). SKILL.md özgündür; yerel değişiklik varsa `degisiklik` ve `ozgun_sha256` yazılır. sha256 değişirse test kırılır, güncelleme bilinçli yapılır.",
   "skiller": [
     {
       "ad": "literature-review",
@@ -30,8 +30,10 @@
       "dizin_no": 208,
       "indirme": "https://mcp.directory/api/skills/download/208",
       "kaynak": "https://github.com/alirezarezvani/claude-skills/tree/main/engineering-team/senior-architect",
-      "sha256": "df8f76d56248f4f2d190cda78e010d6c8fc8afeb181422659b073e6dd6201704",
-      "indirme_tarihi": "2026-10-30"
+      "sha256": "34e52fd52265d16833c53d7cb4eafc3bf974bef8d1d5f6fef125cfbef08cc2a5",
+      "indirme_tarihi": "2026-10-30",
+      "ozgun_sha256": "df8f76d56248f4f2d190cda78e010d6c8fc8afeb181422659b073e6dd6201704",
+      "degisiklik": "Başlık altına Orkestra notu eklendi: pakette olmayan scripts/ ve references/ atıfları için."
     },
     {
       "ad": "find-skills",

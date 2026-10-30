@@ -37,6 +37,19 @@ def plan(alt=ALT_TAM, denetim=DENETIM_TAM, llm=LLM_YOK):
     return f"# Plan\n\n{llm}\n\n## 4. Plan maddeleri\n\n### P1 Madde\n\n**Dayanak:** MD §1\n\n{alt}\n**Kabul:** x\n\n{denetim}\n"
 
 
+def _golge_sabit(f):
+    """Gölge davranışı sınanır: kapı modunu ayar varsayılanından bağımsız `golge`ye sabitler (ADR-0096)."""
+    import functools
+    from unittest import mock
+
+    @functools.wraps(f)
+    def sar(*a, **k):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", side_effect=lambda kapi, klasor=None: "golge"):
+            return f(*a, **k)
+    return sar
+
+
 class BestInClass(unittest.TestCase):
     setUp = TC.Cekirdek.setUp
     tearDown = TC.Cekirdek.tearDown
@@ -107,6 +120,8 @@ class BestInClass(unittest.TestCase):
         os.rename(os.path.join(self.proje, "Claude_Orkestrasyon"), os.path.join(self.proje, "eski"))
         with self.ortam(ORKESTRA_BIC_KAPISI="0"):
             self.assertEqual(S.bic_eksikleri(self.is_klasoru(plan_metni=plan(alt=""))), [])
+
+    @_golge_sabit
 
     def test_golge_modu_engellemez_ama_kaydeder(self):
         with self.ortam():

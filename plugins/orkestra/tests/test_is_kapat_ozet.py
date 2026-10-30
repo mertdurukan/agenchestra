@@ -6,8 +6,8 @@ import unittest
 import test_cekirdek as TC
 
 GUN = datetime.datetime.now().strftime("%Y%m%d")
-OZET_DOLU = "# Deneme: çalışma özeti\n\n**Amaç:**\n\nDeneme.\n\n**Ana bulgu:**\n\nİş tamamlandı.\n\n**Kapsam kararı:**\n\nYok.\n"
-OZET_BOS = "# Deneme: çalışma özeti\n\n**Amaç:**\n\nDeneme.\n\n**Ana bulgu:**\n\n**Kapsam kararı:**\n\nYok.\n"
+OZET_DOLU = "# Deneme işi: çalışma özeti\n\n**Amaç:**\n\nDeneme.\n\n**Ana bulgu:**\n\nİş tamamlandı.\n\n**Kapsam kararı:**\n\nYok.\n"
+OZET_BOS = "# Deneme işi: çalışma özeti\n\n**Amaç:**\n\nDeneme.\n\n**Ana bulgu:**\n\n**Kapsam kararı:**\n\nYok.\n"
 
 
 class IsKapatOzet(unittest.TestCase):

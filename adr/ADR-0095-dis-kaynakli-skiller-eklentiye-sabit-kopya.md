@@ -10,7 +10,7 @@ Eklentiyi yükleyen herkesin literature-review, frontend-design, competitive-ana
 
 **Karar:**
 
-Her skill `plugins/orkestra/skills/<ad>/SKILL.md` olarak bayt bayt özgün kopyalanır (`/orkestra:<ad>`). Kaynak URL'si, dizin numarası ve sha256 `ayarlar/dis_skill_kaynaklari.json` içindedir; `tests/test_dis_skiller.py` varlığı, ad=dizin eşleşmesini ve özgünlüğü sınar. İndirilen içerik güvenilmeyen veri sayılıp izole klasörde taranmıştır (komut çalıştırma, sır, enjeksiyon yok). Güncelleme bilinçli yapılır: yeniden indir, kaydı ve hash'i yenile.
+Her skill `plugins/orkestra/skills/<ad>/SKILL.md` olarak özgün kopyalanır (tek yerel değişiklik: senior-architect başlığının altına, pakette olmayan scripts/references atıflarını belirten not) (`/orkestra:<ad>`). Kaynak URL'si, dizin numarası ve sha256 `ayarlar/dis_skill_kaynaklari.json` içindedir; `tests/test_dis_skiller.py` varlığı, ad=dizin eşleşmesini ve özgünlüğü sınar. İndirilen içerik güvenilmeyen veri sayılıp izole klasörde taranmıştır (komut çalıştırma, sır, enjeksiyon yok). Güncelleme bilinçli yapılır: yeniden indir, kaydı ve hash'i yenile.
 
 **Seçenekler:**
 

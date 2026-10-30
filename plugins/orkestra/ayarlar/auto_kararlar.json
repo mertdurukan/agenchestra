@@ -1,4 +1,4 @@
 {
-  "mod": "golge",
+  "mod": "ihlal",
   "aciklama": "mod: golge = auto modundaki işin çalışma özetinde `## Otomatik kararlar` bölümü yok ya da boşsa uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = bölüm olmadan özet doldurulmuş sayılmaz. Kapatma: ORKESTRA_AUTO_YETKI=0 (yetkiyi kapatır; kapı gölgede kalır). Proje ezmesi: .claude/orkestra/auto_kararlar.json (ADR-0086)."
 }

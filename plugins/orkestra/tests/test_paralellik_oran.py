@@ -165,7 +165,7 @@ class Kapanis(unittest.TestCase):
             self.assertIsNone(self.isler._ozet_eksigi(self.p.klasor))
 
     def test_kalibrasyon_sayisi_esige_ulasinca_ihlal(self):
-        self.p = Proje(zaman=SIRALI)  # ayar dosyası golge
+        self.p = Proje(zaman=SIRALI, mod="golge")  # kalibrasyon sayımı gölgeden başlar (ayar dosyası ihlal, ADR-0096)
         self.assertEqual(self.isler.paralellik_kapanis_modu(self.p.klasor), "golge")
         yol = os.path.join(self.p.sd, "gunluk.jsonl")
         with open(yol, "w", encoding="utf-8") as f:

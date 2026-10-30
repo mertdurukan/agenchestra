@@ -1,5 +1,5 @@
 {
-  "mod": "golge",
+  "mod": "ihlal",
   "aciklama": "Görev türü kataloğu (v2 ataması, ADR-0092). varsayilan: basamaksız açılan kartın basamağı (sinif listesindeki sınıf adlarından); aday_basamak yalnız ölçüm adayıdır, uygulanmaz (T1 kanarya sonrası). mod: golge = katalog dışı sınıf, katalogdan yüksek basamak ve gerekçesiz (basamak_neden yok) T3/T4 uyarılır ve gunluk.jsonl'a kapi_golge (kapi=gorev_turleri) olarak düşer, kart açılır. Kapatma: ORKESTRA_GOREV_TURU_KAPISI=0. Proje ezmesi: .claude/orkestra/gorev_turleri.json (mod).",
   "kanarya": {
     "min_n": 60,

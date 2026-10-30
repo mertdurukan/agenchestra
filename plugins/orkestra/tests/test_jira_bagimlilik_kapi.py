@@ -32,6 +32,19 @@ def plan(*maddeler, hazirlanma="27.10.2026 10:20"):
     return ("# Plan\n\n**Hazırlanma saati:**\n\n" + hazirlanma + "\n\n## 4. Plan maddeleri\n\n" + "".join(maddeler))
 
 
+def _golge_sabit(f):
+    """Gölge davranışı sınanır: kapı modunu ayar varsayılanından bağımsız `golge`ye sabitler (ADR-0096)."""
+    import functools
+    from unittest import mock
+
+    @functools.wraps(f)
+    def sar(*a, **k):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", side_effect=lambda kapi, klasor=None: "golge"):
+            return f(*a, **k)
+    return sar
+
+
 class JiraBagimlilikKapisi(unittest.TestCase):
     setUp = TC.Cekirdek.setUp
     tearDown = TC.Cekirdek.tearDown
@@ -51,6 +64,10 @@ class JiraBagimlilikKapisi(unittest.TestCase):
             with open(os.path.join(k, JB.DOSYA), "w", encoding="utf-8") as f:
                 json.dump(veri, f)
         return k
+
+    def golge_modu(self):
+        with open(os.path.join(self.sd, "jira_bagimlilik.json"), "w", encoding="utf-8") as f:
+            json.dump({"mod": "golge"}, f)  # ayar dosyası ihlal (ADR-0096); gölge davranışı ezmeyle sınanır
 
     def ihlal_modu(self):
         with open(os.path.join(self.sd, "jira_bagimlilik.json"), "w", encoding="utf-8") as f:
@@ -78,10 +95,10 @@ class JiraBagimlilikKapisi(unittest.TestCase):
             self.assertFalse(S.jira_bagimlilik_kapsaminda_mi(k))
         self.assertEqual(self.engel(k), ([], ""))
 
-    def test_ayar_dosyasi_golgede(self):
+    def test_ayar_dosyasi_ihlalde(self):
         kok = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ayarlar", "jira_bagimlilik.json")
         with open(kok, encoding="utf-8") as f:
-            self.assertEqual(json.load(f)["mod"], "golge")
+            self.assertEqual(json.load(f)["mod"], "ihlal")  # ADR-0096
 
     # ---- PE-770 öncülü PE-783 olmadan tek başına
     def test_oncul_olmadan_tek_basina_gerceksiz_eksik(self):
@@ -91,6 +108,8 @@ class JiraBagimlilikKapisi(unittest.TestCase):
         self.assertEqual(len(e), 1)
         self.assertIn("PE-783", e[0])
         self.assertIn("PE-770", e[0])
+
+    @_golge_sabit
 
     def test_golge_uyarir_kaydeder_engellemez(self):
         k = self.klasor(plan(madde(1, "PE-770")))
@@ -111,6 +130,7 @@ class JiraBagimlilikKapisi(unittest.TestCase):
         self.assertEqual(len(self.olaylar("kapi_ret")), 1)
 
     def test_plan_eksikleri_ihlalde_icerir_golgede_icermez(self):
+        self.golge_modu()
         k = self.klasor(plan(madde(1, "PE-770")))
         with self.ortam(), contextlib.redirect_stderr(io.StringIO()):
             self.assertFalse(any("PE-783" in x for x in S.plan_eksikleri(k)))
@@ -178,6 +198,7 @@ class JiraBagimlilikKapisi(unittest.TestCase):
 
     # ---- yazım anı raporu (plan_yazim_eksikleri): gölge gölgede, ihlal sertte
     def test_plan_yazim_raporu_modu_izler(self):
+        self.golge_modu()
         metin = plan(madde(1, "PE-770"))
         k = self.klasor(metin)
         with self.ortam():

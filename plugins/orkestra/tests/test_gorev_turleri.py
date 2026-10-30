@@ -18,7 +18,7 @@ class KatalogTest(unittest.TestCase):
     def test_on_sekiz_tur_ve_kanarya(self):
         k = G.yukle()
         self.assertEqual(len(k["turler"]), 18)
-        self.assertEqual(k["mod"], "golge")
+        self.assertEqual(k["mod"], "ihlal")  # ADR-0096
         self.assertEqual((k["kanarya"]["min_n"], k["kanarya"]["marj"], k["kanarya"]["guven"]), (60, 0.10, 0.95))
         for ad, t in k["turler"].items():
             self.assertIn(t["varsayilan"], (None, "T0", "T1", "T2", "T3", "T4"), ad)

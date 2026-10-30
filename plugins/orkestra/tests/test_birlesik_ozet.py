@@ -29,6 +29,19 @@ def cli(kok, alt, *args):
     return ic_kos.kos([ORKESTRA, "is", alt, *args], cwd=kok, env=env)
 
 
+def _golge_sabit(f):
+    """Gölge davranışı sınanır: kapı modunu ayar varsayılanından bağımsız `golge`ye sabitler (ADR-0096)."""
+    import functools
+    from unittest import mock
+
+    @functools.wraps(f)
+    def sar(*a, **k):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", side_effect=lambda kapi, klasor=None: "golge"):
+            return f(*a, **k)
+    return sar
+
+
 class UcTanUca(unittest.TestCase):
     def setUp(self):
         self._t = tempfile.TemporaryDirectory()
@@ -81,6 +94,8 @@ class UcTanUca(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual(json.loads(p.stdout)["durum"], "")
         self.assertEqual(IK.sef_ozeti_eksigi(SO.IKI), [])  # eski etiketli: yeni alan uyarısı yok
+
+    @_golge_sabit
 
     def test_yeni_bicim_eksik_alan_golgede_uyarir_kapanisi_engellemez(self):
         isler = importlib.import_module("komutlar.isler")

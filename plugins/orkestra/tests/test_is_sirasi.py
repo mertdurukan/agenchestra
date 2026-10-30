@@ -63,6 +63,19 @@ def plan_metni(md_ad=MD_AD, dayanak="MD §3", ekstra=""):
             "## 5. Riskler\n\nYok.\n")
 
 
+def _golge_sabit(f):
+    """Gölge davranışı sınanır: kapı modunu ayar varsayılanından bağımsız `golge`ye sabitler (ADR-0096)."""
+    import functools
+    from unittest import mock
+
+    @functools.wraps(f)
+    def sar(*a, **k):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", side_effect=lambda kapi, klasor=None: "golge"):
+            return f(*a, **k)
+    return sar
+
+
 class IsSirasi(unittest.TestCase):
     setUp = TC.Cekirdek.setUp
     tearDown = TC.Cekirdek.tearDown
@@ -471,6 +484,8 @@ class KaliteCitasi(unittest.TestCase):
         p = plan_metni().replace("# Deneme: plan\n", f"# Deneme: plan\n\n## Özet\n\n{ozet}\n", 1)
         return p.replace("**Gap:** G1\n", f"**Gap:** G1\n\n{kabul}", 1).replace("**Gap:** G2\n", f"**Gap:** G2\n\n{kabul}", 1)
 
+    @_golge_sabit
+
     def test_tam_set_gecer(self):
         self.assertEqual(S.mevcut_durum_eksikleri(self.k), [])
         self.assertEqual(S.plan_eksikleri(self.k), [])
@@ -512,6 +527,8 @@ class KaliteCitasi(unittest.TestCase):
         K.todo_bitir(self.k, "1", "kanıt: testler geçti")
         with open(os.path.join(self.k, "todo.md"), encoding="utf-8") as f:
             self.assertIn("[x] P1: iş — ", f.read())
+
+    @_golge_sabit
 
     def test_calisma_ozeti_planla_karsilastirir(self):
         import importlib
@@ -609,6 +626,8 @@ class PlanYazimRaporu(unittest.TestCase):
                       "P2: `**Gap:** G<n>`", "G1: hiçbir P", "G2: hiçbir P"):
             self.assertIn(parca, m)
         self.assertLessEqual(len(m), S.PLAN_MESAJ_SINIR)
+
+    @_golge_sabit
 
     def test_k1_taslak_yazimi_reddedilmez_eksikler_bilgi_olarak_gelir(self):
         red, neden, bilgi = self.hook_yaz(self.TASLAK)

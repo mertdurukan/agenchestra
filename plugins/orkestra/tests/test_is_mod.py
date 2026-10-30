@@ -13,6 +13,19 @@ sys.path.insert(0, os.path.join(KOK, "scripts"))
 from komutlar import isler  # noqa: E402
 
 
+def _golge_sabit(f):
+    """Gölge davranışı sınanır: kapı modunu ayar varsayılanından bağımsız `golge`ye sabitler (ADR-0096)."""
+    import functools
+    from unittest import mock
+
+    @functools.wraps(f)
+    def sar(*a, **k):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", side_effect=lambda kapi, klasor=None: "golge"):
+            return f(*a, **k)
+    return sar
+
+
 class ModYazimi(_Onay):
     def mod(self):
         return is_kaydi.is_al(self.sd, self.kayit["id"]).get("mod")
@@ -113,6 +126,8 @@ class AutoOzet(_Onay):
         self.yaz_is("auto")
         metin = "## Plandan sapmalar\n\n## Kullanıcıya kalanlar\nYok\n"
         self.assertIn("Plandan sapmalar", isler._auto_ozet_eksigi(self.klasor, metin))
+
+    @_golge_sabit
 
     def test_auto_bolumler_dolu_gecer(self):
         self.yaz_is("auto")

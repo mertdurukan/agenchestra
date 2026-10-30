@@ -29,6 +29,19 @@ IKI = YENI.replace("**Ölçüm saati:**\n\nx\n", "") + HARITA
 ESKI = "# T: çalışma özeti\n\n**Amaç:**\n\nEski amaç.\n\n**Ana bulgu:**\n\nEski bulgu.\n\n**Açık işler:**\n\n- Eski açık iş\n"
 
 
+def _golge_sabit(f):
+    """Gölge davranışı sınanır: kapı modunu ayar varsayılanından bağımsız `golge`ye sabitler (ADR-0096)."""
+    import functools
+    from unittest import mock
+
+    @functools.wraps(f)
+    def sar(*a, **k):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", side_effect=lambda kapi, klasor=None: "golge"):
+            return f(*a, **k)
+    return sar
+
+
 class Sablon(unittest.TestCase):
     def test_etiket_sirasi_ve_eski_etiketler_yok(self):
         with open(SABLON, encoding="utf-8") as f:
@@ -66,9 +79,13 @@ class Kapi(unittest.TestCase):
         with open(self.yol, "w", encoding="utf-8", newline="\n") as f:
             f.write(metin)
 
+    @_golge_sabit
+
     def test_yeni_dolu_gecer(self):
         self.yaz(YENI)
         self.assertIsNone(self.isler._ozet_eksigi(self.k))
+
+    @_golge_sabit
 
     def test_eski_dolu_gecer(self):
         self.yaz(ESKI)
@@ -121,6 +138,8 @@ class YeniBicim(unittest.TestCase):
         n = sum(len(IK._alan_govdesi(YENI_B1, ad) or "") for ad in
                 ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen", "Açık kalanlar"))
         self.assertLessEqual(n, 1200, n)
+
+    @_golge_sabit
 
     def test_b1_kapanis_kapisindan_gecer(self):
         isler = importlib.import_module("komutlar.isler")
@@ -230,6 +249,8 @@ class SefKapi(unittest.TestCase):
         with open(os.path.join(k, "calisma_ozeti_20261026.md"), "w", encoding="utf-8", newline="\n") as f:
             f.write(metin)
         return k
+
+    @_golge_sabit
 
     def test_golge_engellemez_ama_kaydeder(self):
         isler = importlib.import_module("komutlar.isler")

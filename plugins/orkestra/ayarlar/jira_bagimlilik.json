@@ -1,4 +1,4 @@
 {
-  "mod": "golge",
+  "mod": "ihlal",
   "aciklama": "Jira görev bağımlılığı girdi kapısı (ADR-0086). `**Jira:**` alanı taşıyan sıralı planda, işin klasöründeki jira_bagimlilik.json (Atlassian bağlayıcısındaki tek JQL yanıtı + okuma_saati) ile sınanır: dosya yok/bozuk, plandaki anahtarın kendi kaydı dosyada yok, açık öncül plan kümesinde ya da `**Önce:**` içinde yok, Jira döngüsü. Okuma saatinin plan hazırlanma saatinden 24 saatten eski olması iki modda da yalnız uyarıdır. mod: golge = eksik uyarılır ve gunluk.jsonl'a kapi_golge düşer, iş engellenmez; ihlal = eksik plan eksiği sayılır ve kapi_ret düşer. Gölgeden ihlale geçiş (P-028) yalnız en az 20 `**Jira:**` taşıyan planda 0 yanlış pozitif, 'dosya yok/eski' uyarısı en çok %10 ve en az bir Blocks dışı ya da parent/subtask vakası elle incelendikten sonra ayrı kararla (ADR-0086 K5). Kapatma: ORKESTRA_JIRA_BAGIMLILIK_KAPISI=0. Proje ezmesi: .claude/orkestra/jira_bagimlilik.json."
 }

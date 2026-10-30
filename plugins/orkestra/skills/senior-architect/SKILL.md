@@ -6,6 +6,11 @@ source: https://github.com/alirezarezvani/claude-skills/tree/main/engineering-te
 
 # Senior Architect
 
+> **Orkestra notu (ADR-0095):** Bu pakette `scripts/` ve `references/` dosyaları yoktur; aşağıdaki
+> betik ve `references/*.md` atıfları kaynak depoda kalır (https://github.com/alirezarezvani/claude-skills/tree/main/engineering-team/senior-architect).
+> Betik çalıştırma; bunun yerine ilgili analizi doğrudan kod ve belgeler üzerinde yap.
+
+
 Complete toolkit for senior architect with modern tools and best practices.
 
 ## Quick Start
