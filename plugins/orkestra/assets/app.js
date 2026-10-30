@@ -354,6 +354,10 @@
     });
     return out;
   }
+  // Hedef dışı ölçü kartı "İncele" ya da "Yoksay" ile kalkar; kullanıcı başına tarayıcıda tutulur (ad|pencere)
+  const OLCU_GIZLI = 'orkestra.olcu-gizli';
+  function olcuGizli() { try { return new Set(JSON.parse(depo.al(OLCU_GIZLI) || '[]')); } catch (e) { return new Set(); } }
+  function olcuGizle(ad, pencere) { const s = olcuGizli(); s.add(ad + '|' + pencere); depo.koy(OLCU_GIZLI, JSON.stringify([...s])); planla(); }
   function gelenOgeleri() {
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
     const g = { karar: [], sohbet: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
