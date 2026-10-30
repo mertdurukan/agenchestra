@@ -70,5 +70,5 @@ def maliyetli_isler(sd: str) -> set[str]:
 def terk_isler(sd: str, bos_isler_fn, saat: float | None = None) -> list[dict]:
     """bos_isler_fn(sd, saat) ölçütüne uyan ve maliyet satırı olmayan işler ('terk')."""
     saat = terk_saat(sd) if saat is None else saat
-    maliyetli = maliyetli_isler(sd)
-    return [dict(g, saat_esigi=saat) for g in bos_isler_fn(sd, saat) if str(g["id"]) not in maliyetli]
+    haric = maliyetli_isler(sd) | {str(g["id"]) for g in olu_yollar(sd)}  # ölü yol ayrı listelenir, kapatılmaz
+    return [dict(g, saat_esigi=saat) for g in bos_isler_fn(sd, saat) if str(g["id"]) not in haric]
