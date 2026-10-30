@@ -102,7 +102,7 @@ class Isci(_Proje):
 class AracHatasi(_Proje):
     def test_s2_seyreltme_1_sonra_her_3(self):
         sonuclar = [bool(K.arac_metni({"session_id": "o2"}, self.sd)) for _ in range(7)]
-        self.assertEqual(sonuclar, [True, False, False, True, False, False, True])
+        self.assertEqual(sonuclar, [True, False, True, False, False, True, False])  # 1., 3., 6. başarısızlık
 
     def test_oturumlar_ayri_sayilir(self):
         self.assertTrue(K.arac_metni({"session_id": "a"}, self.sd))
