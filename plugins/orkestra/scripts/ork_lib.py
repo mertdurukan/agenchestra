@@ -1755,6 +1755,67 @@ def test_komutu_daralt(komut: str, proje: str, desenler: list[str]) -> tuple[str
     return " ".join(yeni), f"geniş test komutu {len(dosyalar)} test dosyasına daraltıldı"
 
 
+# ---------------------------------------------------------------- test komutunu paralele çevirme (P-041, ADR-0100)
+
+_PARALEL_BAYRAKLAR = {"-q", "-qq", "-v", "-vv", "--quiet", "--verbose"}
+_PARALEL_YORUMLAYICI_RE = re.compile(r"^(?:py|python[\d.]*|python[\d.]*\.exe|py\.exe)$", re.I)
+_KABUK_OPERATOR_RE = re.compile(r"[&|;<>`$()]|\n")
+
+
+def test_komutu_paralel(komut: str, proje: str) -> str:
+    """Geniş ya da çok dosyalı çıplak pytest komutunu `test_paralel.py` komutuna çevirir (işçi sayısını koşucu türetir).
+
+    Yalnız yol ve -q/-v taşıyan tek komut çevrilir: kabuk işleci, ortam öneki, -k/-x/--lf gibi koşucunun
+    desteklemediği bayrak, `::` düğüm kimliği ya da tek test dosyası komutu aynen döner. ORKESTRA_PARALEL=0
+    ve ayarda paralel=false kapatır. Sonuç değişmediyse aynı metin döner (çağıran `is` ile karşılaştırır)."""
+    import paralel_kos
+    if not komut or not paralel_kos.paralel_acik_mi(proje) or _KABUK_OPERATOR_RE.search(komut):
+        return komut
+    jt = [t.strip("\"'") for t in _TOKEN_RE.findall(komut)]
+    if not jt:
+        return komut
+    if os.path.basename(jt[0].replace("\\", "/")) in ("pytest", "pytest.exe"):
+        kos = 0
+    else:
+        i = 0
+        if not _PARALEL_YORUMLAYICI_RE.match(os.path.basename(jt[0].replace("\\", "/"))):
+            return komut
+        i = 1
+        while i < len(jt) and re.match(r"^-\d[\d.]*$", jt[i]):  # py -3.13
+            i += 1
+        if jt[i:i + 2] != ["-m", "pytest"]:
+            return komut
+        kos = i + 1
+    yollar = []
+    for t in jt[kos + 1:]:
+        if t.startswith("-"):
+            if t not in _PARALEL_BAYRAKLAR:
+                return komut
+        elif "::" in t:
+            return komut
+        else:
+            yollar.append(t)
+    kok = os.path.abspath(proje)
+    klasor = any(os.path.isdir(os.path.join(kok, y)) for y in yollar)
+    if yollar and not klasor and len(yollar) < 2:
+        return komut  # tek dosya: paralel kazanç yok
+    koşucu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_paralel.py")
+    return " ".join(['"%s"' % python_yorumlayici(), '"%s"' % koşucu] + [f'"{y}"' for y in (yollar or ["."])])
+
+
+def paralel_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float]:
+    """`kabuk_kos` + paralele çevirme. Paralel koşucu kullanım hatası verirse (çıkış 2: yol yok / koşulacak test yok)
+    ya da hiç çalışamazsa özgün seri komut koşar; sonuç hiçbir durumda yutulmaz."""
+    yeni = test_komutu_paralel(komut, cwd)
+    if yeni == komut:
+        return kabuk_kos(komut, cwd, zaman_asimi)
+    kod, cikti, sure = kabuk_kos(yeni, cwd, zaman_asimi)
+    if kod == 2 or (kod not in (0, 1, -1) and "===== " not in cikti):
+        k2, c2, s2 = kabuk_kos(komut, cwd, zaman_asimi)
+        return k2, c2, round(sure + s2, 2)
+    return kod, cikti, sure
+
+
 # ---------------------------------------------------------------- test çıktısı ayrıştırma (test kapısı + ön kontrol)
 
 # `FAILED/ERROR <kimlik>` ve subTest düşüşü `SUBFAILED(i=1) <kimlik>` / `SUBFAIL <kimlik>` (parantezli parametre atlanır)
