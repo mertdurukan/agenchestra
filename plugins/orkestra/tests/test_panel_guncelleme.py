@@ -312,8 +312,8 @@ class HttpTest(Ortak):
         k, _ = self.istek("GET", "/api/guncelle")
         self.assertEqual(k, 404)
 
-    def test_surum_20(self):
-        self.assertEqual(panel.SURUM, "20")
+    def test_surum_21(self):
+        self.assertEqual(panel.SURUM, "21")
 
 
 if __name__ == "__main__":
