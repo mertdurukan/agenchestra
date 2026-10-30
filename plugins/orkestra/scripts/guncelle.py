@@ -352,7 +352,7 @@ def onbellek_buda(ev: str | None = None, ortam: dict | None = None, tut: int | N
     Dönüş: {silinen: [kayıt], hata: [metin], manifest: yol|None}. Geri alma: eklentiyi yeniden indirmek."""
     tut = buda_esigi() if tut is None else max(int(tut), 0)
     kok = onbellek_koku(ev, pazar)
-    sonuc = {"silinen": [], "hata": [], "manifest": None}
+    sonuc = {"aday": [], "silinen": [], "hata": [], "manifest": None}
     if not os.path.isdir(kok):
         return sonuc
     korunan = korunan_surumler(ev, ortam, pazar)
