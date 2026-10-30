@@ -1627,7 +1627,10 @@ def stop(inp: dict):
             import soru_sinif
             if soru_sinif.yanit_ihlali(inp.get("last_assistant_message"), sd):
                 L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                                 "kural": "konu_disi_oneri", "is": _oturum_isi(sd, oid)})
+                                                                 "kural": "konu_disi_oneri", "is": _oturum_isi(sd, oid),
+                                                                 **_kalip_kaniti(soru_sinif.ayar_oku(sd).get("yanit_yasak_kaliplari"),
+                                                                                 inp.get("last_assistant_message"),
+                                                                                 soru_sinif._normallestir)})
         except Exception:
             pass
     if not perspektif:
