@@ -9,7 +9,7 @@
   "sinyaller": [
     "hata", "bug", "error", "exception", "traceback", "stack ?trace", "fail", "crash", "regress",
     "çalışmıyor", "çalışmadı", "çalışmaz", "olmuyor", "açılmıyor", "gelmiyor", "bozuk", "bozul", "bozdu",
-    "patla", "çök", "başarısız", "kırıl", "kırmızı", "düşüyor", "düştü", "yanlış sonuç", "beklenmeyen",
+    "patl[aı]","çök", "başarısız", "kırıl", "kırmızı", "düşüyor", "düştü", "yanlış sonuç", "beklenmeyen",
     "sorun", "arıza", "kök neden", "root cause", "neden .{0,40}(olmadı|olmuyor|çalışmadı|çıkmadı)",
     "not working", "broken", "doesn'?t work", "isn'?t working"
   ]
