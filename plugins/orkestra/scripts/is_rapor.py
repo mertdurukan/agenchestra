@@ -192,11 +192,11 @@ def _yontem_satirlari(y: dict) -> list:
 
 def _eski_bekleyen(neden: str) -> bool:
     """I-271 öncesi `kapi_ret` kaydı yalnız ayrı denetçinin henüz doldurmadığı satırlardan mı oluşuyor (ilk plan sırası,
-    gerçek ret değil): her parça denetim satırı eksiği ve kimliksiz `**Denetçi:**` satırı içinde."""
-    parcalar = [p for p in str(neden or "").split("; ") if p]
-    return bool(parcalar) and any("kimliği taşımıyor" in p for p in parcalar) and all(
-        p.startswith("best in class denetimi:") and ("ile başlamıyor" in p or "kimliği taşımıyor" in p or len(p) < 40)
-        for p in parcalar)
+    gerçek ret değil): içerik eksikleri (`P<n>:`, `plan.md:`) önce yazıldığından neden denetim satırıyla başlıyorsa
+    içerik hatası yoktur; kimliksiz `**Denetçi:**` satırı var, uydurma kimlik ya da `tümü yeni yetenek` eksiği yok."""
+    n = str(neden or "")
+    return (n.startswith("best in class denetimi:") and "kimliği taşımıyor" in n
+            and "kaydı bulunamadı" not in n and "tüm maddeler" not in n)
 
 
 def _kapi_olaylari(sd: str) -> tuple[dict, dict]:
