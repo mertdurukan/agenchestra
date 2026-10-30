@@ -155,11 +155,10 @@ def yapisal_mod(ayar: dict) -> str:
     return m if m in MODLAR else "kapali"
 
 
-def tur_degisiklik_var(transkript, sd=None) -> bool:
-    """Son kullanıcı mesajından sonra ayardaki `degisiklik_araclari` araçlarından biri çağrıldı mı? Okunamazsa False."""
-    araclar = tuple(str(a) for a in (ayar_oku(sd).get("degisiklik_araclari") or []))
-    if not transkript or not araclar:
-        return False
+def _tur_arac_cagrilari(transkript):
+    """Son kullanıcı mesajından sonraki ana ajan `tool_use` blokları (yan zincir hariç); okunamazsa boş liste."""
+    if not transkript:
+        return []
     try:
         with open(transkript, "rb") as f:
             f.seek(0, os.SEEK_END)
@@ -167,8 +166,8 @@ def tur_degisiklik_var(transkript, sd=None) -> bool:
             f.seek(max(0, boy - _OKUMA_SINIRI))
             satirlar = f.read().splitlines()
     except Exception:
-        return False
-    bulundu = False
+        return []
+    bloklar = []
     for ham in satirlar:
         try:
             o = json.loads(ham)
@@ -177,15 +176,34 @@ def tur_degisiklik_var(transkript, sd=None) -> bool:
         if not isinstance(o, dict):
             continue
         if _gercek_kullanici_mesaji(o):
-            bulundu = False
+            bloklar = []
             continue
         if o.get("type") != "assistant" or o.get("isSidechain"):
             continue
         icerik = (o.get("message") or {}).get("content")
-        for b in icerik if isinstance(icerik, list) else []:
-            if isinstance(b, dict) and b.get("type") == "tool_use" and str(b.get("name") or "").endswith(araclar):
-                bulundu = True
-    return bulundu
+        bloklar += [b for b in icerik if isinstance(b, dict) and b.get("type") == "tool_use"] if isinstance(icerik, list) else []
+    return bloklar
+
+
+def tur_degisiklik_var(transkript, sd=None) -> bool:
+    """Son kullanıcı mesajından sonra ayardaki `degisiklik_araclari` araçlarından biri çağrıldı mı? Okunamazsa False."""
+    araclar = tuple(str(a) for a in (ayar_oku(sd).get("degisiklik_araclari") or []))
+    if not araclar:
+        return False
+    return any(str(b.get("name") or "").endswith(araclar) for b in _tur_arac_cagrilari(transkript))
+
+
+def tur_ask_dolu_actions_bos(transkript, sd=None) -> bool:
+    """Turda seçim aracı (`buton_alanlari`) kullanıcıya soru (`ask`) sordu ama düğme alanı boş mu? Yalnız özet içeren
+    kapanış kutusu (ask da boş) karar istemediği için sayılmaz. Okunamazsa False."""
+    ayar = ayar_oku(sd)
+    alanlar = ayar.get("buton_alanlari") if isinstance(ayar.get("buton_alanlari"), dict) else {}
+    for b in _tur_arac_cagrilari(transkript):
+        ad = next((a for a in alanlar if str(b.get("name") or "").endswith(a)), None)
+        girdi = b.get("input")
+        if ad is not None and isinstance(girdi, dict) and str(girdi.get("ask") or "").strip() and not girdi.get(alanlar[ad]):
+            return True
+    return False
 
 
 def teklif_sonu(yanit, sd=None) -> bool:
@@ -201,16 +219,22 @@ def teklif_sonu(yanit, sd=None) -> bool:
     return son.endswith("?") or _eslesir(ayar.get("teklif_sonu_kaliplari"), son)
 
 
+GOZLEM_TETIKLERI = ("degisiklik",)  # ihlal değil gözlem: tur dosya değiştirdi ama karar istenmedi
+
+
 def yapisal_tetik(transkript, yanit=None, sd=None) -> str:
-    """Yapısal kapıyı tetikleyen neden: 'degisiklik' (tur dosya değiştirdi), 'teklif_sonu' (kapanış teklif/soru) ya da ''.
-    İkisinde de turda dolu düğme sunulmadıysa ihlal sayılır; ifade çeşitliliği kalıba değil yapıya bağlıdır."""
+    """Yapısal kapının tetiği: 'ask_butonsuz' (kapanış kutusu soru sordu, düğme yok), 'teklif_sonu' (yanıt kapanışı teklif/soru,
+    düğme yok), 'degisiklik' (tur dosya değiştirdi, karar istenmedi: gözlem, ihlal değil) ya da ''. Turda dolu düğme sunulduysa
+    boş. Karar anı yapıdan okunur; dosya değişikliği tek başına karar anı değildir."""
     if yapisal_mod(ayar_oku(sd)) == "kapali" or secim_ekrani_sunuldu(transkript, sd):
         return ""
-    if tur_degisiklik_var(transkript, sd):
-        return "degisiklik"
-    return "teklif_sonu" if teklif_sonu(yanit, sd) else ""
+    if tur_ask_dolu_actions_bos(transkript, sd):
+        return "ask_butonsuz"
+    if teklif_sonu(yanit, sd):
+        return "teklif_sonu"
+    return "degisiklik" if tur_degisiklik_var(transkript, sd) else ""
 
 
 def yapisal_ihlal(transkript, sd=None, yanit=None) -> bool:
-    """Tur dosya değiştirdi ya da kapanışı teklif/soruyla bitti, ama kullanıcıya düğmeli seçim ekranı sunulmadı mı?"""
-    return bool(yapisal_tetik(transkript, yanit, sd))
+    """Kapanış karar istiyor (kutu sorusu ya da teklif/soru cümlesi) ama kullanıcıya düğmeli seçim ekranı sunulmadı mı?"""
+    return yapisal_tetik(transkript, yanit, sd) not in ("",) + GOZLEM_TETIKLERI
