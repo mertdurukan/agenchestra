@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "mod: golge = görünen yerleşim/konum değiştiren P maddesinin Kabul alanı tarayıcı ölçümü içermiyorsa uyarılır ve gunluk.jsonl'a kapi_golge düşer, iş engellenmez; ihlal = plan reddedilir. Geçiş ölçümden sonra ayrı kararla (P-028). Kapatma: ORKESTRA_GORUNUM_OLCUMU_KAPISI=0. Proje ezmesi: .claude/orkestra/gorunum_olcumu.json (P-044, ADR-0106)."
+}

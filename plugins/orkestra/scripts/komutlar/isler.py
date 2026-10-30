@@ -234,6 +234,8 @@ def cmd_is_sira(a):
         print(f"  uyarı (sözleşme): {e}")
     for e in ik.SIRA.bic_uyari(kayit["klasor"]) if not eksik else []:  # P-030: gölge modunda uyarı + kapi_golge kaydı
         print(f"  uyarı (best in class): {e}")
+    for e in ik.SIRA.gorunum_olcumu_uyari(kayit["klasor"]) if not eksik else []:  # P-044: gölge modunda uyarı + kapi_golge kaydı
+        print(f"  uyarı (görünüm ölçümü): {e}")
 
 
 def cmd_is_onayla(a):
