@@ -326,7 +326,8 @@ def _netle(satirlar: list, kayit: dict):
     yeni["hook_netlendi"] = True
     if any(art.values()):
         yeni["hook_artik"] = dict(art, zaman=artik_zaman)
-    kalan = [s for i, s in enumerate(satirlar) if i not in set(ham)]
+    yutulan = set(ham)
+    kalan = [s for i, s in enumerate(satirlar) if i not in yutulan]
     return yeni, kalan
 
 
