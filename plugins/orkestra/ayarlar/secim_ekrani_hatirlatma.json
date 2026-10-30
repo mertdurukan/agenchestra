@@ -1,6 +1,6 @@
 {
   "mod": "block",
-  "hatirlatma": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Cümleyi yanıttan çıkar ve butonla sun: wrap_up (ask = tek karar cümlesi; actions[0] = önerilen, tek öneri varsa 'Yap' düğmesi, gerekirse tek alternatif) ya da AskUserQuestion (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). Kullanıcı yalnız tıklar; yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
+  "hatirlatma": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Cümleyi yanıttan çıkar ve butonla sun: wrap_up (ask = tek karar cümlesi; actions[0] = önerilen, tek öneri varsa 'Yap' düğmesi, gerekirse tek alternatif) ya da AskUserQuestion (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). İş açma ya da komut gerektiren öneri tek eylemli düğmeyle sunulur (ör. 'İş aç'); tıklanınca komutu sen çalıştırırsın. Kullanıcı yalnız tıklar; yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
   "secim_araclari": [
     "AskUserQuestion",
     "wrap_up"
@@ -32,5 +32,8 @@
   "buton_alanlari": {
     "AskUserQuestion": "questions",
     "wrap_up": "actions"
-  }
+  },
+  "teklif_sonu_kaliplari": [
+    "\\w+(?:[ae]r[ıi]m|[ıiuü]r[ıiuü]m|ay[ıi]m|ey[ıi]m)[.!]?$"
+  ]
 }

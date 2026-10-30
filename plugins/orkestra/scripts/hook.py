@@ -1341,10 +1341,12 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         import izin_politikasi
         if izin_politikasi._auto_modu(sd, oid):  # ADR-0086: /auto kullanıcıya seçim yaptırmaz, ekran hatırlatması susar
             return
-        if SH.yapisal_ihlal(inp.get("transcript_path"), sd):
+        tetik = SH.yapisal_tetik(inp.get("transcript_path"), inp.get("last_assistant_message"), sd)
+        if tetik:
             ykip = SH.yapisal_mod(SH.ayar_oku(sd))
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                             "kural": "secim_ekrani_yapisal", "mod": ykip, "is": _oturum_isi(sd, oid)})
+                                                             "kural": "secim_ekrani_yapisal", "mod": ykip, "tetik": tetik,
+                                                             "is": _oturum_isi(sd, oid)})
             if ykip == "block" and not inp.get("stop_hook_active"):
                 L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
@@ -1354,6 +1356,24 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
                                                          "kural": "secim_ekrani", "mod": kip, "is": _oturum_isi(sd, oid)})
         if kip == "block" and not inp.get("stop_hook_active"):
             L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
+def _kabuk_sozdizimi_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0102, P-043: yanıttaki kabuk kod bloğunda kullanıcı profiline yasak kalıp varsa günlüğe
+    `kural_ihlal / kabuk_sozdizimi` yazılır. Yalnız golge (engellemez); hatada sessiz geçer."""
+    try:
+        import kabuk_profili as KP
+        bulunan = KP.yanit_ihlalleri(inp.get("last_assistant_message"), sd)
+        if bulunan:
+            ayar = KP.ayar_oku(sd)
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                             "kural": KP.KURAL, "mod": KP.stop_kip(ayar),
+                                                             "profil": KP.profil_sec(ayar), "kalip": bulunan,
+                                                             "is": _oturum_isi(sd, oid)})
     except SystemExit:
         raise
     except Exception:
@@ -1584,6 +1604,7 @@ def stop(inp: dict):
         _baglanti_kapisi(sd, oid, inp, ozet)
         _kimlik_kapisi_yanit(sd, oid, inp)
         _secim_kapisi_yanit(sd, oid, inp)
+        _kabuk_sozdizimi_yanit(sd, oid, inp)
         _kanitsiz_iddia_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
@@ -2595,6 +2616,11 @@ def user_prompt_submit(inp: dict):
             try:  # ADR-0101: hata/sorun içeren mesajda kök neden önce yöntemi; hata hook'u düşürmez
                 import kok_neden_enjeksiyonu
                 parcalar.append(kok_neden_enjeksiyonu.ana_ajan_metni(metin, sd, inp.get("session_id")))
+            except Exception:
+                pass
+            try:  # ADR-0102: kullanıcı kabuğunun komut sözdizimi (ilk mesaj ve komut anan mesaj); hata hook'u düşürmez
+                import kabuk_profili
+                parcalar.append(kabuk_profili.ana_ajan_metni(metin, sd, inp.get("session_id")))
             except Exception:
                 pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez
