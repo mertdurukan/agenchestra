@@ -645,6 +645,11 @@ def _onay_islemi(sd: str, g: dict):
     raise ValueError("bilinmeyen işlem.")
 
 
+ISITMA_ADIM = 5.0         # sn: ısıtıcının kontrol adımı
+ISITMA_TABAN = 45.0       # sn: ısıtma aralığı alt sınırı (boşta CPU <%10; ESKI_AZAMI=120 altında)
+ISITMA_TABAN_AGIR = 90.0  # sn: ağır anahtarlar (isler, analitik) için alt sınır (ESKI_AZAMI=120 altında)
+
+
 def _isleyici():
     kilit = threading.Lock()
     onbellek: dict = {}
@@ -671,12 +676,50 @@ def _isleyici():
             with kilit:
                 yenileniyor.discard(anahtar)
 
+    # Arka plan ısıtma: son 10 dk'da istenen anahtarlar, sekme boşta/gizli olsa da değer ESKI_AZAMI'ye varmadan yenilenir;
+    # böylece 120 sn boşluktan sonraki ilk istek üretimi (saniyeler) beklemez. Aralık TTL'den büyük, ağır anahtarlarda 30 sn.
+    ISITMA_PENCERE = 600.0
+    ISITMA_AGIR = frozenset({"isler", "analitik", "analitik-tum"})
+    son_istek: dict = {}  # anahtar -> (zaman, uret, sure)
+    isitici: dict = {"var": False}
+
+    def _isitma_araligi(anahtar, sure):
+        ad = anahtar[0] if isinstance(anahtar, tuple) else anahtar
+        return max(sure, ISITMA_TABAN_AGIR if ad in ISITMA_AGIR else ISITMA_TABAN)
+
+    def _isitma_dongusu():
+        while not isitici.get("dur"):
+            time.sleep(ISITMA_ADIM)
+            if isitici.get("dur"):
+                return
+            with kilit:
+                adaylar = list(son_istek.items())
+            for anahtar, (zi, uret, sure) in adaylar:
+                simdi = time.time()
+                with kilit:
+                    if simdi - zi > ISITMA_PENCERE:
+                        son_istek.pop(anahtar, None)
+                        continue
+                    if anahtar in yenileniyor or simdi - onbellek.get(anahtar, (0.0, b""))[0] < _isitma_araligi(anahtar, sure):
+                        continue
+                    yenileniyor.add(anahtar)
+                    ak = anahtar_kilit.setdefault(anahtar, threading.Lock())
+                _arkada_yenile(anahtar, uret, ak)
+
+    def _isiticiyi_baslat():
+        if isitici["var"] or os.environ.get("ORKESTRA_PANEL_ISITMA") == "0":
+            return
+        isitici["var"] = True
+        threading.Thread(target=_isitma_dongusu, daemon=True).start()
+
     def onbellekli(anahtar, sure, uret):
         # Genel kilit yalnız sözlük erişimini korur; hesaplama anahtar başına kilitlenir. Yavaş bir uç nokta
         # (ör. ozet.json) başka uç noktaları bekletmez, aynı anahtar ise tek kez hesaplanır.
         # Süresi dolmuş ama ESKI_AZAMI'den yeni değer varsa hemen verilir, yenileme arkada tek iş parçacığında
         # yapılır (tarayıcı yoklaması üretimi beklemez). Hiç değer yoksa ya da çok eskiyse istek üretimi bekler.
+        _isiticiyi_baslat()
         with kilit:
+            son_istek[anahtar] = (time.time(), uret, sure)
             z, v = onbellek.get(anahtar, (0.0, b""))
             yas = time.time() - z
             if yas <= sure:
@@ -696,6 +739,7 @@ def _isleyici():
 
     class Isleyici(http.server.BaseHTTPRequestHandler):
         timeout = 10  # yavaş istemci iş parçacığını süresiz tutmasın
+        isitmayi_durdur = staticmethod(lambda: isitici.__setitem__("dur", True))  # sunucu kapanırken (testler)
 
         def log_message(self, *a):
             pass
