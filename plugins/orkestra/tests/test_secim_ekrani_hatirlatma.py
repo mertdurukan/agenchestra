@@ -35,7 +35,10 @@ POZITIF = ["Bu iki yoldan birini seçmen gerekiyor. Hangisini istersiniz?",
            "Onay verirsen git push çalıştırırım.",
            "Bu üç kararı onaylarsan plan.md'ye işlerim.",
            "İstersen ikisini de yaparım.",
-           "Bu iki dosyayı şimdi commit edeyim mi?"]
+           "Bu iki dosyayı şimdi commit edeyim mi?",
+           "Yap dersen yaparım.",
+           'Planı onayladıysan "yap" dersen başlarım.',
+           "Yap derseniz uygularım."]
 NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Bu sözcük bir kod örneğidir: `hangisini istersiniz`.",
            "```\nHangisini istersiniz?\n```",
@@ -44,6 +47,7 @@ NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Sen \"yap\" demeden başlamıyorum.",
            "Onay bekleyen iş yok; testler geçti.",
            "Kullanıcı onayladı, iş başladı.",
+           "Kullanıcı yap dedi, işi bitirdim.",
            "",
            None]
 

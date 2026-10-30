@@ -13,6 +13,7 @@
     "\\bister\\s+misin(iz)?\\s*\\?",
     "\\byoksa\\b[^.\\n?]{0,100}\\?",
     "\\byap\\W{0,3}\\s*(de|dem|dey|ders|yaz)\\w*[^.\\n]{0,30}\\byeter\\w*",
+    "(?<![\\w-])yap[\"'“”]{0,2}\\s+(dersen|derseniz|dediğinde|dediğin\\s+anda|deyin)\\b[^.\\n]{0,80}\\b\\w+([ıiuü]r[ıiuü]m|[ae]r[ıi]m|[ae]y[ıi]m|[ae]r[ıi]z|[ıiuü]r[ıi]z)\\b",
     "\\bonay\\s+ver(irsen|irseniz|in|ir\\s+misin\\w*)\\b",
     "\\bonaylarsan(ız)?\\b",
     "\\b(isterseniz|istersen)\\b[^.\\n]{0,80}\\b(yapay[ıi]m|yaparım|yapabilirim|ekley\\w+|uygulay\\w+|başlat\\w+|yazay\\w+|çalıştır\\w+)",
