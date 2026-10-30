@@ -114,6 +114,7 @@ class TestDosyalarVeKural(unittest.TestCase):
         self.assertIn("ADR-0037", kayit["P-029"]["metin"])
         self.assertIn("ADR-0043", kayit["P-029"]["metin"])
         self.assertIn("yap demen yeterli", kayit["P-029"]["metin"])
+        self.assertIn("Karar yoksa yalnız özet", kayit["P-029"]["metin"])  # I-284 S5
 
     def test_ayar_anahtarlari(self):
         with open(AYAR, encoding="utf-8") as f:
@@ -300,7 +301,7 @@ class TestYapisalKapi(TestStopKapisi):
         return self.transkript([kullanici(), arac("Edit", {"file_path": "a.py"}), arac_sonucu(), *ek, metin(self.DUZ)])
 
     def yapisal(self):
-        return [g for g in self.gunluk() if g.get("kural") == "secim_ekrani_yapisal"]
+        return [g for g in self.gunluk() if g.get("kural") == "secim_ekrani_yapisal" and g.get("tur") == "kural_ihlal"]
 
     def test_varsayilan_kip_golge(self):
         self.assertEqual(SH.yapisal_mod(SH.ayar_oku(self.sd)), "golge")
@@ -309,17 +310,34 @@ class TestYapisalKapi(TestStopKapisi):
         kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti())
         self.assertIsNone(kod)
         self.assertIsNone(cikti)
+        # I-284 S4: karar istenmeyen değişiklik turu ihlal değil gözlemdir
+        self.assertEqual(self.yapisal(), [])
+        gozlem = [g for g in self.gunluk() if g.get("tur") == "kapi_gozlem"]
+        self.assertEqual(len(gozlem), 1)
+        self.assertEqual(gozlem[0]["tetik"], "degisiklik")
+
+    def test_ask_butonsuz_golgede_ihlal_yazar(self):
+        yol = self.degisti(arac("mcp__ccd_turn__wrap_up", {"recap": "bitti", "ask": "Onaylıyor musunuz?"}))
+        kod, cikti = self.kos(self.DUZ, transcript_path=yol)
+        self.assertIsNone(cikti)
         kayit = self.yapisal()
         self.assertEqual(len(kayit), 1)
         self.assertEqual(kayit[0]["tur"], "kural_ihlal")
+        self.assertEqual(kayit[0]["tetik"], "ask_butonsuz")
         self.assertEqual(kayit[0]["mod"], "golge")
 
-    def test_block_engeller_butonluysa_gecer(self):
+    def test_ask_butonsuz_block_engeller(self):
         self.proje_ayari({"yapisal_mod": "block"})
-        kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti())
+        yol = self.degisti(arac("mcp__ccd_turn__wrap_up", {"recap": "bitti", "ask": "Onaylıyor musunuz?"}))
+        kod, cikti = self.kos(self.DUZ, transcript_path=yol)
         self.assertEqual(kod, 0)
         self.assertEqual(cikti["decision"], "block")
-        self.assertEqual(self.yapisal()[0]["mod"], "block")
+
+    def test_degisiklik_block_modunda_engellemez(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti())
+        self.assertIsNone(cikti)
+        self.assertEqual(self.yapisal(), [])
 
     def test_block_butonlu_tur_sessiz(self):
         self.proje_ayari({"yapisal_mod": "block"})
@@ -328,11 +346,23 @@ class TestYapisalKapi(TestStopKapisi):
         self.assertIsNone(cikti)
         self.assertEqual(self.yapisal(), [])
 
-    def test_ozet_ici_dugmesiz_kapanis_ihlal(self):
+    def test_salt_ozet_kapanisi_ihlal_degil(self):
+        """S1: karar istemeyen (ask boş, actions boş) kapanış kutusu dosya değiştiren turda ihlal sayılmaz."""
         self.proje_ayari({"yapisal_mod": "block"})
         yol = self.degisti(arac("mcp__ccd_turn__wrap_up", {"recap": "bitti"}))
+        self.assertEqual(SH.yapisal_tetik(yol, self.DUZ, self.sd), "degisiklik")
         kod, cikti = self.kos(self.DUZ, transcript_path=yol)
-        self.assertEqual(cikti["decision"], "block")
+        self.assertIsNone(cikti)
+        self.assertEqual(self.yapisal(), [])
+
+    def test_ask_dolu_actions_bos_islevi(self):
+        """S3: ask dolu + actions boş yakalanır; ask boş, düğmeli ya da başka tur yakalanmaz."""
+        f = lambda *e: SH.tur_ask_dolu_actions_bos(self.transkript([kullanici(), *e]), self.sd)
+        self.assertTrue(f(arac("mcp__ccd_turn__wrap_up", {"recap": "r", "ask": "Karar?"})))
+        self.assertFalse(f(arac("mcp__ccd_turn__wrap_up", {"recap": "r"})))
+        self.assertFalse(f(arac("mcp__ccd_turn__wrap_up", {"recap": "r", "ask": "Karar?", "actions": [{"label": "Yap"}]})))
+        yol = self.transkript([kullanici("bir"), arac("mcp__ccd_turn__wrap_up", {"ask": "Karar?"}), kullanici("iki")])
+        self.assertFalse(SH.tur_ask_dolu_actions_bos(yol, self.sd))
 
     EKRAN = "Hangi maddelerin kaynağa mı yoksa projeye mi yazılacağına karar verirseniz iş açarım."
 
@@ -375,16 +405,19 @@ class TestYapisalKapi(TestStopKapisi):
         self.assertFalse(SH.tur_degisiklik_var(yol, self.sd))
 
     def test_kapali_ve_ortam_degiskeni(self):
+        ask = arac("mcp__ccd_turn__wrap_up", {"recap": "r", "ask": "Karar?"})
         self.proje_ayari({"yapisal_mod": "kapali"})
-        self.assertFalse(SH.yapisal_ihlal(self.degisti(), self.sd))
+        self.assertFalse(SH.yapisal_ihlal(self.degisti(ask), self.sd))
         self.proje_ayari({"yapisal_mod": "block"})
-        self.assertTrue(SH.yapisal_ihlal(self.degisti(), self.sd))
-        os.environ["ORKESTRA_SECIM_HATIRLATMA"] = "0"
+        self.assertTrue(SH.yapisal_ihlal(self.degisti(ask), self.sd))
         self.assertFalse(SH.yapisal_ihlal(self.degisti(), self.sd))
+        os.environ["ORKESTRA_SECIM_HATIRLATMA"] = "0"
+        self.assertFalse(SH.yapisal_ihlal(self.degisti(ask), self.sd))
 
     def test_stop_hook_active_blok_etmez(self):
         self.proje_ayari({"yapisal_mod": "block"})
-        kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti(), stop_hook_active=True)
+        yol = self.degisti(arac("mcp__ccd_turn__wrap_up", {"recap": "r", "ask": "Karar?"}))
+        kod, cikti = self.kos(self.DUZ, transcript_path=yol, stop_hook_active=True)
         self.assertIsNone(cikti)
         self.assertEqual(len(self.yapisal()), 1)
 

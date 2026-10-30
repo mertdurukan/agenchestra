@@ -1342,7 +1342,11 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         if izin_politikasi._auto_modu(sd, oid):  # ADR-0086: /auto kullanıcıya seçim yaptırmaz, ekran hatırlatması susar
             return
         tetik = SH.yapisal_tetik(inp.get("transcript_path"), inp.get("last_assistant_message"), sd)
-        if tetik:
+        if tetik in SH.GOZLEM_TETIKLERI:  # ihlal değil: tur dosya değiştirdi, karar istenmedi
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_gozlem",
+                                                             "kural": "secim_ekrani_yapisal", "tetik": tetik,
+                                                             "is": _oturum_isi(sd, oid)})
+        elif tetik:
             ykip = SH.yapisal_mod(SH.ayar_oku(sd))
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
                                                              "kural": "secim_ekrani_yapisal", "mod": ykip, "tetik": tetik,
