@@ -2623,6 +2623,11 @@ def user_prompt_submit(inp: dict):
                 parcalar.append(kabuk_profili.ana_ajan_metni(metin, sd, inp.get("session_id")))
             except Exception:
                 pass
+            try:  # ADR-0107: karar cümlesi yazılmadan önce P-029 düğme yönergesi; hata hook'u düşürmez
+                import secim_ekrani_hatirlatma
+                parcalar.append(secim_ekrani_hatirlatma.tur_basi_metni(sd))
+            except Exception:
+                pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez
                 import sir_yakala
                 parcalar.extend(sir_yakala.kaydet(inp.get("prompt") or ""))
