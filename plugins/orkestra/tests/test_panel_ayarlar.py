@@ -105,6 +105,11 @@ class VarsayilanModTesti(unittest.TestCase):
             self.assertFalse(panel._mod_yaz("a1", v)["tamam"])
         self.assertFalse(os.path.exists(self.dosya))
 
+    def test_arayuz_mod_secici(self):
+        js = open(os.path.join(KOK, "assets", "app.js"), encoding="utf-8").read()
+        for parca in ('data-eylem="ayar-mod"', 'role="radiogroup"', "ey === 'ayar-mod'", "varsayilan_mod: hedef", 'data-eylem="ayar-bildirim"', 'role="switch"'):
+            self.assertIn(parca, js)
+
     def test_bilinmeyen_alan_404(self):
         self.assertEqual(panel._mod_yaz("yok", "auto")["kod"], 404)
 
