@@ -31,7 +31,8 @@ def madde(n, alan):
 
 
 def plan(p1=DUZELTME, den=BOS_DENETIM):
-    return "# Plan\n\n## 4. Plan maddeleri\n\n" + madde(1, p1) + madde(2, DIGER) + den
+    return ("# Plan\n\n**LLM çıktısı:** yok — iş kullanıcıya giden hiçbir model yanıtı üretmez\n\n## 4. Plan maddeleri\n\n"
+            + madde(1, p1) + madde(2, DIGER) + den)
 
 
 class DenetciBekleniyor(unittest.TestCase):
