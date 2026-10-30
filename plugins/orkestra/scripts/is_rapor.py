@@ -403,6 +403,9 @@ def metin(r: dict) -> str:
     golge_satiri = ["gölge kapı uyarıları: " + ", ".join(f"{k} {n}" for k, n in golge.items())] if golge else []
     ret = r.get("kapi_ret") or {}
     ret_satiri = ["kapı retleri (ihlal modu): " + ", ".join(f"{k} {n}" for k, n in ret.items())] if ret else []
+    bekl = r.get("kapi_bekleniyor") or {}
+    if bekl:
+        ret_satiri.append("denetçi bekleniyor (ret sayılmaz): " + ", ".join(f"{k} {n}" for k, n in bekl.items()))
     c = r.get("cikti")
     cikti_satiri = [] if not c else [
         f"kullanıcı çıktısı ({c['tur']} tur): ortanca {c['ortanca']}, p90 {c['p90']} karakter, aşım oranı {_oran(c['asim_orani'])}"
