@@ -1,0 +1,4 @@
+{
+  "tutulacak_son_surum": 3,
+  "aciklama": "orkestra guncelle sonrası eklenti önbelleği budaması (I-271 P8). ~/.claude/plugins/cache/claude-orchestration/<eklenti>/ altında her eklenti için etkin sürüm (installed_plugins.json installPath), çalışan oturumların sürümü (.in_use, CLAUDE_PLUGIN_ROOT) ve bunlar dışındaki en yeni tutulacak_son_surum klasör kalır; diğerleri silinmeden önce manifeste (~/.claude/orkestra-makine/onbellek_buda.jsonl: ad, boyut, tarih) yazılır. Geri alma: eklentiyi yeniden indirmek (orkestra guncelle / claude plugin install)."
+}

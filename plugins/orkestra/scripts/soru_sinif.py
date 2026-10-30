@@ -91,6 +91,27 @@ def kaynak_metni(metin, sd=None) -> str:
     return m if not sinir or len(m) <= sinir else ""
 
 
+def yol_kapsami_mi(metin, ayar: dict) -> bool:
+    """Yol notu kapsamı (I-273 K2): `tur()` sonucundan bağımsız; boş, çok kısa, selam/onay/devam mesajı hariç."""
+    m = _normallestir((metin or "").strip())
+    if not m or len(m) < ayar.get("yol_min_karakter", 0):
+        return False
+    return not (_eslesir(ayar.get("yol_haric_kaliplari"), m) or _onay_mesaji(metin))
+
+
+def yol_metni(metin, sd=None) -> str:
+    """ADR-0103: kapsamdaki mesaja aday yol taraması sözleşmesi (skill, MCP, kod/kayıt, resmi belge). Metin, boy sınırı
+    ve kapsam ayardan; sınırı aşan metin verilmez. `ORKESTRA_YOL_NOTU=0` ya da boş `yol_sozlesmesi` kapatır."""
+    if os.environ.get("ORKESTRA_YOL_NOTU") == "0":
+        return ""
+    ayar = ayar_oku(sd)
+    m = " ".join(str(ayar.get("yol_sozlesmesi") or "").split())
+    sinir = ayar.get("yol_max_karakter")
+    if not m or not sinir or len(m) > sinir or not yol_kapsami_mi(metin, ayar):
+        return ""
+    return m
+
+
 def tur(metin, sd=None) -> str:
     """Hız için model yok: 'soru' (bilgi sorusu), 'devam' (kısa/atıflı mesaj) ya da 'is'. Kararsızsa 'devam'."""
     ayar = ayar_oku(sd)

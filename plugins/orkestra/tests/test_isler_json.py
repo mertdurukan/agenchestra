@@ -241,7 +241,7 @@ class PanelIsler(unittest.TestCase):
         self.assertEqual(ks["sayi"], 3)
         self.assertEqual([k["kart"] for k in ks["acik"]], ["G-010"])
         k = ks["acik"][0]
-        self.assertEqual(set(k), {"kart", "baslik", "durum", "basamak", "usd", "token", "kalem"})
+        self.assertEqual(set(k), {"kart", "baslik", "durum", "basamak", "usd", "token", "kalem", "pencere"})
         self.assertEqual(k["basamak"], "T2")
         self.assertAlmostEqual(k["usd"], 0.5, places=4)
 
@@ -294,7 +294,7 @@ class PanelIsler(unittest.TestCase):
     def test_sayfalar_kaydi_ve_surum(self):
         self.assertEqual(panel.SAYFALAR.get("/isler"), "isler.html")
         self.assertEqual(panel.SAYFALAR.get("/isler.html"), "isler.html")
-        self.assertEqual(panel.SURUM, "20")
+        self.assertEqual(panel.SURUM, "21")
 
     def test_onbellek_2sn(self):
         self.kur_iki_is()

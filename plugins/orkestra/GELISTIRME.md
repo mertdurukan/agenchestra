@@ -25,7 +25,7 @@ Notlar:
 - Yayın akışı ("Yayın akışı" bölümü) yalnız `main` içindir; yan dal push edilse bile marketplace'e girmez.
 
 ## Panelde güncelleme bildirimi (ADR-0039)
-Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa ve aralıkta konusu `Yenilik:` ile başlayan en az bir commit varsa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti); kartta yalnız bu commit'ler listelenir. Yeni özellik içeren yayın commit'ine `Yenilik: <ne eklendi>` konusu verilir, aksi halde kart çıkmaz.
+Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti; ADR-0095). Aralıkta konusu `Yenilik:` ile başlayan commit varsa kart "N yeni özellik" yazar ve yalnız bu commit'leri listeler; yoksa "N değişiklik var" yazar (N = sürüm farkı). Yeni özellik içeren yayın commit'ine yine `Yenilik: <ne eklendi>` konusu verilir.
 - Kontrol `guncelle.kontrol()`: `git fetch` + `origin/main` karşılaştırması; ağ hatası kartı silmez. Koşu `guncelle.Kosu`: CLI ile aynı `calistir`, arka plan iş parçacığı, tek koşu.
 - `panel_guncelleme.Guncelleme`: panel açılışında ve sonra 30 dk'da bir yoklar (`ORKESTRA_GUNCELLEME_YOKLA=0` kapatır), "Sonra" SHA'sını `guncelleme_ertele.json`'a yazar.
 - Uçlar `GET /api/guncelleme`, `POST /api/guncelle`, `POST /api/guncelle-ertele`: çalışma alanı almaz, `alan=*` reddinden muaftır (`KULLANICI_YOLLARI`).
@@ -91,7 +91,7 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - Testler: `tests/test_hata_kayit.py`, `tests/test_hata_en_cok.py`.
 
 ## Test takımı
-- Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; yaklaşık 4 dk).
+- Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; işçi sayısı CPU ve bellekten otomatik, `ORKESTRA_PARALEL_N` ezer; 16 çekirdekte ~4,5 dk, seri ~32 dk; P-041).
 - Değişiklikten sonra commit'ten önce koş.
 - CLI çağrıları süreç içinde koşar: test yardımcıları (`test_cekirdek.kos`, `test_test_kapisi.kos` vb.) `tests/ic_kos.py` üzerinden `orkestra.py`/`hook.py` `main()`'ini aynı argv, cwd, ortam ve stdin ile çağırır. Alt süreç başına ~0,5 sn gidiyordu; en yavaş dosyalar 5-10 kat hızlandı (15.10). Ev dizinini değiştiren testlerde içe aktarımda hesaplanan ev yolları (GENEL_DIZIN türevleri) çağrı süresince yeni eve çevrilir.
 - Gerçek alt süreçle uçtan uca doğrulama: `ORKESTRA_IC_KOS=0` ile koş (yayın öncesi ya da süreç içi farkından şüphelenince).
@@ -209,7 +209,7 @@ Kaynak iş klasörleri McD deposundadır (`C:\Mert\McD\Claude_Orkestrasyon\NNN-�
 - **İş/todo modeli:** her işin tek `todo.md`'si görev klasöründe; `orkestra is todo <id> --ekle/--bitti`.
 - **Kart worktree:** kart çalışması `.claude/worktrees` altında `kart/G-NNN` dalında; teslim `orkestra kart teslim G-NNN`, temizlik `kart agac-temizle`.
 - **Yönlendirme ipucu:** `is_yonlendirme.py` (ilk istekte yeni iş mi devam mı).
-- **Paralel test:** `scripts/test_paralel.py` (tam takım ~4 dk).
+- **Paralel test:** `scripts/test_paralel.py` (tam takım ~4,5 dk); çekirdek sayısı `scripts/paralel_kos.py`, ayar `ayarlar/paralel_kosu.json`; test dışı süreçler `orkestra paralel` (P-041).
 - **Maliyet:** ana ajan toplam maliyetin %65'i (15.10), %71'i (16.10; 663,61 / 937,78 $). En büyük kaçak, 1 saati aşan aradan sonra büyük bağlama dönüşte önbelleğin yeniden yazılması. Önlemler: soğuk önbellek kapısı (UserPromptSubmit; ezme `.claude/orkestra/onbellek_kapisi.json`), T1–T3'te tek çağrıda denetim, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.
 - **Öneri sistemi (6926d8b):** `scripts/oner.py basamak` (geçmiş ilk-geçiş onayı Beta(1,1) × kart başı USD → en ucuz başlangıç basamağı; TF-IDF benzer kart; ret nedeninden kriter ipucu) ve `scripts/kural_aday.py rapor` (tekrarlayan ret → kural adayı, medyan+3·MAD anomali, p90×2 bütçe tavanı). Yalnız öneridir. Bandit ve embedding k-NN ≥200 karta ertelendi.
 - **Mimari kazanımlar (007):** Faz 0-1 ölçümü hiçbir paketin (K1, K2, K4, K5) koda geçişini desteklemedi; K4/K2 sınaması gölge veride n≥5 ret birikince.

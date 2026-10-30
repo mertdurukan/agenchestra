@@ -408,5 +408,60 @@ class BagliOnayDevam(unittest.TestCase):
             self.assertEqual(hook._yonlendirme_ipucu(sd, OTURUM, self.ONAY), "")
 
 
+class TestYolNotu(_Ayarli):
+    """I-273 / ADR-0103: aday yol taraması notu; kapsam ayardan, ek model çağrısı yok."""
+    GERCEK_1 = ("sana bir soru sorduğumda bu soruyu yanıtlayacağın zaman skill dosyaları, mcp'ler ya da başka çözüm "
+                "yolları şeklinde de kapsamlı olarak düşünerek best in class yanıt vermeni sağlayacak nasıl bir "
+                "yaklaşım kurabiliriz? Yani doğrudan bir kod yazarak çözmek yerine, best in class yaklaşımı bir çok "
+                "farklı noktadan görerek?")
+    GERCEK_2 = "bunu kurmak ne kadar önemli ne kazandıırr? ne kaybettirir? best in class yaklşaım ne"
+
+    def test_yol_ayar_anahtarlari_ve_sinir(self):
+        a = self.ayar
+        for k in ("yol_sozlesmesi", "yol_max_karakter", "yol_min_karakter", "yol_mod", "yol_haric_kaliplari"):
+            self.assertIn(k, a)
+        self.assertLessEqual(len(a["yol_sozlesmesi"]), a["yol_max_karakter"])
+        self.assertLessEqual(a["yol_max_karakter"], 300)
+        self.assertEqual(a["yol_mod"], "golge")
+        for kimlik in ("P-001", "yaklasim"):
+            self.assertIn(kimlik, a["yol_sozlesmesi"])
+
+    def test_yol_iki_gercek_mesaj_not_alir(self):
+        self.assertGreater(len(self.GERCEK_1), 300)  # bilgi_sorusu_mu eşiğinin üstü: soru sayılmayan vaka
+        self.assertEqual(soru_sinif.yol_metni(self.GERCEK_1, self.sd), self.ayar["yol_sozlesmesi"])
+        self.assertEqual(soru_sinif.yol_metni(self.GERCEK_2, self.sd), self.ayar["yol_sozlesmesi"])
+
+    def test_yol_selam_ve_onay_not_almaz(self):
+        for m in ("merhaba", "tamam", "evet", "devam", "yap.", "", None, "   "):
+            self.assertEqual(soru_sinif.yol_metni(m, self.sd), "", repr(m))
+
+    def test_yol_onay_cumlesi_not_almaz(self):
+        self.assertEqual(soru_sinif.yol_metni("Evet, kur (Recommended)", self.sd), "")
+
+    def test_yol_tur_sonucunu_degistirmez(self):
+        self.assertEqual(soru_sinif.tur(self.GERCEK_1, self.sd), "is")
+        self.assertFalse(soru_sinif.bilgi_sorusu_mu(self.GERCEK_1, self.ayar))
+
+    def test_yol_kaynak_notunu_etkilemez(self):
+        self.assertTrue(soru_sinif.kaynak_metni(self.GERCEK_2, self.sd))
+        self.assertLessEqual(len(soru_sinif.kaynak_metni(self.GERCEK_2, self.sd)), self.ayar["kaynak_max_karakter"])
+
+    def test_yol_ortam_degiskeni_kapatir(self):
+        with mock.patch.dict(os.environ, {"ORKESTRA_YOL_NOTU": "0"}):
+            self.assertEqual(soru_sinif.yol_metni(self.GERCEK_2, self.sd), "")
+
+    def test_yol_bos_ayar_kapatir(self):
+        self.proje_ayari({"yol_sozlesmesi": ""})
+        self.assertEqual(soru_sinif.yol_metni(self.GERCEK_2, self.sd), "")
+
+    def test_yol_siniri_asan_metin_verilmez(self):
+        self.proje_ayari({"yol_sozlesmesi": "x" * 301})
+        self.assertEqual(soru_sinif.yol_metni(self.GERCEK_2, self.sd), "")
+
+    def test_yol_bozuk_proje_ayari_varsayilana_duser(self):
+        self.proje_ayari("{bozuk")
+        self.assertEqual(soru_sinif.yol_metni(self.GERCEK_2, self.sd), self.ayar["yol_sozlesmesi"])
+
+
 if __name__ == "__main__":
     unittest.main()

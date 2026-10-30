@@ -115,8 +115,8 @@ class Guncelleme:
             durum = "hata"
         elif k["durum"] == "bitti" and k["bitis"] is not None and self._saat() - k["bitis"] <= BITTI_GOSTER:
             durum = "bitti"
-        elif son and son.get("durum") == "yeni" and (son.get("yenilik_say") or 0) > 0:
-            durum = "yeni"   # yeni özellik (Yenilik: commit'i) yoksa kart hiç çıkmaz
+        elif son and son.get("durum") == "yeni":
+            durum = "yeni"   # sürüm farkı yeter (ADR-0095); Yenilik: önekli commit yoksa kart "N değişiklik var" yazar
         ertelendi = bool(durum == "yeni" and son and self._ertelenen_sha() == son.get("yeni"))
         kontrol = None
         if son:

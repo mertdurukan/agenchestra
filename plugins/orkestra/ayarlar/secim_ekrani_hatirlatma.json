@@ -1,6 +1,7 @@
 {
   "mod": "block",
   "hatirlatma": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Cümleyi yanıttan çıkar ve butonla sun: wrap_up (ask = tek karar cümlesi; actions[0] = önerilen, tek öneri varsa 'Yap' düğmesi, gerekirse tek alternatif) ya da AskUserQuestion (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). İş açma ya da komut gerektiren öneri tek eylemli düğmeyle sunulur (ör. 'İş aç'); tıklanınca komutu sen çalıştırırsın. Kullanıcı yalnız tıklar; yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
+  "tur_basi_yonerge": "Orkestra (P-029): kullanıcıdan karar, onay ya da seçim istemen gerekiyorsa cümleyi yanıta yazma; wrap_up (ask = tek karar, actions[0] = önerilen) ya da AskUserQuestion düğmesiyle sun. 'İstersen/istiyorsan \"yap\" de' gibi kapanış yazılmaz. Karar yoksa düğme açma.",
   "secim_araclari": [
     "AskUserQuestion",
     "wrap_up"
@@ -18,7 +19,9 @@
     "\\bonaylarsan(ız)?\\b",
     "\\b(isterseniz|istersen)\\b[^.\\n]{0,80}\\b(yapay[ıi]m|yaparım|yapabilirim|ekley\\w+|uygulay\\w+|başlat\\w+|yazay\\w+|çalıştır\\w+)",
     "\\b\\w+(ay[ıi]m|ey[ıi]m)\\s+m[ıi]\\s*\\?",
-    "\\b(onay|karar|yanıt|cevap|talimat|istek|go-ahead)\\w*\\s+bekl(iyor|eniyor)\\w*"
+    "\\b(onay|karar|yanıt|cevap|talimat|istek|go-ahead)\\w*\\s+bekl(iyor|eniyor)\\w*",
+    "\\b(istiyorsan(ız)?|istersen|isterseniz|uygunsa|onaylıyorsan(ız)?|olursa)\\b.*\\b(de|deyin|yaz|yazın|söyle|söyleyin|bildir|bildirin|onayla|onaylayın|haber\\s+ver\\w*)[.!]?$",
+    "[\"“'‘]\\s*(yap|evet|tamam|onay\\w*|devam|başla|uygula)\\w*\\s*[\"”'’]?\\s*(de|deyin|yaz|yazın|dersen|diyin)[.!]?$"
   ],
   "yapisal_mod": "golge",
   "degisiklik_araclari": [

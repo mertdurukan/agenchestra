@@ -1,0 +1,22 @@
+{
+  "mod": "golge",
+  "hatirlatma": "Orkestra (P-012 madde 4, golge): geniş kökte zaman sınırsız özyinelemeli arama arka plana düşebilir. Önce Grep/Glob kullan; Bash aramada komutun başına `timeout 20` koy ve kökü daralt.",
+  "komut_kaliplari": [
+    "(?:^|[\\s;&|(])grep\\b[^;&|]*?\\s(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive|--dereference-recursive)(?=\\s)",
+    "(?:^|[\\s;&|(])find\\s"
+  ],
+  "zaman_siniri_kaliplari": [
+    "^\\s*timeout\\s+\\S+"
+  ],
+  "genis_kok_kaliplari": [
+    "(?:^|[\\s\"'=])(?:[a-z]:|/[a-z])/users(?:/[^/\\s\"']+){0,2}/?(?=[\\s\"';&|)]|$)",
+    "(?:^|[\\s\"'=])/(?=[\\s\"';&|)]|$)",
+    "(?:^|[\\s\"'=])(?:~|\\$home|\\$\\{home\\})/?(?=[\\s\"';&|)]|$)",
+    "(?:^|[\\s\"'=])(?:[a-z]:|/[a-z])/?(?=[\\s\"';&|)]|$)",
+    "(?:^|[\\s\"'=])(?:[a-z]:|/[a-z])/mert/mcd/?(?=[\\s\"';&|)]|$)"
+  ],
+  "arka_plana_dusen_kaliplari": [
+    "did not complete within its \\d+\\S* timeout and was moved to the background",
+    "\\bmoved to the background\\b"
+  ]
+}

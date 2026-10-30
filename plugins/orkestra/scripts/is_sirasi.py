@@ -361,18 +361,82 @@ def bic_eksikleri(klasor: str) -> list[str]:
         govde = m.group(1)
         for soru in BIC_SORULAR:
             if not re.search(r"\*\*" + re.escape(soru) + r":\*\*\s*[✔✘]", govde):
-                eksik.append(f"best in class denetimi: `**{soru}:**` satırı `✔`/`✘` ile başlamıyor (ayrı denetçi doldurur; P-030)")
+                bekl = f": {BEKLENIYOR}" if _satir_bekliyor(govde, soru) else ""
+                eksik.append(f"best in class denetimi: `**{soru}:**` satırı `✔`/`✘` ile başlamıyor{bekl} (ayrı denetçi doldurur; P-030)")
         d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
         kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
-        if not kimlik:
+        if not kimlik and d is not None and _BEKLIYOR.match(d.group(1)):
+            eksik.append(f"best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor: {BEKLENIYOR} (`orkestra:denetci <agent_id>`; P-030)")
+        elif not kimlik:
             eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (`orkestra:denetci <agent_id>`; P-030)")
         elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
             eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; P-030)")
     llm_eksik, gider = llm_beyan_eksikleri(klasor, metin)
     eksik += llm_eksik
     if gider and m is not None and not re.search(r"\*\*" + BIC_KOSULLU_SORU + r":\*\*\s*[✔✘]", m.group(1)):
-        eksik.append(f"best in class denetimi: `**{BIC_KOSULLU_SORU}:**` satırı `✔`/`✘` ile başlamıyor (LLM çıktısı kullanıcıya gidiyor; P-032)")
+        bekl = f": {BEKLENIYOR}" if _satir_bekliyor(m.group(1), BIC_KOSULLU_SORU) else ""
+        eksik.append(f"best in class denetimi: `**{BIC_KOSULLU_SORU}:**` satırı `✔`/`✘` ile başlamıyor{bekl} (LLM çıktısı kullanıcıya gidiyor; P-032)")
     return eksik
+
+
+# I-271: ayrı denetçinin dolduracağı satır henüz boşsa (`bekliyor` ya da boş değer) bu bir içerik hatası değil, sıranın
+# bir sonraki adımıdır: kapı geçmez (bağımsız denetim özü korunur) ama `kapi_ret` yerine `kapi_bekleniyor` kaydı düşer.
+BEKLENIYOR = "denetçi bekleniyor"
+_BEKLIYOR = re.compile(r"^[ \t]*(?:bekliyor\b.*)?$", re.I)
+
+
+def _satir_bekliyor(govde: str, alan: str) -> bool:
+    """Denetim bloğunda `**<alan>:**` satırı var ve değeri boş ya da `bekliyor` ile başlıyor."""
+    s = re.search(r"\*\*" + re.escape(alan) + r":\*\*[ \t]*([^\n]*)", govde)
+    return s is not None and bool(_BEKLIYOR.match(s.group(1)))
+
+
+def bekleyen_mi(eksik: str) -> bool:
+    return BEKLENIYOR in eksik
+
+
+def kapi_durumu(eksik: list[str]) -> str:
+    """Kapı sonucu: `tamam` (eksik yok), `bekleniyor` (eksiklerin hepsi denetçinin henüz doldurmadığı satırlar), `ret`."""
+    if not eksik:
+        return "tamam"
+    return "bekleniyor" if all(bekleyen_mi(e) for e in eksik) else "ret"
+
+
+def bekleniyor_kaydet(klasor: str, kapi: str, neden: str) -> bool:
+    """`kapi_bekleniyor` olayı (ret sayılmaz); aynı (iş, kapı, neden) bir kez yazılır. Kapıyı hiçbir koşulda bozmaz."""
+    try:
+        import kapi_mod as KM
+        import ork_lib as L
+        sd = L.durum_dizini(klasor)
+        if not sd:
+            return False
+        yol = os.path.join(sd, "gunluk.jsonl")
+        is_ad = os.path.basename(os.path.normpath(klasor))
+        if KM._zaten_kayitli(yol, is_ad, kapi, neden[:300], "kapi_bekleniyor"):
+            return False
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapi_bekleniyor", "kapi": kapi, "is": is_ad, "neden": neden[:300]})
+        return True
+    except Exception:
+        return False
+
+
+def _bekleyenli_ret(klasor: str, kapi: str, eksik: list[str], ret: bool) -> list[str]:
+    """İçerik eksikleri eskisi gibi işlenir (ret=True: `KM.ret_ver` → ihlalde `kapi_ret`; ret=False: `KM.ihlal_ver`).
+    Denetçi bekleyen satırlar `kapi_bekleniyor` olarak kaydedilir ve ihlal modunda yine döndürülür (plan geçmez)."""
+    import kapi_mod as KM
+    icerik = [e for e in eksik if not bekleyen_mi(e)]
+    bekleyen = [e for e in eksik if bekleyen_mi(e)]
+    sonuc = (KM.ret_ver if ret else KM.ihlal_ver)(klasor, kapi, icerik) if icerik else []
+    if bekleyen:
+        bekleniyor_kaydet(klasor, kapi, "; ".join(bekleyen))
+        if KM.mod(kapi, klasor) == "ihlal":
+            sonuc = sonuc + bekleyen
+    return sonuc
+
+
+def bic_durumu(klasor: str) -> str:
+    """Best in class kapısının sonucu: `tamam` | `bekleniyor` | `ret`."""
+    return kapi_durumu(bic_eksikleri(klasor))
 
 
 def bic_engeli(klasor: str) -> list[str]:
@@ -424,8 +488,7 @@ def bic_uyari(klasor: str) -> list[str]:
     if not bic_kapsaminda_mi(klasor):
         return []
     _bic_olaylari(klasor)
-    import kapi_mod as KM
-    return KM.ihlal_ver(klasor, "best_in_class", bic_eksikleri(klasor))
+    return _bekleyenli_ret(klasor, "best_in_class", bic_eksikleri(klasor), ret=False)
 
 
 # K-006 / ADR-0069: plan maddesinde `**Üretim noktası:**` alanı (sorunun doğduğu yer ve orada önleme).
@@ -539,13 +602,17 @@ def uretim_eksikleri(klasor: str) -> list[str]:
         return eksik
     govde = m.group(1)
     satir = re.search(r"\*\*" + URETIM_ALANI + r":\*\*[ \t]*([^\n]*)", govde)
-    if satir is None or not satir.group(1).lstrip().startswith("✔"):
+    if satir is not None and _BEKLIYOR.match(satir.group(1)):
+        eksik.append(f"best in class denetimi: `**{URETIM_ALANI}:**` satırı `✔` ile başlamıyor: {BEKLENIYOR} (ayrı denetçi doldurur; ADR-0069)")
+    elif satir is None or not satir.group(1).lstrip().startswith("✔"):
         eksik.append(f"best in class denetimi: `**{URETIM_ALANI}:**` satırı `✔` ile başlamıyor (ayrı denetçi doldurur; ADR-0069)")
     elif turler and all(t == "yeni" for t in turler.values()) and "tümü yeni yetenek onaylandı" not in satir.group(1).lower():
         eksik.append(f"best in class denetimi: tüm maddeler `Yeni yetenek`; `**{URETIM_ALANI}:**` satırı `tümü yeni yetenek onaylandı` ifadesini taşımalı (ADR-0069)")
     d = re.search(r"\*\*Denetçi:\*\*[ \t]*(.*)", govde)
     kimlik = re.search(r"\b([0-9a-f]{8,})\b", d.group(1)) if d else None
-    if not kimlik:
+    if not kimlik and d is not None and _BEKLIYOR.match(d.group(1)):
+        eksik.append(f"best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor: {BEKLENIYOR} (ADR-0069)")
+    elif not kimlik:
         eksik.append("best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (ADR-0069)")
     elif not denetci_kayitli_mi(klasor, kimlik.group(1)):
         eksik.append(f"best in class denetimi: `{kimlik.group(1)}` kimliğiyle bir denetçi alt ajan kaydı bulunamadı (zaman.jsonl; ADR-0069)")
@@ -556,8 +623,51 @@ def uretim_engeli(klasor: str) -> list[str]:
     """`plan_eksikleri` bağlantısı: ihlal modunda eksikleri döndürür ve her reddi `kapi_ret` olarak kaydeder (gölgede `kapi_golge`)."""
     if not uretim_kapsaminda_mi(klasor):
         return []
+    return _bekleyenli_ret(klasor, "uretim_noktasi", uretim_eksikleri(klasor), ret=True)
+
+
+def uretim_durumu(klasor: str) -> str:
+    """Üretim noktası kapısının sonucu: `tamam` | `bekleniyor` (yalnız ayrı denetçinin satırları boş) | `ret`."""
+    return kapi_durumu(uretim_eksikleri(klasor))
+
+
+# P-044 / ADR-0106: kullanıcıya görünen yerleşim, hizalama ya da konum değiştiren P maddesinin `**Kabul:**` alanı ölçüm taşır
+# (gerçek tarayıcı, getBoundingClientRect, ekran görüntüsü, px); "yapıldı" ya da kod okuması kabul sayılmaz. Gölge kapı (P-028).
+_GORUNUM_KONU = re.compile(r"yerleşim|hizala|konum|düğme|buton|\.css\b|görünüm|layout|flex|sağ kenar|alt satır", re.I)
+_GORUNUM_OLCUM = re.compile(r"getBoundingClientRect|tarayıcı|ekran görüntüsü|screenshot|headless|ölçüm|ölçül|\bpx\b|piksel", re.I)
+
+
+def gorunum_olcumu_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_GORUNUM_OLCUMU_KAPISI") != "0"
+
+
+def gorunum_olcumu_kapsaminda_mi(klasor: str) -> bool:
+    return gorunum_olcumu_kapisi_acik() and sirali_mi(klasor)
+
+
+def _alan_metni(blok: str, alan: str) -> str:
+    m = re.search(r"\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def gorunum_olcumu_eksikleri(klasor: str) -> list[str]:
+    metin = _plan_oku(klasor)
+    if metin is None:
+        return []
+    eksik = []
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        konu = " ".join(_alan_metni(blok, a) for a in ("Ne", "Dokunulan yer", "Kabul"))
+        if _GORUNUM_KONU.search(konu) and not _GORUNUM_OLCUM.search(_alan_metni(blok, "Kabul")):
+            eksik.append(f"P{n}: görünen yerleşim/konum değişikliği; `**Kabul:**` gerçek tarayıcı ölçümü içermeli (getBoundingClientRect, ekran görüntüsü; P-044)")
+    return eksik
+
+
+def gorunum_olcumu_uyari(klasor: str) -> list[str]:
+    """Sesli kapı: gölge modunda uyarır ve `kapi_golge` kaydı düşer; ihlal modunda eksikleri döndürür."""
+    if not gorunum_olcumu_kapsaminda_mi(klasor):
+        return []
     import kapi_mod as KM
-    return KM.ret_ver(klasor, "uretim_noktasi", uretim_eksikleri(klasor))
+    return KM.ihlal_ver(klasor, "gorunum_olcumu", gorunum_olcumu_eksikleri(klasor))
 
 
 # ADR-0080: plan paralellik kapısı (`**Önce:**` gerekçeli bağımlılık, `**Yazma alanı:**`, dalga kesişimi, tam sıralı gerekçe).
@@ -895,6 +1005,7 @@ def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
 PLAN_MESAJ_SINIR = 2000
 _MODLU_KAPILAR = (("best_in_class", "bic_kapsaminda_mi", "bic_eksikleri"),
                   ("uretim_noktasi", "uretim_kapsaminda_mi", "uretim_eksikleri"),
+                  ("gorunum_olcumu", "gorunum_olcumu_kapsaminda_mi", "gorunum_olcumu_eksikleri"),
                   ("paralellik", "paralellik_kapsaminda_mi", "paralellik_eksikleri"),
                   ("jira_bagimlilik", "jira_bagimlilik_kapsaminda_mi", "jira_bagimlilik_eksikleri"),
                   ("sozlesme", "sozlesmeli_mi", "sozlesme_baglanti_eksikleri"))
@@ -1026,6 +1137,7 @@ def todo_onkosulu(klasor: str) -> list[str]:
     engel = sozlesme_engeli(klasor, baglanti=True) or mevcut_durum_eksikleri(klasor) or plan_eksikleri(klasor)
     if not engel:
         bic_uyari(klasor)  # P-030 gölge: uyarır ve kaydeder, todo yazımını engellemez
+        gorunum_olcumu_uyari(klasor)  # P-044 gölge: aynı biçimde
     return engel
 
 

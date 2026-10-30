@@ -2,6 +2,14 @@
   "not": "BİLGİ SORUSU: iddiayı hedefli doğrula (P-021); yanıt en çok 5 cümle; iş durumu, tablo, geniş kaynak taraması yok; ayrıntı ancak istenirse.",
   "kaynak_sozlesmesi": "KAYNAK: dosya, ayar, bulut, geçmiş kayıt, başka oturum ya da ürün/araç davranışı iddiasına bu turda bak, kaynağı an (ürün: resmi belge); bakamadıysan 'doğrulanmadı' yaz; 'geçti' demeden çalıştır.",
   "kaynak_max_karakter": 200,
+  "yol_sozlesmesi": "YOL: yanıttan önce aday yolları say (skill: yaklasim, SearchSkills/ToolSearch, MCP, kod/kayıt, resmi belge); en ucuz yeterli olanı kullan. Yanıt kısa kalır (P-001); bakamadığını 'doğrulanmadı' yaz.",
+  "yol_max_karakter": 300,
+  "yol_min_karakter": 25,
+  "yol_mod": "golge",
+  "yol_haric_kaliplari": [
+    "^\\s*(merhaba|selam|g[üu]nayd[ıi]n|hey|te[şs]ekk[üu]r\\w*|sa[ğg] ol\\w*|eyvallah|test)\\W*$",
+    "^\\s*(tamam|evet|olur|peki|devam|yap|uygula|kabul|onay\\w*)\\W*$"
+  ],
   "kisa_max_karakter": 120,
   "uzun_max_karakter": 300,
   "soru_kaliplari": [

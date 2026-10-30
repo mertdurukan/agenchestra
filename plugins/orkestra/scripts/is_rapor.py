@@ -77,8 +77,11 @@ def _veri(sd: str) -> dict:
     kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
     mal = [dict(r, _is=_is_id(L.satir_isi(r, kart_is))) for r in L.maliyet_kayitlari(sd)]
     zam = [dict(r, _is=_is_id(L.satir_isi(r, kart_is))) for r in L.zaman_kayitlari(sd)]
-    isler = _json(os.path.join(sd, "isler.json")).get("isler")
-    isler = isler if isinstance(isler, dict) else {}
+    import is_kaydi as IK  # noqa: PLC0415
+    try:
+        isler = IK.merkez_isler(sd)   # klasor alanı çözülmüş (I-223: silinmiş worktree yolu ana ağaca bağlanır)
+    except Exception:  # noqa: BLE001 - eski _json davranışı: bozuk/eksik merkez kayıt rapor üretimini durdurmaz
+        isler = {}
     return {"mal": mal, "zam": zam, "isler": isler, "kartlar": kartlar}
 
 
@@ -190,13 +193,51 @@ def _yontem_satirlari(y: dict) -> list:
     return satirlar
 
 
-def _kapi_ret(sd: str) -> dict:
-    """gunluk.jsonl'daki `kapi_ret` olayları (ihlal modundaki ret) kapı adına göre sayılır (ADR-0069: yanlış pozitif ölçümünün paydası)."""
-    sayi: dict = {}
+def _eski_bekleyen(neden: str) -> bool:
+    """I-271 öncesi `kapi_ret` kaydı yalnız ayrı denetçinin henüz doldurmadığı satırlardan mı oluşuyor (ilk plan sırası,
+    gerçek ret değil): içerik eksikleri (`P<n>:`, `plan.md:`) önce yazıldığından neden denetim satırıyla başlıyorsa
+    içerik hatası yoktur; kimliksiz `**Denetçi:**` satırı var, uydurma kimlik ya da `tümü yeni yetenek` eksiği yok."""
+    n = str(neden or "")
+    return (n.startswith("best in class denetimi:") and "kimliği taşımıyor" in n
+            and "kaydı bulunamadı" not in n and "tüm maddeler" not in n)
+
+
+def _kapi_olaylari(sd: str) -> tuple[dict, dict]:
+    """(gerçek ret, denetçi bekleniyor) sayıları kapı adına göre: `kapi_ret` yalnız gerçek ret; `kapi_bekleniyor` olayları
+    ve I-271 öncesi yalnız boş denetçi satırından doğmuş eski `kapi_ret` kayıtları ayrı sayılır."""
+    ret: dict = {}
+    bekl: dict = {}
     for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")):
-        if isinstance(o, dict) and o.get("tur") == "kapi_ret" and o.get("kapi"):
-            sayi[o["kapi"]] = sayi.get(o["kapi"], 0) + 1
-    return dict(sorted(sayi.items()))
+        if not isinstance(o, dict) or not o.get("kapi"):
+            continue
+        tur = o.get("tur")
+        if tur == "kapi_bekleniyor" or (tur == "kapi_ret" and _eski_bekleyen(o.get("neden"))):
+            bekl[o["kapi"]] = bekl.get(o["kapi"], 0) + 1
+        elif tur == "kapi_ret":
+            ret[o["kapi"]] = ret.get(o["kapi"], 0) + 1
+    return dict(sorted(ret.items())), dict(sorted(bekl.items()))
+
+
+KANIT_SON = 5
+
+
+def _ihlal_kanitlari(sd: str, n: int = KANIT_SON) -> list[dict]:
+    """I-271: `eslesen`/`cumle` taşıyan son n `kural_ihlal` / `kapi_ret` satırı (eski, alansız satırlar atlanır)."""
+    son = [o for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl"))
+           if isinstance(o, dict) and o.get("tur") in ("kural_ihlal", "kapi_ret") and (o.get("eslesen") or o.get("cumle"))]
+    return [{"zaman": o.get("zaman") or "", "tur": o["tur"], "kural": o.get("kural") or o.get("kapi") or "",
+             "eslesen": o.get("eslesen") or "", "cumle": o.get("cumle") or ""} for o in son[-n:]]
+
+
+def _kapi_ret(sd: str) -> dict:
+    """gunluk.jsonl'daki gerçek `kapi_ret` olayları (ihlal modundaki içerik reddi) kapı adına göre sayılır (ADR-0069: yanlış
+    pozitif ölçümünün paydası). Denetçi bekleyen satırlar sayılmaz (`_kapi_bekleniyor`)."""
+    return _kapi_olaylari(sd)[0]
+
+
+def _kapi_bekleniyor(sd: str) -> dict:
+    """Ayrı denetçinin henüz doldurmadığı satırlar yüzünden geçmeyen plan sayısı (ret değil, sıranın bir sonraki adımı)."""
+    return _kapi_olaylari(sd)[1]
 
 
 def rapor(sd: str) -> dict:
@@ -245,7 +286,9 @@ def rapor(sd: str) -> dict:
         "onbellek_isabet": oku / (gir + oku + yaz) if (gir + oku + yaz) else None,
         "baglanmamis_emek_yuzde": 100 * kova_usd / toplam_usd if toplam_usd else 0,
     }
-    return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": _kapi_ret(sd), "yontem": _yontem(sd),
+    kapi_ret, kapi_bekl = _kapi_olaylari(sd)
+    return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": kapi_ret,
+            "kapi_bekleniyor": kapi_bekl, "yontem": _yontem(sd), "ihlal_kanit": _ihlal_kanitlari(sd),
             "cikti": _cikti(sd)}
 
 
@@ -374,6 +417,14 @@ def metin(r: dict) -> str:
     golge_satiri = ["gölge kapı uyarıları: " + ", ".join(f"{k} {n}" for k, n in golge.items())] if golge else []
     ret = r.get("kapi_ret") or {}
     ret_satiri = ["kapı retleri (ihlal modu): " + ", ".join(f"{k} {n}" for k, n in ret.items())] if ret else []
+    bekl = r.get("kapi_bekleniyor") or {}
+    if bekl:
+        ret_satiri.append("denetçi bekleniyor (ret sayılmaz): " + ", ".join(f"{k} {n}" for k, n in bekl.items()))
+    kn = r.get("ihlal_kanit") or []
+    if kn:
+        ret_satiri += ["", f"son {len(kn)} ihlal/ret kanıtı:", _tablo(
+            ["zaman", "tür", "kural/kapı", "eşleşen", "cümle"],
+            [[x["zaman"], x["tur"], x["kural"], x["eslesen"][:40] or "-", x["cumle"] or "-"] for x in kn]), ""]
     c = r.get("cikti")
     cikti_satiri = [] if not c else [
         f"kullanıcı çıktısı ({c['tur']} tur): ortanca {c['ortanca']}, p90 {c['p90']} karakter, aşım oranı {_oran(c['asim_orani'])}"

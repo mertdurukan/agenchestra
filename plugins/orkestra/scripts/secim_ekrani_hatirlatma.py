@@ -133,6 +133,19 @@ def hatirlatma_metni(sd=None) -> str:
     return ayar_oku(sd).get("hatirlatma", "")
 
 
+TUR_BASI_SINIR = 300  # yönerge her kullanıcı mesajında bağlama girer; bağlam maliyeti sınırı
+
+
+def tur_basi_metni(sd=None) -> str:
+    """Tur başında ana ajanın bağlamına konan düğme yönergesi (`tur_basi_yonerge`): karar cümlesi yazılmadan önce görünür.
+    Kip 'kapali' (ya da ortam değişkeni 0) ise boş döner; en çok `TUR_BASI_SINIR` karakter."""
+    ayar = ayar_oku(sd)
+    if mod(ayar) == "kapali":
+        return ""
+    metin = ayar.get("tur_basi_yonerge")
+    return metin.strip()[:TUR_BASI_SINIR] if isinstance(metin, str) else ""
+
+
 def yapisal_mod(ayar: dict) -> str:
     """Yapısal kapının kipi (`yapisal_mod` anahtarı): 'golge' (yalnız günlük), 'block' ya da 'kapali'. Kalıp kapısının `mod`
     anahtarından bağımsızdır (P-028: yeni kapı önce gölgede); ortam değişkeni 0 ise kapalı."""
