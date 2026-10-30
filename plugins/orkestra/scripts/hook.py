@@ -401,9 +401,12 @@ def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> 
                 _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" if _BEKLEYEN_UYARI else "") + \
                     f"orkestra: biçim düzeltildi (K-005): {len(uyg)} dönüşüm; {os.path.basename(tam)} düzeltilmiş içerikle yazılıyor."
                 return
+        satirlar_ = _yazilacak_metin(arac, girdi).splitlines()
+        no = ihlaller[0].get("satir") or 0
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
             **kayit, "tur": "kural_ihlal", "mod": kip,
-            "ihlal": [{"satir": i["satir"], "kural": i["kural"]} for i in ihlaller[:8]], "adet": len(ihlaller)})
+            "ihlal": [{"satir": i["satir"], "kural": i["kural"]} for i in ihlaller[:8]], "adet": len(ihlaller),
+            **_kanit(ihlaller[0].get("kural"), satirlar_[no - 1] if 0 < no <= len(satirlar_) else None)})
         satir = BB.ozet_satiri(os.path.basename(tam), ihlaller)
         if kip == "ihlal":
             reddet(satir.replace("(K-005, gölge)", "(K-005)") + " Düzelt, sonra yaz; bilerek ise satır sonuna `<!-- biçim-tamam -->` koy.")
