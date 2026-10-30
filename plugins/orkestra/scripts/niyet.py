@@ -91,7 +91,38 @@ def masaustu_oturumlari() -> dict:
     return out
 
 
-_BASI_ONBELLEK: dict = {}  # transkript yolu -> ((mtime_ns, boyut), sonuç); ilk 12 satır dosya değişince değişir
+_BASI_ONBELLEK: dict = {}  # transkript yolu -> ((mtime_ns, boyut), sonuç); ilk 12 satırı henüz dolmamış dosyalar
+_BASI_SABIT_YOL = os.path.join(GENEL_DIZIN, "transkript_basi_onbellek.json")
+_BASI_SABIT: dict | None = None  # transkript yolu -> sonuç; 12 satır dolduysa baş değişmez, imzadan bağımsız (diske de yazılır)
+_BASI_SAYAC = {"isabet": 0, "iska": 0, "kirli": False}  # panel süreci için ıska/isabet ölçümü (test ve ölçüm)
+
+
+def _basi_sabit() -> dict:
+    global _BASI_SABIT
+    if _BASI_SABIT is None:
+        try:
+            with open(_BASI_SABIT_YOL, encoding="utf-8") as f:
+                d = json.load(f)
+            _BASI_SABIT = d if isinstance(d, dict) else {}
+        except Exception:
+            _BASI_SABIT = {}
+    return _BASI_SABIT
+
+
+def _basi_diske_yaz() -> None:
+    """Yeni sabitlenen baş kayıtları tek yazımda diske alır (ıska başına 400+ KB yeniden yazılmaz)."""
+    if not _BASI_SAYAC["kirli"] or _BASI_SABIT is None:
+        return
+    _BASI_SAYAC["kirli"] = False
+    try:
+        L.atomik_yaz(_BASI_SABIT_YOL, json.dumps(_BASI_SABIT, ensure_ascii=False))
+    except Exception:
+        pass
+
+
+def _basi_kopya(k: dict) -> dict:
+    return {"metin": k.get("metin"), "zaman": _zaman(k["zaman"]) if k.get("zaman") else None,
+            "masaustu": bool(k.get("masaustu"))}
 
 
 def _transkript_basi(proje: str, oturum: str) -> dict | None:
@@ -101,21 +132,35 @@ def _transkript_basi(proje: str, oturum: str) -> dict | None:
         st = os.stat(yol)
     except OSError:
         return None
+    sabit = _basi_sabit()
+    if yol in sabit:
+        _BASI_SAYAC["isabet"] += 1
+        return _basi_kopya(sabit[yol]) if sabit[yol] else None
     imza = (st.st_mtime_ns, st.st_size)
     kayit = _BASI_ONBELLEK.get(yol)
     if kayit and kayit[0] == imza:
+        _BASI_SAYAC["isabet"] += 1
         return dict(kayit[1]) if kayit[1] else None
-    sonuc = _transkript_basi_oku(yol)
-    _BASI_ONBELLEK[yol] = (imza, sonuc)
+    _BASI_SAYAC["iska"] += 1
+    sonuc, tam = _transkript_basi_oku(yol)
+    if tam:
+        sabit[yol] = ({**sonuc, "zaman": sonuc["zaman"].isoformat() if sonuc["zaman"] else None}
+                      if sonuc else None)
+        _BASI_ONBELLEK.pop(yol, None)
+        _BASI_SAYAC["kirli"] = True  # diske toplu yazılır (_basi_diske_yaz)
+    else:
+        _BASI_ONBELLEK[yol] = (imza, sonuc)
     return dict(sonuc) if sonuc else None
 
 
-def _transkript_basi_oku(yol: str) -> dict | None:
+def _transkript_basi_oku(yol: str) -> tuple[dict | None, bool]:
+    """(sonuç, tam): tam = 12 satır da okundu, yani baş artık değişmez."""
     try:
         with open(yol, encoding="utf-8", errors="ignore") as f:
             satirlar = [f.readline() for _ in range(12)]
     except OSError:
-        return None
+        return None, False
+    tam = all(s.endswith("\n") for s in satirlar)
     bas = {"metin": None, "zaman": None, "masaustu": False}
     for s in satirlar:
         try:
@@ -125,7 +170,7 @@ def _transkript_basi_oku(yol: str) -> dict | None:
         if d.get("type") == "queue-operation" and d.get("operation") == "enqueue" and bas["metin"] is None:
             bas["metin"], bas["zaman"] = d.get("content"), _zaman(d.get("timestamp"))
         bas["masaustu"] = bas["masaustu"] or d.get("entrypoint") == "claude-desktop"
-    return bas
+    return bas, tam
 
 
 def _yetimler(oturumlar: dict, masaustu: dict) -> dict:
@@ -150,6 +195,7 @@ def _yetimler(oturumlar: dict, masaustu: dict) -> dict:
                     asil = cli
                     break
         out[oid] = asil
+    _basi_diske_yaz()
     return out
 
 

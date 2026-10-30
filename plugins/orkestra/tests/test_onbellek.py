@@ -76,6 +76,7 @@ class FiyatOnbellegi(unittest.TestCase):
             with mock.patch.object(L, "PLUGIN_ROOT", kok):
                 self.assertEqual(L.fiyat_tablosu()["modeller"]["a"]["x"], 1)
                 _yaz(yol, {"varsayilan": "a", "modeller": {"a": {"x": 22}}})
+                L._FIYAT_ONBELLEK["kontrol"] = 0.0  # fiyat_tablosu dosyaya 1 sn'de bir bakar; süreyi doldurmuş say
                 self.assertEqual(L.fiyat_tablosu()["modeller"]["a"]["x"], 22)
         finally:
             shutil.rmtree(kok, ignore_errors=True)

@@ -559,6 +559,10 @@ _FIYAT_ONBELLEK: dict = {}
 def fiyat_tablosu() -> dict:
     """bin/fiyat.json; aynı süreçte dosya (yol, mtime_ns, boyut) değişmedikçe yeniden okunmaz (satır başına çağrılıyordu)."""
     yol = os.path.join(PLUGIN_ROOT, "bin", "fiyat.json")
+    simdi = time.monotonic()
+    if _FIYAT_ONBELLEK.get("yol") == yol and "tablo" in _FIYAT_ONBELLEK and simdi - _FIYAT_ONBELLEK.get("kontrol", 0.0) < 1.0:
+        return _FIYAT_ONBELLEK["tablo"]  # satır başına çağrılır; Windows'ta os.stat çağrı başına pahalı, 1 sn'de bir bakılır
+    _FIYAT_ONBELLEK["kontrol"], _FIYAT_ONBELLEK["yol"] = simdi, yol
     try:
         st = os.stat(yol)
         imza = (yol, st.st_mtime_ns, st.st_size)
@@ -573,14 +577,26 @@ def fiyat_tablosu() -> dict:
     return tablo
 
 
+_MODEL_FIYAT_ONBELLEK: dict = {}  # model -> fiyat; tablo nesnesi değişince (fiyat.json yeniden okununca) sıfırlanır
+_TABLO_ANAHTARI = object()
+
+
 def model_fiyati(model: str, tablo: dict | None = None) -> dict:
     tablo = tablo or fiyat_tablosu()
+    if _MODEL_FIYAT_ONBELLEK.get(_TABLO_ANAHTARI) is not tablo:  # nesne kimliği: aynı tablo nesnesi tutulduğu sürece geçerli
+        _MODEL_FIYAT_ONBELLEK.clear()
+        _MODEL_FIYAT_ONBELLEK[_TABLO_ANAHTARI] = tablo
+    f = _MODEL_FIYAT_ONBELLEK.get(model)
+    if f is not None:
+        return f
     m = (model or "").lower().split("[")[0]
     en_iyi = None
     for anahtar in tablo["modeller"]:
         if m.startswith(anahtar) and (en_iyi is None or len(anahtar) > len(en_iyi)):
             en_iyi = anahtar
-    return tablo["modeller"].get(en_iyi) or tablo["modeller"][tablo["varsayilan"]]
+    f = tablo["modeller"].get(en_iyi) or tablo["modeller"][tablo["varsayilan"]]
+    _MODEL_FIYAT_ONBELLEK[model] = f
+    return f
 
 
 def kullanim_maliyeti(model: str, u: dict, tablo: dict | None = None) -> float:
