@@ -140,6 +140,32 @@ def hook_kural_uyari(sd: str) -> str:
             "uyuşmuyor; dosyayı panelden yeniden üret")
 
 
+def olu_yol_ve_terk(sd: str, a, rapor: dict, uygula: bool) -> None:
+    """I-271 P4: rapora 'olu_yol' (açık, klasörü diskte yok) ve 'terk_isler' (boş, maliyetsiz, terk_is_saat'ten eski;
+    is_esleme.json, varsayılan 24) ekler. --kapat --uygula terk işleri mevcut kapatma yoluyla kapatır; ölü yola dokunmaz."""
+    import is_olu_yol as O
+    rapor["olu_yol"] = O.olu_yollar(sd)
+    rapor["terk_isler"] = O.terk_isler(sd, bos_isler)
+    if uygula and a.kapat:
+        from komutlar import isler
+        for g in rapor["terk_isler"]:
+            if g["id"] in rapor["kapatilan_is"]:
+                continue
+            with contextlib.redirect_stdout(io.StringIO()):
+                isler.cmd_is_kapat(argparse.Namespace(is_id=g["id"], ozetsiz=OZETSIZ_NEDEN))
+            rapor["kapatilan_is"].append(g["id"])
+    if a.json:
+        return
+    print(f"ölü yol: {len(rapor['olu_yol'])} açık iş kaydının klasörü diskte yok")
+    for g in rapor["olu_yol"]:
+        print(f"  {g['id']} {g['baslik'][:50]} ({g['klasor'] or '-'})")
+    saat = rapor["terk_isler"][0]["saat_esigi"] if rapor["terk_isler"] else O.terk_saat(sd)
+    print(f"terk: {len(rapor['terk_isler'])} boş, maliyetsiz açık iş (≥{saat:g} saat; is_esleme.json terk_is_saat)"
+          + ("" if uygula and a.kapat else "; kapatmak için orkestra bakim --kapat --uygula"))
+    for g in rapor["terk_isler"]:
+        print(f"  {g['id']} {g['baslik'][:60]} ({g['yas_saat']} saat)")
+
+
 def cmd_bakim(a):
     sd = sd_gerekli()
     uygula = bool(a.uygula)
