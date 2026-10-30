@@ -85,6 +85,29 @@ def ihlal_ver(klasor: str, kapi: str, eksik: list[str]) -> list[str]:
     return []
 
 
+CUMLE_SINIR = 200
+
+
+def kanit_alanlari(eslesen=None, cumle=None) -> dict:
+    """I-271: `kural_ihlal` / `kapi_ret` satırına tetikleyen kalıp ya da alt kimlik (`eslesen`) ve tetikleyen metin parçası
+    (`cumle`: boşluk sadeleşir, sır kalıbı `L.maskele` ile maskelenir, sonra en çok 200 karakter). Bilinmeyen alan hiç
+    yazılmaz (boş metin değil); eski okuyucular yeni alanları görmezden gelir."""
+    d: dict = {}
+    if eslesen:
+        d["eslesen"] = str(eslesen)[:CUMLE_SINIR]
+    c = L.maskele(" ".join(str(cumle).split())) if cumle else ""
+    if c:
+        d["cumle"] = c[:CUMLE_SINIR]
+    return d
+
+
+def _ret_kaniti(neden: str) -> dict:
+    """Ret nedeninin ilk eksiği tetikleyen cümledir; `P3:` / `sözleşme:` gibi öneki alt kimlik (`eslesen`) olur."""
+    ilk = str(neden or "").split("; ", 1)[0].strip()
+    onek = ilk.split(":", 1)[0].strip() if ":" in ilk else ""
+    return kanit_alanlari(onek if 0 < len(onek) <= 40 else None, ilk)
+
+
 def ret_kaydet(klasor: str, kapi: str, neden: str) -> bool:
     """İhlal modundaki ret: gunluk.jsonl'a `kapi_ret` olayı (yanlış pozitif ölçümünün verisi); aynı (iş, kapı, neden) bir kez yazılır.
     Kapıyı hiçbir koşulda bozmaz."""
@@ -96,7 +119,8 @@ def ret_kaydet(klasor: str, kapi: str, neden: str) -> bool:
         is_ad = os.path.basename(os.path.normpath(klasor))
         if _zaten_kayitli(yol, is_ad, kapi, neden[:300], "kapi_ret"):
             return False
-        L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapi_ret", "kapi": kapi, "is": is_ad, "neden": neden[:300]})
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "tur": "kapi_ret", "kapi": kapi, "is": is_ad, "neden": neden[:300],
+                           **_ret_kaniti(neden)})
         return True
     except Exception:
         return False
