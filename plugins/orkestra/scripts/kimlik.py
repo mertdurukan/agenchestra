@@ -195,15 +195,16 @@ def aktar(kaynak_dizin: str, proje: str | None = None, uygula: bool = False) -> 
     return sonuc
 
 
-def calistir(servis: str, komut: list[str], proje: str | None = None) -> int:
+def calistir(servis: str, komut: list[str], proje: str | None = None, cwd: str | None = None, env_ek: dict[str, str] | None = None) -> int:
     """Komutu servisin değişkenleri ortamda olarak çalıştırır; çıktıdaki değerler *** ile maskelenir."""
     if not komut:
         raise KimlikHata("çalıştırılacak komut yok")
     d = yukle(servis, proje)
     env = dict(os.environ)
+    env.update(env_ek or {})  # ortam yorumlayıcısı (orkestra ortam calistir): PATH vb.
     for k, v in d.items():
         env.setdefault(k, v)  # ortam değişkeni önceliklidir
-    r = subprocess.run(komut, env=env, capture_output=True, **cfg.PENCERESIZ)
+    r = subprocess.run(komut, env=env, cwd=cwd, capture_output=True, **cfg.PENCERESIZ)
     gizli = sorted({v for v in d.values() if len(v) >= 4}, key=len, reverse=True)
 
     def maske(b: bytes) -> bytes:

@@ -1,0 +1,6 @@
+{
+  "mod": "golge",
+  "ortam_koku": "~/.venvs",
+  "python_tercih": ["3.13", "3.12", "3.11"],
+  "haric": []
+}

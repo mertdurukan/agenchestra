@@ -1114,6 +1114,24 @@
         }
       ],
       "etkinlesme": "2026-10-30T15:00:00+03:00"
+    },
+    {
+      "id": "P-046",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Her codebase kendi kilitli ortamında kurulur ve komutlar o ortamdan koşar; ortam proje ve git dışındadır, sır taşımaz. (1) Ortam birimi codebase'dir (en yakın manifest klasörü; çalışma ağacı ve haric listesi dışarıda). Sistem haritasının 'ortamlar' katmanı proje, codebase, manifest, kilit, ortam yolu ve veri kaynağı profili adlarını bildirir. (2) 'orkestra ortam kur' Python için uv.lock varsa 'uv sync --locked', yoksa venv + pip (requirements.txt ya da pyproject), Node için 'npm ci' kullanır; ortamlar '<ortam_koku>/<proje>/<codebase>' altında durur (varsayılan ~/.venvs); kilitsiz Node ortamı kurulmaz; başarısız kurulum yarım ortamı siler. (3) Komut 'orkestra ortam calistir <codebase> [--kimlik S] -- <komut>' ile koşar; ortam kurulu değilse reddedilir. Elle kurulan ortak venv yerine bu düzen kullanılır. (4) Veritabanları 'veri_kaynaklari' bağlantı profili olarak bildirilir: ad, tür, salt okunur, orkestra kimlik kayıt adı, kapı başvurusu; sır değeri ve salt okunur olmayan profil reddedilir; bağlantı kurulmaz, VPN ve saat kapıları projenin kendi kapısında kalır. Kural P-028'e uyar: kurulum ve komutlar kapı değildir, zorunlu kapı gölge ölçümünden sonra ayrı kararla gelir. Zorlama: harita_ortam.py, ortam.py, ortam_db.py, ortam_calistir.py, komutlar/ortam.py, tests/test_ortam*.py, tests/test_harita_ortam.py; ayarlar/ortam.json (mod golge; proje ezmesi <durum>/ortam.json). (ADR-0001 I-249) (P-046, 2026-10-29)",
+      "neden": "I-249: ortam tek ortak venv'de elle kuruluyor, kilit elle üretiliyor, seçim ajan hafızasına bağlıydı; birden çok codebase ve veritabanı makinece okunur eşlenmiyordu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-29T14:00:00+03:00",
+      "guncelleme": "2026-10-29T14:00:00+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-29T14:00:00+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Her codebase kendi kilitli ortamında kurulur ve komutlar o ortamdan koşar; ortam proje ve git dışındadır, sır taşımaz. (1) Ortam birimi codebase'dir (en yakın manifest klasörü; çalışma ağacı ve haric listesi dışarıda). Sistem haritasının 'ortamlar' katmanı proje, codebase, manifest, kilit, ortam yolu ve veri kaynağı profili adlarını bildirir. (2) 'orkestra ortam kur' Python için uv.lock varsa 'uv sync --locked', yoksa venv + pip (requirements.txt ya da pyproject), Node için 'npm ci' kullanır; ortamlar '<ortam_koku>/<proje>/<codebase>' altında durur (varsayılan ~/.venvs); kilitsiz Node ortamı kurulmaz; başarısız kurulum yarım ortamı siler. (3) Komut 'orkestra ortam calistir <codebase> [--kimlik S] -- <komut>' ile koşar; ortam kurulu değilse reddedilir. Elle kurulan ortak venv yerine bu düzen kullanılır. (4) Veritabanları 'veri_kaynaklari' bağlantı profili olarak bildirilir: ad, tür, salt okunur, orkestra kimlik kayıt adı, kapı başvurusu; sır değeri ve salt okunur olmayan profil reddedilir; bağlantı kurulmaz, VPN ve saat kapıları projenin kendi kapısında kalır. Kural P-028'e uyar: kurulum ve komutlar kapı değildir, zorunlu kapı gölge ölçümünden sonra ayrı kararla gelir. Zorlama: harita_ortam.py, ortam.py, ortam_db.py, ortam_calistir.py, komutlar/ortam.py, tests/test_ortam*.py, tests/test_harita_ortam.py; ayarlar/ortam.json (mod golge; proje ezmesi <durum>/ortam.json). (ADR-0001 I-249) (P-046, 2026-10-29)"
+        }
+      ],
+      "etkinlesme": "2026-10-29T14:00:00+03:00"
     }
   ],
   "etkinlesme": "2026-10-30T15:00:00+03:00"

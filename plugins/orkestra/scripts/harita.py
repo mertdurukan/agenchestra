@@ -18,7 +18,7 @@ import re
 
 SURUM = 1
 KATMANLAR = ("sirlar", "dis_baglantilar", "surecler", "moduller", "altyapi", "veri_modeli", "bagimliliklar", "isler_adr",
-            "teknolojiler")
+            "teknolojiler", "ortamlar")
 KLASOR_ADI = "sistem_haritasi"
 HARIC_DIZIN = {".git", "node_modules", "__pycache__", ".venv", "venv", "_arsiv", ".mypy_cache", ".pytest_cache",
                "dist", "build", ".idea", ".vscode", "worktrees", "site-packages", KLASOR_ADI}
@@ -150,7 +150,8 @@ def _aday_teknoloji(rel):
 
 
 ADAY = {"sirlar": _aday_sirlar, "dis_baglantilar": _aday_dis, "surecler": _aday_surecler, "moduller": _aday_moduller,
-        "altyapi": _aday_altyapi, "veri_modeli": _aday_veri, "bagimliliklar": _aday_bagimlilik, "teknolojiler": _aday_teknoloji}
+        "altyapi": _aday_altyapi, "veri_modeli": _aday_veri, "bagimliliklar": _aday_bagimlilik, "teknolojiler": _aday_teknoloji,
+        "ortamlar": lambda rel: __import__("harita_ortam").aday(rel)}
 
 
 def _adaylar(katman, dosyalar, kok, sd):
@@ -172,6 +173,9 @@ def _imza(katman, adaylar, sd):
     if katman == "teknolojiler":
         import harita_teknoloji as T
         h.update(T.ayar_imzasi().encode())
+    if katman == "ortamlar":
+        import harita_ortam as O
+        h.update(O.ayar_imzasi(sd).encode())
     return h.hexdigest()
 
 
@@ -348,9 +352,14 @@ def _tara_teknoloji(adaylar, kok, sd):
     return T.tara(adaylar, kok, sd)
 
 
+def _tara_ortam(adaylar, kok, sd):
+    import harita_ortam as O
+    return O.tara(adaylar, kok, sd)
+
+
 TARAYICI = {"sirlar": _tara_sirlar, "dis_baglantilar": _tara_dis, "surecler": _tara_surecler, "moduller": _tara_moduller,
             "altyapi": _tara_altyapi, "veri_modeli": _tara_veri, "bagimliliklar": _tara_bagimlilik, "isler_adr": _tara_isler_adr,
-            "teknolojiler": _tara_teknoloji}
+            "teknolojiler": _tara_teknoloji, "ortamlar": _tara_ortam}
 
 
 # --- Depo ---
