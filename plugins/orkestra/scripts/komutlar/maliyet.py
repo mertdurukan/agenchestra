@@ -265,11 +265,146 @@ def cmd_maliyet_tur(a):
         surec, ajan = "perspektif", "perspektif-bakimcisi"
     u = {"input_tokens": a.giris, "output_tokens": a.cikis, "cache_read_input_tokens": a.onb_okuma,
          "cache_creation": {"ephemeral_1h_input_tokens": a.onb_yazma}}  # hook satırlarıyla aynı 1 sa tarifesi
-    L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), {
+    tur_satiri_yaz(os.path.join(sd, "maliyet.jsonl"), {
         "zaman": L.simdi(), "oturum": a.oturum, "gorev": gorev, "surec": surec, "ajan": ajan, "agent_id": a.agent_id,
         "model": a.model, "giris": a.giris, "cikis": a.cikis, "onbellek_okuma": a.onb_okuma, "onbellek_yazma": a.onb_yazma,
         "maliyet_usd": L.kullanim_maliyeti(a.model, u), "sure_ms": a.sure_ms, "kaynak": "tur", "tarife": "1sa",
         **_tur_isi(sd, gorev, a.oturum), **L.istek_kimlik_alanlari(sd, a.oturum, agent_id=a.agent_id)})
+
+
+# Tek satır netleme (I-271): tur satırı, aynı span_id + modelin hook satırını yutar. Yalnız dosyanın son
+# NETLEME_PENCERE_BAYT'ı çözümlenir (hook satırı tur satırından ortanca ~2 sn önce yazılır, kuyruktadır); önek
+# bayt olarak olduğu gibi kopyalanır ve dosya kilit altında atomik değiştirilir. Düzeltme dosyası yolu elendi:
+# defterde fiziksel olarak iki satır kalırdı ve her okuyucunun bindirmeyi bilmesi gerekirdi.
+NETLEME_PENCERE_BAYT = 256 * 1024
+_HOOK_META = ("tur", "arac_cagrisi", "araclar", "arac_hata", "tekrar_okuma", "baglam", "sure_ms", "perspektif")
+
+
+def _anahtar(r):
+    return (r.get("oturum"), r.get("agent_id") or None, r.get("span_id"), r.get("model") or "")
+
+
+def _netle(satirlar: list, kayit: dict):
+    """satirlar: [(ham_bayt, dict|None)] pencere satırları. Yeni tur satırını (alanlarıyla) ve değişmiş pencereyi
+    döner; yutulacak hook yoksa None. Bozuk (dict olmayan) satırlar olduğu gibi kalır."""
+    k = _anahtar(kayit)
+    ham = [i for i, (_b, r) in enumerate(satirlar) if r and r.get("kaynak") == "hook" and _anahtar(r) == k]
+    onceki = [i for i, (_b, r) in enumerate(satirlar) if r and r.get("kaynak") == "tur" and _anahtar(r) == k
+              and isinstance(r.get("hook_artik"), dict)]
+    if not ham and not onceki:
+        return None
+    h = {a: 0 for a in L._TOKEN_ALANLARI}
+    artik_zaman = None
+    for i in onceki:  # aynı span'in önceki tur satırının taşıdığı artık bu turla yeniden netlenir (span toplamı)
+        r = dict(satirlar[i][1])
+        for a, v in L._tok(r["hook_artik"]).items():
+            h[a] += v
+        artik_zaman = artik_zaman or r["hook_artik"].get("zaman")
+        r.pop("hook_artik")
+        satirlar[i] = (None, r)
+    yeni = dict(kayit)
+    if ham:
+        hr = [satirlar[i][1] for i in ham]
+        son = max(hr, key=lambda r: r.get("zaman") or "")
+        if kayit.get("agent_id"):  # alt ajan: birikimli; artım = son - (daha önceki anlık görüntülerin en büyüğü)
+            taban = {a: 0 for a in L._TOKEN_ALANLARI}
+            for j, (_b, r) in enumerate(satirlar):
+                if not r or j in ham or (r.get("oturum"), r.get("agent_id"), r.get("model") or "") != (k[0], k[1], k[3]):
+                    continue
+                kaynak = r if r.get("kaynak") == "hook" else r.get("hook_birikim") if isinstance(r.get("hook_birikim"), dict) else None
+                if kaynak is not None and (r.get("zaman") or "") <= (son.get("zaman") or ""):
+                    taban = {a: max(taban[a], v) for a, v in L._tok(kaynak).items()}
+            for a, v in L._tok_fark(L._tok(son), taban).items():
+                h[a] += v
+            yeni["hook_birikim"] = L._tok(son)
+        else:
+            for a, v in L._tok_topla(hr).items():
+                h[a] += v
+        artik_zaman = artik_zaman or min(r.get("zaman") or "" for r in hr) or None
+        yeni["hook_meta"] = {a: son[a] for a in _HOOK_META if a in son}
+    art = L._tok_fark(h, L._tok(kayit))
+    yeni["hook_netlendi"] = True
+    if any(art.values()):
+        yeni["hook_artik"] = dict(art, zaman=artik_zaman)
+    kalan = [s for i, s in enumerate(satirlar) if i not in set(ham)]
+    return yeni, kalan
+
+
+def _atomik_bayt(yol: str, veri: bytes) -> None:
+    import tempfile
+    import time
+    fd, gecici = tempfile.mkstemp(dir=os.path.dirname(yol), prefix=".tmp_")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(veri)
+            f.flush()
+            os.fsync(f.fileno())
+        for deneme in range(12):
+            try:
+                os.replace(gecici, yol)
+                return
+            except PermissionError:
+                if deneme == 11:
+                    raise
+                time.sleep(0.02 * (deneme + 1))
+    finally:
+        if os.path.exists(gecici):
+            try:
+                os.remove(gecici)
+            except OSError:
+                pass
+
+
+def _satir_bayt(r: dict) -> bytes:
+    return (json.dumps({"v": L.KAYIT_SURUMU, **r} if "v" not in r else r, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def tur_satiri_yaz(yol: str, kayit: dict, pencere: int = None) -> bool:
+    """Tur satırını deftere yazar; aynı (oturum, agent_id, span_id, model) hook satırı kuyruktaysa onu yutar: hook'un
+    tur'la örtüşen tokenı düşer, turdan FAZLA saydığı kısım tur satırında 'hook_artik' olarak kalır (okuyucu ayrı
+    'hook-artik' satırı çıkarır), hook'a özgü alanlar 'hook_meta'da korunur. Span'siz satır, eşleşme yokluğu ya da
+    yeniden yazım hatasında düz ekleme yapılır (okuyucu span bazlı netlemeyle aynı toplamı verir). Netlendiyse True."""
+    pencere = pencere or NETLEME_PENCERE_BAYT
+    os.makedirs(os.path.dirname(yol), exist_ok=True)
+    with L.kilit(yol):
+        if kayit.get("span_id") and os.path.exists(yol):
+            try:
+                with open(yol, "rb") as f:
+                    f.seek(0, os.SEEK_END)
+                    boy = f.tell()
+                    bas = max(0, boy - pencere)
+                    f.seek(bas)
+                    kuyruk = f.read()
+                if bas > 0:  # pencere satır ortasında başlıyorsa ilk yarım satır önekte kalır
+                    n = kuyruk.find(b"\n")
+                    bas, kuyruk = (bas + n + 1, kuyruk[n + 1:]) if n >= 0 else (boy, b"")
+                satirlar = []
+                for b in kuyruk.splitlines(keepends=True):
+                    try:
+                        r = json.loads(b.decode("utf-8"))
+                    except (ValueError, UnicodeDecodeError):
+                        r = None
+                    satirlar.append((b, r if isinstance(r, dict) else None))
+                sonuc = _netle(satirlar, kayit)
+                if sonuc:
+                    yeni, kalan = sonuc
+                    with open(yol, "rb") as f:
+                        onek = f.read(bas)
+                    govde = b"".join(b if b is not None else _satir_bayt(r) for b, r in kalan)
+                    if govde and not govde.endswith(b"\n"):
+                        govde += b"\n"
+                    _atomik_bayt(yol, onek + govde + _satir_bayt(yeni))
+                    return True
+            except Exception:
+                pass  # netleme en iyi çabadır: düz eklemeye düş (satır kaybolmaz)
+        with open(yol, "ab") as f:
+            if os.path.getsize(yol) > 0:
+                with open(yol, "rb") as g:
+                    g.seek(-1, os.SEEK_END)
+                    if g.read(1) != b"\n":
+                        f.write(b"\n")
+            f.write(_satir_bayt(kayit))
+    return False
 
 
 def _tur_isi(sd, gorev, oturum):
