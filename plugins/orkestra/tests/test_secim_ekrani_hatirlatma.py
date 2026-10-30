@@ -41,7 +41,17 @@ POZITIF = ["Bu iki yoldan birini seçmen gerekiyor. Hangisini istersiniz?",
            "Yap derseniz uygularım.",
            "Kullanıcıya kalan: Değişiklikler commit edilmedi; commit onayınızı bekliyor.",
            "Push kararınızı bekliyorum.",
-           "Talimatınız bekleniyor."]
+           "Talimatınız bekleniyor.",
+           'Kartı değiştirmemi istiyorsan "yap" de.',
+           "Doğrulamamı istersen yaz.",
+           "Commit ve tarayıcı kontrolünü yapmamı isterseniz söyleyin.",
+           'Başlamamı istersen "yap" de.',
+           'İsterseniz "yap" deyin.',
+           'Devam edeyim: "evet" yaz.']
+UYARI_DEGIL = ["Testler geçti; istersen log dosyasını açabilirsin.",
+               "Hata varsa kapanış raporuna bakın.",
+               'Bu kalıp `istiyorsan "yap" de` cümlesini yakalar.',
+               'Kullanıcı "yap" dedi, işi bitirdim.']
 NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Bu sözcük bir kod örneğidir: `hangisini istersiniz`.",
            "```\nHangisini istersiniz?\n```",
