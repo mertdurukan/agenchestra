@@ -25,7 +25,7 @@ Notlar:
 - Yayın akışı ("Yayın akışı" bölümü) yalnız `main` içindir; yan dal push edilse bile marketplace'e girmez.
 
 ## Panelde güncelleme bildirimi (ADR-0039)
-Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa ve aralıkta konusu `Yenilik:` ile başlayan en az bir commit varsa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti); kartta yalnız bu commit'ler listelenir. Yeni özellik içeren yayın commit'ine `Yenilik: <ne eklendi>` konusu verilir, aksi halde kart çıkmaz.
+Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti; ADR-0095). Aralıkta konusu `Yenilik:` ile başlayan commit varsa kart "N yeni özellik" yazar ve yalnız bu commit'leri listeler; yoksa "N değişiklik var" yazar (N = sürüm farkı). Yeni özellik içeren yayın commit'ine yine `Yenilik: <ne eklendi>` konusu verilir.
 - Kontrol `guncelle.kontrol()`: `git fetch` + `origin/main` karşılaştırması; ağ hatası kartı silmez. Koşu `guncelle.Kosu`: CLI ile aynı `calistir`, arka plan iş parçacığı, tek koşu.
 - `panel_guncelleme.Guncelleme`: panel açılışında ve sonra 30 dk'da bir yoklar (`ORKESTRA_GUNCELLEME_YOKLA=0` kapatır), "Sonra" SHA'sını `guncelleme_ertele.json`'a yazar.
 - Uçlar `GET /api/guncelleme`, `POST /api/guncelle`, `POST /api/guncelle-ertele`: çalışma alanı almaz, `alan=*` reddinden muaftır (`KULLANICI_YOLLARI`).
