@@ -167,11 +167,65 @@ _TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kay�
 KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
 
 
-def _ayarlar_durum() -> dict:
-    """Kullanıcı ayarları (makine düzeyi, çalışma alanından bağımsız). Bildirim: Windows toast'u (bildirim.py)."""
+def _mod_kaynak(sd: str) -> str:
+    """Varsayılan modun geldiği katman: proje (alan ayarı) | eklenti (ayarlar/ klasörü) | varsayilan (dosya yok ya da geçersiz)."""
+    import is_onay  # noqa: PLC0415
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for ad, yol in (("proje", os.path.join(sd, "yetki.json")), ("eklenti", os.path.join(kok, "ayarlar", "yetki.json"))):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                if (json.load(f) or {}).get("varsayilan_mod") in (is_onay.MOD_PLAN, is_onay.MOD_AUTO):
+                    return ad
+        except (OSError, ValueError, AttributeError):
+            continue
+    return "varsayilan"
+
+
+def _mod_durum(alan_id) -> dict | None:
+    """Seçili çalışma alanı için {deger, kaynak, alan}; alan seçilmemiş (yok ya da *) ya da orkestra kapalıysa None."""
+    if not alan_id or alan_id == TUM_ALAN:
+        return None
+    a, sd = _alan_sd(alan_id, True)
+    if not a:
+        return None
+    import is_onay  # noqa: PLC0415
+    return {"deger": is_onay.varsayilan_mod(sd), "kaynak": _mod_kaynak(sd), "alan": a["ad"]}
+
+
+def _mod_yaz(alan_id, deger) -> dict:
+    """Seçili alanın `<alan>/.claude/orkestra/yetki.json` dosyasına varsayilan_mod yazar (atomik; diğer anahtarlar korunur)."""
+    import is_onay  # noqa: PLC0415
+    if deger not in (is_onay.MOD_PLAN, is_onay.MOD_AUTO):
+        return {"tamam": False, "hata": "varsayilan_mod \"plan\" ya da \"auto\" olmalı."}
+    a, sd = _alan_sd(alan_id, True)
+    if not a:
+        return {"tamam": False, "hata": "Çalışma alanı seçilmedi ya da orkestra açık değil.", "kod": 404}
+    yol = os.path.join(sd, "yetki.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            mevcut = json.load(f)
+        if not isinstance(mevcut, dict):
+            mevcut = {}
+    except (OSError, ValueError):
+        mevcut = {}
+    mevcut["surum"] = mevcut.get("surum", 1)
+    mevcut["varsayilan_mod"] = deger
+    gecici = yol + ".tmp"
+    with open(gecici, "w", encoding="utf-8") as f:
+        json.dump(mevcut, f, ensure_ascii=False, indent=2)
+    os.replace(gecici, yol)
+    return {"tamam": True, "varsayilan_mod": _mod_durum(alan_id)}
+
+
+def _ayarlar_durum(alan_id=None) -> dict:
+    """Kullanıcı ayarları. Bildirim makine düzeyidir (bildirim.py); varsayılan mod seçili çalışma alanınındır (`alan` verilmişse)."""
     import bildirim  # noqa: PLC0415
     acik, kaynak = bildirim.ayar()
-    return {"bildirim": {"acik": acik, "kaynak": kaynak, "destek": sys.platform == "win32"}}
+    sonuc = {"bildirim": {"acik": acik, "kaynak": kaynak, "destek": sys.platform == "win32"}}
+    mod = _mod_durum(alan_id)
+    if mod:
+        sonuc["varsayilan_mod"] = mod
+    return sonuc
 
 
 def _ayarlar_yaz(acik: bool) -> dict:
