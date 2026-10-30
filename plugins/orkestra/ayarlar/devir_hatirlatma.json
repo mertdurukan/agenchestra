@@ -1,0 +1,22 @@
+{
+  "mod": "hatirlat",
+  "esik": 3,
+  "kontrol_orani": 0.5,
+  "devir_araclari": [
+    "Agent",
+    "Task",
+    "Workflow"
+  ],
+  "yazan_araclar": [
+    "Edit",
+    "Write",
+    "NotebookEdit"
+  ],
+  "muaf_yollar": [
+    "(^|/)(plan|todo|is)\\.(md|json)$",
+    "(^|/)(mevcut_durum|sozlesme|calisma_ozeti)[^/]*\\.md$",
+    "(^|/)adr/ADR-\\d+[^/]*\\.md$",
+    "(^|/)\\.claude/orkestra/"
+  ],
+  "hatirlatma": "Orkestra (devir): bu istekte iş belgesi olmayan üçüncü ayrı dosyaya yazıyorsun. KURALLAR.md eşiği: üç ya da daha fazla dosya veya bağımsız parça varsa işi görev kartıyla ucuz basamağa (/orkestra:is) ver; tek adımlı ve küçükse doğrudan sürdür. Bu uyarı işi engellemez ve istek başına bir kez gelir."
+}

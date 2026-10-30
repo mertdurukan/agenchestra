@@ -128,8 +128,9 @@ def kume_test(gruplar: dict) -> dict:
         se = math.sqrt(a["var"] + b["var"])
         fark = b["oran"] - a["oran"]
         z = fark / se if se else None
-        sonuc.update({"fark": fark, "z": z,
-                      "p": (2 * (1 - NormalDist().cdf(abs(z)))) if z is not None else None})
+        # se=0: gruplar içinde hiç değişim yok; fark varsa kesin ayrım (p=0), yoksa fark yok (p=1)
+        p = (2 * (1 - NormalDist().cdf(abs(z)))) if z is not None else (0.0 if fark else 1.0)
+        sonuc.update({"fark": fark, "z": z, "p": p})
     return sonuc
 
 
