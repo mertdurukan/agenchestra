@@ -353,8 +353,9 @@
     if (on && on.acik !== false) {
       (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(altAlan(k))).forEach(k => g.karar.push({ tur: 'onay', k }));
       // uygulama ve perspektif eylemleri çalışma alanına özeldir: birleşik kipte her alan kendi satırını alır
-      const ozetler = tumMu() ? (on.alan_ozetleri || []) : [{ alan: null, sayac: on.sayac, perspektif: on.perspektif }];
-      ozetler.forEach(o => { if (o.sayac?.panelden_uygulanabilir > 0) g.karar.push({ tur: 'uygula', n: o.sayac.panelden_uygulanabilir, alan: o.alan }); });
+      const ozetler = tumMu() ? (on.alan_ozetleri || []) : [{ alan: null, sayac: on.sayac, perspektif: on.perspektif, uygulama: on.uygulama }];
+      // koşu sürerken kart kalır ama "uygulanıyor" gösterir; koşu kayıtları kapatınca sayaç sıfırlanır, kart kalkar
+      uygulaOgeleri(ozetler).forEach(o => g.karar.push(o));
       (on.kayitlar || []).filter(k => k.etki?.soru_bekliyor).forEach(k => g.karar.push({ tur: 'etki', k }));
       ozetler.forEach(o => {   // perspektif elle başlar (ADR-0026): zamanı gelince burada görünür
         const pd = o.perspektif?.durum;
