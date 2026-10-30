@@ -105,7 +105,7 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "20"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "21"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 GUNCELLEME = panel_guncelleme.Guncelleme()  # eklenti güncelleme durumu (kullanıcı düzeyi, ADR-0039); testte değiştirilir
 
 
@@ -167,11 +167,65 @@ _TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kay�
 KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
 
 
-def _ayarlar_durum() -> dict:
-    """Kullanıcı ayarları (makine düzeyi, çalışma alanından bağımsız). Bildirim: Windows toast'u (bildirim.py)."""
+def _mod_kaynak(sd: str) -> str:
+    """Varsayılan modun geldiği katman: proje (alan ayarı) | eklenti (ayarlar/ klasörü) | varsayilan (dosya yok ya da geçersiz)."""
+    import is_onay  # noqa: PLC0415
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for ad, yol in (("proje", os.path.join(sd, "yetki.json")), ("eklenti", os.path.join(kok, "ayarlar", "yetki.json"))):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                if (json.load(f) or {}).get("varsayilan_mod") in (is_onay.MOD_PLAN, is_onay.MOD_AUTO):
+                    return ad
+        except (OSError, ValueError, AttributeError):
+            continue
+    return "varsayilan"
+
+
+def _mod_durum(alan_id) -> dict | None:
+    """Seçili çalışma alanı için {deger, kaynak, alan}; alan seçilmemiş (yok ya da *) ya da orkestra kapalıysa None."""
+    if not alan_id or alan_id == TUM_ALAN:
+        return None
+    a, sd = _alan_sd(alan_id, True)
+    if not a:
+        return None
+    import is_onay  # noqa: PLC0415
+    return {"deger": is_onay.varsayilan_mod(sd), "kaynak": _mod_kaynak(sd), "alan": a["ad"]}
+
+
+def _mod_yaz(alan_id, deger) -> dict:
+    """Seçili alanın `<alan>/.claude/orkestra/yetki.json` dosyasına varsayilan_mod yazar (atomik; diğer anahtarlar korunur)."""
+    import is_onay  # noqa: PLC0415
+    if deger not in (is_onay.MOD_PLAN, is_onay.MOD_AUTO):
+        return {"tamam": False, "hata": "varsayilan_mod \"plan\" ya da \"auto\" olmalı."}
+    a, sd = _alan_sd(alan_id, True)
+    if not a:
+        return {"tamam": False, "hata": "Çalışma alanı seçilmedi ya da orkestra açık değil.", "kod": 404}
+    yol = os.path.join(sd, "yetki.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            mevcut = json.load(f)
+        if not isinstance(mevcut, dict):
+            mevcut = {}
+    except (OSError, ValueError):
+        mevcut = {}
+    mevcut["surum"] = mevcut.get("surum", 1)
+    mevcut["varsayilan_mod"] = deger
+    gecici = yol + ".tmp"
+    with open(gecici, "w", encoding="utf-8") as f:
+        json.dump(mevcut, f, ensure_ascii=False, indent=2)
+    os.replace(gecici, yol)
+    return {"tamam": True, "varsayilan_mod": _mod_durum(alan_id)}
+
+
+def _ayarlar_durum(alan_id=None) -> dict:
+    """Kullanıcı ayarları. Bildirim makine düzeyidir (bildirim.py); varsayılan mod seçili çalışma alanınındır (`alan` verilmişse)."""
     import bildirim  # noqa: PLC0415
     acik, kaynak = bildirim.ayar()
-    return {"bildirim": {"acik": acik, "kaynak": kaynak, "destek": sys.platform == "win32"}}
+    sonuc = {"bildirim": {"acik": acik, "kaynak": kaynak, "destek": sys.platform == "win32"}}
+    mod = _mod_durum(alan_id)
+    if mod:
+        sonuc["varsayilan_mod"] = mod
+    return sonuc
 
 
 def _ayarlar_yaz(acik: bool) -> dict:
@@ -835,7 +889,7 @@ def _isleyici():
         def _post_onay(self, q):
             return self._post_yaz(q)
 
-        def _post_ayarlar(self):
+        def _post_ayarlar(self, q=None):
             if self.headers.get("X-Orkestra") != "1" or not self._yerel_host():
                 return self._gonder(403, "text/plain", b"yasak", kapat=True)
             try:
@@ -843,11 +897,17 @@ def _isleyici():
                 if not 0 < uzun <= 1024:
                     raise ValueError("Gövde 1 KB'ı geçmemeli.")
                 g = json.loads(self.rfile.read(uzun).decode("utf-8"))
-                if not isinstance(g, dict) or not isinstance(g.get("bildirim"), bool):
-                    raise ValueError("Gövde {\"bildirim\": true|false} olmalı.")
+                mod_mu = isinstance(g, dict) and "varsayilan_mod" in g
+                if not isinstance(g, dict) or not (mod_mu or isinstance(g.get("bildirim"), bool)):
+                    raise ValueError("Gövde {\"bildirim\": true|false} ya da {\"varsayilan_mod\": \"plan\"|\"auto\"} olmalı.")
+                if mod_mu and g["varsayilan_mod"] not in ("plan", "auto"):
+                    raise ValueError("varsayilan_mod \"plan\" ya da \"auto\" olmalı.")
             except (ValueError, UnicodeDecodeError) as e:
                 return self._json(400, {"tamam": False, "hata": f"Geçersiz istek: {e}"}, kapat=True)
             try:
+                if mod_mu:
+                    sonuc = _mod_yaz(((q or {}).get("alan") or [None])[0], g["varsayilan_mod"])
+                    return self._json(200 if sonuc["tamam"] else sonuc.pop("kod", 400), sonuc, kapat=True)
                 sonuc = _ayarlar_yaz(g["bildirim"])
             except Exception as e:  # noqa: BLE001
                 return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
@@ -1085,7 +1145,7 @@ def _isleyici():
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
             if u.path == "/api/ayarlar":
-                return self._post_ayarlar()
+                return self._post_ayarlar(urllib.parse.parse_qs(u.query))
             if u.path in ("/api/araclar-mcp", "/api/araclar-skill"):
                 return self._post_araclar("mcp" if u.path.endswith("mcp") else "skill", urllib.parse.parse_qs(u.query))
             if u.path in ("/api/guncelle", "/api/guncelle-ertele"):
@@ -1213,7 +1273,7 @@ def _isleyici():
                 except ValueError as e:
                     return self._json(400, {"tamam": False, "hata": str(e)})
             if u.path == "/api/ayarlar":
-                return self._json(200, _ayarlar_durum())
+                return self._json(200, _ayarlar_durum((q.get("alan") or [None])[0]))
             if u.path in ("/api/araclar-mcp", "/api/araclar-skill"):
                 try:
                     if u.path.endswith("mcp"):

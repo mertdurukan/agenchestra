@@ -631,6 +631,45 @@ def uretim_durumu(klasor: str) -> str:
     return kapi_durumu(uretim_eksikleri(klasor))
 
 
+# P-044 / ADR-0106: kullanıcıya görünen yerleşim, hizalama ya da konum değiştiren P maddesinin `**Kabul:**` alanı ölçüm taşır
+# (gerçek tarayıcı, getBoundingClientRect, ekran görüntüsü, px); "yapıldı" ya da kod okuması kabul sayılmaz. Gölge kapı (P-028).
+_GORUNUM_KONU = re.compile(r"yerleşim|hizala|konum|düğme|buton|\.css\b|görünüm|layout|flex|sağ kenar|alt satır", re.I)
+_GORUNUM_OLCUM = re.compile(r"getBoundingClientRect|tarayıcı|ekran görüntüsü|screenshot|headless|ölçüm|ölçül|\bpx\b|piksel", re.I)
+
+
+def gorunum_olcumu_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_GORUNUM_OLCUMU_KAPISI") != "0"
+
+
+def gorunum_olcumu_kapsaminda_mi(klasor: str) -> bool:
+    return gorunum_olcumu_kapisi_acik() and sirali_mi(klasor)
+
+
+def _alan_metni(blok: str, alan: str) -> str:
+    m = re.search(r"\*\*" + re.escape(alan) + r":\*\*(.*?)(?=^\*\*[^\n*]+:\*\*|\Z)", _YORUM.sub("", blok), re.S | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def gorunum_olcumu_eksikleri(klasor: str) -> list[str]:
+    metin = _plan_oku(klasor)
+    if metin is None:
+        return []
+    eksik = []
+    for n, blok in sorted(_p_bloklari(metin).items()):
+        konu = " ".join(_alan_metni(blok, a) for a in ("Ne", "Dokunulan yer", "Kabul"))
+        if _GORUNUM_KONU.search(konu) and not _GORUNUM_OLCUM.search(_alan_metni(blok, "Kabul")):
+            eksik.append(f"P{n}: görünen yerleşim/konum değişikliği; `**Kabul:**` gerçek tarayıcı ölçümü içermeli (getBoundingClientRect, ekran görüntüsü; P-044)")
+    return eksik
+
+
+def gorunum_olcumu_uyari(klasor: str) -> list[str]:
+    """Sesli kapı: gölge modunda uyarır ve `kapi_golge` kaydı düşer; ihlal modunda eksikleri döndürür."""
+    if not gorunum_olcumu_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ihlal_ver(klasor, "gorunum_olcumu", gorunum_olcumu_eksikleri(klasor))
+
+
 # ADR-0080: plan paralellik kapısı (`**Önce:**` gerekçeli bağımlılık, `**Yazma alanı:**`, dalga kesişimi, tam sıralı gerekçe).
 def paralellik_kapisi_acik() -> bool:
     return os.environ.get("ORKESTRA_PARALELLIK_KAPISI") != "0"
@@ -966,6 +1005,7 @@ def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
 PLAN_MESAJ_SINIR = 2000
 _MODLU_KAPILAR = (("best_in_class", "bic_kapsaminda_mi", "bic_eksikleri"),
                   ("uretim_noktasi", "uretim_kapsaminda_mi", "uretim_eksikleri"),
+                  ("gorunum_olcumu", "gorunum_olcumu_kapsaminda_mi", "gorunum_olcumu_eksikleri"),
                   ("paralellik", "paralellik_kapsaminda_mi", "paralellik_eksikleri"),
                   ("jira_bagimlilik", "jira_bagimlilik_kapsaminda_mi", "jira_bagimlilik_eksikleri"),
                   ("sozlesme", "sozlesmeli_mi", "sozlesme_baglanti_eksikleri"))
@@ -1097,6 +1137,7 @@ def todo_onkosulu(klasor: str) -> list[str]:
     engel = sozlesme_engeli(klasor, baglanti=True) or mevcut_durum_eksikleri(klasor) or plan_eksikleri(klasor)
     if not engel:
         bic_uyari(klasor)  # P-030 gölge: uyarır ve kaydeder, todo yazımını engellemez
+        gorunum_olcumu_uyari(klasor)  # P-044 gölge: aynı biçimde
     return engel
 
 

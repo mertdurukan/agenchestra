@@ -41,7 +41,17 @@ POZITIF = ["Bu iki yoldan birini seçmen gerekiyor. Hangisini istersiniz?",
            "Yap derseniz uygularım.",
            "Kullanıcıya kalan: Değişiklikler commit edilmedi; commit onayınızı bekliyor.",
            "Push kararınızı bekliyorum.",
-           "Talimatınız bekleniyor."]
+           "Talimatınız bekleniyor.",
+           'Kartı değiştirmemi istiyorsan "yap" de.',
+           "Doğrulamamı istersen yaz.",
+           "Commit ve tarayıcı kontrolünü yapmamı isterseniz söyleyin.",
+           'Başlamamı istersen "yap" de.',
+           'İsterseniz "yap" deyin.',
+           'Devam edeyim: "evet" yaz.']
+UYARI_DEGIL = ["Testler geçti; istersen log dosyasını açabilirsin.",
+               "Hata varsa kapanış raporuna bakın.",
+               'Bu kalıp `istiyorsan "yap" de` cümlesini yakalar.',
+               'Kullanıcı "yap" dedi, işi bitirdim.']
 NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Bu sözcük bir kod örneğidir: `hangisini istersiniz`.",
            "```\nHangisini istersiniz?\n```",
@@ -144,6 +154,21 @@ class TestKaliplar(_Proje):
         for m in NEGATIF:
             with self.subTest(m=m):
                 self.assertFalse(SH.yanit_ihlali(m, self.sd), repr(m))
+
+    def test_kapanis_yapisi_bilgilendirmeyi_yakalamaz(self):
+        for m in UYARI_DEGIL:
+            with self.subTest(m=m):
+                self.assertFalse(SH.yanit_ihlali(m, self.sd), repr(m))
+
+    def test_kapanis_yapisi_block_eder(self):
+        girdi = {"session_id": OTURUM, "cwd": self.tmp, "last_assistant_message": POZITIF[-6]}
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                hook._secim_kapisi_yanit(self.sd, OTURUM, girdi)
+            except SystemExit:
+                pass
+        self.assertEqual(json.loads(buf.getvalue())["decision"], "block")
 
     def test_kapali_mod_ve_ortam_degiskeni(self):
         self.proje_ayari({"mod": "kapali"})
@@ -289,6 +314,43 @@ class TestStopKapisi(_Proje):
             kod, cikti = self.kos(POZITIF[0])
         self.assertIsNone(kod)
         self.assertIsNone(cikti)
+
+
+class TestTurBasi(_Proje):
+    """Tur başı yönergesi (ADR-0107): karar cümlesi yazılmadan önce bağlamda düğme yönergesi bulunur."""
+
+    def test_yonerge_ayardan_gelir_ve_sinirli(self):
+        m = SH.tur_basi_metni(self.sd)
+        self.assertTrue(m)
+        self.assertLessEqual(len(m), 300)
+        self.assertIn("wrap_up", m)
+
+    def test_kapali_kipte_ve_ortam_degiskeninde_bos(self):
+        self.proje_ayari({"mod": "kapali"})
+        self.assertEqual(SH.tur_basi_metni(self.sd), "")
+        os.remove(os.path.join(self.sd, "secim_ekrani_hatirlatma.json"))
+        with mock.patch.dict(os.environ, {"ORKESTRA_SECIM_HATIRLATMA": "0"}):
+            self.assertEqual(SH.tur_basi_metni(self.sd), "")
+
+    def test_uzun_yonerge_kirpilir_ayarsiz_bos(self):
+        self.proje_ayari({"tur_basi_yonerge": "x" * 900})
+        self.assertEqual(len(SH.tur_basi_metni(self.sd)), 300)
+        self.proje_ayari({"tur_basi_yonerge": 5})
+        self.assertEqual(SH.tur_basi_metni(self.sd), "")
+
+    def hook_cikti(self):
+        g = {"session_id": "sid-turbasi", "cwd": self.tmp, "transcript_path": self.transkript([]), "prompt": "merhaba"}
+        tampon = io.StringIO()
+        with mock.patch.dict(os.environ, {"CLAUDE_PROJECT_DIR": self.tmp}), contextlib.redirect_stdout(tampon),                 self.assertRaises(SystemExit):
+            hook.user_prompt_submit(g)
+        return tampon.getvalue()
+
+    def test_hook_baglamina_girer(self):
+        self.assertIn(SH.tur_basi_metni(self.sd)[:40], self.hook_cikti().replace("\u0027", "'"))
+
+    def test_hook_kapali_kipte_eklemez(self):
+        self.proje_ayari({"mod": "kapali"})
+        self.assertNotIn("Orkestra (P-029)", self.hook_cikti())
 
 
 class TestYapisalKapi(TestStopKapisi):

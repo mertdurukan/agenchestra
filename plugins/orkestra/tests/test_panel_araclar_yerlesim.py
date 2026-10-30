@@ -1,4 +1,4 @@
-"""Araçlar sayfası yerleşimi (ADR-0104): Açık/Kapalı düğmesi her kartta aynı sağ kenarda ve satırda durur.
+"""Araçlar sayfası yerleşimi (ADR-0106): Açık/Kapalı düğmesi her kartta aynı sağ kenarda ve satırda durur.
 
 Sahte DOM yerleşim hesaplamaz (tests/panel_duman.js); bu test gerçek Chrome/Edge'i headless koşturur ve
 getBoundingClientRect ile ölçer. Tarayıcı yoksa test atlanır (skip mesajında yazar).

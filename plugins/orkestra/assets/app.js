@@ -417,11 +417,13 @@
           <div class="meta">Aynı işlem terminalde: <code>orkestra update</code></div></div>
         <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="guncelle">Tekrar dene</button></div></article>`;
     }
-    const liste = c.degisiklikler || [], sayi = c.yenilik_say ?? liste.length, fazla = sayi - liste.length;
+    const liste = c.degisiklikler || [], ozellik = c.yenilik_say ?? liste.length, fazla = ozellik - liste.length;
+    const sayiMetni = ozellik > 0 ? `${B.sayi(ozellik)} yeni özellik`
+      : (c.fark > 0 ? `${B.sayi(c.fark)} değişiklik var` : 'Yeni değişiklikler var');
     return H`<article class="oge oge-guncelleme" data-gez data-guncelleme="yeni" style="--renk:var(--vurgu)">
         <div class="simge">${simge('guncelle')}</div>
         <div class="govde"><div class="baslik">Orkestra güncellemesi var</div>
-          <div class="metin">${B.sayi(sayi)} yeni özellik</div>
+          <div class="metin">${sayiMetni}</div>
           ${c.klon_kirli ? H`<div class="meta uyari-satir" role="note">${simge('uyari')}<span>Yayın klonunda commitlenmemiş değişiklik var; güncelleme reddedilebilir.</span></div>` : ''}
           ${liste.length ? H`<details class="degisiklik"><summary>Neler değişti</summary><ul>${liste.map(x => H`<li>${x.konu}</li>`)}${fazla > 0 ? H`<li class="soluk">ve ${B.sayi(fazla)} özellik daha</li>` : ''}</ul></details>` : ''}</div>
         <div class="eylemler"><button class="dugme kucuk" data-eylem="guncelle-ertele" title="Yeni bir sürüm çıkana kadar hatırlatma">Sonra</button> <button class="dugme ana-d kucuk" data-eylem="guncelle">Güncelle</button></div></article>`;
@@ -833,6 +835,7 @@
   function gAyarlar() {
     const yuk = bekle(AYAR_YOL);
     const b = d(AYAR_YOL).veri?.bildirim;
+    const mod = d(AYAR_YOL).veri?.varsayilan_mod;
     const ortam = b?.kaynak === 'ortam';
     const neden = !b ? '' : !b.destek ? 'Bildirim yalnız Windows’ta çalışır.' : ortam ? 'ORKESTRA_BILDIRIM ortam değişkeni belirliyor; ayarı değiştirmek için önce onu kaldır.' : '';
     const govde = yuk || (b ? H`
@@ -841,8 +844,24 @@
           <span class="soluk kucuk-y" id="ayarBildirimAcik">İş bitince, yanıtın ya da onayın gerekince Windows bildirimi gönderir. Veri dışarı gitmez.</span>
           ${neden ? H`<span class="soluk kucuk-y">${neden}</span>` : ''}</div>
         <button type="button" class="anahtar" role="switch" data-eylem="ayar-bildirim" aria-checked="${b.acik}" aria-labelledby="ayarBildirimAd" aria-describedby="ayarBildirimAcik" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${b.acik ? 'Açık' : 'Kapalı'}</span></button>
-      </div></section>` : bos('Ayarlar okunamadı', '', 'uyari'));
-    return { baslik: 'Ayarlar', sag: H`<span class="soluk kucuk-y">bu bilgisayar için geçerli</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
+      </div></section>
+      ${mod ? H`<section class="kart"><div class="kart-ic yatay ayar-satir">
+        <div class="yigin"><b id="ayarModAd">Varsayılan çalışma modu</b>
+          <span class="soluk kucuk-y" id="ayarModAcik">${mod.alan} çalışma alanı için geçerli. Plan: onay beklenir. Auto: mesajın onay sayılır. Kesin sınırlar (sır, zorla push, DB salt okunur) her iki modda korunur. Sohbette /plan ya da /auto bunu aşar.</span>
+          <span class="soluk kucuk-y">Kaynak: ${MOD_KAYNAK[mod.kaynak] || mod.kaynak}</span></div>
+        <div class="yatay" role="radiogroup" aria-labelledby="ayarModAd" aria-describedby="ayarModAcik">${[['plan', 'Plan'], ['auto', 'Auto']].map(([k, ad]) => H`<button type="button" class="cip" role="radio" data-eylem="ayar-mod" data-v="${k}" aria-checked="${mod.deger === k}">${ad}</button>`)}</div>
+      </div></section>` : ''}` : bos('Ayarlar okunamadı', '', 'uyari'));
+    return { baslik: 'Ayarlar', sag: H`<span class="soluk kucuk-y">bildirim bu bilgisayar için, çalışma modu seçili alan için geçerli</span>`, govde: H`<div class="icerik yigin" style="max-width:820px">${govde}</div>` };
+  }
+  const MOD_KAYNAK = { proje: 'proje ayarı', eklenti: 'eklenti varsayılanı', varsayilan: 'yerleşik varsayılan' };
+  async function ayarMod(b) {
+    const hedef = b.dataset.v;
+    if (b.getAttribute('aria-checked') === 'true') return;
+    b.disabled = true;
+    try { await gonder(AYAR_YOL, { varsayilan_mod: hedef }); bildir('Varsayılan mod ' + (hedef === 'auto' ? 'Auto' : 'Plan') + ' yapıldı.'); }
+    catch (x) { bildir('Ayar kaydedilemedi: ' + x.message, { hata: true, sure: 8000 }); }
+    await getir(AYAR_YOL, { taze: true });
+    planla();
   }
   async function ayarBildirim(b) {
     const hedef = b.getAttribute('aria-checked') !== 'true';
@@ -1095,6 +1114,7 @@
     if (ey === 'sorgu') sorguKoy(b.dataset.k, b.dataset.v);
     else if (ey === 'olcu-incele' || ey === 'olcu-yoksay') olcuGizle(b.dataset.ad, b.dataset.pencere);   // bağlantı kendi yolunu izler
     else if (ey === 'ayar-bildirim') ayarBildirim(b);
+    else if (ey === 'ayar-mod') ayarMod(b);
     else if (ey === 'arac-degistir') aracDegistir(b);
     else if (ey === 'arac-sirala') { depo.koy('arac-sira', b.dataset.v); planla(); }
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
