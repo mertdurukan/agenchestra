@@ -441,9 +441,9 @@
     }
     if (o.tur === 'uygula') return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
         <div class="simge">${simge('oynat')}</div>
-        <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${o.n} onaylı karar uygulanmayı bekliyor</div>
-          <div class="metin">Kararlar arka planda, pencere açmadan sırayla uygulanır (komut satırı Claude oturumu gerekir).</div></div>
-        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula" data-alan="${o.alan?.id || ''}">Şimdi uygula</button></div></article>`;
+        <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${o.kosu ? o.n + ' onaylı karar şu an uygulanıyor' : o.n + ' onaylı karar uygulanmayı bekliyor'}</div>
+          <div class="metin">${o.kosu ? 'Arka planda, pencere açmadan sürüyor (birkaç dakika); bitince kart kalkar.' : 'Kararlar arka planda, pencere açmadan sırayla uygulanır (komut satırı Claude oturumu gerekir).'}</div></div>
+        <div class="eylemler"><button class="dugme ana-d kucuk" data-eylem="uygula" data-alan="${o.alan?.id || ''}" ${o.kosu ? 'disabled' : ''}>${o.kosu ? 'Uygulanıyor…' : 'Şimdi uygula'}</button></div></article>`;
     if (o.tur === 'perspektif') {
       const pd = o.d, gecen = pd.gun_once == null ? 'Perspektif hiç çalışmadı' : `Perspektif ${pd.gun_once} gündür çalışmadı`;
       return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
