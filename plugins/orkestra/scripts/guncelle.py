@@ -447,6 +447,10 @@ def _calistir(kuru, yaz, ev, ortam) -> int:
         o = next((x for x in once if x["ad"] == s["ad"] and x["kapsam"] == s["kapsam"]), None)
         if not o or o["surum"] != s["surum"]:
             degisen.append(f"{s['ad']} ({s['kapsam']}): {o['surum'] if o else '-'} → {s['surum']}")
+    try:  # önbellek budaması güncellemeyi başarısız kılmaz (I-271 P8)
+        onbellek_buda(ev, ortam, yaz=yaz)
+    except Exception as e:  # noqa: BLE001
+        yaz(f"uyarı: önbellek budanamadı: {type(e).__name__}: {e}")
     yaz("")
     if eski == yeni and not degisen:
         yaz(f"ZATEN GÜNCEL (klon {yeni}; kurulu plugin: {', '.join(sorted({s['surum'] for s in sonra}))})")
