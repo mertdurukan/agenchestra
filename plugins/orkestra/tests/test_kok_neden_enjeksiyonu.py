@@ -143,7 +143,6 @@ class HookBaglantisi(_Proje):
         alinan = []
 
         def yakala(obj=None, kod=0):
-            alinan.append(obj)
             if obj is not None:  # gec() boş çıktı verir; yalnız bağlam taşıyan çıktı sayılır
                 alinan.append(obj)
             raise SystemExit(kod)
