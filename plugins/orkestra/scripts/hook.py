@@ -784,6 +784,14 @@ def pre_tool_use(inp: dict):
     except Exception:
         pass
 
+    try:  # ADR-0099: engellemeyen devir hatırlatması; hata aracı bozmaz
+        import devir_hatirlatma as _dh
+        dh = _dh.izle(arac, girdi, sd, inp.get("session_id"), aid, inp.get("cwd"))
+        if dh:
+            _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " + dh).strip()
+    except Exception:
+        pass
+
     if arac in YAZAN_ARACLAR:
         yol = girdi.get("file_path") or girdi.get("notebook_path") or ""
         if not yol:
