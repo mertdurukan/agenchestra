@@ -55,7 +55,7 @@ class OzetTetik(unittest.TestCase):
     def test_dolu_ozet_ezilmez_ve_uyari_vermez(self):
         i, klasor = self.ac(["a", "b"])
         yol = os.path.join(klasor, f"calisma_ozeti_{GUN}.md")
-        dolu = "# X\n\n**Ana bulgu:**\n\nBitti.\n"
+        dolu = "# Deneme işi: çalışma özeti\n\n**Ana bulgu:**\n\nBitti.\n"
         with open(yol, "w", encoding="utf-8", newline="\n") as f:
             f.write(dolu)
         r = self.cli("is", "todo", i, "--bitti", "a", "--bitti", "b")
