@@ -1,4 +1,4 @@
-# ADR-0104: Kapanış teklifi yapıdan yakalanır; `teklif_sonu` tetiği block
+# ADR-0104: Kapanış teklifi yapıdan yakalanır (kalıp kapısına yapı kalıpları)
 
 **Durum:** Kabul edildi
 
@@ -6,22 +6,24 @@
 
 **Bağlam:**
 
-Kullanıcı, yanıt sonundaki `Kartı değiştirmemi istiyorsan "yap" de.` cümlesinin düğme olmadığını bildirdi. Yerelde çalıştırma: `yanit_ihlali` ve `teklif_sonu` ikisi de False. Kalıp listesi bu ifadeyi içermiyor; yapısal kapı yalnız `?` ya da -ım/-im ekiyle biten cümleyi sayıyor. Ayrıca `yapisal_mod` golge olduğu için yakalansa da engellenmezdi; McD günlüğünde `teklif_sonu` tetiği hiç kayıt düşmedi (18 yapısal kayıt, hepsi `degisiklik`). ADR-0043 "eksik kalıp ihlali kaçırır" riskini yazmıştı.
+Kullanıcı, yanıt sonundaki `Kartı değiştirmemi istiyorsan "yap" de.` cümlesinin düğme olmadığını bildirdi. Yerelde çalıştırma: `yanit_ihlali` ve `teklif_sonu` ikisi de False. Kalıp listesinde "istiyorsan … de" yapısı yok. Kalıp kapısı `mod: block` ve çalışıyor (McD günlüğünde 55 kayıt); ADR-0043 "eksik kalıp ihlali kaçırır" riskini yazmıştı.
 
 **Karar:**
 
-(1) `teklif_sonu_kaliplari` kapanış yapısına bakan iki kalıp alır: koşul ifadesi (istiyorsan, istersen, uygunsa…) ile biten konuşma fiili emri (de, yaz, söyle, onayla…); tırnaklı yanıt sözcüğü ve ardından "de/yaz". (2) Ayara `yapisal_mod_tetik` eklenir; `teklif_sonu` block, `degisiklik` golge kalır. (3) `yapisal_mod(ayar, tetik)` tetik anahtarını önce okur; hook kipi tetikle çağırır.
+`ayarlar/secim_ekrani_hatirlatma.json` `yanit_kaliplari`'na kapanış yapısına bakan iki kalıp eklenir: (a) koşul ifadesi (istiyorsan, istersen, isterseniz, uygunsa, onaylıyorsan, olursa) ile biten konuşma fiili emri (de, yaz, söyle, onayla, bildir, haber ver); (b) tırnaklı yanıt sözcüğü ve ardından "de/yaz/dersen". Kod değişmez. `teklif_sonu` ve `yapisal_mod` golge kalır.
+
+**Ölçüm:** McD transkriptlerinin son 150 dosyasında 1244 tur tarandı (30.10.2026); yeni kalıplar 6 turda eşleşti, 6'sı gerçek düz metin teklif, yanlış pozitif 0/6 (örnek sayısı küçük). Eski `teklif_sonu` kalıpları aynı korpusta 170 turda eşleşiyor; çoğu "?" ile biten gerçek soru olduğundan block'a alınmadı.
 
 **Seçenekler:**
 
-- **Tek tek ifade eklemek:** elendi. Aynı kaçış bir sonraki ifadede sürer.
-- **`yapisal_mod` genel block:** elendi. `degisiklik` tetiği her düzenleme turunu etkiler, ölçümsüz (P-028).
+- **`teklif_sonu` tetiğini block yapmak:** elendi. 1244 turun 170'inde eşleşir, yanlış pozitif ölçülmemiş (P-028).
+- **Kural metnine cümle eklemek:** elendi. P-029 zaten var; ADR-0036: yalnız kurala bağlı uyum sağlamıyor.
 - **Model çağıran sınıflayıcı:** elendi. Her Stop'ta token harcar (yöntem seçimi sırası).
 
 **Sonuçlar:**
 
-- **Olumlu:** kapanış teklifi ifadeden bağımsız düğmeye zorlanır.
-- **Olumsuz:** yanlış pozitifte tura bir ek hatırlatma turu eklenir ("karar anı değilse yok say").
-- **Geri alma:** ayarda `yapisal_mod_tetik` silinir ya da `ORKESTRA_SECIM_HATIRLATMA=0`.
+- **Olumlu:** kapanış teklifi bu ifade ailesinde düğmeye zorlanır; kod ve hook değişmez.
+- **Olumsuz:** başka ifade yine kaçabilir; yanlış pozitifte tura bir ek hatırlatma turu eklenir ("karar anı değilse yok say").
+- **Geri alma:** iki kalıp satırı silinir ya da `ORKESTRA_SECIM_HATIRLATMA=0`.
 
 **İlgili iş:** I-279, P-029, P-028, ADR-0043.
