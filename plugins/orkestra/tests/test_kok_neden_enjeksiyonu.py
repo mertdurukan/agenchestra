@@ -101,11 +101,6 @@ class Isci(_Proje):
 
 class AracHatasi(_Proje):
     def test_s2_seyreltme_1_sonra_her_3(self):
-        cikanlar = [n for n in range(1, 8) if K.arac_metni({"session_id": "o1"}, self.sd)]
-        self.assertEqual(cikanlar, [1, 2, 3, 4, 5, 6, 7][:0] or cikanlar)  # yer tutucu: asıl sınama aşağıda
-        self.assertEqual(len(cikanlar), 7)  # her çağrı yeni sayaç değil, bir sonraki testte sıfırdan sayılır
-
-    def test_seyreltme_sirasi(self):
         sonuclar = [bool(K.arac_metni({"session_id": "o2"}, self.sd)) for _ in range(7)]
         self.assertEqual(sonuclar, [True, False, False, True, False, False, True])
 
