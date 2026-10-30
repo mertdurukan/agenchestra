@@ -1145,7 +1145,7 @@ def _isleyici():
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {e}"}, kapat=True)
             if u.path == "/api/ayarlar":
-                return self._post_ayarlar()
+                return self._post_ayarlar(urllib.parse.parse_qs(u.query))
             if u.path in ("/api/araclar-mcp", "/api/araclar-skill"):
                 return self._post_araclar("mcp" if u.path.endswith("mcp") else "skill", urllib.parse.parse_qs(u.query))
             if u.path in ("/api/guncelle", "/api/guncelle-ertele"):
