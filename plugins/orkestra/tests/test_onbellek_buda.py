@@ -136,6 +136,23 @@ class OnbellekBuda(unittest.TestCase):
         self.assertEqual(self.cikti, [])
 
 
+import test_guncelle as TG  # noqa: E402
+
+
+class GuncelleBudar(TG.Ortam):
+    def test_guncelle_sonrasi_onbellek_budanir(self):
+        kok = os.path.join(G.onbellek_koku(self.ev), "orkestra")
+        for i in range(6):
+            y = os.path.join(kok, f"s{i}")
+            yaz(os.path.join(y, "a.txt"))
+            t = time.time() - (i + 1) * 3600
+            os.utime(y, (t, t))
+        kod, cikti = self.kos()
+        self.assertEqual(kod, 0, cikti)
+        self.assertEqual(sorted(os.listdir(kok)), ["s0", "s1", "s2"])  # installPath yok: en yeni 3 kalır
+        self.assertIn("Önbellek budama: 3 eski sürüm", cikti)
+
+
 class WorktreeGeride(unittest.TestCase):
     """K5: bakim, worktree durum kopyası ana kopyadan geride ise tek satır uyarı yazar."""
     setUp = TC.Cekirdek.setUp
