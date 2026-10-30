@@ -190,13 +190,40 @@ def _yontem_satirlari(y: dict) -> list:
     return satirlar
 
 
-def _kapi_ret(sd: str) -> dict:
-    """gunluk.jsonl'daki `kapi_ret` olayları (ihlal modundaki ret) kapı adına göre sayılır (ADR-0069: yanlış pozitif ölçümünün paydası)."""
-    sayi: dict = {}
+def _eski_bekleyen(neden: str) -> bool:
+    """I-271 öncesi `kapi_ret` kaydı yalnız ayrı denetçinin henüz doldurmadığı satırlardan mı oluşuyor (ilk plan sırası,
+    gerçek ret değil): her parça denetim satırı eksiği ve kimliksiz `**Denetçi:**` satırı içinde."""
+    parcalar = [p for p in str(neden or "").split("; ") if p]
+    return bool(parcalar) and any("kimliği taşımıyor" in p for p in parcalar) and all(
+        p.startswith("best in class denetimi:") and ("ile başlamıyor" in p or "kimliği taşımıyor" in p or len(p) < 40)
+        for p in parcalar)
+
+
+def _kapi_olaylari(sd: str) -> tuple[dict, dict]:
+    """(gerçek ret, denetçi bekleniyor) sayıları kapı adına göre: `kapi_ret` yalnız gerçek ret; `kapi_bekleniyor` olayları
+    ve I-271 öncesi yalnız boş denetçi satırından doğmuş eski `kapi_ret` kayıtları ayrı sayılır."""
+    ret: dict = {}
+    bekl: dict = {}
     for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")):
-        if isinstance(o, dict) and o.get("tur") == "kapi_ret" and o.get("kapi"):
-            sayi[o["kapi"]] = sayi.get(o["kapi"], 0) + 1
-    return dict(sorted(sayi.items()))
+        if not isinstance(o, dict) or not o.get("kapi"):
+            continue
+        tur = o.get("tur")
+        if tur == "kapi_bekleniyor" or (tur == "kapi_ret" and _eski_bekleyen(o.get("neden"))):
+            bekl[o["kapi"]] = bekl.get(o["kapi"], 0) + 1
+        elif tur == "kapi_ret":
+            ret[o["kapi"]] = ret.get(o["kapi"], 0) + 1
+    return dict(sorted(ret.items())), dict(sorted(bekl.items()))
+
+
+def _kapi_ret(sd: str) -> dict:
+    """gunluk.jsonl'daki gerçek `kapi_ret` olayları (ihlal modundaki içerik reddi) kapı adına göre sayılır (ADR-0069: yanlış
+    pozitif ölçümünün paydası). Denetçi bekleyen satırlar sayılmaz (`_kapi_bekleniyor`)."""
+    return _kapi_olaylari(sd)[0]
+
+
+def _kapi_bekleniyor(sd: str) -> dict:
+    """Ayrı denetçinin henüz doldurmadığı satırlar yüzünden geçmeyen plan sayısı (ret değil, sıranın bir sonraki adımı)."""
+    return _kapi_olaylari(sd)[1]
 
 
 def rapor(sd: str) -> dict:
