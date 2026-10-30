@@ -417,6 +417,11 @@ def metin(r: dict) -> str:
     bekl = r.get("kapi_bekleniyor") or {}
     if bekl:
         ret_satiri.append("denetçi bekleniyor (ret sayılmaz): " + ", ".join(f"{k} {n}" for k, n in bekl.items()))
+    kn = r.get("ihlal_kanit") or []
+    if kn:
+        ret_satiri += ["", f"son {len(kn)} ihlal/ret kanıtı:", _tablo(
+            ["zaman", "tür", "kural/kapı", "eşleşen", "cümle"],
+            [[x["zaman"], x["tur"], x["kural"], x["eslesen"][:40] or "-", x["cumle"] or "-"] for x in kn]), ""]
     c = r.get("cikti")
     cikti_satiri = [] if not c else [
         f"kullanıcı çıktısı ({c['tur']} tur): ortanca {c['ortanca']}, p90 {c['p90']} karakter, aşım oranı {_oran(c['asim_orani'])}"
