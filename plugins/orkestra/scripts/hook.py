@@ -1376,10 +1376,12 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         import izin_politikasi
         if izin_politikasi._auto_modu(sd, oid):  # ADR-0086: /auto kullanıcıya seçim yaptırmaz, ekran hatırlatması susar
             return
-        if SH.yapisal_ihlal(inp.get("transcript_path"), sd):
+        ytetik = SH.yapisal_tetik(inp.get("transcript_path"), None, sd)  # = yapisal_ihlal; neden adı `eslesen` olur
+        if ytetik:
             ykip = SH.yapisal_mod(SH.ayar_oku(sd))
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                             "kural": "secim_ekrani_yapisal", "mod": ykip, "is": _oturum_isi(sd, oid)})
+                                                             "kural": "secim_ekrani_yapisal", "mod": ykip, "is": _oturum_isi(sd, oid),
+                                                             **_kanit(ytetik)})
             if ykip == "block" and not inp.get("stop_hook_active"):
                 L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
