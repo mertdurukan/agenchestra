@@ -49,6 +49,7 @@ Test sunucusu: `panel.py _kos <port> --test` panel.json'u YAZMAZ (gerçek paneli
 """
 from __future__ import annotations
 
+import hashlib
 import http.server
 import glob
 import json
@@ -105,7 +106,24 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
-SURUM = "20"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "20"  # sayfa/sunucu sözleşmesi
+
+
+def _kod_izi() -> str:
+    """scripts/*.py içeriğinin özeti: kod değişince çalışan sunucu eskimiş sayılır (elle SURUM artırmaya bağlı kalınmaz; I-254'te Araçlar rotaları bu yüzden 404 verdi)."""
+    h = hashlib.sha1()
+    dizin = os.path.dirname(os.path.abspath(__file__))
+    for ad in sorted(glob.glob(os.path.join(dizin, "*.py"))):
+        try:
+            with open(ad, "rb") as f:
+                h.update(os.path.basename(ad).encode() + f.read())
+        except OSError:
+            pass
+    return h.hexdigest()[:10]
+
+
+KOD_IZI = _kod_izi()
+SAGLIK = f"ok {SURUM} {KOD_IZI}"  # /saglik yanıtı; baslat() bununla eşleşmeyen sunucuyu yeniden başlatır
 GUNCELLEME = panel_guncelleme.Guncelleme()  # eklenti güncelleme durumu (kullanıcı düzeyi, ADR-0039); testte değiştirilir
 
 
@@ -1236,7 +1254,7 @@ def _isleyici():
             if u.path == "/onay-sayac.json":
                 return self._gonder(200, "application/json; charset=utf-8", onbellekli("sayac", 5.0, _sayac_tum))
             if u.path == "/saglik":
-                return self._gonder(200, "text/plain", f"ok {SURUM}".encode())
+                return self._gonder(200, "text/plain", SAGLIK.encode())
             return self._gonder(404, "text/plain", b"yok")
 
     return Isleyici
@@ -1262,7 +1280,7 @@ def calistir(port: int, durum_yaz: bool = True) -> None:
     """durum_yaz=False (--test): panel.json'a dokunmaz; test sunucusu gerçek paneli ölü porta yönlendirmesin."""
     sunucu = http.server.ThreadingHTTPServer(("127.0.0.1", port), _isleyici())
     if durum_yaz:
-        L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "zaman": L.simdi()}))
+        L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "kod": KOD_IZI, "zaman": L.simdi()}))
         threading.Thread(target=_isit, args=(port,), daemon=True).start()
         if os.environ.get("ORKESTRA_GUNCELLEME_YOKLA") != "0":
             GUNCELLEME.yoklamayi_baslat()   # açılışta ve 30 dk'da bir git fetch; ağ yoksa sessiz
@@ -1297,7 +1315,7 @@ def _servis_baslat(port: int, sorgu: str) -> str:
     """Servis görevini (yeniden) başlatır; port sabit kalır, ikinci süreç açılmaz."""
     panel_servis.yeniden_baslat()
     for _ in range(30):
-        if _saglik(port) == f"ok {SURUM}":
+        if _saglik(port) == SAGLIK:
             return f"http://127.0.0.1:{port}/{sorgu}"
         time.sleep(0.5)
     return f"http://127.0.0.1:{port}/{sorgu}  (servis görevi başlatıldı; yanıt vermiyorsa `orkestra panel servis durum`)"
@@ -1311,7 +1329,7 @@ def baslat(port: int | None = None, alan_id: str | None = None, on_planda: bool 
         with open(DURUM, encoding="utf-8") as f:
             eski = json.load(f)
         durum = _saglik(eski["port"])
-        if durum == f"ok {SURUM}":
+        if durum == SAGLIK:
             return f"http://127.0.0.1:{eski['port']}/{sorgu}"
         if durum is not None and not servis:   # eski sürüm sunucu: kapat, yenisini aç
             _durdur(eski)

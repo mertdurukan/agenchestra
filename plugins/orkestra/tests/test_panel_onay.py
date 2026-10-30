@@ -122,7 +122,7 @@ class PanelOnay(unittest.TestCase):
             k, _ = self.istek("GET", yol)
             self.assertEqual(k, 200)
         k, b = self.istek("GET", "/saglik")
-        self.assertEqual(b, b"ok 20")
+        self.assertEqual(b, panel.SAGLIK.encode())
 
     # ------------------------------------------------------------ POST güvenliği
     def test_post_basliksiz_403(self):

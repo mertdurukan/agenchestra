@@ -152,7 +152,7 @@ class BaslatServisTest(unittest.TestCase):
             self.addCleanup(y.stop)
 
     def test_servis_varken_surum_uyusmazliginda_oldurme_ve_popen_yok(self):
-        saglik = iter(["ok eski", "ok eski", f"ok {panel.SURUM}"])
+        saglik = iter(["ok eski", "ok eski", panel.SAGLIK])
         with mock.patch.object(panel.panel_servis, "kurulu", return_value=True), \
                 mock.patch.object(panel.panel_servis, "yeniden_baslat", return_value=True) as yb, \
                 mock.patch.object(panel, "_saglik", side_effect=lambda p: next(saglik)), \
@@ -168,7 +168,7 @@ class BaslatServisTest(unittest.TestCase):
 
     def test_servis_yokken_eski_davranis(self):
         with mock.patch.object(panel.panel_servis, "kurulu", return_value=False), \
-                mock.patch.object(panel, "_saglik", side_effect=["ok eski", "ok eski", f"ok {panel.SURUM}"]), \
+                mock.patch.object(panel, "_saglik", side_effect=["ok eski", "ok eski", panel.SAGLIK]), \
                 mock.patch.object(panel, "_durdur") as dur, \
                 mock.patch.object(panel, "_bos_port", return_value=8765), \
                 mock.patch.object(panel.subprocess, "Popen") as popen:
