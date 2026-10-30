@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 
+import adr_depo  # noqa: E402
 import ork_lib as L  # noqa: E402
 import ret_nedeni as RN  # noqa: E402
 import soru_sinif as SS  # noqa: E402
@@ -622,19 +623,12 @@ def _adr_eksigi(klasor, proje_koku):
     satir = m.group(1).strip()
     kimlikler = sorted(set(re.findall(r"ADR-\d{4}", satir)))
     if kimlikler:
-        # Durum ana klasörden çözülür ama belgeler worktree dalında kalır (ADR-0033): işin klasörünün bulunduğu
-        # git ağacının adr/ dizini de aranır.
-        kokler = [proje_koku]
-        agac = L.git_koku(klasor) if os.path.isdir(klasor) else None
-        if agac and os.path.normcase(os.path.abspath(agac)) != os.path.normcase(os.path.abspath(proje_koku)):
-            kokler.append(agac)
+        # Durum ana klasörden çözülür ama belgeler worktree dalında kalır (ADR-0033); planın `**Kök:**` deposu
+        # önce aranır (ADR-0097: ADR kararın etkilediği depoda yazılır).
+        kokler = adr_depo.depolar(metin, klasor, proje_koku)
 
         def _bul(k):
-            for kok in kokler:
-                g = glob.glob(os.path.join(kok, "adr", k + "-*.md"))
-                if g:
-                    return g[0]
-            return None
+            return adr_depo.adr_bul(k, kokler)
 
         yok = [k for k in kimlikler if not _bul(k)]
         if yok:

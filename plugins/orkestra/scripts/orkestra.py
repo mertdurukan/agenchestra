@@ -72,9 +72,10 @@ from komutlar import _ortak, kurulum, kart, defter, maliyet, onay, gosterge, isl
 from komutlar import hata as hata_komut  # noqa: E402  (ad `_ortak.hata` işlevini gölgelemesin)
 from komutlar import plan_alan  # noqa: E402  (`plan` grubuna `alan` ekler; plan'dan sonra kaydedilir)
 from komutlar import dalga  # noqa: E402  (`is dalga`; isler'den SONRA kaydedilir)
+from komutlar import adr  # noqa: E402  (`orkestra adr`; ADR-0097)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, hata_komut, plan_alan, dalga)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, hata_komut, plan_alan, dalga, adr)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

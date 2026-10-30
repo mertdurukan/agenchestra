@@ -15,6 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import adr_depo  # noqa: E402
 import ork_lib as L  # noqa: E402
 import is_kaydi as IK  # noqa: E402
 
@@ -202,10 +203,10 @@ def _adr_secenekler(plan: str, kok: str) -> list[str]:
     m = re.search(r"^\*\*ADR:\*\*\s*(ADR-\d+)", plan, re.M)
     if not m:
         return []
-    dosyalar = sorted(glob.glob(os.path.join(kok, "adr", m.group(1) + "*.md")))
-    if not dosyalar:
+    dosya = adr_depo.adr_bul(m.group(1), adr_depo.depolar(plan, "", kok))
+    if not dosya:
         return ["__yok__:" + m.group(1)]
-    return _etiket_blok(_oku(dosyalar[0]), "Seçenekler")
+    return _etiket_blok(_oku(dosya), "Seçenekler")
 
 
 def _etiket_blok(metin: str, ad: str) -> list[str]:

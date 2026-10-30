@@ -1,6 +1,6 @@
 # ADR-0097: ADR, kararın etkilediği depoda yazılır (hedef depo = planın Kök deposu)
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 2026-10-30
 

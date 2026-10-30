@@ -1014,6 +1014,24 @@
         }
       ],
       "etkinlesme": "2026-10-30T01:35:15+03:00"
+    },
+    {
+      "id": "P-040",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: ADR, kararın etkilediği depoda yazılır; hedef depo planın **Kök:** satırının git deposudur (Kök yoksa işin projesi). ADR elle açılmaz: 'orkestra adr yeni <iş> \"<başlık>\"' hedef depoyu ve depodaki sıradaki numarayı çözer, altı alanlı iskeleti yazar. Numara depo başına ardışıktır; depo dışından atıf depo adıyla yazılır ('eklenti ADR-0097'). Eklenti kodunu, hook'unu, kuralını ya da skill'ini değiştiren bir kararın ADR'si eklenti deposundadır, kullanıcının projesinde değil. 'orkestra doktor' uzak deposu olmayan ADR deposunu uyarır; uzak depo açmak kullanıcı kararıdır. Zorlama: is_kapat ADR kapısı Kök deposunda arar (isler._adr_eksigi, adr_depo.py), doktor adr_yedek kontrolü. (ADR-0097)",
+      "neden": "ADR'ler işin açıldığı proje deposunda birikti, numaralar iki depoda çakıştı ve uzak deposu olmayan depodaki ADR'ler yedeksiz kaldı (I-256).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-10-30T02:46:59+03:00",
+      "guncelleme": "2026-10-30T02:46:59+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-10-30T02:46:59+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: ADR, kararın etkilediği depoda yazılır; hedef depo planın **Kök:** satırının git deposudur (Kök yoksa işin projesi). ADR elle açılmaz: 'orkestra adr yeni <iş> \"<başlık>\"' hedef depoyu ve depodaki sıradaki numarayı çözer, altı alanlı iskeleti yazar. Numara depo başına ardışıktır; depo dışından atıf depo adıyla yazılır ('eklenti ADR-0097'). Eklenti kodunu, hook'unu, kuralını ya da skill'ini değiştiren bir kararın ADR'si eklenti deposundadır, kullanıcının projesinde değil. 'orkestra doktor' uzak deposu olmayan ADR deposunu uyarır; uzak depo açmak kullanıcı kararıdır. Zorlama: is_kapat ADR kapısı Kök deposunda arar (isler._adr_eksigi, adr_depo.py), doktor adr_yedek kontrolü. (ADR-0097)"
+        }
+      ],
+      "etkinlesme": "2026-10-30T02:46:59+03:00"
     }
   ]
 }

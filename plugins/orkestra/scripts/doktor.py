@@ -410,6 +410,47 @@ def o_cursor_siniri(b, s):
     return Onarim("C", ".cursor/hooks.json dosyasını BOM'suz UTF-8 olarak yeniden yaz", komut="orkestra doktor")
 
 
+def _uzak_var(kok):
+    kod, cikti = _calistir(["git", "-C", kok, "remote"], 30)
+    return kod == 0 and bool(cikti.strip())
+
+
+def _git_koku(yol):
+    kod, cikti = _calistir(["git", "-C", yol, "rev-parse", "--show-toplevel"], 30)
+    return os.path.abspath(cikti.strip()) if kod == 0 and cikti.strip() else None
+
+
+def adr_yedek_sonucu(depolar):
+    """ADR klasörü olan ve git uzak deposu bulunmayan depoları uyarır (ADR-0097); yalnız yol ve dosya sayısı yazılır."""
+    eksik, var = [], []
+    for kok in depolar:
+        n = len(glob.glob(os.path.join(glob.escape(kok), "adr", "ADR-*.md")))
+        if not n:
+            continue
+        (var if _uzak_var(kok) else eksik).append((kok, n))
+    if not eksik and not var:
+        return Sonuc("atlandi", "ADR klasörü olan depo yok")
+    if eksik:
+        return _uyari("ADR deposunda git uzak deposu yok, ADR'ler yedeksiz: "
+                      + "; ".join(f"{k} ({n} dosya)" for k, n in eksik) + ". Uzak depo açmak kullanıcı kararıdır.",
+                      depolar=[k for k, _ in eksik])
+    return _ok("ADR depolarında uzak depo tanımlı", depolar=[k for k, _ in var])
+
+
+def k_adr_yedek(b: Baglam) -> Sonuc:
+    kokler = []
+    if b.proje:
+        kokler.append(b.proje)
+    eklenti = _git_koku(os.path.dirname(os.path.abspath(__file__)))
+    if eklenti and os.path.normcase(os.path.abspath(eklenti)) not in [os.path.normcase(os.path.abspath(k)) for k in kokler]:
+        kokler.append(eklenti)
+    return adr_yedek_sonucu(kokler)
+
+
+def o_adr_yedek(b, s):
+    return Onarim("C", "ADR deposuna git uzak deposu ekle (örn. `git remote add origin <adres>`); ADR'ler kod değildir, adres ve yayın kararı sizindir")
+
+
 KONTROLLER: list[Kontrol] = [
     Kontrol("python", "Python yorumlayıcı", "zorunlu", k_python, o_python),
     Kontrol("hook_yorumlayici", "hook yorumlayıcısı (PATH)", "zorunlu", k_hook_yorumlayici, o_hook_yorumlayici),
@@ -420,6 +461,7 @@ KONTROLLER: list[Kontrol] = [
     Kontrol("pytest", "pytest", "onerilen", k_pytest, o_pytest),
     Kontrol("izin_politikasi", "izin politikası (kapı desenleri ve MCP eşleşmesi)", "onerilen", k_izin_politikasi, o_izin_politikasi),
     Kontrol("git", "git ve safe.directory", "onerilen", k_git, o_git),
+    Kontrol("adr_yedek", "ADR depolarında yedek (git uzak deposu)", "onerilen", k_adr_yedek, o_adr_yedek),
     Kontrol("utf8", "UTF-8 kodlama", "onerilen", k_utf8, o_utf8),
     Kontrol("claude_exe", "claude çalıştırılabilir dosyası", "opsiyonel", k_claude_exe, o_claude_exe),
     Kontrol("bash", "bash", "opsiyonel", k_bash, o_bash),

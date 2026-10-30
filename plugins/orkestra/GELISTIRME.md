@@ -118,6 +118,15 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - **Eklenti skill'i** yalnız çağrıya kapanır (`permissions.deny`); `skillOverrides` yalnız kullanıcı/proje skill'inde etkilidir.
 - **Test:** `tests/test_araclar_mcp.py`, `test_araclar_skill.py`, `test_panel_araclar.py`, `test_panel_araclar_duman.py` (sahte tarayıcı).
 
+## ADR deposu, numara ve yedek (ADR-0097, iş I-256)
+
+- **Nerede durur:** ADR, kararın etkilediği depodadır. Hedef depo planın `**Kök:**` satırının git deposudur; Kök yoksa işin projesi. Eklenti davranışını değiştiren karar eklenti deposunun `adr/` klasörüne yazılır (plan `**Kök:**` bu depoyu gösterir).
+- **Nasıl açılır:** `orkestra adr yeni <iş> "<başlık>"` hedef depoyu ve sıradaki numarayı çözer, altı alanlı boş iskelet yazar (alanlar doldurulana kadar kapı geçmez). `orkestra adr depo <iş>` hedef depoyu, numarayı ve uzak depo durumunu gösterir.
+- **Numara:** depo başına ardışıktır (`scripts/adr_depo.py`). Aynı numara iki depoda varsa kapı Kök deposundakini önce arar; depo dışından atıf depo adıyla yazılır ("eklenti ADR-0097").
+- **Yedek:** ADR'ler deponun git geçmişiyle yedeklenir. `orkestra doktor` `adr_yedek` kontrolü uzak deposu olmayan ADR deposunu uyarır (yalnız yol ve dosya sayısı). Uzak depo açmak kullanıcı kararıdır; kendiliğinden açılmaz.
+- **Kapı:** `isler._adr_eksigi` ve `is_anlati._adr_secenekler` aynı çözümleyiciyi kullanır; `**Kök:**` yokken eski davranış korunur.
+- **Testler:** `tests/test_adr_depo.py`, `test_adr_kapisi_depo.py`, `test_adr_komut.py`, `test_doktor_adr_yedek.py`.
+
 ## İzin politikası (hook)
 - Karar mantığı `scripts/izin_politikasi.py`, desenler `ayarlar/izin_politikasi.json`; hook'a bağlantı `hook.py` içinde `_izin_karari` / `_kapi_uygula` / `gec()` (varsayılan allow). Eşleşme `hooks/hooks.json` PreToolUse `matcher`ındadır: yeni bir araç ailesi kapıya girecekse eşleşmeye de ekle (`orkestra doktor` MCP kapsamını denetler).
 - Karar sırası: kilitli test `deny` > yasak `deny` > kapı `ask` > `orkestra` CLI `allow` > geniş `allow`. Kabukta kapı, kilitli test denetiminden sonra uygulanır (kilidi onayla aşamasın).
