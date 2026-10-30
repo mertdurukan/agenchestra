@@ -291,5 +291,75 @@ class TestStopKapisi(_Proje):
         self.assertIsNone(cikti)
 
 
+class TestYapisalKapi(TestStopKapisi):
+    """Tur dosya değiştirdi ama düğmeli seçim ekranı yok: yanıt cümlesinden bağımsız ihlal (I-268)."""
+
+    DUZ = "Testler geçti, 12 dosya değişti."
+
+    def degisti(self, *ek):
+        return self.transkript([kullanici(), arac("Edit", {"file_path": "a.py"}), arac_sonucu(), *ek, metin(self.DUZ)])
+
+    def yapisal(self):
+        return [g for g in self.gunluk() if g.get("kural") == "secim_ekrani_yapisal"]
+
+    def test_varsayilan_kip_golge(self):
+        self.assertEqual(SH.yapisal_mod(SH.ayar_oku(self.sd)), "golge")
+
+    def test_golge_gunluge_yazar_engellemez(self):
+        kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti())
+        self.assertIsNone(kod)
+        self.assertIsNone(cikti)
+        kayit = self.yapisal()
+        self.assertEqual(len(kayit), 1)
+        self.assertEqual(kayit[0]["tur"], "kural_ihlal")
+        self.assertEqual(kayit[0]["mod"], "golge")
+
+    def test_block_engeller_butonluysa_gecer(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti())
+        self.assertEqual(kod, 0)
+        self.assertEqual(cikti["decision"], "block")
+        self.assertEqual(self.yapisal()[0]["mod"], "block")
+
+    def test_block_butonlu_tur_sessiz(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        yol = self.degisti(arac("mcp__ccd_turn__wrap_up"))
+        kod, cikti = self.kos(self.DUZ, transcript_path=yol)
+        self.assertIsNone(cikti)
+        self.assertEqual(self.yapisal(), [])
+
+    def test_ozet_ici_dugmesiz_kapanis_ihlal(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        yol = self.degisti(arac("mcp__ccd_turn__wrap_up", {"recap": "bitti"}))
+        kod, cikti = self.kos(self.DUZ, transcript_path=yol)
+        self.assertEqual(cikti["decision"], "block")
+
+    def test_degisiklik_yoksa_sessiz(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        yol = self.transkript([kullanici(), arac("Bash"), metin(self.DUZ)])
+        kod, cikti = self.kos(self.DUZ, transcript_path=yol)
+        self.assertIsNone(cikti)
+        self.assertEqual(self.yapisal(), [])
+
+    def test_onceki_turdaki_degisiklik_sayilmaz(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        yol = self.transkript([kullanici("bir"), arac("Edit"), kullanici("iki"), metin(self.DUZ)])
+        self.assertFalse(SH.tur_degisiklik_var(yol, self.sd))
+
+    def test_kapali_ve_ortam_degiskeni(self):
+        self.proje_ayari({"yapisal_mod": "kapali"})
+        self.assertFalse(SH.yapisal_ihlal(self.degisti(), self.sd))
+        self.proje_ayari({"yapisal_mod": "block"})
+        self.assertTrue(SH.yapisal_ihlal(self.degisti(), self.sd))
+        os.environ["ORKESTRA_SECIM_HATIRLATMA"] = "0"
+        self.assertFalse(SH.yapisal_ihlal(self.degisti(), self.sd))
+
+    def test_stop_hook_active_blok_etmez(self):
+        self.proje_ayari({"yapisal_mod": "block"})
+        kod, cikti = self.kos(self.DUZ, transcript_path=self.degisti(), stop_hook_active=True)
+        self.assertIsNone(cikti)
+        self.assertEqual(len(self.yapisal()), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
