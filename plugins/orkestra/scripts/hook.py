@@ -1417,7 +1417,9 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
         if not bulgu:
             return
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
-                                                         "kural": KI.KURAL, "mod": kip, "is": _oturum_isi(sd, oid)})
+                                                         "kural": KI.KURAL, "mod": kip, "is": _oturum_isi(sd, oid),
+                                                         **(_kalip_kaniti(ayar.get("tetik_kaliplari"), bulgu.get("alinti"),
+                                                                          KI._normallestir) or _kanit(None, bulgu.get("alinti")))})
         if KI.uyari_acik(ayar):
             uyari = KI.uyari_metni(bulgu["alinti"], ayar)
             _KULLANICI_MESAJI = chr(10).join(x for x in (_KULLANICI_MESAJI, uyari) if x)
