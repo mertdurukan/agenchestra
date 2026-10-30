@@ -17,7 +17,14 @@
     "\\bonay\\s+ver(irsen|irseniz|in|ir\\s+misin\\w*)\\b",
     "\\bonaylarsan(ız)?\\b",
     "\\b(isterseniz|istersen)\\b[^.\\n]{0,80}\\b(yapay[ıi]m|yaparım|yapabilirim|ekley\\w+|uygulay\\w+|başlat\\w+|yazay\\w+|çalıştır\\w+)",
-    "\\b\\w+(ay[ıi]m|ey[ıi]m)\\s+m[ıi]\\s*\\?"
+    "\\b\\w+(ay[ıi]m|ey[ıi]m)\\s+m[ıi]\\s*\\?",
+    "\\b(onay|karar|yanıt|cevap|talimat|istek|go-ahead)\\w*\\s+bekl(iyor|eniyor)\\w*"
+  ],
+  "yapisal_mod": "golge",
+  "degisiklik_araclari": [
+    "Edit",
+    "Write",
+    "NotebookEdit"
   ],
   "yanit_muaf_kaliplari": [
     "\\bp-029\\b"
