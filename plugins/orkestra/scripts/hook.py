@@ -2629,6 +2629,11 @@ def user_prompt_submit(inp: dict):
                         parcalar.append(satir)
             except Exception:
                 pass
+            try:  # I-271: önceki tur pahalıysa (önbellek okuması eşik üstü) tek satır devir ipucu; engellemez
+                import devir_esigi
+                parcalar.append(devir_esigi.ipucu_al(sd, inp.get("session_id")))
+            except Exception:
+                pass
             parcalar.append(_durum_satiri(sd, inp.get("session_id")))  # I-224 P6: onay işlendikten sonraki güncel durum
             try:  # ADR-0024: göreve özgü ön bağlam; varsayılan kapalı, hata hook'u düşürmez
                 import on_baglam
