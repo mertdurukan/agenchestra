@@ -2,9 +2,8 @@
 
 Ölçüm (15.10): ana ajanın önbellek yazımının ~%35'i, kullanıcı 1 saatten uzun ara verip büyük bağlamlı
 sohbete döndüğünde bütün bağlamın yeniden yazılmasından geliyor (önbellek süresi en çok 1 saat).
-Kapı: son ana ajan çağrısı `esik_dk`dan eski VE bağlam `esik_token`dan büyükse istek bir kez durdurulur,
-kullanıcıya tahmini yeniden yazma maliyeti ve ucuz yol (yeni sohbet + `orkestra is devam <id>`) söylenir.
-Aynı oturumda `tekrar_dk` içinde gelen ikinci istek geçer (kullanıcı bilerek sürdürüyor).
+Kapı: son ana ajan çağrısı `esik_dk`dan eski VE bağlam `esik_token`dan büyükse kullanıcıya tahmini yeniden yazma
+maliyeti ve ucuz yol (yeni sohbet + `orkestra is devam <id>`) bilgi olarak söylenir; istek ENGELLENMEZ (ADR-0095).
 Proje ezmesi: `.claude/orkestra/onbellek_kapisi.json` ({"acik": false} kapatır). Hata her zaman sessizce geçer.
 """
 from __future__ import annotations
