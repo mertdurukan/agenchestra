@@ -63,7 +63,7 @@ def kaynaklar(klasor: str) -> dict:
     import is_sirasi as SIRA
     md = SIRA.mevcut_durum_yolu(klasor)
     md_metin = SIRA._oku(md) if md else None
-    g_bolum = SIRA._icerik(SIRA._bolumler(md_metin).get(SIRA.GAP_BOLUMU, "")) if md_metin else ""
+    g_bolum = SIRA._icerik(SIRA._bolumler(md_metin).get(SIRA.md_duzen(md_metin)[1], "")) if md_metin else ""
     gaplar = {int(n): metin.strip() for n, metin in _GAP_SATIR.findall(g_bolum)}
     plan = SIRA._oku(os.path.join(klasor, "plan.md"))
     iddialar: set[int] = set()
@@ -73,11 +73,12 @@ def kaynaklar(klasor: str) -> dict:
     return {"gaplar": gaplar, "kriterler": SIRA.sozlesme_kriterleri(klasor), "iddialar": iddialar,
             "maddeler": set(SIRA._p_bloklari(plan)) if plan else set(), "plan": plan,
             "sozlesmeli": SIRA.sozlesme_yolu(klasor) is not None, "gapli": bool(gaplar),
-            "paralel": SIRA.paralellik_kapsaminda_mi(klasor)}
+            "paralel": SIRA.paralellik_kapsaminda_mi(klasor),
+            "gap_bolum": SIRA.md_duzen(md_metin)[1]}
 
 
-def dayanak_turet(gaplar: dict[int, str], secilen: list[int], ek: str = "") -> str:
-    """Seçilen G satırlarının andığı MD bölümleri (sıralı, tekrarsız); anma yoksa `MD §6 G<n>`."""
+def dayanak_turet(gaplar: dict[int, str], secilen: list[int], ek: str = "", gap_bolum: int = 5) -> str:
+    """Seçilen G satırlarının andığı MD bölümleri (sıralı, tekrarsız); anma yoksa `MD §<gap bölümü> G<n>`."""
     bolumler: list[int] = []
     for g in secilen:
         for k in _MD_ANMA.findall(gaplar.get(g, "")):
@@ -86,7 +87,7 @@ def dayanak_turet(gaplar: dict[int, str], secilen: list[int], ek: str = "") -> s
     if bolumler:
         deger = ", ".join(f"MD §{k}" for k in bolumler)
     else:
-        deger = "MD §6 " + ", ".join(f"G{g}" for g in secilen)
+        deger = f"MD §{gap_bolum} " + ", ".join(f"G{g}" for g in secilen)
     return f"{deger} {ek.strip()}".strip()
 
 
@@ -109,7 +110,7 @@ def iskelet(klasor: str, gap=None, soz=None, iddia=None, onceki=None, yazma=None
             aralik = ", ".join(f"{harf}{n}" for n in sorted(gecerli)) or "yok"
             hatalar.append(f"{etiket}: {', '.join(f'{harf}{n}' for n in yok)} {kaynak} içinde yok (geçerli: {aralik})")
 
-    denetle("--gap", "G", gap_n, set(k["gaplar"]), "mevcut durum §6")
+    denetle("--gap", "G", gap_n, set(k["gaplar"]), f"mevcut durum §{k['gap_bolum']}")
     denetle("--soz", "S", soz_n, k["kriterler"], "sözleşme `## Başarı kriterleri`")
     denetle("--iddia", "C", iddia_n, k["iddialar"], "plan.md iddiaları")
     denetle("--onceki", "P", once_n, k["maddeler"], "plan.md maddeleri")
@@ -118,7 +119,7 @@ def iskelet(klasor: str, gap=None, soz=None, iddia=None, onceki=None, yazma=None
     if yeni_no in once_n:
         hatalar.append(f"--onceki: P{yeni_no} kendine başvuruyor")
     if k["gapli"] and not gap_n:
-        hatalar.append("--gap zorunlu: mevcut durum §6'da gap var (P-017)")
+        hatalar.append(f"--gap zorunlu: mevcut durum §{k['gap_bolum']}'te gap var (P-017)")
     if k["sozlesmeli"] and k["kriterler"] and not soz_n:
         hatalar.append("--soz zorunlu: iş sözleşmeli (her P bir S kriterine bağlanır)")
     if once_tur not in ("Çıktı", "Çakışma"):
@@ -131,7 +132,7 @@ def iskelet(klasor: str, gap=None, soz=None, iddia=None, onceki=None, yazma=None
     turetilen: list[str] = []
     if gap_n:
         deger["Gap"] = ", ".join(f"G{n}" for n in gap_n)
-        deger["Dayanak"] = dayanak_turet(k["gaplar"], gap_n, dayanak_ek)
+        deger["Dayanak"] = dayanak_turet(k["gaplar"], gap_n, dayanak_ek, k["gap_bolum"])
         turetilen += ["Gap", "Dayanak"]
     if soz_n:
         deger["Sözleşme"] = ", ".join(f"S{n}" for n in soz_n)
@@ -177,7 +178,7 @@ def iskelet(klasor: str, gap=None, soz=None, iddia=None, onceki=None, yazma=None
 
 
 def zincir_tutarsizliklari(klasor: str, blok: str, k: dict | None = None) -> list[str]:
-    """Blokta zincir alanları iş belgeleriyle tutarlı mı: Gap ⊆ MD §6, Sözleşme ⊆ S, İddialar ⊆ C, Önce ⊆ P,
+    """Blokta zincir alanları iş belgeleriyle tutarlı mı: Gap ⊆ MD gap bölümü, Sözleşme ⊆ S, İddialar ⊆ C, Önce ⊆ P,
     Dayanak MD bölümü geçerli ve seçilen G'lerin andığı bölümü içeriyor. Boş liste = tutarlı."""
     import is_sirasi as SIRA
     k = k or kaynaklar(klasor)
@@ -195,7 +196,7 @@ def zincir_tutarsizliklari(klasor: str, blok: str, k: dict | None = None) -> lis
         for n in sorted(kume(ad, harf) - gecerli):
             sorun.append(f"{ad}: {harf}{n} kaynakta yok")
     bolumler = {int(x) for x in _MD_ANMA.findall(alan("Dayanak"))}
-    if not bolumler or not any(1 <= b <= SIRA.GAP_BOLUMU for b in bolumler):
+    if not bolumler or not any(1 <= b <= k["gap_bolum"] for b in bolumler):
         sorun.append("Dayanak: geçerli MD §k yok")
     beklenen = {int(x) for n in g for x in _MD_ANMA.findall(k["gaplar"].get(n, ""))}
     if beklenen - bolumler:

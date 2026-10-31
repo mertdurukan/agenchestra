@@ -25,9 +25,9 @@ import re
 import sys
 
 SIRA_ADI = "mevcut-durum-plan-todo"
-BOLUM_SAYISI = 5
+BOLUM_SAYISI = 4  # yeni düzen: §1 yol, §2 davranış, §3 etki, §4 doğrulanamayanlar
 ETKI_BOLUMU = 3
-GAP_BOLUMU = 6
+GAP_BOLUMU = 5  # yeni düzen: §5 gap analizi (eski düzen: BOLUM_SAYISI 5, GAP_BOLUMU 6; `md_duzen`)
 BAGLANTI_PENCERE = 20  # plan.md'nin bu kadar ilk satırında mevcut duruma bağlantı aranır
 
 _MD_AD = re.compile(r"^mevcut_durum_\d{8}\.md$")
@@ -994,6 +994,17 @@ def _icerik(govde: str) -> str:
     return _YORUM.sub("", govde).strip()
 
 
+def md_duzen(metin: str | None) -> tuple[int, int, bool]:
+    """(zorunlu bölüm sayısı, gap bölümü no, özet zorunlu mu). Eski düzen `## 6.` taşır
+    (§1-§5 + §6 gap + `## Özet`); yeni düzen §1-§4 + §5 gap ve Özet'siz."""
+    if metin:
+        bolumler = _bolumler(metin)
+        bes = re.search(r"^##\s+5\.\s+(.*)$", metin, re.M)
+        if 6 in bolumler or (bes and not bes.group(1).strip().lower().startswith("gap")):
+            return BOLUM_SAYISI + 1, GAP_BOLUMU + 1, True
+    return BOLUM_SAYISI, GAP_BOLUMU, False
+
+
 def mevcut_durum_eksikleri(klasor: str) -> list[str]:
     """Boş liste = mevcut durum tamam."""
     yol = mevcut_durum_yolu(klasor)
@@ -1011,31 +1022,32 @@ def mevcut_durum_eksikleri(klasor: str) -> list[str]:
         if not dolu or dolu.startswith("#"):
             eksik.append("mevcut durum: `**Ölçüm saati:**` boş")
     bolumler = _bolumler(metin)
-    for n in range(1, BOLUM_SAYISI + 1):
+    sayi, gap_no, ozet_var = md_duzen(metin)
+    for n in range(1, sayi + 1):
         if n not in bolumler:
             eksik.append(f"mevcut durum: `## {n}.` bölümü yok")
         elif not _icerik(bolumler[n]):
             eksik.append(f"mevcut durum §{n} boş")
         elif n == ETKI_BOLUMU and not _MADDE.search(_icerik(bolumler[n])):
             eksik.append(f"mevcut durum §{n} (etki haritası) madde içermiyor")
-    if kaliteli_mi(klasor):
+    if ozet_var and kaliteli_mi(klasor):
         e = ozet_eksigi(metin, "mevcut durum")
         if e:
             eksik.append(e)
     if gapli_mi(klasor):
-        g = bolumler.get(GAP_BOLUMU)
+        g = bolumler.get(gap_no)
         if g is None:
-            eksik.append(f"mevcut durum: `## {GAP_BOLUMU}. Gap analizi` bölümü yok (P-017 birinci geçiş)")
+            eksik.append(f"mevcut durum: `## {gap_no}. Gap analizi` bölümü yok (P-017 birinci geçiş)")
         elif not _GAP_SATIRI.search(_icerik(g)):
-            eksik.append(f"mevcut durum §{GAP_BOLUMU} (gap analizi) `- **G1:** hedef → mevcut → fark` satırı içermiyor")
+            eksik.append(f"mevcut durum §{gap_no} (gap analizi) `- **G1:** hedef → mevcut → fark` satırı içermiyor")
     return eksik
 
 
 def mevcut_durum_gapleri(klasor: str) -> set[int]:
-    """Mevcut durum §6'daki G numaraları."""
+    """Mevcut durum gap bölümündeki G numaraları (yeni düzen §5, eski düzen §6)."""
     yol = mevcut_durum_yolu(klasor)
     metin = _oku(yol) if yol else None
-    g = _bolumler(metin).get(GAP_BOLUMU) if metin else None
+    g = _bolumler(metin).get(md_duzen(metin)[1]) if metin else None
     return {int(n) for n in _GAP_SATIRI.findall(_icerik(g))} if g else set()
 
 
@@ -1057,7 +1069,7 @@ def gap_kapsama_eksikleri(klasor: str) -> list[str]:
             eksik.append(f"P{n}: `**Gap:** G<n>` alanı yok (hangi gap'i kapatıyor)")
             continue
         for x in sorted(no - gaplar):
-            eksik.append(f"P{n}: G{x} mevcut durum §{GAP_BOLUMU}'da yok")
+            eksik.append(f"P{n}: G{x} mevcut durum §{md_duzen(_oku(mevcut_durum_yolu(klasor)) if mevcut_durum_yolu(klasor) else None)[1]}'da yok")
         kapanan |= no & gaplar
     disi = {int(n): g.strip() for n, g in _KAPSAM_DISI.findall(sade)}
     for n in sorted(gaplar - kapanan):
@@ -1123,6 +1135,7 @@ def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
         bas = "\n".join(metin.splitlines()[:BAGLANTI_PENCERE])
         if f"]({os.path.basename(md)})" not in bas:
             eksik.append(f"plan.md ilk {BAGLANTI_PENCERE} satırında `[{os.path.basename(md)}]({os.path.basename(md)})` bağlantısı yok")
+    md_sayi, md_son, _ = md_duzen(_oku(md) if md else None)
     bloklar = _p_bloklari(metin)
     if not bloklar:
         eksik.append("plan.md'de `P<n>` maddesi yok (örn. `### P1 Başlık`)")
@@ -1130,8 +1143,8 @@ def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
         dayanaklar = [int(k) for k in _DAYANAK.findall(blok)]
         if not dayanaklar:
             eksik.append(f"P{n}: `MD §<k>` dayanağı yok (mevcut durum bölümü)")
-        elif not any(1 <= k <= (GAP_BOLUMU if gapli_mi(klasor) else BOLUM_SAYISI) for k in dayanaklar):
-            eksik.append(f"P{n}: dayanak MD §{dayanaklar[0]} geçersiz (§1-§{GAP_BOLUMU if gapli_mi(klasor) else BOLUM_SAYISI})")
+        elif not any(1 <= k <= (md_son if gapli_mi(klasor) else md_sayi) for k in dayanaklar):
+            eksik.append(f"P{n}: dayanak MD §{dayanaklar[0]} geçersiz (§1-§{md_son if gapli_mi(klasor) else md_sayi})")
     if kaliteli_mi(klasor):
         e = ozet_eksigi(metin, "plan")
         if e:
