@@ -459,5 +459,5 @@ dialog.onay .eylemler { display: flex; justify-content: flex-end; gap: var(--a2)
 .konum3-d[data-konum="kapali"][aria-checked="true"] { background: var(--soluk-zemin, #6b7280); }
 .konum3-d:disabled { opacity: .5; cursor: not-allowed; }
 .konum3-d:focus-visible { outline: 2px solid var(--vurgu, currentColor); outline-offset: -2px; }
-@media (max-width: 560px) { .konum3-d { padding: 6px 8px; font-size: .8em; } }
+@media (max-width: 600px) { .konum3-d { padding: 6px 8px; font-size: .8em; } }
 
