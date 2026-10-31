@@ -861,6 +861,7 @@ def pre_tool_use(inp: dict):
     girdi = dict(inp.get("tool_input") or {})
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
+    _ajan_kapsam_kapisi(inp, arac, girdi, sd, atip)
     kar, kneden = _izin_karari(arac, girdi, sd, inp.get("session_id"))  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
     if kar == "allow":
         _VARSAYILAN_IZIN = kneden
