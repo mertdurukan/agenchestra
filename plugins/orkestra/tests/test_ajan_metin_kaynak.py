@@ -41,8 +41,10 @@ class AjanMetinKaynak(unittest.TestCase):
 
     def test_triyaj_basamak_modeli_politikadan(self):
         t = oku("triyaj")
+        # k6 (test_model_politika): politika yolu dosyada tek satırda geçer; basamaklar adıyla durur, model adı yazılmaz.
+        self.assertEqual(len(re.findall(r"^.*ayarlar/model_politikasi\.json.*$", t, re.M)), 1)
         for b in ("T1", "T2", "T3", "T4"):
-            self.assertRegex(t, rf"\*\*{b}\*\* \(model/effort: ayarlar/model_politikasi\.json\)")
+            self.assertRegex(t, rf"\*\*{b}\*\*")
 
 
 if __name__ == "__main__":

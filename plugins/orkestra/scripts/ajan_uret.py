@@ -1,4 +1,4 @@
-"""İşçi ajanlarını (agents/isci-t1..t4.md) tek protokol gövdesinden üretir (ADR-0114).
+"""İşçi ajanlarını (agents/isci-t1..t4.md) tek protokol gövdesinden üretir (ADR-0118).
 
 Kaynak: agents/_kaynak/isci_protokol.md (gövde), agents/_kaynak/isci_basamak.json (basamak başına sabit alanlar),
 ayarlar/model_politikasi.json `basamak` (model, effort). Claude Code ajan dosyasında include yoktur; üretilen dosya

@@ -62,6 +62,65 @@ class OtoCommit(unittest.TestCase):
         self.assertIn("modul_x.py", son)
         self.assertNotIn("ilgisiz.py", son)
 
+    # ---- kabuk yolu (ADR-0117): izlenen test import ediyorsa izlenmeyen modül commit'lenir
+    def kabuk(self, acik="1"):
+        env = dict(os.environ, PYTHONUTF8="1")
+        env.pop("ORKESTRA_OTO_COMMIT_ATIF", None)
+        env.pop("ORKESTRA_OTO_COMMIT_BASH_YOLLAR", None)
+        env["ORKESTRA_OTO_COMMIT"] = acik
+        girdi = {"tool_name": "Bash", "tool_input": {"command": "x"}, "cwd": self.repo}
+        r = subprocess.run([sys.executable, BETIK], input=json.dumps(girdi), capture_output=True, text=True,
+                           encoding="utf-8", env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def izlenen_test(self, ad, icerik):
+        self.yaz(ad, icerik)
+        git(self.repo, "add", ad)
+        git(self.repo, "commit", "-q", "-m", "test", "--", ad)
+
+    def kabuk_son(self):
+        return git(self.repo, "show", "--name-only", "--format=", "HEAD").stdout
+
+    def test_kabuk_import_bicimleri_modulu_alir(self):
+        for i, imp in enumerate(("import modul_a", "from paket import modul_a", "from paket.alt import modul_a")):
+            kok = f"k{i}"
+            os.makedirs(os.path.join(self.repo, kok, "scripts"), exist_ok=True)
+            os.makedirs(os.path.join(self.repo, kok, "tests"), exist_ok=True)
+            self.izlenen_test(f"{kok}/tests/test_a.py", imp + "\n")
+            self.yaz(f"{kok}/scripts/modul_a.py", "A = 1\n")
+            self.kabuk()
+            self.assertIn(f"{kok}/scripts/modul_a.py", self.kabuk_son(), imp)
+
+    def test_kabuk_negatifler_commit_etmez(self):
+        os.makedirs(os.path.join(self.repo, "pl", "tests"))
+        os.makedirs(os.path.join(self.repo, "pl", "scripts"))
+        os.makedirs(os.path.join(self.repo, "baska", "scripts"))
+        self.izlenen_test("pl/tests/test_a.py", "# import yorum_modul\nX = 'import dizge_modul'\nimport kok_modul\n")
+        self.yaz("pl/scripts/yorum_modul.py", "1\n")
+        self.yaz("pl/scripts/dizge_modul.py", "1\n")
+        self.yaz("pl/scripts/ilgisiz.py", "1\n")
+        self.yaz("baska/scripts/kok_modul.py", "1\n")  # başka kök: aynı ada rağmen alınmaz
+        self.yaz("pl/tests/test_yeni.py", "import ilgisiz\n")  # izlenmeyen test kendisi alınmaz
+        once = self.commit_sayisi()
+        self.kabuk()
+        self.assertEqual(self.commit_sayisi(), once)
+
+    def test_kabuk_izlenen_test_yokken_commit_yok(self):
+        os.makedirs(os.path.join(self.repo, "pl", "scripts"))
+        self.yaz("pl/scripts/modul_a.py", "1\n")
+        once = self.commit_sayisi()
+        self.kabuk()
+        self.assertEqual(self.commit_sayisi(), once)
+
+    def test_kabuk_kapaliyken_commit_yok(self):
+        os.makedirs(os.path.join(self.repo, "pl", "tests"))
+        os.makedirs(os.path.join(self.repo, "pl", "scripts"))
+        self.izlenen_test("pl/tests/test_a.py", "import modul_a\n")
+        self.yaz("pl/scripts/modul_a.py", "1\n")
+        once = self.commit_sayisi()
+        self.kabuk(acik="0")
+        self.assertEqual(self.commit_sayisi(), once)
+
     def test_kapaliyken_commit_yok(self):
         for deger in (None, "0", ""):
             self.kos(self.yaz("a.txt", "x"), acik=deger)

@@ -811,7 +811,7 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
 
 
 def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -> None:
-    """I-292 P3 (ADR-0114): alt ajanın türüne göre araç kapsamı; ana ajan etkilenmez. mod=golge: yalnız uyarı.
+    """I-292 P3 (ADR-0118): alt ajanın türüne göre araç kapsamı; ana ajan etkilenmez. mod=golge: yalnız uyarı.
     Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır. ORKESTRA_AJAN_KAPSAM=0 kapatır."""
     global _BEKLEYEN_UYARI
     if not inp.get("agent_id"):

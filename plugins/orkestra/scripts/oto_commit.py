@@ -93,7 +93,40 @@ def kabuk_commit(veri, git):
     """Kabuk komutundan sonra, ORKESTRA_OTO_COMMIT_BASH_YOLLAR öneklerinin altındaki .md/.json değişikliklerini kaydeder."""
     onekler = [y.strip() for y in (os.environ.get("ORKESTRA_OTO_COMMIT_BASH_YOLLAR") or "").split(",") if y.strip()]
     cwd = veri.get("cwd")
-    klasorleri_commit(depo_koku(cwd) if cwd else None, onekler, veri.get("transcript_path"), git)
+    repo = depo_koku(cwd) if cwd else None
+    klasorleri_commit(repo, onekler, veri.get("transcript_path"), git)
+    if repo:
+        izlenmeyen_test_modulleri(repo, veri.get("transcript_path"), git)
+
+
+def _test_koku(test_yolu):
+    """Testin ait olduğu eklenti kökü: `.../tests/test_x.py` → `...`; `tests` klasörü yoksa testin klasörü."""
+    parcalar = test_yolu.replace("\\", "/").split("/")[:-1]
+    if "tests" in parcalar:
+        parcalar = parcalar[:parcalar.index("tests")]
+    return "/".join(parcalar)
+
+
+def izlenmeyen_test_modulleri(repo, atif_kaynagi, git):
+    """Kabukla yazılmış, izlenmeyen `.py` modülünü, aynı kökteki izlenen bir `test_*.py` import ediyorsa commit eder (ADR-0117).
+    Eşleşme yalnız `import`/`from` satırında ve testin kök ağacında aranır; başka izlenmeyen dosya commit'e girmez."""
+    import re
+    yollar = []
+    for y in git(repo, "ls-files", "--others", "--exclude-standard", "-z").stdout.split("\0"):
+        if not y.endswith(".py") or os.path.basename(y).startswith("test_"):
+            continue
+        ad = re.escape(os.path.splitext(os.path.basename(y))[0])
+        desen = rf"^[[:space:]]*(import|from)[[:space:]].*(^|[^[:alnum:]_]){ad}($|[^[:alnum:]_])"
+        testler = git(repo, "grep", "-l", "-E", desen, "--", "*test_*.py").stdout.split()
+        if any(y.startswith(_test_koku(t) + "/" if _test_koku(t) else "") for t in testler):
+            yollar.append(y)
+    if not yollar:
+        return []
+    atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(atif_kaynagi) or ATIF_VARSAYILAN
+    msg = f"Otomatik commit: {len(yollar)} modül (test import ediyor)\n\n" + "\n".join(yollar[:20]) + f"\n\n{atif}"
+    git(repo, "add", "--", *yollar)
+    git(repo, "commit", "-m", msg, "--", *yollar)
+    return yollar
 
 
 def cli_sonrasi(klasorler):
