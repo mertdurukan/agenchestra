@@ -126,8 +126,7 @@ class KlasorNumaraEszamanli(unittest.TestCase):
             bekle([os.path.join(self.bayrak, "hazir_" + a) for a in isciler])
             sdler = set()
             for a in isciler:
-                with open(os.path.join(self.bayrak, "hazir_" + a), encoding="utf-8") as f:
-                    sdler.add(n(json.load(f)["sd"]))
+                sdler.add(n(oku_json(os.path.join(self.bayrak, "hazir_" + a))["sd"]))
             self.assertEqual(sdler, {n(os.path.join(self.ana, ".claude", "orkestra"))}, "işçiler aynı sd'yi görmedi")
 
             cakisma, ust_uste = [], 0
