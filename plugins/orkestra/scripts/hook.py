@@ -1591,7 +1591,14 @@ def arka_plan_satiri(sd: str, gorevler, transkript=None) -> str:
     if not adlar:
         return ""
     gosterilen = ", ".join(adlar[:3]) + (f" +{len(adlar) - 3}" if len(adlar) > 3 else "")
-    return f"Arka planda sürüyor ({len(adlar)}): {gosterilen}"
+    ek = ""
+    if isinstance(gorevler, list) and gorevler:
+        try:
+            import arka_plan_yas
+            ek = arka_plan_yas.ek_metin(gorevler, transkript)
+        except Exception:
+            pass
+    return f"Arka planda sürüyor ({len(adlar)}): {gosterilen}{ek}"
 
 
 def stop(inp: dict):
