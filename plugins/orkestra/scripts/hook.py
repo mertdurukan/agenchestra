@@ -1732,6 +1732,7 @@ def stop(inp: dict):
         _secim_kapisi_yanit(sd, oid, inp)
         _kabuk_sozdizimi_yanit(sd, oid, inp)
         _kanitsiz_iddia_yanit(sd, oid, inp)
+        _onleme_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
