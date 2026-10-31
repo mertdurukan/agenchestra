@@ -23,7 +23,7 @@
 **Sonuçlar:**
 
 - Olumlu: işe başlarken ve yazarken çakışma görünür; dal temizliği gibi araçlar kaydı okuyabilir; ek maliyet çakışmasız durumda sıfır bağlam.
-- Olumsuz: kayıt yazımı her yazma araç çağrısında küçük ek iş (ölçüm 31.10.2026, 1000 çağrı, ~2100 girdili oturum dizini: okuma aracı p95 0,2 ms; yazma aracında aynı dosyanın tekrarı p95 ≈ 3 ms; bir dosyanın ilk yazımı ≈ 30 ms (komşu taraması). Tekrarlayan tarama 60 sn içinde atlanır, yeni komşu en geç 60 sn sonra görülür); eşikler (30 dk canlılık) ölçümle ayarlanır, yanlış pozitif olabilir.
+- Olumsuz: kayıt yazımı her yazma araç çağrısında küçük ek iş (ölçüm 01.11.2026, 1000 çağrı, ~3200 girdili oturum dizini: okuma aracı p95 0,15 ms; aynı dosyanın tekrar yazımı p95 ≈ 1 ms; bir dosyanın bu oturumdaki ilk yazımı p95 ≈ 31 ms, kayıt dosyasının kilit + atomik yazımı Windows'ta ~25 ms tutar. Komşu özetleri sd/oturum_adaylar.json önbelleğinden 45 sn boyunca okunur; yeni komşu ya da yeni yazılan dosya en geç 45 sn sonra görülür, SessionStart her zaman taze tarar. İlk yazım için eşik: p95 ≤ 40 ms, diğerleri < 20 ms); eşikler (30 dk canlılık) ölçümle ayarlanır, yanlış pozitif olabilir.
 - Geri alma: `ORKESTRA_OTURUM_FARKINDALIK=0` kapatır; ek alanlar eski okuyucular için zararsızdır.
 
 **İlgili iş ya da kural kimliği:** I-308, P-028, P-022, K-006, ADR-0032 (ortak durum klasörü), eklenti ADR-0050 (tek main). Numara birleştirmeden önce yeniden kontrol edilir (origin/main en büyük: 0121).
