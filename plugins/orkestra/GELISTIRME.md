@@ -238,3 +238,12 @@ Eşik 8 ajan; 14 günde 32 kez çıktı. Kök neden: kartlar tek soruya bölünm
 ## Standartlar
 
 PR, commit, dal, review ve Jira yorumu gibi yapı standartları kural değil dosyadır (ADR-0006): eklentide `standartlar/*.md` varsayılan kalıplar, projede `.claude/orkestra/standartlar/<ad>.md` varsa o önceliklidir. `orkestra standart liste|goster|yol|ekle` okur ve yazar, `orkestra:standart` skill'i PR/commit/Jira yazarken ve incelerken ilgili dosyayı okutur. Kod: `scripts/standart.py`, `scripts/komutlar/standart.py`; test: `tests/test_standart.py`. Hook denetimi bu sürümde yoktur.
+
+## Oturumlar arası farkındalık (ADR-0122, P-047)
+
+Kaynak: `scripts/oturum_farkindalik.py`; hook girişleri `hook.py` `session_start` ve `pre_tool_use`; CLI `orkestra oturum liste | not | oku | rapor`.
+
+- Kayıt: `oturumlar/<oturum>.json` içindeki `konum` alanı. Git bilgisi `.git` dosyalarından okunur (alt süreç yok).
+- Bağlam yalnız çakışmada eklenir; kapı `ayarlar/oturum_farkindalik.json` (mod `golge`), kapatma `ORKESTRA_OTURUM_FARKINDALIK=0`.
+- Ölçüm: `orkestra oturum rapor [--gecikme 1000] [--sinifla ZAMAN=dogru|yanlis]`. `ihlal` geçişi için ≥60 sınıflı tespit ve yanlış pozitif ≤ %10 gerekir.
+- Testler: `tests/test_oturum_farkindalik.py`, `test_oturum_farkindalik_hook.py`, `test_oturum_senaryo.py` (iki oturum), `test_dal_temizle_oturum.py`. Senaryo testi gerçek yerleşimi taklit eder: oturum worktree'si projenin `.claude/worktrees/` altında olmalı.
