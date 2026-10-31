@@ -1,12 +1,16 @@
 # {baslik}: plan
 
-## Özet
-
-<!-- doldur (ilk bakışta okunur, 3-4 kısa cümle; paragraf en çok 300 karakter (biçim kapısı daha uzununu reddeder), uzunsa ayrı paragraflara böl): hedef, seçilen yol, kaç madde, karar ya da onay gereken tek konu. Belgeyi bitirince yaz. -->
+<!-- Yazım kuralları (tüm belge):
+1. Her ayrı ifade ayrı bir satırdır (madde işareti ya da numara ile); bir satırda en çok bir cümle, ~200 karakter.
+2. Başlık hiyerarşisi: `##` ana başlık, `###` alt başlık (`### P1 Ad`); kalın etiket başlık yerine kullanılmaz, yalnız alan adı olarak kullanılır.
+3. Kanıt (dosya:satır, komut, sayı) satırın sonunda parantez içindedir.
+4. Belirsiz sahiplik ("bizim kod", "kendi sunucumuz") yazılmaz; somut ad yazılır (adres, sürüm, yol, tablo, müşteri). -->
 
 **Sıra:**
 
-[mevcut_durum_{gun}.md](mevcut_durum_{gun}.md) → bu plan → `todo.md`. Plan yalnız mevcut durumdan çıkan sonuçlara dayanır. Her plan maddesi dayandığı mevcut durum bölümünü (MD §) gösterir.
+- Akış: [mevcut_durum_{gun}.md](mevcut_durum_{gun}.md) → bu plan → `todo.md`.
+- Plan yalnız mevcut durumdan çıkan sonuçlara dayanır.
+- Her plan maddesi dayandığı mevcut durum bölümünü (MD §) gösterir.
 
 **Önce oku:**
 
@@ -23,7 +27,9 @@
 
 ## 1. Hedef
 
-<!-- doldur: iş hedefi ve ölçü -->
+<!-- doldur: iki satır.
+- Hedef: iş bitince ne değişmiş olacak (tek cümle).
+- Ölçü: bunu hangi sayı ya da komut gösterir (tek cümle). -->
 
 ## 2. Mevcut durumdan çıkan sonuçlar
 
@@ -81,4 +87,8 @@ Plan yazarından AYRI `orkestra:denetci` dört soruyu yanıtlar (`orkestra stand
 
 ## 5. Riskler
 
+<!-- doldur: her risk ayrı satır, tam bu biçimde: `- **R1:** risk → olasılık: düşük | orta | yüksek → önlem (P<n>)`. Risk yoksa tek satır: "Yok". -->
+
 ## 6. Doğrulanmayanlar
+
+<!-- doldur: yalnız doğrulanması denenip DOĞRULANAMAYAN şeyler; yoksa tek satır: "Yok". Her madde üç satır: Konu (neyin doğrulanamadığı), Denenen (hangi yol denendi), Engel (neden doğrulanamadı, kim kapatabilir). -->

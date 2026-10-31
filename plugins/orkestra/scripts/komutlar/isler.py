@@ -550,7 +550,7 @@ def _sef_ozeti_kapisi(klasor, metin):
 
 def _ozet_kalite_eksigi(klasor, metin):
     """P-018 (kalite bayraklı iş): özet `## Özet` taşır; `## Plana göre gerçekleşen` plandaki her P'yi ve mevcut durum
-    §6'daki her G'yi anar. Tamamsa ya da iş bayraksızsa None."""
+    gap bölümündeki her G'yi anar. Tamamsa ya da iş bayraksızsa None."""
     import is_sirasi as SR
     if not SR.kaliteli_mi(klasor):
         return None

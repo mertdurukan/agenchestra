@@ -108,8 +108,9 @@ class Sozlesme(unittest.TestCase):
     def test_iskelet_sozlesme_eksik_sayilir(self):
         self.yaz("sozlesme_20261022.md", TC_SABLON())
         eksik = " ".join(S.sozlesme_eksikleri(self.klasor))
-        for parca in ("Özet", "Problem", "Başarı kriterleri", "Kapsam dışı", "Kısıtlar"):
+        for parca in ("Problem", "Başarı kriterleri", "Kapsam dışı", "Kısıtlar"):
             self.assertIn(parca, eksik)
+        self.assertNotIn("Özet", eksik)  # ADR-0126
 
     def test_tam_sozlesme_eksiksiz(self):
         self.yaz("sozlesme_20261022.md", SOZLESME_TAMAM)

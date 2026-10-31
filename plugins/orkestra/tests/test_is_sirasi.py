@@ -134,7 +134,7 @@ class IsSirasi(unittest.TestCase):
     def test_iskelet_tamam_sayilmaz(self):
         _, klasor, _ = self.ac()
         eksik = S.mevcut_durum_eksikleri(klasor)
-        self.assertEqual(len([e for e in eksik if e.endswith("boş")]), 5, eksik)  # 4 bölüm + Ölçüm saati (ADR-0122; gap bölümü yalnız gap'li işte)
+        self.assertEqual(len([e for e in eksik if e.endswith("boş")]), 5, eksik)  # 4 bölüm + Ölçüm saati (ADR-0126; gap bölümü yalnız gap'li işte)
         self.assertTrue(any("Ölçüm saati" in e for e in eksik))
 
     def test_kapi_kapaliyken_eski_davranis(self):
@@ -500,7 +500,7 @@ class KaliteCitasi(unittest.TestCase):
 
     def test_planda_ozet_kabul_geri_alma_zorunlu(self):
         self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(ozet="<!-- doldur -->"))
-        self.assertFalse(any("Özet" in e for e in S.plan_eksikleri(self.k)))  # ADR-0122: plan Özet istemez
+        self.assertFalse(any("Özet" in e for e in S.plan_eksikleri(self.k)))  # ADR-0126: plan Özet istemez
         self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(kabul=""))
         e = S.plan_eksikleri(self.k)
         self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
@@ -627,7 +627,7 @@ class PlanYazimRaporu(unittest.TestCase):
                       "P1: `**Kabul:**`", "P2: `**Geri alma:**`", "P1: `**Gap:** G<n>`",
                       "P2: `**Gap:** G<n>`", "G1: hiçbir P", "G2: hiçbir P"):
             self.assertIn(parca, m)
-        self.assertNotIn("Özet", m)  # ADR-0122
+        self.assertNotIn("Özet", m)  # ADR-0126
         self.assertLessEqual(len(m), S.PLAN_MESAJ_SINIR)
 
     @_golge_sabit

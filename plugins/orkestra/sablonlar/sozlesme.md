@@ -6,21 +6,13 @@
 3. Belirsiz sahiplik ("bizim kod", "kendi sunucumuz") yazılmaz; somut ad yazılır (adres, sürüm, yol, tablo, müşteri).
 4. Tablo ve kod bloğu yok. -->
 
-## Özet
-
-<!-- doldur (kapı `## Özet` ister, P-018): her cümle ayrı satır, en çok 4 satır.
-- Satır 1: ne istendi.
-- Satır 2: ne bitince iş tamam sayılır.
-- Satır 3: kapsam dışı ne.
-- Satır 4 (varsa): karar bekleyen tek konu. -->
-
-
 ## Problem
 
 <!-- doldur: her ifade ayrı satır.
-- Satır 1: çözülecek sorun ya da istek, kullanıcının sözleriyle.
-- Satır 2: ölçülebilir etkisi (sayı, ölçüm saati, kaynak).
-- Satır 3: sorunun doğduğu yer (dosya, süreç, tablo). -->
+- İlk satır Sonuç etiketiyle: ne istendi ve ne bitince iş tamam sayılır (tek cümle).
+- Sonra: çözülecek sorun ya da istek, kullanıcının sözleriyle.
+- Ölçülebilir etkisi (sayı, ölçüm saati, kaynak).
+- Sorunun doğduğu yer (dosya, süreç, tablo). -->
 
 
 ## Başarı kriterleri
