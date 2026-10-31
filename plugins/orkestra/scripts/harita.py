@@ -413,7 +413,25 @@ def yenile(kok: str, sd: str, katmanlar=None, zorla: bool = False) -> dict:
             os.path.join(klasor_yolu(sd), "teknolojiler", "README.md"))):
         import harita_teknoloji as T
         T.md_yaz(sd, kok, _simdi())
+    graf_yenile(kok, sd)
     return {"yenilenen": hedef, "atlanan": [k for k in KATMANLAR if k not in hedef]}
+
+
+def graf_yenile(kok: str, sd: str) -> dict:
+    """ADR-0118: bilgi grafiğinin model çağırmayan kısmı. Kenar listesi yoksa statik ve geçmiş kenarlar baştan kurulur, varsa
+    yalnız eskiyenler yenilenir. Konu kartları (anlam katmanı) `harita-kur` skill'inindir; kart yoksa kenarlar yine kurulur.
+    Hiçbir koşulda yenilemeyi bozmaz (hata `{'hata': ...}` olarak döner)."""
+    try:
+        import harita_kenar as K
+        graf = os.path.join(klasor_yolu(sd), "bilgi_grafigi")
+        yol = os.path.join(graf, "kenarlar.jsonl")
+        os.makedirs(graf, exist_ok=True)
+        if not os.path.exists(yol):
+            n, hatalar = K.yaz(K.uret(kok), yol)
+            return {"kuruldu": n, "sema_hatasi": len(hatalar)}
+        return kenar_yenile(kok, graf)
+    except Exception as e:  # noqa: BLE001
+        return {"hata": f"{type(e).__name__}: {e}"}
 
 
 def _indeks_yaz(sd):
@@ -446,7 +464,7 @@ def oku(kok: str, sd: str, katman: str | None = None) -> list[dict]:
 
 
 def kenar_denetle(kok: str, graf: str) -> dict:
-    """ADR-0112 kenar düzeyinde eskime: kenarın kaynak dosyasının bugünkü hash'i kayıtlı hash'ten farklıysa kenar eskimiştir.
+    """ADR-0118 kenar düzeyinde eskime: kenarın kaynak dosyasının bugünkü hash'i kayıtlı hash'ten farklıysa kenar eskimiştir.
     {'guncel': [...], 'eskimis': [...]} (şemaya uyan kenarlar); kenar dosyası yoksa ikisi de boş."""
     import harita_kenar as K
     import harita_sema as S
