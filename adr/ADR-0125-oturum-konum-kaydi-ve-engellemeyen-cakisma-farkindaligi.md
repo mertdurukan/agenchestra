@@ -1,6 +1,6 @@
 # ADR-0125: Oturum kaydı konum taşır; çakışma farkındalığı engellemeyen bağlam ve dosya tabanlı notla sağlanır
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 2026-10-31
 
@@ -23,7 +23,7 @@
 **Sonuçlar:**
 
 - Olumlu: işe başlarken ve yazarken çakışma görünür; dal temizliği gibi araçlar kaydı okuyabilir; ek maliyet çakışmasız durumda sıfır bağlam.
-- Olumsuz: kayıt yazımı her yazma araç çağrısında küçük ek iş (hedef p95 < 20 ms); eşikler (30 dk canlılık) ölçümle ayarlanır, yanlış pozitif olabilir.
+- Olumsuz: kayıt yazımı her yazma araç çağrısında küçük ek iş (ölçüm 31.10.2026, 1000 çağrı, ~2100 girdili oturum dizini: okuma aracı p95 0,2 ms; yazma aracında aynı dosyanın tekrarı p95 ≈ 3 ms; bir dosyanın ilk yazımı ≈ 30 ms (komşu taraması). Tekrarlayan tarama 60 sn içinde atlanır, yeni komşu en geç 60 sn sonra görülür); eşikler (30 dk canlılık) ölçümle ayarlanır, yanlış pozitif olabilir.
 - Geri alma: `ORKESTRA_OTURUM_FARKINDALIK=0` kapatır; ek alanlar eski okuyucular için zararsızdır.
 
 **İlgili iş ya da kural kimliği:** I-308, P-028, P-022, K-006, ADR-0032 (ortak durum klasörü), eklenti ADR-0050 (tek main). Numara birleştirmeden önce yeniden kontrol edilir (origin/main en büyük: 0121).

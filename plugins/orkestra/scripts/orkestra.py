@@ -42,6 +42,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra konu ac "başlık" [--neden N] | liste [--oturum O] [--json] | rapor [--gun N] [--tum] [--etiket] [--yaz DOSYA] [--json]   sohbet konu defteri (ADR-0116)
   orkestra is istek I-nnn [--mesaj-dosya DOSYA | --mesaj METİN] [--talep METİN]...   kullanıcı mesajındaki bağlantıları ve taleplerini istek_defteri.md'ye R1…Rn yazar (ADR-0112)
   orkestra is dalga I-nnn|KLASÖR|plan.md [--yaz] [--json-cikti DOSYA] [--basamak T2]   plan → dalgalar, kritik yol, `## Dalgalar`, kart JSON'u
+  orkestra oturum liste [--json] | not HEDEF "metin" | oku | rapor [--gun N]   oturumlar arası farkındalık ve not (veri, talimat değil; ADR-0125)
   orkestra plan dogrula I-nnn|PLAN.md [--yaz] [--json] [--kok DİZİN]... [--komut-kosma] [--ac]   (plan.md iddialarını kanıtla doğrular, ✅/❌ koyar;
         çıkış 0 uygulanabilir, 1 koşullu, 2 uygulanamaz, 3 tamamlanmamış)
 `--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
@@ -80,9 +81,10 @@ from komutlar import konu  # noqa: E402  (`orkestra konu`; ADR-0116)
 from komutlar import paralel  # noqa: E402  (`orkestra paralel`; ADR-0100)
 from komutlar import olay  # noqa: E402  (`orkestra olay`; I-286, ADR-0109)
 from komutlar import kapi  # noqa: E402  (`orkestra kapi durum`; ADR-0095)
+from komutlar import oturum  # noqa: E402  (`orkestra oturum`; ADR-0125)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu, paralel, olay, kapi)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu, paralel, olay, kapi, oturum)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

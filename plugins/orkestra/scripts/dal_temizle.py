@@ -44,13 +44,22 @@ def _worktree_dallari(depo: str) -> tuple[str, set[str]]:
     return ana, dallar
 
 
+def _canli_oturum(ana_yol: str, worktree: str | None, dal: str | None) -> bool:
+    """ADR-0125: oturum kayıt defterinde (yalnız okuma) bu ağaçta/dalda canlı oturum var mı; hatada False."""
+    try:
+        import oturum_farkindalik as _of
+        return _of.canli_mi(L.durum_dizini(ana_yol), worktree, dal)
+    except Exception:
+        return False
+
+
 def adaylar(depo: str, oturum_dali: str = "") -> dict:
     """{'aday': [...], 'birlesmemis': [...]}: worktree'de açık olmayan, oturum dalı ve main dışındaki yerel dallar."""
     _, acik = _worktree_dallari(depo)
     r = _git(depo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
     aday, birlesmemis = [], []
     for dal in r.stdout.split():
-        if dal in (ANA, oturum_dali) or dal in acik:
+        if dal in (ANA, oturum_dali) or dal in acik or _canli_oturum(depo, None, dal):
             continue
         ata = _git(depo, "merge-base", "--is-ancestor", dal, ANA).returncode == 0
         (aday if ata else birlesmemis).append(dal)
@@ -363,6 +372,8 @@ def agaclar_temizle(cwd: str, oturum_dali: str = "", kip: str = "golge", simdi: 
                 neden = "kirli"
             elif any(k == _yol(yol) or k.startswith(_yol(yol) + os.sep) for k in acik):
                 neden = "acik-is"
+            elif _canli_oturum(ana_yol or cwd, yol, dal):
+                neden = "canli-oturum"  # ADR-0125: o ağaçta/dalda son 30 dk içinde görülen oturum var
             elif ana_yol and L.oturum_devralinmamis(ana_yol, yol) > 0:
                 neden = "devralinmamis"  # git dışı durum kopyası ana klasöre devredilmeden worktree silinirse kaybolur
             else:
