@@ -2815,9 +2815,27 @@ def _son_arac_yaz(sd: str, aid) -> None:
 OTURUM_BASLAT = "mcp__ccd_session__start_session"
 
 
+def _karar_kaydet(sd: str, inp: dict) -> None:
+    """ADR-0110: ana ajanın AskUserQuestion sorusunda `[D<n>]` etiketi varsa ve kullanıcı yanıtladıysa bağlı işin `kararlar`
+    alanına yazar. Alt ajan çağrısı sayılmaz."""
+    import karar_kapisi
+    if inp.get("agent_id") or not karar_kapisi.kapi_acik():
+        return
+    kararlar = karar_kapisi.ekran_kararlari(inp.get("tool_input"), inp.get("tool_response"))
+    if not kararlar:
+        return
+    is_id = _bagli_is(sd, inp.get("session_id"))
+    if is_id:
+        karar_kapisi.kaydet(sd, is_id, kararlar)
+
+
 def _ekran_onayi(sd: str, inp: dict) -> None:
     """ADR-0078: bağlı iş onay bekliyorsa ve AskUserQuestion yanıtı onaysa durumu yazar; bağlama tek satır ekler (çıkar).
     Onay vermeyen her yolda sessiz döner; hata onay vermez ve hook'u düşürmez."""
+    try:
+        _karar_kaydet(sd, inp)
+    except Exception:
+        pass
     try:
         import is_onay
         kayit = _onay_kaydi(sd, inp.get("session_id"))
