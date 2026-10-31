@@ -37,7 +37,7 @@ Olumlu: NNN için ek kilit gerekmedi (P2, 100/100); yalnız GELISTIRME.md düzel
 
 Olumsuz: önbellek geçersiz kılma mantığı ek karmaşıklıktır.
 
-Gölge dönemi: `test_kirasi` ve `test_yonlendirme` kapıları `kapi_golge` kaydı yazar, engellemez; ihlal geçişi `orkestra is rapor` sayıları ölçüldükten sonra ayrı kararla yapılır.
+Gölge dönemi: `kaynak_kira` ve `test_yonlendirme` kapıları `kapi_golge` kaydı yazar, engellemez; ihlal geçişi `orkestra is rapor` sayıları ölçüldükten sonra ayrı kararla yapılır.
 
 Geri alma: her parça ayarla kapatılır (`kaynak_kira.json` mod alanı `kapali`, `ORKESTRA_TEST_YONLENDIRME=0`) ve ayrı commit'tir.
 
