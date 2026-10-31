@@ -127,6 +127,7 @@ class BekleyenMod(unittest.TestCase):
     """ADR-0095: iş bağlanmadan gelen /auto oturumda bekler; izin kapısı silmeden okur."""
 
     def setUp(self):
+        sabitle(self)
         self.sd = tempfile.mkdtemp()
         self._ort = os.environ.get("ORKESTRA_IZIN")
         os.environ["ORKESTRA_IZIN"] = "genis"
