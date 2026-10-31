@@ -1613,6 +1613,16 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _tur_toast(sd: str, oid: str, ozet: dict, arka_plan_acik: bool, inp: dict) -> None:
+    """'İş bitti' toast kararı (bildirim.tur_sonu); hata kancayı düşürmez."""
+    try:
+        import bildirim
+        bildirim.tur_sonu(sd, oid, ozet.get("ilk_istem_zaman") or ozet.get("ilk_zaman"), ozet.get("son_zaman"), arka_plan_acik,
+                          inp.get("last_assistant_message") or "")
+    except Exception:
+        pass
+
+
 def arka_plan_satiri(sd: str, gorevler) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
     Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
@@ -1769,6 +1779,7 @@ def stop(inp: dict):
     if perspektif:
         gec()
     if inp.get("background_tasks"):
+        _tur_toast(sd, oid, ozet, True, inp)  # çalışma sürüyor: toast ertelenir, başlangıç saklanır
         satir = arka_plan_satiri(sd, inp.get("background_tasks"))
         if satir:
             L.hook_cikti({"systemMessage": _sm(satir)})
@@ -1781,11 +1792,7 @@ def stop(inp: dict):
         if d in ("isleniyor", "denetimde", "reddedildi", "onaylandi"):
             acik.append((k["id"], d, k["baslik"]))
     if not acik:
-        try:  # insan aksiyonu: tur bitti → toast (sessiz hata)
-            import bildirim
-            bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
-        except Exception:
-            pass
+        _tur_toast(sd, oid, ozet, bool(acik_gorevler), inp)  # insan aksiyonu: çalışma bitti → toast; arka plan görevi açıksa ertelenir
         satir = arka_plan_satiri(sd, None)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
         mesaj = _sm(" ".join(x for x in (satir, hatirlatma) if x))
         if mesaj:

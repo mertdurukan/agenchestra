@@ -2,6 +2,10 @@
 
 Kanal yalnız yerel toast'tır; dışarı veri gitmez. Toast'a tıklayınca `claude://` ile Claude uygulaması öne gelir.
 Kapatma: panelde Ayarlar > Bildirim (makine config'i, cfg 'bildirim') ya da ORKESTRA_BILDIRIM=0 (ortam değişkeni önceliklidir). Tur bildirimi için en kısa tur süresi: ORKESTRA_BILDIRIM_MIN_S (varsayılan 30 sn).
+
+'İş bitti' yalnız çalışma gerçekten durduğunda gider (tur_sonu): tur biterken arka plan görevi (Bash/Agent/Workflow) açıksa toast
+ertelenir ve çalışmanın başlangıcı saklanır; görev bitince Claude'u uyandıran bildirim turunun sonunda gider. Süre, önceki
+durak ile kullanıcı isteği arasındaki bekleme hariç, çalışmanın başladığı kullanıcı isteğinden ölçülür.
 """
 from __future__ import annotations
 
@@ -16,6 +20,7 @@ import cfg
 import ork_lib as L
 
 TUR_ESIK_S = 30
+ACIK_AZAMI_S = 7200  # arka plan görevinin bitiş bildirimi hiç gelmezse (oturum öldü) toast bu süreden sonra yine de gider
 IDLE_TEKRAR_S = 600  # tur bildirimi gittiyse aynı oturumda bu süre içinde 'idle' bildirimi tekrarlanmaz
 
 _PS = r"""
@@ -114,10 +119,73 @@ def tur_bitti(sd: str, oid: str, sure_ms, son_mesaj: str, is_baslik: str = "") -
     return False
 
 
+def _calisma_yolu(sd: str) -> str:
+    return os.path.join(sd, "bildirim_calisma.json")
+
+
+def calisma_oku(sd: str, oid: str) -> str | None:
+    """Arka plan görevi yüzünden ertelenen çalışmanın başlangıç zamanı (ISO) ya da None."""
+    try:
+        with open(_calisma_yolu(sd), encoding="utf-8") as f:
+            v = json.load(f).get(oid)
+        return v if isinstance(v, str) and v else None
+    except Exception:
+        return None
+
+
+def calisma_yaz(sd: str, oid: str, basi: str | None) -> None:
+    """basi verilirse kaydeder, None ise siler. 1 günden eski kayıtlar atılır."""
+    yol = _calisma_yolu(sd)
+    with L.kilit(yol):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if not isinstance(d, dict):
+                d = {}
+        except Exception:
+            d = {}
+        simdi = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        d = {k: v for k, v in d.items() if isinstance(v, str) and (L.sure_ms(v, simdi) or 0) < 86400_000}
+        if basi:
+            d[oid] = basi
+        else:
+            d.pop(oid, None)
+        L.atomik_yaz(yol, json.dumps(d))
+
+
+def tur_sonu(sd: str, oid: str, istem_zamani, son_zaman, arka_plan_acik: bool, son_mesaj: str, is_baslik: str = "") -> bool:
+    """Stop anında tek karar noktası. Arka plan görevi açıksa çalışma sürüyor: toast gitmez, başlangıç saklanır.
+    Görev yoksa çalışma bitti: süre saklanan başlangıçtan (yoksa bu turun kullanıcı isteğinden) ölçülür ve 'iş bitti' gider."""
+    if not aktif():
+        return False
+    saklanan = calisma_oku(sd, oid)
+    basi = saklanan or (istem_zamani if isinstance(istem_zamani, str) else None)
+    if arka_plan_acik:
+        yas = L.sure_ms(basi, son_zaman) if basi and isinstance(son_zaman, str) else None
+        if yas is None or yas / 1000 < ACIK_AZAMI_S:
+            if basi and not saklanan:
+                calisma_yaz(sd, oid, basi)
+            return False
+    if saklanan:
+        calisma_yaz(sd, oid, None)
+    return tur_bitti(sd, oid, L.sure_ms(basi, son_zaman) if basi and isinstance(son_zaman, str) else None, son_mesaj, is_baslik)
+
+
+def _arka_plan_var(sd: str, oid: str) -> bool:
+    """Stop kancasının oturum dosyasına yazdığı açık arka plan görevi listesi dolu mu."""
+    try:
+        with open(os.path.join(sd, "oturumlar", f"{oid}.json"), encoding="utf-8") as f:
+            return bool(json.load(f).get("acik_gorevler"))
+    except Exception:
+        return False
+
+
 def bildirim_olayi(sd: str, oid: str, inp: dict) -> bool:
     """Claude Code `Notification` olayı: izin istemi ve girdi bekleme."""
     tur = str(inp.get("notification_type") or "")
     if tur == "idle_prompt" and time.time() - son_oku(sd, oid) < IDLE_TEKRAR_S:
         return False  # tur sonu toast'ı zaten gitti
+    if tur == "idle_prompt" and _arka_plan_var(sd, oid):
+        return False  # arka plan görevi sürüyor: Claude bekliyor değil, çalışıyor
     baslik = "Orkestra: onayınız gerekiyor" if tur == "permission_prompt" else "Orkestra: sizi bekliyor"
     return gonder(baslik, inp.get("message") or "Claude girdi bekliyor.")

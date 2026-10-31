@@ -650,7 +650,7 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
     sonuc = {
         "modeller": {}, "toplam": {"giris": 0, "cikis": 0, "onbellek_okuma": 0, "onbellek_yazma": 0, "maliyet_usd": 0.0},
         "ilk_kullanici": None, "tur": 0, "arac_cagrisi": 0, "araclar": {}, "dokunulan": [], "okunan": [],
-        "ilk_zaman": None, "son_zaman": None, "ofset": ofset,
+        "ilk_zaman": None, "son_zaman": None, "ilk_istem_zaman": None, "ofset": ofset,
         "arac_sayilari": {"arac_hata": 0, "tekrar_okuma": 0},
     }
     if not yol or not os.path.exists(yol):
@@ -685,6 +685,10 @@ def transkript_oku(yol: str, ofset: int = 0, yan_zincir: bool | None = None) -> 
             t = _metin(mesaj.get("content"))
             if t.strip():
                 sonuc["ilk_kullanici"] = t
+        if tip == "user" and ts and sonuc["ilk_istem_zaman"] is None:
+            t = _metin(mesaj.get("content")).strip()
+            if t and not t.startswith("<task-notification>"):
+                sonuc["ilk_istem_zaman"] = ts  # çalışmanın başladığı gerçek kullanıcı isteği (önceki duraktan bu yana bekleme hariç)
         if tip == "user" and isinstance(mesaj, dict) and isinstance(mesaj.get("content"), list):
             for b in mesaj["content"]:
                 if isinstance(b, dict) and b.get("type") == "tool_result":
