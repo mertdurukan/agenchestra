@@ -117,3 +117,56 @@ def test_blok_aciklama_birlestirilir(tmp_path):
     (d / "SKILL.md").write_text("---\nname: uzun\ndescription: >-\n  ilk satır\n  ikinci satır\nlicense: x\n---\nGövde\n", encoding="utf-8")
     s = S.liste(proje=str(tmp_path / "p"), kullanici_dizin=str(tmp_path / "yok"), eklenti_dizin=str(tmp_path / "ek"))
     assert s[0]["aciklama"] == "ilk satır ikinci satır"
+
+
+# ---- üç konum (ADR-0111)
+def konum_dosyasi(pr):
+    return pr / ".claude" / "orkestra" / "skill_durum.json"
+
+
+def test_liste_konum_alani_ve_eski_acik_ihtiyacta_sayilir(ortam):
+    kw, pr = ortam
+    assert {s["konum"] for s in S.liste(**kw)} == {"ihtiyacta"}
+    S.degistir("orkestra:is", "kapali", **kw)
+    assert {s["ad"]: s["konum"] for s in S.liste(**kw)}["orkestra:is"] == "kapali"
+
+
+def test_uc_konum_gidis_donus_dosyadan_okunur(ortam):
+    kw, pr = ortam
+    for konum in ("surekli", "ihtiyacta", "kapali", "surekli", "kapali", "ihtiyacta"):
+        r = S.konum_ata("orkestra:textual", konum, **kw)
+        assert r["tamam"] and r["konum"] == konum
+        assert {s["ad"]: s["konum"] for s in S.liste(**kw)}["orkestra:textual"] == konum
+    assert S.surekli_oku(kw["proje"]) == set()
+
+
+def test_surekli_konum_dosyaya_yazilir_ve_kapali_siler(ortam):
+    kw, pr = ortam
+    S.konum_ata("yerel", "surekli", **kw)
+    assert json.loads(konum_dosyasi(pr).read_text(encoding="utf-8")) == {"surekli": ["yerel"]}
+    r = S.konum_ata("yerel", "kapali", **kw)
+    assert r["durum"] == "kapali" and S.surekli_oku(kw["proje"]) == set()
+
+
+def test_gecersiz_konum_reddedilir_ve_dosya_olusmaz(ortam):
+    kw, pr = ortam
+    with pytest.raises(S.SkillHata):
+        S.konum_ata("yerel", "hep", **kw)
+    with pytest.raises(S.SkillHata):
+        S.konum_ata("yok-boyle", "surekli", **kw)
+    assert not konum_dosyasi(pr).exists()
+
+
+def test_bozuk_konum_dosyasi_yazilmaz_korunur(ortam):
+    kw, pr = ortam
+    konum_dosyasi(pr).parent.mkdir(parents=True)
+    konum_dosyasi(pr).write_text("{bozuk", encoding="utf-8")
+    with pytest.raises(S.SkillHata):
+        S.konum_ata("yerel", "surekli", **kw)
+    assert konum_dosyasi(pr).read_text(encoding="utf-8") == "{bozuk"
+
+
+def test_govde_yolu_bulunur_yoksa_none(ortam):
+    kw, pr = ortam
+    assert S.govde_yolu("orkestra:is", **kw).endswith("SKILL.md")
+    assert S.govde_yolu("yok", **kw) is None
