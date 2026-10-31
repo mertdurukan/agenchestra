@@ -47,7 +47,7 @@ class Eskime(unittest.TestCase):
     def test_llm_kenari_dogrulanana_kadar_eskimis_ve_dusuk_guvenli_kalir(self):
         self.yaz("docs/a.md", "a")
         llm = dict(K.statik_kenarlar(self.kok)[0], kaynak="docs/a.md", iliski="belgeler", koken="llm", guven="orta",
-                   kanit="sezgi", hash=K._hash(self.kok, "docs/a.md"))
+                   kanit="docs/a.md:1", hash=K._hash(self.kok, "docs/a.md"))
         K.yaz(K.statik_kenarlar(self.kok) + [llm], self.yol)
         self.yaz("docs/a.md", "a değişti")
         s = H.kenar_yenile(self.kok, self.graf)
