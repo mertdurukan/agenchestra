@@ -14,9 +14,6 @@
 - Satır 3: kapsam dışı ne.
 - Satır 4 (varsa): karar bekleyen tek konu. -->
 
-- 
-- 
-- 
 
 ## Problem
 
@@ -25,24 +22,19 @@
 - Satır 2: ölçülebilir etkisi (sayı, ölçüm saati, kaynak).
 - Satır 3: sorunun doğduğu yer (dosya, süreç, tablo). -->
 
-- 
-- 
 
 ## Başarı kriterleri
 
 <!-- doldur: her kriter ayrı satır ve ölçülebilir; tam bu biçimde, S numaraları sabittir (plan Kabul'u buna bağlanır):
 - **S1:** kriter (komut çıktısı, sayı ya da dosya:satır ile sınanabilir) -->
 
-- **S1:** 
 
 ## Kapsam dışı
 
 <!-- doldur: bu işte bilerek yapılmayan her şey ayrı satır ve nedeni; yoksa tek satır: "Yok". -->
 
-- 
 
 ## Kısıtlar
 
 <!-- doldur: uyulacak kural, sınır, süre ya da bütçe, her biri ayrı satır ve kaynağı (kural kimliği, ADR, kullanıcı mesajı); yoksa tek satır: "Yok". -->
 
-- 

@@ -49,7 +49,7 @@
 <!-- doldur:
 - İlk satır `**Sonuç:**`: en önemli bulgu, tek cümle ve ana sayı.
 - Her bulgu ayrı alt başlıktır: `### 1.1 <bulgu adı>`, `### 1.2 …`.
-- Altında önce `**Durum:**` (kesin | güçlü | hipotez), sonra `**Kanıt:**` ve her kanıt ayrı madde (kaynak, sayı, ölçüm saati).
+- Altında önce Durum etiketi (kesin | güçlü | hipotez), sonra Kanıt etiketi; her kanıt ayrı madde (kaynak, sayı, ölçüm saati).
 - Sayılar yazılırken kaynağından yeniden hesaplanır (K-002). -->
 
 ## 2. Öneriler
