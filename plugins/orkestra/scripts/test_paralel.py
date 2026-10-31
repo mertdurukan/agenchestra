@@ -3,7 +3,8 @@
 
 Kullanım: test_paralel.py [-n N] [--zaman-asimi SN] [--en-yavas K] [yol ...]
 Çıktı dosya sırasıyla birleşir; pytest'in FAILED/ERROR satırları olduğu gibi korunur.
-Çıkış: 0 hepsi geçti; 1 biri düştü / zaman aşımı / toplama hatası; 2 kullanım hatası ya da koşulacak test yok.
+Çıkış: 0 hepsi geçti; 1 biri düştü / zaman aşımı / toplama hatası; 2 kullanım hatası ya da koşulacak test yok;
+3 makine genelindeki test kirası (kaynak_kira.py, ihlal modu) bekleme üst sınırında alınamadı.
 """
 import argparse
 import concurrent.futures
