@@ -140,6 +140,26 @@ class Karsilastirma(unittest.TestCase):
         self.assertEqual({r["ad"]: r for r in o["kapilar"]}["denetci_kb_ky"]["karar"], "etki var")
 
 
+class UretimEnjeksiyonu(unittest.TestCase):
+    """ADR-0111: `uretim_enjekte` günlük kayıtları belge türü başına sayılır; ön/son penceresine göre ayrılır."""
+
+    def test_enjeksiyon_belge_turu_ve_pencere(self):
+        gun = [{"zaman": z(T0, 1), "tur": "uretim_enjekte", "belge": "plan"},
+               {"zaman": z(SINIR, 1), "tur": "uretim_enjekte", "belge": "plan"},
+               {"zaman": z(SINIR, 2), "tur": "uretim_enjekte", "belge": "todo"},
+               {"zaman": z(SINIR, 3), "tur": "kural_ihlal", "kural": "kimlik_once_bak"}]
+        girdi = {"zaman": turlar(T0, 10) + turlar(SINIR, 10), "hatalar": [], "denetimler": [], "gunluk": gun}
+        o = RO.ozet(girdi, baslangic="2026-10-22", sonrasi=SINIR.isoformat())
+        self.assertEqual(o["enjeksiyon"], {"oncesi": {"plan": 1}, "sonrasi": {"plan": 1, "todo": 1}})
+        self.assertTrue(any("üretim anı enjeksiyonu" in s for s in RO.metin(o)))
+        t = RO.ozet(girdi)
+        self.assertEqual(t["enjeksiyon"], {"plan": 2, "todo": 1})
+
+    def test_enjeksiyon_yoksa_bos(self):
+        o = RO.ozet({"zaman": turlar(T0, 5), "hatalar": [], "denetimler": [], "gunluk": []})
+        self.assertEqual(o["enjeksiyon"], {})
+
+
 class Komut(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.TemporaryDirectory()
