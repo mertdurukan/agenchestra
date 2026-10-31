@@ -144,7 +144,7 @@ class TestHookBaglantisi(_Proje):
         kayit = self.ihlaller()
         self.assertEqual(len(kayit), 1)
         self.assertEqual(kayit[0]["tur"], "kural_ihlal")
-        self.assertEqual(kayit[0]["mod"], "golge")
+        self.assertEqual(kayit[0]["mod"], "reddet")  # grep -r reddet_kaliplari'nda değil: yalnız uyarı
         ho = cikti.get("hookSpecificOutput", {})
         self.assertNotEqual(ho.get("permissionDecision"), "deny")
         self.assertIn("timeout", ho.get("additionalContext", ""))
