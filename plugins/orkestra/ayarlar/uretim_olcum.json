@@ -3,11 +3,25 @@
   "acilis": null,
   "acilis_notu": "Enjeksiyonun etkin olduğu ilk tarih (ISO). Henüz yayında değil: yayına alınınca doldurulur; boşken ölçüm yapılmaz.",
   "karar_kurali": "sonrası %95 Garwood üst sınır oranı < öncesi oranı → etki var; aksi halde etki yok; sonrası payda asgarinin altındaysa yetersiz örnek.",
-  "hedef_oran": 0.30,
+  "hedef_oran": 0.3,
   "guven": 0.95,
-  "guc": 0.80,
-  "asgari": {"K-005": {"taban_tur": 0.087, "asgari_tur": 125}, "toplam": {"taban_tur": 0.209, "asgari_tur": 75}},
+  "guc": 0.8,
+  "asgari": {
+    "K-005": {
+      "taban_tur": 0.087,
+      "asgari_tur": 125
+    },
+    "toplam": {
+      "taban_tur": 0.209,
+      "asgari_tur": 75
+    }
+  },
   "kaynak_asgari": "scripts/ret_olcum.py ASGARI_PLAN (iş 129 planı §1)",
-  "izlenen": ["hook-red toplam/100 tur", "R1 (K-005 biçim)", "uretim_enjekte belge türü başına sayı"],
-  "bilinen_sinir": "Belge türü başına eşzamanlı kontrol kolu bu sürümde yok: hook-red satırı belge türünü taşımıyor. Ön/son karşılaştırması tek kollu; eşzamanlı olaylar (başka kural değişikliği) karıştırıcıdır."
+  "izlenen": [
+    "hook-red toplam/100 tur",
+    "R1 (K-005 biçim)",
+    "uretim_enjekte belge türü başına sayı",
+    "eşzamanlı kollar: oturum başına engelleyen ret (enjeksiyon / kontrol)"
+  ],
+  "bilinen_sinir": "Eşzamanlı kontrol kolu hazır ama varsayılan kapalı (uretim_enjeksiyonu.json kontrol_orani 0): oran > 0 verilmedikçe ön/son karşılaştırması tek kollu ve eşzamanlı olaylar (başka kural değişikliği) karıştırıcıdır. Kol karşılaştırması oturum birimindedir ve otomatik karar vermez; Garwood üst sınırı raporlanır."
 }

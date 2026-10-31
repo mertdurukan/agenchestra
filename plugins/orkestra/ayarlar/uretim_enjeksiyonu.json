@@ -3,17 +3,43 @@
   "aciklama": "ADR-0111, P-045: Write/Edit hedefi bir belge türüne denkse ilgili kapı kuralı yazım anında kısa bağlam olarak eklenir (merdiven L4). Engellemez, model çağırmaz; gunluk.jsonl'a uretim_enjekte yazar. mod: etkin | kapali. oturum_basina: aynı oturumda aynı belge türü için en çok N enjeksiyon. Kapatma: ORKESTRA_URETIM_ENJEKSIYON=0. Proje ezmesi: .claude/orkestra/uretim_enjeksiyonu.json (anahtar bazında ezer).",
   "onek": "ORKESTRA ÜRETİM ANI (ADR-0111): ",
   "oturum_basina": 1,
+  "kontrol_orani": 0,
   "metin_max": 300,
   "eslemeler": [
-    {"tur": "plan", "dosya": ["plan.md"],
-     "metin": "Plan maddesi: Ne, Dayanak, Dokunulan yer, Gap, Sözleşme, Mevcut varlık, İddialar, Kabul, Geri alma, Önce, Yazma alanı, Alternatifler (Seçilen/Elenen), Üretim noktası (tek satır: Düzeltme: <yer> — <önleme>). Alanlar ayrı satırda (K-005). İskelet: orkestra is belge <iş> plan."},
-    {"tur": "todo", "dosya": ["todo.md"],
-     "metin": "Todo maddesi plan maddesine bağlıdır: '- [ ] P1: iş'. Bitirirken kanıtlı not: orkestra is todo <iş> --bitti <n> --not \"kanıt: komut çıktısı ya da dosya:satır\"; kanıtsız [x] reddedilir (P-018). Sıradaki adımlar sohbette değil burada."},
-    {"tur": "mevcut_durum", "dosya": ["mevcut_durum_*.md"],
-     "metin": "Mevcut durum: en üstte '## Özet' (3-4 kısa cümle, paragraf ≤300 karakter); '## 6. Gap analizi' bölümünde '**Hedef durum:**' ve her gap '- **G1:** hedef → mevcut (MD §n) → fark' (P-017). Etiketli alanlar ayrı paragraf (K-005)."},
-    {"tur": "sozlesme", "dosya": ["sozlesme_*.md"],
-     "metin": "Sözleşme bölümleri: Özet, Problem, Başarı kriterleri ('- **S1:** ölçülebilir kriter'), Kapsam dışı, Kısıtlar; boş bölüm ya da yer tutucu bırakılmaz."},
-    {"tur": "calisma_ozeti", "dosya": ["calisma_ozeti_*.md"],
-     "metin": "Çalışma özeti: başlık '<KOD> <Jira başlığı>' (P-034); en üstte '## Özet'; '## Plana göre gerçekleşen' bölümünde plandaki her P ve mevcut durumdaki her G için durum ve kanıt (P-018). Alanlar ayrı satırda (K-005)."}
+    {
+      "tur": "plan",
+      "dosya": [
+        "plan.md"
+      ],
+      "metin": "Plan maddesi: Ne, Dayanak, Dokunulan yer, Gap, Sözleşme, Mevcut varlık, İddialar, Kabul, Geri alma, Önce, Yazma alanı, Alternatifler (Seçilen/Elenen), Üretim noktası (tek satır: Düzeltme: <yer> — <önleme>). Alanlar ayrı satırda (K-005). İskelet: orkestra is belge <iş> plan."
+    },
+    {
+      "tur": "todo",
+      "dosya": [
+        "todo.md"
+      ],
+      "metin": "Todo maddesi plan maddesine bağlıdır: '- [ ] P1: iş'. Bitirirken kanıtlı not: orkestra is todo <iş> --bitti <n> --not \"kanıt: komut çıktısı ya da dosya:satır\"; kanıtsız [x] reddedilir (P-018). Sıradaki adımlar sohbette değil burada."
+    },
+    {
+      "tur": "mevcut_durum",
+      "dosya": [
+        "mevcut_durum_*.md"
+      ],
+      "metin": "Mevcut durum: en üstte '## Özet' (3-4 kısa cümle, paragraf ≤300 karakter); '## 6. Gap analizi' bölümünde '**Hedef durum:**' ve her gap '- **G1:** hedef → mevcut (MD §n) → fark' (P-017). Etiketli alanlar ayrı paragraf (K-005)."
+    },
+    {
+      "tur": "sozlesme",
+      "dosya": [
+        "sozlesme_*.md"
+      ],
+      "metin": "Sözleşme bölümleri: Özet, Problem, Başarı kriterleri ('- **S1:** ölçülebilir kriter'), Kapsam dışı, Kısıtlar; boş bölüm ya da yer tutucu bırakılmaz."
+    },
+    {
+      "tur": "calisma_ozeti",
+      "dosya": [
+        "calisma_ozeti_*.md"
+      ],
+      "metin": "Çalışma özeti: başlık '<KOD> <Jira başlığı>' (P-034); en üstte '## Özet'; '## Plana göre gerçekleşen' bölümünde plandaki her P ve mevcut durumdaki her G için durum ve kanıt (P-018). Alanlar ayrı satırda (K-005)."
+    }
   ]
 }

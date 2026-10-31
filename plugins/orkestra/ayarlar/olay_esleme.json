@@ -1,0 +1,26 @@
+{
+  "turler": ["yanlis_oneri", "kapi_ret", "kullanici_duzeltme", "karar"],
+  "sonuclar": ["acik", "duzeldi", "tekrarladi"],
+  "varsayilan": {"ana": "diger", "alt": "siniflanmamis"},
+  "kural_ihlal": {
+    "belge_bicim": {"tur": "kapi_ret", "ana": "belge", "alt": "bicim"},
+    "belge_baglantisi_yok": {"tur": "kapi_ret", "ana": "belge", "alt": "baglanti_yok"},
+    "kimlik_once_bak": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "kimlik_once_bakilmadi"},
+    "secim_ekrani": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "duz_metin_secim"},
+    "secim_ekrani_yapisal": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "dugmesiz_secim"},
+    "konu_disi_oneri": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "konu_disi"},
+    "kanitsiz_iddia": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "kanitsiz_iddia"},
+    "kapanis_atlandi": {"tur": "kapi_ret", "ana": "surec", "alt": "kapanis_atlandi"},
+    "plan_dogrulama": {"tur": "kapi_ret", "ana": "plan", "alt": "dogrulama"},
+    "genis_tarama": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "genis_tarama"},
+    "kabuk_sozdizimi": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "kabuk_sozdizimi"}
+  },
+  "davranis_sinif": {
+    "hook-red": {"tur": "kapi_ret", "ana": "hook", "alt": "red"},
+    "is-klasoru-yanlis": {"tur": "kapi_ret", "ana": "is", "alt": "klasor_yanlis"},
+    "kabuk-sozdizimi": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "kabuk_sozdizimi"}
+  },
+  "kapi_ret": {"tur": "kapi_ret", "ana": "kapi", "alt": "ret"},
+  "onay_ekran": {"tur": "karar", "ana": "karar", "alt": "secim_ekrani_yaniti"},
+  "kullanici_duzeltme": {"tur": "kullanici_duzeltme", "ana": "kullanici", "alt": "itiraz"}
+}

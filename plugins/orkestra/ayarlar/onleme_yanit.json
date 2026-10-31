@@ -1,0 +1,25 @@
+{
+  "aciklama": "ADR-0120 (G4, P-045): düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı çözümse ve yanıtta önleme merdiveni akıl yürütmesi yoksa günlüğe kural_ihlal / onleme_basamagi düşer. Yalnız ölçer.",
+  "mod": "golge",
+  "mod_aciklama": "golge: yalnız gunluk.jsonl; engelleme ve kullanıcı uyarısı yok. İhlal ya da uyarıya geçiş P-028'e göre ayrı kararla: 30 tetik ve 0 yanlış pozitif (elle sınıflama) eşiği (ADR-0120 D2).",
+  "gecis_esigi": {"tetik": 30, "yanlis_pozitif": 0},
+  "oneri_kaliplari": [
+    "hat[ıi]rlat\\w*\\s+(?:ekle|koy|yaz)",
+    "uyar[ıi]\\s+(?:ekle|koy|yaz)",
+    "(?:stop hook|tur sonu)\\w*\\s+(?:ekle|koy|yakala|denet)",
+    "sonradan\\s+(?:yakala|denet|kontrol)",
+    "(?:denet[cç]i|kontrol|doğrulama)\\s+(?:ekle|koy)",
+    "al[ıi][şs]kanl[ıi]k\\s+(?:olarak|haline|edin|edel)",
+    "bundan sonra\\b[^.!?\\n]{0,60}dikkat ed"
+  ],
+  "basamak_kaliplari": [
+    "merdiven",
+    "onleme_merdiveni",
+    "pretooluse",
+    "üst basamak",
+    "kaynakta\\s+(?:çöz|önle)",
+    "mevcut\\s+(?:kapı|hook|mekanizma)",
+    "üretim noktası",
+    "kaynakta çözülmedi"
+  ]
+}

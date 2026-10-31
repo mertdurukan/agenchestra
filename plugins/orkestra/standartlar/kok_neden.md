@@ -4,7 +4,7 @@ Sorun, hata ya da sapma anında hook bu standardın iki bölümünü bağlama ek
 
 ## Hata anı
 
-Bu mesaj bir sorun ya da hata bildiriyor: düzeltmeden önce kök nedeni bul. (1) Beklenen ile gerçek arasındaki ilk sapmayı kanıtla yerelleştir; belirtiyi yamama. (2) En az iki rakip nedeni say, aralarını ayıran en ucuz kontrolü yap; kanıtlanmamış nedene 'kök neden' deme, 'hipotez' de. (3) Düzeltmeyi sorunun doğduğu sınırda, ilk denemede kalıcı ve best in class yap (K-006); geçici önlem ile kalıcı çözümü ayır. (4) Düzeltmeyi ve gerçek sonucu ayrı doğrula; doğrulama tutmazsa hipotezi yeniden aç. Etki küçükse analiz kısa kalır; planlı değişiklikte kök neden uydurma.
+Bu mesaj bir sorun ya da hata bildiriyor: düzeltmeden önce kök nedeni bul. (1) Beklenen ile gerçek arasındaki ilk sapmayı kanıtla yerelleştir; belirtiyi yamama. (2) En az iki rakip nedeni say, aralarını ayıran en ucuz kontrolü yap; kanıtlanmamış nedene 'kök neden' deme, 'hipotez' de. (3) Düzeltmeyi sorunun doğduğu sınırda, ilk denemede kalıcı ve best in class yap (K-006); geçici önlem ile kalıcı çözümü ayır. (4) Düzeltme önermeden önce o sınırda mevcut mekanizmayı ara (kapı, hook, kural; kodu oku) ve düzeltmeyi onleme_merdiveni.md'nin en üst uygulanabilir basamağına koy; alışkanlık ya da tur sonu hatırlatıcı tek başına çözüm değildir, sonradan yakalayan kontrol için üst basamakların neden olmadığını yaz. (5) Düzeltmeyi ve gerçek sonucu ayrı doğrula; tutmazsa hipotezi yeniden aç. Etki küçükse analiz kısa kalır.
 
 ## İşçi görevi anı
 

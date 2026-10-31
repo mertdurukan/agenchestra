@@ -4,16 +4,17 @@
 `cekirdek_sayisi()` işçi sayısını makine kapasitesinden türetir:
   min(mantıksal çekirdek, (kullanılabilir bellek - rezerv) / işçi başı MB, üst sınır)
 Ezme sırası: ORKESTRA_PARALEL_N > proje `.claude/orkestra/paralel_kosu.json` > eklenti `ayarlar/paralel_kosu.json`.
-`1` seri koşudur. Bellek ya da CPU okunamazsa kalan değerler kullanılır; hiçbir durumda 1'in altına inmez.
+`1` seri koşudur. Bellek sınırı işçi sayısını `en_az_isci` tabanının altına indirmez (ölçüm: boş bellek 1,2-1,9 GB iken eski sınır 1 işçiye, 2100 sn'ye çöktü). Bellek ya da CPU okunamazsa kalan değerler kullanılır; hiçbir durumda 1'in altına inmez.
 Yalnız standart kütüphane (psutil gerekmez): Windows, Linux ve macOS.
 """
+import cfg
 import json
 import os
 import subprocess
 import sys
 
 AYAR_ADI = "paralel_kosu.json"
-VARSAYILAN = {"ust_sinir": 32, "isci_basina_mb": 400, "bellek_rezervi_mb": 1536, "ci_ust_sinir": 8, "paralel": True}
+VARSAYILAN = {"ust_sinir": 32, "en_az_isci": 4, "isci_basina_mb": 300, "bellek_rezervi_mb": 768, "ci_ust_sinir": 8, "paralel": True}
 
 
 def _json(yol):
@@ -77,7 +78,7 @@ def kullanilabilir_bellek_mb():
                 return int(ms.ullAvailPhys // (1024 * 1024))
             return None
         if sys.platform == "darwin":
-            toplam = int(subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=10).stdout.strip())
+            toplam = int(subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=10, **cfg.PENCERESIZ).stdout.strip())
             return int(toplam * 0.6 // (1024 * 1024))  # macOS'ta "kullanılabilir" ayrı okunmaz: toplamın %60'ı
         with open("/proc/meminfo", encoding="utf-8") as f:
             for satir in f:
@@ -112,7 +113,7 @@ def cekirdek_sayisi(proje=None, cekirdek=None, bellek_mb=None):
     mb = bellek_mb if bellek_mb is not None else kullanilabilir_bellek_mb()
     if mb is not None:
         sinir = (mb - _pozitif(a["bellek_rezervi_mb"], 0)) // _pozitif(a["isci_basina_mb"], 400)
-        n = min(n, max(1, int(sinir)))
+        n = min(n, max(_pozitif(a["en_az_isci"], 1), int(sinir)))  # bellek darlığı seriye çökertmez: taban en_az_isci
     n = min(n, _pozitif(a["ust_sinir"], 32))
     if _ci_mi():
         n = min(n, _pozitif(a["ci_ust_sinir"], 8))

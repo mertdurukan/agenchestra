@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -27,6 +28,11 @@ OTURUM = "boyut1234567890-oturum"
 SINIR = 1800
 
 
+def _yolsuz(ss):
+    """KURALLAR.md yolu kurulum konumuna bağlıdır (kullanıcı dizini, klon); bütçe 40 karakterlik sabit yolla ölçülür."""
+    return re.sub(r"Kurallar: .*?\. Çekirdek", "Kurallar: " + "y" * 40 + ". Çekirdek", ss)
+
+
 def _tok(c):
     return round(c / 4)
 
@@ -42,6 +48,12 @@ class BaglamBoyutu(unittest.TestCase):
         self._env.start()
         for k in ("CLAUDE_PROJECT_DIR", "ORKESTRA_RUYA", "ORKESTRA_PERSPEKTIF"):
             os.environ.pop(k, None)
+        # Ölçüt çekirdek hook bağlamıdır; sürekli açık skill gövdesi (ADR-0113/0119), ilk mesaj kabuk satırı (ADR-0102)
+        # ve tur başı düğme yönergesi (P-029) kendi testlerinde sınanır, burada ölçümü ve determinizmi bozmasın.
+        os.environ.update({"ORKESTRA_SKILL_SUREKLI": "0", "ORKESTRA_KABUK_PROFILI": "0", "ORKESTRA_SECIM_HATIRLATMA": "0",
+                           "ORKESTRA_ONAY_KAPISI": "0", "ORKESTRA_KOK_NEDEN": "0"})  # onay kapısı (P-016) ve kök neden satırı (ADR-0101) de çekirdek dışıdır
+        with open(os.path.join(self.sd, "soru_sinif.json"), "w", encoding="utf-8") as f:
+            json.dump({"kaynak_sozlesmesi": ""}, f)  # ADR-0085 KAYNAK satırı kendi testinde sınanır
         yol = os.path.join(self.proje, "niyet", "niyet.jsonl")
         os.makedirs(os.path.dirname(yol))
         self._p = [mock.patch.object(niyet, "NIYET_YOLU", yol), mock.patch.object(niyet, "GENEL_DIZIN", os.path.dirname(yol)),
@@ -182,7 +194,7 @@ class BaglamBoyutu(unittest.TestCase):
         """041 P1: SessionStart bağlamı üç satır (bağlı iş + kart; uyarılar; kurallar + izin) ve ≤700 karakter (en kötü durum; çekirdek satırı +~140 karakter, 32 KB KURALLAR.md'yi okutmamanın bedeli)."""
         ss = self.session_start()
         self.assertEqual(len(ss.splitlines()), 3, ss)
-        self.assertLessEqual(len(ss), 700, f"{len(ss)} karakter: {ss!r}")
+        self.assertLessEqual(len(_yolsuz(ss)), 700, f"{len(ss)} karakter: {ss!r}")
 
     def test_model_sapmasi_uyarisi_uc_satirda_kaybolmaz(self):
         with mock.patch.object(hook, "_model_sapma_satiri",
@@ -190,7 +202,7 @@ class BaglamBoyutu(unittest.TestCase):
             ss = self.session_start()
         self.assertIn("ana ajan modeli politika dışı", ss)
         self.assertEqual(len(ss.splitlines()), 3, ss)
-        self.assertLessEqual(len(ss), 700, f"{len(ss)} karakter: {ss!r}")
+        self.assertLessEqual(len(_yolsuz(ss)), 700, f"{len(ss)} karakter: {ss!r}")
 
     def test_kosul_yoksa_perspektif_ve_panel_satiri_yok(self):
         ss = self.session_start()
@@ -203,6 +215,17 @@ class BaglamBoyutu(unittest.TestCase):
         self.assertNotIn("orkestra niyet --ne", up)
         self.assertNotIn("Kayıtlı niyet:", up)
         self.assertIn("orkestra:isci-t2 G-101 (45 dk)", up)
+
+    def test_yalitilan_ozellikler_acikken_buyume_tavani(self):
+        """Fikstür çekirdek dışı özellikleri kapatır; açıkken bağlama kattıkları karakter tavanı altında kalır (ölçüm 31.10.2026)."""
+        taban = len(self.ups())
+        for anahtar, tavan in (("ORKESTRA_KABUK_PROFILI", 500), ("ORKESTRA_SECIM_HATIRLATMA", 320)):
+            with self.subTest(anahtar=anahtar):
+                with mock.patch.dict(os.environ):
+                    os.environ.pop(anahtar)
+                    artis = len(self.ups()) - taban
+                self.assertGreater(artis, 0, f"{anahtar} açıkken bağlama bir şey eklemeli")
+                self.assertLessEqual(artis, tavan, f"{anahtar}: +{artis} karakter")
 
     def test_bagsiz_oturumda_acik_is_kimlikleri_listelenir(self):
         os.remove(os.path.join(self.sd, "oturumlar", OTURUM + ".json"))

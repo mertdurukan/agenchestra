@@ -2,7 +2,8 @@
 
 PreToolUse'ta Write/Edit hedefinin dosya adı `ayarlar/uretim_enjeksiyonu.json` eşlemesindeki bir belge türüne denkse o
 türün kısa kural metni döner; hook bunu engellemeyen bağlam olarak ekler. Model çağırmaz; hata olursa boş metin döner.
-Her enjeksiyon `gunluk.jsonl`'a `uretim_enjekte` olarak tür alanıyla yazılır (içerik yazılmaz). Aynı oturumda aynı tür
+Her enjeksiyon `gunluk.jsonl`'a `uretim_enjekte` olarak tür alanıyla yazılır (içerik yazılmaz); `kontrol_orani` > 0 ise
+kontrol kolundaki oturumlar metin almaz ve `uretim_kontrol` yazar (eşzamanlı kontrol, varsayılan 0). Aynı oturumda aynı tür
 için en çok `oturum_basina` kez eklenir (sayaç `uretim_sayac.json`). Ayar: `ayarlar/uretim_enjeksiyonu.json` + proje
 durum dizininde aynı adlı dosya (anahtar bazında ezer); `ORKESTRA_URETIM_ENJEKSIYON=0` kapatır.
 """
@@ -11,6 +12,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import zlib
 
 import ork_lib as L
 
@@ -59,6 +61,18 @@ def esleme_bul(ayar: dict, dosya_adi: str):
     return None
 
 
+def kontrol_kolu(oturum_id, ayar: dict) -> bool:
+    """Eşzamanlı kontrol kolu: `kontrol_orani` (0–1, varsayılan 0) kadar oturum, oturum kimliğinin sabit özetiyle
+    (rastgele değil, yeniden üretilebilir) enjeksiyon almaz; kol `uretim_kontrol` günlüğünden okunur (ret_olcum)."""
+    try:
+        oran = float(ayar.get("kontrol_orani", 0) or 0)
+    except Exception:
+        return False
+    if oran <= 0 or oturum_id is None:
+        return False
+    return (zlib.crc32(str(oturum_id).encode("utf-8")) % 10000) < int(round(min(oran, 1.0) * 10000))
+
+
 def _kes(metin: str, sinir: int) -> str:
     if len(metin) <= sinir:
         return metin
@@ -90,9 +104,9 @@ def _sayac_al_artir(sd, oturum_id, tur: str, en_cok: int) -> bool:
     return True
 
 
-def _gunluk(sd, oturum_id, tur: str, ajan=None) -> None:
+def _gunluk(sd, oturum_id, tur: str, ajan=None, olay: str = "uretim_enjekte") -> None:
     try:
-        kayit = {"zaman": L.simdi(), "oturum": oturum_id, "tur": "uretim_enjekte", "belge": tur}
+        kayit = {"zaman": L.simdi(), "oturum": oturum_id, "tur": olay, "belge": tur}
         if ajan:
             kayit["ajan"] = ajan
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), kayit)
@@ -114,6 +128,9 @@ def metin(dosya_yolu, sd=None, oturum_id=None, ajan=None) -> str:
         tur = str(e["tur"])
         en_cok = max(1, int(ayar.get("oturum_basina", 1) or 1))
         if not _sayac_al_artir(sd, oturum_id, tur, en_cok):
+            return ""
+        if kontrol_kolu(oturum_id, ayar):
+            _gunluk(sd, oturum_id, tur, ajan, "uretim_kontrol")
             return ""
         sinir = max(60, int(ayar.get("metin_max", 300) or 300))
         _gunluk(sd, oturum_id, tur, ajan)

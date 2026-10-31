@@ -23,21 +23,21 @@ def yukle(ad):
 
 class OlayAyarTesti(unittest.TestCase):
     def test_iki_dosya_gecerli_json(self):
-        self.assertIsInstance(yukle("olay_kategorileri.json"), dict)
+        self.assertIsInstance(yukle("olay_esleme.json"), dict)
         self.assertIsInstance(yukle("olay_kaydi.json"), dict)
 
     def test_kapi_modu_golge(self):
         self.assertEqual(kapi_mod.mod("olay_kaydi"), "golge")
 
     def test_gorulen_kurallar_eslemede_ya_da_diger(self):
-        k = yukle("olay_kategorileri.json")
+        k = yukle("olay_esleme.json")
         for kural in GORULEN_KURALLAR:
             e = k["kural_ihlal"].get(kural, k["varsayilan"])
             self.assertIn(e.get("tur", "kapi_ret"), k["turler"] + ["kapi_ret"])
             self.assertTrue(e["ana"] and e["alt"], kural)
 
     def test_esleme_turleri_gecerli(self):
-        k = yukle("olay_kategorileri.json")
+        k = yukle("olay_esleme.json")
         for bolum in ("kural_ihlal", "davranis_sinif"):
             for ad, e in k[bolum].items():
                 self.assertIn(e["tur"], k["turler"], ad)

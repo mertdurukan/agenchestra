@@ -16,7 +16,7 @@ import cfg  # noqa: E402
 
 CAGRILAR = ("run", "Popen", "check_output", "check_call", "call")
 # Bilerek görünür ya da Windows dışı kollar: masaüstü bağlantısı açan çağrılar.
-ISTISNA_IZ = ("xdg-open",)
+ISTISNA_IZ = ("xdg-open", "[yol] + komut[1:]")  # ikincisi: MCP stdio başlatıcıları; creationflags boruları keser (I-304 denemesi)
 
 
 def bayraksiz_cagrilar(kok):

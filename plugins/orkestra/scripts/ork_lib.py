@@ -124,18 +124,6 @@ def baglanti_koku(proje: str, cwd: str | None = None) -> str:
     return proje
 
 
-def replace_dene(kaynak: str, hedef: str, deneme: int = 5, bekle: float = 0.05) -> None:
-    """os.replace; Windows'ta okuyucu/AV yüzünden geçici PermissionError olursa kısa aralıkla yeniden dener (deneme x bekle sn), sonuncuda yükseltir."""
-    for i in range(deneme):
-        try:
-            os.replace(kaynak, hedef)
-            return
-        except PermissionError:
-            if i == deneme - 1:
-                raise
-            time.sleep(bekle)
-
-
 ESKI_AD = "ruya"  # geriye uyum: perspektifin eski adı (durum klasörü, rapor öneki, süreç etiketi, ajan adı)
 
 
@@ -146,7 +134,7 @@ def perspektif_goc(p: str) -> None:
     if os.path.isdir(yeni) or not os.path.isdir(eski):
         return
     try:
-        replace_dene(eski, yeni)
+        os.replace(eski, yeni)
     except OSError:
         try:
             shutil.copytree(eski, yeni)
@@ -1793,7 +1781,6 @@ def test_komutu_paralel(komut: str, proje: str) -> str:
     if os.path.basename(jt[0].replace("\\", "/")) in ("pytest", "pytest.exe"):
         kos = 0
     else:
-        i = 0
         if not _PARALEL_YORUMLAYICI_RE.match(os.path.basename(jt[0].replace("\\", "/"))):
             return komut
         i = 1
@@ -1815,8 +1802,8 @@ def test_komutu_paralel(komut: str, proje: str) -> str:
     klasor = any(os.path.isdir(os.path.join(kok, y)) for y in yollar)
     if yollar and not klasor and len(yollar) < 2:
         return komut  # tek dosya: paralel kazanç yok
-    koşucu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_paralel.py")
-    return " ".join(['"%s"' % python_yorumlayici(), '"%s"' % koşucu] + [f'"{y}"' for y in (yollar or ["."])])
+    kosucu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_paralel.py")
+    return " ".join(['"%s"' % python_yorumlayici(), '"%s"' % kosucu] + [f'"{y}"' for y in (yollar or ["."])])
 
 
 def paralel_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float]:
@@ -2022,7 +2009,7 @@ def _defter_dondur(sd: str) -> None:
     md = os.path.join(sd, "ortak_defter.md")
     if os.path.exists(md) and os.path.getsize(md) > DEFTER_MAX_BAYT:
         damga = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        replace_dene(md, os.path.join(sd, f"ortak_defter_{damga}.md"))
+        os.replace(md, os.path.join(sd, f"ortak_defter_{damga}.md"))
 
 
 def defter_ekle(sd: str, kayit: dict) -> None:
@@ -2053,17 +2040,9 @@ def defter_kayitlari(sd: str) -> list[dict]:
 # ---------------------------------------------------------------- hook çıktısı
 
 def hook_cikti(obj: dict | None = None, kod: int = 0) -> None:
-    try:
-        if obj:
-            sys.stdout.write(json.dumps(obj, ensure_ascii=False))
-        sys.stdout.flush()
-    except OSError as e:
-        # I-059 P5: hook-hatasi günlüğündeki 9 SessionStart/PreToolUse kaydının tamamı bu flush'ta "OSError [Errno 22]" (barındıran
-        # süreç stdout borusunu kapatmış/geçersiz kılmış); çıkış kodu korunur (reddetme kodu hata yoluyla izne dönmesin), neden stderr'e.
-        try:
-            sys.stderr.write(f"hook_cikti: stdout yazılamadı ({type(e).__name__}: {e})\n")
-        except Exception:
-            pass
+    if obj:
+        sys.stdout.write(json.dumps(obj, ensure_ascii=False))
+    sys.stdout.flush()
     sys.exit(kod)
 
 
@@ -2279,64 +2258,11 @@ def _maliyet_kayitlari_oku(yol: str, duzeltme: bool = True) -> list[dict]:
     return _duzeltme_uygula(yol, out) if duzeltme else out
 
 
-def _tok(r) -> dict:
-    """Satırın (ya da token sözlüğünün) dört token alanı; bozuk/eksik değer 0."""
-    out = {}
-    for a in _TOKEN_ALANLARI:
-        v = r.get(a) if isinstance(r, dict) else 0
-        out[a] = v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else 0
-    return out
-
-
-def _tok_fark(a: dict, b: dict) -> dict:
-    """Bileşen başına max(0, a - b)."""
-    return {k: max(0, a[k] - b[k]) for k in _TOKEN_ALANLARI}
-
-
-def _tok_topla(satirlar) -> dict:
-    t = {a: 0 for a in _TOKEN_ALANLARI}
-    for r in satirlar:
-        for a, v in _tok(r).items():
-            t[a] += v
-    return t
-
-
-def _artik_satiri(kaynak_satir: dict, art: dict, zaman=None) -> dict:
-    satir = {a: kaynak_satir.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "is", "atif_nedeni", "span_id")}  # I-222 P7: iş kimliği türetilen satıra da geçer
-    if zaman:
-        satir["zaman"] = zaman
-    satir.update(art)
-    satir["kaynak"] = "hook-artik"
-    satir["maliyet_usd"] = _satir_usd(satir)
-    return satir
-
-
-def alt_hook_artimlari(hook: list[dict], tur: list[dict]) -> list[tuple]:
-    """Alt ajan hook satırları BİRİKİMLİDİR (her SubagentStop tüm transkripti okur): satırı artıma çevirir.
-    Zincir aynı model içinde zaman sırasıyla kurulur; tur satırının 'hook_birikim' alanı (yazıcının yuttuğu birikimli
-    hook anlık görüntüsü) zincirde taban olarak durur, böylece yutulmuş satırın sonrasındaki birikimli satır yeniden
-    sayılmaz. Dönüş: [(satır, artım_tokenları)]."""
-    zincir = [(r.get("zaman") or "", 0, r, _tok(r)) for r in hook]
-    zincir += [(r.get("zaman") or "", 1, None, _tok(r["hook_birikim"])) for r in tur if isinstance(r.get("hook_birikim"), dict)]
-    zincir.sort(key=lambda x: (x[0], x[1]))
-    onceki = {a: 0 for a in _TOKEN_ALANLARI}
-    out = []
-    for _z, _s, r, t in zincir:
-        if r is not None:
-            out.append((r, _tok_fark(t, onceki)))
-        onceki = {a: max(onceki[a], t[a]) for a in _TOKEN_ALANLARI}
-    return out
-
-
 def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
     """'tur' kaydı olan gruplarda hook'un gördüğü ama tur satırlarının kapsamadığı token (tur kaydı başlamadan önceki
-    turlar, ya da hook'un turdan fazla saydığı kısım). Netleme SPAN bazlıdır (I-271): aynı (oturum, agent_id, model)
-    içinde hem hook hem tur taşıyan her span_id için artık = max(0, Σhook_span - Σtur_span), bileşen başına; böylece
-    bir span'in hook satırı yazıcıda yutulsa da öteki span'lerin artığı bozulmaz. Span'siz (eski) ya da eşi olmayan
-    satırlar bugünkü grup mantığıyla netlenir: max(0, Σkalan_hook - Σkalan_tur). Ana ajan hook satırları artımlıdır;
-    alt ajanda birikimlidir ve önce artıma çevrilir (alt_hook_artimlari). Yazıcının netlediği tur satırları
-    (hook_netlendi) yeniden netlenmez; taşıdıkları 'hook_artik' ayrı bir 'hook-artik' satırı olarak çıkar. Netleme
-    MODEL başına yapılır: karışık modelli grupta bir modelin fazlası ötekinin eksiğini kapatıp fiyat farkını yutmasın."""
+    turlar). Ana ajan hook satırları artımlıdır (toplanır); alt ajanda birikimlidir (en son satır). Artık = hook - tur,
+    bileşen başına en az 0; sıfırdan büyükse 'hook-artik' satırı olarak eklenir. Netleme MODEL başına yapılır: karışık
+    modelli grupta bir modelin fazlası ötekinin eksiğini kapatıp fiyat farkını yutmasın."""
     sonuc = []
     hook_grup: dict = {}  # satırlar bir kez gruplanır; grup başına yeniden taramak satır sayısıyla ikinci derece yavaşlar
     tur_grup: dict = {}
@@ -2345,39 +2271,24 @@ def _hook_artigi(rows: list[dict], tur_var: set) -> list[dict]:
         if k in tur_var:
             (tur_grup if r.get("kaynak") == "tur" else hook_grup).setdefault(k, []).append(r)
     for k in tur_var:
-        tur = tur_grup.get(k, [])
-        for r in tur:  # yazıcının tur satırına gömdüğü artık (hook satırı defterden kaldırıldı)
-            art = _tok(r.get("hook_artik")) if isinstance(r.get("hook_artik"), dict) else None
-            if art and any(art.values()):
-                sonuc.append(_artik_satiri(r, art, (r.get("hook_artik") or {}).get("zaman")))
         hook = hook_grup.get(k)
         if not hook:
             continue
+        tur = tur_grup.get(k, [])
+        if k[1]:
+            hook = [max(hook, key=lambda r: (r.get("zaman") or "", r.get("maliyet_usd") or 0))]
         for model in sorted({r.get("model") or "" for r in hook}):
             h = [r for r in hook if (r.get("model") or "") == model]
-            t_hepsi = [r for r in tur if (r.get("model") or "") == model]
-            h_art = alt_hook_artimlari(h, t_hepsi) if k[1] else [(r, _tok(r)) for r in h]
-            t = [r for r in t_hepsi if not r.get("hook_netlendi")]
-            t_span: dict = {}
-            for r in t:
-                if r.get("span_id"):
-                    t_span.setdefault(r["span_id"], []).append(r)
-            h_span: dict = {}
-            kalan_h, kalan_t = [], [r for r in t if not r.get("span_id")]
-            for r, art in h_art:
-                s = r.get("span_id")
-                if s and s in t_span:
-                    h_span.setdefault(s, []).append((r, art))
-                else:
-                    kalan_h.append((r, art))
-            kalan_t += [r for s, l in t_span.items() if s not in h_span for r in l]
-            parcalar = [(l, t_span[s]) for s, l in h_span.items()]
-            if kalan_h:
-                parcalar.append((kalan_h, kalan_t))
-            for hl, tl in parcalar:
-                art = _tok_fark(_tok_topla(a for _r, a in hl), _tok_topla(tl))
-                if any(art.values()):
-                    sonuc.append(_artik_satiri(max((r for r, _a in hl), key=lambda r: r.get("zaman") or ""), art))
+            t = [r for r in tur if (r.get("model") or "") == model]
+            art = {a: max(0, sum(r.get(a) or 0 for r in h) - sum(r.get(a) or 0 for r in t)) for a in _TOKEN_ALANLARI}
+            if not any(art.values()):
+                continue
+            son = max(h, key=lambda r: r.get("zaman") or "")
+            satir = {a: son.get(a) for a in ("zaman", "oturum", "gorev", "surec", "ajan", "agent_id", "model", "is", "atif_nedeni")}  # I-222 P7: iş kimliği türetilen satıra da geçer
+            satir.update(art)
+            satir["kaynak"] = "hook-artik"
+            satir["maliyet_usd"] = _satir_usd(satir)
+            sonuc.append(satir)
     return sonuc
 
 

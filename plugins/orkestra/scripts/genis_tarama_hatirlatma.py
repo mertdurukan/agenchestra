@@ -14,7 +14,7 @@ import re
 _KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VARSAYILAN_YOL = os.path.join(_KOK, "ayarlar", "genis_tarama_hatirlatma.json")
 PROJE_DOSYA = "genis_tarama_hatirlatma.json"
-MODLAR = ("golge", "kapali")
+MODLAR = ("golge", "reddet", "kapali")
 _BOLUCU = re.compile(r"&&|\|\||[;|\n]")
 
 
@@ -58,12 +58,37 @@ def ihlal_mi(komut, sd=None) -> bool:
     ayar = ayar_oku(sd)
     if mod(ayar) == "kapali" or not isinstance(komut, str) or not komut.strip():
         return False
-    for parca in _BOLUCU.split(komut.replace("\\", "/").lower()):
-        if _eslesir(ayar.get("zaman_siniri_kaliplari"), parca):
+    return bool(_ihlalli_parcalar(komut, ayar))
+
+
+def _ihlalli_parcalar(komut: str, ayar: dict) -> list[str]:
+    """Komutun ihlal sayılan parçaları (özgün yazımıyla); zaman sınırı ve derinlik/budama muafiyeti olanlar sayılmaz."""
+    sonuc = []
+    for parca in _BOLUCU.split(komut.replace("\\", "/")):
+        kucuk = parca.lower()
+        if _eslesir(ayar.get("zaman_siniri_kaliplari"), kucuk) or _eslesir(ayar.get("muafiyet_kaliplari"), kucuk):
             continue
-        if _eslesir(ayar.get("komut_kaliplari"), parca) and _eslesir(ayar.get("genis_kok_kaliplari"), parca):
-            return True
-    return False
+        for k in ayar.get("komut_kaliplari") or []:
+            try:
+                m = re.search(k, kucuk)
+            except re.error:
+                continue
+            if m and _eslesir(ayar.get("genis_kok_kaliplari"), kucuk[m.start():]):  # kök, komuttan sonra gelmeli
+                sonuc.append(parca.strip())
+                break
+    return sonuc
+
+
+def reddet_metni(komut, sd=None) -> str:
+    """`reddet` kipinde, reddedilecek (`reddet_kaliplari`) bir parça varsa hazır düzeltilmiş komutlu ret metni; yoksa ''.
+    Kip `reddet` değilse ya da ihlal yoksa ''. Süreç öldürmez, komutu yeniden yazmaz: yalnız durdurur ve yolu söyler."""
+    ayar = ayar_oku(sd)
+    if mod(ayar) != "reddet" or not isinstance(komut, str) or not komut.strip():
+        return ""
+    for parca in _ihlalli_parcalar(komut, ayar):
+        if _eslesir(ayar.get("reddet_kaliplari"), parca.lower()):
+            return str(ayar.get("reddet_metni", "")).replace("{onerilen}", str(ayar.get("onek", "")) + parca)
+    return ""
 
 
 def hatirlatma_metni(sd=None) -> str:

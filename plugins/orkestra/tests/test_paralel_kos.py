@@ -33,11 +33,12 @@ class CekirdekSayisi(Temel):
         self.assertEqual(P.cekirdek_sayisi(self.proje, cekirdek=8, bellek_mb=64000), 8)
 
     def test_bellek_siniri_cpu_yu_asagi_ceker(self):
-        # (4000 - 1536 rezerv) // 400 = 6
-        self.assertEqual(P.cekirdek_sayisi(self.proje, cekirdek=16, bellek_mb=4000), 6)
+        # (4000 - 768 rezerv) // 300 = 10
+        self.assertEqual(P.cekirdek_sayisi(self.proje, cekirdek=16, bellek_mb=4000), 10)
 
-    def test_bellek_cok_dusukse_en_az_bir(self):
-        self.assertEqual(P.cekirdek_sayisi(self.proje, cekirdek=16, bellek_mb=100), 1)
+    def test_bellek_cok_dusukse_taban_en_az_isci(self):
+        self.assertEqual(P.cekirdek_sayisi(self.proje, cekirdek=16, bellek_mb=100), 4)
+        self.assertEqual(P.cekirdek_sayisi(self.proje, cekirdek=2, bellek_mb=100), 2)  # CPU tabandan azsa CPU
 
     def test_bellek_okunamazsa_cpu(self):
         with mock.patch.object(P, "kullanilabilir_bellek_mb", return_value=None):
