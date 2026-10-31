@@ -1240,7 +1240,7 @@ def kural_ac(sd: str, id: str) -> dict:
 
 def kural_gorunum(sd: str, proje: str) -> dict:
     proje_liste = _kurallar_oku(sd)
-    eklenti = [dict(r, devre_disi=r.get("id") in _devre_disi(sd)) for r in _eklenti_oku()]
+    eklenti = [dict(r, metin=KM.mod_coz(r.get("metin"), sd), devre_disi=r.get("id") in _devre_disi(sd)) for r in _eklenti_oku()]
     oneriler = []
     for r in proje_liste:
         if r.get("durum") == "oneri":
