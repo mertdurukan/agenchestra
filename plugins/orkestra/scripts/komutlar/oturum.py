@@ -76,7 +76,14 @@ def cmd_oku(a):
 def cmd_rapor(a):
     import oturum_olcum as O
     sd = sd_gerekli()
-    print(json.dumps(O.rapor(sd, a.gun), ensure_ascii=False, indent=2))
+    if a.sinifla:
+        zaman, _, sonuc = a.sinifla.partition("=")
+        if sonuc not in ("dogru", "yanlis"):
+            sys.exit("oturum rapor: --sinifla ZAMAN=dogru|yanlis")
+        O.sinifla(sd, zaman, sonuc)
+        print("sınıflandı")
+        return
+    print(json.dumps(O.rapor(sd, a.gun, a.gecikme), ensure_ascii=False, indent=2))
 
 
 def kaydet(alt):
@@ -93,4 +100,6 @@ def kaydet(alt):
     o.set_defaults(f=cmd_oku)
     r = p.add_parser("rapor", help="çakışma tespitleri ve gecikme ölçümü (gölge günlük)")
     r.add_argument("--gun", type=int, default=7)
+    r.add_argument("--gecikme", type=int, default=0, help="N çağrılık hook ek süresi ölçümü (ör. 1000)")
+    r.add_argument("--sinifla", metavar="ZAMAN=dogru|yanlis", help="bir tespiti elle sınıfla (yanlış pozitif ölçümü)")
     r.set_defaults(f=cmd_rapor)

@@ -339,3 +339,31 @@ def gelen_metin(sd: str, oturum: str) -> str:
                 + " | ".join(f"[{x.get('kimden', '-')}] {x['metin'][:NOT_EN_COK]}" for x in n))
     except Exception:
         return ""
+
+
+def canli_mi(sd: str | None, worktree: str | None = None, dal: str | None = None, esik_s: float = CANLI_S,
+             simdi: float | None = None) -> bool:
+    """Verilen çalışma ağacında ya da dalda canlı bir oturum kaydı var mı (dal temizliği gibi araçlar için, yalnız okuma)."""
+    if not (etkin() and sd):
+        return False
+    t = time.time() if simdi is None else simdi
+    wn = _norm(worktree) if worktree else None
+    try:
+        girdiler = list(os.scandir(os.path.join(sd, "oturumlar")))
+    except OSError:
+        return False
+    for e in girdiler:
+        if not e.name.endswith(".json") or ".baglanti" in e.name or e.name.startswith("acik_ajan_"):
+            continue
+        try:
+            if t - e.stat().st_mtime > esik_s:
+                continue
+            with open(e.path, encoding="utf-8") as f:
+                k = (json.load(f) or {}).get("konum")
+        except (OSError, ValueError, AttributeError):
+            continue
+        if not isinstance(k, dict) or t - float(k.get("gorulme") or 0) > esik_s:
+            continue
+        if (wn and k.get("worktree") == wn) or (dal and k.get("dal") == dal):
+            return True
+    return False
