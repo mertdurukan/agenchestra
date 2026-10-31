@@ -1017,7 +1017,7 @@ def mevcut_durum_eksikleri(klasor: str) -> list[str]:
         sonra = sade[m.end():].lstrip("\n")
         blok = re.split(r"\n(?:\*\*|##)", sonra, maxsplit=1)[0]
         if "Tarih ve saat:" in blok:  # yeni düzen (ADR-0122): etiketli satırlar; boş etiket dolu sayılmaz
-            dolu = re.search(r"Tarih ve saat:[ \t]*\S", blok) is not None
+            dolu = (re.search(r"Tarih ve saat:[ \t]*(\S.*)", blok) or [None, ""])[1].strip()
         else:
             dolu = m.group(1).strip() or (sonra.split("\n\n", 1)[0].strip() if not sonra.startswith("**") else "")
         if not dolu or dolu.startswith("#"):
