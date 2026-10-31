@@ -44,6 +44,14 @@ def cmd_harita_denetle(a):
     print(f"eskimiş: {len(d['eskimis'])}" + (f" ({', '.join(d['eskimis'])})" if d["eskimis"] else ""))
 
 
+def cmd_harita_istek(a):
+    import harita as H
+    import harita_istek as HI
+    sd = sd_gerekli()
+    graf = os.path.join(H.klasor_yolu(sd), HI.GRAF_DIZINI)
+    print(HI.metin(HI.etki(a.metin, graf)))
+
+
 def kaydet(alt):
     p = alt.add_parser("harita", help="proje sistem haritası: yapılandırma, süreç, altyapı kayıtlarını betikle üretir ve günceller").add_subparsers(dest="alt", required=True)
     y = p.add_parser("yenile", help="eskimiş katmanları baştan tarayıp yeniden yazar")
