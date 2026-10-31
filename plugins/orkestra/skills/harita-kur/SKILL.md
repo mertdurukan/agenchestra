@@ -30,7 +30,8 @@ Harita bir kez kurulur; kenarlar kaynak dosya özetiyle eskime takibine girer (`
    - `## Değişmezler`: konu için her zaman doğru kalması gereken kural ya da eşleşme.
 4. **LLM kenarı ekle (yalnız statik kenarın kaçırdığı anlam bağı):** `koken: llm`. Her kenar `kanit: dosya:satır` taşır; kanıt satırı yoksa `guven: dusuk` yazılır (K2). Statik kanıtla desteklenmeyen kenar `orta`/`yuksek` olamaz.
 5. **Doğrula:** `orkestra harita denetle` eskimiş katmanı gösterir; kenar dosyasını `harita_kenar.yaz` şemaya uymayanı zaten atar, atılan kenarı düzeltip yeniden ekle.
-6. **Dağılımı raporla:** kenar sayısı köken ve güven bazında (statik/gecmis/llm × yuksek/orta/dusuk). `dusuk` oranı yüksekse kullanıcıya tek cümleyle söyle.
+6. **INDEX yaz:** `<graf>/INDEX.md`; her kart için bir satır (`- [konu](kartlar/konu.md) — amaç`) ve kenar sayısı özeti.
+7. **Dağılımı raporla:** kenar sayısı köken ve güven bazında (statik/gecmis/llm × yuksek/orta/dusuk). `dusuk` oranı yüksekse kullanıcıya tek cümleyle söyle.
 
 ## Sınırlar
 - Sır değeri karta ya da kenara yazılmaz; yalnız yeri anılır.
