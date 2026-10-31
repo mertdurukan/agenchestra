@@ -391,5 +391,47 @@ class SessionStartKesim(unittest.TestCase):
         self.assertIn("Perspektif raporu hazır", m)
 
 
+class StopToast(_Ortak):
+    """'İş bitti' toast'ı: arka plan görevi açıkken gitmez; görev bitince çalışmanın başından ölçülen süreyle gider."""
+
+    def setUp(self):
+        super().setUp()
+        os.environ["ORKESTRA_BILDIRIM"] = "1"
+        import bildirim
+        self.b = bildirim
+        self._pl = mock.patch.object(sys, "platform", "win32")
+        self._pl.start()
+        self.g = mock.patch.object(bildirim, "gonder", return_value=True).start()
+        self.addCleanup(mock.patch.stopall)
+
+    def _satir(self, tip, ts, icerik, **ek):
+        return {"type": tip, "timestamp": ts, "message": {"role": tip, **({"model": "claude-haiku-5-5", "usage": {"input_tokens": 1, "output_tokens": 1}} if tip == "assistant" else {}), "content": icerik}, **ek}
+
+    def test_arka_plan_acikken_toast_yok_bitince_var(self):
+        t = "2026-10-31T10:%02d:00Z"
+        a = {"type": "assistant", "timestamp": t % 1, "message": {"id": "m1", "model": "claude-haiku-5-5", "usage": {"input_tokens": 1, "output_tokens": 1},
+             "content": [{"type": "tool_use", "id": "toolu_T", "name": "Bash", "input": {"command": "pytest", "run_in_background": True}}]}}
+        _jsonl(self.tr, [{"type": "user", "timestamp": t % 0, "message": {"role": "user", "content": "testleri koş"}}, a,
+                         {"type": "user", "timestamp": t % 2, "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_T",
+                          "content": "Command running in background with ID: b1. Output is being written to: x"}]}}])
+        self.calistir(hook.stop, {"last_assistant_message": "Tam koşu arka planda sürüyor."})
+        self.g.assert_not_called()
+        # görev bitti: bildirim turu 10:12'de başlar, 5 sn sürer; süre çalışmanın başından (10:00) ölçülür
+        _jsonl(self.tr, [_bildirim("toolu_T", "b1") | {"timestamp": t % 12},
+                         {"type": "assistant", "timestamp": "2026-10-31T10:12:05Z", "message": {"id": "m2", "model": "claude-haiku-5-5",
+                          "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "Sonuç: 3 test düştü."}]}}], ekle=True)
+        self.calistir(hook.stop, {"last_assistant_message": "Sonuç: 3 test düştü."})
+        self.g.assert_called_once()
+        self.assertEqual(self.g.call_args[0][0], "Orkestra: iş bitti")
+
+    def test_bilgi_sorusu_onceki_duraktan_beri_bekleme_toast_atmaz(self):
+        _jsonl(self.tr, [{"type": "system", "subtype": "stop_hook_summary", "timestamp": "2026-10-31T10:00:00Z"},
+                         {"type": "user", "timestamp": "2026-10-31T10:00:50Z", "message": {"role": "user", "content": "ne demek?"}},
+                         {"type": "assistant", "timestamp": "2026-10-31T10:00:58Z", "message": {"id": "m1", "model": "claude-haiku-5-5",
+                          "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "şudur."}]}}])
+        self.calistir(hook.stop, {"last_assistant_message": "şudur."})
+        self.g.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
