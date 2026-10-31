@@ -1045,7 +1045,7 @@ def plan_eksikleri(klasor: str) -> list[str]:
         return ["plan.md yok (`orkestra is belge <id> plan`)"]
     return (_plan_temel_eksikleri(klasor, metin) + mevcut_varlik_eksikleri(klasor) + gap_kapsama_eksikleri(klasor)
             + bic_engeli(klasor) + uretim_engeli(klasor) + paralellik_engeli(klasor) + jira_bagimlilik_engeli(klasor)
-            + karar_engeli(klasor) + istek_engeli(klasor))
+            + karar_engeli(klasor) + istek_engeli(klasor) + etki_engeli(klasor))
 
 
 def istek_engeli(klasor: str) -> list[str]:
