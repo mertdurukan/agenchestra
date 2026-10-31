@@ -1,0 +1,12 @@
+{
+  "aciklama": "Makine genelinde test koşusu kirası ve ortak işçi bütçesi (I-309 P4, scripts/kaynak_kira.py). mod: kapali (eski davranış) | golge (kira alınır, beklenmez; bekleme gerekseydi sıra satırı + kapi_golge) | ihlal (kuyrukta beklenir, işçi bütçeyle kısılır). Proje ezmesi: .claude/orkestra/kaynak_kira.json. ORKESTRA_KAYNAK_KIRA=0 kapatır.",
+  "mod": "golge",
+  "sona_erme_s": 30,
+  "sona_erme_gerekce": "heartbeat 10 sn'de bir yazılır (süre/3); 30 sn iki kaçırılmış yenilemeye dayanır, öldürülen koşunun kirası en geç yarım dakikada devralınır.",
+  "bekleme_ust_s": 1800,
+  "bekleme_gerekce": "tam takım bugün birkaç dakikada biter, bilinen en kötü koşu ~2100 sn bellek darlığında; 1800 sn bir tam koşuyu beklemeye yeter, askıda sahipte sonsuz beklemeyi keser.",
+  "butce": null,
+  "butce_gerekce": "null = paralel_kos.cekirdek_sayisi(): makinenin tek koşu için seçtiği işçi sayısı, eşzamanlı koşuların toplam tavanı olur.",
+  "yoklama_s": 0.25,
+  "onbellek": false
+}
