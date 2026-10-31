@@ -1,53 +1,86 @@
 # {baslik}: mevcut durum
 
-## Özet
+<!-- Bu belge değişiklikten ÖNCEKİ durumu anlatır: dal, commit edilmemiş iş ya da yapılmış değişiklik burada yer almaz (onaydan önce yazılır, P-016). Yazım kuralları (tüm belge):
+1. Her ayrı ifade ayrı bir satırdır (madde işareti ya da numara ile); bir satırda en çok bir cümle, ~200 karakter.
+2. Başlık hiyerarşisi: `##` ana başlık, `###` alt başlık (`### 1.1 Ad`); kalın etiket başlık yerine kullanılmaz, yalnız alan adı olarak kullanılır.
+3. Kanıt (dosya:satır, komut, sayı) satırın sonunda parantez içindedir.
+4. Belirsiz sahiplik ("bizim kod", "kendi sunucumuz") yazılmaz; somut ad yazılır (adres, sürüm, yol, tablo, müşteri).
+5. Tablo ve kod bloğu yok; etki haritası madde arar (kapı). -->
 
-<!-- doldur (ilk bakışta okunur, 3-4 kısa cümle; paragraf en çok 300 karakter (biçim kapısı daha uzununu reddeder), uzunsa ayrı paragraflara böl): bu belge neyi gösteriyor, ana sonuç ne, karar ya da onay gereken tek konu ne. Belgeyi bitirince yaz. -->
+## Kapsam ve yöntem
 
 **Amaç:**
 
-<!-- doldur: bu dosyanın neden yazıldığı; hangi değişikliğin dokunacağı mevcut durumu gösterir. Bu dosya işin ilk dosyasıdır; plan.md ve todo.md buna dayanır. -->
+<!-- doldur: iki satır. 1) Hangi değişiklik planlanıyor. 2) Bu belge hangi soruyu yanıtlıyor (değişikliğin hangi koda, davranışa ve veriye dokunacağı). plan.md ve todo.md bu belgeye dayanır. -->
+
+- 
+- 
 
 **Ölçüm saati:**
 
-<!-- doldur: ölçüm tarihi ve saati, ölçülen kod/veri sürümü (dal, commit) -->
+<!-- doldur: her bilgi ayrı satır, bu dört etiketle:
+- Tarih ve saat: GG.AA.YYYY SS:DD (yerel)
+- Depo: ad ya da yol
+- Dal: ad
+- Commit: kısa hash ve tarihi -->
+
+- Tarih ve saat: 
+- Depo: 
+- Dal: 
+- Commit: 
 
 **Harita:**
 
-<!-- doldur: `orkestra harita oku` çıktısından bu işe dokunan kayıt kimlikleri (sır yeri, süreç, altyapı, modül); haritada yoksa taranan yer. -->
+<!-- doldur: `orkestra harita oku` çıktısından bu işe dokunan kayıt kimlikleri, her biri ayrı satır (sır yeri, süreç, altyapı, modül); haritada yoksa tek satır: "Haritada yok; taranan yer: <yol>". -->
+
+- 
 
 **Yöntem:**
 
-<!-- doldur: ne okundu/koşuldu (dosya okuma, komut, sorgu); "teyit gerekir" bakılmadı demektir -->
+<!-- doldur: her okuma ya da koşu ayrı satır: ne yapıldı, hangi araçla (dosya okuma, komut, sorgu). Veriyle doğrulanabilen her şey burada çalışılır; bakılmayan şey "Yöntem"de yer almaz, §4'e girer. -->
+
+- 
 
 **Sınır:**
 
-<!-- doldur: bakılmayan yerler, erişilemeyenler -->
+<!-- doldur: bakılmayan ya da erişilemeyen her yer ayrı satır ve nedeni; yoksa tek satır: "Yok". -->
+
+- 
 
 ## 1. İstek ya da veri hangi yoldan geçiyor
 
-<!-- doldur: ilk adımdan son adıma, dosya:satır ile -->
+<!-- doldur:
+- İlk satır `**Sonuç:**` ile başlar: yol kaç adım, hangi adımda risk var (tek cümle).
+- Her yol (örn. V1, V2, tek yol) ayrı alt başlıktır: `### 1.1 <yol adı>`, `### 1.2 …`.
+- Alt başlığın altında ilk adımdan son adıma numaralı liste; her adım tek satır, sonunda (dosya:satır). -->
 
 ## 2. Bugünkü davranış ve çalışan korumalar
 
-<!-- doldur: bugün ne yapıyor, hangi koruma ya da bağlantı çalışıyor, ne kadarı yeterli; her iddia dosya:satır, komut çıktısı ya da ölçüm saatiyle -->
+<!-- doldur:
+- İlk satır `**Sonuç:**`: mevcut koruma yeterli mi (tek cümle).
+- `### 2.1 Çalışan korumalar` ve `### 2.2 Eksik ya da çalışmayan korumalar` alt başlıkları.
+- Her madde: `- **koruma adı:** ne yapıyor (kanıt)`.
+- Her iddia dosya:satır, komut çıktısı ya da ölçüm saatiyle desteklenir; kanıtsız iddia yazılmaz. -->
 
 ## 3. Etki haritası
 
-<!-- doldur: her madde ayrı satır: yer → bugünkü davranış → dokunmanın riski -->
+<!-- doldur:
+- İlk satır `**Sonuç:**`: kaç yere dokunulacak, en riskli hangisi (tek cümle).
+- Her dokunulan yer ayrı madde, tam bu biçimde: `- **yer** → bugünkü davranış → dokunmanın riski: düşük | orta | yüksek`. -->
 
-## 4. Git durumu
+## 4. Doğrulanamayanlar
 
-<!-- doldur: işin dalında zaten yapılmış olanlar; çalışma ağacı, dal, son commit -->
+<!-- doldur: yalnız veriyle, kodla ya da komutla doğrulanması denenip DOĞRULANAMAYAN şeyler girer. Bilinmeyen diye bir bölüm yoktur: bakılabilen her şey §1-§3'te kanıtla yazılır.
+- İlk satır `**Sonuç:**`: kaç madde var, hangisi plan öncesi kapanmalı (tek cümle); madde yoksa tek satır: "Yok; gereken her şey §1-§3'te kanıtlandı."
+- Her madde ayrı alt başlık değil, üç satırlı madde:
+  - **Konu:** neyin doğrulanamadığı
+  - **Denenen:** hangi yol denendi (komut, dosya, sorgu)
+  - **Engel:** neden doğrulanamadı (erişim, yetki, süre) ve kim kapatabilir -->
 
-## 5. Bilinmeyenler
-
-<!-- doldur: teyit gerekir ve karar gerekir maddeleri; eksik bilgi bu dosyaya eklenir, plan ya da todo'da yamanmaz -->
-
-## 6. Gap analizi
+## 5. Gap analizi
 
 <!-- doldur (gap'li işlerde zorunlu; plan bu bölümden beslenir):
-önce "Hedef durum:" etiketli tek cümle (kalın);
-sonra her gap ayrı satır, şu biçimde:
-- **G1:** hedef → mevcut (MD §n) → fark
-Gap yoksa bile en az bir satır yaz; "fark yok" gerekçesiyle belirt. -->
+- Önce `**Hedef durum:**` etiketiyle tek cümle.
+- Sonra her gap ayrı satır, tam bu biçimde: `- **G1:** hedef → mevcut (MD §n) → fark`.
+- Her satır tek fikir; hedef, mevcut ve fark kısa tutulur.
+- Gap yoksa bile en az bir satır yaz; "fark yok" gerekçesiyle belirt. -->
