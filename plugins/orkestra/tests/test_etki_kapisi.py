@@ -1,4 +1,4 @@
-"""Plan etki kapısı (ADR-0112, I-296): gölge modda kapi_golge kaydı, şablon enjeksiyonu; geçici projede koşar."""
+"""Plan etki kapısı (ADR-0118, I-296): gölge modda kapi_golge kaydı, şablon enjeksiyonu; geçici projede koşar."""
 import json
 import os
 import shutil

@@ -1,4 +1,4 @@
-"""Proje bilgi grafiği şeması (ADR-0112, I-296): kenar ve konu kartı doğrulayıcısı; ihlal vakası kırmızı, doğru örnek yeşil."""
+"""Proje bilgi grafiği şeması (ADR-0118, I-296): kenar ve konu kartı doğrulayıcısı; ihlal vakası kırmızı, doğru örnek yeşil."""
 import json
 import os
 import sys

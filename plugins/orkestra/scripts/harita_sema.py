@@ -1,4 +1,4 @@
-"""Proje bilgi grafiği şeması ve doğrulayıcı (ADR-0112, I-296; model çağırmaz).
+"""Proje bilgi grafiği şeması ve doğrulayıcı (ADR-0118, I-296; model çağırmaz).
 
 Katmanlar (git'te dosya): kenar listesi `kenarlar.jsonl` ve konu kartları `kartlar/<konu>.md`.
 Kenar: {kaynak, iliski, hedef, koken, guven, kanit, hash, dogrulama_zamani}. Alanlar ve değer kümeleri

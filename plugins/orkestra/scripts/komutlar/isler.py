@@ -742,7 +742,7 @@ def cmd_is_kapat(a):
 
 
 def _etki_kapanis(sd, is_id):
-    """ADR-0112: kapanışta etki kümesi yeniden doğrulanır; işlenmemiş yüzey gölge kaydı üretir. Kapanışı hiçbir koşulda engellemez."""
+    """ADR-0118: kapanışta etki kümesi yeniden doğrulanır; işlenmemiş yüzey gölge kaydı üretir. Kapanışı hiçbir koşulda engellemez."""
     try:
         kayit = _ik().is_al(sd, is_id) or {}
         if kayit.get("klasor"):

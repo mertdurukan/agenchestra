@@ -1,4 +1,4 @@
-"""İstek eşleme sorgusu (ADR-0112, I-296; model çağırmaz, deterministiktir).
+"""İstek eşleme sorgusu (ADR-0118, I-296; model çağırmaz, deterministiktir).
 
 `orkestra harita istek "<metin>"`: isteği konu kartlarının adı ve eşanlamlılarıyla eşler, kartın yüzeylerinden
 kenar listesi boyunca bir adım gezip etki kümesini ve belirsiz (düşük güvenli, llm kökenli) kenarları listeler.
@@ -14,7 +14,7 @@ import re
 
 GRAF_DIZINI = "bilgi_grafigi"
 _SATIR = re.compile(r"^\s*[-*]\s*(.+?)\s*$")
-_YUZEY = re.compile(r"^(.*?)\s*\(([^)]+)\)\s*$")
+_YUZEY = re.compile(r"^(.*?)\s*\(([^)]+)\)\s*(?:[:—–]\s*.*)?$")  # `ad (yol)` ve isteğe bağlı `: neden` soneki
 _KELIME = re.compile(r"[a-zçğıöşüâîû0-9]+")
 
 
@@ -61,10 +61,15 @@ def kartlari_oku(graf: str) -> list[dict]:
 def _kelime_esler(w: str, t: str) -> bool:
     if t == w:
         return True
-    kisa = min(len(w), len(t))
+    kisa, uzun = sorted((w, t), key=len)
     # kısa kök uzun başka sözcüğe ek sayılmasın ("yap" ≠ "yapılacak"): ek uzunluğu kök boyuna bağlı sınırlı
-    ek_sinir = 5 if kisa < 5 else 8
-    return kisa >= 3 and abs(len(w) - len(t)) <= ek_sinir and (t.startswith(w) or w.startswith(t))
+    ek_sinir = 5 if len(kisa) < 5 else 8
+    if len(kisa) < 3 or len(uzun) - len(kisa) > ek_sinir:
+        return False
+    if uzun.startswith(kisa):
+        return True
+    # Türkçe ünsüz yumuşaması: yetenek→yeteneği, yedek→yedeği, kitap→kitabı (son k/ç/t/p düşürülüp kök karşılaştırılır)
+    return len(kisa) >= 4 and kisa[-1] in "kçtp" and uzun.startswith(kisa[:-1]) and len(uzun) > len(kisa) - 1
 
 
 def esle(istek: str, kartlar: list[dict]) -> list[dict]:

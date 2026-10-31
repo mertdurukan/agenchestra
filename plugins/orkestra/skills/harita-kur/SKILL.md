@@ -12,7 +12,7 @@ argument-hint: "[proje-kökü]"
 ---
 # harita-kur: kod yapısı + anlam → konu kartları + tipli kenar listesi
 
-**Amaç:** Yeni bir istek geldiğinde "bu neyle ilgili, nerelere dokunur" sorusu haritadan yanıtlansın (ADR-0112).
+**Amaç:** Yeni bir istek geldiğinde "bu neyle ilgili, nerelere dokunur" sorusu haritadan yanıtlansın (ADR-0118).
 Harita bir kez kurulur; kenarlar kaynak dosya özetiyle eskime takibine girer (`orkestra harita yenile`).
 
 **Dizin:** `<durum>/sistem_haritasi/bilgi_grafigi/` altında `kartlar/*.md` ve `kenarlar.jsonl`. Projeye özgü ad bu skill'de yoktur; her şey projenin dosyalarından türer.
@@ -26,7 +26,7 @@ Harita bir kez kurulur; kenarlar kaynak dosya özetiyle eskime takibine girer (`
 3. **Kart yaz** (her konu için bir md, `kartlar/<konu>.md`). Zorunlu bölümler, boş bırakılmaz:
    - `## Amaç`: konunun işi, tek cümle.
    - `## Eşanlamlılar`: kullanıcının isteğinde geçebilecek sözcükler (TR ve EN, çoğul/fiil kökleri).
-   - `## Yüzeyler`: konu değişince birlikte bakılması gereken dosya ya da desenler (örn. `**/SKILL.md`), madde başına bir satır ve nedeni.
+   - `## Yüzeyler`: konu değişince birlikte bakılması gereken dosya ya da desenler; madde başına bir satır, biçim `ad (yol): neden`. Yol depo köküne görelidir (örn. `src/x.py`, `**/SKILL.md`); var olmayan yol yazılmaz.
    - `## Değişmezler`: konu için her zaman doğru kalması gereken kural ya da eşleşme.
 4. **LLM kenarı ekle (yalnız statik kenarın kaçırdığı anlam bağı):** `koken: llm`. Her kenar `kanit: dosya:satır` taşır; kanıt satırı yoksa `guven: dusuk` yazılır (K2). Statik kanıtla desteklenmeyen kenar `orta`/`yuksek` olamaz.
 5. **Doğrula:** `orkestra harita denetle` eskimiş katmanı gösterir; kenar dosyasını `harita_kenar.yaz` şemaya uymayanı zaten atar, atılan kenarı düzeltip yeniden ekle.

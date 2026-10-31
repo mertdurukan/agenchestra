@@ -3,7 +3,7 @@
 `orkestra harita yenile [--katman K]... [--zorla]`  eskimiş (ya da --zorla ile tüm) katmanları baştan tarar
 `orkestra harita oku [KATMAN]`                        kayıtları basar; eskimiş katmanı önce yeniler
 `orkestra harita denetle`                             eskimiş katman sayısını basar (yazmaz)
-`orkestra harita istek "<metin>"`                     isteği konu kartlarına eşler, etki kümesini basar (ADR-0112)
+`orkestra harita istek "<metin>"`                     isteği konu kartlarına eşler, etki kümesini basar (ADR-0118)
 """
 from __future__ import annotations
 
@@ -66,6 +66,6 @@ def kaydet(alt):
     o.set_defaults(f=cmd_harita_oku)
     d = p.add_parser("denetle", help="eskimiş katman sayısını basar (dosya yazmaz)")
     d.set_defaults(f=cmd_harita_denetle)
-    i = p.add_parser("istek", help="isteği konu kartlarına eşler; dokunulacak yüzeyleri ve bağlı kenarları listeler (ADR-0112)")
+    i = p.add_parser("istek", help="isteği konu kartlarına eşler; dokunulacak yüzeyleri ve bağlı kenarları listeler (ADR-0118)")
     i.add_argument("metin", help="kullanıcı isteği")
     i.set_defaults(f=cmd_harita_istek)

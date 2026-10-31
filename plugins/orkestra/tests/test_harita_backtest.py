@@ -1,4 +1,4 @@
-"""Proje bilgi grafiği backtest (ADR-0112, I-296): sızıntısız walk-forward recall ve precision; sentetik commit listesiyle koşar."""
+"""Proje bilgi grafiği backtest (ADR-0118, I-296): sızıntısız walk-forward recall ve precision; sentetik commit listesiyle koşar."""
 import os
 import shutil
 import sys
@@ -41,6 +41,31 @@ class Backtest(unittest.TestCase):
         cm = [["a.txt", "yok.txt", "b.txt"]] * 8
         s = B.olc(self.kok, isinma=0.5, asgari=3, cm=cm)
         self.assertEqual((s["recall"], s["precision"]), (1.0, 1.0))
+
+    def test_alan_duzeyi_kardes_dosyayi_ayni_alanda_sayar_ve_alan_gecisini_ogrenir(self):
+        for d in ("x", "y"):
+            os.makedirs(os.path.join(self.kok, d))
+            for f in ("a.txt", "b.txt"):
+                with open(os.path.join(self.kok, d, f), "w", encoding="utf-8") as fh:
+                    fh.write("x")
+        cm = [["x/a.txt", "y/a.txt"]] * 8
+        s = B.olc(self.kok, isinma=0.5, asgari=3, cm=cm, duzey="alan")
+        self.assertEqual((s["recall"], s["precision"]), (1.0, 1.0))   # x alanı değişince y alanı da değişir
+        # farklı dosya, aynı alan geçişi: dosya düzeyinde ıskalanır, alan düzeyinde bulunur
+        cm2 = [["x/a.txt", "y/a.txt"]] * 6 + [["x/b.txt", "y/b.txt"]] * 2
+        self.assertEqual(B.olc(self.kok, isinma=0.75, asgari=3, cm=cm2)["recall"], 0.0)
+        self.assertEqual(B.olc(self.kok, isinma=0.75, asgari=3, cm=cm2, duzey="alan")["recall"], 1.0)
+
+    def test_olasilik_esigi_seyrek_gecisi_eler(self):
+        cm = [["x/a.txt", "y/a.txt"]] * 3 + [["x/a.txt", "z/a.txt"]] * 7 + [["x/a.txt", "y/a.txt"]] * 2
+        for d in ("x", "y", "z"):
+            os.makedirs(os.path.join(self.kok, d), exist_ok=True)
+            with open(os.path.join(self.kok, d, "a.txt"), "w", encoding="utf-8") as fh:
+                fh.write("x")
+        yuksek = B.olc(self.kok, isinma=0.8, asgari=3, cm=cm, duzey="alan", olasilik=0.5)
+        dusuk = B.olc(self.kok, isinma=0.8, asgari=3, cm=cm, duzey="alan", olasilik=0.0)
+        self.assertLess(yuksek["kapsama"], dusuk["kapsama"] + 1e-9)
+        self.assertGreaterEqual(yuksek["precision"], dusuk["precision"])
 
     def test_esik_ornek_yetersizse_gecmez(self):
         s = B.olc(self.kok, isinma=0.5, asgari=3, cm=[["a.txt", "b.txt"]] * 10)

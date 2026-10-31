@@ -707,14 +707,14 @@ def paralellik_engeli(klasor: str) -> list[str]:
     return KM.ret_ver(klasor, "paralellik", paralellik_eksikleri(klasor))
 
 
-# ADR-0112: plan etki kapısı. İsteğin konu kartlarına eşlenen yüzeyleri plan maddelerinin `**Etki:**` alanında anılmalı
+# ADR-0118: plan etki kapısı. İsteğin konu kartlarına eşlenen yüzeyleri plan maddelerinin `**Etki:**` alanında anılmalı
 # (`orkestra harita istek`); kapı `ayarlar/harita_etki.json` modunda çalışır (başlangıç: golge, P-028).
 def etki_kapisi_acik() -> bool:
     return os.environ.get("ORKESTRA_ETKI_KAPISI") != "0"
 
 
 def etki_kapsaminda_mi(klasor: str) -> bool:
-    """ADR-0112: iş sıralı ve is.json `etki: true` taşıyor (bayraksız eski işler muaf)."""
+    """ADR-0118: iş sıralı ve is.json `etki: true` taşıyor (bayraksız eski işler muaf)."""
     if not etki_kapisi_acik() or not sirali_mi(klasor):
         return False
     try:
@@ -771,7 +771,7 @@ def etki_eksikleri(klasor: str, metin: str | None = None) -> list[str]:
         return []
     alan = " ".join(_alan_degeri(b, "Etki") for b in _p_bloklari(metin).values()).lower()
     return [f"etki kümesindeki yüzey plan maddelerinin `**Etki:**` alanında anılmıyor: {y['ad']}" + (f" ({y['yol']})" if y["yol"] else "")
-            + " (ADR-0112)" for y in s["yuzeyler"]
+            + " (ADR-0118)" for y in s["yuzeyler"]
             if y["ad"].lower() not in alan and not (y["yol"] and y["yol"].lower() in alan)]
 
 
@@ -817,12 +817,12 @@ def etki_kapanis_eksikleri(klasor: str, degisen: set[str] | None = None) -> list
         return []
     import harita_istek as HI
     var = (degisen if degisen is not None else degisen_dosyalar(klasor)) | set(_biten_yazma_alanlari(klasor))
-    return [f"etki kümesindeki yüzey işlenmedi: {y['ad']} ({y['yol']}) (ADR-0112)" for y in s["yuzeyler"]
+    return [f"etki kümesindeki yüzey işlenmedi: {y['ad']} ({y['yol']}) (ADR-0118)" for y in s["yuzeyler"]
             if y["yol"] and not any(HI._uyar(y["yol"], d) or HI._uyar(d, y["yol"]) for d in var)]
 
 
 def etki_kapanis_kaydi(klasor: str) -> list[str]:
-    """Kapanış bağlantısı: gölgede `kapi_golge` kaydı düşer; kapanışı hiçbir modda engellemez (ADR-0112, P-028)."""
+    """Kapanış bağlantısı: gölgede `kapi_golge` kaydı düşer; kapanışı hiçbir modda engellemez (ADR-0118, P-028)."""
     if not etki_kapsaminda_mi(klasor):
         return []
     import kapi_mod as KM

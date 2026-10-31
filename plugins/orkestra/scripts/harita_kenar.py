@@ -1,4 +1,4 @@
-"""Proje bilgi grafiği kenar çıkarıcı (ADR-0112, I-296; model çağırmaz).
+"""Proje bilgi grafiği kenar çıkarıcı (ADR-0118, I-296; model çağırmaz).
 
 Kaynaklar (spike kararı: `ast` + yol atfı + git birlikte-değişim; tree-sitter ve SCIP elendi):
 - statik `import`: Python `ast` ile import satırı → projedeki modül dosyası; kanıt `dosya:satır`.

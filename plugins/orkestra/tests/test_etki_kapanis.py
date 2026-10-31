@@ -1,4 +1,4 @@
-"""Kapanışta etki yeniden doğrulama (ADR-0112, I-296): işlenmemiş yüzey gölge kaydı üretir, işlenmişse üretmez."""
+"""Kapanışta etki yeniden doğrulama (ADR-0118, I-296): işlenmemiş yüzey gölge kaydı üretir, işlenmişse üretmez."""
 import json
 import os
 import shutil
