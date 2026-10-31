@@ -98,3 +98,21 @@ def test_eszamanli_yazim_kaydi_bozmaz(tmp_path):
     with open(os.path.join(sd, "oturumlar", "ssss0000-0000.json"), encoding="utf-8") as f:
         d = json.load(f)
     assert len(d["konum"]["yazilan"]) == F.YAZILAN_EN_COK or len(d["konum"]["yazilan"]) == 45
+
+
+def test_not_birak_oku_bir_kez_ve_sir_reddi(tmp_path):
+    a = _depo(tmp_path / "a")
+    sd = _sd(tmp_path)
+    F.kaydet(sd, "aaaa1111-0000", a)
+    hedef, hata = F.hedef_coz(sd, "aaaa")
+    assert hedef == "aaaa1111-0000" and not hata
+    assert F.hedef_coz(sd, "zz")[0] is None and F.hedef_coz(sd, "bbbb")[0] is None
+    ok, _ = F.not_birak(sd, hedef, "bbbb2222-0000", "main'i ff etme, rebase yapıyorum")
+    assert ok
+    assert not F.not_birak(sd, hedef, "bbbb2222-0000", "password: hunter2xx")[0]
+    assert not F.not_birak(sd, hedef, "bbbb2222-0000", "x" * 301)[0]
+    m = F.gelen_metin(sd, hedef)
+    assert "VERİ" in m and "main'i ff etme" in m and "bbbb2222" in m
+    assert F.gelen_metin(sd, hedef) == ""  # ikinci okumada yok
+    F.not_birak(sd, hedef, "bbbb2222-0000", "ikinci")
+    assert "ikinci" in F.gelen_metin(sd, hedef)
