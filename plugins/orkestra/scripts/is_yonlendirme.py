@@ -88,7 +88,39 @@ def devir_onu_at(metin):
         metin = yeni
 
 
-def eslestir(istek, isler, ayar=None):
+BAGLAMA_VARSAYILAN = {"mod": "etkin", "marj": 0.15, "kesin": 0.8, "ortak_agirlik": 0.25, "df_ust": 0.5}
+
+
+def baglama_ayari(ham=None):
+    """I-297 P9: bağlama ayarı; bozuk alan gömülü varsayılana düşer. mod 'kapali' → eski davranış (ağırlık ve marj yok)."""
+    b = dict(BAGLAMA_VARSAYILAN)
+    if isinstance(ham, dict):
+        for k in ("marj", "kesin", "ortak_agirlik", "df_ust"):
+            v = ham.get(k)
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1:
+                b[k] = float(v)
+        if ham.get("mod") in ("etkin", "kapali"):
+            b["mod"] = ham["mod"]
+    return b
+
+
+def _agirliklar(istek_s, is_kumeleri, b):
+    """İstek sözcüğü başına ağırlık: ortak alan sözcüğü `ortak_agirlik`; açık işlerin `df_ust` oranından fazlasında
+    geçen sözcük (IDF benzeri, en az 3 iş) yarıya iner. Her işte geçen sözcük farklı işi ayırt etmez."""
+    alan = {_katla(_kucult(x)) for x in ORTAK_ALAN}
+    n = len(is_kumeleri)
+    w = {}
+    for s in istek_s:
+        a = b["ortak_agirlik"] if s in alan else 1.0
+        if n >= 3:
+            df = sum(1 for k in is_kumeleri if any(_eslesir(s, t) for t in k)) / n
+            if df > b["df_ust"]:
+                a *= 0.5
+        w[s] = max(a, 0.01)
+    return w
+
+
+def eslestir(istek, isler, ayar=None, baglama=None):
     """İstek sözcüklerinin iş metniyle örtüşme oranı (0-1); puana göre azalan [{'id','puan'}].
     Devir önekleri ('Task (from the session…):') istekten ve iş başlığından atılır: ortak sözcükler (session, task, from) başka işe bağlamasın."""
     if not isinstance(istek, str) or not isinstance(isler, (list, tuple)):
@@ -98,14 +130,24 @@ def eslestir(istek, isler, ayar=None):
     istek_s = set(_sozcukler(devir_onu_at(istek), durak_ham))
     if not istek_s:
         return []
+    b = baglama_ayari(baglama) if baglama is not None else None
+    if b and b["mod"] == "kapali":
+        b = None
+    kumeler = []
+    if b:
+        for is_ in isler:
+            if isinstance(is_, dict) and is_.get("id") is not None:
+                kumeler.append(set(_sozcukler(" ".join(devir_onu_at(is_.get(k)) for k in ("baslik", "klasor", "metin")), durak_ham)))
+    w = _agirliklar(istek_s, kumeler, b) if b else {s: 1.0 for s in istek_s}
+    toplam = sum(w.values())
     sonuc = []
     for is_ in isler:
         if not isinstance(is_, dict) or is_.get("id") is None:
             continue
         metin = " ".join(devir_onu_at(is_.get(k)) for k in ("baslik", "klasor", "metin"))
         is_s = set(_sozcukler(metin, durak_ham))
-        say = sum(1 for s in istek_s if any(_eslesir(s, t) for t in is_s))
-        puan = say / len(istek_s)
+        say = sum(w[s] for s in istek_s if any(_eslesir(s, t) for t in is_s))
+        puan = say / toplam
         # I-138 P3: yeterince uzun başlıkta başlık kapsaması da sayılır (başlığı üreten mesaj o işe bağlanır)
         baslik_s = set(_sozcukler(devir_onu_at(is_.get("baslik")), durak_ham))
         if len(baslik_s) >= a["baslik_kapsama_min_sozcuk"]:
@@ -116,8 +158,19 @@ def eslestir(istek, isler, ayar=None):
     return sonuc
 
 
-def karar(puanlar, ayar=None):
-    """('bagla', id) | ('ac', None) | ('sec', [id, ...]) (en çok iki)."""
+def guven(puanlar, baglama=None):
+    """Bağ güven etiketi (I-297 P9): 'kesin' (puan >= kesin ve ikinciyle marj yeter) | 'otomatik-düşük'."""
+    b = baglama_ayari(baglama)
+    liste = sorted([p["puan"] for p in puanlar or [] if isinstance(p, dict) and isinstance(p.get("puan"), (int, float))], reverse=True)
+    if not liste:
+        return "otomatik-düşük"
+    ikinci = liste[1] if len(liste) > 1 else 0.0
+    return "kesin" if liste[0] >= b["kesin"] and liste[0] - ikinci >= b["marj"] else "otomatik-düşük"
+
+
+def karar(puanlar, ayar=None, baglama=None):
+    """('bagla', id) | ('ac', None) | ('sec', [id, ...]) (en çok iki). `baglama` verilir ve etkinse yüksek puanlı ama
+    ikinciyle farkı `marj` altındaki eşleşme 'sec' olur: ayırt edilemeyen iki iş arasında bağlanmaz."""
     a = _ayar(ayar)
     liste = [p for p in puanlar if isinstance(p, dict) and isinstance(p.get("puan"), (int, float))] \
         if isinstance(puanlar, (list, tuple)) else []
@@ -126,6 +179,9 @@ def karar(puanlar, ayar=None):
     liste.sort(key=lambda x: -x["puan"])
     ilk = liste[0]
     if ilk["puan"] >= a["yuksek"]:
+        b = baglama_ayari(baglama) if baglama is not None else None
+        if b and b["mod"] == "etkin" and len(liste) > 1 and ilk["puan"] - liste[1]["puan"] < b["marj"]:
+            return ("sec", [p["id"] for p in liste[:2]])
         return ("bagla", ilk["id"])
     if ilk["puan"] < a["dusuk"]:
         return ("ac", None)
