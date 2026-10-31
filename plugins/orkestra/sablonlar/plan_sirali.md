@@ -49,6 +49,7 @@
 **Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
 **Sözleşme:** S<n> (sözleşmeli işte zorunlu: bu madde sözleşmedeki hangi başarı kriterini sağlar; `sozlesme_<tarih>.md`)
 **Mevcut varlık:** harita kayıt kimliği (virgülle; kimlikten sonra `(not)` ya da `; not` serbest) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
+**Etki:** bu maddenin dokunduğu etki kümesi yüzeyleri (virgülle; `## Etki kümesi` bölümündeki yüzey adı ya da yolu; `etki: true` işlerde her yüzey en az bir maddede anılır, ADR-0112)
 **Alternatifler:** en az iki uygulanabilir yaklaşım, madde işaretli ayrı satırlarda: `- Seçilen: … Neden: …` ve `- Elenen: … Neden elendi: …` (P-030; `orkestra standart goster best_in_class`)
 **Üretim noktası:** sorunun doğduğu yer ve orada önleme, üç türden biri, her tür ayrı satırda (tek satıra ' · ' ile sıkıştırma: biçim kapısı reddeder):
 - `Düzeltme: <kural|şablon|skill|betik|kart|istem|hook|ayar|standart ya da yol> — <orada önleme>`
