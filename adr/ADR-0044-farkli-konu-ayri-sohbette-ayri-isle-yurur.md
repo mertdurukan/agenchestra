@@ -1,6 +1,6 @@
 # ADR-0044: Bağlı işten farklı konu ayrı sohbette, ayrı işle yürür
 
-**Durum:** Kabul edildi
+**Durum:** Yerine geçildi: ADR-0114
 
 **Tarih:** 2026-10-27
 
