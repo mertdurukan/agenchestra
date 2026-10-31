@@ -37,6 +37,41 @@ def mod(kapi: str, klasor: str | None = None) -> str:
     return sonuc
 
 
+def ham_mod(kapi: str, sd: str | None = None) -> str | None:
+    """`ayarlar/<kapi>.json` `mod` alanının HAM değeri (`golge`/`ihlal` dışı `block`, `genis`... dahil); `sd` (durum klasörü)
+    verilirse proje ezmesi önceliklidir. Hiçbir dosyada `mod` yoksa None. `mod()` bilerek kullanılmaz: o yalnız iki değer
+    döndürür ve bilinmeyeni sessizce `golge` yapar (durum göstermek için yanıltıcı)."""
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    yollar = [os.path.join(kok, "ayarlar", kapi + ".json")]
+    if sd:
+        yollar.append(os.path.join(sd, kapi + ".json"))
+    sonuc = None
+    for yol in yollar:
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, dict) and isinstance(d.get("mod"), str):
+                sonuc = d["mod"]
+        except (OSError, ValueError):
+            pass
+    return sonuc
+
+
+_YER_TUTUCU = re.compile(r"\{\{mod:([A-Za-z0-9_]+)\}\}")
+
+
+def mod_coz(metin: str, sd: str | None = None) -> str:
+    """Kural metnindeki `{{mod:<kapı>}}` yer tutucularını ayardaki ham modla doldurur (proje ezmesi dahil). `sd` yoksa
+    (tüm projelerin paylaştığı KURALLAR.md) eklenti varsayılanı yazılır ve ezme olabileceği belirtilir. Ayarı olmayan kapı
+    `ValueError` verir: kopya yerine açık hata."""
+    def yerine(m):
+        mod_ = ham_mod(m.group(1), sd)
+        if mod_ is None:
+            raise ValueError(f"kapı modu bulunamadı: {m.group(1)} (ayarlar/{m.group(1)}.json içinde 'mod' yok)")
+        return mod_ if sd else f"{mod_} (eklenti varsayılanı; proje ezmesi olabilir, `orkestra kapi durum`)"
+    return _YER_TUTUCU.sub(yerine, metin or "")
+
+
 def _zaten_kayitli(yol: str, is_ad: str, kapi: str, neden: str, tur: str = "kapi_golge") -> bool:
     """Günlüğün son 64 KB'ında aynı (tür, iş, kapı, neden) var mı; tekrar tekrar çağrılan kapılar sayıyı şişirmesin."""
     try:
