@@ -50,7 +50,7 @@ class Esleme(_Proje):
 
     def test_ilgisiz_dosyada_enjeksiyon_yok(self):
         for ad in ("hook.py", "README.md", "plan_notu.txt", "ayar.json"):
-            self.assertEqual(U.metin(os.path.join(self.tmp, ad), self.sd, "o1"), ad)  # noqa: boş beklenir
+            self.assertEqual(U.metin(os.path.join(self.tmp, ad), self.sd, "o1"), "", ad)
         self.assertEqual(_gunluk(self.sd), [])
 
     def test_tarihli_belge_adlari_denk_gelir(self):
