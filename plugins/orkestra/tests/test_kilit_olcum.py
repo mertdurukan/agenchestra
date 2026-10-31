@@ -63,10 +63,8 @@ class KilitOlcumTest(unittest.TestCase):
     def test_kapi_golge_gunluktan_sayilir(self):
         with open(os.path.join(self.sd, "gunluk.jsonl"), "w", encoding="utf-8") as f:
             for k in ("test_yonlendirme", "test_yonlendirme", "baska"):
-                f.write(json.dumps({"tur": "kapi_golge", "kapi": k}) + "
-")
-            f.write(json.dumps({"tur": "istek"}) + "
-")
+                f.write(json.dumps({"tur": "kapi_golge", "kapi": k}) + "\n")
+            f.write(json.dumps({"tur": "istek"}) + "\n")
         self.assertEqual(kilit_olcum.kapi_golge(self.sd), {"test_yonlendirme": 2, "baska": 1})
 
 
