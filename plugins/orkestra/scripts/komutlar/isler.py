@@ -679,7 +679,8 @@ def kapanis_eksigi(sd, kayit, ozetsiz=""):
 
 
 def kapat_uygula(sd, is_id):
-    """Kapıları geçmiş işi kapatır (harita yenileme, durum, teknik detay)."""
+    """Kapıları geçmiş işi kapatır (etki yeniden doğrulama, harita yenileme, durum, teknik detay)."""
+    _etki_kapanis(sd, is_id)
     _harita_yenile(sd)
     _ik().is_durum(sd, is_id, "kapandi")
     _teknik_detay_yaz(sd, is_id)
