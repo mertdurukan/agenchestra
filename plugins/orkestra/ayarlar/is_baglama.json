@@ -1,0 +1,8 @@
+{
+  "not": "I-297 P9: bagsiz oturumda otomatik baglama. mod kapali = eski davranis (sec bandinda en yakin ise baglar, agirlik ve marj yok). marj: ilk iki puan farki bunun altindaysa baglanmaz. kesin: bu puan ve marj ustu 'kesin' etiketi. ortak_agirlik: alan sozcugu agirligi. df_ust: acik islerin bu oranindan fazlasinda gecen sozcuk yarim agirlik.",
+  "mod": "etkin",
+  "marj": 0.15,
+  "kesin": 0.8,
+  "ortak_agirlik": 0.25,
+  "df_ust": 0.5
+}

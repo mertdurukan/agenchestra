@@ -162,12 +162,14 @@ class IstekIpucu(_Ortak):
         idler = idler or [self.fatura["id"], self.diger["id"]]
         self.karar_yama(("sec", idler), [{"id": i, "puan": 0.5 - n * 0.1} for n, i in enumerate(idler)])
 
-    def test_baglisiz_oturum_belirsizde_en_yakin_ise_kendiliginden_baglanir(self):
+    def test_baglisiz_oturum_belirsizde_baglanmaz_en_yakin_isleri_gosterir(self):
+        """I-297 P9: sec bandında otomatik bağlama yok; ajan bağlamı bilerek `is devam`/`is ac` ile bağlar."""
         self._sec()
         m = self.istek(ISTEK_FATURA)
         self.assertIn(self.fatura["id"], m)
-        self.assertIn("otomatik bağlandı", m)
-        self.assertEqual(self.oturum_json().get("is"), self.fatura["id"])
+        self.assertIn("orkestra is devam", m)
+        self.assertNotIn("otomatik bağlandı", m)
+        self.assertIsNone(self.oturum_json().get("is"))
 
     def test_eslesmeyen_istek_de_ayni_satiri_alir(self):
         self._sec()
@@ -492,16 +494,15 @@ class OtomatikYonlendirme(_Ortak):
         self.assertEqual(is_kaydi.is_al(self.sd, yid)["etiketler"], [])
 
     # --- K1 sec
-    def test_sec_en_yakin_ise_sormadan_baglar_yeni_is_acmaz(self):
+    def test_sec_baglamaz_yeni_is_acmaz_adaylari_gosterir(self):
         a, b = self.fatura["id"], self.diger["id"]
         once = self._is_idleri()
         self.karar_yama(("sec", [a, b]), self._puan(a, b))
         m = self.istek(ISTEK_FATURA)
         self.assertIn(a, m)
-        self.assertIn("otomatik bağlandı", m)
-        self.assertNotIn("seç", m)
+        self.assertNotIn("otomatik bağlandı", m)
         self.assertEqual(self._is_idleri(), once)
-        self.assertEqual(self.oturum_json().get("is"), a)
+        self.assertIsNone(self.oturum_json().get("is"))
 
     # --- K2 devam
     def test_devam_turu_bagsizda_is_acmaz_bagsiz_uyarisi_ve_sec(self):

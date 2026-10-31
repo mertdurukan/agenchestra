@@ -1858,7 +1858,7 @@ def _bagsiz_secim_satiri(acik: list, puanlar: list, idler=None, devam: bool = Fa
 
 
 def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketler=None, is_id: str | None = None,
-                    cwd: str | None = None) -> str:
+                    cwd: str | None = None, guven: str = "") -> str:
     """Bağsız oturumu işe bağlar; `is_id` yoksa önce yeni iş açar (kayıp 7ce7e69'un bugünkü hook'a uyarlaması).
     Klasör: eşlemedeki ilk proje altında sıradaki NNN-YYYYMMDD-<slug>; yazılamazsa <durum dizini>/isler altında aynı ad.
     Önce is.json oturumlar[] (is_oturum_bagla), sonra oturum json'u (kilitli oku-birleştir-yaz). Hatada boş: ipucu yolu sürer."""
@@ -1903,12 +1903,15 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
             d = d if isinstance(d, dict) else {}
             an = L.simdi()
             d["is"], d["is_baglanma"] = kayit["id"], an
+            if guven:  # I-297 P9: bağ güven etiketi; 'otomatik-düşük' bağ ilk mesajda yeniden doğrulanır
+                d["bag_guven"] = guven
             d.setdefault("is_gecmis", []).append({"is": kayit["id"], "zaman": an})
             L.atomik_yaz(yol, json.dumps(d, ensure_ascii=False, indent=2) + "\n")
         L.atif_yaz(sd, str(oid), kayit["id"], "hook-otomatik-baglama")  # bağsız maliyet satırları için tek atif olayı
         if is_id:
+            dusuk = " Güven düşük: başlık ile isteği karşılaştır, çelişiyorsa `orkestra is ac`." if guven == "otomatik-düşük" else ""
             return (f"Orkestra: bu sohbet otomatik bağlandı {kayit['id']} — {str(kayit.get('baslik') or '')[:50]} "
-                    "(istek bu işle örtüşüyor). Yanlışsa `orkestra is devam <id>` ya da `orkestra is ac` ile değiştir.")
+                    f"(istek bu işle örtüşüyor).{dusuk} Yanlışsa `orkestra is devam <id>` ya da `orkestra is ac` ile değiştir.")
         etiket = f" [etiket: {', '.join(etiketler)}]" if etiketler else ""
         return (f"Yeni iş otomatik açıldı: {kayit['id']} — {baslik[:50]}{etiket} (klasör: {os.path.basename(klasor)}); "
                 "bu sohbet ona bağlandı. Sıradaki adımlar işin todo.md'sine yazılır.")
@@ -1933,18 +1936,21 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         acik = is_kaydi.is_liste(sd, "acik")
         isler = [{"id": g["id"], "baslik": g.get("baslik") or "", "klasor": os.path.basename(str(g.get("klasor") or ""))}
                  for g in acik]
-        puanlar = is_yonlendirme.eslestir(istek, isler, ayar)
+        bag = _ayar_dosyasi(sd, "is_baglama")  # I-297 P9: ağırlıklı skor, marj, güven etiketi; mod kapali → eski davranış
+        etkin = is_yonlendirme.baglama_ayari(bag)["mod"] == "etkin"
+        puanlar = is_yonlendirme.eslestir(istek, isler, ayar, bag)
         if tur == "devam":
             return _bagsiz_secim_satiri(acik, puanlar, devam=True)
-        k, deger = is_yonlendirme.karar(puanlar, ayar)
+        k, deger = is_yonlendirme.karar(puanlar, ayar, bag)
+        guven = is_yonlendirme.guven(puanlar, bag)
         acik_idler = {str(g["id"]) for g in acik}
         if k == "bagla" and deger is not None and str(deger) in acik_idler:
-            return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger), cwd=cwd)
+            return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger), cwd=cwd, guven=guven if etkin else "")
         if k == "ac":
             if tur == "soru":  # I-138 P2: bilgi sorusu iş açmaz
                 return ""
             return _otomatik_is_ac(sd, oid, istek, proje, cwd=cwd)
-        if k == "sec":  # belirsiz eşleşme kullanıcıya sorulmaz: en yakın açık işe bağlanır
+        if k == "sec" and not etkin:  # eski davranış (is_baglama.json mod kapali): en yakın açık işe bağlanır
             for i in deger if isinstance(deger, (list, tuple)) else []:
                 if str(i) in acik_idler:
                     oto = _otomatik_is_ac(sd, oid, istek, proje, is_id=str(i), cwd=cwd)
@@ -2079,12 +2085,37 @@ def _soru_kaymasi(sd: str, oid, bagli, istek: str, guncel_konu: str) -> bool:
     return False
 
 
+def _bag_dogrula(sd: str, oid, istek: str) -> str:
+    """I-297 P9: 'otomatik-düşük' güvenli bağ, bağdan sonraki ilk iş isteyen mesajda bir kez yeniden doğrulatılır
+    (etiketi oturum json'una `bag_dogrulandi` yazarak kapatır). Etiket, oturum başlığı ya da ilk mesajla çelişirse
+    bu bir konu değildir: bağ yanlıştır. Hatada ve etiket yoksa boş."""
+    try:
+        import soru_sinif
+        if not oid or soru_sinif.tur(istek, sd) != "is":
+            return ""
+        yol = os.path.join(sd, "oturumlar", f"{oid}.json")
+        with L.kilit(yol):
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if not isinstance(d, dict) or d.get("bag_guven") != "otomatik-düşük" or d.get("bag_dogrulandi"):
+                return ""
+            d["bag_dogrulandi"] = L.simdi()
+            L.atomik_yaz(yol, json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+        return ("Orkestra: bu sohbetin işe bağı otomatik ve güveni düşük. İşin başlığını isteğinle karşılaştır; "
+                "çelişiyorsa bu bir yeni konu değil yanlış bağdır: `orkestra is devam <id>` ya da `orkestra is ac` ile düzelt, yeni sohbet açma.")
+    except Exception:
+        return ""
+
+
 def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: str | None = None) -> str:
     """Bağsız oturumda önce otomatik bağla/aç/seç (P2-P3); olmazsa ya da bağlı oturumda: yeni görev mesajında
     (soru/devam değil) açık işler + karar kuralı tek satır (K-004). Hatada boş."""
     oto = _otomatik_yonlendirme(sd, oid, istek, proje, cwd=cwd)
     if oto:
         return oto
+    dogrula = _bag_dogrula(sd, oid, istek)  # I-297 P9
+    if dogrula:
+        return dogrula
     try:
         import soru_sinif
         import is_kaydi
