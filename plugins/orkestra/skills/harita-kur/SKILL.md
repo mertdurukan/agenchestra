@@ -29,7 +29,7 @@ Harita bir kez kurulur; kenarlar kaynak dosya özetiyle eskime takibine girer (`
    - `## Yüzeyler`: konu değişince birlikte bakılması gereken dosya ya da desenler (örn. `**/SKILL.md`), madde başına bir satır ve nedeni.
    - `## Değişmezler`: konu için her zaman doğru kalması gereken kural ya da eşleşme.
 4. **LLM kenarı ekle (yalnız statik kenarın kaçırdığı anlam bağı):** `koken: llm`. Her kenar `kanit: dosya:satır` taşır; kanıt satırı yoksa `guven: dusuk` yazılır (K2). Statik kanıtla desteklenmeyen kenar `orta`/`yuksek` olamaz.
-5. **Doğrula:** `python -m unittest` yerine `orkestra harita denetle` (şema + eskime). Şema hatası varsa kenarı düzelt ya da çıkar.
+5. **Doğrula:** `orkestra harita denetle` eskimiş katmanı gösterir; kenar dosyasını `harita_kenar.yaz` şemaya uymayanı zaten atar, atılan kenarı düzeltip yeniden ekle.
 6. **Dağılımı raporla:** kenar sayısı köken ve güven bazında (statik/gecmis/llm × yuksek/orta/dusuk). `dusuk` oranı yüksekse kullanıcıya tek cümleyle söyle.
 
 ## Sınırlar
