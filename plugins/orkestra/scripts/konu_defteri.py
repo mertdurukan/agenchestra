@@ -314,3 +314,27 @@ def etiket_md(sdler: list[str], gun: int | None = None) -> str:
                 else:
                     s.append(f"- {k['zaman']} · `{k['oturum'][:8]}` · K{k.get('sira')} · {k.get('ne') or '-'} · etiket: ")
     return "\n".join(s) + "\n"
+
+
+# ---------------------------------------------------------------- Stop gölge uyarısı
+
+def stop_kontrol(sd: str, oturum: str) -> bool:
+    """Tur biterken: son `aday` olayından sonra ajan konu açmadan tur bittiyse gunluk.jsonl'a `kapi_golge` yazar
+    (ajan açılış oranı ölçümü, P-028). Aynı aday için bir kez yazılır; hata çağırana taşmaz. Yazıldıysa True."""
+    try:
+        if not acik() or not oturum:
+            return False
+        olaylar = _oturum_olaylari(sd, oturum)
+        if not olaylar or olaylar[-1].get("tur") not in ("tur", "aday"):
+            return False
+        i = max((n for n, k in enumerate(olaylar) if k.get("tur") == "aday"), default=None)
+        if i is None or any(k.get("tur") == "ac" for k in olaylar[i:]):
+            return False
+        gl = os.path.join(sd, "gunluk.jsonl")
+        neden = f"aday {olaylar[i].get('zaman')} ({olaylar[i].get('tip')}) için ajan konu açmadı"
+        if any(k.get("tur") == "kapi_golge" and k.get("kapi") == KAPI and k.get("neden") == neden for k in L.jsonl_oku(gl)[-300:]):
+            return False
+        L.jsonl_ekle(gl, {"zaman": L.simdi(), "oturum": oturum, "tur": "kapi_golge", "kapi": KAPI, "is": "-", "neden": neden})
+        return True
+    except Exception:
+        return False
