@@ -1,6 +1,6 @@
 """Oturum farkındalığı ölçümü (ADR-0125): gölge günlük tespitleri, elle sınıflama, yanlış pozitif oranı, hook gecikmesi.
 
-Günlük: gunluk.jsonl `tur=kapi_golge, kapi=oturum_farkindalik` (tespit) ve `tur=oturum_farkindalik_sinif` (elle sınıf).
+Günlük: gunluk.jsonl `tur=kapi_golge|kapi_ihlal, kapi=oturum_farkindalik` (tespit) ve `tur=oturum_farkindalik_sinif` (elle sınıf).
 İhlal moduna geçiş ölçütü (ADR-0125): ≥60 sınıflı tespitte yanlış pozitif ≤ %10 ve kullanıcı kararı; bu modül karar vermez.
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ def rapor(sd: str, gun: int = 7, gecikme_n: int = 0, cwd: str | None = None) -> 
     sinir = (datetime.datetime.now().astimezone() - datetime.timedelta(days=gun)).isoformat()
     tespit, sinif = [], {}
     for d in _satirlar(sd):
-        if d.get("tur") == "kapi_golge" and d.get("kapi") == F.KAPI and str(d.get("zaman", "")) >= sinir:
+        if d.get("tur") in ("kapi_golge", "kapi_ihlal") and d.get("kapi") == F.KAPI and str(d.get("zaman", "")) >= sinir:
             tespit.append(d)
         elif d.get("tur") == "oturum_farkindalik_sinif":
             sinif[d.get("ref")] = d.get("sonuc")
@@ -65,7 +65,7 @@ def gecikme(sd: str, cwd: str, n: int = 1000) -> dict:
     oturum kimliğiyle yapılır; ölçüm sonunda silinir."""
     oturum = f"olcum{os.getpid():06d}-0000"
     yol = L._oturum_json_yol(sd, oturum)
-    sure = {"okuma": [], "yazma": []}
+    sure = {"okuma": [], "yazma": [], "yazma_ilk": []}
     try:
         for i in range(n):
             tur = "yazma" if i % 2 else "okuma"
@@ -74,6 +74,10 @@ def gecikme(sd: str, cwd: str, n: int = 1000) -> dict:
             t0 = time.perf_counter()
             F.arac_oncesi(sd, oturum, cwd, arac, girdi, False)
             sure[tur].append((time.perf_counter() - t0) * 1000)
+        for i in range(min(100, max(10, n // 10))):  # her biri bu oturum için yeni dosya: komşu taraması yolu
+            t0 = time.perf_counter()
+            F.arac_oncesi(sd, oturum, cwd, "Edit", {"file_path": os.path.join(cwd, f"yeni{i}.py")}, False)
+            sure["yazma_ilk"].append((time.perf_counter() - t0) * 1000)
     finally:
         for ek in ("", ".lock", ".gelen.jsonl"):
             try:

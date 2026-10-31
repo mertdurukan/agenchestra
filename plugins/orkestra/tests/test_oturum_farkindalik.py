@@ -116,3 +116,30 @@ def test_not_birak_oku_bir_kez_ve_sir_reddi(tmp_path):
     assert F.gelen_metin(sd, hedef) == ""  # ikinci okumada yok
     F.not_birak(sd, hedef, "bbbb2222-0000", "ikinci")
     assert "ikinci" in F.gelen_metin(sd, hedef)
+
+
+def test_aday_onbellegi_yeni_komsuyu_taze_taramada_gorur(tmp_path):
+    """arac_oncesi yolu (taze=False) aday listesini ADAY_S boyunca önbellekten okur; taze tarama (SessionStart) yeni komşuyu hemen görür."""
+    import json as _j
+    sd = str(tmp_path / "sd")
+    os.makedirs(os.path.join(sd, "oturumlar"))
+    repo = str(tmp_path / "r")
+    os.makedirs(repo)
+    subprocess.run(["git", "init", "-q", repo], check=True)
+    assert F.kaydet(sd, "aaaaaaaa-0000", repo)
+    F.komsular(sd, "bbbbbbbb-0000", repo, taze=False)  # önbelleği doldurur
+    assert F.kaydet(sd, "cccccccc-0000", repo)  # önbellekten sonra doğan komşu
+    adlar = _j.load(open(os.path.join(sd, "oturum_adaylar.json"), encoding="utf-8"))["konumlar"]
+    assert "cccccccc-0000.json" not in adlar
+    assert any(k["oturum"] == "cccccccc-0000" for k in F.komsular(sd, "bbbbbbbb-0000", repo))  # taze
+
+
+def test_ihlal_modunda_uyari_oneki_ve_kapi_ihlal_kaydi(tmp_path):
+    k = [{"oturum": "bbbbbbbb-0000", "neden": "dal", "dal": "main", "is": None, "dk": 1}]
+    assert not F.satir(k).startswith("UYARI") and F.satir(k, mod="ihlal").startswith("UYARI: ")
+    assert len(F.satir(k, "git komutu dal/ağacı değiştirebilir. ", "ihlal")) <= 250
+    sd = str(tmp_path)
+    F.golge_yaz(sd, "aaaaaaaa-0000", k[0], None, "arac_oncesi", "ihlal")
+    F.golge_yaz(sd, "aaaaaaaa-0000", k[0], None, "arac_oncesi")
+    turler = [json.loads(x)["tur"] for x in open(os.path.join(sd, "gunluk.jsonl"), encoding="utf-8")]
+    assert turler == ["kapi_ihlal", "kapi_golge"]
