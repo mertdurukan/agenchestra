@@ -1503,6 +1503,22 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _onleme_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0120 / P-045: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
+    akıl yürütmesi yoksa günlüğe `kural_ihlal / onleme_basamagi` yazılır. Yalnız ölçer (gölge): engellemez, uyarı vermez.
+    Ayar `ayarlar/onleme_yanit.json`; hatada sessiz geçer."""
+    try:
+        import onleme_yanit as OY
+        bulgu = OY.degerlendir(inp.get("last_assistant_message"), sd)
+        if bulgu:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                             "kural": OY.KURAL, "mod": OY.mod(OY.ayar_oku(sd)),
+                                                             "is": _oturum_isi(sd, oid),
+                                                             **_kanit(bulgu["kalip"], bulgu["alinti"])})
+    except Exception:
+        return
+
+
 def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
     """P-001 / ADR-0075: turun sohbet metni ölçülür. Her turda günlüğe `cikti_olcum` (rapor ortanca ve p90'ı bundan hesaplar),
     sınır aşımında `kapi_golge / cikti_butce` düşer; gölge modda engellemez. Ayar `ayarlar/cikti_butce.json`; hatada sessiz geçer."""
