@@ -71,11 +71,6 @@ def git_konumu(cwd: str | None) -> dict | None:
     return {"depo": _norm(ortak), "dal": dal, "worktree": _norm(d), "ana": _norm(os.path.dirname(ortak)) == _norm(d)}
 
 
-def _oku(yol: str) -> dict:
-    d, k = L._oturum_json_oku(yol)[::-1][0], None
-    return d if isinstance(d, dict) else {}
-
-
 def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_id: str | None = None,
            simdi: float | None = None) -> bool:
     """Oturum kaydının `konum` alanını yeniler. Değişiklik yoksa ve son yazım 60 sn içindeyse dosyaya dokunmaz (ucuz yol).
