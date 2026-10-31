@@ -313,6 +313,7 @@ class UcAdim(_Onay):
 
     def setUp(self):
         super().setUp()
+        sabitle(self)
         os.environ["ORKESTRA_IZIN"] = "genis"
         os.environ.pop("ORKESTRA_AUTO_YETKI", None)
         is_onay.yaz(self.sd, self.kayit["id"], "verildi", "test")
