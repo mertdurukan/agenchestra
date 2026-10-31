@@ -19,7 +19,7 @@ import izin_politikasi as IP  # noqa: E402
 from komutlar import isler  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_is_onay import _Onay  # noqa: E402
-from mod_yalitim import eklenti_varsayilani  # noqa: E402
+from mod_yalitim import eklenti_varsayilani, sabitle  # noqa: E402
 
 MCP_YAZ = "mcp__github__create_pull_request"
 MCP_JIRA = "mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__createJiraIssue"
