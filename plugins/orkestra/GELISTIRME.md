@@ -23,6 +23,7 @@ Notlar:
 - `main`'e yalnız `git merge --ff-only <dal>` ya da PR ile girilir; ayrışmış dal önce `main` üzerine alınır.
 - Dal ve worktree iş bitince (ve başka oturum kullanmıyorsa) kaldırılır: `git worktree remove` + `git branch -d`.
 - Yayın akışı ("Yayın akışı" bölümü) yalnız `main` içindir; yan dal push edilse bile marketplace'e girmez.
+- Her oturum kapanırken `git status --short` boş ve `git branch --no-merged main` boş olmalıdır; commitsiz dosya ya da `main`'e girmemiş dal bırakılmaz. Detached HEAD'de commit atılmışsa önce `git switch -c <dal>`.
 
 ## Panelde güncelleme bildirimi (ADR-0039)
 Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti; ADR-0095). Aralıkta konusu `Yenilik:` ile başlayan commit varsa kart "N yeni özellik" yazar ve yalnız bu commit'leri listeler; yoksa "N değişiklik var" yazar (N = sürüm farkı). Yeni özellik içeren yayın commit'ine yine `Yenilik: <ne eklendi>` konusu verilir.
