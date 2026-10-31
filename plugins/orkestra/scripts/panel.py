@@ -1345,6 +1345,14 @@ def _isleyici():
                     return self._json(200, GUNCELLEME.durum())
                 except Exception as e:  # noqa: BLE001
                     return self._json(500, {"durum": "yok", "hata": f"{type(e).__name__}: {e}"})
+            if u.path in ("/kaynaklar", "/kaynaklar.html") and not os.path.isfile(os.path.join(ASSETS, "kaynaklar.html")):
+                return self._gonder(200, "text/html; charset=utf-8", KAYNAKLAR_HTML)
+            if u.path == "/api/kaynaklar":
+                alan = (q.get("alan") or [None])[0]
+                try:
+                    return self._json(200, _kaynaklar_json(alan))
+                except Exception as e:  # noqa: BLE001
+                    return self._json(500, {"acik": False, "hata": f"{type(e).__name__}: {e}"})
             if u.path == "/onay-sayac.json":
                 return self._gonder(200, "application/json; charset=utf-8", onbellekli("sayac", 5.0, _sayac_tum))
             if u.path == "/saglik":
