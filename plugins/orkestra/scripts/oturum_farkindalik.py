@@ -71,10 +71,14 @@ def git_konumu(cwd: str | None) -> dict | None:
     return {"depo": _norm(ortak), "dal": dal, "worktree": _norm(d), "ana": _norm(os.path.dirname(ortak)) == _norm(d)}
 
 
+_durum = {"degismedi": False}  # son kaydet çağrısı: dosya zaten kayıtlıydı ve kayıt 60 sn içinde yenilenmişti
+
+
 def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_id: str | None = None,
            simdi: float | None = None, hizli: bool = False) -> bool:
     """Oturum kaydının `konum` alanını yeniler. Değişiklik yoksa ve son yazım 60 sn içindeyse dosyaya dokunmaz (ucuz yol).
     Hata durumunda False (istisna fırlatmaz)."""
+    _durum["degismedi"] = False
     if not (etkin() and sd and oturum):
         return False
     try:
@@ -90,6 +94,14 @@ def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_i
         if not konum:
             return False
         dosya_n = _norm(dosya) if dosya else None
+        if dosya_n:  # değişmediyse kilitsiz çık: yalnız okuma (yazma yolunun ortanca maliyeti kilit + atomik yazımdır)
+            d0, k0 = L._oturum_json_oku(yol)
+            e0 = k0.get("konum") if d0 != "bozuk" and isinstance(k0.get("konum"), dict) else {}
+            if (e0 and dosya_n in (e0.get("yazilan") or []) and e0.get("dal") == konum["dal"]
+                    and e0.get("depo") == konum["depo"] and e0.get("worktree") == konum["worktree"]
+                    and (not is_id or e0.get("is") == is_id) and t - float(e0.get("gorulme") or 0) < YENILE_S):
+                _durum["degismedi"] = True
+                return True
         with L.kilit(yol):
             durum, kayit = L._oturum_json_oku(yol)
             if durum == "bozuk":
@@ -227,6 +239,8 @@ def arac_oncesi(sd: str, oturum: str, cwd: str | None, arac: str, girdi: dict, a
         notlar = gelen_metin(sd, oturum)
         if not kaydet(sd, oturum, cwd, dosya, hizli=not (dosya or git_i)) or not (dosya or git_i):
             return notlar
+        if dosya and not git_i and _durum["degismedi"]:
+            return notlar  # aynı dosya 60 sn içinde zaten tarandı: komşu taraması (dizin gezme) yinelenmez; yeni komşu ≤60 sn sonra görülür
         yeni = []
         for k in komsular(sd, oturum, cwd, dosya, git_islemi=git_i):
             if k["neden"] == "depo" and not git_i:
