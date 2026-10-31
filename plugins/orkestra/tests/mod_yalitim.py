@@ -18,6 +18,13 @@ import panel  # noqa: E402
 AYAR_ADI = "yet" + "ki.json"
 
 
+def sabitle(test, deger="plan"):
+    """setUp içinde: testin süresince eklenti varsayılanını `deger`e sabitler (testin kendisi varsayılana bakmıyorsa)."""
+    cm = eklenti_varsayilani(deger)
+    cm.__enter__()
+    test.addCleanup(cm.__exit__, None, None, None)
+
+
 @contextlib.contextmanager
 def eklenti_varsayilani(deger):
     """deger: "plan" | "auto" geçerli ayar; None dosya yok; başka metin ham içerik (bozuk ayar)."""
