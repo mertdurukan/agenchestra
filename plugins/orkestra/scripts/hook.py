@@ -343,22 +343,28 @@ def _yazilacak_metin(arac: str, girdi: dict) -> str:
     return ""
 
 
-def _genis_tarama_kapisi(sd: str, oid, komut: str) -> None:
-    """P-012 madde 4 (golge): zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
-    uyarı bağlama gider; komut engellenmez. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
+def _genis_tarama_kapisi(sd: str, oid, komut: str) -> str:
+    """P-012 madde 4, ADR-0120: zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
+    uyarı bağlama gider. Kip `reddet` ise `reddet_kaliplari`na uyan komut için `kapi_ret` yazılır ve ret metni döner (çağıran
+    reddeder); aksi halde ''. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
     global _BEKLEYEN_UYARI
     try:
         import genis_tarama_hatirlatma as GT
         if not GT.ihlal_mi(komut, sd):
-            return
-        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+            return ""
+        ret = GT.reddet_metni(komut, sd)
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid,
+                                                         "tur": "kapi_ret" if ret else "kural_ihlal",
                                                          "kural": "genis_tarama", "mod": GT.mod(GT.ayar_oku(sd)),
                                                          "is": _oturum_isi(sd, oid)})
+        if ret:
+            return ret
         _BEKLEYEN_UYARI = GT.hatirlatma_metni(sd)
     except SystemExit:
         raise
     except Exception:
-        return
+        return ""
+    return ""
 
 
 def _kanit(eslesen=None, cumle=None) -> dict:
