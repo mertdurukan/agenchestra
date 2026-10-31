@@ -445,6 +445,35 @@ def oku(kok: str, sd: str, katman: str | None = None) -> list[dict]:
     return sonuc
 
 
+def kenar_denetle(kok: str, graf: str) -> dict:
+    """ADR-0112 kenar düzeyinde eskime: kenarın kaynak dosyasının bugünkü hash'i kayıtlı hash'ten farklıysa kenar eskimiştir.
+    {'guncel': [...], 'eskimis': [...]} (şemaya uyan kenarlar); kenar dosyası yoksa ikisi de boş."""
+    import harita_kenar as K
+    import harita_sema as S
+    yol = os.path.join(graf, "kenarlar.jsonl")
+    kenarlar = S.kenarlari_oku(yol)[0] if os.path.exists(yol) else []
+    guncel, eskimis = [], []
+    for k in kenarlar:
+        (guncel if K._hash(kok, k["kaynak"]) == k["hash"] else eskimis).append(k)
+    return {"guncel": guncel, "eskimis": eskimis}
+
+
+def kenar_yenile(kok: str, graf: str) -> dict:
+    """Eskiyen kenarları kaynak dosya başına yeniden hesaplar; değişmeyen kenara dokunmaz. Statik ve geçmiş kökenli eski kenar
+    düşer, yerine yenisi yazılır. LLM ve bildirilen kökenli eski kenar koruma altındadır: yeniden doğrulanana kadar eski hash'iyle
+    `guven: dusuk` kalır. Dönüş: {'yenilenen': n, 'dogrulanmayi_bekleyen': n}."""
+    import harita_kenar as K
+    d = kenar_denetle(kok, graf)
+    kaynaklar = {k["kaynak"] for k in d["eskimis"]}
+    if not kaynaklar:
+        return {"yenilenen": 0, "dogrulanmayi_bekleyen": 0}
+    otomatik = ("statik", "gecmis")
+    bekleyen = [dict(k, guven="dusuk") for k in d["eskimis"] if k["koken"] not in otomatik]
+    yeni = [k for k in K.statik_kenarlar(kok) + K.gecmis_kenarlar(kok) if k["kaynak"] in kaynaklar]
+    K.yaz(d["guncel"] + bekleyen + yeni, os.path.join(graf, "kenarlar.jsonl"))
+    return {"yenilenen": len(yeni), "dogrulanmayi_bekleyen": len(bekleyen)}
+
+
 def kayit_kimlikleri(sd: str) -> set[str] | None:
     """Haritadaki tüm kayıt kimlikleri; harita hiç yoksa None (plan kapısı doğrulayamaz)."""
     kim, var = set(), False
