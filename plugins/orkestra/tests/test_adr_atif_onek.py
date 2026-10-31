@@ -2,8 +2,11 @@
 import json
 import os
 import re
+import sys
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(KOK, "scripts"))
+import kapi_mod  # noqa: E402
 ONEKSIZ = re.compile(r"(?<!ORK-)\bADR-\d")
 
 
@@ -26,4 +29,4 @@ def test_kurallar_md_oneksiz_adr_yok_ve_blok_json_ile_tutarli():
     blok = re.sub(r"\s+", " ", blok)
     for r in _kurallar():
         if r.get("durum") == "etkin":
-            assert re.sub(r"\s+", " ", r["metin"]).strip() in blok, r["id"]
+            assert re.sub(r"\s+", " ", kapi_mod.mod_coz(r["metin"])).strip() in blok, r["id"]
