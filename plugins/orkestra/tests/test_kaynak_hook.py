@@ -189,10 +189,7 @@ class TestPanelUcNoktasi(_Proje):
         self.assertEqual(v["kilit"]["kaynaklar"]["ozet.json"]["son_gun"], "2026-10-31")
 
     def test_http_uc_noktasi_ve_sayfa(self):
-        sunucu = panel.http.server.ThreadingHTTPServer(("127.0.0.1", 0), panel.isleyici_yap()) \
-            if hasattr(panel, "isleyici_yap") else None
-        if sunucu is None:
-            self.skipTest("panel işleyici fabrikası bulunamadı")
+        sunucu = panel.http.server.ThreadingHTTPServer(("127.0.0.1", 0), panel._isleyici())
         threading.Thread(target=sunucu.serve_forever, daemon=True).start()
         self.addCleanup(sunucu.shutdown)
         port = sunucu.server_address[1]
@@ -226,7 +223,7 @@ class TestKaynaklarJs(unittest.TestCase):
         r = subprocess.run(["node", "-e", betik, JS, json.dumps(veri)], capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(r.returncode, 0, r.stderr)
         h = r.stdout
-        for parca in ("4242", "5151", "1 dk 15 sn", "7 sn", "Kirayı tutanlar", "Bekleyenler", "ozet.json: 118", "4</b>"[:0] + "4 / 8"):
+        for parca in ("4242", "5151", "1 dk 15 sn", "7 sn", "Kirayı tutanlar", "Bekleyenler", "ozet.json: 118", "4 / 8"):
             self.assertIn(parca, h, parca)
 
 
