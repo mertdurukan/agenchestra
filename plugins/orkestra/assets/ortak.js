@@ -364,7 +364,7 @@
   O.tumAlan = () => O.alan === O.TUM;
   O.alanBilgi = () => O.alanlar.find(a => a.id === O.alan) || null;
   const SEKMELER = [['isler', 'Dashboard', '/isler'], ['maliyet', 'Maliyet ve verim', '/maliyet'],
-    ['onaylar', 'Onaylar, etki ve kurallar', '/onaylar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar']];
+    ['onaylar', 'Onaylar, etki ve kurallar', '/onaylar'], ['yapilacaklar', 'Yapılacaklar', '/yapilacaklar'], ['kaynaklar', 'Kaynaklar', '/kaynaklar']];
   O.rayModu = () => window.matchMedia('(min-width: 901px)').matches;   // ortak.css'teki kabuk kırılımıyla aynı eşik
   const sorgu = () => (O.alan ? '?alan=' + encodeURIComponent(O.alan) : '');
   function sekmeBagla() {
