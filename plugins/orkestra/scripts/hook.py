@@ -857,6 +857,15 @@ def pre_tool_use(inp: dict):
     except Exception:
         pass
 
+    if arac in YAZAN_ARACLAR:  # ADR-0111: tabi olunan denetimin kuralı yazım anında (engellemez)
+        try:
+            import uretim_enjeksiyonu as _ue
+            ue = _ue.metin(girdi.get("file_path") or girdi.get("notebook_path"), sd, inp.get("session_id"), atip or None)
+            if ue:
+                _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" + ue).strip()
+        except Exception:
+            pass
+
     if arac in YAZAN_ARACLAR:
         yol = girdi.get("file_path") or girdi.get("notebook_path") or ""
         if not yol:
@@ -2724,11 +2733,6 @@ def user_prompt_submit(inp: dict):
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez
                 import sir_yakala
                 parcalar.extend(sir_yakala.kaydet(inp.get("prompt") or ""))
-            except Exception:
-                pass
-            try:  # I-289 P2: kullanıcı düzeltmesi / yanlış öneri olay kaydı (gölge); hata hook'u düşürmez
-                import olay_yakala
-                olay_yakala.kaydet(sd, inp.get("prompt") or "")
             except Exception:
                 pass
             try:  # P-016: onay bekleyen işte kullanıcı mesajı onaysa durum yazılır; hata hook'u düşürmez
