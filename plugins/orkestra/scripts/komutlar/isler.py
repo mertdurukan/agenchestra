@@ -686,7 +686,7 @@ def kapat_uygula(sd, is_id):
     _teknik_detay_yaz(sd, is_id)
     try:  # I-201, ADR-0050; I-225, ADR-0086: kapanışta birleştirme ve dal/worktree temizliği (kipler ayarda); kapanışı asla bozmaz
         import dal_temizle
-        uyari = dal_temizle.kapanis(os.getcwd(), is_id)
+        uyari = dal_temizle.kapanis(_proje_koku(sd), is_id)  # panel servisinin cwd'si projeyi göstermez: kök durum klasöründen türer
         if uyari:
             print(f"orkestra: {uyari}", file=sys.stderr)
     except Exception:
