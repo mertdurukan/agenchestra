@@ -118,7 +118,7 @@ def izlenmeyen_test_modulleri(repo, atif_kaynagi, git):
         ad = re.escape(os.path.splitext(os.path.basename(y))[0])
         desen = rf"^[[:space:]]*(import|from)[[:space:]].*(^|[^[:alnum:]_]){ad}($|[^[:alnum:]_])"
         testler = git(repo, "grep", "-l", "-E", desen, "--", "*test_*.py").stdout.split()
-        if any(y.startswith(_test_koku(t) + "/") for t in testler):
+        if any(y.startswith(_test_koku(t) + "/" if _test_koku(t) else "") for t in testler):
             yollar.append(y)
     if not yollar:
         return []
