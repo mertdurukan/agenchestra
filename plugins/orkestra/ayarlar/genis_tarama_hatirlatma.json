@@ -1,8 +1,8 @@
 {
   "mod": "reddet",
-  "mod_aciklama": "ADR-0120, kullanıcı kararı D1 (31.10.2026): golge = yalnız uyarı + günlük; reddet = reddet_kaliplari'na uyan parça komut koşmadan reddedilir (grep -r yalnız uyarı), kapali = kapalı. Kapatma: ORKESTRA_GENIS_TARAMA=0.",
+  "mod_aciklama": "ADR-0123, kullanıcı kararı D1 (31.10.2026): golge = yalnız uyarı + günlük; reddet = reddet_kaliplari'na uyan parça komut koşmadan reddedilir (grep -r yalnız uyarı), kapali = kapalı. Kapatma: ORKESTRA_GENIS_TARAMA=0.",
   "onek": "timeout 20 ",
-  "reddet_metni": "Orkestra (ADR-0120): geniş kökte zaman sınırsız `find` reddedildi (53 dakika takılan komut olayı). Önce Glob/Grep kullan; Bash gerekiyorsa kökü daralt ya da `-maxdepth` ver. Hazır komut: {onerilen}",
+  "reddet_metni": "Orkestra (ADR-0123): geniş kökte zaman sınırsız `find` reddedildi (53 dakika takılan komut olayı). Önce Glob/Grep kullan; Bash gerekiyorsa kökü daralt ya da `-maxdepth` ver. Hazır komut: {onerilen}",
   "reddet_kaliplari": [
     "(?:^|[\\s;&|(])find\\s"
   ],

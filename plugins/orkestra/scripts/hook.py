@@ -344,7 +344,7 @@ def _yazilacak_metin(arac: str, girdi: dict) -> str:
 
 
 def _genis_tarama_kapisi(sd: str, oid, komut: str) -> str:
-    """P-012 madde 4, ADR-0120: zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
+    """P-012 madde 4, ADR-0123: zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
     uyarı bağlama gider. Kip `reddet` ise `reddet_kaliplari`na uyan komut için `kapi_ret` yazılır ve ret metni döner (çağıran
     reddeder); aksi halde ''. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
     global _BEKLEYEN_UYARI
@@ -1596,7 +1596,7 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
 
 
 def _onleme_yanit(sd: str, oid, inp: dict) -> None:
-    """ADR-0120 / P-045: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
+    """ADR-0123 / P-045: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
     akıl yürütmesi yoksa günlüğe `kural_ihlal / onleme_basamagi` yazılır. Yalnız ölçer (gölge): engellemez, uyarı vermez.
     Ayar `ayarlar/onleme_yanit.json`; hatada sessiz geçer."""
     try:
@@ -1678,7 +1678,7 @@ def _tur_toast(sd: str, oid: str, ozet: dict, arka_plan_acik: bool, inp: dict) -
 
 def arka_plan_satiri(sd: str, gorevler, transkript=None) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
-    Claude görevi varsa satıra en eski görevin yaşı ve (Windows) çalışan find.exe eklenir (ADR-0120, arka_plan_yas).
+    Claude görevi varsa satıra en eski görevin yaşı ve (Windows) çalışan find.exe eklenir (ADR-0123, arka_plan_yas).
     Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
     adlar = []
     try:

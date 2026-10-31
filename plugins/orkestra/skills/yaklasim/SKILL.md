@@ -5,7 +5,7 @@ description: "Sohbet sorusunu yanıtlamadan önce aday yolları (skill, MCP arac
 
 ## Amaç
 
-Yanıtın doğrudan kod yazarak ya da hafızadan başlamasını önler (P-045). Ayrıntı kural metni olarak bağlamda durmaz, çağrılınca yüklenir.
+Yanıtın doğrudan kod yazarak ya da hafızadan başlamasını önler (P-048). Ayrıntı kural metni olarak bağlamda durmaz, çağrılınca yüklenir.
 
 ## Adımlar
 

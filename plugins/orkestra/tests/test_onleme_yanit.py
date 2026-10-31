@@ -1,4 +1,4 @@
-"""ADR-0120 (G4, P-045): öneri kapısı yanıt denetimi (scripts/onleme_yanit.py, hook.py _onleme_yanit). Gölge: yalnız ölçer.
+"""ADR-0123 (G4, P-045): öneri kapısı yanıt denetimi (scripts/onleme_yanit.py, hook.py _onleme_yanit). Gölge: yalnız ölçer.
 `python -m pytest -q plugins/orkestra/tests/test_onleme_yanit.py`
 Derlem yapaydır (mekanizma testi): POZITIF = sonradan yakalayan/alışkanlık önerisi merdivensiz, NEGATIF = öneri yok ya da
 merdiven akıl yürütmesi var. Gerçek yanıtlarla doğruluk ölçümü P-028 geçiş kararının işidir (ayarda gecis_esigi).
