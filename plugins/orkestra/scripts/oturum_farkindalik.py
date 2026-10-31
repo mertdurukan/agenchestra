@@ -72,7 +72,7 @@ def git_konumu(cwd: str | None) -> dict | None:
 
 
 def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_id: str | None = None,
-           simdi: float | None = None) -> bool:
+           simdi: float | None = None, hizli: bool = False) -> bool:
     """Oturum kaydının `konum` alanını yeniler. Değişiklik yoksa ve son yazım 60 sn içindeyse dosyaya dokunmaz (ucuz yol).
     Hata durumunda False (istisna fırlatmaz)."""
     if not (etkin() and sd and oturum):
@@ -80,6 +80,12 @@ def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_i
     try:
         t = time.time() if simdi is None else simdi
         yol = L._oturum_json_yol(sd, oturum)
+        if hizli and not dosya:  # okuma araçları: dosya yakın zamanda yazıldıysa kilitsiz çık (hook gecikmesi)
+            try:
+                if t - os.stat(yol).st_mtime < YENILE_S:
+                    return True
+            except OSError:
+                pass
         konum = git_konumu(cwd)
         if not konum:
             return False
@@ -201,3 +207,45 @@ def golge_yaz(sd: str, oturum: str, komsu: dict, dosya: str | None, olay: str) -
                       "komsu": komsu["oturum"][:8], "neden": komsu["neden"], "dosya": bool(dosya)})
     except Exception:
         pass
+
+
+_YAZAN = ("Edit", "Write", "NotebookEdit", "MultiEdit")
+_KABUK = ("Bash", "PowerShell")
+
+
+def arac_oncesi(sd: str, oturum: str, cwd: str | None, arac: str, girdi: dict, alt_ajan: bool) -> str:
+    """PreToolUse: konumu yeniler; yazma/git-yazan araçta çakışma varsa tek kısa satır (oturum başına komşu+neden başına bir kez).
+    Engellemez; hata durumunda boş metin."""
+    try:
+        if alt_ajan or not (etkin() and sd and oturum):
+            return ""
+        dosya = None
+        if arac in _YAZAN:
+            y = girdi.get("file_path") or girdi.get("notebook_path") or ""
+            dosya = os.path.abspath(os.path.join(cwd or os.getcwd(), y)) if y else None
+        git_i = arac in _KABUK and git_yazan_komut(girdi.get("command"))
+        if not kaydet(sd, oturum, cwd, dosya, hizli=not (dosya or git_i)) or not (dosya or git_i):
+            return ""
+        yeni = []
+        for k in komsular(sd, oturum, cwd, dosya, git_islemi=git_i):
+            if k["neden"] == "depo" and not git_i:
+                continue
+            if uyar_bir_kez(sd, oturum, f"{k['oturum'][:8]}:{k['neden']}"):
+                yeni.append(k)
+                golge_yaz(sd, oturum, k, dosya, "arac_oncesi")
+        return satir(yeni, "git komutu dal/ağacı değiştirebilir. " if git_i else "")
+    except Exception:
+        return ""
+
+
+def oturum_basi(sd: str, oturum: str, cwd: str | None, is_id: str | None = None) -> str:
+    """SessionStart: konumu yazar; aynı depoda canlı komşu varsa tek satır (komşu başına bir kez değil: oturum başına bir)."""
+    try:
+        if not (etkin() and sd and oturum) or not kaydet(sd, oturum, cwd, is_id=is_id):
+            return ""
+        ks = komsular(sd, oturum, cwd)
+        for k in ks:
+            golge_yaz(sd, oturum, k, None, "oturum_basi")
+        return satir(ks)
+    except Exception:
+        return ""

@@ -886,6 +886,14 @@ def pre_tool_use(inp: dict):
     except Exception:
         pass
 
+    try:  # ADR-0122: engellemeyen oturumlar arası çakışma farkındalığı; hata aracı bozmaz
+        import oturum_farkindalik as _of
+        of = _of.arac_oncesi(sd, inp.get("session_id"), inp.get("cwd"), arac, girdi, bool(aid))
+        if of:
+            _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + chr(10) + of).strip()
+    except Exception:
+        pass
+
     if arac in YAZAN_ARACLAR:  # ADR-0111: tabi olunan denetimin kuralı yazım anında (engellemez)
         try:
             import uretim_enjeksiyonu as _ue
@@ -2587,6 +2595,13 @@ def session_start(inp: dict):
         sk = skill_surekli.baglam(proje_)
         if sk:
             ek = ek + chr(10) + sk
+    except Exception:
+        pass
+    try:  # ADR-0122: konum kaydı + yalnız çakışma varsa tek satır
+        import oturum_farkindalik as _of
+        of = _of.oturum_basi(sd, inp.get("session_id"), inp.get("cwd"))
+        if of:
+            ek = ek + chr(10) + of
     except Exception:
         pass
     _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000)
