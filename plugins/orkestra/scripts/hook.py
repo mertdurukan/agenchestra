@@ -2544,6 +2544,13 @@ def session_start(inp: dict):
             ek = ek + chr(10) + dv
     except Exception:
         pass
+    try:  # ADR-0111: sürekli açık skill gövdeleri; hata hook'u düşürmez
+        import skill_surekli
+        sk = skill_surekli.baglam(proje_)
+        if sk:
+            ek = ek + chr(10) + sk
+    except Exception:
+        pass
     _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000)
     import baglam_kaydi
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
