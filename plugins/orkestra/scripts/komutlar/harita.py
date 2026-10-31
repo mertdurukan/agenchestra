@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import os
+
 from komutlar._ortak import hata, sd_gerekli
 
 
