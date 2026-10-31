@@ -322,6 +322,10 @@ def kural_dosyasi_esitle(sd: str) -> bool:
     bir sonraki oturumda görünür."""
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
+        try:
+            _kurallar_md_blogu_yaz(_eklenti_oku())  # KURALLAR.md'deki mod da ayarla birlikte yenilenir (içerik aynıysa yazmaz)
+        except OSError:
+            pass
         yol = _kural_dosya_yolu(sd)
         metin = _kural_dosya_metni(sd)
         try:
