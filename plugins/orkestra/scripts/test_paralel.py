@@ -5,6 +5,8 @@ Kullanım: test_paralel.py [-n N] [--zaman-asimi SN] [--en-yavas K] [yol ...]
 Çıktı dosya sırasıyla birleşir; pytest'in FAILED/ERROR satırları olduğu gibi korunur.
 Çıkış: 0 hepsi geçti; 1 biri düştü / zaman aşımı / toplama hatası; 2 kullanım hatası ya da koşulacak test yok;
 3 makine genelindeki test kirası (kaynak_kira.py, ihlal modu) bekleme üst sınırında alınamadı.
+Aynı girdili (kod özeti + test kümesi + argümanlar) ikinci istek test_onbellek.py ile yeni süreç açmaz (I-309 P5;
+`ayarlar/kaynak_kira.json` `onbellek`: false | golge | true).
 """
 import argparse
 import concurrent.futures
@@ -19,6 +21,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
 import kaynak_kira  # noqa: E402
 import paralel_kos  # noqa: E402
+
+
+def _onbellek_modulu():
+    """scripts/test_onbellek.py dosya yoluyla ve ayrı adla yüklenir: tests/test_onbellek.py (pytest prepend içe aktarımı)
+    sys.modules'te `test_onbellek` adını alırsa düz `import` yanlış modülü getirirdi."""
+    import importlib.util
+    ad = "orkestra_test_onbellek"
+    if ad not in sys.modules:
+        spec = importlib.util.spec_from_file_location(ad, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                                       "test_onbellek.py"))
+        m = importlib.util.module_from_spec(spec)
+        sys.modules[ad] = m
+        spec.loader.exec_module(m)
+    return sys.modules[ad]
+
+
+test_onbellek = _onbellek_modulu()
 
 VARSAYILAN_ZAMAN_ASIMI = 900.0
 # Önceki koşuların dosya süreleri: en yavaş dosyalar havuza önce girer (LPT), kuyruk kısalır. Kayıt yoksa/bozuksa sıra korunur.
@@ -159,6 +178,27 @@ def main(argv=None):
         print("koşulacak test dosyası yok")
         return 2
 
+    # I-309 P5: önbellek ve tek uçuş kiradan ve havuzdan önce; isabette ne süreç ne kira açılır (test_onbellek.py).
+    if test_onbellek.mod() == "kapali":
+        return _kos(a, dosyalar, argv, None)
+    anahtar, _ = test_onbellek.anahtar(dosyalar, {"n": a.n, "zaman_asimi": a.zaman_asimi, "en_yavas": a.en_yavas})
+    with test_onbellek.tek_ucus(anahtar) as ucus:
+        if ucus.sonuc is not None:
+            if ucus.sonuc["cikti"]:
+                print(ucus.sonuc["cikti"].rstrip(chr(10)))
+            print(ucus.sonuc["satir"])
+            return ucus.sonuc["kod"]
+        return _kos(a, dosyalar, argv, ucus)
+
+
+def _kos(a, dosyalar, argv, ucus):
+    """Koşu ve rapor; `ucus` verilirse basılan rapor ve çıkış kodu önbelleğe/tek uçuş kaydına yazılır."""
+    satirlar = []
+
+    def yaz(s):
+        print(s)
+        satirlar.append(s)
+
     t0 = time.time()
     sureler = sureleri_oku()
     sira = baslatma_sirasi(dosyalar, sureler)
@@ -185,19 +225,19 @@ def main(argv=None):
     dusenler = []
     for dosya, kod, cikti, sure, asimi in sonuclar:
         dusenler += [x.strip() for x in (cikti or "").splitlines() if x.startswith(("FAILED ", "ERROR "))]
-        print(f"===== {dosya} ({sure:.1f} s) =====")
+        yaz(f"===== {dosya} ({sure:.1f} s) =====")
         if cikti:
-            print(cikti.rstrip("\n"))
+            yaz(cikti.rstrip("\n"))
         if asimi:
             asim += 1
-            print(f"zaman aşımı: {dosya} {a.zaman_asimi:g} sn içinde bitmedi, süreç öldürüldü")
+            yaz(f"zaman aşımı: {dosya} {a.zaman_asimi:g} sn içinde bitmedi, süreç öldürüldü")
         elif kod != 0:
             dus += 1
-    print(f"===== {len(dosyalar)} dosya, {dus} düşen, {asim} süre aşan, {time.time() - t0:.1f} s (-n {a.n}{kisildi}) =====")
+    yaz(f"===== {len(dosyalar)} dosya, {dus} düşen, {asim} süre aşan, {time.time() - t0:.1f} s (-n {a.n}{kisildi}) =====")
     if dusenler:
-        print("Düşenler:")
+        yaz("Düşenler:")
         for d in dusenler:
-            print("  " + d[:200])
+            yaz("  " + d[:200])
     try:
         with open(SON_GUNLUK, "w", encoding="utf-8") as f:
             for dosya, _, cikti, sure, _ in sonuclar:
@@ -207,10 +247,13 @@ def main(argv=None):
         pass
 
     if a.en_yavas > 0:
-        print(f"En yavaş {a.en_yavas} dosya:")
+        yaz(f"En yavaş {a.en_yavas} dosya:")
         for dosya, _, _, sure, _ in sorted(sonuclar, key=lambda r: -r[3])[:a.en_yavas]:
-            print(f"  {sure:7.1f} s  {dosya}")
-    return 1 if (dus or asim) else 0
+            yaz(f"  {sure:7.1f} s  {dosya}")
+    kod = 1 if (dus or asim) else 0
+    if ucus is not None:
+        ucus.kaydet(kod, chr(10).join(satirlar), time.time() - t0)
+    return kod
 
 
 if __name__ == "__main__":
