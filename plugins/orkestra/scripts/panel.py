@@ -43,6 +43,8 @@ POST /api/ayarlar             → {bildirim: true|false} Windows bildirimini aç
 POST /api/guncelle             → eklenti güncellemesini arka planda başlatır (aynı anda tek koşu, çalışıyorsa 409; X-Orkestra: 1, yerel Host)
 POST /api/guncelle-ertele      → kartı şu anki yeni sürüm için gizler ("Sonra"; daha yeni sürümde döner; X-Orkestra: 1, yerel Host)
 POST /onay?alan=<id>           → karar / simdi-uygula / kural-ekle / kural-duzenle / kural-kaldir (X-Orkestra: 1, yerel Host, ≤64 KB)
+GET /kaynaklar                 → Kaynaklar sayfası (kabuk panel.py'de, içerik assets/kaynaklar.js)
+GET /api/kaynaklar[?alan=<id>] → makine geneli test kirası: sahipler (pid, komut, işçi, süre), bekleyenler (bekleme_s), bütçe; alan verilirse kilit zaman aşımı sayıları (I-309 P6; salt okuma)
 GET /saglik                    → "ok"
 Sunucu durumu ~/.claude/orkestra-panel/panel.json'da; `orkestra panel` çalışan sunucuyu yeniden kullanır.
 Test sunucusu: `panel.py _kos <port> --test` panel.json'u YAZMAZ (gerçek panelin durum dosyasını ezmez; G-096).
