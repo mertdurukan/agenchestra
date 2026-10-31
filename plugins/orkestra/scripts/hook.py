@@ -952,7 +952,9 @@ def pre_tool_use(inp: dict):
 
     if arac in KABUK_ARACLARI:
         komut = girdi.get("command") or ""
-        _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
+        genis_ret = _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
+        if genis_ret:
+            reddet(genis_ret)
         # Kilitli test denetimi yalnız yazma işleci içeren komutta anlamlı; yalnız-okuma komutunda kartları (125 JSON) okuma.
         kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd)) if _KABUK_YAZMA_ON.search(komut) else None
         if kgid:
