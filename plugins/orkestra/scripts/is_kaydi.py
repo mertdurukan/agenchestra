@@ -285,7 +285,7 @@ def belge_olustur(klasor: str, baslik: str, tur: str, simdi: datetime.datetime |
     os.makedirs(klasor, exist_ok=True)
     try:
         with open(yol, "x", encoding="utf-8", newline="\n") as f:
-            f.write(sablon_metni(sablon, baslik, simdi, gun))
+            f.write(sablon_metni(sablon, baslik, simdi, gun) + (SIRA.etki_bolumu(klasor) if tur == "plan" else ""))
     except FileExistsError:
         return yol, False
     return yol, True
