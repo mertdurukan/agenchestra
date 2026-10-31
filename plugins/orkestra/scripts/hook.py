@@ -838,6 +838,32 @@ def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -
     _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
 
 
+def _main_kopya_kapisi(inp: dict, girdi: dict, arac: str) -> None:
+    """I-302 (ADR-0120): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
+    global _BEKLEYEN_UYARI
+    try:
+        import main_kopya_kapisi as _mk
+        yol = girdi.get("file_path") or girdi.get("notebook_path") or ""
+        if not yol:
+            return
+        cwd = inp.get("cwd") or os.getcwd()
+        tam = os.path.abspath(os.path.join(cwd, yol))
+        s = _mk.karar(tam, cwd)
+        if not s:
+            return
+        mod, mesaj = s
+        if mod == "ihlal":
+            reddet(mesaj)
+            return
+        import kapi_mod
+        kapi_mod.kaydet(cwd, _mk.KAPI, f"{tam} oturum={str(inp.get('session_id') or '')[:8]}")
+        _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + "orkestra (gölge): " + mesaj
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
 def pre_tool_use(inp: dict):
     global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI, _GUNCEL_GIRDI, _IZIN_KIPI
     _KULLANICI_MESAJI = ""
@@ -862,6 +888,8 @@ def pre_tool_use(inp: dict):
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
     _ajan_kapsam_kapisi(inp, arac, girdi, sd, atip)
+    if arac in YAZAN_ARACLAR:  # I-302: korunan deponun birincil main kopyasına yazma (gölge: kayıt+uyarı, ihlal: ret)
+        _main_kopya_kapisi(inp, girdi, arac)
     kar, kneden = _izin_karari(arac, girdi, sd, inp.get("session_id"))  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
     if kar == "allow":
         _VARSAYILAN_IZIN = kneden
