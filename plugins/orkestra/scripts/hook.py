@@ -1722,7 +1722,7 @@ def stop(inp: dict):
     if perspektif:
         gec()
     if inp.get("background_tasks"):
-        satir = arka_plan_satiri(sd, inp.get("background_tasks"))
+        satir = arka_plan_satiri(sd, inp.get("background_tasks"), inp.get("transcript_path"))
         if satir:
             L.hook_cikti({"systemMessage": _sm(satir)})
         gec()
