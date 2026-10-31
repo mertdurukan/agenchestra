@@ -479,12 +479,12 @@
     {
       "id": "P-012",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır.",
+      "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. Sınır ajanın dikkatine bırakılmaz: zaman sınırsız geniş kök `find` Bash'te komut koşmadan reddedilir (PreToolUse; ret metni hazır `timeout 20 find …` komutunu ve Glob seçeneğini verir), `grep -r` gölgede uyarır, Stop satırı arka plan görevini yaşıyla ve çocuk find.exe ile gösterir (ADR-0120, ayarlar/genis_tarama_hatirlatma.json, ORKESTRA_GENIS_TARAMA=0 kapatır). (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır.",
       "neden": "Kullanıcı 13-15.10.2026: yan bulgular ve öneriler asıl görevi gölgeledi; bir ölçüm kartı 26 dk ve ~170 bin token harcadı, oysa kolon varlığı kontrolü yeterliydi. Kural yalnız bir projenin CLAUDE.md dosyasındaydı; eklentiyi kullanan her projede geçerli olmalı.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-18T10:36:24+03:00",
-      "guncelleme": "2026-10-18T17:35:00+03:00",
+      "guncelleme": "2026-10-31T21:00:24+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-18T10:36:24+03:00",
@@ -495,6 +495,11 @@
           "zaman": "2026-10-18T17:35:00+03:00",
           "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Kullanıcı 'yap' demeden iş başlatılmaz; engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır."
+        },
+        {
+          "zaman": "2026-10-31T21:00:24+03:00",
+          "olay": "duzenlendi",
+          "metin": "ZORUNLU, istisnasız: Sohbet tek aktif sorunla ilerler. (1) Onay gelmeden iş başlatılmaz (P-016); engel varsa durum ve engel söylenir. (2) Alt ajan, denetçi ya da hook raporundaki konu dışı bulgu en çok tek satırla 'ayrı konu' diye anılır; yanıt sonunda konu dışı öneri, soru ya da 'ister misin?' yazılmaz. (3) Oturum açılışı ve hook bağlamı (açık işler, panel açma, başka işlerin kartları ve notları) aktif soruyla ilgili değilse yok sayılır. (4) Kapsam dardır: keşif, işçi ve denetçi görevleri sorunun ihtiyacı kadardır; arama yalnız aktif işin klasöründe yapılır; genişletmek için kullanıcıya sorulur. (5) Kart ya da ölçüm yazılmadan önce cevaplayacağı tek soru belirlenir ve en ucuz kanıtla başlanır."
         }
       ],
       "etkinlesme": "2026-10-18T10:36:24+03:00"
@@ -1118,16 +1123,21 @@
     {
       "id": "P-045",
       "katman": "plugin",
-      "metin": "ZORUNLU, istisnasız: Her çıktı, tabi olduğu denetimin kuralını yazılmadan önce görerek üretilir; sorun üretildiği yerde, önleme merdiveninin en üst uygulanabilir basamağında çözülür, sonradan yakalama yalnız güvenlik ağıdır. Merdiven: L0 kaldır ya da birleştir, L1 türet (modele yazdırma), L2 kendi kapısından geçen iskelet, L3 mekanik düzelt (updatedInput), L4 tam zamanında bağlam, L5 erken ve eksiksiz ret, L6 sonradan tespit (yalnız anlamsal denetim). Yeni kontrol ya da kapı önerilmeden önce L0–L4'ün neden uygulanamadığı yazılır (K-006). Zorlama: Write/Edit hedefi ayarlar/uretim_enjeksiyonu.json eşlemesindeki bir belge türüne denkse PreToolUse hook'u ilgili kuralı kısa bağlam olarak ekler; engellemez, gunluk.jsonl'a uretim_enjekte yazar (scripts/uretim_enjeksiyonu.py, standartlar/onleme_merdiveni.md; ORKESTRA_URETIM_ENJEKSIYON=0 kapatır; proje ezmesi .claude/orkestra/uretim_enjeksiyonu.json). Ölçüm: ret_olcum.py ön/son karşılaştırması. (ORK-ADR-0042, ORK-ADR-0111)",
+      "metin": "ZORUNLU, istisnasız: Her çıktı, tabi olduğu denetimin kuralını yazılmadan önce görerek üretilir; sorun üretildiği yerde, önleme merdiveninin en üst uygulanabilir basamağında çözülür, sonradan yakalama yalnız güvenlik ağıdır. Merdiven: L0 kaldır ya da birleştir, L1 türet (modele yazdırma), L2 kendi kapısından geçen iskelet, L3 mekanik düzelt (updatedInput), L4 tam zamanında bağlam, L5 erken ve eksiksiz ret, L6 sonradan tespit (yalnız anlamsal denetim). Yeni kontrol ya da kapı önerilmeden önce L0–L4'ün neden uygulanamadığı yazılır (K-006). Zorlama: Write/Edit hedefi ayarlar/uretim_enjeksiyonu.json eşlemesindeki bir belge türüne denkse PreToolUse hook'u ilgili kuralı kısa bağlam olarak ekler; engellemez, gunluk.jsonl'a uretim_enjekte yazar (scripts/uretim_enjeksiyonu.py, standartlar/onleme_merdiveni.md; ORKESTRA_URETIM_ENJEKSIYON=0 kapatır; proje ezmesi .claude/orkestra/uretim_enjeksiyonu.json). Ölçüm: ret_olcum.py ön/son karşılaştırması. Düzeltme önermeden önce o sınırda mevcut mekanizma aranır (kapı, hook, kural; kod okunur): hata anı enjeksiyonu (standartlar/kok_neden.md) bunu ve merdiven adımını sorar, Stop'ta gölge yanıt denetimi merdivensiz 'hatırlatma ya da uyarı ekle' önerisini kural_ihlal / onleme_basamagi olarak ölçer (scripts/onleme_yanit.py; ORKESTRA_ONLEME_YANIT=0 kapatır; ihlale geçiş eşiği 30 tetik ve 0 yanlış pozitif, P-028; ADR-0120). (ORK-ADR-0042, ORK-ADR-0111)",
       "neden": "I-293: merdiven yalnız ADR'deydi; kullanıcı isteği 31.10.2026: kontrolle yakalanan sorunlar ilk üretimde çözülsün.",
       "durum": "etkin",
       "kaynak": "cli",
       "olusturma": "2026-10-31T17:01:06+03:00",
-      "guncelleme": "2026-10-31T17:01:06+03:00",
+      "guncelleme": "2026-10-31T21:00:26+03:00",
       "gecmis": [
         {
           "zaman": "2026-10-31T17:01:06+03:00",
           "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Her çıktı, tabi olduğu denetimin kuralını yazılmadan önce görerek üretilir; sorun üretildiği yerde, önleme merdiveninin en üst uygulanabilir basamağında çözülür, sonradan yakalama yalnız güvenlik ağıdır. Merdiven: L0 kaldır ya da birleştir, L1 türet (modele yazdırma), L2 kendi kapısından geçen iskelet, L3 mekanik düzelt (updatedInput), L4 tam zamanında bağlam, L5 erken ve eksiksiz ret, L6 sonradan tespit (yalnız anlamsal denetim). Yeni kontrol ya da kapı önerilmeden önce L0–L4'ün neden uygulanamadığı yazılır (K-006). Zorlama: Write/Edit hedefi ayarlar/uretim_enjeksiyonu.json eşlemesindeki bir belge türüne denkse PreToolUse hook'u ilgili kuralı kısa bağlam olarak ekler; engellemez, gunluk.jsonl'a uretim_enjekte yazar (scripts/uretim_enjeksiyonu.py, standartlar/onleme_merdiveni.md; ORKESTRA_URETIM_ENJEKSIYON=0 kapatır; proje ezmesi .claude/orkestra/uretim_enjeksiyonu.json). Ölçüm: ret_olcum.py ön/son karşılaştırması. (ORK-ADR-0042, ORK-ADR-0111)"
+        },
+        {
+          "zaman": "2026-10-31T21:00:26+03:00",
+          "olay": "duzenlendi",
           "metin": "ZORUNLU, istisnasız: Her çıktı, tabi olduğu denetimin kuralını yazılmadan önce görerek üretilir; sorun üretildiği yerde, önleme merdiveninin en üst uygulanabilir basamağında çözülür, sonradan yakalama yalnız güvenlik ağıdır. Merdiven: L0 kaldır ya da birleştir, L1 türet (modele yazdırma), L2 kendi kapısından geçen iskelet, L3 mekanik düzelt (updatedInput), L4 tam zamanında bağlam, L5 erken ve eksiksiz ret, L6 sonradan tespit (yalnız anlamsal denetim). Yeni kontrol ya da kapı önerilmeden önce L0–L4'ün neden uygulanamadığı yazılır (K-006). Zorlama: Write/Edit hedefi ayarlar/uretim_enjeksiyonu.json eşlemesindeki bir belge türüne denkse PreToolUse hook'u ilgili kuralı kısa bağlam olarak ekler; engellemez, gunluk.jsonl'a uretim_enjekte yazar (scripts/uretim_enjeksiyonu.py, standartlar/onleme_merdiveni.md; ORKESTRA_URETIM_ENJEKSIYON=0 kapatır; proje ezmesi .claude/orkestra/uretim_enjeksiyonu.json). Ölçüm: ret_olcum.py ön/son karşılaştırması. (ORK-ADR-0042, ORK-ADR-0111)"
         }
       ],
