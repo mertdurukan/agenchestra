@@ -741,6 +741,16 @@ def cmd_is_kapat(a):
                 print(sat)
 
 
+def _etki_kapanis(sd, is_id):
+    """ADR-0112: kapanışta etki kümesi yeniden doğrulanır; işlenmemiş yüzey gölge kaydı üretir. Kapanışı hiçbir koşulda engellemez."""
+    try:
+        kayit = _ik().is_al(sd, is_id) or {}
+        if kayit.get("klasor"):
+            _ik().SIRA.etki_kapanis_kaydi(kayit["klasor"])
+    except Exception as e:  # noqa: BLE001 - kapanış hiçbir koşulda engellenmez
+        print(f"orkestra: uyarı: etki yeniden doğrulaması yapılamadı ({type(e).__name__}: {L.maskele(str(e))})", file=sys.stderr)
+
+
 def _harita_yenile(sd):
     """Kapanışta sistem haritası eskimişse yeniler (ADR-0005; K7). Kapanışı hiçbir koşulda engellemez."""
     if os.environ.get("ORKESTRA_HARITA_KAPISI") == "0":
