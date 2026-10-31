@@ -1137,6 +1137,14 @@ def pre_tool_use(inp: dict):
         if arac == "Bash" and _PS_CMDLET.search(tirnaksiz):  # Bash'e PowerShell sözdizimi: engellenmez, davranış hatası olarak kaydedilir
             _davranis_yaz("kabuk-sozdizimi", komut[:120])
         _onay_kapisi(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), tirnaksiz=tirnaksiz)
+        try:  # I-309 P6: çıplak tam test koşusu → test_paralel.py yönlendirmesi (gölge: kayıt + ipucu); hata aracı bozmaz
+            ty = _test_yonlendirme(komut, inp.get("cwd"))
+            if ty:
+                _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + "\n" + ty).strip()
+        except SystemExit:
+            raise
+        except Exception:
+            pass
         if ORK_KOMUT.search(tirnaksiz):
             yazan = bool(YAZAN_ALT_KOMUT.search(tirnaksiz))
             if COKLU_KOMUT.search(tirnaksiz):
