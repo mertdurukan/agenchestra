@@ -351,7 +351,7 @@ def _kurallar_md_blogu_yaz(liste: list[dict]) -> None:
                 "Bu bölüm `orkestra kural` komutuyla yönetilir (`kurallar/eklenti_kurallari.json`); elle düzenleme.", ""]
         for r in etkin:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            blok.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            blok.append(f"- {_tek_satir(KM.mod_coz(r['metin']))} ({r['id']}, {tarih})")
             if r.get("neden"):
                 blok.append(f"  - Neden: {_tek_satir(r['neden'])}")
         blok.append(ESKI_BITIS)
