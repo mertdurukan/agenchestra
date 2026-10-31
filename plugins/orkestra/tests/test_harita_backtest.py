@@ -31,9 +31,9 @@ class Backtest(unittest.TestCase):
         self.assertEqual((s["sinama_commit"], s["recall"], s["kapsama"]), (3, 0.0, 0.0))
 
     def test_ilgisiz_dosya_recall_dusurur(self):
-        cm = [["a.txt", "b.txt"]] * 6 + [["a.txt", "c.txt"]] * 4
-        s = B.olc(self.kok, isinma=0.6, asgari=3, cm=cm)
-        self.assertEqual(s["sinama_commit"], 4)
+        cm = [["a.txt", "b.txt"]] * 6 + [["a.txt", "c.txt"]] * 2
+        s = B.olc(self.kok, isinma=0.75, asgari=3, cm=cm)
+        self.assertEqual(s["sinama_commit"], 2)
         self.assertEqual(s["recall"], 0.0)       # c.txt daha önce hiç a.txt ile değişmedi
         self.assertEqual(s["precision"], 0.0)    # a.txt tohumu b.txt'yi öngördü, yanlış
 
