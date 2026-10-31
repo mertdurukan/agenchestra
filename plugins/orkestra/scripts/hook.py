@@ -1617,6 +1617,12 @@ def stop(inp: dict):
         # neden çıkarılamadıysa (soru/karar yok) panel 'Seni bekliyor' yerine nötr durum gösterir (G-095)
         niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None, bekleme=bekleme,
                    bekleme_yok=True if bekleme == "" else None)
+    try:  # ADR-0115: aday sonrası ajan konu açmadıysa gölge kaydı
+        import konu_defteri
+        if not inp.get("agent_id"):
+            konu_defteri.stop_kontrol(sd, oid)
+    except Exception:
+        pass
     baglam = ""
     try:
         esleme = B.esleme_oku(sd)
@@ -2674,6 +2680,13 @@ def user_prompt_submit(inp: dict):
                         _yonlendirme_ipucu(sd, inp.get("session_id"), metin, L.proje_dizini(inp.get("cwd")),
                                            cwd=inp.get("cwd"))]
             _niyet_otomatik(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), metin)  # iş açıldıktan sonra
+            try:  # ADR-0115: sohbet konu defteri (ilk konu, tur sayacı, aday); hata hook'u düşürmez
+                import konu_defteri
+                kh = konu_defteri.hook_istek(sd, inp.get("session_id"), metin) if not inp.get("agent_id") else ""
+                if kh:
+                    parcalar.append(kh)
+            except Exception:
+                pass
             try:  # bilgi sorusu notu (G-120): listenin başına; hata hook'u düşürmez
                 import soru_sinif
                 sn = soru_sinif.not_metni(metin, sd)

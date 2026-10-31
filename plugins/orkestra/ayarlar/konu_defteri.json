@@ -1,0 +1,8 @@
+{
+  "mod": "golge",
+  "ortusme_esigi": 0.10,
+  "bosluk_dk": 60,
+  "kisa_jeton": 4,
+  "son_istek": 3,
+  "aciklama": "ADR-0115 sohbet konu defteri. Her sohbette konular saniyeli zamanla .claude/orkestra/konular.jsonl'e yazılır (ekleme-only). Hook sohbetin ilk isteğinde konu açar, her turu sayar; açık konuyla jeton örtüşmesi ortusme_esigi altındaysa ya da bosluk_dk dakikalık ara varsa 'aday' olayı yazar ve ajana tek satır hatırlatır; konuyu yalnız ajan açar (orkestra konu ac). mod golge = ajan konu açmadan biten turlar gunluk.jsonl'a kapi_golge olarak yazılır, iş engellenmez (P-028). ihlal geçişi: orkestra konu rapor göstergeleri (>=100 sohbet, 14 gün, ajan açılışı >=%70, kaçırma <=%10, yanlış alarm <=%15) ölçülünce ayrı kararla, ADR yazılarak. Kapatma: ORKESTRA_KONU_DEFTERI=0. Proje ezmesi: .claude/orkestra/konu_defteri.json."
+}
