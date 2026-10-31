@@ -1,4 +1,4 @@
-"""Korunan deponun birincil main kopyasına yazma kapısı (I-302, ADR-0119): gerçek git depoları ve çalışma ağaçlarıyla."""
+"""Korunan deponun birincil main kopyasına yazma kapısı (I-302, ADR-0120): gerçek git depoları ve çalışma ağaçlarıyla."""
 import os
 import shutil
 import subprocess
