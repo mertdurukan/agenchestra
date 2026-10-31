@@ -4,6 +4,7 @@ K1: aynı anda iki koşucu (20 tekrar) -> toplam işçi bütçeyi aşmaz, ikinci
 K2: sahip süreç öldürülünce ikinci koşu sona erme süresi dolunca devralır.
 K3: mod kapali iken davranış eski gibi (kayıt yok, bekleme yok, işçi kısılmaz).
 """
+import contextlib
 import io
 import json
 import os
@@ -40,6 +41,17 @@ with K.kira(istenen, komut="sahte " + ad) as k:
 with open(gunluk, "a", encoding="utf-8") as f:
     f.write(f"{ad} {k.isci} {t0:.4f} {t1:.4f}\n")
 '''
+
+
+@contextlib.contextmanager
+def ayri_surec():
+    """Aynı süreçte ikinci kira, iç içe koşu sayılmasın diye sahip ortam değişkeni geçici kaldırılır (ayrı süreç benzetimi)."""
+    eski = os.environ.pop(K.SAHIP_ENV, None)
+    try:
+        yield
+    finally:
+        if eski is not None:
+            os.environ[K.SAHIP_ENV] = eski
 
 
 class Ortam(unittest.TestCase):
@@ -119,7 +131,7 @@ class EsZamanliBütce(Ortam):
         with K.kira(2, komut="bir", cikti=io.StringIO()) as k1:
             buf = io.StringIO()
             t = time.time()
-            with K.kira(2, komut="iki", cikti=buf) as k2:
+            with ayri_surec(), K.kira(2, komut="iki", cikti=buf) as k2:
                 self.assertLess(time.time() - t, 1.0)
                 self.assertEqual((k1.isci, k2.isci, k2.sira), (2, 2, 0))
                 self.assertEqual(K.durum()["kullanilan"], 4)
@@ -234,7 +246,7 @@ class Modlar(Ortam):
         with K.kira(4, komut="ilk", cikti=io.StringIO()):
             buf = io.StringIO()
             t = time.time()
-            with mock.patch.object(K, "_golge_kaydet") as kayit:
+            with mock.patch.object(K, "_golge_kaydet") as kayit, ayri_surec():
                 with K.kira(4, komut="ikinci", cikti=buf) as k2:
                     self.assertLess(time.time() - t, 1.0)
                     self.assertEqual((k2.isci, k2.mod, k2.sira), (4, "golge", 2))
