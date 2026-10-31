@@ -23,3 +23,5 @@ I-292 P7, `agents/denetci.md`'nin (4 kip) bölünüp bölünmeyeceğine P5 veris
 Olumlu: bölme riski alınmadı, ölçüm kusuru kaynakta düzeltilecek. Olumsuz: P-030 yanlış ret hedefi şimdilik açık; yeniden koşu 60 denetçi çağrısı maliyetlidir. Geri alma: karar yeni ADR ile değiştirilir, `git revert`.
 
 **İlgili iş:** I-292 (P5, P7), P-030, P-032, ADR-0110
+
+**Güncelleme (2026-10-31):** Yeniden koşu yapıldı (`sonuc_20261031.md` v2 bölümü): kaçırma 0/30 (üst %9,5), yanlış ret 0/30 (üst %9,5). Eşik karşılandı; karar (4) kapsamında `denetci.md` kök neden maddesi açılmaz.
