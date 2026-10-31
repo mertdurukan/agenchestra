@@ -99,7 +99,7 @@ STATIK = {"/gorsel.css": ("gorsel.css", "text/css; charset=utf-8"),
           "/app.js": ("app.js", "application/javascript; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
 # sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
-SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar", "teknik")
+SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar", "teknik", "kaynaklar")
 SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki", "yapilacaklar", "teknik")
 STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8") for ad in SAYFA_JS})
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
