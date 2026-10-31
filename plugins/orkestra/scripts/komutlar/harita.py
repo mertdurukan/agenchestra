@@ -63,3 +63,6 @@ def kaydet(alt):
     o.set_defaults(f=cmd_harita_oku)
     d = p.add_parser("denetle", help="eskimiş katman sayısını basar (dosya yazmaz)")
     d.set_defaults(f=cmd_harita_denetle)
+    i = p.add_parser("istek", help="isteği konu kartlarına eşler; dokunulacak yüzeyleri ve bağlı kenarları listeler (ADR-0112)")
+    i.add_argument("metin", help="kullanıcı isteği")
+    i.set_defaults(f=cmd_harita_istek)
