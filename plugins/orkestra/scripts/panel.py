@@ -99,7 +99,7 @@ STATIK = {"/gorsel.css": ("gorsel.css", "text/css; charset=utf-8"),
           "/app.js": ("app.js", "application/javascript; charset=utf-8"),
           "/logo.png": ("logo.png", "image/png")}
 # sayfa başına ayrı betik (<sayfa>.js) ve büyük sayfa için stil (<sayfa>.css); yalnız bu liste sunulur
-SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar", "teknik")
+SAYFA_JS = ("simdi", "isler", "maliyet", "verim", "onaylar", "kurallar", "etki", "yapilacaklar", "teknik", "kaynaklar")
 SAYFA_CSS = ("simdi", "isler", "maliyet", "verim", "etki", "yapilacaklar", "teknik")
 STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8") for ad in SAYFA_JS})
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
@@ -164,7 +164,8 @@ TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_AL
 TUM_ALAN_YOLLARI = frozenset({"/simdi.json", "/onaylar.json", "/isler.json", "/kurallar.json", "/ozet.json",
                               "/analitik.json", "/api/kullanici-todo", "/teknik.json"})   # yalnız GET; yazma her zaman tek alan
 _TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kayıtlı alana ister (liste kipi birleşir)
-KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
+KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac",
+                               "/api/kaynaklar"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
 
 
 def _mod_kaynak(sd: str) -> str:
@@ -306,6 +307,55 @@ def _perspektif(sd: str) -> dict:
                                           "zamani_geldi": bool(d.get("zamani_geldi"))}}
     except Exception:  # noqa: BLE001
         return {"rapor": rapor, "durum": None}
+
+
+def _sure_s(baslangic, simdi: float):
+    """ISO başlangıç zamanından geçen saniye; ayrışamazsa None."""
+    import datetime  # noqa: PLC0415
+    try:
+        return max(0, round(simdi - datetime.datetime.fromisoformat(str(baslangic)).timestamp()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _kaynaklar_json(alan_id) -> dict:
+    """I-309 P6: makine geneli test kirası (kim tutuyor, kaç işçi, bekleyenler ve bekleme süresi) ve seçili alanın kilit
+    zaman aşımı sayıları (kilit_olcum.olc). Kira makinenindir, alan almaz; kilit sayıları yalnız tek orkestralı alanda gelir."""
+    import kaynak_kira as KK  # noqa: PLC0415
+    simdi = time.time()
+    d = KK.durum("test_kosusu")
+    ayar = KK.ayarlar()
+    alan_disi = ("kimlik", "son")
+    sahipler = [{**{k: v for k, v in s.items() if k not in alan_disi}, "sure_s": _sure_s(s.get("baslangic"), simdi)}
+                for s in d["sahipler"]]
+    bekleyenler = [{**{k: v for k, v in b.items() if k not in alan_disi}, "bekleme_s": _sure_s(b.get("baslangic"), simdi)}
+                   for b in d["bekleyenler"]]
+    try:
+        butce = KK.butce(ayar)
+    except Exception:  # noqa: BLE001
+        butce = None
+    kilit = None
+    if alan_id and alan_id != TUM_ALAN:
+        a, sd = _alan_sd(alan_id, kesin=True)
+        if a is not None:
+            import kilit_olcum  # noqa: PLC0415
+            olc = kilit_olcum.olc(sd)
+            kilit = {"alan": _alan_kisa(a),
+                     "kaynaklar": {k: {"kayit": v["kayit"], "son_gun": max(v["gun"]) if v["gun"] else None,
+                                       "ort_bekleme_ms": v["ort_bekleme_ms"]} for k, v in olc.items()},
+                     "ozet_json_zaman_asimi": (olc.get("ozet.json") or {}).get("kayit", 0)}
+    return {"acik": True, "kaynak": "test_kosusu", "mod": ayar.get("mod"), "butce": butce,
+            "kullanilan": d.get("kullanilan", 0), "sahipler": sahipler, "bekleyenler": bekleyenler, "kilit": kilit,
+            "zaman": L.simdi()}
+
+
+KAYNAKLAR_HTML = """<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra · Kaynaklar</title><link rel="stylesheet" href="ortak.css"></head>
+<body><header id="kabuk"></header><main><h1 class="gorunmez">Kaynaklar</h1><div id="kaynaklar" aria-live="polite"></div></main>
+<div id="ipucu"></div><div id="bildirim" role="status" aria-live="polite"></div>
+<script src="ortak.js"></script><script src="kaynaklar.js"></script></body></html>
+""".encode("utf-8")  # sayfa kabuğu: içerik kaynaklar.js'te (assets/kaynaklar.html eklenene kadar)
 
 
 def _arka_plan(perspektif_durum: dict | None, uygulama: dict | None) -> list[dict]:
