@@ -39,8 +39,14 @@ class ModYazimi(_Onay):
         self.mesaj("/plan x")
         self.assertEqual(self.mod(), "plan")
 
-    def test_alansiz_is_plan_sayilir(self):
-        self.assertEqual(is_onay.mod(is_kaydi.is_al(self.sd, self.kayit["id"])), "plan")
+    def test_alansiz_is_eklenti_varsayilanini_izler(self):
+        from mod_yalitim import eklenti_varsayilani
+        kayit = is_kaydi.is_al(self.sd, self.kayit["id"])
+        for deger in ("plan", "auto"):
+            with eklenti_varsayilani(deger):
+                self.assertEqual(is_onay.mod(kayit), deger)
+        with eklenti_varsayilani(None):
+            self.assertEqual(is_onay.mod(kayit), "plan")
 
     def test_sozcuk_ortasi_mod_degil(self):
         self.assertIsNone(is_onay.mod_mesaji("autopilot kur"))
