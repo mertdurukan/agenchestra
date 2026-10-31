@@ -25,6 +25,7 @@ def kos(args, cwd, ortam=None, stdin=None):
     env.pop("CLAUDE_PROJECT_DIR", None)
     env["ORKESTRA_URETIM_KAPISI"] = "0"  # ADR-0069: eski plan fikstürleri Üretim noktası taşımaz; kapıyı test_uretim_noktasi sınar
     env["ORKESTRA_PARALELLIK_KAPISI"] = "0"  # ADR-0080: eski plan fikstürleri Önce/Yazma alanı taşımaz; kapıyı test_paralellik_kapi sınar
+    env["ORKESTRA_IZIN"] = "kapi"  # eklenti varsayılanı `genis` (ayarlar/izin_politikasi.json): kapı testleri karar yokluğunu sınar, makine ayarına bağlı kalmaz; geniş mod test_izin_politikasi*'da ortam= ile verilir
     env["ORKESTRA_KART_KONTROL"] = "0"  # I-224 P8: eski kart fikstürleri `kontrol:` taşımaz; kapıyı test_kart_kontrol_alani sınar
     env.update(ortam or {})
     return ic_kos.kos(args, cwd=cwd, env=env, input=stdin)

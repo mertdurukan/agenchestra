@@ -180,6 +180,7 @@ class HookUcAdanUca(unittest.TestCase):
         self.ev = tempfile.mkdtemp(prefix="ork_ev_")
         self.env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1", HOME=self.ev, USERPROFILE=self.ev)
         self.env["ORKESTRA_IZIN"] = "genis"
+        self.env["ORKESTRA_MOD_KAPISI"] = "0"  # ADR-0115: varsayılan mod auto; bu sınıf plan modunda push `ask` kapısını sınar
         self.env.pop("CLAUDE_PROJECT_DIR", None)
         r = ic_kos.kos([CLI, "baslat"], cwd=self.proje, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
