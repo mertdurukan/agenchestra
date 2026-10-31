@@ -75,13 +75,20 @@ class VarsayilanModTesti(unittest.TestCase):
         self.dosya = os.path.join(self.sd, "yetki.json")
 
     def test_get_kaynak_etiketi(self):
-        d = panel._ayarlar_durum("a1")["varsayilan_mod"]
-        self.assertEqual(d["deger"], "plan")
-        self.assertEqual(d["kaynak"], "eklenti")  # eklentinin ayarlar/ dosyası plan der
-        self.assertEqual(d["alan"], "Proje")
-        panel._mod_yaz("a1", "auto")
-        d = panel._ayarlar_durum("a1")["varsayilan_mod"]
-        self.assertEqual((d["deger"], d["kaynak"]), ("auto", "proje"))
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from mod_yalitim import eklenti_varsayilani
+        for eklenti in ("plan", "auto"):
+            for dosya in (self.dosya, self.dosya + ".bak"):
+                if os.path.exists(dosya):
+                    os.remove(dosya)
+            with eklenti_varsayilani(eklenti):
+                d = panel._ayarlar_durum("a1")["varsayilan_mod"]
+                self.assertEqual(d["deger"], eklenti)
+                self.assertEqual(d["kaynak"], "eklenti")  # eklentinin ayarlar/ dosyasındaki değer
+                self.assertEqual(d["alan"], "Proje")
+                panel._mod_yaz("a1", "plan" if eklenti == "auto" else "auto")
+                d = panel._ayarlar_durum("a1")["varsayilan_mod"]
+                self.assertEqual((d["deger"], d["kaynak"]), ("plan" if eklenti == "auto" else "auto", "proje"))
 
     def test_alan_yoksa_mod_yok_bildirim_kalir(self):
         for alan in (None, "*", "yok"):
