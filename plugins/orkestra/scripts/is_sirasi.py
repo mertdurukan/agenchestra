@@ -707,6 +707,82 @@ def paralellik_engeli(klasor: str) -> list[str]:
     return KM.ret_ver(klasor, "paralellik", paralellik_eksikleri(klasor))
 
 
+# ADR-0112: plan etki kapısı. İsteğin konu kartlarına eşlenen yüzeyleri plan maddelerinin `**Etki:**` alanında anılmalı
+# (`orkestra harita istek`); kapı `ayarlar/harita_etki.json` modunda çalışır (başlangıç: golge, P-028).
+def etki_kapisi_acik() -> bool:
+    return os.environ.get("ORKESTRA_ETKI_KAPISI") != "0"
+
+
+def etki_kapsaminda_mi(klasor: str) -> bool:
+    """ADR-0112: iş sıralı ve is.json `etki: true` taşıyor (bayraksız eski işler muaf)."""
+    if not etki_kapisi_acik() or not sirali_mi(klasor):
+        return False
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f).get("etki") is True
+    except (OSError, ValueError):
+        return False
+
+
+def _etki_istegi(klasor: str) -> str:
+    """İsteğin metni: iş başlığı ve sözleşmenin `## Problem` bölümü."""
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            parca = [str(json.load(f).get("baslik") or "")]
+    except (OSError, ValueError):
+        parca = []
+    for ad in sorted(os.listdir(klasor)) if os.path.isdir(klasor) else []:
+        if _SOZLESME_AD.match(ad):
+            m = re.search(r"^##\s+Problem\s*$(.*?)(?=^##\s|\Z)", _oku(os.path.join(klasor, ad)) or "", re.S | re.M)
+            if m:
+                parca.append(m.group(1))
+    return "\n".join(parca)
+
+
+def etki_sonucu(klasor: str) -> dict | None:
+    """İsteğin etki kümesi (`harita_istek.etki`); graf dizini yoksa None."""
+    import harita
+    import harita_istek as HI
+    sd = harita.sd_bul(klasor)
+    graf = os.path.join(harita.klasor_yolu(sd), HI.GRAF_DIZINI) if sd else ""
+    if not graf or not os.path.isdir(graf):
+        return None
+    return HI.etki(_etki_istegi(klasor), graf)
+
+
+def etki_bolumu(klasor: str) -> str:
+    """Plan iskeletine eklenen `## Etki kümesi` bölümü (`orkestra harita istek` çıktısı); kapsam dışı ya da eşleşme yoksa ''."""
+    if not etki_kapsaminda_mi(klasor):
+        return ""
+    s = etki_sonucu(klasor)
+    if not s or not s["eslesti"]:
+        return ""
+    import harita_istek as HI
+    return "\n## Etki kümesi\n\n<!-- orkestra harita istek çıktısı: her yüzey en az bir P maddesinin `**Etki:**` alanında anılır -->\n\n" + HI.metin(s) + "\n"
+
+
+def etki_eksikleri(klasor: str, metin: str | None = None) -> list[str]:
+    """Etki kümesinde olup hiçbir P maddesinin `**Etki:**` alanında anılmayan yüzeyler."""
+    if not etki_kapsaminda_mi(klasor):
+        return []
+    metin = metin if metin is not None else _plan_oku(klasor)
+    s = etki_sonucu(klasor)
+    if metin is None or not s or not s["eslesti"]:
+        return []
+    alan = " ".join(_alan_degeri(b, "Etki") for b in _p_bloklari(metin).values()).lower()
+    return [f"etki kümesindeki yüzey plan maddelerinin `**Etki:**` alanında anılmıyor: {y['ad']}" + (f" ({y['yol']})" if y["yol"] else "")
+            + " (ADR-0112)" for y in s["yuzeyler"]
+            if y["ad"].lower() not in alan and not (y["yol"] and y["yol"].lower() in alan)]
+
+
+def etki_engeli(klasor: str) -> list[str]:
+    """`plan_eksikleri` bağlantısı: gölgede `kapi_golge` kaydı düşer ve boş döner; ihlal modunda eksikleri döndürür."""
+    if not etki_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ret_ver(klasor, "harita_etki", etki_eksikleri(klasor))
+
+
 # ADR-0086: Jira görev bağımlılığı girdi kapısı (`**Jira:**` taşıyan plan, işin klasöründeki `jira_bagimlilik.json` ile sınanır).
 _HAZIRLANMA = re.compile(r"\*\*Hazırlanma saati:\*\*\s*(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})")
 
