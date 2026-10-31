@@ -1036,7 +1036,8 @@ def kurallar(sd: str, katman: str | None = None) -> list:
     kapali = _devre_disi(sd)
     out = []
     if k in (None, "plugin"):
-        out += [dict(r, metin=KM.mod_coz(r.get("metin"), sd), devre_disi=r.get("id") in kapali) for r in _eklenti_oku()]
+        out += [dict(r, metin=KM.mod_coz(r.get("metin"), sd), metin_ham=r.get("metin"), devre_disi=r.get("id") in kapali)
+                for r in _eklenti_oku()]
     if k in (None, "proje"):
         out += _kurallar_oku(sd)
     return out
