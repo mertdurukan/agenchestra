@@ -114,7 +114,7 @@ class CocukSurec(unittest.TestCase):
 class HookBaglantisi(unittest.TestCase):
     def test_satira_yas_eklenir(self):
         import hook
-        g = [{"description": "tarama", "started_at": _iso(12)}]
+        g = [{"description": "tarama", "started_at": (datetime.now(timezone.utc) - timedelta(minutes=12, seconds=5)).isoformat()}]
         with mock.patch.object(Y, "cocuk_surecler", return_value=[]):
             satir = hook.arka_plan_satiri(tempfile.gettempdir(), g)
         self.assertIn("Arka planda sürüyor (1): tarama", satir)
