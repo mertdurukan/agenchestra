@@ -1,4 +1,4 @@
-"""Sohbet konu defteri (ADR-0115, I-298): her sohbette konuşulan konular saniyeli zamanla kalıcı kaydedilir.
+"""Sohbet konu defteri (ADR-0116, I-298): her sohbette konuşulan konular saniyeli zamanla kalıcı kaydedilir.
 
 Defter proje başına `.claude/orkestra/konular.jsonl`, ekleme-only ve kilitlidir (ork_lib.jsonl_ekle). Olaylar:
   ac     yeni konu (kaynak=hook: sohbetin ilk isteği; kaynak=ajan: `orkestra konu ac`)

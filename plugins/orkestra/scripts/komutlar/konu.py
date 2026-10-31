@@ -1,4 +1,4 @@
-"""orkestra komutları: `konu` — sohbet konu defteri (ADR-0115): ac, liste, rapor."""
+"""orkestra komutları: `konu` — sohbet konu defteri (ADR-0116): ac, liste, rapor."""
 from __future__ import annotations
 
 import json
@@ -67,7 +67,7 @@ def cmd_konu_rapor(a):
 
 
 def kaydet(alt):
-    p = alt.add_parser("konu", help="sohbet konu defteri: ac, liste, rapor (ADR-0115)")
+    p = alt.add_parser("konu", help="sohbet konu defteri: ac, liste, rapor (ADR-0116)")
     p.add_argument("--yardım", action="help", help="bu yardımı gösterir")
     s = p.add_subparsers(dest="konu_komut", required=True)
     d = s.add_parser("ac", help="yeni konu başlatır (yalnızca konu gerçekten değiştiğinde)")

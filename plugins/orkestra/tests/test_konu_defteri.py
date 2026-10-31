@@ -1,4 +1,4 @@
-"""Sohbet konu defteri çekirdeği (ADR-0115): yazım, sayım, örtüşme, aday, rapor, maskeleme, paralel ekleme."""
+"""Sohbet konu defteri çekirdeği (ADR-0116): yazım, sayım, örtüşme, aday, rapor, maskeleme, paralel ekleme."""
 import datetime
 import json
 import os

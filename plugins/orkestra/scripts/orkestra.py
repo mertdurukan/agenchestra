@@ -39,7 +39,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra kural tasi ID --katman proje|plugin [--kimligi-koru] | kapat ID [--not N] | ac ID | esitle   (katmanlar: KURALLAR.md, Kural katmanları)
   orkestra standart liste | goster AD | yol AD | ekle AD   (ekip yapı standartları: PR, commit, dal, review, Jira yorumu; ADR-0006)
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
-  orkestra konu ac "başlık" [--neden N] | liste [--oturum O] [--json] | rapor [--gun N] [--tum] [--etiket] [--yaz DOSYA] [--json]   sohbet konu defteri (ADR-0115)
+  orkestra konu ac "başlık" [--neden N] | liste [--oturum O] [--json] | rapor [--gun N] [--tum] [--etiket] [--yaz DOSYA] [--json]   sohbet konu defteri (ADR-0116)
   orkestra is istek I-nnn [--mesaj-dosya DOSYA | --mesaj METİN] [--talep METİN]...   kullanıcı mesajındaki bağlantıları ve taleplerini istek_defteri.md'ye R1…Rn yazar (ADR-0112)
   orkestra is dalga I-nnn|KLASÖR|plan.md [--yaz] [--json-cikti DOSYA] [--basamak T2]   plan → dalgalar, kritik yol, `## Dalgalar`, kart JSON'u
   orkestra plan dogrula I-nnn|PLAN.md [--yaz] [--json] [--kok DİZİN]... [--komut-kosma] [--ac]   (plan.md iddialarını kanıtla doğrular, ✅/❌ koyar;
@@ -76,7 +76,7 @@ from komutlar import plan_alan  # noqa: E402  (`plan` grubuna `alan` ekler; plan
 from komutlar import dalga  # noqa: E402  (`is dalga`; isler'den SONRA kaydedilir)
 from komutlar import adr  # noqa: E402  (`orkestra adr`; ADR-0097)
 from komutlar import istek  # noqa: E402  (`is istek`; ADR-0112, isler'den SONRA kaydedilir)
-from komutlar import konu  # noqa: E402  (`orkestra konu`; ADR-0115)
+from komutlar import konu  # noqa: E402  (`orkestra konu`; ADR-0116)
 
 # Kayıt sırası = `--help` sırası.
 MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu)
