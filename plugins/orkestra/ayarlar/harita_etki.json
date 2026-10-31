@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "ADR-0112 etki kapısı: isteğin konu kartlarına eşlenen yüzeyleri plan maddelerinin `**Etki:**` alanında anılmalı. golge = eksik uyarılır ve gunluk.jsonl'a kapi_golge düşer, iş engellenmez; ihlal = eksik plan eksiği sayılır. Yalnız is.json `etki: true` taşıyan sıralı işlerde çalışır. Kapatma: ORKESTRA_ETKI_KAPISI=0. Proje ezmesi: .claude/orkestra/harita_etki.json. İhlal geçişi ancak orkestra is rapor kapı sayıları ve backtest (harita_backtest.py) sonrası ayrı kararla (P-028)."
+}
