@@ -1,6 +1,6 @@
 # ADR-0114: Konu kayması mekanik yakalanır, kural davranışında esas kaynak eklentidir
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 2026-10-31
 
