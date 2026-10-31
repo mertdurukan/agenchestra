@@ -191,7 +191,7 @@ def main(argv=None):
             print(f"zaman aşımı: {dosya} {a.zaman_asimi:g} sn içinde bitmedi, süreç öldürüldü")
         elif kod != 0:
             dus += 1
-    print(f"===== {len(dosyalar)} dosya, {dus} düşen, {asim} süre aşan, {time.time() - t0:.1f} s (-n {a.n}) =====")
+    print(f"===== {len(dosyalar)} dosya, {dus} düşen, {asim} süre aşan, {time.time() - t0:.1f} s (-n {a.n}{kisildi}) =====")
     if dusenler:
         print("Düşenler:")
         for d in dusenler:
