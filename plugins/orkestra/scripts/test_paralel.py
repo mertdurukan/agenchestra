@@ -16,6 +16,7 @@ import tempfile
 import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
+import kaynak_kira  # noqa: E402
 import paralel_kos  # noqa: E402
 
 VARSAYILAN_ZAMAN_ASIMI = 900.0
