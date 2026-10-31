@@ -1,5 +1,5 @@
 {
   "mod": "golge",
   "korunan": ["~/Desktop/Claude-Orchestration"],
-  "aciklama": "Korunan deponun birincil main kopyasına Edit/Write (I-302, ADR-0119). mod: golge = yazı engellenmez, gunluk.jsonl'a kapi_golge/main_kopya_kapisi düşer ve ajana uyarı gider; ihlal = yazı reddedilir, ret metni git worktree add yolunu gösterir. Ayrı çalışma ağacı (.git dosya) ve korunmayan depo her modda serbesttir. korunan: depo kökleri (~ açılır). İhlale geçiş ölçüm sonrası ayrı karardır: en az 7 gün ve 30 kapi_golge olayı, yanlış pozitif 0 (P-028). Kapatma: ORKESTRA_MAIN_KOPYA_KAPISI=0. Proje ezmesi: .claude/orkestra/main_kopya_kapisi.json."
+  "aciklama": "Korunan deponun birincil main kopyasına Edit/Write (I-302, ADR-0120). mod: golge = yazı engellenmez, gunluk.jsonl'a kapi_golge/main_kopya_kapisi düşer ve ajana uyarı gider; ihlal = yazı reddedilir, ret metni git worktree add yolunu gösterir. Ayrı çalışma ağacı (.git dosya) ve korunmayan depo her modda serbesttir. korunan: depo kökleri (~ açılır). İhlale geçiş ölçüm sonrası ayrı karardır: en az 7 gün ve 30 kapi_golge olayı, yanlış pozitif 0 (P-028). Kapatma: ORKESTRA_MAIN_KOPYA_KAPISI=0. Proje ezmesi: .claude/orkestra/main_kopya_kapisi.json."
 }

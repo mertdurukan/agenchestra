@@ -1,4 +1,4 @@
-# ADR-0119: Eklenti deposunun main kopyası yalnız birleştirme yeridir
+# ADR-0120: Eklenti deposunun main kopyası yalnız birleştirme yeridir
 
 **Durum:** Kabul edildi
 

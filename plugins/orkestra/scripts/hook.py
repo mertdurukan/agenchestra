@@ -811,7 +811,7 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
 
 
 def _main_kopya_kapisi(inp: dict, girdi: dict, arac: str) -> None:
-    """I-302 (ADR-0119): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
+    """I-302 (ADR-0120): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
     global _BEKLEYEN_UYARI
     try:
         import main_kopya_kapisi as _mk

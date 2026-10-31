@@ -1,4 +1,4 @@
-"""Korunan deponun birincil `main` kopyasına doğrudan yazmayı yakalar (I-302, ADR-0119).
+"""Korunan deponun birincil `main` kopyasına doğrudan yazmayı yakalar (I-302, ADR-0120).
 
 Birincil kopya: `.git` DİZİN olan ve HEAD'i `refs/heads/main` olan çalışma kopyası. Ayrı çalışma ağacında `.git` bir
 DOSYADIR; ona yazmak her modda serbesttir. Korunan depo yolları `ayarlar/main_kopya_kapisi.json` `korunan` listesinden gelir
