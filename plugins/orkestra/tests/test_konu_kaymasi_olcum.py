@@ -66,8 +66,7 @@ class OlcumTest(unittest.TestCase):
         k = sorted(d, key=int)
         self.assertEqual(len(k), 60)
         kp = kappa([v[i] for i in k], [d[i] for i in k])
-        print("
-kappa %.3f (n=60)" % kp)
+        print("kappa %.3f (n=60)" % kp)
         self.assertGreaterEqual(kp, 0.7)
 
     def test_wilson_dogru(self):

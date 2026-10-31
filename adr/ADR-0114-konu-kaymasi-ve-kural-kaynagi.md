@@ -23,6 +23,6 @@ Aynı kopya gecikmesi, ajanın orkestra davranışını eski K-004 metninden yan
 
 **Sonuçlar:**
 
-Olumlu: farklı konu mesaj türünden bağımsız yakalanır; kopya gecikmesi aynı oturumda kapanır. Olumsuz: yanlış pozitifle gereksiz oturum açılabilir; eşik ölçümle (n≥200, yanlış pozitif ≤%5, kaçırma ≤%10) belirlenir. Geri alma: ayar dosyalarında `mod: kapali`; ADR-0044 durumunu "Kabul edildi"ye döndür.
+Olumlu: farklı konu mesaj türünden bağımsız yakalanır; kopya gecikmesi aynı oturumda kapanır. Olumsuz: yanlış pozitifle gereksiz oturum açılabilir; eşik ölçümle (n≥240, yanlış pozitif ≤%5 (Wilson üst ≤%10), kaçırma ≤%10 (Wilson üst ≤%20)) belirlenir. Geri alma: ayar dosyalarında `mod: kapali`; ADR-0044 durumunu "Kabul edildi"ye döndür.
 
 **İlgili:** I-297, ADR-0044, K-004, K-007, P-021, P-028
