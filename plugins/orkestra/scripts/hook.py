@@ -833,6 +833,8 @@ def pre_tool_use(inp: dict):
     girdi = dict(inp.get("tool_input") or {})
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
+    if arac in YAZAN_ARACLAR:  # I-302: korunan deponun birincil main kopyasına yazma (gölge: kayıt+uyarı, ihlal: ret)
+        _main_kopya_kapisi(inp, girdi, arac)
     kar, kneden = _izin_karari(arac, girdi, sd, inp.get("session_id"))  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
     if kar == "allow":
         _VARSAYILAN_IZIN = kneden
