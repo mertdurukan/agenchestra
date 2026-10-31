@@ -63,6 +63,25 @@ def olc(sd: str) -> dict:
     return sonuc
 
 
+def kapi_golge(sd: str) -> dict:
+    """gunluk.jsonl'daki `kapi_golge` olaylarını kapı başına sayar (test_yonlendirme gibi kaynak kapıları dahil)."""
+    sayac = Counter()
+    yol = os.path.join(sd, "gunluk.jsonl")
+    if not os.path.isfile(yol):
+        return {}
+    with open(yol, encoding="utf-8", errors="replace") as f:
+        for satir in f:
+            if '"kapi_golge"' not in satir:
+                continue
+            try:
+                o = json.loads(satir)
+            except ValueError:
+                continue
+            if o.get("tur") == "kapi_golge":
+                sayac[str(o.get("kapi", "-"))] += 1
+    return dict(sayac.most_common())
+
+
 def tablo(veri: dict) -> str:
     if not veri:
         return "zaman aşımı günlüğü yok"
@@ -88,7 +107,13 @@ def main(argv=None) -> int:
         print(f"durum dizini yok: {a.sd}", file=sys.stderr)
         return 2
     veri = olc(a.sd)
-    print(json.dumps(veri, ensure_ascii=False, indent=2) if a.json else tablo(veri))
+    golge = kapi_golge(a.sd)
+    if a.json:
+        print(json.dumps({**veri, **({"_kapi_golge": golge} if golge else {})}, ensure_ascii=False, indent=2))
+    else:
+        print(tablo(veri))
+        if golge:
+            print("\nkapi_golge (gunluk.jsonl): " + ", ".join(f"{k}={n}" for k, n in golge.items()))
     return 0
 
 
