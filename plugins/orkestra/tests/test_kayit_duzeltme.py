@@ -86,7 +86,10 @@ class MaliyetZamanSuzgeci(unittest.TestCase):
         from komutlar import maliyet as M
         sd = tempfile.mkdtemp()
         simdi = datetime.datetime.now().astimezone()
-        taze_z = (simdi - datetime.timedelta(hours=1)).astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+        # pencere takvim gunudur (gun_baslangici): taze damga bugunun basi ile simdi arasinda olmali, gece yarisi sonrasi 1 saat once degil
+        import ork_lib as L
+        taze_an = L.gun_baslangici(1, simdi) + (simdi - L.gun_baslangici(1, simdi)) / 2
+        taze_z = taze_an.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
         eski_z = (simdi - datetime.timedelta(days=3)).astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
         with open(os.path.join(sd, "maliyet.jsonl"), "w", encoding="utf-8") as f:
             for z in (taze_z, eski_z):

@@ -102,7 +102,8 @@ class KararKapisi(unittest.TestCase):
         os.makedirs(k)
         with self.ortam():
             kayit = K.is_ac(self.sd, "Deneme", k)
-            with open(os.path.join(k, "mevcut_durum_20261031.md"), "w", encoding="utf-8") as f:
+            # is_ac bugünün tarihli iskeleti yazar; sabit tarihli dosya ondan eski kalır ve kapı onu okumaz
+            with open(S.mevcut_durum_yolu(k), "w", encoding="utf-8") as f:
                 f.write(MD_YANITSIZ)
             self.assertTrue(KK.engel(k))
             KK.kaydet(self.sd, kayit["id"], [("D1", "Skill'ler")])
