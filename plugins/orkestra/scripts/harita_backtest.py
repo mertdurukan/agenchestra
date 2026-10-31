@@ -70,6 +70,8 @@ def olc(kok: str, isinma: float = 0.3, asgari: int = K.ASGARI_BIRLIKTE, cm: list
                 ongoru = {g for g, n in adj[tohum].items() if n >= asgari and mevcut(g)} | {g for g in statik.get(tohum, ()) if mevcut(g)}
                 ongoru.discard(tohum)
                 r_t.append(len(ongoru & dogru) / len(dogru))
+                for g in dogru - ongoru:
+                    kacan[tuple(sorted((tohum, g)))] += 1
                 if ongoru:
                     kapsanan += 1
                     p_t.append(len(ongoru & dogru) / len(ongoru))
