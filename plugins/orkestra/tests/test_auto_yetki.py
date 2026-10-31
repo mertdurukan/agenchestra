@@ -393,7 +393,14 @@ class VarsayilanMod(unittest.TestCase):
     def test_bozuk_ayar_ve_gecersiz_deger_plana_duser(self):
         for icerik in ("{bozuk", '{"varsayilan_mod": "tam"}', "[]", ""):
             self._yaz(icerik)
-            self.assertEqual(is_onay.mod({}, self.sd), "plan", icerik)
+            with eklenti_varsayilani(None):  # eklenti ayarı da yoksa kod yedeği
+                self.assertEqual(is_onay.mod({}, self.sd), "plan", icerik)
+            for eklenti in ("plan", "auto"):  # geçersiz proje ezmesi atlanır, eklenti değeri kalır
+                with eklenti_varsayilani(eklenti):
+                    self.assertEqual(is_onay.mod({}, self.sd), eklenti, (icerik, eklenti))
+        for bozuk in ("{bozuk", '{"varsayilan_mod": "tam"}', "[]", ""):  # bozuk eklenti ayarı plana düşer
+            with eklenti_varsayilani(bozuk):
+                self.assertEqual(is_onay.mod({}, tempfile.mkdtemp()), "plan", bozuk)
 
     def test_kapatma_degiskenleri(self):
         self._yaz('{"varsayilan_mod": "auto"}')
