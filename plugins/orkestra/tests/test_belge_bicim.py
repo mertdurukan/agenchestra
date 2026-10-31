@@ -221,7 +221,9 @@ class Kancalar(unittest.TestCase):
         self.assertEqual((k[0]["mod"], k[0]["dosya"], k[0]["adet"]), ("golge", "is1/plan.md", 2))
 
     def test_temiz_ve_belge_olmayan_dosya_sessiz(self):
-        self.assertEqual(self.yaz("is1/plan.md", TEMIZ), {})
+        # Biçim kapısı sessizliği sınanır; yazım anı bağlamı (ADR-0111) ayrı mekanizma, kendi testinde.
+        with mock.patch.dict(os.environ, {"ORKESTRA_URETIM_ENJEKSIYON": "0"}):
+            self.assertEqual(self.yaz("is1/plan.md", TEMIZ), {})
         self.assertEqual(self.yaz("is1/notlar.md", IHLALLI), {})
         self.assertEqual(self.yaz("kod.py", "a; b; c; d"), {})
         self.assertEqual(self.ihlaller("belge_bicim"), [])
