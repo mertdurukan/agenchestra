@@ -116,7 +116,7 @@ def izlenmeyen_test_modulleri(repo, atif_kaynagi, git):
         if not y.endswith(".py") or os.path.basename(y).startswith("test_"):
             continue
         ad = re.escape(os.path.splitext(os.path.basename(y))[0])
-        desen = rf"^[[:space:]]*(import|from)[[:space:]].*(^|[^[:alnum:]_]){ad}($|[^[:alnum:]_])"
+        desen = rf"^[[:space:]]*(import|from)[[:space:]]+(.*[[:space:],.])?{ad}($|[^[:alnum:]_])"
         testler = git(repo, "grep", "-l", "-E", desen, "--", "*test_*.py").stdout.split()
         if any(y.startswith(_test_koku(t) + "/" if _test_koku(t) else "") for t in testler):
             yollar.append(y)
