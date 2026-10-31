@@ -1,4 +1,4 @@
-"""Konu defteri: hook (UserPromptSubmit, Stop) ve `orkestra konu` CLI uçtan uca (ADR-0115)."""
+"""Konu defteri: hook (UserPromptSubmit, Stop) ve `orkestra konu` CLI uçtan uca (ADR-0116)."""
 import json
 import os
 import sys
