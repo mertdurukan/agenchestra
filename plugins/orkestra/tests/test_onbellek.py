@@ -5,6 +5,7 @@
 2) kartlar(): dönen kart değiştirilirse önbellek bozulmaz (her çağrıda bağımsız kopya).
 3) kartlar(): bozuk kart önbellekte kalsa da düzeldiğinde görünür.
 4) fiyat_tablosu(): dosya değişmedikçe aynı nesne, değişince yeniden okunur.
+5) I-309 P5 test sonucu önbelleği ve tek uçuş (scripts/test_onbellek.py): dosya sonundaki bölüm, K1-K4.
 """
 import json
 import os

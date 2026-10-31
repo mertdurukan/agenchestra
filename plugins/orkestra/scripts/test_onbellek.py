@@ -26,12 +26,15 @@ Anahtar nasıl türer ve neden (bayat "geçti" en büyük risktir; her belirsizl
 Anahtarın göremediği girdiler (kurulu paketler, işletim sistemi durumu, saate bağlı testler) GECERLILIK_S ile sınırlanır.
 
 Mod (`ayarlar/kaynak_kira.json` `onbellek` alanı; proje ezmesi ve ORKESTRA_KAYNAK_KIRA_AYAR kaynak_kira.ayarlar ile):
-- false | "kapali": hiçbir şey yapılmaz. ORKESTRA_TEST_ONBELLEK=0 da kapatır.
-- "golge" (varsayılan, P-028): anahtar hesaplanır, geçen sonuç yazılır; isabet ya da beklenecek koşu olsaydı satır
+- false | "kapali" (varsayılan): hiçbir şey yapılmaz, anahtar bile hesaplanmaz. ORKESTRA_TEST_ONBELLEK=0 da kapatır.
+- "golge" (P-028 ölçüm adımı): anahtar hesaplanır, geçen sonuç yazılır; isabet ya da beklenecek koşu olsaydı satır
   yazılır ve gunluk.jsonl'a `kapi_golge` düşer, ama koşu YİNE yapılır. Gölge koşusu isabetin doğru olup olmadığını da
   ölçer: önbellek "geçti" derken koşu düşerse "BAYAT isabet" kaydı düşer. ihlal geçişi bu sayı 0 iken ayrı kararla.
 - true | "ihlal": isabet ve tek uçuş gerçekten uygulanır.
-Gerekçe: önbellek bir kapı gibi davranışı değiştirir (koşuyu atlar) ve en büyük riski (bayat geçti) ancak gerçek koşuyla
+Varsayılan neden false: kira (P4) kendisi gölge ölçümünde; önbellek gölgesi aynı koşulara anahtar hesabı (~1 sn) ve
+kayıt yazımı ekleyip o ölçümü karıştırır (P4 testi `onbellek: false` varsayılanını kilitler). Sıradaki adım "golge"
+ile isabet ve BAYAT sayısını ölçmek, sonra ayrı kararla true.
+Gerekçe (golge -> ihlal düzeni): önbellek bir kapı gibi davranışı değiştirir (koşuyu atlar) ve en büyük riski (bayat geçti) ancak gerçek koşuyla
 yan yana ölçülerek görülür; kapi_mod'un golge -> ihlal düzeni buna birebir uyar. `kapi_mod.mod` bool tanımadığı için mod
 burada okunur, gölge kaydı yine `kapi_mod.kaydet` ile yazılır.
 
@@ -217,10 +220,12 @@ def _buda() -> None:
     try:
         kayitlar = []
         for ad in os.listdir(dizin()):
-            if not ad.endswith(".json") or ad.startswith(".tmp_"):
-                continue
             tam = os.path.join(dizin(), ad)
             yas = time.time() - os.path.getmtime(tam)
+            if ad.endswith(".lock") and yas > GECERLILIK_S:
+                _sil(tam)  # kullanımdaki kilit Windows'ta silinmez; hata yutulur
+            if not ad.endswith(".json") or ad.startswith(".tmp_"):
+                continue
             if ad.endswith(".suren.json"):
                 continue
             if yas > GECERLILIK_S:
@@ -247,6 +252,8 @@ class Ucus:
     lider: bool = False
     golge_isabet: dict | None = None
     notlar: list = field(default_factory=list)
+    kimlik: str = ""
+    _golge: object = None
     _kaydedildi: bool = False
 
     def kaydet(self, kod: int, cikti: str, sure: float = 0.0) -> None:
@@ -255,7 +262,7 @@ class Ucus:
             return
         self._kaydedildi = True
         kayit = {"anahtar": self.anahtar, "kod": int(kod), "cikti": cikti, "bitis": time.time(), "sure": round(sure, 2),
-                 "zaman": L.simdi(), "pid": os.getpid()}
+                 "zaman": L.simdi(), "pid": os.getpid(), "kimlik_lider": self.kimlik if self.lider else None}
         try:
             with L.kilit(_yol(self.anahtar), bekleme_s=10.0):
                 if kod == 0:
@@ -265,6 +272,8 @@ class Ucus:
             _buda()
         except (OSError, TimeoutError):
             pass
+        if self.golge_isabet is not None and int(kod) != 0 and callable(self._golge):
+            self._golge(f"BAYAT isabet: önbellek geçti diyordu, koşu düştü (çıkış {kod})")
 
 
 def _yas(v: dict) -> str:
@@ -276,7 +285,8 @@ def tek_ucus(anahtar_: str, proje: str | None = None, cikti=None):
     """`with tek_ucus(k) as u:` -> `u.sonuc` doluysa koşma, onu bas; değilse koş ve `u.kaydet(kod, cikti)`."""
     cikti = cikti or sys.stdout
     m = mod(proje)
-    u = Ucus(anahtar=anahtar_, mod=m)
+    kimlik = f"{os.getpid()}-{time.time_ns()}"
+    u = Ucus(anahtar=anahtar_, mod=m, kimlik=kimlik)
     if m == "kapali":
         yield u
         return
@@ -300,7 +310,7 @@ def tek_ucus(anahtar_: str, proje: str | None = None, cikti=None):
     sona_erme = max(0.5, float(ayar.get("sona_erme_s") or 30))
     bekleme_ust = float(ayar.get("bekleme_ust_s") or 1800)
     yoklama = max(0.02, float(ayar.get("yoklama_s") or 0.25))
-    kimlik = f"{os.getpid()}-{time.time_ns()}"
+    u._golge = golge
     ben = {"kimlik": kimlik, "pid": os.getpid(), "son": time.time(), "baslangic": L.simdi()}
     ic_ice = anahtar_ in (os.environ.get(ATALAR_ENV) or "").split(",")
     yol, suren_yol, son_yol = _yol(anahtar_), _yol(anahtar_, "suren"), _yol(anahtar_, "son")
@@ -350,8 +360,6 @@ def tek_ucus(anahtar_: str, proje: str | None = None, cikti=None):
         pass  # kayıt kilidi alınamadı: önbelleksiz koş (güvenli yön)
 
     if u.sonuc is not None:
-        yaz_satir = u.sonuc["satir"]
-        u.sonuc["satir"] = yaz_satir
         yield u
         return
 
@@ -369,18 +377,6 @@ def tek_ucus(anahtar_: str, proje: str | None = None, cikti=None):
         t.start()
     onceki = os.environ.get(ATALAR_ENV)
     os.environ[ATALAR_ENV] = ",".join(x for x in [onceki, anahtar_] if x)
-    orijinal_kaydet = u.kaydet
-
-    def kaydet(kod, cikti_metni, sure=0.0):
-        if u.lider and not u._kaydedildi:
-            # `.son` kaydı lider kimliğini taşır: bekleyen yalnız beklediği liderin sonucunu alır
-            kayit_kimlik[0] = kimlik
-        orijinal_kaydet(kod, cikti_metni, sure)
-        if u.golge_isabet is not None and int(kod) != 0:
-            golge(f"BAYAT isabet: önbellek geçti diyordu, koşu düştü (çıkış {kod})")
-
-    kayit_kimlik = [None]
-    u.kaydet = kaydet
     try:
         yield u
     finally:
@@ -394,10 +390,6 @@ def tek_ucus(anahtar_: str, proje: str | None = None, cikti=None):
         if u.lider:
             try:
                 with L.kilit(yol, bekleme_s=10.0):
-                    son = _oku(son_yol)
-                    if son is not None and son.get("pid") == os.getpid() and "kimlik_lider" not in son:
-                        son["kimlik_lider"] = kimlik
-                        L.atomik_yaz(son_yol, json.dumps(son, ensure_ascii=False))
                     s = _oku(suren_yol)
                     if s and s.get("kimlik") == kimlik:
                         _sil(suren_yol)
