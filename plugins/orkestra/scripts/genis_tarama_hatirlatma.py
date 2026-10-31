@@ -14,7 +14,7 @@ import re
 _KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VARSAYILAN_YOL = os.path.join(_KOK, "ayarlar", "genis_tarama_hatirlatma.json")
 PROJE_DOSYA = "genis_tarama_hatirlatma.json"
-MODLAR = ("golge", "kapali")
+MODLAR = ("golge", "reddet", "kapali")
 _BOLUCU = re.compile(r"&&|\|\||[;|\n]")
 
 
