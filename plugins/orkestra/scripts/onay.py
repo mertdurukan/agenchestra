@@ -315,10 +315,31 @@ def _kural_dosyasini_yaz(sd: str, liste: list[dict] | None = None) -> None:
     L.atomik_yaz(yol, metin)
 
 
-def kural_dosyasi_esitle(sd: str) -> bool:
-    """SessionStart: eklenti katmanı değişmişse (başka depodan güncelleme, başka projede eklenen kural) bu projenin kural
-    dosyasını yeniler. İçerik aynıysa yazmaz. Yazdıysa True. Kural dosyası oturum açılışında yüklendiği için yeni içerik
-    bir sonraki oturumda görünür."""
+_KURAL_KIMLIK = re.compile(r"\(([A-Z]-\d+),\s*\d{4}-\d{2}-\d{2}\)\s*$")
+
+
+def _kural_satirlari(metin: str) -> dict:
+    """Kural dosyası metninden {kimlik: satır}; kimliği ayrışmayan satır yok sayılır."""
+    cikti = {}
+    for satir in (metin or "").replace("\r\n", "\n").split("\n"):
+        m = _KURAL_KIMLIK.search(satir)
+        if satir.startswith("- ") and m:
+            cikti[m.group(1)] = satir
+    return cikti
+
+
+def kural_farki(onceki: str, yeni: str) -> list[str]:
+    """İki kural dosyası metni arasında eklenen, değişen ve kalkan kuralların `KİMLİK (durum)` listesi (I-297 P2)."""
+    a, b = _kural_satirlari(onceki), _kural_satirlari(yeni)
+    fark = [f"{k} (eklendi)" for k in b if k not in a]
+    fark += [f"{k} (değişti)" for k in b if k in a and a[k] != b[k]]
+    fark += [f"{k} (kalktı)" for k in a if k not in b]
+    return fark
+
+
+def kural_dosyasi_esitle_fark(sd: str) -> tuple[bool, list[str]]:
+    """kural_dosyasi_esitle ile aynı; ayrıca yazıldıysa değişen kural kimliklerini döner. Kural dosyası oturum
+    açılışında (hook'tan önce) yüklendiği için yazıldıysa o oturumun bağlamındaki metin eskidir (I-297 P2)."""
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
         yol = _kural_dosya_yolu(sd)
@@ -329,9 +350,16 @@ def kural_dosyasi_esitle(sd: str) -> bool:
         except OSError:
             var = ""
         if var.replace("\r\n", "\n") == metin:
-            return False
+            return False, []
         _kural_dosyasini_yaz(sd)
-        return True
+        return True, kural_farki(var, metin)
+
+
+def kural_dosyasi_esitle(sd: str) -> bool:
+    """SessionStart: eklenti katmanı değişmişse (başka depodan güncelleme, başka projede eklenen kural) bu projenin kural
+    dosyasını yeniler. İçerik aynıysa yazmaz. Yazdıysa True. Kural dosyası oturum açılışında yüklendiği için yeni içerik
+    bir sonraki oturumda görünür; bu oturuma değişiklik özeti hook bağlamıyla verilir (kural_dosyasi_esitle_fark)."""
+    return kural_dosyasi_esitle_fark(sd)[0]
 
 
 def _kurallar_md_blogu_yaz(liste: list[dict]) -> None:

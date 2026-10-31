@@ -22,6 +22,9 @@ VARSAYILAN_AYAR = {
     "baslik_kapsama_min_sozcuk": 5,
 }
 MIN_SOZCUK = 3
+KAYMA_VARSAYILAN = {"esik": 0.34, "min_sozcuk": 4, "min_ortak": 2}
+# Her orkestra işinde geçen alan sözcükleri: ortak sayılmaz (farklı konuyu ilgili gösterir; I-297 P4/P9)
+ORTAK_ALAN = ("orkestra", "plan", "todo", "mod", "modu", "sohbet", "oturum", "proje", "klasor", "belge", "calisma", "kural")
 ONEK_MIN = 5
 _TR_KATLA = str.maketrans("çğıöşü", "cgiosu")
 
@@ -85,7 +88,39 @@ def devir_onu_at(metin):
         metin = yeni
 
 
-def eslestir(istek, isler, ayar=None):
+BAGLAMA_VARSAYILAN = {"mod": "etkin", "marj": 0.15, "kesin": 0.8, "ortak_agirlik": 0.25, "df_ust": 0.5}
+
+
+def baglama_ayari(ham=None):
+    """I-297 P9: bağlama ayarı; bozuk alan gömülü varsayılana düşer. mod 'kapali' → eski davranış (ağırlık ve marj yok)."""
+    b = dict(BAGLAMA_VARSAYILAN)
+    if isinstance(ham, dict):
+        for k in ("marj", "kesin", "ortak_agirlik", "df_ust"):
+            v = ham.get(k)
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1:
+                b[k] = float(v)
+        if ham.get("mod") in ("etkin", "kapali"):
+            b["mod"] = ham["mod"]
+    return b
+
+
+def _agirliklar(istek_s, is_kumeleri, b):
+    """İstek sözcüğü başına ağırlık: ortak alan sözcüğü `ortak_agirlik`; açık işlerin `df_ust` oranından fazlasında
+    geçen sözcük (IDF benzeri, en az 3 iş) yarıya iner. Her işte geçen sözcük farklı işi ayırt etmez."""
+    alan = {_katla(_kucult(x)) for x in ORTAK_ALAN}
+    n = len(is_kumeleri)
+    w = {}
+    for s in istek_s:
+        a = b["ortak_agirlik"] if s in alan else 1.0
+        if n >= 3:
+            df = sum(1 for k in is_kumeleri if any(_eslesir(s, t) for t in k)) / n
+            if df > b["df_ust"]:
+                a *= 0.5
+        w[s] = max(a, 0.01)
+    return w
+
+
+def eslestir(istek, isler, ayar=None, baglama=None):
     """İstek sözcüklerinin iş metniyle örtüşme oranı (0-1); puana göre azalan [{'id','puan'}].
     Devir önekleri ('Task (from the session…):') istekten ve iş başlığından atılır: ortak sözcükler (session, task, from) başka işe bağlamasın."""
     if not isinstance(istek, str) or not isinstance(isler, (list, tuple)):
@@ -95,14 +130,24 @@ def eslestir(istek, isler, ayar=None):
     istek_s = set(_sozcukler(devir_onu_at(istek), durak_ham))
     if not istek_s:
         return []
+    b = baglama_ayari(baglama) if baglama is not None else None
+    if b and b["mod"] == "kapali":
+        b = None
+    kumeler = []
+    if b:
+        for is_ in isler:
+            if isinstance(is_, dict) and is_.get("id") is not None:
+                kumeler.append(set(_sozcukler(" ".join(devir_onu_at(is_.get(k)) for k in ("baslik", "klasor", "metin")), durak_ham)))
+    w = _agirliklar(istek_s, kumeler, b) if b else {s: 1.0 for s in istek_s}
+    toplam = sum(w.values())
     sonuc = []
     for is_ in isler:
         if not isinstance(is_, dict) or is_.get("id") is None:
             continue
         metin = " ".join(devir_onu_at(is_.get(k)) for k in ("baslik", "klasor", "metin"))
         is_s = set(_sozcukler(metin, durak_ham))
-        say = sum(1 for s in istek_s if any(_eslesir(s, t) for t in is_s))
-        puan = say / len(istek_s)
+        say = sum(w[s] for s in istek_s if any(_eslesir(s, t) for t in is_s))
+        puan = say / toplam
         # I-138 P3: yeterince uzun başlıkta başlık kapsaması da sayılır (başlığı üreten mesaj o işe bağlanır)
         baslik_s = set(_sozcukler(devir_onu_at(is_.get("baslik")), durak_ham))
         if len(baslik_s) >= a["baslik_kapsama_min_sozcuk"]:
@@ -113,8 +158,19 @@ def eslestir(istek, isler, ayar=None):
     return sonuc
 
 
-def karar(puanlar, ayar=None):
-    """('bagla', id) | ('ac', None) | ('sec', [id, ...]) (en çok iki)."""
+def guven(puanlar, baglama=None):
+    """Bağ güven etiketi (I-297 P9): 'kesin' (puan >= kesin ve ikinciyle marj yeter) | 'otomatik-düşük'."""
+    b = baglama_ayari(baglama)
+    liste = sorted([p["puan"] for p in puanlar or [] if isinstance(p, dict) and isinstance(p.get("puan"), (int, float))], reverse=True)
+    if not liste:
+        return "otomatik-düşük"
+    ikinci = liste[1] if len(liste) > 1 else 0.0
+    return "kesin" if liste[0] >= b["kesin"] and liste[0] - ikinci >= b["marj"] else "otomatik-düşük"
+
+
+def karar(puanlar, ayar=None, baglama=None):
+    """('bagla', id) | ('ac', None) | ('sec', [id, ...]) (en çok iki). `baglama` verilir ve etkinse yüksek puanlı ama
+    ikinciyle farkı `marj` altındaki eşleşme 'sec' olur: ayırt edilemeyen iki iş arasında bağlanmaz."""
     a = _ayar(ayar)
     liste = [p for p in puanlar if isinstance(p, dict) and isinstance(p.get("puan"), (int, float))] \
         if isinstance(puanlar, (list, tuple)) else []
@@ -123,6 +179,9 @@ def karar(puanlar, ayar=None):
     liste.sort(key=lambda x: -x["puan"])
     ilk = liste[0]
     if ilk["puan"] >= a["yuksek"]:
+        b = baglama_ayari(baglama) if baglama is not None else None
+        if b and b["mod"] == "etkin" and len(liste) > 1 and ilk["puan"] - liste[1]["puan"] < b["marj"]:
+            return ("sec", [p["id"] for p in liste[:2]])
         return ("bagla", ilk["id"])
     if ilk["puan"] < a["dusuk"]:
         return ("ac", None)
@@ -146,16 +205,49 @@ def isle_ilgili_mi(mesaj, is_, ayar=None):
     return bool(p) and p[0]["puan"] >= _ayar(ayar)["yuksek"]
 
 
+def kayma_mi(mesaj, is_, guncel_konu="", ayar=None, kayma_ayar=None):
+    """I-297 P4: mesaj bağlı işten kesin farklı bir konu mu. İş kimliği/klasörüne gönderme yoksa ve içerik sözcüklerinin
+    bağlı işin başlığı+klasör adı ile oturumun güncel niyetine örtüşme oranı `esik` altındaysa True. İş belgesinin
+    gövdesine bakılmaz (ortak alan sözcükleri farklı konuyu ilgili gösterir). Yeterli içerik sözcüğü yoksa False."""
+    if not isinstance(mesaj, str) or not isinstance(is_, dict):
+        return False
+    k = dict(KAYMA_VARSAYILAN)
+    if isinstance(kayma_ayar, dict):
+        k.update({x: kayma_ayar[x] for x in ("esik", "min_sozcuk", "min_ortak") if isinstance(kayma_ayar.get(x), (int, float))})
+    kayit = {"id": is_.get("id"), "baslik": is_.get("baslik"), "klasor": is_.get("klasor")}
+    if isle_ilgili_mi(mesaj, kayit, ayar):
+        return False
+    a = _ayar(ayar)
+    durak = {_kucult(x) for x in a["durak_sozcukler"]}
+    if len(set(_sozcukler(devir_onu_at(mesaj), durak))) < k["min_sozcuk"]:
+        return False
+    alan_ham = (kayma_ayar or {}).get("ortak_alan") or ORTAK_ALAN
+    ortak_alan = {_katla(_kucult(x)) for x in alan_ham}
+    mesaj_s = {s for s in _sozcukler(devir_onu_at(mesaj), durak) if s not in ortak_alan}
+    is_s = {s for s in _sozcukler(" ".join(devir_onu_at(kayit.get(x)) for x in ("baslik", "klasor")) + " " + str(guncel_konu), durak)
+            if s not in ortak_alan}
+    ortak = sum(1 for s in mesaj_s if any(_eslesir(s, u) for u in is_s))
+    if ortak >= k["min_ortak"]:
+        return False
+    adaylar = [kayit]
+    if guncel_konu:
+        adaylar.append({"id": "niyet", "baslik": guncel_konu})
+    puanlar = eslestir(mesaj, adaylar, ayar)
+    return not puanlar or puanlar[0]["puan"] < k["esik"]
+
+
 def _tek_satir(metin, sinir):
     s = " ".join(str(metin).split())
     return s if len(s) <= sinir else s[: sinir - 1].rstrip() + "…"
 
 
-def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
+def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu="", mod=""):
     """Yeni görev için tek satır: bağlı iş, açık işler ve karar kuralı. `zorunlu` (I-061): hook mesajı bağlı işle
-    ilgili bulmadı; satır hatırlatma değil, ilk mesajda uygulanacak yönergedir. `guncel_konu`: kayıtlı güncel niyet."""
+    ilgili bulmadı; satır hatırlatma değil, ilk mesajda uygulanacak yönergedir. `guncel_konu`: kayıtlı güncel niyet.
+    `mod` (I-297 P6): bağlı işin modu; yeni sohbetin brief'inin ilk satırı olur, böylece mod taşınır."""
     liste = []
     bagli_baslik = ""
+    mod_satiri = ("ilk satır `/%s`, sonra " % mod) if mod in ("plan", "auto") else ""
     for is_ in isler if isinstance(isler, (list, tuple)) else []:
         if not isinstance(is_, dict) or is_.get("id") is None:
             continue
@@ -169,14 +261,14 @@ def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
         konu = (' Güncel konu: "%s".' % _tek_satir(guncel_konu, 80)) if guncel_konu else ""
         kural = ("Yeni görev (%s): ZORUNLU (K-004): mesaj bağlı işe açıkça bağlı değil.%s Cevabından ÖNCE karar ver, kullanıcıya SORMA: "
                  "aynı işin devamıysa devam et; FARKLI konuysa bu sohbette yapma: ilk araç `mcp__ccd_session__start_session` "
-                 "(initiation user_asked, brief: önce `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
+                 "(initiation user_asked, brief: %sönce `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
                  "ardından `detach_session`; bu sohbette bağlı işe devam et ve kullanıcıya yalnız yeni sohbetin bağlantısını ver."
-                 % (bagli, konu))
+                 % (bagli, konu, mod_satiri))
     elif bagli_id is not None:
         # K-004: bağlı işten farklı konu ayrı sohbette, ayrı işte yürür; kullanıcıya sorulmaz.
         kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa sorma, ayrı sohbete aç: "
-                 "`start_session` (user_asked, brief: `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
-                 "sonra `detach_session`; bu sohbet bağlı işte kalır." % bagli)
+                 "`start_session` (user_asked, brief: %s`orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
+                 "sonra `detach_session`; bu sohbet bağlı işte kalır." % (bagli, mod_satiri))
     else:
         kural = ("Yeni görev (%s): başka açık işe aitse `orkestra is devam <id>`; "
                  "hiçbirine uymuyorsa `orkestra is ac \"<başlık>\" --klasor <klasör>`." % bagli)
