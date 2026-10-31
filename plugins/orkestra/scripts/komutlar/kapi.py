@@ -1,4 +1,4 @@
-"""orkestra komutları: kapi (kapı modları; ADR-0095). Model çağırmaz.
+"""orkestra komutları: kapi (kapı modları; ADR-0125). Model çağırmaz.
 
 `orkestra kapi durum [--json]`   `ayarlar/*.json` içinde `mod` alanı olan her kapının etkin modunu basar
                                  (eklenti varsayılanı ve bu projenin ezmesi ayrı sütun; `block`, `genis` gibi ham değerler dahil).
