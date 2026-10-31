@@ -1,6 +1,6 @@
 """İşçi ajanlarını (agents/isci-t1..t4.md) tek protokol gövdesinden üretir (ADR-0120).
 
-Kaynak: agents/_kaynak/isci_protokol.md (gövde), agents/_kaynak/isci_basamak.json (basamak başına sabit alanlar),
+Kaynak: ajan_kaynak/isci_protokol.md (gövde), ajan_kaynak/isci_basamak.json (basamak başına sabit alanlar),
 ayarlar/model_politikasi.json `basamak` (model, effort). Claude Code ajan dosyasında include yoktur; üretilen dosya
 depoya girer. Kullanım: ajan_uret.py [--kontrol]  (--kontrol: depodakiyle farkı listeler, çıkış 1).
 """
@@ -11,7 +11,7 @@ import os
 import sys
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KAYNAK = os.path.join(KOK, "agents", "_kaynak")
+KAYNAK = os.path.join(KOK, "ajan_kaynak")
 POLITIKA = os.path.join(KOK, "ayarlar", "model_politikasi.json")
 
 
