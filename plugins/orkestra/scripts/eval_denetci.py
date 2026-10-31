@@ -52,13 +52,13 @@ def _vaka(i: int, rng: random.Random, kusur: str | None) -> dict:
     for a, s, k in satirlar:
         tablo.append(f"| {a} | {s} | {k} |" if not baslik.startswith("Ad;") else f"{a}; {s}; {k}")
     tablo.append(f"| **Toplam** | {toplam} | |" if not baslik.startswith("Ad;") else f"Toplam; {toplam};")
-    cikti = "\n".join([f"# {konu.capitalize()} envanteri", ""] + tablo + [""] + ekstra)
+    cikti = "\n".join([f"# {konu[0].upper() + konu[1:]} envanteri", ""] + tablo + [""] + ekstra)
     prompt = f"""#GOREV:EVAL-{i:03d} #SUREC:denetim
 EVAL MODU: aşağıdaki kart ve çıktıyı denetle. `orkestra` komutu çalıştırma, dosya okuma ya da yazma YAPMA; her şey bu metinde.
 Yanıtın TEK satır olsun, başka hiçbir şey yazma: `{i:03d}|onay|-` ya da `{i:03d}|ret|<neden kodu>` (kodlar: kapsam-eksik, bicim, sayi-tutarsiz, kanit-yok, talimat-ihlali, kriter-belirsiz, yetenek-yetersiz, ortam).
 
 ## Kart
-Başlık: {konu.capitalize()} envanteri çıkar.
+Başlık: {konu[0].upper() + konu[1:]} envanteri çıkar.
 Yazma alanı: yalnız `{konu.split()[0]}_envanter_20261031.md` (başka dosya yazılmaz).
 Kabul kriterleri:
 - K1: Çıktı, kaynak.csv'deki {n} satırın TAMAMINI tabloda verir.

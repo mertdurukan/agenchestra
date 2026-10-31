@@ -19,10 +19,10 @@ Sen triyaj ajanısın. İsteği oku, gerekirse birkaç dosyaya kısaca bak ve ya
 
 Basamak rehberi:
 - **T0**: hazır betik ya da deterministik iş, model gerekmez (betiği bir T1 işçisi çalıştırır).
-- **T1** Haiku: sınıflama, biçimleme, özet, günlük satırı, betik çalıştırıp raporlama.
-- **T2** Sonnet: muhakemeli mekanik iş; tarama, senkron, döküm, betik iskeleti.
+- **T1** (model/effort: ayarlar/model_politikasi.json): sınıflama, biçimleme, özet, günlük satırı, betik çalıştırıp raporlama.
+- **T2** (model/effort: ayarlar/model_politikasi.json): muhakemeli mekanik iş; tarama, senkron, döküm, betik iskeleti.
 - **T3** (model/effort: ayarlar/model_politikasi.json): sentez, iddia doğrulama kararı, içerik yazımı.
-- **T4** Opus 5.5 xhigh: yalnız açıkça çok zor iş.
+- **T4** (model/effort: ayarlar/model_politikasi.json): yalnız açıkça çok zor iş.
 
 Plan yolu rehberi (`skills/is/plan_yolu.json` eşiklerine göre; sayıları sabit yazma):
 - **dogrudan**: kart sayısı ve okunacak dosya `dogrudan_*` eşiklerinin altında, istek net.

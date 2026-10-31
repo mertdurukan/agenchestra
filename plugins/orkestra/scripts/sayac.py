@@ -51,6 +51,9 @@ def artir(sd: str, ad: str) -> int:
 
 def main(argv=None) -> int:
     a = list(sys.argv[1:] if argv is None else argv)
+    if a == ["esik"]:
+        print(ESIK)  # ajan metinleri sabit sayı yazmaz; eşik tek kaynaktan okunur
+        return 0
     if len(a) < 2 or a[0] != "artir":
         print('kullanım: sayac.py artir "<iş adı>"', file=sys.stderr)
         return 2

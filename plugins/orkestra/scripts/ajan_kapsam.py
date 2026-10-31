@@ -62,6 +62,19 @@ def _norm(yol: str, proje: str = ".") -> str:
     return os.path.normcase(os.path.abspath(yol)).replace("\\", "/")
 
 
+def _git_alt_komut(s: list) -> str:
+    """git'in alt komutu: seçenekler (-C yol, -c k=v, --git-dir=...) atlanarak ilk sözcük."""
+    i = 0
+    while i < len(s):
+        if s[i] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace"):
+            i += 2
+        elif s[i].startswith("-"):
+            i += 1
+        else:
+            return s[i]
+    return ""
+
+
 def kabuk_yazimi(komut: str):
     """Komut dosya/depo/veritabanı yazıyorsa nedeni, yoksa None."""
     komut = komut or ""
@@ -83,7 +96,7 @@ def kabuk_yazimi(komut: str):
         bas = re.sub(r"\.exe$", "", os.path.basename(sozcuk[0].strip('"')).lower())
         if bas in YAZAN_KOMUT:
             return f"yazan komut ({bas})"
-        if bas == "git" and any(s in GIT_YAZAN for s in sozcuk[1:3] if not s.startswith("-")):
+        if bas == "git" and _git_alt_komut(sozcuk[1:]) in GIT_YAZAN:
             return "git yazma"
         if bas in ("sed", "perl") and any(re.fullmatch(r"-[a-zA-Z]*i\S*", s) for s in sozcuk[1:]):
             return f"{bas} -i (yerinde düzenleme)"
@@ -110,7 +123,7 @@ def karar(agent_type, arac: str, girdi, cfg=None, proje: str = ".", kart_ciktila
     if arac in YAZMA_ARACLARI:
         yol = str(girdi.get("file_path") or girdi.get("notebook_path") or "")
         yollar = (cfg.get("yazma_yollari") or {}).get(tur)
-        if yollar is not None and not any(re.search(d, _norm(yol, proje)) for d in yollar):
+        if yollar is not None and not any(re.search(d, _norm(yol, proje), re.I) for d in yollar):
             return f"{tur} yalnız kendi çıktı yoluna yazar; '{yol}' izinli değil (ayarlar/ajan_kapsam.json)."
         if tur in (cfg.get("kart_ciktisi_ajanlari") or []):
             izinli = {_norm(c, proje) for c in (kart_ciktilari or [])}
