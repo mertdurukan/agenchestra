@@ -46,13 +46,33 @@ def adr_bul(kimlik, kokler):
     return None
 
 
-def sonraki_no(kok):
-    """Deponun adr/ klasöründeki en büyük numaranın sonrası (boşsa 1)."""
+def _en_buyuk(adlar):
     en = 0
-    for yol in glob.glob(os.path.join(kok, "adr", "ADR-*.md")):
-        m = _NO.match(os.path.basename(yol))
+    for ad in adlar:
+        m = _NO.match(os.path.basename(ad.strip()))
         if m:
             en = max(en, int(m.group(1)))
+    return en
+
+
+def sonraki_no(kok):
+    """Deponun en büyük ADR numarasının sonrası (boşsa 1).
+
+    Numara yalnız bu çalışma ağacından değil, depodaki bütün yerel dallardan ve bütün çalışma ağaçlarının
+    adr/ klasörlerinden (işlenmemiş dosyalar dahil) türer; paralel dallar aynı numarayı almaz (I-292 kök nedeni).
+    """
+    en = _en_buyuk(glob.glob(os.path.join(kok, "adr", "ADR-*.md")))
+    r = L.git(["for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"], kok)
+    if r.returncode == 0:
+        for ref in r.stdout.split():
+            t = L.git(["ls-tree", "--name-only", ref, "adr/"], kok)
+            if t.returncode == 0:
+                en = max(en, _en_buyuk(t.stdout.splitlines()))
+    w = L.git(["worktree", "list", "--porcelain"], kok)
+    if w.returncode == 0:
+        for satir in w.stdout.splitlines():
+            if satir.startswith("worktree "):
+                en = max(en, _en_buyuk(glob.glob(os.path.join(satir[9:].strip(), "adr", "ADR-*.md"))))
     return en + 1
 
 
