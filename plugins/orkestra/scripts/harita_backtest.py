@@ -61,6 +61,7 @@ def olc(kok: str, isinma: float = 0.3, asgari: int = K.ASGARI_BIRLIKTE, cm: list
     esik_sira = int(len(cm) * isinma)
     adj: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
     recall_l, precision_l, kapsama_l = [], [], []
+    kacan: collections.Counter = collections.Counter()
     for sira, dosyalar in enumerate(cm):
         canli = [f for f in dosyalar if mevcut(f)]
         if sira >= esik_sira and len(canli) >= 2:
