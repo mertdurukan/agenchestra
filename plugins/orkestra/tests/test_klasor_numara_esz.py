@@ -129,8 +129,7 @@ class KlasorNumaraEszamanli(unittest.TestCase):
                 bekle(yollar.values())
                 sonuc = {}
                 for a, y in yollar.items():
-                    with open(y, encoding="utf-8") as f:
-                        sonuc[a] = json.load(f)
+                    sonuc[a] = oku_json(y)
                 hatalar = {a: s["hata"] for a, s in sonuc.items() if "hata" in s}
                 self.assertFalse(hatalar, f"tur {i}: {hatalar}")
                 nolar = {a: s["ad"][:3] for a, s in sonuc.items()}
