@@ -68,6 +68,17 @@ def bekle(yollar, zaman_asimi=BEKLEME_S):
         time.sleep(0.001)
 
 
+def oku_json(yol, deneme=200):
+    """Windows'ta os.replace hemen ardından dosya kısa süre paylaşım ihlali verebilir: kısa beklemeyle yeniden dene."""
+    for _ in range(deneme):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                return json.load(f)
+        except PermissionError:
+            time.sleep(0.005)
+    raise AssertionError(f"okunamadı: {yol}")
+
+
 class KlasorNumaraEszamanli(unittest.TestCase):
     def setUp(self):
         self.taban = os.path.realpath(tempfile.mkdtemp(prefix="ork_kne_"))
