@@ -22,6 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import kapi_mod as KM  # noqa: E402
 
 TURLER = ("perspektif", "skill", "kural", "karar")
 DURUMLAR = ("bekliyor", "onaylandi", "reddedildi", "uygulaniyor", "uygulandi", "eskidi", "iptal")
@@ -261,7 +262,7 @@ def _kural_dosya_metni(sd: str) -> str:
     def kural_satirlari(liste_):
         for r in liste_:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            satirlar.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            satirlar.append(f"- {_tek_satir(KM.mod_coz(r['metin'], sd))} ({r['id']}, {tarih})")
 
     if plug_acik:  # tek katmanlıysa eski düzen (başlıksız) korunur
         satirlar += ["Çakışmada proje kuralı eklenti kuralından önce gelir.", "",
@@ -342,6 +343,10 @@ def kural_dosyasi_esitle_fark(sd: str) -> tuple[bool, list[str]]:
     açılışında (hook'tan önce) yüklendiği için yazıldıysa o oturumun bağlamındaki metin eskidir (I-297 P2)."""
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
+        try:
+            _kurallar_md_blogu_yaz(_eklenti_oku())  # KURALLAR.md'deki mod da ayarla birlikte yenilenir (içerik aynıysa yazmaz)
+        except OSError:
+            pass
         yol = _kural_dosya_yolu(sd)
         metin = _kural_dosya_metni(sd)
         try:
@@ -379,7 +384,7 @@ def _kurallar_md_blogu_yaz(liste: list[dict]) -> None:
                 "Bu bölüm `orkestra kural` komutuyla yönetilir (`kurallar/eklenti_kurallari.json`); elle düzenleme.", ""]
         for r in etkin:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            blok.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            blok.append(f"- {_tek_satir(KM.mod_coz(r['metin']))} ({r['id']}, {tarih})")
             if r.get("neden"):
                 blok.append(f"  - Neden: {_tek_satir(r['neden'])}")
         blok.append(ESKI_BITIS)
@@ -1035,7 +1040,8 @@ def kurallar(sd: str, katman: str | None = None) -> list:
     kapali = _devre_disi(sd)
     out = []
     if k in (None, "plugin"):
-        out += [dict(r, devre_disi=r.get("id") in kapali) for r in _eklenti_oku()]
+        out += [dict(r, metin=KM.mod_coz(r.get("metin"), sd), metin_ham=r.get("metin"), devre_disi=r.get("id") in kapali)
+                for r in _eklenti_oku()]
     if k in (None, "proje"):
         out += _kurallar_oku(sd)
     return out
@@ -1239,7 +1245,8 @@ def kural_ac(sd: str, id: str) -> dict:
 
 def kural_gorunum(sd: str, proje: str) -> dict:
     proje_liste = _kurallar_oku(sd)
-    eklenti = [dict(r, devre_disi=r.get("id") in _devre_disi(sd)) for r in _eklenti_oku()]
+    eklenti = [dict(r, metin=KM.mod_coz(r.get("metin"), sd), metin_ham=r.get("metin"), devre_disi=r.get("id") in _devre_disi(sd))
+               for r in _eklenti_oku()]
     oneriler = []
     for r in proje_liste:
         if r.get("durum") == "oneri":
