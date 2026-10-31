@@ -53,6 +53,15 @@ class OtoCommit(unittest.TestCase):
     def commit_sayisi(self):
         return int(git(self.repo, "rev-list", "--count", "HEAD").stdout.strip())
 
+    def test_test_dosyasi_izlenmeyen_modulu_birlikte_alir(self):
+        self.yaz("modul_x.py", "X = 1\n")  # kabukla yazılmış, izlenmeyen modül
+        self.yaz("ilgisiz.py", "Y = 2\n")
+        self.kos(self.yaz("test_x.py", "import modul_x\n"))
+        son = git(self.repo, "show", "--name-only", "--format=", "HEAD").stdout
+        self.assertIn("test_x.py", son)
+        self.assertIn("modul_x.py", son)
+        self.assertNotIn("ilgisiz.py", son)
+
     def test_kapaliyken_commit_yok(self):
         for deger in (None, "0", ""):
             self.kos(self.yaz("a.txt", "x"), acik=deger)

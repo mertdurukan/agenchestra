@@ -116,6 +116,29 @@ def cli_sonrasi(klasorler):
         pass
 
 
+def eslik_moduller(repo, yol):
+    """Commit edilen test dosyasının import ettiği, depoda hâlâ izlenmeyen `.py` modülleri (ADR-0117): test modülsüz commit'lenip temiz kopyada ModuleNotFoundError vermesin."""
+    import ast
+    if not os.path.basename(yol).startswith("test_") or not yol.endswith(".py"):
+        return []
+    try:
+        with open(yol, encoding="utf-8") as f:
+            agac = ast.parse(f.read())
+    except Exception:
+        return []
+    adlar = set()
+    for d in ast.walk(agac):
+        if isinstance(d, ast.Import):
+            adlar.update(a.name.split(".")[0] for a in d.names)
+        elif isinstance(d, ast.ImportFrom) and d.module and not d.level:
+            adlar.add(d.module.split(".")[0])
+    sonuc = []
+    for satir in _git(repo, "ls-files", "--others", "--exclude-standard", "-z").stdout.split("\0"):
+        if satir.endswith(".py") and os.path.splitext(os.path.basename(satir))[0] in adlar:
+            sonuc.append(os.path.join(repo, satir))
+    return sonuc
+
+
 def main():
     if not acik():
         return
@@ -145,12 +168,14 @@ def main():
         if not durum.strip():
             return
         yeni = durum.startswith("??")  # yalnız izlenmeyen dosya add ister; izlenen dosyada commit pathspec'i yeter
+        eslik = eslik_moduller(repo, yol)
         rel = os.path.relpath(yol, repo).replace("\\", "/")
         atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip()             or model_atfi(veri.get("transcript_path")) or ATIF_VARSAYILAN
         msg = f"Otomatik commit: {rel}\n\n{atif}"
         for _ in range(5):  # paralel oturumlarda index.lock bekle
-            a = git(repo, "add", "--", yol) if yeni else None
-            c = git(repo, "commit", "-m", msg, "--", yol) if a is None or a.returncode == 0 else a
+            hedef = [yol, *eslik]
+            a = git(repo, "add", "--", *hedef) if (yeni or eslik) else None
+            c = git(repo, "commit", "-m", msg, "--", *hedef) if a is None or a.returncode == 0 else a
             if c.returncode == 0 or "index.lock" not in (c.stderr or ""):
                 break
             time.sleep(1)
