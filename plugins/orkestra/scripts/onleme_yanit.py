@@ -1,4 +1,4 @@
-"""Öneri kapısı, yanıt denetimi (ADR-0120, P-045): düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlayan bir
+"""Öneri kapısı, yanıt denetimi (ADR-0123, P-045): düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlayan bir
 çözümse (hatırlatma, uyarı, tur sonu denetimi) ve yanıtta önleme merdiveni akıl yürütmesi yoksa (üst basamak, mevcut kapı,
 üretim noktası) ölçüm kaydı düşer. Yalnız ölçer: engellemez, kullanıcıya gürültü yapmaz, model çağrılmaz.
 

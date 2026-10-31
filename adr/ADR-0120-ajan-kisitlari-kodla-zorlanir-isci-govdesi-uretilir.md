@@ -1,6 +1,6 @@
-# ADR-0110: Ajan kısıtları kodla zorlanır, işçi gövdesi tek kaynaktan üretilir
+# ADR-0120: Ajan kısıtları kodla zorlanır, işçi gövdesi tek kaynaktan üretilir
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 2026-10-31
 
@@ -10,7 +10,7 @@
 
 **Karar:**
 
-(1) İşçi gövdesi `agents/_kaynak/` altında tek dosyada tutulur; `isci-t1..t4.md` bir betikle üretilir, basamak alanları `ayarlar/model_politikasi.json`'dan gelir, "üretilen = depodaki" testi eşitliği korur. (2) Ajan metinlerindeki sayı, kod ve model adı kaynağından türetilir veya metinden çıkarılır; metin-kaynak eşitliği testi vardır. (3) Ajan türüne göre Bash/yazma kapsamı eklentinin PreToolUse hook'unda (`izin_politikasi`) kodla zorlanır; her kısıt için ihlal vakasını reddeden test yazılır (P-032).
+(1) İşçi gövdesi `ajan_kaynak/` altında tek dosyada tutulur; `isci-t1..t4.md` bir betikle üretilir, basamak alanları `ayarlar/model_politikasi.json`'dan gelir, "üretilen = depodaki" testi eşitliği korur. (2) Ajan metinlerindeki sayı, kod ve model adı kaynağından türetilir veya metinden çıkarılır; metin-kaynak eşitliği testi vardır. (3) Ajan türüne göre Bash/yazma kapsamı eklentinin PreToolUse hook'unda (`izin_politikasi`) kodla zorlanır; her kısıt için ihlal vakasını reddeden test yazılır (P-032).
 
 **Seçenekler:**
 

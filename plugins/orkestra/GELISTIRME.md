@@ -23,6 +23,7 @@ Notlar:
 - `main`'e yalnız `git merge --ff-only <dal>` ya da PR ile girilir; ayrışmış dal önce `main` üzerine alınır.
 - Dal ve worktree iş bitince (ve başka oturum kullanmıyorsa) kaldırılır: `git worktree remove` + `git branch -d`.
 - Yayın akışı ("Yayın akışı" bölümü) yalnız `main` içindir; yan dal push edilse bile marketplace'e girmez.
+- Her oturum kapanırken `git status --short` boş ve `git branch --no-merged main` boş olmalıdır; commitsiz dosya ya da `main`'e girmemiş dal bırakılmaz. Detached HEAD'de commit atılmışsa önce `git switch -c <dal>`.
 
 ## Panelde güncelleme bildirimi (ADR-0039)
 Panel Gelen kutusu, `origin/main` SHA'sı kurulu SHA'dan farklıysa "Orkestra güncellemesi var" kartı gösterir (Güncelle, Sonra, Neler değişti; ADR-0095). Aralıkta konusu `Yenilik:` ile başlayan commit varsa kart "N yeni özellik" yazar ve yalnız bu commit'leri listeler; yoksa "N değişiklik var" yazar (N = sürüm farkı). Yeni özellik içeren yayın commit'ine yine `Yenilik: <ne eklendi>` konusu verilir.
@@ -238,3 +239,12 @@ Eşik 8 ajan; 14 günde 32 kez çıktı. Kök neden: kartlar tek soruya bölünm
 ## Standartlar
 
 PR, commit, dal, review ve Jira yorumu gibi yapı standartları kural değil dosyadır (ADR-0006): eklentide `standartlar/*.md` varsayılan kalıplar, projede `.claude/orkestra/standartlar/<ad>.md` varsa o önceliklidir. `orkestra standart liste|goster|yol|ekle` okur ve yazar, `orkestra:standart` skill'i PR/commit/Jira yazarken ve incelerken ilgili dosyayı okutur. Kod: `scripts/standart.py`, `scripts/komutlar/standart.py`; test: `tests/test_standart.py`. Hook denetimi bu sürümde yoktur.
+
+## Oturumlar arası farkındalık (ADR-0125, P-049)
+
+Kaynak: `scripts/oturum_farkindalik.py`; hook girişleri `hook.py` `session_start` ve `pre_tool_use`; CLI `orkestra oturum liste | not | oku | rapor`.
+
+- Kayıt: `oturumlar/<oturum>.json` içindeki `konum` alanı. Git bilgisi `.git` dosyalarından okunur (alt süreç yok).
+- Bağlam yalnız çakışmada eklenir; kapı `ayarlar/oturum_farkindalik.json` (mod `golge`), kapatma `ORKESTRA_OTURUM_FARKINDALIK=0`.
+- Ölçüm: `orkestra oturum rapor [--gecikme 1000] [--sinifla ZAMAN=dogru|yanlis]`. `ihlal` geçişi için ≥60 sınıflı tespit ve yanlış pozitif ≤ %10 gerekir.
+- Testler: `tests/test_oturum_farkindalik.py`, `test_oturum_farkindalik_hook.py`, `test_oturum_senaryo.py` (iki oturum), `test_dal_temizle_oturum.py`. Senaryo testi gerçek yerleşimi taklit eder: oturum worktree'si projenin `.claude/worktrees/` altında olmalı.

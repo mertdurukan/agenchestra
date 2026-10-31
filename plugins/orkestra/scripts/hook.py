@@ -344,7 +344,7 @@ def _yazilacak_metin(arac: str, girdi: dict) -> str:
 
 
 def _genis_tarama_kapisi(sd: str, oid, komut: str) -> str:
-    """P-012 madde 4, ADR-0120: zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
+    """P-012 madde 4, ADR-0123: zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
     uyarı bağlama gider. Kip `reddet` ise `reddet_kaliplari`na uyan komut için `kapi_ret` yazılır ve ret metni döner (çağıran
     reddeder); aksi halde ''. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
     global _BEKLEYEN_UYARI
@@ -365,6 +365,35 @@ def _genis_tarama_kapisi(sd: str, oid, komut: str) -> str:
     except Exception:
         return ""
     return ""
+
+
+def _kanit(eslesen=None, cumle=None) -> dict:
+    """I-271: `kural_ihlal` satırının `eslesen`/`cumle` alanları (ortak yardımcı `kapi_mod.kanit_alanlari`: maske + 200 sınırı).
+    Bilinmeyen alan yazılmaz; hatada boş sözlük (kaydı hiçbir zaman bozmaz)."""
+    try:
+        import kapi_mod
+        return kapi_mod.kanit_alanlari(eslesen, cumle)
+    except Exception:
+        return {}
+
+
+def _kalip_kaniti(kaliplar, metin: str, normallestir) -> dict:
+    """Kalıp listesinde `normallestir(metin)` üstünde eşleşen ilk regex ve onu içeren cümle (`_kanit` alanları). Normalleştirme
+    uzunluğu korursa cümle özgün metinden kesilir, korumazsa normalleştirilmiş metinden. Eşleşme yoksa boş sözlük."""
+    metin = metin or ""
+    norm = normallestir(metin)
+    for k in kaliplar or []:
+        try:
+            m = re.search(k, norm)
+        except re.error:
+            continue
+        if not m:
+            continue
+        kaynak = metin if len(metin) == len(norm) else norm
+        bas = max(kaynak.rfind(c, 0, m.start()) for c in ".!?\n") + 1
+        sonlar = [i for i in (kaynak.find(c, m.end()) for c in ".!?\n") if i != -1]
+        return _kanit(k, kaynak[bas:(min(sonlar) + 1 if sonlar else len(kaynak))])
+    return {}
 
 
 def _kanit(eslesen=None, cumle=None) -> dict:
@@ -816,6 +845,60 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
     reddet(neden)
 
 
+def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -> None:
+    """I-292 P3 (ADR-0120): alt ajanın türüne göre araç kapsamı; ana ajan etkilenmez. mod=golge: yalnız uyarı.
+    Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır. ORKESTRA_AJAN_KAPSAM=0 kapatır."""
+    global _BEKLEYEN_UYARI
+    if not inp.get("agent_id"):
+        return
+    try:
+        import ajan_kapsam as AK
+        cfg = AK.ayar_yukle()
+        mod = AK.mod_bul(cfg)
+        tur = AK.tur_adi(atip)
+        if mod == "kapali" or tur not in (set(cfg.get("salt_okuma_ajanlari") or []) | set(cfg.get("yazma_yollari") or {})):
+            return
+        ciktilar = None
+        if tur in (cfg.get("kart_ciktisi_ajanlari") or []) and arac in AK.YAZMA_ARACLARI:
+            gid, _ = ajan_gorevi(sd, inp)
+            kart = L.kart_oku(sd, gid) if gid and gid != "-" else None
+            ciktilar = (kart or {}).get("ciktilar") or []
+        neden = AK.karar(atip, arac, girdi, cfg, inp.get("cwd") or ".", ciktilar)
+    except Exception:
+        return
+    if not neden:
+        return
+    if mod == "ihlal":
+        reddet(neden)
+    _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
+
+
+def _main_kopya_kapisi(inp: dict, girdi: dict, arac: str) -> None:
+    """I-302 (ADR-0122): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
+    global _BEKLEYEN_UYARI
+    try:
+        import main_kopya_kapisi as _mk
+        yol = girdi.get("file_path") or girdi.get("notebook_path") or ""
+        if not yol:
+            return
+        cwd = inp.get("cwd") or os.getcwd()
+        tam = os.path.abspath(os.path.join(cwd, yol))
+        s = _mk.karar(tam, cwd)
+        if not s:
+            return
+        mod, mesaj = s
+        if mod == "ihlal":
+            reddet(mesaj)
+            return
+        import kapi_mod
+        kapi_mod.kaydet(cwd, _mk.KAPI, f"{tam} oturum={str(inp.get('session_id') or '')[:8]}")
+        _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + "orkestra (gölge): " + mesaj
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
 def pre_tool_use(inp: dict):
     global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI, _GUNCEL_GIRDI, _IZIN_KIPI
     _KULLANICI_MESAJI = ""
@@ -839,12 +922,21 @@ def pre_tool_use(inp: dict):
     girdi = dict(inp.get("tool_input") or {})
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
+    _ajan_kapsam_kapisi(inp, arac, girdi, sd, atip)
+    if arac in YAZAN_ARACLAR:  # I-302: korunan deponun birincil main kopyasına yazma (gölge: kayıt+uyarı, ihlal: ret)
+        _main_kopya_kapisi(inp, girdi, arac)
     kar, kneden = _izin_karari(arac, girdi, sd, inp.get("session_id"))  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
     if kar == "allow":
         _VARSAYILAN_IZIN = kneden
     elif arac not in KABUK_ARACLARI:
         _kapi_uygula(kar, kneden)
     _auto_soru_kapisi(arac, girdi, sd, inp.get("session_id"), aid)
+    try:  # I-297 P5: atlanan bölme kaydı; hata aracı bozmaz
+        _bolme_kapisi(sd, arac, inp.get("session_id"), aid)
+    except SystemExit:
+        raise
+    except Exception:
+        pass
 
     try:
         import is_onay as _io
@@ -860,6 +952,14 @@ def pre_tool_use(inp: dict):
         dh = _dh.izle(arac, girdi, sd, inp.get("session_id"), aid, inp.get("cwd"))
         if dh:
             _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " + dh).strip()
+    except Exception:
+        pass
+
+    try:  # ADR-0125: engellemeyen oturumlar arası çakışma farkındalığı; hata aracı bozmaz
+        import oturum_farkindalik as _of
+        of = _of.arac_oncesi(sd, inp.get("session_id"), inp.get("cwd"), arac, girdi, bool(aid))
+        if of:
+            _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + chr(10) + of).strip()
     except Exception:
         pass
 
@@ -1504,7 +1604,7 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
 
 
 def _onleme_yanit(sd: str, oid, inp: dict) -> None:
-    """ADR-0120 / P-045: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
+    """ADR-0123 / P-045: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
     akıl yürütmesi yoksa günlüğe `kural_ihlal / onleme_basamagi` yazılır. Yalnız ölçer (gölge): engellemez, uyarı vermez.
     Ayar `ayarlar/onleme_yanit.json`; hatada sessiz geçer."""
     try:
@@ -1574,9 +1674,19 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _tur_toast(sd: str, oid: str, ozet: dict, arka_plan_acik: bool, inp: dict) -> None:
+    """'İş bitti' toast kararı (bildirim.tur_sonu); hata kancayı düşürmez."""
+    try:
+        import bildirim
+        bildirim.tur_sonu(sd, oid, ozet.get("ilk_istem_zaman") or ozet.get("ilk_zaman"), ozet.get("son_zaman"), arka_plan_acik,
+                          inp.get("last_assistant_message") or "")
+    except Exception:
+        pass
+
+
 def arka_plan_satiri(sd: str, gorevler, transkript=None) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
-    Claude görevi varsa satıra en eski görevin yaşı ve (Windows) çalışan find.exe eklenir (ADR-0120, arka_plan_yas).
+    Claude görevi varsa satıra en eski görevin yaşı ve (Windows) çalışan find.exe eklenir (ADR-0123, arka_plan_yas).
     Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
     adlar = []
     try:
@@ -1649,6 +1759,12 @@ def stop(inp: dict):
         # neden çıkarılamadıysa (soru/karar yok) panel 'Seni bekliyor' yerine nötr durum gösterir (G-095)
         niyet.olay(oid, L.proje_dizini(inp.get("cwd")), "tur", arka_plan=True if acik_gorevler else None, bekleme=bekleme,
                    bekleme_yok=True if bekleme == "" else None)
+    try:  # ADR-0116: aday sonrası ajan konu açmadıysa gölge kaydı
+        import konu_defteri
+        if not inp.get("agent_id"):
+            konu_defteri.stop_kontrol(sd, oid)
+    except Exception:
+        pass
     baglam = ""
     try:
         esleme = B.esleme_oku(sd)
@@ -1739,6 +1855,7 @@ def stop(inp: dict):
     if perspektif:
         gec()
     if inp.get("background_tasks"):
+        _tur_toast(sd, oid, ozet, True, inp)  # çalışma sürüyor: toast ertelenir, başlangıç saklanır
         satir = arka_plan_satiri(sd, inp.get("background_tasks"), inp.get("transcript_path"))
         if satir:
             L.hook_cikti({"systemMessage": _sm(satir)})
@@ -1751,11 +1868,7 @@ def stop(inp: dict):
         if d in ("isleniyor", "denetimde", "reddedildi", "onaylandi"):
             acik.append((k["id"], d, k["baslik"]))
     if not acik:
-        try:  # insan aksiyonu: tur bitti → toast (sessiz hata)
-            import bildirim
-            bildirim.tur_bitti(sd, oid, L.sure_ms(ozet.get("ilk_zaman"), ozet.get("son_zaman")), inp.get("last_assistant_message") or "")
-        except Exception:
-            pass
+        _tur_toast(sd, oid, ozet, bool(acik_gorevler), inp)  # insan aksiyonu: çalışma bitti → toast; arka plan görevi açıksa ertelenir
         satir = arka_plan_satiri(sd, None)  # görev listesi boş; yalnız perspektif/onay uygulaması sürüyorsa
         mesaj = _sm(" ".join(x for x in (satir, hatirlatma) if x))
         if mesaj:
@@ -1885,7 +1998,7 @@ def _bagsiz_secim_satiri(acik: list, puanlar: list, idler=None, devam: bool = Fa
 
 
 def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketler=None, is_id: str | None = None,
-                    cwd: str | None = None) -> str:
+                    cwd: str | None = None, guven: str = "") -> str:
     """Bağsız oturumu işe bağlar; `is_id` yoksa önce yeni iş açar (kayıp 7ce7e69'un bugünkü hook'a uyarlaması).
     Klasör: eşlemedeki ilk proje altında sıradaki NNN-YYYYMMDD-<slug>; yazılamazsa <durum dizini>/isler altında aynı ad.
     Önce is.json oturumlar[] (is_oturum_bagla), sonra oturum json'u (kilitli oku-birleştir-yaz). Hatada boş: ipucu yolu sürer."""
@@ -1930,12 +2043,15 @@ def _otomatik_is_ac(sd: str, oid, istek: str, proje: str | None = None, etiketle
             d = d if isinstance(d, dict) else {}
             an = L.simdi()
             d["is"], d["is_baglanma"] = kayit["id"], an
+            if guven:  # I-297 P9: bağ güven etiketi; 'otomatik-düşük' bağ ilk mesajda yeniden doğrulanır
+                d["bag_guven"] = guven
             d.setdefault("is_gecmis", []).append({"is": kayit["id"], "zaman": an})
             L.atomik_yaz(yol, json.dumps(d, ensure_ascii=False, indent=2) + "\n")
         L.atif_yaz(sd, str(oid), kayit["id"], "hook-otomatik-baglama")  # bağsız maliyet satırları için tek atif olayı
         if is_id:
+            dusuk = " Güven düşük: başlık ile isteği karşılaştır, çelişiyorsa `orkestra is ac`." if guven == "otomatik-düşük" else ""
             return (f"Orkestra: bu sohbet otomatik bağlandı {kayit['id']} — {str(kayit.get('baslik') or '')[:50]} "
-                    "(istek bu işle örtüşüyor). Yanlışsa `orkestra is devam <id>` ya da `orkestra is ac` ile değiştir.")
+                    f"(istek bu işle örtüşüyor).{dusuk} Yanlışsa `orkestra is devam <id>` ya da `orkestra is ac` ile değiştir.")
         etiket = f" [etiket: {', '.join(etiketler)}]" if etiketler else ""
         return (f"Yeni iş otomatik açıldı: {kayit['id']} — {baslik[:50]}{etiket} (klasör: {os.path.basename(klasor)}); "
                 "bu sohbet ona bağlandı. Sıradaki adımlar işin todo.md'sine yazılır.")
@@ -1960,18 +2076,21 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         acik = is_kaydi.is_liste(sd, "acik")
         isler = [{"id": g["id"], "baslik": g.get("baslik") or "", "klasor": os.path.basename(str(g.get("klasor") or ""))}
                  for g in acik]
-        puanlar = is_yonlendirme.eslestir(istek, isler, ayar)
+        bag = _ayar_dosyasi(sd, "is_baglama")  # I-297 P9: ağırlıklı skor, marj, güven etiketi; mod kapali → eski davranış
+        etkin = is_yonlendirme.baglama_ayari(bag)["mod"] == "etkin"
+        puanlar = is_yonlendirme.eslestir(istek, isler, ayar, bag)
         if tur == "devam":
             return _bagsiz_secim_satiri(acik, puanlar, devam=True)
-        k, deger = is_yonlendirme.karar(puanlar, ayar)
+        k, deger = is_yonlendirme.karar(puanlar, ayar, bag)
+        guven = is_yonlendirme.guven(puanlar, bag)
         acik_idler = {str(g["id"]) for g in acik}
         if k == "bagla" and deger is not None and str(deger) in acik_idler:
-            return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger), cwd=cwd)
+            return _otomatik_is_ac(sd, oid, istek, proje, is_id=str(deger), cwd=cwd, guven=guven if etkin else "")
         if k == "ac":
             if tur == "soru":  # I-138 P2: bilgi sorusu iş açmaz
                 return ""
             return _otomatik_is_ac(sd, oid, istek, proje, cwd=cwd)
-        if k == "sec":  # belirsiz eşleşme kullanıcıya sorulmaz: en yakın açık işe bağlanır
+        if k == "sec" and not etkin:  # eski davranış (is_baglama.json mod kapali): en yakın açık işe bağlanır
             for i in deger if isinstance(deger, (list, tuple)) else []:
                 if str(i) in acik_idler:
                     oto = _otomatik_is_ac(sd, oid, istek, proje, is_id=str(i), cwd=cwd)
@@ -1983,30 +2102,149 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         return ""
 
 
-def _bagli_is_kaydi(g: dict) -> dict:
-    """Bağlı işin eşleştirme kaydı: kimlik, başlık, klasör adı ve todo.md/plan.md metni (ilk 6000 karakter)."""
-    klasor = str(g.get("klasor") or "")
-    metin = ""
-    for ad in ("todo.md", "plan.md"):
+def _ayar_dosyasi(sd: str, ad: str) -> dict:
+    """Eklentinin `ayarlar/<ad>.json` dosyası, üstüne proje `<durum>/<ad>.json` (anahtar bazında). Bozuk dosya atlanır."""
+    ayar = {}
+    for yol in (os.path.join(os.path.dirname(ESLEME_AYAR_YOLU), ad + ".json"), os.path.join(sd, ad + ".json")):
         try:
-            with open(os.path.join(klasor, ad), encoding="utf-8") as f:
-                metin += " " + f.read(6000)
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, dict):
+                ayar.update(d)
         except Exception:
-            pass
-    return {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(klasor), "metin": metin}
+            continue
+    return ayar
 
 
-def _bagli_isle_ilgili(sd: str, bagli, istek: str) -> bool:
-    """Mesaj bağlı işin klasörüne/kimliğine gönderme yapıyor ya da iş metniyle örtüşüyor mu (I-061). Hatada False."""
+def _bagli_is_kaydi(g: dict, guncel_konu: str = "") -> dict:
+    """Bağlı işin eşleştirme kaydı: kimlik, başlık, klasör adı ve oturumun güncel niyeti. İş belgesinin gövdesi
+    (todo.md/plan.md) kullanılmaz: ortak alan sözcükleri farklı konuyu ilgili gösterir (I-297 P4, S2)."""
+    klasor = str(g.get("klasor") or "")
+    return {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(klasor), "metin": guncel_konu}
+
+
+def _bagli_isle_ilgili(sd: str, bagli, istek: str, guncel_konu: str = "") -> bool:
+    """Mesaj bağlı işin klasörüne/kimliğine gönderme yapıyor ya da başlık ve güncel niyetle örtüşüyor mu (I-061). Hatada False."""
     try:
         import is_kaydi
         import is_yonlendirme
         for g in is_kaydi.is_liste(sd, "acik"):
             if str(g.get("id")) == str(bagli):
-                return is_yonlendirme.isle_ilgili_mi(istek, _bagli_is_kaydi(g), _esleme_ayari(sd))
+                return is_yonlendirme.isle_ilgili_mi(istek, _bagli_is_kaydi(g, guncel_konu), _esleme_ayari(sd))
     except Exception:
         pass
     return False
+
+
+_BOLME_DOSYA = "bolme_bekliyor.json"
+_BOLME_YOK_SAY = ("ToolSearch", "mcp__ccd_turn__update_plan", "TodoWrite", "TaskCreate", "TaskUpdate")
+_BOLME_OMUR = 600  # sn: yönergeden sonra bu süre geçtiyse bekleyen kayıt geçersiz
+
+
+def _bagli_mod(sd, bagli):
+    """I-297 P6: bağlı işin modu (`plan` | `auto`); okunamazsa boş (yönergede mod satırı yazılmaz)."""
+    try:
+        import is_onay
+        return is_onay.mod(is_kaydi.is_al(sd, bagli), sd)
+    except Exception:
+        return ""
+
+
+def _bolme_oku(sd: str) -> dict:
+    try:
+        with open(os.path.join(sd, _BOLME_DOSYA), encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _bolme_yaz(sd: str, d: dict) -> None:
+    try:
+        L.atomik_yaz(os.path.join(sd, _BOLME_DOSYA), json.dumps(d, ensure_ascii=False))
+    except Exception:
+        pass
+
+
+def _bolme_bekliyor_kaydet(sd: str, oid, bagli) -> None:
+    """I-297 P5: zorunlu bölme yönergesi verildi; oturumun sonraki ilk anlamlı aracı start_session olmalı."""
+    if not oid:
+        return
+    d = _bolme_oku(sd)
+    d[str(oid)] = {"zaman": time.time(), "is": str(bagli)}
+    _bolme_yaz(sd, d)
+
+
+def _bolme_kapisi(sd: str, arac: str, oid, aid) -> None:
+    """I-297 P5: bölme yönergesinden sonra ana ajanın ilk anlamlı aracı start_session değilse atlanan bölmeyi kaydeder.
+    golge (varsayılan, P-028): gunluk.jsonl'a kapi_golge/bolme_kapisi; ihlal: aracı reddeder; kapali: hiçbir şey.
+    Ayar `ayarlar/bolme_kapisi.json`. Aynı işin devamı da 'atlanan' sayılır: oran ihlale geçiş kararını besler."""
+    if aid or not oid or arac in _BOLME_YOK_SAY:
+        return
+    d = _bolme_oku(sd)
+    k = d.get(str(oid))
+    if not k:
+        return
+    mod = _ayar_dosyasi(sd, "bolme_kapisi").get("mod", "golge")
+    if mod not in ("golge", "ihlal"):
+        return
+    d.pop(str(oid), None)
+    _bolme_yaz(sd, d)
+    if arac.endswith("start_session") or time.time() - float(k.get("zaman") or 0) > _BOLME_OMUR:
+        return
+    neden = f"bölme yönergesi var ama ilk araç {arac}"
+    L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge",
+                 "kapi": "bolme_kapisi", "is": k.get("is") or "-", "neden": neden[:300], "mod": mod})
+    if mod == "ihlal":
+        reddet("bağlı işten farklı konu: önce `mcp__ccd_session__start_session` ile ayrı sohbet aç (K-004); aynı işin devamıysa "
+               "bunu belirtip yeniden dene.")
+
+
+def _soru_kaymasi(sd: str, oid, bagli, istek: str, guncel_konu: str) -> bool:
+    """I-297 P4: bağlı oturumda bilgi sorusu kesin farklı konuysa True (mod etkin). golge: yalnız gunluk.jsonl'a
+    kapi_golge/konu_kaymasi düşer, False döner. kapali ya da hata: False (eski davranış)."""
+    try:
+        import is_kaydi
+        import is_yonlendirme
+        ka = _ayar_dosyasi(sd, "konu_kaymasi")
+        mod = ka.get("mod", "etkin")
+        if mod not in ("etkin", "golge"):
+            return False
+        for g in is_kaydi.is_liste(sd, "acik"):
+            if str(g.get("id")) == str(bagli):
+                kayit = {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(str(g.get("klasor") or ""))}
+                if not is_yonlendirme.kayma_mi(istek, kayit, guncel_konu, _esleme_ayari(sd), ka):
+                    return False
+                if mod == "golge":
+                    L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge",
+                                 "kapi": "konu_kaymasi", "is": str(bagli), "neden": "bilgi sorusu kesin farklı konu"})
+                    return False
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _bag_dogrula(sd: str, oid, istek: str) -> str:
+    """I-297 P9: 'otomatik-düşük' güvenli bağ, bağdan sonraki ilk iş isteyen mesajda bir kez yeniden doğrulatılır
+    (etiketi oturum json'una `bag_dogrulandi` yazarak kapatır). Etiket, oturum başlığı ya da ilk mesajla çelişirse
+    bu bir konu değildir: bağ yanlıştır. Hatada ve etiket yoksa boş."""
+    try:
+        import soru_sinif
+        if not oid or soru_sinif.tur(istek, sd) != "is":
+            return ""
+        yol = os.path.join(sd, "oturumlar", f"{oid}.json")
+        with L.kilit(yol):
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if not isinstance(d, dict) or d.get("bag_guven") != "otomatik-düşük" or d.get("bag_dogrulandi"):
+                return ""
+            d["bag_dogrulandi"] = L.simdi()
+            L.atomik_yaz(yol, json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+        return ("Orkestra: bu sohbetin işe bağı otomatik ve güveni düşük. İşin başlığını isteğinle karşılaştır; "
+                "çelişiyorsa bu bir yeni konu değil yanlış bağdır: `orkestra is devam <id>` ya da `orkestra is ac` ile düzelt, yeni sohbet açma.")
+    except Exception:
+        return ""
 
 
 def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: str | None = None) -> str:
@@ -2015,15 +2253,25 @@ def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: 
     oto = _otomatik_yonlendirme(sd, oid, istek, proje, cwd=cwd)
     if oto:
         return oto
+    dogrula = _bag_dogrula(sd, oid, istek)  # I-297 P9
+    if dogrula:
+        return dogrula
     try:
         import soru_sinif
         import is_kaydi
         import is_yonlendirme
         bagli = _oturum_isi(sd, oid)
         if bagli:  # I-061 P1: bağlı oturumda açıkça devam / bağlı işle ilgili mesaj susar, geri kalanı belirsizdir
-            if soru_sinif.bagli_tur(istek, sd) != "belirsiz":
+            import niyet
+            k0 = niyet.son_niyet(oid) if oid else None
+            guncel = (k0 or {}).get("ne", "")
+            bt = soru_sinif.bagli_tur(istek, sd)
+            if bt == "soru":  # I-297 P4: bilgi sorusu muaf değil; yalnız kesin farklı konu yönergeye düşer
+                if not _soru_kaymasi(sd, oid, bagli, istek, guncel):
+                    return ""
+            elif bt != "belirsiz":
                 return ""
-            if _bagli_isle_ilgili(sd, bagli, istek):
+            elif _bagli_isle_ilgili(sd, bagli, istek, guncel):
                 return ""
         elif soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yönlendirme tetiklemez
             return ""
@@ -2031,7 +2279,9 @@ def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: 
         if bagli:  # belirsiz: hatırlatma değil zorunlu yönerge; karşılaştırma güncel konuya (son kayıtlı niyet) yapılır
             import niyet
             k = niyet.son_niyet(oid) if oid else None
-            return is_yonlendirme.yonlendir(isler, bagli, zorunlu=True, guncel_konu=(k or {}).get("ne", ""))
+            _bolme_bekliyor_kaydet(sd, oid, bagli)  # I-297 P5
+            return is_yonlendirme.yonlendir(isler, bagli, zorunlu=True, guncel_konu=(k or {}).get("ne", ""),
+                                            mod=_bagli_mod(sd, bagli))
         return is_yonlendirme.yonlendir(isler, bagli)
     except Exception:
         return ""
@@ -2556,7 +2806,11 @@ def session_start(inp: dict):
             ek_satirlar.append(zu)
     try:  # eklenti kural katmanı değiştiyse bu projenin kural dosyası yenilenir; hata hook'u düşürmez
         import onay
-        onay.kural_dosyasi_esitle(sd)
+        yazildi, fark = onay.kural_dosyasi_esitle_fark(sd)
+        if yazildi:  # kural dosyası hook'tan önce yüklendi: bu oturumun bağlamındaki metin eski (I-297 P2)
+            ek_satirlar.append("KURAL KOPYASI GÜNCELLENDİ: bu oturumun yüklediği orkestra_kurallari.md eskiydi"
+                               + (f"; eklenti kaynağında değişen kurallar: {', '.join(fark)}" if fark else "")
+                               + ". Orkestra davranışını anlatırken eklenti kaynağını (KURALLAR.md, kurallar/eklenti_kurallari.json) esas al.")
     except Exception:
         pass
     bs = _bos_is_satiri(sd)
@@ -2591,6 +2845,13 @@ def session_start(inp: dict):
         sk = skill_surekli.baglam(proje_)
         if sk:
             ek = ek + chr(10) + sk
+    except Exception:
+        pass
+    try:  # ADR-0125: konum kaydı + yalnız çakışma varsa tek satır
+        import oturum_farkindalik as _of
+        of = _of.oturum_basi(sd, inp.get("session_id"), inp.get("cwd"))
+        if of:
+            ek = ek + chr(10) + of
     except Exception:
         pass
     _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000)
@@ -2707,6 +2968,13 @@ def user_prompt_submit(inp: dict):
                         _yonlendirme_ipucu(sd, inp.get("session_id"), metin, L.proje_dizini(inp.get("cwd")),
                                            cwd=inp.get("cwd"))]
             _niyet_otomatik(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), metin)  # iş açıldıktan sonra
+            try:  # ADR-0116: sohbet konu defteri (ilk konu, tur sayacı, aday); hata hook'u düşürmez
+                import konu_defteri
+                kh = konu_defteri.hook_istek(sd, inp.get("session_id"), metin) if not inp.get("agent_id") else ""
+                if kh:
+                    parcalar.append(kh)
+            except Exception:
+                pass
             try:  # bilgi sorusu notu (G-120): listenin başına; hata hook'u düşürmez
                 import soru_sinif
                 sn = soru_sinif.not_metni(metin, sd)

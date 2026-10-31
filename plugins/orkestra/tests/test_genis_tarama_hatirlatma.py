@@ -86,7 +86,7 @@ class TestDosyalarVeAyar(unittest.TestCase):
         for k in ("mod", "hatirlatma", "komut_kaliplari", "zaman_siniri_kaliplari", "genis_kok_kaliplari",
                   "arka_plana_dusen_kaliplari", "reddet_kaliplari", "muafiyet_kaliplari", "reddet_metni", "onek"):
             self.assertIn(k, a)
-        self.assertEqual(a["mod"], "reddet")  # ADR-0120, kullanıcı kararı D1 (31.10.2026): dar sınıf (find) baştan reddedilir
+        self.assertEqual(a["mod"], "reddet")  # ADR-0123, kullanıcı kararı D1 (31.10.2026): dar sınıf (find) baştan reddedilir
         self.assertIn(a["mod"], GT.MODLAR)
 
     def test_modulde_kalip_sabiti_yok(self):
@@ -164,7 +164,7 @@ class TestHookBaglantisi(_Proje):
         self.assertNotEqual(cikti.get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
 
 
-# ADR-0120 derlemi: gerçek oturum kayıtlarından (1375 Bash `find`/`grep -r` komutu, 31.10.2026) seçilmiş reddedilmesi gerekenler
+# ADR-0123 derlemi: gerçek oturum kayıtlarından (1375 Bash `find`/`grep -r` komutu, 31.10.2026) seçilmiş reddedilmesi gerekenler
 # ve gerçek meşru komutlar; ikisi de elle sınıflandı.
 REDDEDILMELI = ["find /c/Mert/McD -name karar_kapisi.py",
                 "find / -name panel.py -path '*orkestra*' 2>/dev/null | grep -v node_modules | head",
@@ -199,7 +199,7 @@ GECMELI = ["timeout 20 find /c/Mert/McD -name karar_kapisi.py",
 
 
 class TestReddetKipi(_Proje):
-    """ADR-0120: geniş kökte zaman sınırsız `find` komut koşmadan reddedilir; meşru komut geçer."""
+    """ADR-0123: geniş kökte zaman sınırsız `find` komut koşmadan reddedilir; meşru komut geçer."""
 
     def pre(self, komut):
         g = {"tool_name": "Bash", "cwd": self.tmp, "session_id": OTURUM, "tool_input": {"command": komut}}

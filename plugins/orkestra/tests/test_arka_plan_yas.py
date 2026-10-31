@@ -1,4 +1,4 @@
-"""ADR-0120 (G3): Stop arka plan satırına görev yaşı ve find.exe eki (scripts/arka_plan_yas.py).
+"""ADR-0123 (G3): Stop arka plan satırına görev yaşı ve find.exe eki (scripts/arka_plan_yas.py).
 `python -m pytest -q plugins/orkestra/tests/test_arka_plan_yas.py`
 """
 import json

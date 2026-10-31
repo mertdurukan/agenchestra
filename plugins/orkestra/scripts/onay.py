@@ -22,6 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
+import kapi_mod as KM  # noqa: E402
 
 TURLER = ("perspektif", "skill", "kural", "karar")
 DURUMLAR = ("bekliyor", "onaylandi", "reddedildi", "uygulaniyor", "uygulandi", "eskidi", "iptal")
@@ -261,7 +262,7 @@ def _kural_dosya_metni(sd: str) -> str:
     def kural_satirlari(liste_):
         for r in liste_:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            satirlar.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            satirlar.append(f"- {_tek_satir(KM.mod_coz(r['metin'], sd))} ({r['id']}, {tarih})")
 
     if plug_acik:  # tek katmanlıysa eski düzen (başlıksız) korunur
         satirlar += ["Çakışmada proje kuralı eklenti kuralından önce gelir.", "",
@@ -315,12 +316,37 @@ def _kural_dosyasini_yaz(sd: str, liste: list[dict] | None = None) -> None:
     L.atomik_yaz(yol, metin)
 
 
-def kural_dosyasi_esitle(sd: str) -> bool:
-    """SessionStart: eklenti katmanı değişmişse (başka depodan güncelleme, başka projede eklenen kural) bu projenin kural
-    dosyasını yeniler. İçerik aynıysa yazmaz. Yazdıysa True. Kural dosyası oturum açılışında yüklendiği için yeni içerik
-    bir sonraki oturumda görünür."""
+_KURAL_KIMLIK = re.compile(r"\(([A-Z]-\d+),\s*\d{4}-\d{2}-\d{2}\)\s*$")
+
+
+def _kural_satirlari(metin: str) -> dict:
+    """Kural dosyası metninden {kimlik: satır}; kimliği ayrışmayan satır yok sayılır."""
+    cikti = {}
+    for satir in (metin or "").replace("\r\n", "\n").split("\n"):
+        m = _KURAL_KIMLIK.search(satir)
+        if satir.startswith("- ") and m:
+            cikti[m.group(1)] = satir
+    return cikti
+
+
+def kural_farki(onceki: str, yeni: str) -> list[str]:
+    """İki kural dosyası metni arasında eklenen, değişen ve kalkan kuralların `KİMLİK (durum)` listesi (I-297 P2)."""
+    a, b = _kural_satirlari(onceki), _kural_satirlari(yeni)
+    fark = [f"{k} (eklendi)" for k in b if k not in a]
+    fark += [f"{k} (değişti)" for k in b if k in a and a[k] != b[k]]
+    fark += [f"{k} (kalktı)" for k in a if k not in b]
+    return fark
+
+
+def kural_dosyasi_esitle_fark(sd: str) -> tuple[bool, list[str]]:
+    """kural_dosyasi_esitle ile aynı; ayrıca yazıldıysa değişen kural kimliklerini döner. Kural dosyası oturum
+    açılışında (hook'tan önce) yüklendiği için yazıldıysa o oturumun bağlamındaki metin eskidir (I-297 P2)."""
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
+        try:
+            _kurallar_md_blogu_yaz(_eklenti_oku())  # KURALLAR.md'deki mod da ayarla birlikte yenilenir (içerik aynıysa yazmaz)
+        except OSError:
+            pass
         yol = _kural_dosya_yolu(sd)
         metin = _kural_dosya_metni(sd)
         try:
@@ -329,9 +355,16 @@ def kural_dosyasi_esitle(sd: str) -> bool:
         except OSError:
             var = ""
         if var.replace("\r\n", "\n") == metin:
-            return False
+            return False, []
         _kural_dosyasini_yaz(sd)
-        return True
+        return True, kural_farki(var, metin)
+
+
+def kural_dosyasi_esitle(sd: str) -> bool:
+    """SessionStart: eklenti katmanı değişmişse (başka depodan güncelleme, başka projede eklenen kural) bu projenin kural
+    dosyasını yeniler. İçerik aynıysa yazmaz. Yazdıysa True. Kural dosyası oturum açılışında yüklendiği için yeni içerik
+    bir sonraki oturumda görünür; bu oturuma değişiklik özeti hook bağlamıyla verilir (kural_dosyasi_esitle_fark)."""
+    return kural_dosyasi_esitle_fark(sd)[0]
 
 
 def _kurallar_md_blogu_yaz(liste: list[dict]) -> None:
@@ -351,7 +384,7 @@ def _kurallar_md_blogu_yaz(liste: list[dict]) -> None:
                 "Bu bölüm `orkestra kural` komutuyla yönetilir (`kurallar/eklenti_kurallari.json`); elle düzenleme.", ""]
         for r in etkin:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            blok.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            blok.append(f"- {_tek_satir(KM.mod_coz(r['metin']))} ({r['id']}, {tarih})")
             if r.get("neden"):
                 blok.append(f"  - Neden: {_tek_satir(r['neden'])}")
         blok.append(ESKI_BITIS)
@@ -1007,7 +1040,8 @@ def kurallar(sd: str, katman: str | None = None) -> list:
     kapali = _devre_disi(sd)
     out = []
     if k in (None, "plugin"):
-        out += [dict(r, devre_disi=r.get("id") in kapali) for r in _eklenti_oku()]
+        out += [dict(r, metin=KM.mod_coz(r.get("metin"), sd), metin_ham=r.get("metin"), devre_disi=r.get("id") in kapali)
+                for r in _eklenti_oku()]
     if k in (None, "proje"):
         out += _kurallar_oku(sd)
     return out
@@ -1211,7 +1245,8 @@ def kural_ac(sd: str, id: str) -> dict:
 
 def kural_gorunum(sd: str, proje: str) -> dict:
     proje_liste = _kurallar_oku(sd)
-    eklenti = [dict(r, devre_disi=r.get("id") in _devre_disi(sd)) for r in _eklenti_oku()]
+    eklenti = [dict(r, metin=KM.mod_coz(r.get("metin"), sd), metin_ham=r.get("metin"), devre_disi=r.get("id") in _devre_disi(sd))
+               for r in _eklenti_oku()]
     oneriler = []
     for r in proje_liste:
         if r.get("durum") == "oneri":

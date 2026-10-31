@@ -1,4 +1,4 @@
-# ADR-0120: Sınırsız Bash taraması komut yazıldığı anda zorlanır; sohbet düzeltme önerisi önleme merdiveninden geçer
+# ADR-0123: Sınırsız Bash taraması komut yazıldığı anda zorlanır; sohbet düzeltme önerisi önleme merdiveninden geçer
 
 **Durum:** Kabul edildi
 

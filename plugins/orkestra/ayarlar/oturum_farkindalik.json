@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "Oturumlar arası çakışma farkındalığı (ADR-0125, I-308). golge: aynı depoda canlı başka oturum varsa hook engellemeden tek kısa bağlam satırı verir ve gunluk.jsonl'a kapi_golge/oturum_farkindalik yazar; ihlal moduna geçiş yok (60 sınıflı tespitte yanlış pozitif ≤%10 ve kullanıcı kararı gerekir). Canlılık eşiği 30 dk (ölçümle ayarlanır). Kapatma: ORKESTRA_OTURUM_FARKINDALIK=0. Proje ezmesi: .claude/orkestra/oturum_farkindalik.json (P-028)."
+}

@@ -1,4 +1,4 @@
-"""Arka plan görevi yaşı (ADR-0120, G3): Stop satırına "en eski görev N dk" ve eşik üstü işareti ekler; Windows'ta çocuk
+"""Arka plan görevi yaşı (ADR-0123, G3): Stop satırına "en eski görev N dk" ve eşik üstü işareti ekler; Windows'ta çocuk
 `find.exe` süreçlerini listeler. Model çağrılmaz, süreç öldürülmez (K4): yalnız gösterir; kapatma ajanda ya da kullanıcıdadır.
 
 Yaş kaynağı sırası: görev nesnesinin zaman alanı (varsa) → transkriptte arka plana düşen aracın zaman damgası.

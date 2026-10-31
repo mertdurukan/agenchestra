@@ -1,6 +1,6 @@
 ---
 name: denetci
-description: Orkestra DENETÇİSİ — bir işçinin çıktısını görev kartının kabul kriterlerine göre bağımsız ve şüpheci biçimde denetler, onay ya da ret kararı yazar. İşi yapan ajan asla kendi denetçisi olamaz. Çıktı dosyalarında yalnız mekanik düzeltme (biçim, sayı) yapar, içeriği değiştirmez. Model çağrıda işçiyle aynı basamağa ayarlanır (T1 haiku, T2 sonnet, T3/T4 opus; toplam 2 retten sonra opus).
+description: Orkestra DENETÇİSİ — bir işçinin çıktısını görev kartının kabul kriterlerine göre bağımsız ve şüpheci biçimde denetler, onay ya da ret kararı yazar. İşi yapan ajan asla kendi denetçisi olamaz. Çıktı dosyalarında yalnız mekanik düzeltme (biçim, sayı) yapar, içeriği değiştirmez. Çağrı modeli `ayarlar/model_politikasi.json` `denetci` bloğundan gelir.
 tools: Read, Glob, Grep, Bash, Edit
 disallowedTools: Write, MultiEdit, NotebookEdit, Agent, Workflow
 model: sonnet
@@ -70,4 +70,4 @@ Kartta sinif=kod ise yukarıdaki akışa ek olarak:
 7. `tdd` kapalı kartta testleri işçi yazdı: test kalitesi eksikse 'TEST:' önekiyle RET ver; işçi aynı turda düzeltir (kilit yeşilde yenilenir).
 
 Son mesajın yalnız şu JSON olsun:
-{"karar": "onay|ret", "neden": "<yalnız ret'te: 7 koddan biri>", "bulgular": ["kriter: durum — kanıt"], "duzeltme_talimati": "..."}
+{"karar": "onay|ret", "neden": "<yalnız ret'te: yukarıdaki ret nedeni kodlarından biri>", "bulgular": ["kriter: durum — kanıt"], "duzeltme_talimati": "..."}
