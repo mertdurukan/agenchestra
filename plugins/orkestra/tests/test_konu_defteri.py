@@ -118,6 +118,15 @@ class KonuDefteri(unittest.TestCase):
         self.assertEqual(r["gostergeler"]["ortusme"], {"aday": 1, "teyit": 1, "teyit_orani": 1.0})
         self.assertEqual(r["adaysiz_acilis"], 0)
 
+    def test_devir_onceki_konunun_suresini_geri_alir(self):
+        with self.saat(0):
+            KD.hook_istek(self.sd, "o1", ILK)
+        with self.saat(12):
+            KD.hook_istek(self.sd, "o1", FARKLI)
+            KD.ac(self.sd, "o1", "Sunum")
+        oz = KD.oturum_ozeti(KD.oku(self.sd))
+        self.assertEqual([(c["tur"], c["sure_sn"]) for c in oz], [(1, 0), (1, 0)])
+
     def test_rapor_sayilari_defterden(self):
         for o, n in (("o1", 1), ("o2", 3), ("o3", 3)):
             for i in range(n):

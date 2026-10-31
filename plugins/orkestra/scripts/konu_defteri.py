@@ -197,6 +197,7 @@ def hook_istek(sd: str, oturum: str, metin: str) -> str:
 def oturum_ozeti(olaylar: list[dict]) -> list[dict]:
     """Tek oturumun olaylarından konu listesi: sira, baslik, kaynak, acilis, son_tur, tur, sure_sn, devral, aday_tip."""
     konular: dict[int, dict] = {}
+    zamanlar: dict[int, list] = {}
     siralar: list[int] = []
     son_tur = None  # (sira, zaman) en son tur olayı
     for k in sorted(olaylar, key=lambda x: str(x.get("zaman"))):
@@ -204,17 +205,18 @@ def oturum_ozeti(olaylar: list[dict]) -> list[dict]:
         if t == "ac":
             s = k.get("sira")
             konular[s] = {"sira": s, "baslik": k.get("baslik"), "kaynak": k.get("kaynak"), "acilis": k.get("zaman"),
-                          "son_tur": k.get("zaman"), "tur": 0, "devral": bool(k.get("devral")), "aday_tip": k.get("aday_tip")}
+                          "devral": bool(k.get("devral")), "aday_tip": k.get("aday_tip")}
+            zamanlar[s] = []
             siralar.append(s)
-            if k.get("devral") and son_tur and son_tur[0] in konular and son_tur[0] != s:
-                konular[son_tur[0]]["tur"] -= 1
-                konular[s]["tur"] += 1
-                konular[s]["son_tur"] = son_tur[1]
-        elif t == "tur" and k.get("sira") in konular:
-            c = konular[k["sira"]]
-            c["tur"] += 1
-            c["son_tur"] = k.get("zaman")
+            if k.get("devral") and son_tur and son_tur[0] in zamanlar and son_tur[0] != s and zamanlar[son_tur[0]]:
+                zamanlar[son_tur[0]].pop()  # aday sonrası gelen tur yeni konuya aittir
+                zamanlar[s].append(son_tur[1])
+        elif t == "tur" and k.get("sira") in zamanlar:
+            zamanlar[k["sira"]].append(k.get("zaman"))
             son_tur = (k["sira"], k.get("zaman"))
+    for s in siralar:
+        konular[s]["tur"] = len(zamanlar[s])
+        konular[s]["son_tur"] = zamanlar[s][-1] if zamanlar[s] else konular[s]["acilis"]
     out = []
     for s in siralar:
         c = konular[s]
