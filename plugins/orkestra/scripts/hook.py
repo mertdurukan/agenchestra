@@ -173,7 +173,8 @@ TEST_YONLENDIRME_KAPI = "test_yonlendirme"
 _TEST_ON = re.compile(r"pytest|py\.test|unittest", re.I)
 _TEST_BOL = re.compile(r"&&|\|\||[;|\n]")
 _TEST_KOSUCU = re.compile(
-    r"(?:^|\s)(?:(?:[^\s]*[\\/])?(?:python[0-9.]*|py)(?:\.exe)?(?:\s+-[0-9.]+)?(?:\s+-[A-Za-z]+)*\s+-m\s+(?P<mod>pytest|unittest)"
+    r"^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:(?:timeout|time|nice)\s+(?:-\S+\s+)*(?:[0-9.]+[smh]?\s+)?)?"  # komut konumu
+    r"(?:(?:[^\s]*[\\/])?(?:python[0-9.]*|py)(?:\.exe)?(?:\s+-[0-9.]+)?(?:\s+-[A-Za-z]+)*\s+-m\s+(?P<mod>pytest|unittest)"
     r"|(?:[^\s]*[\\/])?(?P<cli>pytest|py\.test)(?:\.exe)?)(?=\s|$)(?P<arg>.*)$", re.I)
 _TEST_HEDEF = re.compile(r"\.py\b|::|(?:^|\s)-k(?:\s|=|\S)|(?:^|\s)--(?:lf|last-failed|deselect)\b")
 _TEST_KOSMAZ = re.compile(r"(?:^|\s)(?:--collect-only|--co|--version|-h|--help|--fixtures|--markers)(?=\s|$)")
