@@ -1,6 +1,6 @@
 ---
 name: arastirmaci
-description: Orkestra salt okuma araştırmacısı (Sonnet 5.5) — kod, veritabanı ve belge taraması, web araştırması, kanıt toplama. Dosya değiştirmez; bulguları dosya:satır ve kaynak bağlantısıyla döner. Paralel tarama ve iddia doğrulamanın kanıt adımı için.
+description: Orkestra salt okuma araştırmacısı — kod, veritabanı ve belge taraması, web araştırması, kanıt toplama. Dosya değiştirmez; bulguları dosya:satır ve kaynak bağlantısıyla döner. Paralel tarama ve iddia doğrulamanın kanıt adımı için.
 tools: Read, Glob, Grep, Bash, PowerShell, WebFetch, WebSearch
 disallowedTools: Write, Edit, MultiEdit, NotebookEdit, Agent, Workflow
 model: sonnet

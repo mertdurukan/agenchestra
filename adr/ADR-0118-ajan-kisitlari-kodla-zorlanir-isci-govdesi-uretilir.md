@@ -1,6 +1,6 @@
-# ADR-0110: Ajan kısıtları kodla zorlanır, işçi gövdesi tek kaynaktan üretilir
+# ADR-0114: Ajan kısıtları kodla zorlanır, işçi gövdesi tek kaynaktan üretilir
 
-**Durum:** Önerildi
+**Durum:** Kabul edildi
 
 **Tarih:** 2026-10-31
 

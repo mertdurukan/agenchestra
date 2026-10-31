@@ -1,0 +1,34 @@
+{
+  "T1": {
+    "name": "isci-t1",
+    "description": "Orkestra T1 işçisi — kalıplı, mekanik, kısa işler; biçimleme, sınıflama, özet, günlük satırı, hazır betiği çalıştırıp çıktısını raporlama. Ana ajan ya da orkestra workflow'u bir görev kartıyla (#GOREV etiketi) çağırır.",
+    "tools": "Read, Write, Edit, Glob, Grep, Bash, Skill",
+    "disallowedTools": "Agent, Workflow",
+    "maxTurns": 40,
+    "color": "green"
+  },
+  "T2": {
+    "name": "isci-t2",
+    "description": "Orkestra T2 işçisi — muhakemeli mekanik işler; kod/DB taraması, madde kimliği senkronu, betik iskeleti, md/CSV/xlsx dökümü, çok dosyalı düzenleme. Görev kartıyla (#GOREV etiketi) çağrılır.",
+    "tools": "Read, Write, Edit, Glob, Grep, Bash, PowerShell, WebFetch, WebSearch, Skill",
+    "disallowedTools": "Agent, Workflow",
+    "maxTurns": 60,
+    "color": "blue"
+  },
+  "T3": {
+    "name": "isci-t3",
+    "description": "Orkestra T3 işçisi — muhakeme ağırlıklı işler; sentez, iddia doğrulama kararı, story/rapor içeriği, rakip karşılaştırması. Görev kartıyla (#GOREV etiketi) çağrılır.",
+    "tools": "Read, Write, Edit, Glob, Grep, Bash, PowerShell, WebFetch, WebSearch, Skill",
+    "disallowedTools": "Agent, Workflow",
+    "maxTurns": 80,
+    "color": "purple"
+  },
+  "T4": {
+    "name": "isci-t4",
+    "description": "Orkestra T4 işçisi — yalnız açıkça çok zor ya da alt basamakta iki kez reddedilmiş işler. Görev kartıyla (#GOREV etiketi) çağrılır.",
+    "tools": "Read, Write, Edit, Glob, Grep, Bash, PowerShell, WebFetch, WebSearch, Skill",
+    "disallowedTools": "Agent, Workflow",
+    "maxTurns": 100,
+    "color": "orange"
+  }
+}

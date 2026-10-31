@@ -810,6 +810,34 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
     reddet(neden)
 
 
+def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -> None:
+    """I-292 P3 (ADR-0114): alt ajanın türüne göre araç kapsamı; ana ajan etkilenmez. mod=golge: yalnız uyarı.
+    Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır. ORKESTRA_AJAN_KAPSAM=0 kapatır."""
+    global _BEKLEYEN_UYARI
+    if not inp.get("agent_id"):
+        return
+    try:
+        import ajan_kapsam as AK
+        cfg = AK.ayar_yukle()
+        mod = AK.mod_bul(cfg)
+        tur = AK.tur_adi(atip)
+        if mod == "kapali" or tur not in (set(cfg.get("salt_okuma_ajanlari") or []) | set(cfg.get("yazma_yollari") or {})):
+            return
+        ciktilar = None
+        if tur in (cfg.get("kart_ciktisi_ajanlari") or []) and arac in AK.YAZMA_ARACLARI:
+            gid, _ = ajan_gorevi(sd, inp)
+            kart = L.kart_oku(sd, gid) if gid and gid != "-" else None
+            ciktilar = (kart or {}).get("ciktilar") or []
+        neden = AK.karar(atip, arac, girdi, cfg, inp.get("cwd") or ".", ciktilar)
+    except Exception:
+        return
+    if not neden:
+        return
+    if mod == "ihlal":
+        reddet(neden)
+    _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
+
+
 def pre_tool_use(inp: dict):
     global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI, _GUNCEL_GIRDI, _IZIN_KIPI
     _KULLANICI_MESAJI = ""
@@ -833,6 +861,7 @@ def pre_tool_use(inp: dict):
     girdi = dict(inp.get("tool_input") or {})
     aid = inp.get("agent_id")
     atip = inp.get("agent_type") or ""
+    _ajan_kapsam_kapisi(inp, arac, girdi, sd, atip)
     kar, kneden = _izin_karari(arac, girdi, sd, inp.get("session_id"))  # kabukta kapı, kilitli test denetiminden SONRA uygulanır (kilidi onayla aşamasın)
     if kar == "allow":
         _VARSAYILAN_IZIN = kneden

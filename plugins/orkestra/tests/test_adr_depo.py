@@ -51,6 +51,25 @@ def test_sonraki_no(tmp_path):
     assert D.sonraki_no(_depo(tmp_path / "d", ["ADR-0003-x.md", "ADR-0097-y.md", "not.md"])) == 98
 
 
+def test_sonraki_no_dallar_ve_calisma_agaclari(tmp_path):
+    """Başka dalda işlenmiş ya da başka çalışma ağacında işlenmemiş daha büyük numara atlanmaz."""
+    d = _depo(tmp_path / "d", ["ADR-0010-a.md"])
+    g = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "-C", d] + g + ["add", "-A"], check=True)
+    subprocess.run(["git", "-C", d] + g + ["commit", "-qm", "x"], check=True)
+    subprocess.run(["git", "-C", d, "checkout", "-qb", "yan"], check=True)
+    open(os.path.join(d, "adr", "ADR-0020-b.md"), "w", encoding="utf-8").write("x")
+    subprocess.run(["git", "-C", d] + g + ["add", "-A"], check=True)
+    subprocess.run(["git", "-C", d] + g + ["commit", "-qm", "y"], check=True)
+    subprocess.run(["git", "-C", d, "checkout", "-q", "-"], check=True)
+    assert not os.path.exists(os.path.join(d, "adr", "ADR-0020-b.md"))
+    assert D.sonraki_no(d) == 21
+    wt = str(tmp_path / "wt")
+    subprocess.run(["git", "-C", d, "worktree", "add", "-q", "-b", "w", wt], check=True)
+    open(os.path.join(wt, "adr", "ADR-0030-c.md"), "w", encoding="utf-8").write("x")
+    assert D.sonraki_no(d) == 31
+
+
 def test_uzak_var(tmp_path):
     assert not D.uzak_var(_depo(tmp_path / "a"))
     assert D.uzak_var(_depo(tmp_path / "b", uzak=True))

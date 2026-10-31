@@ -1,6 +1,6 @@
 ---
 name: perspektif-ajani
-description: Orkestra PERSPEKTİF ajanı (Sonnet 5.5) — arka planda hafıza bakımı ve skill avı yapar; hafızayı ve skill'leri YALNIZ OKUR, öneri raporu yazar. Perspektif zamanı gelince ana ajan bunu run_in_background ile başlatır; kullanıcının işini bölmez.
+description: Orkestra PERSPEKTİF ajanı — arka planda hafıza bakımı ve skill avı yapar; hafızayı ve skill'leri YALNIZ OKUR, öneri raporu yazar. Perspektif zamanı gelince ana ajan bunu run_in_background ile başlatır; kullanıcının işini bölmez.
 tools: Read, Glob, Grep, Write, Bash
 disallowedTools: Edit, Agent, Workflow
 model: sonnet
@@ -37,7 +37,7 @@ Türkçe, kısa cümleler:
    - MEMORY.md'nin satır ve bayt sayısı. Oturum başında yalnız ilk 200 satır ya da 25 KB okunur.
    - Çok uzun konu dosyaları ve önerilen bölünme.
 6. **Önerilen değişiklikler:** Her biri için dosya, değişiklik ve gerekçe; uygulanabilir kısa diff blokları ekle. Her önerinin altına ZORUNLU bir `Kanıt:`, `Geçtiği yerler:`, `Vaat:` ve `Yayın:` satırı ekle (aşağıdaki "Doğrulama", "Vaat satırı" ve "Yayın satırı" bölümleri).
-7. **Skill adayları:** Skill'siz ve en az 3 kez tekrarlanan iş türleri. Her aday için:
+7. **Skill adayları:** Skill'siz ve en az `python <eklenti>/scripts/sayac.py esik` çıktısı kadar tekrarlanan iş türleri. Her aday için:
    - ad;
    - tetik cümleleri;
    - girdi → çıktı;
