@@ -80,13 +80,13 @@ class TestDosyalarVeAyar(unittest.TestCase):
         self.assertTrue(os.path.isfile(MODUL))
         self.assertTrue(os.path.isfile(AYAR))
 
-    def test_ayar_golge(self):
+    def test_ayar_reddet(self):
         with open(AYAR, encoding="utf-8") as f:
             a = json.load(f)
         for k in ("mod", "hatirlatma", "komut_kaliplari", "zaman_siniri_kaliplari", "genis_kok_kaliplari",
-                  "arka_plana_dusen_kaliplari"):
+                  "arka_plana_dusen_kaliplari", "reddet_kaliplari", "muafiyet_kaliplari", "reddet_metni", "onek"):
             self.assertIn(k, a)
-        self.assertEqual(a["mod"], "golge")  # P-028: ihlal moduna ölçümsüz geçilmez
+        self.assertEqual(a["mod"], "reddet")  # ADR-0120, kullanıcı kararı D1 (31.10.2026): dar sınıf (find) baştan reddedilir
         self.assertIn(a["mod"], GT.MODLAR)
 
     def test_modulde_kalip_sabiti_yok(self):
