@@ -1,0 +1,7 @@
+{
+  "aciklama": "ADR-0125 (G3): Stop arka plan satırına yaş eki. esik_dk: bu süreden eski görev işaretlenir; zaman_alanlari: görev nesnesinde aranan alanlar (yoksa transkriptten); cocuk_surec: Windows'ta listelenen süreç adı (find.exe). Hook süreç öldürmez.",
+  "esik_dk": 10,
+  "zaman_alanlari": ["started_at", "startedAt", "start_time", "created_at", "createdAt", "start"],
+  "cocuk_surec": "find",
+  "transkript_okuma_bayt": 4000000
+}

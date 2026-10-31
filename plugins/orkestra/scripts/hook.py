@@ -343,22 +343,28 @@ def _yazilacak_metin(arac: str, girdi: dict) -> str:
     return ""
 
 
-def _genis_tarama_kapisi(sd: str, oid, komut: str) -> None:
-    """P-012 madde 4 (golge): zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
-    uyarı bağlama gider; komut engellenmez. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
+def _genis_tarama_kapisi(sd: str, oid, komut: str) -> str:
+    """P-012 madde 4, ADR-0125: zaman sınırsız geniş `grep -r`/`find` için `kural_ihlal / genis_tarama` günlüğe yazılır ve tek satır
+    uyarı bağlama gider. Kip `reddet` ise `reddet_kaliplari`na uyan komut için `kapi_ret` yazılır ve ret metni döner (çağıran
+    reddeder); aksi halde ''. Kalıplar ayarda (`ayarlar/genis_tarama_hatirlatma.json`); hatada sessiz geçer."""
     global _BEKLEYEN_UYARI
     try:
         import genis_tarama_hatirlatma as GT
         if not GT.ihlal_mi(komut, sd):
-            return
-        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+            return ""
+        ret = GT.reddet_metni(komut, sd)
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid,
+                                                         "tur": "kapi_ret" if ret else "kural_ihlal",
                                                          "kural": "genis_tarama", "mod": GT.mod(GT.ayar_oku(sd)),
                                                          "is": _oturum_isi(sd, oid)})
+        if ret:
+            return ret
         _BEKLEYEN_UYARI = GT.hatirlatma_metni(sd)
     except SystemExit:
         raise
     except Exception:
-        return
+        return ""
+    return ""
 
 
 def _kanit(eslesen=None, cumle=None) -> dict:
@@ -811,7 +817,7 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
 
 
 def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -> None:
-    """I-292 P3 (ADR-0120): alt ajanın türüne göre araç kapsamı; ana ajan etkilenmez. mod=golge: yalnız uyarı.
+    """I-292 P3 (ADR-0125): alt ajanın türüne göre araç kapsamı; ana ajan etkilenmez. mod=golge: yalnız uyarı.
     Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır. ORKESTRA_AJAN_KAPSAM=0 kapatır."""
     global _BEKLEYEN_UYARI
     if not inp.get("agent_id"):
@@ -975,7 +981,9 @@ def pre_tool_use(inp: dict):
 
     if arac in KABUK_ARACLARI:
         komut = girdi.get("command") or ""
-        _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
+        genis_ret = _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
+        if genis_ret:
+            reddet(genis_ret)
         # Kilitli test denetimi yalnız yazma işleci içeren komutta anlamlı; yalnız-okuma komutunda kartları (125 JSON) okuma.
         kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd)) if _KABUK_YAZMA_ON.search(komut) else None
         if kgid:
@@ -1524,6 +1532,22 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _onleme_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0125 / ADR-0111: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
+    akıl yürütmesi yoksa günlüğe `kural_ihlal / onleme_basamagi` yazılır. Yalnız ölçer (gölge): engellemez, uyarı vermez.
+    Ayar `ayarlar/onleme_yanit.json`; hatada sessiz geçer."""
+    try:
+        import onleme_yanit as OY
+        bulgu = OY.degerlendir(inp.get("last_assistant_message"), sd)
+        if bulgu:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                             "kural": OY.KURAL, "mod": OY.mod(OY.ayar_oku(sd)),
+                                                             "is": _oturum_isi(sd, oid),
+                                                             **_kanit(bulgu["kalip"], bulgu["alinti"])})
+    except Exception:
+        return
+
+
 def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
     """P-001 / ADR-0075: turun sohbet metni ölçülür. Her turda günlüğe `cikti_olcum` (rapor ortanca ve p90'ı bundan hesaplar),
     sınır aşımında `kapi_golge / cikti_butce` düşer; gölge modda engellemez. Ayar `ayarlar/cikti_butce.json`; hatada sessiz geçer."""
@@ -1579,8 +1603,9 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
         return
 
 
-def arka_plan_satiri(sd: str, gorevler) -> str:
+def arka_plan_satiri(sd: str, gorevler, transkript=None) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
+    Claude görevi varsa satıra en eski görevin yaşı ve (Windows) çalışan find.exe eklenir (ADR-0125, arka_plan_yas).
     Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
     adlar = []
     try:
@@ -1611,7 +1636,14 @@ def arka_plan_satiri(sd: str, gorevler) -> str:
     if not adlar:
         return ""
     gosterilen = ", ".join(adlar[:3]) + (f" +{len(adlar) - 3}" if len(adlar) > 3 else "")
-    return f"Arka planda sürüyor ({len(adlar)}): {gosterilen}"
+    ek = ""
+    if isinstance(gorevler, list) and gorevler:
+        try:
+            import arka_plan_yas
+            ek = arka_plan_yas.ek_metin(gorevler, transkript)
+        except Exception:
+            pass
+    return f"Arka planda sürüyor ({len(adlar)}): {gosterilen}{ek}"
 
 
 def stop(inp: dict):
@@ -1729,13 +1761,14 @@ def stop(inp: dict):
         _secim_kapisi_yanit(sd, oid, inp)
         _kabuk_sozdizimi_yanit(sd, oid, inp)
         _kanitsiz_iddia_yanit(sd, oid, inp)
+        _onleme_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif:
         gec()
     if inp.get("background_tasks"):
-        satir = arka_plan_satiri(sd, inp.get("background_tasks"))
+        satir = arka_plan_satiri(sd, inp.get("background_tasks"), inp.get("transcript_path"))
         if satir:
             L.hook_cikti({"systemMessage": _sm(satir)})
         gec()

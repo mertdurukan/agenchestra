@@ -67,6 +67,13 @@ class Tespit(_Proje):
         fazla = [m for m in SORUNSUZ if K.sinyal_var(m, ayar)]
         self.assertEqual(fazla, [])
 
+    def test_hata_ani_mevcut_mekanizma_ve_merdiven_adimi(self):
+        """ADR-0125 S4: düzeltme önerisi, mevcut mekanizma aramasını ve önleme merdiveni basamağını sorar."""
+        m = K.ana_ajan_metni("Testler düşüyor, hata veriyor", self.sd, "o1")
+        self.assertIn("mevcut mekanizmayı ara", m)
+        self.assertIn("onleme_merdiveni.md", m)
+        self.assertLessEqual(len(m), K.ANA_MAX)
+
     def test_ana_ajan_metni_s1(self):
         m = K.ana_ajan_metni("Testler düşüyor, hata veriyor", self.sd, "o1")
         self.assertTrue(m.startswith(ISARET), m)

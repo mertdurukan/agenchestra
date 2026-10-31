@@ -80,13 +80,13 @@ class TestDosyalarVeAyar(unittest.TestCase):
         self.assertTrue(os.path.isfile(MODUL))
         self.assertTrue(os.path.isfile(AYAR))
 
-    def test_ayar_golge(self):
+    def test_ayar_reddet(self):
         with open(AYAR, encoding="utf-8") as f:
             a = json.load(f)
         for k in ("mod", "hatirlatma", "komut_kaliplari", "zaman_siniri_kaliplari", "genis_kok_kaliplari",
-                  "arka_plana_dusen_kaliplari"):
+                  "arka_plana_dusen_kaliplari", "reddet_kaliplari", "muafiyet_kaliplari", "reddet_metni", "onek"):
             self.assertIn(k, a)
-        self.assertEqual(a["mod"], "golge")  # P-028: ihlal moduna ölçümsüz geçilmez
+        self.assertEqual(a["mod"], "reddet")  # ADR-0125, kullanıcı kararı D1 (31.10.2026): dar sınıf (find) baştan reddedilir
         self.assertIn(a["mod"], GT.MODLAR)
 
     def test_modulde_kalip_sabiti_yok(self):
@@ -144,7 +144,7 @@ class TestHookBaglantisi(_Proje):
         kayit = self.ihlaller()
         self.assertEqual(len(kayit), 1)
         self.assertEqual(kayit[0]["tur"], "kural_ihlal")
-        self.assertEqual(kayit[0]["mod"], "golge")
+        self.assertEqual(kayit[0]["mod"], "reddet")  # grep -r reddet_kaliplari'nda değil: yalnız uyarı
         ho = cikti.get("hookSpecificOutput", {})
         self.assertNotEqual(ho.get("permissionDecision"), "deny")
         self.assertIn("timeout", ho.get("additionalContext", ""))
@@ -162,6 +162,97 @@ class TestHookBaglantisi(_Proje):
         with mock.patch.object(GT, "ihlal_mi", side_effect=RuntimeError("x")):
             cikti = self.pre("grep -r . C:/Users/PC")
         self.assertNotEqual(cikti.get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+
+
+# ADR-0125 derlemi: gerçek oturum kayıtlarından (1375 Bash `find`/`grep -r` komutu, 31.10.2026) seçilmiş reddedilmesi gerekenler
+# ve gerçek meşru komutlar; ikisi de elle sınıflandı.
+REDDEDILMELI = ["find /c/Mert/McD -name karar_kapisi.py",
+                "find / -name panel.py -path '*orkestra*' 2>/dev/null | grep -v node_modules | head",
+                "find / -name 'pe41-deck*' 2>/dev/null | head",
+                "find / -ipath '*orkestra*' -name 'panel*' -not -path '*/node_modules/*' 2>/dev/null | head",
+                "find /c/Mert/McD -iname '*rakip*' -o -iname '*karsilastir*' 2>/dev/null",
+                "find /c/Users/PC /c/Mert -iname '*rakip_karsilastirmasi*' 2>/dev/null | head",
+                "find /c/Users/PC/Desktop /c/Users/PC/Downloads /c/Mert -newer x",
+                "find /c/Users/PC/.claude -name 'perspektif-ajani.md' 2>/dev/null",
+                "find 'C:/Mert' 'C:/Users/PC/Desktop' -iname '*acik_ve_profesyonel*' 2>/dev/null",
+                "cd /c/Mert/McD && find /c/Mert/McD -name '*.py'",
+                "ls /c/Users/PC/Desktop; find /c/Mert -name x",
+                "find ~ -name '*.log'",
+                "find /c/Users -name x"]
+GECMELI = ["timeout 20 find /c/Mert/McD -name karar_kapisi.py",
+           "find /c/Mert/McD -maxdepth 1 -name x",
+           "find /c/Mert/McD -name node_modules -prune -o -name x -print",
+           "find . -name '*.py'",
+           "find Claude_Orkestrasyon/isler -name 'plan.md'",
+           "find /c/Mert/McD/RNV/063-x -name '*.md'",
+           "find /c/Users/PC/.claude/projects/C--Mert-McD/memory -name '*.md'",
+           "find $s -type f | wc -l",
+           "echo \"$(grep -rlic 'a\\|b' $s | wc -l) dosya / $(find $s -type f | wc -l)\"",
+           "git ls-files | grep -i taslak; find / -maxdepth 0",
+           "timeout 30 find / -name x",
+           "ls /c/Users/PC/Desktop",
+           "grep foo /c/Mert/McD/dosya.txt",
+           "git log --oneline -3 -- Claude_Orkestrasyon/",
+           "cat /c/Users/PC/.claude/projects/C--Mert-McD/memory/MEMORY.md",
+           "py -3.13 -m pytest -q tests/test_x.py",
+           "python3 -c \"print('find / -name x')\" | head"]
+
+
+class TestReddetKipi(_Proje):
+    """ADR-0125: geniş kökte zaman sınırsız `find` komut koşmadan reddedilir; meşru komut geçer."""
+
+    def pre(self, komut):
+        g = {"tool_name": "Bash", "cwd": self.tmp, "session_id": OTURUM, "tool_input": {"command": komut}}
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                hook.pre_tool_use(g)
+            except SystemExit:
+                pass
+        ham = buf.getvalue().strip()
+        return json.loads(ham.splitlines()[-1]) if ham else {}
+
+    def test_derlem_reddedilir(self):
+        self.assertGreaterEqual(len(REDDEDILMELI) + len(GECMELI), 30)
+        for m in REDDEDILMELI:
+            with self.subTest(m=m):
+                self.assertTrue(GT.reddet_metni(m, self.sd), m)
+
+    def test_derlem_gecer_yanlis_pozitif_sifir(self):
+        for m in GECMELI:
+            with self.subTest(m=m):
+                self.assertEqual(GT.reddet_metni(m, self.sd), "", m)
+
+    def test_ret_metni_hazir_duzeltilmis_komutu_verir(self):
+        metin = GT.reddet_metni("find /c/Mert/McD -name x", self.sd)
+        self.assertIn("timeout 20 find /c/Mert/McD -name x", metin)
+        self.assertIn("Glob", metin)
+
+    def test_hook_find_komutunu_kosmadan_reddeder(self):
+        ho = self.pre("find /c/Mert/McD -name karar_kapisi.py").get("hookSpecificOutput", {})
+        self.assertEqual(ho.get("permissionDecision"), "deny")
+        self.assertIn("timeout 20 find", ho.get("permissionDecisionReason", ""))
+        kayit = [g for g in self.gunluk() if g.get("kural") == "genis_tarama"]
+        self.assertEqual([g["tur"] for g in kayit], ["kapi_ret"])
+        self.assertEqual(kayit[0]["mod"], "reddet")
+
+    def test_hook_mesru_find_gecer(self):
+        for m in GECMELI[:4]:
+            with self.subTest(m=m):
+                self.assertNotEqual(self.pre(m).get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+
+    def test_grep_r_yalniz_uyarir(self):
+        self.assertEqual(GT.reddet_metni("grep -r foo C:/Users/PC", self.sd), "")
+        self.assertTrue(GT.ihlal_mi("grep -r foo C:/Users/PC", self.sd))
+
+    def test_golge_kipinde_reddetmez(self):
+        self.proje_ayari({"mod": "golge"})
+        self.assertEqual(GT.reddet_metni("find /c/Mert/McD -name x", self.sd), "")
+        self.assertNotEqual(self.pre("find /c/Mert/McD -name x").get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+
+    def test_ortam_degiskeni_kapatir(self):
+        os.environ["ORKESTRA_GENIS_TARAMA"] = "0"
+        self.assertEqual(GT.reddet_metni("find /c/Mert/McD -name x", self.sd), "")
 
 
 class TestZamanAsimiAcikGorev(_Proje):
