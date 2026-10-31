@@ -67,6 +67,19 @@ class Etki(unittest.TestCase):
         self.assertIn("## Etki kümesi", b)
         self.assertIn("arayüz aç/kapa listesi", b)
 
+    def test_belge_olustur_plan_iskeleti_yuzeyi_tasir(self):
+        import unittest.mock as mock
+        import is_kaydi as IK
+        with mock.patch.object(IK.SIRA, "plan_onkosulu", return_value=[]), \
+                mock.patch.object(IK.SIRA, "mevcut_durum_yolu", return_value=None):
+            yol, oldu = IK.belge_olustur(self.is_klasor, "Yeni skill ekle", "plan")
+        self.assertTrue(oldu)
+        with open(yol, encoding="utf-8") as f:
+            metin = f.read()
+        self.assertIn("## Etki kümesi", metin)
+        self.assertIn("arayüz aç/kapa listesi", metin)
+        self.assertIn("**Etki:**", metin)
+
     def test_eslesmeyen_istek_bolum_uretmez(self):
         self.is_json({"id": "I-1", "baslik": "Hava durumu", "sira": "mevcut-durum-plan-todo", "etki": True})
         self.assertEqual(SIRA.etki_bolumu(self.is_klasor), "")
