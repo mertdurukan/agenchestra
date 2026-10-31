@@ -59,7 +59,12 @@ def kartlari_oku(graf: str) -> list[dict]:
 
 
 def _kelime_esler(w: str, t: str) -> bool:
-    return t == w or (min(len(w), len(t)) >= 3 and (t.startswith(w) or w.startswith(t)))
+    if t == w:
+        return True
+    kisa = min(len(w), len(t))
+    # kısa kök uzun başka sözcüğe ek sayılmasın ("yap" ≠ "yapılacak"): ek uzunluğu kök boyuna bağlı sınırlı
+    ek_sinir = 5 if kisa < 5 else 8
+    return kisa >= 3 and abs(len(w) - len(t)) <= ek_sinir and (t.startswith(w) or w.startswith(t))
 
 
 def esle(istek: str, kartlar: list[dict]) -> list[dict]:
