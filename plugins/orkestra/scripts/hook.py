@@ -396,6 +396,35 @@ def _kalip_kaniti(kaliplar, metin: str, normallestir) -> dict:
     return {}
 
 
+def _kanit(eslesen=None, cumle=None) -> dict:
+    """I-271: `kural_ihlal` satırının `eslesen`/`cumle` alanları (ortak yardımcı `kapi_mod.kanit_alanlari`: maske + 200 sınırı).
+    Bilinmeyen alan yazılmaz; hatada boş sözlük (kaydı hiçbir zaman bozmaz)."""
+    try:
+        import kapi_mod
+        return kapi_mod.kanit_alanlari(eslesen, cumle)
+    except Exception:
+        return {}
+
+
+def _kalip_kaniti(kaliplar, metin: str, normallestir) -> dict:
+    """Kalıp listesinde `normallestir(metin)` üstünde eşleşen ilk regex ve onu içeren cümle (`_kanit` alanları). Normalleştirme
+    uzunluğu korursa cümle özgün metinden kesilir, korumazsa normalleştirilmiş metinden. Eşleşme yoksa boş sözlük."""
+    metin = metin or ""
+    norm = normallestir(metin)
+    for k in kaliplar or []:
+        try:
+            m = re.search(k, norm)
+        except re.error:
+            continue
+        if not m:
+            continue
+        kaynak = metin if len(metin) == len(norm) else norm
+        bas = max(kaynak.rfind(c, 0, m.start()) for c in ".!?\n") + 1
+        sonlar = [i for i in (kaynak.find(c, m.end()) for c in ".!?\n") if i != -1]
+        return _kanit(k, kaynak[bas:(min(sonlar) + 1 if sonlar else len(kaynak))])
+    return {}
+
+
 def _bicim_kapisi(sd: str, inp: dict, arac: str, girdi: dict, tam: str, oid) -> None:
     """Okunacak belgeye (plan/todo/özet/bulgu/jira_onerisi/rapor .md) yazılacak metnin K-005 biçimi (Ö4).
     golge: `gunluk.jsonl`'a kural_ihlal kaydı + tek satır uyarı (yazma engellenmez); ihlal: yazım reddedilir.
