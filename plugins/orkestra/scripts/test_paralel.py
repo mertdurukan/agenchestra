@@ -16,6 +16,7 @@ import tempfile
 import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
+import paralel_kos  # noqa: E402
 
 VARSAYILAN_ZAMAN_ASIMI = 900.0
 # Önceki koşuların dosya süreleri: en yavaş dosyalar havuza önce girer (LPT), kuyruk kısalır. Kayıt yoksa/bozuksa sıra korunur.
@@ -142,7 +143,7 @@ def pozitif_int(s):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("yollar", nargs="*", help="dizin ya da test dosyaları (varsayılan: ../tests)")
-    ap.add_argument("-n", type=pozitif_int, default=max(2, (os.cpu_count() or 2) // 2), help="işçi sayısı")
+    ap.add_argument("-n", type=pozitif_int, default=paralel_kos.cekirdek_sayisi(), help="işçi sayısı (varsayılan: CPU, bellek ve CI sınırından otomatik; paralel_kos.py)")
     ap.add_argument("--zaman-asimi", type=float, default=VARSAYILAN_ZAMAN_ASIMI, help="dosya başına saniye")
     ap.add_argument("--en-yavas", type=int, default=0, metavar="K", help="en yavaş K dosyayı süresiyle bas")
     a = ap.parse_args(argv)
