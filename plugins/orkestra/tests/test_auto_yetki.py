@@ -83,6 +83,9 @@ class IzinKapisi(unittest.TestCase):
 
 
 class ModOkuma(unittest.TestCase):
+    def setUp(self):
+        sabitle(self)
+
     def _mod(self, kayit, is_id="I-1", **kw):
         with mock.patch.object(is_onay, "_bagli_is_id", return_value=is_id), \
                 mock.patch("is_kaydi.is_al", return_value=kayit):
