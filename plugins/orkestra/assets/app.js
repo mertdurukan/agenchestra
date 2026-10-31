@@ -879,6 +879,9 @@
     const t = r.q.get('t') === 'skill' ? 'skill' : 'mcp', q = r.q.get('q') || '';
     const yuk = bekle(t === 'skill' && !tumMu() ? ARAC_SKILL : ARAC_MCP);
     const mcp = d(ARAC_MCP).veri?.mcp || [], skill = d(ARAC_SKILL).veri?.skill || [];
+    // ADR-0113: skill için üç konumlu seçici; tıklanan konum seçili olur, sunucudan dönen duruma göre yeniden çizilir
+    const KONUMLAR3 = [['kapali', 'Kapalı', 'Çağrı engelli'], ['ihtiyacta', 'İhtiyaçta', 'Göreve uyunca kullanılır'], ['surekli', 'Sürekli açık', 'Oturum açılışında bağlama yüklenir']];
+    const konum3 = o => H`<div class="konum3" role="radiogroup" aria-labelledby="ar-skill-${o.ad}">${KONUMLAR3.map(([k, ad, ipucu]) => H`<button type="button" role="radio" class="konum3-d" data-eylem="arac-konum" data-ad="${o.ad}" data-konum="${k}" data-secili="${(o.konum || (o.durum === 'acik' ? 'ihtiyacta' : 'kapali')) === k ? 'true' : 'false'}" title="${ipucu}" aria-checked="${(o.konum || (o.durum === 'acik' ? 'ihtiyacta' : 'kapali')) === k ? 'true' : 'false'}">${ad}</button>`)}</div>`;
     const satir = (tur, o) => {
       const mcpMi = tur === 'mcp', ac = o.durum === 'acik';
       const eksik = mcpMi && o.eksik_gerek.length;
@@ -893,7 +896,7 @@
           ${!mcpMi && o.mekanizma === 'deny' ? H`<span class="etiket" title="Kapatınca çağrı engellenir; skill listede görünmeye devam eder">çağrıya kapanır</span>` : ''}</div>
           <span class="soluk kucuk-y">${o.aciklama || ''}</span>
           ${neden ? H`<span class="soluk kucuk-y">${neden}</span>` : ''}</div>
-        <button type="button" class="anahtar" role="switch" data-eylem="arac-degistir" data-tur="${tur}" data-ad="${o.ad}" data-acik="${ac ? 'true' : 'false'}" aria-checked="${ac ? 'true' : 'false'}" aria-labelledby="ar-${tur}-${o.ad}" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${ac ? 'Açık' : 'Kapalı'}</span></button>
+        ${mcpMi ? H`<button type="button" class="anahtar" role="switch" data-eylem="arac-degistir" data-tur="${tur}" data-ad="${o.ad}" data-acik="${ac ? 'true' : 'false'}" aria-checked="${ac ? 'true' : 'false'}" aria-labelledby="ar-${tur}-${o.ad}" ${neden ? 'disabled' : ''}><span class="anahtar-durum">${ac ? 'Açık' : 'Kapalı'}</span></button>` : konum3(o)}
       </div></article>`;
     };
     const sira = depo.al('arac-sira') === 'alfa' ? 'alfa' : 'durum';   // varsayılan: açıktan kapalıya
@@ -910,6 +913,21 @@
       <p class="soluk kucuk-y">${t === 'mcp' ? 'Açık = kullanıcı kapsamında kayıtlı; yeni oturumda başlar. Kapatmak kaydı siler, ayar kayıt dosyasında kalır.' : 'Değişiklik seçili çalışma alanının yerel ayarına (.claude/settings.local.json) yazılır; yeni oturumda geçerli olur.'}</p>
       <div class="yigin sik" aria-live="polite">${liste.length ? liste.map(o => satir(t, o)) : bos('Eşleşen ' + (t === 'mcp' ? 'MCP' : 'skill') + ' yok', '', 'ara')}</div>`;
     return { baslik: 'Araçlar', sag: H`<span class="soluk kucuk-y">${t === 'mcp' ? 'bu bilgisayar için geçerli' : (tumMu() ? '' : alanAd(V.alan))}</span>`, govde: H`<div class="icerik yigin" style="max-width:920px">${govde}</div>` };
+  }
+  async function aracKonum(b) {
+    const ad = b.dataset.ad, konum = b.dataset.konum;
+    if (b.dataset.secili === 'true') return;   // zaten seçili konum
+    const grup = b.closest && b.closest('.konum3');
+    if (grup) grup.querySelectorAll('button').forEach(x => { x.disabled = true; });
+    try {
+      const s = await gonder(ARAC_SKILL, { ad, konum });
+      bildir(`${ad}: ${({ kapali: 'kapatıldı', ihtiyacta: 'ihtiyaçta kullanılacak', surekli: 'sürekli açık' })[s.konum] || s.konum}.`);
+    } catch (x) {
+      const m = x.veri && x.veri.durum ? 'komut uygulanamadı, durum değişmedi' : x.message;
+      bildir(`${ad} değiştirilemedi: ${m}`, { hata: true, sure: 8000 });
+    }
+    await getir(ARAC_SKILL, { taze: true });
+    planla();
   }
   async function aracDegistir(b) {
     const tur = b.dataset.tur, ad = b.dataset.ad, hedef = b.dataset.acik !== 'true';
@@ -1116,6 +1134,7 @@
     else if (ey === 'ayar-bildirim') ayarBildirim(b);
     else if (ey === 'ayar-mod') ayarMod(b);
     else if (ey === 'arac-degistir') aracDegistir(b);
+    else if (ey === 'arac-konum') aracKonum(b);
     else if (ey === 'arac-sirala') { depo.koy('arac-sira', b.dataset.v); planla(); }
     else if (ey === 'karar') kararVer(b.dataset.id, b.dataset.sonuc, b.dataset.secim, b.dataset.alan);
     else if (ey === 'uygula') {

@@ -88,10 +88,35 @@ class AraclarSayfasi(unittest.TestCase):
 
     def test_skill_sekmesi_kaynak_ve_deny_notu(self):
         h = kos([{"depo": {}, "hash": "#/araclar?t=skill"}])[0]["ana"]
-        self.assertEqual(len(re.findall(r'role="switch"', h)), 2)
+        self.assertEqual(len(re.findall(r'role="switch"', h)), 0)   # ADR-0113: skill satırında ikili anahtar yok
+        self.assertEqual(len(re.findall(r'role="radiogroup"', h)), 2)
+        self.assertEqual(len(re.findall(r'role="radio"', h)), 6)
         self.assertIn("Eklenti", h)
         self.assertIn("çağrıya kapanır", h)
         self.assertIn("1/2".replace("1", "1"), re.sub(r"<[^>]+>", "", h).replace(" ", ""))
+
+    def test_skill_uc_konum_secili_olan_isaretli(self):
+        h = kos([{"depo": {}, "hash": "#/araclar?t=skill"}])[0]["ana"]
+        sec = re.findall(r'data-ad="([^"]+)" data-konum="([^"]+)"[^>]*aria-checked="true"', h)
+        self.assertEqual(sorted(sec), [("orkestra:is", "ihtiyacta"), ("yerel", "kapali")])
+
+    def test_skill_konum_tiklaninca_post_gider_ve_secim_sunucudan_gelir(self):
+        sonra = copy.deepcopy(SKILLER)
+        sonra[1]["durum"], sonra[1]["konum"] = "acik", "surekli"
+        sn = [{"depo": {}, "hash": "#/araclar?t=skill",
+               "adimlar": [["tikla", "arac-konum", {"ad": "yerel", "konum": "surekli", "secili": "false"}]]}]
+        r = kos(sn, {"POST " + SKILL: {"status": 200, "govde": {"ad": "yerel", "istenen": "surekli", "durum": "acik", "konum": "surekli", "tamam": True},
+                                       "sonra": {SKILL: {"skill": sonra, "alan": "alan-a"}}}})[0]
+        self.assertEqual(r["postlar"][0]["yol"].split("?")[0], SKILL)
+        self.assertEqual(r["postlar"][0]["govde"], {"ad": "yerel", "konum": "surekli"})
+        sec = re.findall(r'data-ad="yerel" data-konum="([^"]+)"[^>]*aria-checked="true"', r["ana"])
+        self.assertEqual(sec, ["surekli"])
+
+    def test_skill_zaten_secili_konuma_tiklamak_post_gondermez(self):
+        sn = [{"depo": {}, "hash": "#/araclar?t=skill",
+               "adimlar": [["tikla", "arac-konum", {"ad": "yerel", "konum": "kapali", "secili": "true"}]]}]
+        r = kos(sn)[0]
+        self.assertEqual(r["postlar"], [])
 
     def test_arama_suzer(self):
         h = kos([{"depo": {}, "hash": "#/araclar?q=serena"}])[0]["ana"]
