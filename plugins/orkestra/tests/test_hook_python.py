@@ -176,7 +176,7 @@ def test_hooks_json_komut_tam_bicimde_ve_olay_adi_dogru():
 def test_hooks_json_olay_kumesi_korundu():
     olaylar = set(json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"])
     assert olaylar == {"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "SubagentStart",
-                       "SubagentStop", "Stop", "SessionEnd", "ConfigChange", "Notification", "PreCompact"}
+                       "SubagentStop", "Stop", "SessionEnd", "ConfigChange", "Notification", "PreCompact", "PostToolUseFailure"}
 
 
 # ------------------------------------------------------------------ satır sonları

@@ -53,7 +53,7 @@ class CikarmaTesti(unittest.TestCase):
         hata = [{"kaynak": "davranis", "tur": "hook-red", "imza": "hook-red: K-N", "zaman": T0.isoformat()}]
         duz = [{"zaman": T0.isoformat(), "imza": "duzeltme:d1", "baglam": "hayır"}]
         olaylar = O.olaylari_cikar(gunluk, hata, self.kat, self.ayar, duz)
-        self.assertEqual(sorted(O.tur_adetleri(olaylar)), ["karar", "kapi_ret", "kullanici_duzeltme", "yanlis_oneri"])
+        self.assertEqual(sorted(O.tur_adetleri(olaylar)), ["kapi_ret", "karar", "kullanici_duzeltme", "yanlis_oneri"])
         self.assertEqual(sum(O.tur_adetleri(olaylar).values()), 5)
 
     def test_bilinmeyen_kural_diger(self):

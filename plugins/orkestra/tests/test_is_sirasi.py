@@ -228,7 +228,9 @@ class IsSirasi(unittest.TestCase):
         r = self.cli("is", "sira", i)
         self.assertIn("sıra: yok", r.stdout)
         # eski işte plan ön koşulsuz yazılabilir
-        self.assertEqual(self.hook_pre(os.path.join(klasor, "plan.md"), "# a\n").get("hookSpecificOutput"), None)
+        # sıra kapısı sınanır: engel yok. Yazım anı bağlamı (ADR-0111) ayrı mekanizma, kendi testinde.
+        with unittest.mock.patch.dict(os.environ, {"ORKESTRA_URETIM_ENJEKSIYON": "0"}):
+            self.assertEqual(self.hook_pre(os.path.join(klasor, "plan.md"), "# a\n").get("hookSpecificOutput"), None)
         r = self.cli("is", "sira", i, "--ac")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("sıra: mevcut_durum", r.stdout)

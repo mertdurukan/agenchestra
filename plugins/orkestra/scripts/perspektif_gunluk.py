@@ -68,6 +68,19 @@ def _ilk(sayac, n=EN_COK):
     return dict(sayac.most_common(n))
 
 
+def _olay(sd, b, s) -> dict:
+    """Olay kaydı özeti (I-286): tür ve sonuç adetleri; okuyucu hata verirse boş bölüm, perspektif bozulmaz."""
+    try:
+        import olay_kaydi
+        o = [x for x in olay_kaydi.oku_sd(sd) if _icinde(x.get("zaman"), b, s)]
+        s: dict = {}
+        for x in o:
+            s[x["sonuc"]] = s.get(x["sonuc"], 0) + 1
+        return {"toplam": len(o), "tur": olay_kaydi.tur_adetleri(o), "sonuc": s}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def ozet(sd, baslangic=None, bitis=None) -> dict:
     b, s = _pencere(baslangic, bitis)
     gun = _oku(sd, "gunluk.jsonl", b, s)
@@ -120,4 +133,5 @@ def ozet(sd, baslangic=None, bitis=None) -> dict:
         "kullanilmayan_skill": kullanilmayan[:EN_COK * 5], "kullanilmayan_skill_adet": len(kullanilmayan),
         "yukseltilen_kart": _yukselen(sd, b, s),
         "denetim_payi": round(den / topl, 4) if topl else 0.0,
+        "olay": _olay(sd, b, s),
     }

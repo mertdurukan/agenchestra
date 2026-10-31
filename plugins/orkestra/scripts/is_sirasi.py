@@ -793,15 +793,16 @@ def degisen_dosyalar(klasor: str) -> set[str]:
     sd = harita.sd_bul(klasor)
     if not sd:
         return set()
+    import cfg
     kok = os.path.dirname(os.path.dirname(sd))
     try:
         with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
             baslangic = json.load(f).get("olusturma") or ""
         cmd = ["git", "-c", "safe.directory=*"]
         log = subprocess.run(cmd + ["log", f"--since={baslangic}", "--name-only", "--pretty=format:"], cwd=kok,
-                             capture_output=True, text=True, encoding="utf-8", timeout=60).stdout
+                             capture_output=True, text=True, encoding="utf-8", timeout=60, **cfg.PENCERESIZ).stdout
         durum = subprocess.run(cmd + ["status", "--porcelain"], cwd=kok, capture_output=True, text=True,
-                               encoding="utf-8", timeout=60).stdout
+                               encoding="utf-8", timeout=60, **cfg.PENCERESIZ).stdout
     except (OSError, ValueError, subprocess.SubprocessError):
         return set()
     return {s.strip() for s in log.splitlines() if s.strip()} | {s[3:].strip().strip('"') for s in durum.splitlines() if len(s) > 3}

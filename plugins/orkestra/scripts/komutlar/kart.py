@@ -1153,7 +1153,7 @@ def _eski_surumde_kos(proje: str, ref: str, komut: str, dosyalar, zaman_asimi: f
             hedef = os.path.join(kok, *y.split("/"))
             os.makedirs(os.path.dirname(hedef), exist_ok=True)
             shutil.copy2(os.path.join(os.path.abspath(proje), *y.split("/")), hedef)
-        kod, cikti, sure = L.kabuk_kos(komut, kok, zaman_asimi)
+        kod, cikti, sure = L.paralel_kos(komut, kok, zaman_asimi)
         return kod, cikti, sure, sha
     finally:
         git("worktree", "remove", "--force", wt, cwd=ust)
@@ -1205,7 +1205,7 @@ def cmd_kart_test_kos(a):
         kod, cikti, sure, eski_sha = _eski_surumde_kos(proje, getattr(a, "surum_ref", None) or "HEAD", komut, sorted(once), a.zaman_asimi)
         print(f"orkestra: kırmızı kapı {eski_sha[:10]} sürümünde koşuldu (çalışma ağacı değişmedi)", file=sys.stderr)
     else:
-        kod, cikti, sure = L.kabuk_kos(komut, proje, a.zaman_asimi)
+        kod, cikti, sure = L.paralel_kos(komut, proje, a.zaman_asimi)
     sonra = L.test_dosyasi_ozetleri(proje, k["test_alani"])
     karar = _test_karari(sd, a.gid, k, proje, kod, cikti, once)
     with L.kilit(path):

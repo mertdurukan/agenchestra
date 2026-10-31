@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 
+import cfg
 import harita_sema as S
 
 HARIC = {".git", "node_modules", "__pycache__", ".venv", "venv", "_arsiv", ".pytest_cache", "worktrees", "site-packages"}
@@ -96,7 +97,7 @@ def gecmis_kenarlar(kok: str, simdi: str | None = None, asgari: int = ASGARI_BIR
     simdi = simdi or datetime.datetime.now().isoformat(timespec="seconds")
     try:
         cikti = subprocess.run(["git", "-c", "safe.directory=*", "log", "--name-only", "--pretty=format:@@%h"], cwd=kok,
-                               capture_output=True, text=True, encoding="utf-8", timeout=120).stdout
+                               capture_output=True, text=True, encoding="utf-8", timeout=120, **cfg.PENCERESIZ).stdout
     except (OSError, subprocess.SubprocessError):
         return []
     sayac = collections.Counter()

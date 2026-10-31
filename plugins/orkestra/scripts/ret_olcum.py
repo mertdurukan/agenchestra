@@ -183,6 +183,30 @@ def _engelleyen(g: dict) -> bool:
     return g.get("mod") in _ENGEL_KIP or (g.get("mod") is None and g.get("kural") in _HER_ZAMAN_ENGEL)
 
 
+def kol_say(gun: list) -> dict:
+    """Eşzamanlı kol karşılaştırması (ADR-0111): oturumlar `uretim_enjekte` (enjeksiyon) ya da `uretim_kontrol` (kontrol)
+    kaydına göre kola ayrılır; kol başına oturum sayısı ve o oturumların engelleyen ret/ihlal sayısı. İki kola da düşen
+    oturum enjeksiyon kolunda sayılır. Kontrol kolu yoksa (`kontrol_orani` 0) kontrol sıfır kalır."""
+    kol: dict = {}
+    for g in gun:
+        if g.get("tur") == "uretim_kontrol" and g.get("oturum") is not None:
+            kol.setdefault(g["oturum"], "kontrol")
+    for g in gun:
+        if g.get("tur") == "uretim_enjekte" and g.get("oturum") is not None:
+            kol[g["oturum"]] = "enjeksiyon"
+    out = {"enjeksiyon": {"oturum": 0, "ret": 0}, "kontrol": {"oturum": 0, "ret": 0}}
+    for k in kol.values():
+        out[k]["oturum"] += 1
+    for g in gun:
+        k = kol.get(g.get("oturum"))
+        if k and g.get("tur") in ("kural_ihlal", "kapi_ret") and _engelleyen(g):
+            out[k]["ret"] += 1
+    for k in out.values():
+        k["ret_oturum"] = _oran(k["ret"], k["oturum"])
+        k["ust_oturum"] = _ust(k["ret"], k["oturum"])
+    return out
+
+
 def say(girdi: dict, bas=None, bit=None) -> dict:
     """Bir pencerenin sayımı: tur ve karar paydası, sınıf/kapı ret sayısı, davranış ihlal/engel sayısı."""
     turlar = sum(1 for r in _pencere(girdi.get("zaman") or [], bas, bit) if r.get("tur") == "ana")
@@ -203,8 +227,12 @@ def say(girdi: dict, bas=None, bit=None) -> dict:
         kayit = [g for g in gun if (g.get("tur"), g.get("kural") or g.get("kapi")) in tanim["kayit"]]
         hook = sum(1 for r in retler if kapi_turet(r) in tanim["kapi"])
         davranis[ad] = {"ihlal": len(kayit) + hook, "engelleyen": sum(1 for g in kayit if _engelleyen(g)) + hook}
+    enj: dict = {}   # ADR-0111: yazım anı enjeksiyonu (uretim_enjekte) belge türü başına; ön/son kol işareti
+    for g in _pencere(girdi.get("gunluk") or [], bas, bit):
+        if g.get("tur") == "uretim_enjekte":
+            enj[g.get("belge") or "?"] = enj.get(g.get("belge") or "?", 0) + 1
     return {"tur": turlar, "karar": len(den), "ret_toplam": len(retler), "sinif": sinif, "kapi": kapi,
-            "denetci_ret": len(den_ret),
+            "enjeksiyon": enj, "kollar": kol_say(_pencere(girdi.get("gunluk") or [], bas, bit)), "denetci_ret": len(den_ret),
             "denetci_kb_ky": sum(1 for d in den_ret if d.get("neden") in ("kriter-belirsiz", "kanit-yok")),
             "davranis": davranis}
 
@@ -253,7 +281,8 @@ def ozet(girdi: dict, baslangic=None, oncesi=None, sonrasi=None, bitis=None) -> 
     bas, bit = zaman_coz(baslangic) if baslangic else None, zaman_coz(bitis) if bitis else None
     if oncesi is None and sonrasi is None:
         s = say(girdi, bas, bit)
-        return {"mod": "tek", "pencere": {"baslangic": baslangic, "bitis": bitis, "tur": s["tur"], "karar": s["karar"]},
+        return {"mod": "tek", "enjeksiyon": s["enjeksiyon"], "kollar": s["kollar"],
+                "pencere": {"baslangic": baslangic, "bitis": bitis, "tur": s["tur"], "karar": s["karar"]},
                 "siniflar": [_tek(*r) for r in _satirlar(s)],
                 "kapilar": [_tek(*r) for r in _kapi_satirlari(s)],
                 "davranislar": [{"ad": k, **v, "ihlal_100": _oran(v["ihlal"], s["tur"]),
@@ -272,7 +301,8 @@ def ozet(girdi: dict, baslangic=None, oncesi=None, sonrasi=None, bitis=None) -> 
         return out
     kapi_adlari = sorted(set(so["kapi"]) | set(ss["kapi"]),
                          key=lambda k: (-(so["kapi"].get(k, 0) + ss["kapi"].get(k, 0)), k))
-    return {"mod": "karsilastirma",
+    return {"mod": "karsilastirma", "enjeksiyon": {"oncesi": so["enjeksiyon"], "sonrasi": ss["enjeksiyon"]},
+            "kollar": ss["kollar"],
             "pencere": {"baslangic": baslangic, "oncesi": oncesi if oncesi is not None else sonrasi,
                         "sonrasi": sonrasi if sonrasi is not None else oncesi, "bitis": bitis,
                         "oncesi_tur": so["tur"], "sonrasi_tur": ss["tur"],
@@ -289,6 +319,14 @@ def _s(v) -> str:
     return "-" if v is None else (f"{v:.2f}" if isinstance(v, float) else str(v))
 
 
+def _kol_satiri(k: dict) -> str:
+    e, c = k["enjeksiyon"], k["kontrol"]
+    if not c["oturum"]:
+        return "eşzamanlı kontrol kolu: yok (kontrol_orani 0); ön/son karşılaştırması tek kollu"
+    return (f"eşzamanlı kollar: enjeksiyon {e['oturum']} oturum/{e['ret']} ret (üst%95 {_s(e['ust_oturum'])}/100) · "
+            f"kontrol {c['oturum']} oturum/{c['ret']} ret ({_s(c['ret_oturum'])}/100)")
+
+
 def metin(o: dict) -> list[str]:
     """Okunur tablo satırları."""
     p = o["pencere"]
@@ -298,6 +336,8 @@ def metin(o: dict) -> list[str]:
         for r in o["siniflar"] + o["kapilar"]:
             out.append(f"{r['ad']:<24}{r['ret']:>6}{r['payda']:>8}{_s(r['oran_100']):>10}{_s(r['ust_100']):>12}"
                        + ("  (karar)" if r["birim"] == "karar" else ""))
+        out.append("üretim anı enjeksiyonu: " + (", ".join(f"{k} {v}" for k, v in sorted(o["enjeksiyon"].items())) or "yok"))
+        out.append(_kol_satiri(o["kollar"]))
         out.append(f"{'davranış':<24}{'ihlal':>6}{'engel':>8}{'ihlal/100':>10}{'engel/100':>12}")
         for d in o["davranislar"]:
             out.append(f"{d['ad']:<24}{d['ihlal']:>6}{d['engelleyen']:>8}{_s(d['ihlal_100']):>10}{_s(d['engelleyen_100']):>12}")
@@ -309,6 +349,10 @@ def metin(o: dict) -> list[str]:
         a, b = r["oncesi"], r["sonrasi"]
         out.append(f"{r['ad']:<24}{a['ret']:>9}{_s(a['oran_100']):>10}{b['ret']:>10}{_s(b['oran_100']):>10}"
                    f"{_s(b['ust_100']):>9}{_s(r['asgari']):>8}  {r['karar']}")
+    e = o["enjeksiyon"]
+    out.append("üretim anı enjeksiyonu: önce " + (", ".join(f"{k} {v}" for k, v in sorted(e["oncesi"].items())) or "yok")
+               + " · sonra " + (", ".join(f"{k} {v}" for k, v in sorted(e["sonrasi"].items())) or "yok"))
+    out.append(_kol_satiri(o["kollar"]))
     out.append(f"{'davranış':<24}{'önce ihlal':>11}{'önce engel':>11}{'sonra ihlal':>12}{'sonra engel':>12}")
     for d in o["davranislar"]:
         out.append(f"{d['ad']:<24}{d['oncesi']['ihlal']:>11}{d['oncesi']['engelleyen']:>11}"

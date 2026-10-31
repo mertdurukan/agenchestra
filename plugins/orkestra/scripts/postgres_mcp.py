@@ -9,6 +9,7 @@ başlatır; (5) sunucu çalışırken kapıyı izleme_sn aralıkla yeniden çağ
 Ayar: eklenti ayarlar/postgres_mcp.json + proje .claude/orkestra/postgres_mcp.json (üst düzey anahtarlar yerine konur).
 MCP stdio taşıdığı için stdout'a hiçbir şey yazılmaz; tanı iletileri stderr'e gider.
 """
+import cfg
 import json
 import os
 import shutil
@@ -110,7 +111,7 @@ def kapi_gecti(ortam: str, proje: str | None = None) -> tuple[bool, str]:
         env["CLAUDE_PROJECT_DIR"] = proje
     try:
         p = subprocess.run([sys.executable, "-I", KAPI, "--ortam", ortam], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", env=env, timeout=60)
+                           encoding="utf-8", errors="replace", env=env, timeout=60, **cfg.PENCERESIZ)
     except (OSError, subprocess.TimeoutExpired) as e:
         return False, f"kapı çalışmadı: {type(e).__name__}"
     kalanlar = [s for s in p.stdout.splitlines() if s.startswith("[KALDI]")]
@@ -121,7 +122,7 @@ def sonlandir(proc: subprocess.Popen):
     if proc.poll() is not None:
         return
     if sys.platform == "win32":
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True, **cfg.PENCERESIZ)
     else:
         proc.terminate()
 
@@ -159,6 +160,7 @@ def main(argv: list | None = None) -> int:
         env["PGOPTIONS"] = (env.get("PGOPTIONS", "") + " " + (ZAMAN_ASIMI if yazma else SALT_OKUNUR)).strip()
     else:
         env["DATABASE_URI"] = uri_kur(ayar, kimlik_degeri(ayar), yazma)
+    # MCP stdio devri: creationflags verilirse çocuk boruları almaz ve istemci takılır (I-304 denemesi); bayrak konmaz
     proc = subprocess.Popen([yol] + komut[1:], env=env)
     durdur = threading.Event()
     if kapi_var:

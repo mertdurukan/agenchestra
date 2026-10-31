@@ -139,7 +139,7 @@ def main(argv: list | None = None) -> int:
     yol = shutil.which(komut[0])
     if not yol:
         hata(f"{ad}: {komut[0]} bulunamadı (kurulum için mevcut_durum ve ayarlar/{AYAR_AD}.json açıklamasına bak)", 4)
-    try:
+    try:  # MCP stdio devri: creationflags boruları keser (I-304 denemesi); bayrak konmaz
         return subprocess.run([yol] + komut[1:], env=env).returncode
     except KeyboardInterrupt:
         return 130

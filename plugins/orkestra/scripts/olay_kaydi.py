@@ -1,7 +1,7 @@
 """Olay kaydı (I-286, ADR-0109): defterlerdeki olayları ana > alt kategori, bağlam ve sonuçla OKUMA ANINDA birleştirir.
 
 Hiçbir deftere yazmaz. Kaynaklar: gunluk.jsonl (kural_ihlal, kapi_ret, onay-ekran, istek) ve hata.jsonl (kaynak=davranis).
-Kategori eşlemesi `ayarlar/olay_kategorileri.json`, eşikler ve pencere `ayarlar/olay_kaydi.json` dosyasındadır
+Kategori eşlemesi `ayarlar/olay_esleme.json`, eşikler ve pencere `ayarlar/olay_kaydi.json` dosyasındadır
 (durum klasöründeki aynı adlı dosya anahtar bazında ezer). Sonuç yazılmaz, türetilir:
 aynı imza pencere (varsayılan 7 gün) içinde yeniden gelirse `tekrarladi`; gelmeden pencere dolarsa `duzeldi`; dolmadıysa `acik`.
 Olay: {zaman, tur, ana_kategori, alt_kategori, baglam, imza, sonuc}.
@@ -28,11 +28,11 @@ def _json(yol: str) -> dict:
         return {}
 
 
-def ayar_yukle(klasor: str | None = None) -> tuple[dict, dict]:
+def ayar_yukle(klasor: str | None = None, sd: str | None = None) -> tuple[dict, dict]:
     """(kategoriler, ayar); durum klasöründeki aynı adlı dosya anahtar bazında ezer."""
     sonuc = []
-    sd = L.durum_dizini(klasor) if klasor else None
-    for ad in ("olay_kategorileri.json", "olay_kaydi.json"):
+    sd = sd or (L.durum_dizini(klasor) if klasor else None)
+    for ad in ("olay_esleme.json", "olay_kaydi.json"):
         d = _json(os.path.join(_KOK, "ayarlar", ad))
         if sd:
             d.update(_json(os.path.join(sd, ad)))
@@ -124,11 +124,14 @@ def sonuc_turet(olaylar: list[dict], simdi: datetime.datetime, pencere_gun: int 
 
 
 def oku(klasor: str | None = None, simdi: datetime.datetime | None = None) -> list[dict]:
-    """Defterlerden olayları okur ve sonucunu türetir. P3 modülü yoksa kullanıcı düzeltmesi boş kalır."""
+    """Proje klasöründen durum klasörünü bulup `oku_sd` çağırır."""
     sd = L.durum_dizini(klasor)
-    if not sd:
-        return []
-    kat, ayar = ayar_yukle(klasor)
+    return oku_sd(sd, simdi) if sd else []
+
+
+def oku_sd(sd: str, simdi: datetime.datetime | None = None) -> list[dict]:
+    """Defterlerden olayları okur ve sonucunu türetir. P3 modülü yoksa kullanıcı düzeltmesi boş kalır."""
+    kat, ayar = ayar_yukle(sd=sd)
     gunluk = satirlar(os.path.join(sd, "gunluk.jsonl"))
     hata = satirlar(os.path.join(sd, "hata.jsonl"))
     try:

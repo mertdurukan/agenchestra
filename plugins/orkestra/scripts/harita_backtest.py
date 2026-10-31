@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 
+import cfg
 import harita_kenar as K
 
 MIN_COMMIT = 126
@@ -30,7 +31,7 @@ ESIK_PRECISION = 0.50
 def commitler(kok: str) -> list[list[str]]:
     """Eskiden yeniye commit başına dosya listesi (en az 2, en çok `MAKS_COMMIT_DOSYA` dosya)."""
     cikti = subprocess.run(["git", "-c", "safe.directory=*", "log", "--reverse", "--name-only", "--pretty=format:@@%h"],
-                           cwd=kok, capture_output=True, text=True, encoding="utf-8", timeout=300).stdout
+                           cwd=kok, capture_output=True, text=True, encoding="utf-8", timeout=300, **cfg.PENCERESIZ).stdout
     sonuc = []
     for blok in cikti.split("@@"):
         dosyalar = sorted({s.strip() for s in blok.splitlines()[1:] if s.strip()})

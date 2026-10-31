@@ -93,6 +93,33 @@ class Esleme(_Proje):
             self.assertNotIn(f'"{ad}', kod)
 
 
+class KontrolKolu(_Proje):
+    def _ayar(self, oran):
+        with open(os.path.join(self.sd, U.PROJE_DOSYA), "w", encoding="utf-8") as f:
+            json.dump({"kontrol_orani": oran}, f)
+
+    def test_varsayilan_kontrol_kolu_yok(self):
+        self.assertFalse(any(U.kontrol_kolu(f"o{i}", U.ayar_oku(self.sd)) for i in range(200)))
+
+    def test_oran_bire_esit_hepsi_kontrol_metin_yok_kayit_var(self):
+        self._ayar(1)
+        self.assertEqual(U.metin(os.path.join(self.tmp, "plan.md"), self.sd, "o1"), "")
+        t = [x["tur"] for x in _gunluk(self.sd)]
+        self.assertEqual(t, ["uretim_kontrol"])
+
+    def test_kol_sabit_ve_orana_yakin(self):
+        ayar = {"kontrol_orani": 0.5}
+        ilk = [U.kontrol_kolu(f"o{i}", ayar) for i in range(1000)]
+        self.assertEqual(ilk, [U.kontrol_kolu(f"o{i}", ayar) for i in range(1000)])  # yeniden üretilebilir
+        self.assertTrue(400 < sum(ilk) < 600, sum(ilk))
+
+    def test_kontrol_oturumu_sonra_da_metin_almaz(self):
+        self._ayar(1)
+        yol = os.path.join(self.tmp, "plan.md")
+        U.metin(yol, self.sd, "o1")
+        self.assertEqual(U.metin(yol, self.sd, "o1"), "")
+
+
 class HookBaglantisi(unittest.TestCase):
     def test_hook_modulu_cagiriyor(self):
         with open(os.path.join(KOK, "scripts", "hook.py"), encoding="utf-8") as f:

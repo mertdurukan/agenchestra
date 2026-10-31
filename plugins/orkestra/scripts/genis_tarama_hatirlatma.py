@@ -68,8 +68,14 @@ def _ihlalli_parcalar(komut: str, ayar: dict) -> list[str]:
         kucuk = parca.lower()
         if _eslesir(ayar.get("zaman_siniri_kaliplari"), kucuk) or _eslesir(ayar.get("muafiyet_kaliplari"), kucuk):
             continue
-        if _eslesir(ayar.get("komut_kaliplari"), kucuk) and _eslesir(ayar.get("genis_kok_kaliplari"), kucuk):
-            sonuc.append(parca.strip())
+        for k in ayar.get("komut_kaliplari") or []:
+            try:
+                m = re.search(k, kucuk)
+            except re.error:
+                continue
+            if m and _eslesir(ayar.get("genis_kok_kaliplari"), kucuk[m.start():]):  # kök, komuttan sonra gelmeli
+                sonuc.append(parca.strip())
+                break
     return sonuc
 
 

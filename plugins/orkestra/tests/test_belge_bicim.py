@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import unittest
+from unittest import mock
 
 import test_cekirdek as TC
 

@@ -192,3 +192,23 @@ class Komut(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EszamanliKol(unittest.TestCase):
+    def test_oturumlar_kola_ayrilir_ve_ret_kola_yazilir(self):
+        import ret_olcum as R
+        z = "2026-10-31T10:00:00Z"
+        gun = [{"zaman": z, "tur": "uretim_enjekte", "oturum": "a", "belge": "plan"},
+               {"zaman": z, "tur": "uretim_kontrol", "oturum": "b", "belge": "plan"},
+               {"zaman": z, "tur": "uretim_kontrol", "oturum": "c", "belge": "plan"},
+               {"zaman": z, "tur": "kapi_ret", "oturum": "b", "kapi": "K-005"},
+               {"zaman": z, "tur": "kapi_ret", "oturum": "c", "kapi": "K-005"},
+               {"zaman": z, "tur": "kapi_ret", "oturum": "z", "kapi": "K-005"}]  # kolsuz oturum sayılmaz
+        k = R.kol_say(gun)
+        self.assertEqual((k["enjeksiyon"]["oturum"], k["enjeksiyon"]["ret"]), (1, 0))
+        self.assertEqual((k["kontrol"]["oturum"], k["kontrol"]["ret"]), (2, 2))
+
+    def test_kontrol_yokken_metin_tek_kollu_der(self):
+        import ret_olcum as R
+        o = R.ozet({"gunluk": [], "zaman": [], "hatalar": [], "denetimler": []})
+        self.assertTrue(any("kontrol kolu: yok" in s for s in R.metin(o)))

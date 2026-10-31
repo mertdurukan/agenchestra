@@ -39,6 +39,7 @@ class _Ortak(unittest.TestCase):
         self._env.start()
         for k in ("CLAUDE_PROJECT_DIR", "ORKESTRA_RUYA", "ORKESTRA_PERSPEKTIF"):
             os.environ.pop(k, None)
+        os.environ["ORKESTRA_SKILL_SUREKLI"] = "0"  # sürekli açık skill gövdesi (ADR-0113/0119) açılış notu bütçesini ölçmez
         niyet_yolu = os.path.join(self.proje, "niyet", "niyet.jsonl")
         self._p = [mock.patch.object(niyet, "NIYET_YOLU", niyet_yolu),
                    mock.patch.object(niyet, "GENEL_DIZIN", os.path.dirname(niyet_yolu)),
@@ -499,7 +500,7 @@ class OtomatikYonlendirme(_Ortak):
         m = self.istek(ISTEK_FATURA)
         self.assertIn(a, m)
         self.assertIn("otomatik bağlandı", m)
-        self.assertNotIn("seç", m)
+        self.assertNotIn("seç", next(s for s in m.splitlines() if "otomatik bağlandı" in s))  # yönlendirme notu; P-029 yönergesi "seçim" der
         self.assertEqual(self._is_idleri(), once)
         self.assertEqual(self.oturum_json().get("is"), a)
 

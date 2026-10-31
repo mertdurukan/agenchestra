@@ -3,6 +3,7 @@
   "pencere_gun": 7,
   "oneri_esik": {"n_min": 5, "wilson_alt_min": 0.5},
   "duzeltme_hedef_wilson_alt": 0.6,
+  "duzeltme_oneriye_girer": false,
   "duzeltme_kaliplari": [
     {"id": "d1", "desen": "^\\s*(hayır|yanlış|yanlis)\\b"},
     {"id": "d2", "desen": "\\b(bunu|bunu da|böyle)\\s+istemedim\\b"},

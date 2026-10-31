@@ -27,6 +27,10 @@ class IsKapatUc(unittest.TestCase):
         self.yamalar = [mock.patch.object(L, "calisma_alanlari", lambda: [self.alan]),
                         mock.patch.object(KI, "_harita_yenile", lambda sd: None),
                         mock.patch.object(KI, "_teknik_detay_yaz", lambda sd, i: None)]
+        # kapat_uygula os.getcwd() deposunda dal temizliği ve kapanış birleştirmesi koşar (ADR-0050, ADR-0086): testte
+        # gerçek depoya git işlemi yapılmasın (ölçülen 23 sn; mod ihlal = dal silme)
+        self.yamalar.append(mock.patch.dict(os.environ, {"ORKESTRA_DAL_TEMIZLE": "0", "ORKESTRA_KAPANIS_BIRLESTIRME": "0",
+                                                         "ORKESTRA_OZET_KAPISI": "1"}))  # conftest kapıyı kapatır; test kapıyı sınar
         for y in self.yamalar:
             y.start()
         self.klasor = os.path.join(self.proje, "is1")

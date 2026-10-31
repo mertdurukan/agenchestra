@@ -1,8 +1,9 @@
 {
-  "aciklama": "Paralel koşu (P-036, ADR-0096). Test ve test benzeri süreçler varsayılan paralel koşar; işçi sayısı min(mantıksal çekirdek, (kullanılabilir bellek - bellek_rezervi_mb) / isci_basina_mb, ust_sinir) ile türer, CI ortamında ci_ust_sinir ile de sınırlanır. Ezme: ORKESTRA_PARALEL_N=<sayı> (1 = seri), ORKESTRA_PARALEL=0 (komut dönüşümünü kapatır), proje dosyası .claude/orkestra/paralel_kosu.json (aynı alanlar).",
+  "aciklama": "Paralel koşu (P-041, ADR-0100). Test ve test benzeri süreçler varsayılan paralel koşar; işçi sayısı min(mantıksal çekirdek, (kullanılabilir bellek - bellek_rezervi_mb) / isci_basina_mb, ust_sinir) ile türer, CI ortamında ci_ust_sinir ile de sınırlanır. Ezme: ORKESTRA_PARALEL_N=<sayı> (1 = seri), ORKESTRA_PARALEL=0 (komut dönüşümünü kapatır), proje dosyası .claude/orkestra/paralel_kosu.json (aynı alanlar).",
   "paralel": true,
   "ust_sinir": 32,
-  "isci_basina_mb": 400,
-  "bellek_rezervi_mb": 1536,
+  "en_az_isci": 4,
+  "isci_basina_mb": 300,
+  "bellek_rezervi_mb": 768,
   "ci_ust_sinir": 8
 }
