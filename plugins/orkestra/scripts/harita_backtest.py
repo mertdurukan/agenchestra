@@ -87,6 +87,7 @@ def olc(kok: str, isinma: float = 0.3, asgari: int = K.ASGARI_BIRLIKTE, cm: list
     ort = lambda l: round(sum(l) / len(l), 4) if l else 0.0  # noqa: E731
     sonuc = {"sinama_commit": n, "precision_olculen_commit": len(precision_l), "recall": ort(recall_l),
              "precision": ort(precision_l), "kapsama": ort(kapsama_l), "isinma": isinma, "asgari_birlikte": asgari}
+    sonuc["en_cok_kacan_cift"] = [{"cift": list(c), "kez": k} for c, k in kacan.most_common(15)]
     sonuc["yeterli_ornek"] = n >= MIN_COMMIT
     sonuc["esik_gecti"] = bool(sonuc["yeterli_ornek"] and sonuc["recall"] >= ESIK_RECALL and sonuc["precision"] >= ESIK_PRECISION)
     return sonuc
