@@ -357,8 +357,17 @@ class VarsayilanMod(unittest.TestCase):
             return IP.karar(arac, girdi, sd=self.sd, oturum="o")[0]
 
     def test_ayar_yokken_plan(self):
-        self.assertEqual(is_onay.mod({}, self.sd), "plan")
-        self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+        with eklenti_varsayilani(None):
+            self.assertEqual(is_onay.mod({}, self.sd), "plan")
+            self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
+
+    def test_eklenti_varsayilani_izlenir(self):
+        """ADR-0110: proje ezmesi yokken eklenti değeri geçerli; push kararı moda göre ask/allow."""
+        for deger, push in (("plan", "ask"), ("auto", "allow")):
+            with eklenti_varsayilani(deger):
+                self.assertEqual(is_onay.mod({}, self.sd), deger)
+                self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), push)
+                self.assertEqual(self._karar("Bash", {"command": "git push --force origin x"}), "deny")
 
     def test_ayar_auto_modsuz_is_auto(self):
         self._yaz('{"varsayilan_mod": "auto"}')
