@@ -1558,8 +1558,9 @@ def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
         return
 
 
-def arka_plan_satiri(sd: str, gorevler) -> str:
+def arka_plan_satiri(sd: str, gorevler, transkript=None) -> str:
     """Tur bitince tek satır: arka planda süren görevler (Claude görevleri + perspektif koşusu + onay uygulaması).
+    Claude görevi varsa satıra en eski görevin yaşı ve (Windows) çalışan find.exe eklenir (ADR-0120, arka_plan_yas).
     Deterministik, model çağrısı yok; süren yoksa boş metin, hatada sessiz."""
     adlar = []
     try:
