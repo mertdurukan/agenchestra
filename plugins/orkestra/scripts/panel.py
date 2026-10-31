@@ -164,7 +164,8 @@ TUM_ALAN = "*"  # panelde "Tüm çalışma alanları" seçeneği; yalnız TUM_AL
 TUM_ALAN_YOLLARI = frozenset({"/simdi.json", "/onaylar.json", "/isler.json", "/kurallar.json", "/ozet.json",
                               "/analitik.json", "/api/kullanici-todo", "/teknik.json"})   # yalnız GET; yazma her zaman tek alan
 _TEKNIK_TEK_ALAN = ("is", "kart", "ret")   # /teknik.json bu parametrelerle kayıtlı alana ister (liste kipi birleşir)
-KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
+KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncelleme", "/api/guncelle", "/api/guncelle-ertele", "/ac",
+                               "/api/kaynaklar"})   # eklenti güncellemesi ve sohbet açma (oturum kimliği yeter): alan almaz, alan=* ile de çalışır
 
 
 def _mod_kaynak(sd: str) -> str:
