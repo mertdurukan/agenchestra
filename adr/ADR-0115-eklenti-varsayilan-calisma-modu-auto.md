@@ -1,4 +1,4 @@
-# ADR-0110: Eklentinin varsayılan çalışma modu `auto` olur
+# ADR-0115: Eklentinin varsayılan çalışma modu `auto` olur
 
 **Durum:** Kabul edildi
 

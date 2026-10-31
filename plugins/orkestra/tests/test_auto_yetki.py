@@ -19,7 +19,7 @@ import izin_politikasi as IP  # noqa: E402
 from komutlar import isler  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_is_onay import _Onay  # noqa: E402
-from mod_yalitim import eklenti_varsayilani, sabitle  # noqa: E402
+from mod_yalitim import eklenti_varsayilani  # noqa: E402
 
 MCP_YAZ = "mcp__github__create_pull_request"
 MCP_JIRA = "mcp__73d9f9eb-9d44-4ce4-b615-490c4b090ae4__createJiraIssue"
@@ -83,9 +83,6 @@ class IzinKapisi(unittest.TestCase):
 
 
 class ModOkuma(unittest.TestCase):
-    def setUp(self):
-        sabitle(self)
-
     def _mod(self, kayit, is_id="I-1", **kw):
         with mock.patch.object(is_onay, "_bagli_is_id", return_value=is_id), \
                 mock.patch("is_kaydi.is_al", return_value=kayit):
@@ -127,7 +124,6 @@ class BekleyenMod(unittest.TestCase):
     """ADR-0095: iş bağlanmadan gelen /auto oturumda bekler; izin kapısı silmeden okur."""
 
     def setUp(self):
-        sabitle(self)
         self.sd = tempfile.mkdtemp()
         self._ort = os.environ.get("ORKESTRA_IZIN")
         os.environ["ORKESTRA_IZIN"] = "genis"
@@ -313,7 +309,6 @@ class UcAdim(_Onay):
 
     def setUp(self):
         super().setUp()
-        sabitle(self)
         os.environ["ORKESTRA_IZIN"] = "genis"
         os.environ.pop("ORKESTRA_AUTO_YETKI", None)
         is_onay.yaz(self.sd, self.kayit["id"], "verildi", "test")
@@ -368,7 +363,7 @@ class VarsayilanMod(unittest.TestCase):
             self.assertEqual(self._karar("Bash", {"command": "git push origin x"}), "ask")
 
     def test_eklenti_varsayilani_izlenir(self):
-        """ADR-0110: proje ezmesi yokken eklenti değeri geçerli; push kararı moda göre ask/allow."""
+        """ADR-0115: proje ezmesi yokken eklenti değeri geçerli; push kararı moda göre ask/allow."""
         for deger, push in (("plan", "ask"), ("auto", "allow")):
             with eklenti_varsayilani(deger):
                 self.assertEqual(is_onay.mod({}, self.sd), deger)

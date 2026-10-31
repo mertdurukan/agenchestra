@@ -1,4 +1,4 @@
-"""ADR-0110: mod testleri eklentinin gerçek varsayılan ayar dosyasından bağımsız koşar.
+"""ADR-0115: mod testleri eklentinin gerçek varsayılan ayar dosyasından bağımsız koşar.
 
 `eklenti_varsayilani("plan" | "auto" | None | "bozuk")` geçici bir eklenti klasörü kurar ve
 `is_onay.__file__` ile `panel.__file__` dosyalarını ona yönlendirir (ikisi de ayar yolunu `__file__`'dan türetir).
@@ -16,13 +16,6 @@ import is_onay  # noqa: E402
 import panel  # noqa: E402
 
 AYAR_ADI = "yet" + "ki.json"
-
-
-def sabitle(test, deger="plan"):
-    """setUp içinde: testin süresince eklenti varsayılanını `deger`e sabitler (testin kendisi varsayılana bakmıyorsa)."""
-    cm = eklenti_varsayilani(deger)
-    cm.__enter__()
-    test.addCleanup(cm.__exit__, None, None, None)
 
 
 @contextlib.contextmanager

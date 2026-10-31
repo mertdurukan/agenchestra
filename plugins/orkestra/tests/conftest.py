@@ -1,6 +1,7 @@
 """Testler gerçek eklenti kural deposunu görmesin: eklenti katmanı varsayılan olarak boş bir geçici dosyaya bakar.
 Eklenti katmanını sınayan testler ORKESTRA_EKLENTI_KURALLARI'nı kendi geçici dosyasına çevirir."""
 import os
+import sys
 import tempfile
 
 # Testler gerçek ~/.claude/orkestra-makine/makine.json dosyasını okumasın ya da yazmasın (I-026 cfg).
@@ -22,3 +23,16 @@ os.environ.setdefault("ORKESTRA_ADR_KAPISI", "0")  # kapanış ADR kapısı (P-0
 os.environ.setdefault("ORKESTRA_SOZLESME_KAPISI", "0")  # görev sözleşmesi (ADR-0035): eski testler sözleşmesiz iş açar; sözleşme testleri '1' yapar
 os.environ.setdefault("ORKESTRA_TESLIM_KAPISI", "0")  # teslim kapısı (ADR-0035): testler gerçek gh/PR aramasın; test_teslim.py "1" yapar
 os.environ.setdefault("ORKESTRA_IZOLE_UYARI", "0")  # izole ortam uyarısı (ADR-0035): on_kontrol testleri uyarısız koşar
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _eklenti_varsayilan_modu_plan():
+    """ADR-0115: eklentinin gerçek varsayılan modu (auto) eski testleri etkilemesin; testler `plan` varsayılanıyla koşar.
+    Varsayılan modu sınayan testler `mod_yalitim.eklenti_varsayilani(...)` ile kendi değerini seçer (iç içe geçer)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from mod_yalitim import eklenti_varsayilani  # noqa: PLC0415
+    with eklenti_varsayilani("plan"):
+        yield
