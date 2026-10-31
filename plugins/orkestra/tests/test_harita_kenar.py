@@ -1,4 +1,4 @@
-"""Proje bilgi grafiği kenar çıkarıcı (ADR-0112, I-296): import, yol atfı, git birlikte-değişim; geçici projede koşar."""
+"""Proje bilgi grafiği kenar çıkarıcı (ADR-0118, I-296): import, yol atfı, git birlikte-değişim; geçici projede koşar."""
 import os
 import shutil
 import subprocess

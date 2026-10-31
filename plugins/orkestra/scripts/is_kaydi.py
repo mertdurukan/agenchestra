@@ -481,6 +481,8 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
             kayit["karar"] = True  # ADR-0112: yanıtsız `Karar gerekir` maddesi plan yazımını engeller
         if SIRA.paralellik_kapisi_acik():
             kayit["paralel"] = True  # ADR-0080: plan maddesi `**Önce:**` gerekçeli bağımlılık ve `**Yazma alanı:**` taşır
+        if SIRA.etki_kapisi_acik():
+            kayit["etki"] = True  # ADR-0118: plan maddesi `**Etki:**` ile bilgi grafiği etki kümesini anar (gölge)
         if ONAY_KAPISI_ACIK():
             kayit["onay"] = "bekliyor"  # P-016: kullanıcı onaylamadan uygulama yok
         if dogrulama is None:

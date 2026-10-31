@@ -1,5 +1,5 @@
 {
-  "aciklama": "Proje bilgi grafiği şeması (ADR-0112, I-296). Kenar listesi JSONL, konu kartı md. Doğrulayıcı: scripts/harita_sema.py. Yeni ilişki türü koda dokunmadan buradan eklenir.",
+  "aciklama": "Proje bilgi grafiği şeması (ADR-0118, I-296). Kenar listesi JSONL, konu kartı md. Doğrulayıcı: scripts/harita_sema.py. Yeni ilişki türü koda dokunmadan buradan eklenir.",
   "kenar_zorunlu": ["kaynak", "iliski", "hedef", "koken", "guven", "kanit", "hash", "dogrulama_zamani"],
   "iliskiler": ["import", "okur", "yazar", "listeler", "kaydeder", "cagirir", "atif", "birlikte_degisir", "test_eder", "belgeler"],
   "kokenler": ["statik", "bildirilen", "gecmis", "llm"],

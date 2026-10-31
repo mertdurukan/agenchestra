@@ -1,0 +1,4 @@
+{
+  "aciklama": "ADR-0119: her projede oturum açılışında gövdesi bağlama yüklenen (sürekli açık) eklenti skill adları. Proje, skill_durum.json 'haric' listesiyle bir varsayılanı kapatır (panel anahtarı bunu yazar). Kapatma: ORKESTRA_SKILL_SUREKLI=0 (hepsi).",
+  "varsayilan": ["orkestra:caveman"]
+}

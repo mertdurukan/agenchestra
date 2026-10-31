@@ -17,7 +17,8 @@ def skill(dizin, klasor, ad=None, aciklama="bir skill"):
 
 
 @pytest.fixture
-def ortam(tmp_path):
+def ortam(tmp_path, monkeypatch):
+    monkeypatch.setattr(S, "VARSAYILAN_YOL", str(tmp_path / "yok.json"))  # eklenti varsayılanı (ADR-0119) testten bağımsız
     ek, ku, pr = tmp_path / "ek", tmp_path / "ku", tmp_path / "proje"
     skill(ek, "textual"); skill(ek, "is")
     skill(ku, "synced")

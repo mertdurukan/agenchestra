@@ -1,4 +1,4 @@
-"""harita-kur davranış testi (ADR-0112, I-296, P4): etiketli isteklerle eşanlamlı eşleme isabeti.
+"""harita-kur davranış testi (ADR-0118, I-296, P4): etiketli isteklerle eşanlamlı eşleme isabeti.
 Eşik: >=100 etiketli istek, isabet >= 0.80, Wilson %95 alt sınır >= 0.70.
 Sınır: istekler elle yazılmış sentetik kümedir (ek/çekim varyantları dahil); gerçek kullanıcı isteğindeki isabet ayrıca ölçülmemiştir."""
 import math

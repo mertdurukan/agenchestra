@@ -1,4 +1,4 @@
-"""İstek eşleme sorgusu (ADR-0112, I-296): eşanlamlı eşleme, kenar gezinmesi, eşleşmeyen istek; geçici graf dizininde koşar."""
+"""İstek eşleme sorgusu (ADR-0118, I-296): eşanlamlı eşleme, kenar gezinmesi, eşleşmeyen istek; geçici graf dizininde koşar."""
 import json
 import os
 import shutil
