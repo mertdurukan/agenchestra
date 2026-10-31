@@ -775,6 +775,60 @@ def etki_eksikleri(klasor: str, metin: str | None = None) -> list[str]:
             if y["ad"].lower() not in alan and not (y["yol"] and y["yol"].lower() in alan)]
 
 
+def _biten_yazma_alanlari(klasor: str) -> list[str]:
+    """todo.md'de biten P maddelerinin plan `**Yazma alanı:**` yolları (virgüllü liste)."""
+    todo = _oku(os.path.join(klasor, "todo.md")) or ""
+    biten = {int(n) for n in re.findall(r"^\s*[-*]\s*\[[xX]\]\s*P(\d+)", todo, re.M)}
+    yollar = []
+    for n, blok in _p_bloklari(_plan_oku(klasor) or "").items():
+        if n in biten:
+            yollar += [x.strip(" `") for x in _alan_degeri(blok, "Yazma alanı").split(",") if x.strip(" `")]
+    return yollar
+
+
+def degisen_dosyalar(klasor: str) -> set[str]:
+    """İş açıldığından beri proje deposunda değişen dosyalar (git log + çalışma ağacı); git yoksa boş küme."""
+    import subprocess
+    import harita
+    sd = harita.sd_bul(klasor)
+    if not sd:
+        return set()
+    kok = os.path.dirname(os.path.dirname(sd))
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            baslangic = json.load(f).get("olusturma") or ""
+        cmd = ["git", "-c", "safe.directory=*"]
+        log = subprocess.run(cmd + ["log", f"--since={baslangic}", "--name-only", "--pretty=format:"], cwd=kok,
+                             capture_output=True, text=True, encoding="utf-8", timeout=60).stdout
+        durum = subprocess.run(cmd + ["status", "--porcelain"], cwd=kok, capture_output=True, text=True,
+                               encoding="utf-8", timeout=60).stdout
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return set()
+    return {s.strip() for s in log.splitlines() if s.strip()} | {s[3:].strip().strip('"') for s in durum.splitlines() if len(s) > 3}
+
+
+def etki_kapanis_eksikleri(klasor: str, degisen: set[str] | None = None) -> list[str]:
+    """Kapanış son ağı: etki kümesindeki yollu yüzeyin hiçbir değişen dosyası (iş açıldığından beri git) ve hiçbir biten
+    P maddesinin yazma alanı yoksa işlenmemiş sayılır. Yolsuz yüzey doğrulanamaz, atlanır."""
+    if not etki_kapsaminda_mi(klasor):
+        return []
+    s = etki_sonucu(klasor)
+    if not s or not s["eslesti"]:
+        return []
+    import harita_istek as HI
+    var = (degisen if degisen is not None else degisen_dosyalar(klasor)) | set(_biten_yazma_alanlari(klasor))
+    return [f"etki kümesindeki yüzey işlenmedi: {y['ad']} ({y['yol']}) (ADR-0112)" for y in s["yuzeyler"]
+            if y["yol"] and not any(HI._uyar(y["yol"], d) or HI._uyar(d, y["yol"]) for d in var)]
+
+
+def etki_kapanis_kaydi(klasor: str) -> list[str]:
+    """Kapanış bağlantısı: gölgede `kapi_golge` kaydı düşer; kapanışı hiçbir modda engellemez (ADR-0112, P-028)."""
+    if not etki_kapsaminda_mi(klasor):
+        return []
+    import kapi_mod as KM
+    return KM.ihlal_ver(klasor, "harita_etki", etki_kapanis_eksikleri(klasor))
+
+
 def etki_engeli(klasor: str) -> list[str]:
     """`plan_eksikleri` bağlantısı: gölgede `kapi_golge` kaydı düşer ve boş döner; ihlal modunda eksikleri döndürür."""
     if not etki_kapsaminda_mi(klasor):
