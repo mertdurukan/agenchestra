@@ -1,0 +1,21 @@
+{
+  "mod": "etkin",
+  "esik": 0.34,
+  "min_sozcuk": 4,
+  "aciklama": "Kayma sınıflayıcısı (I-297 P4, ADR-0114). Bağlı oturumda bilgi sorusu artık yönlendirmeyi hiç susturmaz: mesaj iş kimliği/klasörüne gönderme yapmıyorsa ve içerik sözcükleri bağlı işin başlığı, klasör adı ve oturumun güncel niyetiyle `esik` altında örtüşüyorsa (en az `min_sozcuk` içerik sözcüğü varsa) bölme yönergesi gelir. İlişki ölçütü iş belgesinin gövdesine bakmaz. mod: etkin | golge (yalnız gunluk.jsonl'a kapi_golge/konu_kaymasi düşer) | kapali (eski davranış: soru muaf). Onay ve kısa devam mesajları her modda muaftır. Proje ezmesi: .claude/orkestra/konu_kaymasi.json. `min_ortak`: alan sözcükleri (`ortak_alan`) dışında bağlı işle bu kadar ortak içerik sözcüğü varsa mesaj ilgili sayılır.",
+  "min_ortak": 2,
+  "ortak_alan": [
+    "orkestra",
+    "plan",
+    "todo",
+    "mod",
+    "modu",
+    "sohbet",
+    "oturum",
+    "proje",
+    "klasor",
+    "belge",
+    "calisma",
+    "kural"
+  ]
+}

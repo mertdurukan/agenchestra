@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "Bölme kapısı (I-297 P5, ADR-0114). Zorunlu bölme yönergesinden (bağlı işten farklı konu) sonra ana ajanın ilk anlamlı aracı `start_session` değilse atlanan bölme gunluk.jsonl'a kapi_golge / bolme_kapisi olarak yazılır. mod: golge = yalnız kayıt (P-028; ölçülmeden ihlale geçilmez, geçiş ayrı kararla ve ADR ile) | ihlal = aracı reddeder | kapali. `orkestra is rapor` kapı sayılarını verir. Aynı işin devamı da atlanan sayılır; oran ihlal kararını besler. Proje ezmesi: .claude/orkestra/bolme_kapisi.json."
+}

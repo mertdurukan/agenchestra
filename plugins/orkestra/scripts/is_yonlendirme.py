@@ -22,6 +22,9 @@ VARSAYILAN_AYAR = {
     "baslik_kapsama_min_sozcuk": 5,
 }
 MIN_SOZCUK = 3
+KAYMA_VARSAYILAN = {"esik": 0.34, "min_sozcuk": 4, "min_ortak": 2}
+# Her orkestra işinde geçen alan sözcükleri: ortak sayılmaz (farklı konuyu ilgili gösterir; I-297 P4/P9)
+ORTAK_ALAN = ("orkestra", "plan", "todo", "mod", "modu", "sohbet", "oturum", "proje", "klasor", "belge", "calisma", "kural")
 ONEK_MIN = 5
 _TR_KATLA = str.maketrans("çğıöşü", "cgiosu")
 
@@ -146,16 +149,49 @@ def isle_ilgili_mi(mesaj, is_, ayar=None):
     return bool(p) and p[0]["puan"] >= _ayar(ayar)["yuksek"]
 
 
+def kayma_mi(mesaj, is_, guncel_konu="", ayar=None, kayma_ayar=None):
+    """I-297 P4: mesaj bağlı işten kesin farklı bir konu mu. İş kimliği/klasörüne gönderme yoksa ve içerik sözcüklerinin
+    bağlı işin başlığı+klasör adı ile oturumun güncel niyetine örtüşme oranı `esik` altındaysa True. İş belgesinin
+    gövdesine bakılmaz (ortak alan sözcükleri farklı konuyu ilgili gösterir). Yeterli içerik sözcüğü yoksa False."""
+    if not isinstance(mesaj, str) or not isinstance(is_, dict):
+        return False
+    k = dict(KAYMA_VARSAYILAN)
+    if isinstance(kayma_ayar, dict):
+        k.update({x: kayma_ayar[x] for x in ("esik", "min_sozcuk", "min_ortak") if isinstance(kayma_ayar.get(x), (int, float))})
+    kayit = {"id": is_.get("id"), "baslik": is_.get("baslik"), "klasor": is_.get("klasor")}
+    if isle_ilgili_mi(mesaj, kayit, ayar):
+        return False
+    a = _ayar(ayar)
+    durak = {_kucult(x) for x in a["durak_sozcukler"]}
+    if len(set(_sozcukler(devir_onu_at(mesaj), durak))) < k["min_sozcuk"]:
+        return False
+    alan_ham = (kayma_ayar or {}).get("ortak_alan") or ORTAK_ALAN
+    ortak_alan = {_katla(_kucult(x)) for x in alan_ham}
+    mesaj_s = {s for s in _sozcukler(devir_onu_at(mesaj), durak) if s not in ortak_alan}
+    is_s = {s for s in _sozcukler(" ".join(devir_onu_at(kayit.get(x)) for x in ("baslik", "klasor")) + " " + str(guncel_konu), durak)
+            if s not in ortak_alan}
+    ortak = sum(1 for s in mesaj_s if any(_eslesir(s, u) for u in is_s))
+    if ortak >= k["min_ortak"]:
+        return False
+    adaylar = [kayit]
+    if guncel_konu:
+        adaylar.append({"id": "niyet", "baslik": guncel_konu})
+    puanlar = eslestir(mesaj, adaylar, ayar)
+    return not puanlar or puanlar[0]["puan"] < k["esik"]
+
+
 def _tek_satir(metin, sinir):
     s = " ".join(str(metin).split())
     return s if len(s) <= sinir else s[: sinir - 1].rstrip() + "…"
 
 
-def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
+def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu="", mod=""):
     """Yeni görev için tek satır: bağlı iş, açık işler ve karar kuralı. `zorunlu` (I-061): hook mesajı bağlı işle
-    ilgili bulmadı; satır hatırlatma değil, ilk mesajda uygulanacak yönergedir. `guncel_konu`: kayıtlı güncel niyet."""
+    ilgili bulmadı; satır hatırlatma değil, ilk mesajda uygulanacak yönergedir. `guncel_konu`: kayıtlı güncel niyet.
+    `mod` (I-297 P6): bağlı işin modu; yeni sohbetin brief'inin ilk satırı olur, böylece mod taşınır."""
     liste = []
     bagli_baslik = ""
+    mod_satiri = ("ilk satır `/%s`, sonra " % mod) if mod in ("plan", "auto") else ""
     for is_ in isler if isinstance(isler, (list, tuple)) else []:
         if not isinstance(is_, dict) or is_.get("id") is None:
             continue
@@ -169,14 +205,14 @@ def yonlendir(isler, bagli_id, zorunlu=False, guncel_konu=""):
         konu = (' Güncel konu: "%s".' % _tek_satir(guncel_konu, 80)) if guncel_konu else ""
         kural = ("Yeni görev (%s): ZORUNLU (K-004): mesaj bağlı işe açıkça bağlı değil.%s Cevabından ÖNCE karar ver, kullanıcıya SORMA: "
                  "aynı işin devamıysa devam et; FARKLI konuysa bu sohbette yapma: ilk araç `mcp__ccd_session__start_session` "
-                 "(initiation user_asked, brief: önce `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
+                 "(initiation user_asked, brief: %sönce `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
                  "ardından `detach_session`; bu sohbette bağlı işe devam et ve kullanıcıya yalnız yeni sohbetin bağlantısını ver."
-                 % (bagli, konu))
+                 % (bagli, konu, mod_satiri))
     elif bagli_id is not None:
         # K-004: bağlı işten farklı konu ayrı sohbette, ayrı işte yürür; kullanıcıya sorulmaz.
         kural = ("Yeni görev (%s): bağlı işin parçasıysa devam. Bağlı işten FARKLI konuysa sorma, ayrı sohbete aç: "
-                 "`start_session` (user_asked, brief: `orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
-                 "sonra `detach_session`; bu sohbet bağlı işte kalır." % bagli)
+                 "`start_session` (user_asked, brief: %s`orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`), "
+                 "sonra `detach_session`; bu sohbet bağlı işte kalır." % (bagli, mod_satiri))
     else:
         kural = ("Yeni görev (%s): başka açık işe aitse `orkestra is devam <id>`; "
                  "hiçbirine uymuyorsa `orkestra is ac \"<başlık>\" --klasor <klasör>`." % bagli)

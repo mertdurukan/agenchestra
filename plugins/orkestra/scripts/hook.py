@@ -867,6 +867,12 @@ def pre_tool_use(inp: dict):
     elif arac not in KABUK_ARACLARI:
         _kapi_uygula(kar, kneden)
     _auto_soru_kapisi(arac, girdi, sd, inp.get("session_id"), aid)
+    try:  # I-297 P5: atlanan bölme kaydı; hata aracı bozmaz
+        _bolme_kapisi(sd, arac, inp.get("session_id"), aid)
+    except SystemExit:
+        raise
+    except Exception:
+        pass
 
     try:
         import is_onay as _io
@@ -1978,27 +1984,124 @@ def _otomatik_yonlendirme(sd: str, oid, istek: str, proje: str | None = None, cw
         return ""
 
 
-def _bagli_is_kaydi(g: dict) -> dict:
-    """Bağlı işin eşleştirme kaydı: kimlik, başlık, klasör adı ve todo.md/plan.md metni (ilk 6000 karakter)."""
-    klasor = str(g.get("klasor") or "")
-    metin = ""
-    for ad in ("todo.md", "plan.md"):
+def _ayar_dosyasi(sd: str, ad: str) -> dict:
+    """Eklentinin `ayarlar/<ad>.json` dosyası, üstüne proje `<durum>/<ad>.json` (anahtar bazında). Bozuk dosya atlanır."""
+    ayar = {}
+    for yol in (os.path.join(os.path.dirname(ESLEME_AYAR_YOLU), ad + ".json"), os.path.join(sd, ad + ".json")):
         try:
-            with open(os.path.join(klasor, ad), encoding="utf-8") as f:
-                metin += " " + f.read(6000)
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, dict):
+                ayar.update(d)
         except Exception:
-            pass
-    return {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(klasor), "metin": metin}
+            continue
+    return ayar
 
 
-def _bagli_isle_ilgili(sd: str, bagli, istek: str) -> bool:
-    """Mesaj bağlı işin klasörüne/kimliğine gönderme yapıyor ya da iş metniyle örtüşüyor mu (I-061). Hatada False."""
+def _bagli_is_kaydi(g: dict, guncel_konu: str = "") -> dict:
+    """Bağlı işin eşleştirme kaydı: kimlik, başlık, klasör adı ve oturumun güncel niyeti. İş belgesinin gövdesi
+    (todo.md/plan.md) kullanılmaz: ortak alan sözcükleri farklı konuyu ilgili gösterir (I-297 P4, S2)."""
+    klasor = str(g.get("klasor") or "")
+    return {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(klasor), "metin": guncel_konu}
+
+
+def _bagli_isle_ilgili(sd: str, bagli, istek: str, guncel_konu: str = "") -> bool:
+    """Mesaj bağlı işin klasörüne/kimliğine gönderme yapıyor ya da başlık ve güncel niyetle örtüşüyor mu (I-061). Hatada False."""
     try:
         import is_kaydi
         import is_yonlendirme
         for g in is_kaydi.is_liste(sd, "acik"):
             if str(g.get("id")) == str(bagli):
-                return is_yonlendirme.isle_ilgili_mi(istek, _bagli_is_kaydi(g), _esleme_ayari(sd))
+                return is_yonlendirme.isle_ilgili_mi(istek, _bagli_is_kaydi(g, guncel_konu), _esleme_ayari(sd))
+    except Exception:
+        pass
+    return False
+
+
+_BOLME_DOSYA = "bolme_bekliyor.json"
+_BOLME_YOK_SAY = ("ToolSearch", "mcp__ccd_turn__update_plan", "TodoWrite", "TaskCreate", "TaskUpdate")
+_BOLME_OMUR = 600  # sn: yönergeden sonra bu süre geçtiyse bekleyen kayıt geçersiz
+
+
+def _bagli_mod(sd, bagli):
+    """I-297 P6: bağlı işin modu (`plan` | `auto`); okunamazsa boş (yönergede mod satırı yazılmaz)."""
+    try:
+        import is_onay
+        return is_onay.mod(is_kaydi.is_al(sd, bagli), sd)
+    except Exception:
+        return ""
+
+
+def _bolme_oku(sd: str) -> dict:
+    try:
+        with open(os.path.join(sd, _BOLME_DOSYA), encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _bolme_yaz(sd: str, d: dict) -> None:
+    try:
+        L.atomik_yaz(os.path.join(sd, _BOLME_DOSYA), json.dumps(d, ensure_ascii=False))
+    except Exception:
+        pass
+
+
+def _bolme_bekliyor_kaydet(sd: str, oid, bagli) -> None:
+    """I-297 P5: zorunlu bölme yönergesi verildi; oturumun sonraki ilk anlamlı aracı start_session olmalı."""
+    if not oid:
+        return
+    d = _bolme_oku(sd)
+    d[str(oid)] = {"zaman": time.time(), "is": str(bagli)}
+    _bolme_yaz(sd, d)
+
+
+def _bolme_kapisi(sd: str, arac: str, oid, aid) -> None:
+    """I-297 P5: bölme yönergesinden sonra ana ajanın ilk anlamlı aracı start_session değilse atlanan bölmeyi kaydeder.
+    golge (varsayılan, P-028): gunluk.jsonl'a kapi_golge/bolme_kapisi; ihlal: aracı reddeder; kapali: hiçbir şey.
+    Ayar `ayarlar/bolme_kapisi.json`. Aynı işin devamı da 'atlanan' sayılır: oran ihlale geçiş kararını besler."""
+    if aid or not oid or arac in _BOLME_YOK_SAY:
+        return
+    d = _bolme_oku(sd)
+    k = d.get(str(oid))
+    if not k:
+        return
+    mod = _ayar_dosyasi(sd, "bolme_kapisi").get("mod", "golge")
+    if mod not in ("golge", "ihlal"):
+        return
+    d.pop(str(oid), None)
+    _bolme_yaz(sd, d)
+    if arac.endswith("start_session") or time.time() - float(k.get("zaman") or 0) > _BOLME_OMUR:
+        return
+    neden = f"bölme yönergesi var ama ilk araç {arac}"
+    L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge",
+                 "kapi": "bolme_kapisi", "is": k.get("is") or "-", "neden": neden[:300], "mod": mod})
+    if mod == "ihlal":
+        reddet("bağlı işten farklı konu: önce `mcp__ccd_session__start_session` ile ayrı sohbet aç (K-004); aynı işin devamıysa "
+               "bunu belirtip yeniden dene.")
+
+
+def _soru_kaymasi(sd: str, oid, bagli, istek: str, guncel_konu: str) -> bool:
+    """I-297 P4: bağlı oturumda bilgi sorusu kesin farklı konuysa True (mod etkin). golge: yalnız gunluk.jsonl'a
+    kapi_golge/konu_kaymasi düşer, False döner. kapali ya da hata: False (eski davranış)."""
+    try:
+        import is_kaydi
+        import is_yonlendirme
+        ka = _ayar_dosyasi(sd, "konu_kaymasi")
+        mod = ka.get("mod", "etkin")
+        if mod not in ("etkin", "golge"):
+            return False
+        for g in is_kaydi.is_liste(sd, "acik"):
+            if str(g.get("id")) == str(bagli):
+                kayit = {"id": g.get("id"), "baslik": g.get("baslik") or "", "klasor": os.path.basename(str(g.get("klasor") or ""))}
+                if not is_yonlendirme.kayma_mi(istek, kayit, guncel_konu, _esleme_ayari(sd), ka):
+                    return False
+                if mod == "golge":
+                    L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge",
+                                 "kapi": "konu_kaymasi", "is": str(bagli), "neden": "bilgi sorusu kesin farklı konu"})
+                    return False
+                return True
     except Exception:
         pass
     return False
@@ -2016,9 +2119,16 @@ def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: 
         import is_yonlendirme
         bagli = _oturum_isi(sd, oid)
         if bagli:  # I-061 P1: bağlı oturumda açıkça devam / bağlı işle ilgili mesaj susar, geri kalanı belirsizdir
-            if soru_sinif.bagli_tur(istek, sd) != "belirsiz":
+            import niyet
+            k0 = niyet.son_niyet(oid) if oid else None
+            guncel = (k0 or {}).get("ne", "")
+            bt = soru_sinif.bagli_tur(istek, sd)
+            if bt == "soru":  # I-297 P4: bilgi sorusu muaf değil; yalnız kesin farklı konu yönergeye düşer
+                if not _soru_kaymasi(sd, oid, bagli, istek, guncel):
+                    return ""
+            elif bt != "belirsiz":
                 return ""
-            if _bagli_isle_ilgili(sd, bagli, istek):
+            elif _bagli_isle_ilgili(sd, bagli, istek, guncel):
                 return ""
         elif soru_sinif.tur(istek, sd) != "is":  # soru ve devam mesajı yönlendirme tetiklemez
             return ""
@@ -2026,7 +2136,9 @@ def _yonlendirme_ipucu(sd: str, oid, istek: str, proje: str | None = None, cwd: 
         if bagli:  # belirsiz: hatırlatma değil zorunlu yönerge; karşılaştırma güncel konuya (son kayıtlı niyet) yapılır
             import niyet
             k = niyet.son_niyet(oid) if oid else None
-            return is_yonlendirme.yonlendir(isler, bagli, zorunlu=True, guncel_konu=(k or {}).get("ne", ""))
+            _bolme_bekliyor_kaydet(sd, oid, bagli)  # I-297 P5
+            return is_yonlendirme.yonlendir(isler, bagli, zorunlu=True, guncel_konu=(k or {}).get("ne", ""),
+                                            mod=_bagli_mod(sd, bagli))
         return is_yonlendirme.yonlendir(isler, bagli)
     except Exception:
         return ""
@@ -2551,7 +2663,11 @@ def session_start(inp: dict):
             ek_satirlar.append(zu)
     try:  # eklenti kural katmanı değiştiyse bu projenin kural dosyası yenilenir; hata hook'u düşürmez
         import onay
-        onay.kural_dosyasi_esitle(sd)
+        yazildi, fark = onay.kural_dosyasi_esitle_fark(sd)
+        if yazildi:  # kural dosyası hook'tan önce yüklendi: bu oturumun bağlamındaki metin eski (I-297 P2)
+            ek_satirlar.append("KURAL KOPYASI GÜNCELLENDİ: bu oturumun yüklediği orkestra_kurallari.md eskiydi"
+                               + (f"; eklenti kaynağında değişen kurallar: {', '.join(fark)}" if fark else "")
+                               + ". Orkestra davranışını anlatırken eklenti kaynağını (KURALLAR.md, kurallar/eklenti_kurallari.json) esas al.")
     except Exception:
         pass
     bs = _bos_is_satiri(sd)
