@@ -55,11 +55,12 @@ class Ortam(unittest.TestCase):
                         ORKESTRA_KAYNAK_KIRA_DIZINI=self.kira_dizini, ORKESTRA_KAYNAK_KIRA_AYAR=self.ayar_yolu)
         self.env.pop(K.SAHIP_ENV, None)  # dış koşucunun kirası iç testleri muaf tutmasın
         self.env.pop("ORKESTRA_KAYNAK_KIRA", None)
+        self.env.pop("CLAUDE_PROJECT_DIR", None)  # gölge kaydı ve proje ezmesi gerçek projeye gitmesin
         p = mock.patch.dict(os.environ, {"ORKESTRA_KAYNAK_KIRA_DIZINI": self.kira_dizini,
                                          "ORKESTRA_KAYNAK_KIRA_AYAR": self.ayar_yolu})
         p.start()
         self.addCleanup(p.stop)
-        for ad in (K.SAHIP_ENV, "ORKESTRA_KAYNAK_KIRA"):
+        for ad in (K.SAHIP_ENV, "ORKESTRA_KAYNAK_KIRA", "CLAUDE_PROJECT_DIR"):
             if ad in os.environ:
                 eski = os.environ.pop(ad)
                 self.addCleanup(os.environ.__setitem__, ad, eski)
