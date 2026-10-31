@@ -17,6 +17,11 @@ KART = ("# Skill\n## Amaç\nSkill eklemek.\n## Eşanlamlılar\n- skill ekle\n"
 
 class EtkiKapanis(unittest.TestCase):
     def setUp(self):
+        # conftest sıra kapısını kapatır (ORKESTRA_SIRA_KAPISI=0); etki kapısı sıralı işte çalışır, bu yüzden burada açılır
+        self._sira_eski = os.environ.get("ORKESTRA_SIRA_KAPISI")
+        os.environ["ORKESTRA_SIRA_KAPISI"] = "1"
+        self.addCleanup(lambda: os.environ.pop("ORKESTRA_SIRA_KAPISI", None) if self._sira_eski is None
+                        else os.environ.__setitem__("ORKESTRA_SIRA_KAPISI", self._sira_eski))
         self.kok = tempfile.mkdtemp()
         self.sd = os.path.join(self.kok, ".claude", "orkestra")
         graf = os.path.join(harita.klasor_yolu(self.sd), "bilgi_grafigi", "kartlar")

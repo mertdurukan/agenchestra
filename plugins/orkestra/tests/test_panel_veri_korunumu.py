@@ -44,8 +44,9 @@ class VeriKorunumu(unittest.TestCase):
             self.skipTest("temel commit okunamadı")
 
     def test_k2_gorsel_kitap_sunulur(self):
-        import panel
-        kaynak = open(panel.__file__, encoding="utf-8").read()
+        # panel.__file__ conftest'te ayar yalıtımı için sahte yola çevrilir (mod_yalitim); kaynak gerçek yoldan okunur
+        with open(os.path.join(KOK, "scripts", "panel.py"), encoding="utf-8") as f:
+            kaynak = f.read()
         for yol in ("/gorsel.css", "/gorsel.js"):
             self.assertIn(f'"{yol}"', kaynak)
 

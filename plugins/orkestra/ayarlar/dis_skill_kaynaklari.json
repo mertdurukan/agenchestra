@@ -89,6 +89,8 @@
       "indirme": "https://mcp.directory/api/skills/download/191",
       "kaynak": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/main/.claude/skills/ui-ux-pro-max",
       "sha256": "2715e8cf9289095bbd42153b4944c8b379964601cc07dd87ad132a67610f1321",
+      "sha256_lf": "fc91fb3731adb09efaac1b55a7d78533c0f38452c513150c5ceef95a4ed4ecf4",
+      "sha256_not": "sha256 indirilen özgün baytların özetidir; depo .gitattributes eol=lf ile baytları normalleştirdiği için depodaki kopya sha256_lf ile sınanır. Özgün baytlar bu kayıt için yeniden doğrulanamadı (I-306).",
       "indirme_tarihi": "2026-10-30"
     }
   ]

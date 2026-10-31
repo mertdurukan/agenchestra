@@ -24,7 +24,7 @@ class DisSkiller(unittest.TestCase):
             self.assertTrue(os.path.isfile(yol), k["ad"])
             with open(yol, "rb") as f:
                 b = f.read()
-            self.assertEqual(hashlib.sha256(b).hexdigest(), k["sha256"], k["ad"])
+            self.assertEqual(hashlib.sha256(b).hexdigest(), k.get("sha256_lf", k["sha256"]), k["ad"])
             m = re.search(rb"\A---\r?\nname: (\S+)\r?\n", b)
             self.assertIsNotNone(m, k["ad"])
             self.assertEqual(m.group(1).decode(), k["ad"])
