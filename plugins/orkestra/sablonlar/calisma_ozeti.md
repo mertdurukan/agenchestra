@@ -95,7 +95,7 @@
 
 ## Plana göre gerçekleşen
 
-<!-- doldur: plandaki her P ve mevcut durum §6'daki her G ayrı satır; her satır en çok 300 karakter (biçim kapısı daha uzununu reddeder), ayrıntıyı bölüm altına ayrı paragraf yaz.
+<!-- doldur: plandaki her P ve mevcut durum gap bölümündeki her G ayrı satır; her satır en çok 300 karakter (biçim kapısı daha uzununu reddeder), ayrıntıyı bölüm altına ayrı paragraf yaz.
 - P1: yapıldı | kısmen | yapılmadı. Kanıt: komut çıktısı ya da dosya:satır.
 - G1: kapandı | açık. Hangi P ile kapandığı.
 Planın dışına çıkılan işler ve kalan işler de ayrı satırlarla yazılır. -->

@@ -46,7 +46,7 @@
 **Önce:** zorunlu: `yok` ya da virgülle `P<n> — Çıktı: <o maddenin hangi çıktısını okuduğu>` / `P<n> — Çakışma: <hangi dosyada yazma alanı kesişir>`; yalnız gerçek bağımlılık yaz, "sıra düzgün olsun" gerekçe değildir
 **Yazma alanı:** bu maddenin yazacağı dosyalar (virgülle; glob olabilir); aynı dalgadaki maddelerin alanları kesişmez
 **Jira:** Jira'dan gelen görevde görev anahtarı (örn. `PE-770`); isteğe bağlı, yalnız Jira görevinde yaz. Öncülleri `jira_bagimlilik.json`dan okunur: açık öncül plan kümesinde olmalı ve `**Önce:**` içinde anılmalıdır (ADR-0086; `orkestra is dalga <iş> --jira` satırları üretir)
-**Gap:** G<n> (MD §6'daki hangi gap'i kapatır; gap'li işlerde zorunlu)
+**Gap:** G<n> (MD gap bölümündeki hangi gap'i kapatır; gap'li işlerde zorunlu)
 **Sözleşme:** S<n> (sözleşmeli işte zorunlu: bu madde sözleşmedeki hangi başarı kriterini sağlar; `sozlesme_<tarih>.md`)
 **Mevcut varlık:** harita kayıt kimliği (virgülle; kimlikten sonra `(not)` ya da `; not` serbest) ya da `yok — <aranan>` (dokunduğun yerde zaten var olan mekanizma; `orkestra harita oku`; haritalı işlerde zorunlu)
 **Etki:** bu maddenin dokunduğu etki kümesi yüzeyleri (virgülle; `## Etki kümesi` bölümündeki yüzey adı ya da yolu; `etki: true` işlerde her yüzey en az bir maddede anılır, ADR-0118)
@@ -65,7 +65,7 @@ Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum günce
 
 ## Gap kapsama
 
-<!-- gap'li işlerde zorunlu (ikinci doğrulama): MD §6'daki her gap bir satır: - **G1** → P1, P2   ya da   - **G3** Kapsam dışı: <gerekçe> -->
+<!-- gap'li işlerde zorunlu (ikinci doğrulama): MD gap bölümündeki her gap bir satır: - **G1** → P1, P2   ya da   - **G3** Kapsam dışı: <gerekçe> -->
 
 ## Best in class denetimi
 

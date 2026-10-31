@@ -468,7 +468,7 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
         if SIRA.kalite_kapisi_acik():
             kayit["kalite"] = True  # P-018: belge çıtası (özet, kabul/geri alma, kanıtlı todo, planla karşılaştıran özet)
         if SIRA.gap_kapisi_acik():
-            kayit["gap"] = True  # P-017: gap analizi (mevcut durum §6) ve plan kapsama denetimi
+            kayit["gap"] = True  # P-017: gap analizi (mevcut durum gap bölümü) ve plan kapsama denetimi
         if SIRA.harita_kapisi_acik():
             kayit["harita"] = True  # ADR-0005: plan maddesi mevcut varlığı sistem haritasından gösterir
         if SIRA.uretim_kapisi_acik():

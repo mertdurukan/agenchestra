@@ -443,7 +443,7 @@ def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = 
             engelsiz.append(n)
     gap = None
     klasor = os.path.dirname(os.path.abspath(plan_yolu))
-    if _SIRA.gapli_mi(klasor):  # P-017 ikinci geçiş: MD §6 gap'leri plan maddeleriyle kapsanıyor mu
+    if _SIRA.gapli_mi(klasor):  # P-017 ikinci geçiş: MD gap bölümü gap'leri plan maddeleriyle kapsanıyor mu
         gap_eksik = _SIRA.gap_kapsama_eksikleri(klasor)
         eksik += [f"gap kapsaması: {e}" for e in gap_eksik]
         gap = {"toplam": len(_SIRA.mevcut_durum_gapleri(klasor)), "eksik": len(gap_eksik)}
@@ -501,7 +501,7 @@ def karar_blogu(sonuc: dict, ozet_degeri: str) -> str:
          f"**İddialar:** {len(iddialar)} (✅ {t}, ❌ {y}); tahmin: {sonuc['tahmin_sayisi']}", ""]
     if sonuc.get("gap"):
         g = sonuc["gap"]
-        s += [f"**Gap kapsaması:** {'tam' if not g['eksik'] else str(g['eksik']) + ' eksik'} (MD §6: {g['toplam']} gap)", ""]
+        s += [f"**Gap kapsaması:** {'tam' if not g['eksik'] else str(g['eksik']) + ' eksik'} (MD gap bölümü: {g['toplam']} gap)", ""]
     if sonuc["eksik"]:
         s += ["**Yapısal eksikler:**", ""] + [f"- {e}" for e in sonuc["eksik"][:12]] + [""]
     kayip = [f"{k['dosya']}:{k['satir']} {k['yol']}" for k in sonuc.get("yol", []) if not k["var"]]
