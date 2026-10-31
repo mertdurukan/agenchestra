@@ -66,15 +66,20 @@ def mod_mesaji(metin: str) -> str | None:
     return m.group(1).lower() if m and mod_kapisi_acik() else None
 
 
+def eklenti_ayar_yolu() -> str:
+    """Eklentinin varsayılan mod ayar dosyası (`ayarlar/yetki.json`); panel ve testler aynı kapıdan okur."""
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(kok, "ayarlar", "yetki.json")
+
+
 def varsayilan_mod(sd: str | None = None) -> str:
     """Varsayılan çalışma modu: `ayarlar/yetki.json`, proje ezmesi `<durum klasörü>/yetki.json` (klasör = proje kökü).
     Dosya yok, bozuk ya da değer tanınmıyorsa `plan`; varsayılan hiçbir zaman kesin sınırları gevşetmez."""
     import json
     if not mod_kapisi_acik():
         return MOD_PLAN
-    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     sonuc = MOD_PLAN
-    for yol in (os.path.join(kok, "ayarlar", "yetki.json"), os.path.join(sd, "yetki.json") if sd else None):
+    for yol in (eklenti_ayar_yolu(), os.path.join(sd, "yetki.json") if sd else None):
         if not yol:
             continue
         try:
