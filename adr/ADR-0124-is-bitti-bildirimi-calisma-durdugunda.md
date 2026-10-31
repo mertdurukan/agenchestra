@@ -1,4 +1,4 @@
-# ADR-0116: "İş bitti" bildirimi yalnız çalışma durduğunda gider
+# ADR-0124: "İş bitti" bildirimi yalnız çalışma durduğunda gider
 
 **Durum:** Kabul edildi
 
