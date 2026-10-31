@@ -23,6 +23,7 @@ os.environ.setdefault("ORKESTRA_ADR_KAPISI", "0")  # kapanış ADR kapısı (P-0
 os.environ.setdefault("ORKESTRA_SOZLESME_KAPISI", "0")  # görev sözleşmesi (ADR-0035): eski testler sözleşmesiz iş açar; sözleşme testleri '1' yapar
 os.environ.setdefault("ORKESTRA_TESLIM_KAPISI", "0")  # teslim kapısı (ADR-0035): testler gerçek gh/PR aramasın; test_teslim.py "1" yapar
 os.environ.setdefault("ORKESTRA_IZOLE_UYARI", "0")  # izole ortam uyarısı (ADR-0035): on_kontrol testleri uyarısız koşar
+os.environ.setdefault("ORKESTRA_SKILL_SUREKLI", "0")  # sürekli açık skill gövdesi (ADR-0113/0119) SessionStart not bütçesini ölçmez; test_skill_surekli.py kendisi açar
 
 
 import pytest  # noqa: E402
