@@ -343,6 +343,10 @@ def kural_dosyasi_esitle_fark(sd: str) -> tuple[bool, list[str]]:
     açılışında (hook'tan önce) yüklendiği için yazıldıysa o oturumun bağlamındaki metin eskidir (I-297 P2)."""
     os.makedirs(_onay_dizini(sd), exist_ok=True)
     with L.kilit(_kilit_yolu(sd)):
+        try:
+            _kurallar_md_blogu_yaz(_eklenti_oku())  # KURALLAR.md'deki mod da ayarla birlikte yenilenir (içerik aynıysa yazmaz)
+        except OSError:
+            pass
         yol = _kural_dosya_yolu(sd)
         metin = _kural_dosya_metni(sd)
         try:
