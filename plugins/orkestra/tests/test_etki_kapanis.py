@@ -17,6 +17,9 @@ KART = ("# Skill\n## Amaç\nSkill eklemek.\n## Eşanlamlılar\n- skill ekle\n"
 
 class EtkiKapanis(unittest.TestCase):
     def setUp(self):
+        sira = unittest.mock.patch.dict(os.environ, {"ORKESTRA_SIRA_KAPISI": "1"})  # conftest kapıyı '0' yapar; etki kapsamı sıralı işe bağlı
+        sira.start()
+        self.addCleanup(sira.stop)
         self.kok = tempfile.mkdtemp()
         self.sd = os.path.join(self.kok, ".claude", "orkestra")
         graf = os.path.join(harita.klasor_yolu(self.sd), "bilgi_grafigi", "kartlar")
