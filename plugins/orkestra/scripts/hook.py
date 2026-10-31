@@ -162,6 +162,75 @@ def kabuk_kilitli_yazma(komut: str, kilitli: dict[str, str]) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------- I-309 P6: çıplak test koşusu yönlendirmesi
+# Tam takım `scripts/test_paralel.py` ile koşar: makine geneli kira (kaynak_kira), ortak işçi bütçesi ve sonuç önbelleği
+# (test_onbellek) yalnız orada alınır. Çıplak `pytest` / `python -m pytest` / `python -m unittest` bunları atlar.
+# Kapsam dışı (yanlış pozitif azaltma): hedefli çağrı (tek dosya `*.py`, düğüm `::`, `-k` süzgeci, unittest modül adı)
+# kısa sürer ve tam takımla çakışma riski küçüktür; toplama/yardım (`--collect-only`, `--version`, `-h`) test koşmaz;
+# komutta `test_paralel` geçiyorsa koşu zaten kiralıdır (iç içe koşu kira almaz). Kapı adı ayrı tutulur ki gölge ölçümü
+# ve ihlal geçişi kira kapısından bağımsız karar olsun (P-028); kira modu `kapali` ise kapı da susar.
+TEST_YONLENDIRME_KAPI = "test_yonlendirme"
+_TEST_ON = re.compile(r"pytest|py\.test|unittest", re.I)
+_TEST_BOL = re.compile(r"&&|\|\||[;|\n]")
+_TEST_KOSUCU = re.compile(
+    r"(?:^|\s)(?:(?:[^\s]*[\\/])?(?:python[0-9.]*|py)(?:\.exe)?(?:\s+-[0-9.]+)?(?:\s+-[A-Za-z]+)*\s+-m\s+(?P<mod>pytest|unittest)"
+    r"|(?:[^\s]*[\\/])?(?P<cli>pytest|py\.test)(?:\.exe)?)(?=\s|$)(?P<arg>.*)$", re.I)
+_TEST_HEDEF = re.compile(r"\.py\b|::|(?:^|\s)-k(?:\s|=|\S)|(?:^|\s)--(?:lf|last-failed|deselect)\b")
+_TEST_KOSMAZ = re.compile(r"(?:^|\s)(?:--collect-only|--co|--version|-h|--help|--fixtures|--markers)(?=\s|$)")
+
+
+def ciplak_test_kosusu(komut: str) -> str | None:
+    """Kabuk komutu çıplak TAM test koşusuysa koşucu parçasını (kısaltılmış) döndürür, değilse None."""
+    if not komut or not _TEST_ON.search(komut) or "test_paralel" in komut:
+        return None
+    for parca in _TEST_BOL.split(komut):
+        sade = parca.replace('"', " ").replace("'", " ").strip()
+        m = _TEST_KOSUCU.search(sade)
+        if not m:
+            continue
+        arg = m.group("arg") or ""
+        if _TEST_KOSMAZ.search(arg) or _TEST_HEDEF.search(arg):
+            continue
+        if (m.group("mod") or "").lower() == "unittest":
+            ilk = next((a for a in arg.split() if not a.startswith("-")), "")
+            if ilk and ilk != "discover":  # `unittest tests.test_x`: modül hedefli
+                continue
+        return " ".join(sade.split())[:150]
+    return None
+
+
+def _test_yonlendirme(komut: str, cwd: str | None) -> str:
+    """Çıplak tam test koşusunda gölge kaydı + engellemeyen ipucu döndürür (ihlal modunda reddeder); değilse ''."""
+    if os.environ.get("ORKESTRA_TEST_YONLENDIRME", "").strip() == "0":
+        return ""
+    parca = ciplak_test_kosusu(komut)
+    if not parca:
+        return ""
+    import kaynak_kira as KK
+    if KK.ayarlar(cwd)["mod"] == "kapali":
+        return ""
+    kosucu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_paralel.py").replace("\\", "/")
+    try:
+        d = KK.durum()
+        sah = [s for s in d["sahipler"] if s.get("canli")]
+        bek = [b for b in d["bekleyenler"] if b.get("canli")]
+    except Exception:
+        sah, bek = [], []
+    durum = f"makine genelinde şu an {len(sah)} kiralı test koşusu sürüyor"
+    if sah:
+        durum += ", sahip: " + "; ".join(f"{s.get('pid')}/{s.get('komut', '')}" for s in sah[:2])
+    if bek:
+        durum += f", bekleyen: {len(bek)}"
+    ileti = (f"çıplak tam test koşusu ({parca}) kira, ortak işçi bütçesi ve sonuç önbelleği almaz; tam takım için "
+             f"`python {kosucu}` kullan. Tek dosya ya da -k hedefli çağrı serbesttir. {durum}.")
+    import kapi_mod
+    if kapi_mod.mod(TEST_YONLENDIRME_KAPI, cwd) == "ihlal":
+        kapi_mod.ret_kaydet(cwd or os.getcwd(), TEST_YONLENDIRME_KAPI, f"çıplak test koşusu: {parca}")
+        reddet(ileti)
+    kapi_mod.kaydet(cwd or os.getcwd(), TEST_YONLENDIRME_KAPI, f"çıplak test koşusu: {parca}")
+    return f"orkestra (gölge, {TEST_YONLENDIRME_KAPI}): {ileti}"
+
+
 def izin_ver(guncel_girdi: dict | None = None, neden: str = ""):
     o = {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow",
                                 "permissionDecisionReason": neden or "orkestra"}}
