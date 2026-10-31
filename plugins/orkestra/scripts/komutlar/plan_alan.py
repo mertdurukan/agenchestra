@@ -4,8 +4,8 @@
                     [--baslik B] [--dayanak-ek R1] [--no N] [--once-tur Çıktı|Çakışma] [--yaz] [--json]`
 
 Zincir alanları (Gap, Sözleşme, Dayanak, İddialar, Önce, Yazma alanı) iş belgelerinden doğrulanıp türetilir:
-G'ler mevcut durum §6'dan, S'ler sözleşmenin `## Başarı kriterleri` bölümünden, C'ler ve P'ler plan.md'den okunur.
-Dayanak, seçilen G satırlarının andığı `MD §k` bölümünden türer (anma yoksa `MD §6 G<n>`). Serbest alanlar
+G'ler mevcut durum gap bölümünden, S'ler sözleşmenin `## Başarı kriterleri` bölümünden, C'ler ve P'ler plan.md'den okunur.
+Dayanak, seçilen G satırlarının andığı `MD §k` bölümünden türer (anma yoksa `MD §<gap bölümü> G<n>`). Serbest alanlar
 (Ne, Kabul, Geri alma, Alternatifler, Üretim noktası …) `<doldur>` yer tutucusuyla kalır. Alan sırası işin plan
 şablonundan gelir (`is_kaydi.plan_alan_sirasi`); plan biçimi değişmez, elle yazılmış planlar aynen geçerlidir.
 Var olmayan G/S/C/P numarası çıkış 2 ile reddedilir. `--yaz` olmadan dosya değişmez (yalnız stdout).

@@ -1,4 +1,4 @@
-# ADR-0127: Kapı modu tek kaynaktan okunur; kural metni modu yazmaz
+# ADR-0128: Kapı modu tek kaynaktan okunur; kural metni modu yazmaz
 
 **Durum:** Kabul edildi
 

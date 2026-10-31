@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ork_lib as L  # noqa: E402
@@ -536,15 +537,48 @@ def olustur(sd: str, proje: str) -> dict:
     }
 
 
+def _taze_ozet(yol: str, proje: str, bas_ns: int) -> dict | None:
+    """Kilit altında çağrılır. ozet.json bu çağrı başladıktan SONRA başlamış bir hesaplamanın ürünüyse onu döner, yoksa None.
+
+    Eşik yazım zamanı değil hesaplama başlangıcıdır: çağrıdan önce başlayıp sonra yazan hesap, çağırının az önce yaptığı
+    değişikliği okumamış olabilir (bayat). Damga ozet.json'un mtime_ns+boyutuna bağlıdır; dosya başka yoldan değiştiyse
+    ya da proje farklıysa eşleşmez ve yeniden hesaplanır."""
+    try:
+        with open(yol + ".uretim", encoding="utf-8") as f:
+            d = json.load(f)
+        st = os.stat(yol)
+        if (not isinstance(d, dict) or d.get("mtime_ns") != st.st_mtime_ns or d.get("boyut") != st.st_size
+                or d.get("proje") != os.path.abspath(proje) or int(d.get("bas_ns", 0)) < bas_ns):
+            return None
+        with open(yol, encoding="utf-8") as f:
+            o = json.load(f)
+        return o if isinstance(o, dict) else None
+    except (OSError, ValueError, TypeError):
+        return None
+
+
 def yaz(sd: str, proje: str) -> dict | None:
     """Anlık görüntüyü yazar; hata arayüzü bozmasın diye ozet_hata.txt'ye düşer, istisna fırlatmaz."""
     try:
         # Paralel ajan bitişleri aynı dosyayı aynı anda değiştirmeye çalışıp Windows'ta PermissionError alıyordu:
-        # kilit altında sıraya girer; sonra gelen güncel durumu hesaplar, bayat anlık görüntü yazılmaz.
+        # kilit altında sıraya girer; bayat anlık görüntü yazılmaz.
+        # Single-flight (I-309 C6): N bekleyenin her biri olustur'u yeniden koşunca son bekleyen N x olustur bekliyor,
+        # 20 sn'yi aşıp zaman aşımı veriyordu. Kilidi alan, bu çağrıdan sonra başlamış bir hesaplamanın yazdığını
+        # bulursa (_taze_ozet) yeniden hesaplamaz.
         yol = os.path.join(sd, "ozet.json")
+        bas_ns = time.time_ns()   # kilit beklemesinden ÖNCE: çağırının değişiklikleri bu andan öncedir
         with L.kilit(yol, bekleme_s=20.0):   # soğuk olustur ~4 sn sürer; 5 sn, dört paralel bitişte zaman aşımı veriyordu
-            o = olustur(sd, proje)
-            L.atomik_yaz(yol, json.dumps(o, ensure_ascii=False))
+            o = _taze_ozet(yol, proje, bas_ns)
+            if o is None:
+                uretim_ns = time.time_ns()
+                o = olustur(sd, proje)
+                L.atomik_yaz(yol, json.dumps(o, ensure_ascii=False))
+                try:   # damga yalnız eniyileme: yazılamazsa sonraki çağrı yeniden hesaplar
+                    st = os.stat(yol)
+                    L.atomik_yaz(yol + ".uretim", json.dumps({"bas_ns": uretim_ns, "mtime_ns": st.st_mtime_ns,
+                                                              "boyut": st.st_size, "proje": os.path.abspath(proje)}))
+                except OSError:
+                    pass
         try:
             os.remove(yol + ".bekliyor")   # önceki çakışmadan kalan işaret: bu yazım onu karşıladı
         except OSError:

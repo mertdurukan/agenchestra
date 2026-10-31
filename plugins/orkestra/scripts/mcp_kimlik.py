@@ -112,6 +112,9 @@ def ortam_kur(ad: str, girdi: dict, al, taban: dict | None = None) -> dict:
 
 
 def hata(mesaj: str, kod: int = 2):
+    # `-I` PYTHONUTF8'i yok sayar: Windows'ta stderr yerel kod sayfasına (cp1254) düşer, MCP istemcisi UTF-8 bekler.
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
     print(f"mcp_kimlik: {mesaj}", file=sys.stderr)
     sys.exit(kod)
 

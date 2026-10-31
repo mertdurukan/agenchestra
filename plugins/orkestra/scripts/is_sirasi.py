@@ -13,7 +13,7 @@ bayraksız (eski) işler ve `ORKESTRA_SIRA_KAPISI=0` kapıyı atlar.
 Gap analizi (P-017, is.json `gap: true` olan işlerde; bayraksız işler ve `ORKESTRA_GAP_KAPISI=0` muaf), iki geçiş:
 - Birinci geçiş (plandan önce): mevcut durumun `## 6. Gap analizi` bölümünde en az bir `**G<n>**` satırı olmadan
   mevcut durum tamam sayılmaz (plan.md yazılamaz).
-- İkinci geçiş (plandan sonra): MD §6'daki her G bir P maddesinin `**Gap:**` alanında anılır ya da plandaki
+- İkinci geçiş (plandan sonra): MD gap bölümündeki her G bir P maddesinin `**Gap:**` alanında anılır ya da plandaki
   `## Gap kapsama` bölümünde `Kapsam dışı: <gerekçe>` ile gerekçelendirilir; her P'nin `**Gap:**` alanı MD'de
   var olan G'leri gösterir.
 """
@@ -194,9 +194,6 @@ def sozlesme_eksikleri(klasor: str, baglanti: bool = False) -> list[str]:
         return ["sozlesme_<YYYYMMDD>.md yok (`orkestra is belge <id> sozlesme`)"]
     metin = _oku(yol) or ""
     eksik = []
-    e = ozet_eksigi(metin, "sözleşme")
-    if e:
-        eksik.append(e)
     for ad in SOZLESME_BOLUMLERI:
         if not _baslik_bolumu(metin, ad):
             eksik.append(f"sözleşme: `## {ad}` bölümü yok ya da boş")
@@ -1018,7 +1015,11 @@ def mevcut_durum_eksikleri(klasor: str) -> list[str]:
         eksik.append("mevcut durum: `**Ölçüm saati:**` alanı yok")
     else:
         sonra = sade[m.end():].lstrip("\n")
-        dolu = m.group(1).strip() or (sonra.split("\n\n", 1)[0].strip() if not sonra.startswith("**") else "")
+        blok = re.split(r"\n(?:\*\*|##)", sonra, maxsplit=1)[0]
+        if "Tarih ve saat:" in blok:  # yeni düzen (ADR-0126): etiketli satırlar; boş etiket dolu sayılmaz
+            dolu = (re.search(r"Tarih ve saat:[ \t]*(\S.*)", blok) or [None, ""])[1].strip()
+        else:
+            dolu = m.group(1).strip() or (sonra.split("\n\n", 1)[0].strip() if not sonra.startswith("**") else "")
         if not dolu or dolu.startswith("#"):
             eksik.append("mevcut durum: `**Ölçüm saati:**` boş")
     bolumler = _bolumler(metin)
@@ -1052,7 +1053,7 @@ def mevcut_durum_gapleri(klasor: str) -> set[int]:
 
 
 def gap_kapsama_eksikleri(klasor: str) -> list[str]:
-    """İkinci geçiş (P-017): MD §6 gap'leri ile plan maddeleri arasında kapsama. Gap'siz işte boş liste."""
+    """İkinci geçiş (P-017): MD gap bölümü gap'leri ile plan maddeleri arasında kapsama. Gap'siz işte boş liste."""
     if not gapli_mi(klasor):
         return []
     metin = _plan_oku(klasor) or ""
@@ -1128,7 +1129,7 @@ def karar_engeli(klasor: str) -> list[str]:
 
 
 def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
-    """Kapısız (her sıralı işte) plan eksikleri: mevcut durum bağlantısı, P maddeleri, MD dayanağı; kalite işinde Özet/Kabul/Geri alma."""
+    """Kapısız (her sıralı işte) plan eksikleri: mevcut durum bağlantısı, P maddeleri, MD dayanağı; kalite işinde Kabul/Geri alma."""
     eksik = []
     md = mevcut_durum_yolu(klasor)
     if md is not None:
@@ -1145,10 +1146,7 @@ def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
             eksik.append(f"P{n}: `MD §<k>` dayanağı yok (mevcut durum bölümü)")
         elif not any(1 <= k <= (md_son if gapli_mi(klasor) else md_sayi) for k in dayanaklar):
             eksik.append(f"P{n}: dayanak MD §{dayanaklar[0]} geçersiz (§1-§{md_son if gapli_mi(klasor) else md_sayi})")
-    if kaliteli_mi(klasor):
-        e = ozet_eksigi(metin, "plan")
-        if e:
-            eksik.append(e)
+    if kaliteli_mi(klasor):  # ADR-0126: plan `## Özet` taşımaz; ilk satır bölüm başlıklarında `**Sonuç:**`
         for n, blok in sorted(bloklar.items()):
             for alan in ("Kabul", "Geri alma"):
                 if not alan_dolu(blok, alan):
@@ -1193,8 +1191,8 @@ def plan_yazim_eksikleri(klasor: str, metin: str) -> tuple[list[str], list[str]]
 
 _DUZELTMELER = (  # (eksik metninde aranan, düzeltme şablonu); {h} = madde (P<n>) ya da "plan.md"; ilk eşleşen kullanılır
     (r"^G(\d+): hiçbir P", "bir P'nin `**Gap:**` alanına G{1} ekle ya da `## Gap kapsama` altına `- **G{1}:** Kapsam dışı: <gerekçe>` yaz"),
-    (r"^P\d+: G(\d+) mevcut durum", "{h} `**Gap:**` alanından G{1}'i çıkar ya da mevcut durum §6'ya `- **G{1}:** …` ekle"),
-    (r"\*\*Gap:\*\*", "{h} altına yaz: `**Gap:** G1` (mevcut durum §6'daki gap)"),
+    (r"^P\d+: G(\d+) mevcut durum", "{h} `**Gap:**` alanından G{1}'i çıkar ya da mevcut durum gap bölümüne `- **G{1}:** …` ekle"),
+    (r"\*\*Gap:\*\*", "{h} altına yaz: `**Gap:** G1` (mevcut durum gap bölümündeki gap)"),
     (r"^S(\d+): hiçbir", "bir P'nin `**Sözleşme:**` alanına S{1} ekle"),
     (r"\*\*Sözleşme:\*\*", "{h} altına yaz: `**Sözleşme:** S1` (sözleşmedeki başarı kriteri)"),
     (r"Mevcut varlık|haritada yok|`yok` için aranan|sistem haritası yok",

@@ -54,7 +54,7 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - Numara: `is_kaydi.sonraki_klasor_adi` ve `klasor_ayir` `git worktree list` ağaçlarındaki NNN'leri de sayar. ADR numarasının ağaçlar arası tekilliği kodla sağlanmadı: yeni ADR'de ana klasörün `adr/` dizinindeki en büyük numaraya bak.
 - Eski kopyalar: `orkestra durum devral` (kuru koşu) ve `--uygula` hedefte olmayan jsonl satırı, iş, onay ve görev dosyalarını ana duruma ekler; yedek `yedek/devral_<zaman>/`, kaynakta `.devralindi` damgası, kaynak silinmez, kimlik çakışması yazılmaz raporlanır. `--tum` deponun bütün ağaçlarını tarar.
 - `orkestra kart agac-temizle`: `claude/<ad>-<hex>` ağaçları `oturum` sınıfında listelenir, kaldırılmaz; devralınmamış kayıt varsa uyarır. `todo-denetle` ana ağaçla aynı ya da devralınmış worktree todo kopyasını bayat saymaz.
-- Bilinen sınır: iki ağaçta aynı anda açılan iki iş aynı NNN'yi alabilir (klasör diske yazılmadan önceki pencere). Testler: `tests/test_oturum_agaci_durum.py`, `tests/test_durum_devral.py`.
+- Eşzamanlı numara: `klasor_ayir` numarayı ve klasörü ortak durum dizinindeki `klasor_numara` kilidi altında ayırır; ağaçlar aynı durumu paylaştığı sürece iki ağaçta aynı anda açılan iki iş farklı NNN alır (`tests/test_klasor_numara_esz.py`: 100 bariyerli tur). Sınır yalnız `ORKESTRA_DURUM_YEREL=1` ile ağaçlar ayrı durum dizini kullanırsa açık kalır (kilit paylaşılmaz; koddan çıkarım, sınanmadı). Testler: `tests/test_oturum_agaci_durum.py`, `tests/test_durum_devral.py`.
 
 ## Kural katmanları (kod)
 - Kütüphane `scripts/onay.py` (kurallar bölümü), CLI `scripts/komutlar/onay.py` (`kural ...`), panel `assets/kurallar.js` + `panel.py` `_onay_islemi`. Kullanım ve öncelik: `KURALLAR.md` "Kural katmanları".

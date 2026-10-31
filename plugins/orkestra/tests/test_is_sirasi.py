@@ -134,7 +134,7 @@ class IsSirasi(unittest.TestCase):
     def test_iskelet_tamam_sayilmaz(self):
         _, klasor, _ = self.ac()
         eksik = S.mevcut_durum_eksikleri(klasor)
-        self.assertEqual(len([e for e in eksik if e.endswith("boş")]), 6, eksik)  # 5 bölüm + Ölçüm saati
+        self.assertEqual(len([e for e in eksik if e.endswith("boş")]), 5, eksik)  # 4 bölüm + Ölçüm saati (ADR-0126; gap bölümü yalnız gap'li işte)
         self.assertTrue(any("Ölçüm saati" in e for e in eksik))
 
     def test_kapi_kapaliyken_eski_davranis(self):
@@ -500,7 +500,7 @@ class KaliteCitasi(unittest.TestCase):
 
     def test_planda_ozet_kabul_geri_alma_zorunlu(self):
         self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(ozet="<!-- doldur -->"))
-        self.assertTrue(any("plan: `## Özet`" in e for e in S.plan_eksikleri(self.k)))
+        self.assertFalse(any("Özet" in e for e in S.plan_eksikleri(self.k)))  # ADR-0126: plan Özet istemez
         self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(kabul=""))
         e = S.plan_eksikleri(self.k)
         self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
@@ -624,9 +624,10 @@ class PlanYazimRaporu(unittest.TestCase):
         self.assertTrue(m.startswith("plan.md yazılamaz (P-005"), m)
         self.assertLess(m.index("Ret nedeni (1):"), m.index("Diğer eksikler"))
         for parca in ("aranan şey", "bağlantısı yok", "P1: `MD §<k>` dayanağı yok", "P2: dayanak MD §9 geçersiz",
-                      "plan: `## Özet` bölümü yok", "P1: `**Kabul:**`", "P2: `**Geri alma:**`", "P1: `**Gap:** G<n>`",
+                      "P1: `**Kabul:**`", "P2: `**Geri alma:**`", "P1: `**Gap:** G<n>`",
                       "P2: `**Gap:** G<n>`", "G1: hiçbir P", "G2: hiçbir P"):
             self.assertIn(parca, m)
+        self.assertNotIn("Özet", m)  # ADR-0126
         self.assertLessEqual(len(m), S.PLAN_MESAJ_SINIR)
 
     @_golge_sabit
@@ -635,7 +636,7 @@ class PlanYazimRaporu(unittest.TestCase):
         red, neden, bilgi = self.hook_yaz(self.TASLAK)
         self.assertFalse(red, neden)  # yeni sertlik yok: taslak plan yazılabilir
         self.assertIn("plan.md yazıldı", bilgi)
-        for parca in ("dayanağı yok", "`## Özet`", "`**Kabul:**`", "`**Gap:** G<n>`", "G2: hiçbir P"):
+        for parca in ("dayanağı yok", "`**Kabul:**`", "`**Gap:** G<n>`", "G2: hiçbir P"):
             self.assertIn(parca, bilgi)
         self.assertIn("Bilgi, gölge kapı", bilgi)  # P-030 best in class gölgede: engellemez, yalnız bilgi
         self.assertIn("Alternatifler", bilgi)
@@ -655,7 +656,7 @@ class PlanYazimRaporu(unittest.TestCase):
         for i in maddeler:
             self.assertTrue(satirlar[i + 1].startswith("   → "), satirlar[i:i + 2])
         for duzeltme in ("P1 altına yaz: `**Gap:** G1`", "P1 altına yaz: `**Kabul:** <ölçülebilir ölçüt>`",
-                         "P2 altına yaz: `**Geri alma:**", "P1 altına yaz: `**Dayanak:** MD §3`", "`## Özet` ve 3-4 cümle",
+                         "P2 altına yaz: `**Geri alma:**", "P1 altına yaz: `**Dayanak:** MD §3`",
                          "`- **G2:** Kapsam dışı: <gerekçe>`", "P1 altına yaz: `**Alternatifler:**`"):
             self.assertIn(duzeltme, m)
 

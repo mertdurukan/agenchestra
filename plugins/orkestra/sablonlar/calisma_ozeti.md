@@ -4,6 +4,13 @@
 
 <!-- iki katman (ADR-0085, ADR-0091): `## Özet` yalnız kısa Şef Özeti'dir (gövde ≤ 1200 karakter); yöntem listesi, katman ayrıntısı, sayı tablosu ve kanıt ona girmez, hemen altındaki `## Harita`ya yazılır. Bu özet tek kaynaktır: yönetici anlatısı (`orkestra is anlati`) ve Jira Done yorumu (`orkestra is jira-yorum`) buradaki alanlardan türetilir, ayrıca yazılmaz. -->
 
+<!-- Yazım kuralları (tüm belge):
+1. Her ayrı ifade ayrı bir satırdır (madde işareti ya da numara ile); bir satırda en çok bir cümle, ~200 karakter.
+2. Başlık hiyerarşisi: `##` ana başlık, `###` alt başlık; kalın etiket başlık yerine kullanılmaz, yalnız alan adı olarak kullanılır.
+3. Kanıt (dosya:satır, komut, sayı) satırın sonunda parantez içindedir.
+4. Belirsiz sahiplik ("bizim kod", "kendi sunucumuz") yazılmaz; somut ad yazılır (adres, sürüm, yol, tablo, müşteri).
+5. Tablo ve kod bloğu yok. -->
+
 ## Özet
 
 ***Şef Özeti***
@@ -46,15 +53,18 @@
 
 **Ölçüm saati:**
 
-{tarih} {saat} (yerel). Her sayının yanına komutu ve ölçüm saatini yaz.
+<!-- doldur: her bilgi ayrı satır; her sayının yanına komutu ve ölçüm saatini yaz. -->
+
+- Tarih ve saat: {tarih} {saat} (yerel)
+- Depo: 
+- Dal: 
+- Commit: 
 
 **Denenenler:**
 
-<!-- doldur: neyi hangi yöntemle denedik; satır başına bir yöntem ya da yöntem ailesi. Sütunlar: katman ya da bileşen, yöntem, sonuç (işe yaradı | kısmen | yaramadı | ölçülmedi), kanıt (dosya:satır, komut ya da sayı). Boş satırı doldur, gerekirse satır ekle. -->
+<!-- doldur: neyi hangi yöntemle denedik; her deneme ayrı madde, tam bu biçimde: `- **Katman ya da bileşen:** yöntem → sonuç (işe yaradı | kısmen | yaramadı | ölçülmedi) (kanıt: dosya:satır, komut ya da sayı)`. -->
 
-| Katman ya da bileşen | Yöntem | Sonuç | Kanıt |
-| --- | --- | --- | --- |
-| | | | |
+- 
 
 **Sayılar:**
 

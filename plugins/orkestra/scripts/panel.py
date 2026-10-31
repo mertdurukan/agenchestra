@@ -170,8 +170,7 @@ KULLANICI_YOLLARI = frozenset({"/api/araclar-mcp", "/api/ayarlar", "/api/guncell
 def _mod_kaynak(sd: str) -> str:
     """Varsayılan modun geldiği katman: proje (alan ayarı) | eklenti (ayarlar/ klasörü) | varsayilan (dosya yok ya da geçersiz)."""
     import is_onay  # noqa: PLC0415
-    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for ad, yol in (("proje", os.path.join(sd, "yetki.json")), ("eklenti", os.path.join(kok, "ayarlar", "yetki.json"))):
+    for ad, yol in (("proje", os.path.join(sd, "yetki.json")), ("eklenti", is_onay.eklenti_ayar_yolu())):
         try:
             with open(yol, encoding="utf-8") as f:
                 if (json.load(f) or {}).get("varsayilan_mod") in (is_onay.MOD_PLAN, is_onay.MOD_AUTO):
