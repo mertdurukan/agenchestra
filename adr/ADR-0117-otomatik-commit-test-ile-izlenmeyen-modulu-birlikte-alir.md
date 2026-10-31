@@ -10,7 +10,10 @@
 
 **Karar:**
 
-`oto_commit.py` bir `test_*.py` dosyasını commit ederken, o dosyanın import ettiği ve depoda hâlâ izlenmeyen `.py` modüllerini aynı commit'e ekler (`eslik_moduller`). Yalnız adı import edilen modüle eşit, izlenmeyen dosyalar alınır; başka dosya alınmaz.
+İki yol, aynı ilke: testin import ettiği izlenmeyen `.py` modülü testle birlikte commit'lenir.
+
+- Edit/Write yolu: `oto_commit.py` bir `test_*.py` dosyasını commit ederken, import ettiği izlenmeyen `.py` modüllerini aynı commit'e ekler (`eslik_moduller`, AST ile; `import a`, `from a.b import c`).
+- Kabuk yolu (I-301): `kabuk_commit` sonunda `izlenmeyen_test_modulleri`. Her izlenmeyen `.py` için izlenen `*test_*.py` içinde `import`/`from` satırı aranır (`git grep`); `from paket import modul` biçimi de eşleşir. Modül, eşleşen testin `tests` klasörünün üstündeki eklenti kökünün altındaysa yalnız o dosya pathspec ile commit edilir. Yorum, dizge, başka kökteki aynı adlı dosya ve izlenmeyen `test_*.py` alınmaz.
 
 **Seçenekler:**
 
@@ -20,6 +23,10 @@
 
 **Sonuçlar:**
 
-Olumlu: test ile modülü aynı commit'te gider. Olumsuz: yalnız Edit/Write ile commit edilen test dosyasını kapsar; kabukla yazılan testi ve `from paket.modul` biçimini kapsamaz. Geri alma: `git revert`, ya da `ORKESTRA_OTO_COMMIT` kapatılır.
+Olumlu: test ile modülü aynı commit'te gider; kabuk yolu dahil. 15 test geçer (`tests/test_oto_commit.py`), kabuk yolu için pozitif, negatif, izlenen test yok ve kapalı anahtar vakaları var.
 
-**İlgili iş:** I-265, ADR-0100
+Olumsuz ve kapsam dışı: göreli import (`from . import x`) kabuk yolunda ve Edit/Write yolunda eşleşmez; kabukla yazılan test dosyasının kendisi hâlâ otomatik commit'lenmez; testi modülsüz commit'ten reddeden çalışma zamanı kapısı yoktur (ertelendi, gerekirse P-028 gereği gölge modda ayrı işle açılır). Her Bash çağrısına yalnız izlenmeyen `.py` varsa ek `git grep` maliyeti biner.
+
+Geri alma: `git revert` ya da `ORKESTRA_OTO_COMMIT` kapatılır.
+
+**İlgili iş:** I-265, I-301, ADR-0100
