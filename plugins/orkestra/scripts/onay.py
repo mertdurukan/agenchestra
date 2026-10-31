@@ -261,7 +261,7 @@ def _kural_dosya_metni(sd: str) -> str:
     def kural_satirlari(liste_):
         for r in liste_:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            satirlar.append(f"- {_tek_satir(r['metin'])} ({r['id']}, {tarih})")
+            satirlar.append(f"- {_tek_satir(KM.mod_coz(r['metin'], sd))} ({r['id']}, {tarih})")
 
     if plug_acik:  # tek katmanlıysa eski düzen (başlıksız) korunur
         satirlar += ["Çakışmada proje kuralı eklenti kuralından önce gelir.", "",
