@@ -1,4 +1,4 @@
-"""Kenar düzeyinde eskime takibi (ADR-0112, I-296): kaynak değişince yalnız o kaynağın kenarı eskir; yenileme ikisini de günceller."""
+"""Kenar düzeyinde eskime takibi (ADR-0118, I-296): kaynak değişince yalnız o kaynağın kenarı eskir; yenileme ikisini de günceller."""
 import os
 import shutil
 import sys
@@ -54,6 +54,17 @@ class Eskime(unittest.TestCase):
         self.assertEqual(s["dogrulanmayi_bekleyen"], 1)
         d = H.kenar_denetle(self.kok, self.graf)
         self.assertEqual([(k["koken"], k["guven"]) for k in d["eskimis"]], [("llm", "dusuk")])
+
+    def test_graf_yenile_yoksa_kurar_varsa_yalniz_eskiyeni_yeniler(self):
+        sd = os.path.join(self.kok, "durum")
+        os.makedirs(sd)
+        ilk = H.graf_yenile(self.kok, sd)
+        self.assertEqual((ilk["kuruldu"] > 0, ilk["sema_hatasi"]), (True, 0))
+        yol = os.path.join(H.klasor_yolu(sd), "bilgi_grafigi", "kenarlar.jsonl")
+        self.assertTrue(os.path.exists(yol))
+        self.assertEqual(H.graf_yenile(self.kok, sd), {"yenilenen": 0, "dogrulanmayi_bekleyen": 0})
+        self.yaz("scripts/panel.py", "import araclar_skill\n\nx = 2\n")
+        self.assertEqual(H.graf_yenile(self.kok, sd)["yenilenen"], 1)
 
     def test_kenar_dosyasi_yoksa_bos(self):
         os.remove(self.yol)
