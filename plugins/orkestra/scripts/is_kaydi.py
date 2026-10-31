@@ -473,6 +473,12 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
             kayit["harita"] = True  # ADR-0005: plan maddesi mevcut varlığı sistem haritasından gösterir
         if SIRA.uretim_kapisi_acik():
             kayit["uretim"] = True  # ADR-0069: plan maddesi sorunun doğduğu yeri ve orada önlemeyi `**Üretim noktası:**` ile yazar
+        import istek_defteri
+        if istek_defteri.kapi_acik():
+            kayit["istek"] = True  # ADR-0112: kullanıcının verdiği her madde planda anılır ya da yanıtla çıkarılır
+        import karar_kapisi
+        if karar_kapisi.kapi_acik():
+            kayit["karar"] = True  # ADR-0112: yanıtsız `Karar gerekir` maddesi plan yazımını engeller
         if SIRA.paralellik_kapisi_acik():
             kayit["paralel"] = True  # ADR-0080: plan maddesi `**Önce:**` gerekçeli bağımlılık ve `**Yazma alanı:**` taşır
         if ONAY_KAPISI_ACIK():

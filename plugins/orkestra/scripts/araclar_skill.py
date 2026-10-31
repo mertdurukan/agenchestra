@@ -17,6 +17,7 @@ import shutil
 EKLENTI_KOK = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 EKLENTI_ADI = "orkestra"
 DURUMLAR = ("acik", "kapali")
+KONUMLAR = ("kapali", "ihtiyacta", "surekli")  # ADR-0113: panel anahtarı üç konumlu
 _ALAN = re.compile(r"^(name|description)\s*:\s*(.*?)\s*$", re.M)
 
 
@@ -98,13 +99,29 @@ def _kural(ad: str) -> str:
     return f"Skill({ad})"
 
 
+def konum_yolu(proje: str) -> str:
+    return os.path.join(proje, ".claude", "orkestra", "skill_durum.json")
+
+
+def surekli_oku(proje: str) -> set:
+    """Sürekli açık skill adları (ADR-0113). Dosya yok ya da bozuksa boş küme; yazma yolu bozuk dosyaya dokunmaz."""
+    try:
+        with open(konum_yolu(proje), encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return set()
+    ad = d.get("surekli") if isinstance(d, dict) else None
+    return {x for x in ad if isinstance(x, str)} if isinstance(ad, list) else set()
+
+
 def liste(proje: str, kullanici_dizin: str | None = None, eklenti_dizin: str | None = None) -> list:
-    """Her skill için: ad, kaynak (eklenti|kullanici|proje), aciklama, durum (acik|kapali), mekanizma."""
+    """Her skill için: ad, kaynak (eklenti|kullanici|proje), aciklama, durum (acik|kapali), konum (kapali|ihtiyacta|surekli), mekanizma."""
     kullanici_dizin = kullanici_dizin or os.path.join(os.path.expanduser("~"), ".claude", "skills")
     eklenti_dizin = eklenti_dizin or os.path.join(EKLENTI_KOK, "skills")
     ayar = _oku(ayar_yolu(proje))
     kapali_ek = set((ayar.get("permissions") or {}).get("deny") or [])
     off = {k for k, v in (ayar.get("skillOverrides") or {}).items() if v == "off"}
+    surekli = surekli_oku(proje)
     sonuc = []
     for s in _tara(eklenti_dizin, "eklenti", EKLENTI_ADI + ":"):
         s["mekanizma"] = "deny"
@@ -115,6 +132,8 @@ def liste(proje: str, kullanici_dizin: str | None = None, eklenti_dizin: str | N
             s["mekanizma"] = "skillOverrides"
             s["durum"] = "kapali" if s["ad"] in off else "acik"
             sonuc.append(s)
+    for s in sonuc:
+        s["konum"] = "kapali" if s["durum"] == "kapali" else ("surekli" if s["ad"] in surekli else "ihtiyacta")
     return sonuc
 
 
@@ -153,3 +172,44 @@ def degistir(ad, durum, proje: str, kullanici_dizin: str | None = None, eklenti_
     _yaz(yol, ayar)
     gercek = {s["ad"]: s["durum"] for s in liste(proje, kullanici_dizin, eklenti_dizin)}[ad]
     return {"ad": ad, "istenen": durum, "durum": gercek, "tamam": gercek == durum}
+
+
+def konum_ata(ad, konum, proje: str, kullanici_dizin: str | None = None, eklenti_dizin: str | None = None) -> dict:
+    """Üç konum (ADR-0113): kapali = çağrı engelli; ihtiyacta = açık, açıklama uyunca çağrılır; surekli = açık ve
+    oturum açılışında gövdesi bağlama yüklenir. Sonucu dosyalardan yeniden okuyup döner."""
+    if konum not in KONUMLAR:
+        raise SkillHata("konum kapali, ihtiyacta ya da surekli olmalı")
+    yol = konum_yolu(proje)
+    d = {}
+    if os.path.exists(yol):
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+        except (OSError, ValueError) as e:
+            raise SkillHata("skill_durum.json okunamadı; dosyaya dokunulmadı") from e
+        if not isinstance(d, dict):
+            raise SkillHata("skill_durum.json bir JSON nesnesi değil; dosyaya dokunulmadı")
+    r = degistir(ad, "kapali" if konum == "kapali" else "acik", proje, kullanici_dizin, eklenti_dizin)
+    if not r["tamam"]:
+        return {**r, "konum": None, "istenen": konum, "tamam": False}
+    once = surekli_oku(proje)
+    kume = (once | {ad}) if konum == "surekli" else (once - {ad})
+    if kume != once:
+        d["surekli"] = sorted(kume)
+        _yaz(yol, d)
+    gercek = {s["ad"]: s for s in liste(proje, kullanici_dizin, eklenti_dizin)}[ad]
+    return {"ad": ad, "istenen": konum, "durum": gercek["durum"], "konum": gercek["konum"], "tamam": gercek["konum"] == konum}
+
+
+def govde_yolu(ad, proje: str, kullanici_dizin: str | None = None, eklenti_dizin: str | None = None):
+    """Listede bulunan skill'in SKILL.md yolu; yoksa None (sürekli açık yükleme için, ADR-0113)."""
+    kullanici_dizin = kullanici_dizin or os.path.join(os.path.expanduser("~"), ".claude", "skills")
+    eklenti_dizin = eklenti_dizin or os.path.join(EKLENTI_KOK, "skills")
+    for dizin, onek in ((eklenti_dizin, EKLENTI_ADI + ":"), (kullanici_dizin, ""), (os.path.join(proje, ".claude", "skills"), "")):
+        if not os.path.isdir(dizin):
+            continue
+        for klasor in sorted(os.listdir(dizin)):
+            md = os.path.join(dizin, klasor, "SKILL.md")
+            if os.path.isfile(md) and onek + _basliktan(md, klasor)[0] == ad:
+                return md
+    return None

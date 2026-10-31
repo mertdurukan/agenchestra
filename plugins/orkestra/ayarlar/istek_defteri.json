@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "ADR-0112 istek defteri kapısı. Kullanıcının işe verdiği her bağlantı ve talep istek_defteri.md içinde R<n> olur; plan ve kapanış kapısı her maddenin planda anıldığını ya da `Çıkarıldı: D<n>` ile kullanıcı yanıtıyla çıkarıldığını yoklar. Yalnız is.json istek:true taşıyan sıralı işlerde çalışır. golge = eksik gunluk.jsonl kapi_golge olarak yazılır, iş engellenmez (P-028). ihlal geçişi: orkestra is rapor ile en az 30 iş ve yanlış pozitif 0 ölçülünce ayrı kararla, ADR yazılarak. Serbest metin taleplerinin çıkarımı ajan işidir (kullanıcıya gösterilir); bağlantı çıkarımı regex ile deterministiktir. Kapatma: ORKESTRA_ISTEK_DEFTERI_KAPISI=0. Proje ezmesi: .claude/orkestra/istek_defteri.json."
+}

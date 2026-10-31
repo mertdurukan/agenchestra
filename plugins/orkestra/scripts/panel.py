@@ -37,7 +37,7 @@ GET /api/guncelleme            → eklenti güncelleme durumu: {durum: yok|yeni|
 GET /api/araclar-mcp          → hazır MCP'ler: [{ad, aciklama, durum: acik|kapali, kimlik, eksik_gerek, yuksek_yetki}] (kullanıcı düzeyi; alan=* kabul eder; sır değeri yok)
 POST /api/araclar-mcp         → {ad, durum: acik|kapali}: `claude mcp add/remove --scope user` (yalnız kayıttaki ad; X-Orkestra: 1, yerel Host, ≤1 KB)
 GET /api/araclar-skill?alan=<id>  → skill'ler: [{ad, kaynak, aciklama, durum, mekanizma}] (alanın .claude/settings.local.json'una göre)
-POST /api/araclar-skill?alan=<id> → {ad, durum: acik|kapali}: skillOverrides ya da permissions.deny yazar (atomik, yedekli; X-Orkestra: 1, yerel Host, ≤1 KB)
+POST /api/araclar-skill?alan=<id> → {ad, durum: acik|kapali} ya da {ad, konum: kapali|ihtiyacta|surekli} (ADR-0113): skillOverrides ya da permissions.deny yazar (atomik, yedekli; X-Orkestra: 1, yerel Host, ≤1 KB)
 GET /api/ayarlar              → kullanıcı ayarları: {bildirim: {acik, kaynak: ortam|makine|varsayilan, destek}}; alan almaz, alan=* kabul eder
 POST /api/ayarlar             → {bildirim: true|false} Windows bildirimini açar/kapatır (makine config'i; ortam değişkeni varsa 409; X-Orkestra: 1, yerel Host, ≤1 KB)
 POST /api/guncelle             → eklenti güncellemesini arka planda başlatır (aynı anda tek koşu, çalışıyorsa 409; X-Orkestra: 1, yerel Host)
@@ -925,8 +925,8 @@ def _isleyici():
                 if not 0 < uzun <= 1024:
                     raise ValueError("Gövde 1 KB'ı geçmemeli.")
                 g = json.loads(self.rfile.read(uzun).decode("utf-8"))
-                if not isinstance(g, dict) or not isinstance(g.get("ad"), str) or g.get("durum") not in ("acik", "kapali"):
-                    raise ValueError("Gövde {\"ad\": metin, \"durum\": \"acik\"|\"kapali\"} olmalı.")
+                if not isinstance(g, dict) or not isinstance(g.get("ad"), str) or not (g.get("durum") in ("acik", "kapali") or (tur != "mcp" and g.get("konum") in ("kapali", "ihtiyacta", "surekli"))):
+                    raise ValueError("Gövde {\"ad\": metin, \"durum\": \"acik\"|\"kapali\"} (skill için \"konum\": \"kapali\"|\"ihtiyacta\"|\"surekli\" de olur) olmalı.")
             except (ValueError, UnicodeDecodeError) as e:
                 return self._json(400, {"tamam": False, "hata": f"Geçersiz istek: {e}"}, kapat=True)
             try:
@@ -938,7 +938,7 @@ def _isleyici():
                     a = _alan((q.get("alan") or [None])[0], kesin=True)
                     if not a:
                         return self._json(400, {"tamam": False, "hata": "Skill için bir çalışma alanı seçilmeli."}, kapat=True)
-                    sonuc = AS.degistir(g["ad"], g["durum"], a["yol"])
+                    sonuc = AS.konum_ata(g["ad"], g["konum"], a["yol"]) if g.get("konum") else AS.degistir(g["ad"], g["durum"], a["yol"])
             except ValueError as e:   # AraclarHata / SkillHata: istemciye gösterilebilir
                 return self._json(400, {"tamam": False, "hata": str(e)}, kapat=True)
             except Exception as e:  # noqa: BLE001

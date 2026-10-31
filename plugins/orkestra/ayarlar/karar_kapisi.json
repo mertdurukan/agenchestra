@@ -1,0 +1,4 @@
+{
+  "mod": "ihlal",
+  "aciklama": "ADR-0112 açık karar kapısı. Mevcut durum §5 `**Karar gerekir (D<n>):**` maddesi, kullanıcı AskUserQuestion ile `[D<n>]` etiketli soruyu yanıtlamadan plan yazılamaz; yanıt yalnız hook yazımıyla is.json kararlar alanından sayılır. Yalnız is.json karar:true taşıyan sıralı işlerde çalışır (eski işler muaf). Kapı deterministik ve yalnız etiketli satırı yoklar; bu yüzden P-028 gölge dönemi yoktur. Kapatma: ORKESTRA_KARAR_KAPISI=0 ya da mod: golge. Proje ezmesi: .claude/orkestra/karar_kapisi.json."
+}

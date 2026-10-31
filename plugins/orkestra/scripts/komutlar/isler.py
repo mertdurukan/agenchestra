@@ -667,6 +667,10 @@ def kapanis_eksigi(sd, kayit, ozetsiz=""):
             return ("adr", f"ADR kaydı eksik ({eksik}). "
                     "Karar gerektiren iş için adr/ADR-nnnn-<kisa-baslik>.md yaz ve plan.md'ye `**ADR:** ADR-nnnn` satırı ekle; "
                     "gerekmiyorsa `**ADR:** gerekmez — <neden>` yaz (P-015). İş hiç yapılmadan kapanıyorsa: --ozetsiz \"neden\".")
+    import istek_defteri as _istek
+    eksik = _istek.engel(kayit["klasor"], "istek_defteri:kapanis")  # ADR-0112: gölge modunda uyarır ve boş döner
+    if eksik:
+        return ("istek", "istek defteri eksik: " + "; ".join(eksik[:4]) + ". Madde planda `R<n>` ile anılır ya da kullanıcı yanıtıyla çıkarılır.")
     import teslim as _teslim
     eksik = _teslim.teslim_eksigi(sd, kayit)  # ADR-0035: gölge modunda uyarır ve boş döner
     if eksik:

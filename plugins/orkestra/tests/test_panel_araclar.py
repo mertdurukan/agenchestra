@@ -112,6 +112,19 @@ class AraclarPanelTesti(unittest.TestCase):
         self.post("/api/araclar-skill?alan=alan-x", {"ad": "yerel", "durum": "acik"})
         self.assertEqual(json.load(open(ayar, encoding="utf-8")), {})
 
+    def test_skill_uc_konum_post_ve_gecersiz_konum_400(self):
+        yol = "/api/araclar-skill?alan=alan-x"
+        k, b = self.post(yol, {"ad": "yerel", "konum": "surekli"})
+        self.assertEqual(k, 200)
+        konum = os.path.join(self.proje, ".claude", "orkestra", "skill_durum.json")
+        self.assertEqual(json.load(open(konum, encoding="utf-8")), {"surekli": ["yerel"]})
+        k, g = self.istek("GET", yol)
+        self.assertEqual({s["ad"]: s["konum"] for s in json.loads(g)["skill"]}["yerel"], "surekli")
+        self.assertEqual(self.post(yol, {"ad": "yerel", "konum": "ihtiyacta"})[0], 200)
+        self.assertEqual(json.load(open(konum, encoding="utf-8")), {"surekli": []})
+        self.assertEqual(self.post(yol, {"ad": "yerel", "konum": "hep"})[0], 400)
+        self.assertEqual(self.post("/api/araclar-mcp", {"ad": "x", "konum": "surekli"})[0], 400)
+
     def test_skill_bilinmeyen_ad_ve_alan_400(self):
         self.assertEqual(self.post("/api/araclar-skill?alan=alan-x", {"ad": "../x", "durum": "kapali"})[0], 400)
         self.assertEqual(self.post("/api/araclar-skill?alan=yok", {"ad": "yerel", "durum": "kapali"})[0], 400)
