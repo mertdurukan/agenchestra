@@ -3,6 +3,7 @@
 `orkestra harita yenile [--katman K]... [--zorla]`  eskimiş (ya da --zorla ile tüm) katmanları baştan tarar
 `orkestra harita oku [KATMAN]`                        kayıtları basar; eskimiş katmanı önce yeniler
 `orkestra harita denetle`                             eskimiş katman sayısını basar (yazmaz)
+`orkestra harita istek "<metin>"`                     isteği konu kartlarına eşler, etki kümesini basar (ADR-0112)
 """
 from __future__ import annotations
 
