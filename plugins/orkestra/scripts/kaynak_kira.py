@@ -185,8 +185,9 @@ def durum(kaynak: str = "test_kosusu") -> dict:
     """Panel ve hook (P6) için anlık görüntü: sahipler, bekleyenler, bütçe kullanımı. Kilit almadan okur (salt okuma)."""
     d = _oku(_yol(kaynak))
     simdi = time.time()
+    sona_erme = float(ayarlar().get("sona_erme_s") or VARSAYILAN["sona_erme_s"])
     for x in d["sahipler"] + d["bekleyenler"]:
-        x["canli"] = not _olu_mu(x, simdi, float(ayarlar().get("sona_erme_s") or VARSAYILAN["sona_erme_s"]))
+        x["canli"] = not _olu_mu(x, simdi, sona_erme)
     d["kullanilan"] = sum(int(s.get("isci") or 0) for s in d["sahipler"] if s["canli"])
     return d
 
