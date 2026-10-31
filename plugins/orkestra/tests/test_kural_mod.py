@@ -1,4 +1,4 @@
-"""Kural metni kapı modunu kopyalamaz (ADR-0095, I-300): mod `{{mod:<ayar>}}` yer tutucusundan ayardan basılır.
+"""Kural metni kapı modunu kopyalamaz (ADR-0125, I-300): mod `{{mod:<ayar>}}` yer tutucusundan ayardan basılır.
 
 `py -3.13 -m pytest plugins/orkestra/tests/test_kural_mod.py`
 Üretim testleri geçici eklenti deposu kullanır (ORKESTRA_EKLENTI_KURALLARI); gerçek kural JSON'u yalnız tarama testlerinde okunur.
