@@ -161,14 +161,22 @@ def main(argv=None):
     sureler = sureleri_oku()
     sira = baslatma_sirasi(dosyalar, sureler)
     parcalar = {f: parcalara_bol(f, sureler.get(os.path.abspath(f)), a.n) for f in sira}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(a.n, len(dosyalar) + sum(len(v) for v in parcalar.values() if v))) as havuz:
-        isler = {f: ([havuz.submit(tek_dosya, f, a.zaman_asimi, g) for g in parcalar[f]] if parcalar[f]
-                     else [havuz.submit(tek_dosya, f, a.zaman_asimi)]) for f in sira}
-        sonuclar, toplam = [], {}
-        for f in dosyalar:  # çıktı yine dosya sırasıyla
-            r = [i.result() for i in isler[f]]
-            sonuclar.append((f, max(x[1] for x in r), chr(10).join(x[2] for x in r), max(x[3] for x in r), any(x[4] for x in r)))
-            toplam[f] = sum(x[3] for x in r)  # kayıt, bölünse de dosyanın ardışık süresidir (bir sonraki bölme kararı)
+    istenen = min(a.n, len(dosyalar) + sum(len(v) for v in parcalar.values() if v))
+    # I-309 P4: makine genelinde kira ve ortak işçi bütçesi koşucunun başladığı noktada alınır (kaynak_kira.py).
+    try:
+        with kaynak_kira.kira(istenen, komut=" ".join(["test_paralel.py"] + list(argv if argv is not None else sys.argv[1:]))) as kira:
+            kisildi = f", kira: {kira.isci}" if kira.isci < istenen else ""
+            with concurrent.futures.ThreadPoolExecutor(max_workers=kira.isci) as havuz:
+                isler = {f: ([havuz.submit(tek_dosya, f, a.zaman_asimi, g) for g in parcalar[f]] if parcalar[f]
+                             else [havuz.submit(tek_dosya, f, a.zaman_asimi)]) for f in sira}
+                sonuclar, toplam = [], {}
+                for f in dosyalar:  # çıktı yine dosya sırasıyla
+                    r = [i.result() for i in isler[f]]
+                    sonuclar.append((f, max(x[1] for x in r), chr(10).join(x[2] for x in r), max(x[3] for x in r), any(x[4] for x in r)))
+                    toplam[f] = sum(x[3] for x in r)  # kayıt, bölünse de dosyanın ardışık süresidir (bir sonraki bölme kararı)
+    except kaynak_kira.KiraZamanAsimi as e:
+        print(str(e))
+        return 3
     sureleri_yaz([(d, k, c, toplam[d], asim) for d, k, c, _, asim in sonuclar])
 
     dus = asim = 0
