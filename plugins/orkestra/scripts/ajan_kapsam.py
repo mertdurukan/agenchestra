@@ -1,4 +1,4 @@
-"""Ajan türüne göre araç kapsamı (I-292 P3, ADR-0118).
+"""Ajan türüne göre araç kapsamı (I-292 P3, ADR-0120).
 
 Plugin ajanlarında `hooks`/`permissionMode` yok sayıldığından kısıt PreToolUse hook'unda uygulanır (hook.py).
 Saf işlev `karar(...)`: (ajan türü, araç, girdi) -> ret nedeni ya da None. Ayar: ayarlar/ajan_kapsam.json.
