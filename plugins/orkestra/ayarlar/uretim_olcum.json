@@ -1,0 +1,13 @@
+{
+  "aciklama": "ADR-0111 etki ölçümü. Karar kuralı ve eşikler scripts/ret_olcum.py'de (GUVEN, HEDEF_ORAN, GUC, ASGARI_PLAN); bu dosya yalnız ölçümün tanımını ve başlangıcını taşır. Komut: orkestra hata ozet --baslangic <taban başı> --sonrasi <acilis>.",
+  "acilis": null,
+  "acilis_notu": "Enjeksiyonun etkin olduğu ilk tarih (ISO). Henüz yayında değil: yayına alınınca doldurulur; boşken ölçüm yapılmaz.",
+  "karar_kurali": "sonrası %95 Garwood üst sınır oranı < öncesi oranı → etki var; aksi halde etki yok; sonrası payda asgarinin altındaysa yetersiz örnek.",
+  "hedef_oran": 0.30,
+  "guven": 0.95,
+  "guc": 0.80,
+  "asgari": {"K-005": {"taban_tur": 0.087, "asgari_tur": 125}, "toplam": {"taban_tur": 0.209, "asgari_tur": 75}},
+  "kaynak_asgari": "scripts/ret_olcum.py ASGARI_PLAN (iş 129 planı §1)",
+  "izlenen": ["hook-red toplam/100 tur", "R1 (K-005 biçim)", "uretim_enjekte belge türü başına sayı"],
+  "bilinen_sinir": "Belge türü başına eşzamanlı kontrol kolu bu sürümde yok: hook-red satırı belge türünü taşımıyor. Ön/son karşılaştırması tek kollu; eşzamanlı olaylar (başka kural değişikliği) karıştırıcıdır."
+}
