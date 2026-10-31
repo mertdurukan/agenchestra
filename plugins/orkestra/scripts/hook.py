@@ -810,6 +810,32 @@ def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
     reddet(neden)
 
 
+def _main_kopya_kapisi(inp: dict, girdi: dict, arac: str) -> None:
+    """I-302 (ADR-0119): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
+    global _BEKLEYEN_UYARI
+    try:
+        import main_kopya_kapisi as _mk
+        yol = girdi.get("file_path") or girdi.get("notebook_path") or ""
+        if not yol:
+            return
+        cwd = inp.get("cwd") or os.getcwd()
+        tam = os.path.abspath(os.path.join(cwd, yol))
+        s = _mk.karar(tam, cwd)
+        if not s:
+            return
+        mod, mesaj = s
+        if mod == "ihlal":
+            reddet(mesaj)
+            return
+        import kapi_mod
+        kapi_mod.kaydet(cwd, _mk.KAPI, f"{tam} oturum={str(inp.get('session_id') or '')[:8]}")
+        _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + "orkestra (gölge): " + mesaj
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
 def pre_tool_use(inp: dict):
     global _BEKLEYEN_UYARI, _VARSAYILAN_IZIN, _DURUM_DIZINI, _KULLANICI_MESAJI, _GUNCEL_GIRDI, _IZIN_KIPI
     _KULLANICI_MESAJI = ""
