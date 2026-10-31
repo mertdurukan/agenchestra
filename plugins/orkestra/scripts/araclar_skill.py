@@ -103,15 +103,29 @@ def konum_yolu(proje: str) -> str:
     return os.path.join(proje, ".claude", "orkestra", "skill_durum.json")
 
 
-def surekli_oku(proje: str) -> set:
-    """Sürekli açık skill adları (ADR-0113). Dosya yok ya da bozuksa boş küme; yazma yolu bozuk dosyaya dokunmaz."""
+VARSAYILAN_YOL = os.path.join(EKLENTI_KOK, "ayarlar", "skill_surekli.json")
+
+
+def _liste_oku(yol: str, anahtar: str) -> set:
     try:
-        with open(konum_yolu(proje), encoding="utf-8") as f:
+        with open(yol, encoding="utf-8") as f:
             d = json.load(f)
     except (OSError, ValueError):
         return set()
-    ad = d.get("surekli") if isinstance(d, dict) else None
+    ad = d.get(anahtar) if isinstance(d, dict) else None
     return {x for x in ad if isinstance(x, str)} if isinstance(ad, list) else set()
+
+
+def varsayilan_surekli() -> set:
+    """Eklentinin her projede sürekli açık verdiği skill adları (ayarlar/skill_surekli.json, ADR-0119)."""
+    return _liste_oku(VARSAYILAN_YOL, "varsayilan")
+
+
+def surekli_oku(proje: str) -> set:
+    """Sürekli açık skill adları (ADR-0113, ADR-0119): eklenti varsayılanı - projenin `haric` listesi + projenin `surekli` listesi.
+    Dosya yok ya da bozuksa o katman boş küme; yazma yolu bozuk dosyaya dokunmaz."""
+    yol = konum_yolu(proje)
+    return (varsayilan_surekli() - _liste_oku(yol, "haric")) | _liste_oku(yol, "surekli")
 
 
 def liste(proje: str, kullanici_dizin: str | None = None, eklenti_dizin: str | None = None) -> list:
@@ -195,7 +209,12 @@ def konum_ata(ad, konum, proje: str, kullanici_dizin: str | None = None, eklenti
     once = surekli_oku(proje)
     kume = (once | {ad}) if konum == "surekli" else (once - {ad})
     if kume != once:
-        d["surekli"] = sorted(kume)
+        # ADR-0119: eklenti varsayılanı projede `haric` ile kapatılır; proje kendi `surekli` listesini yalnız varsayılan dışı adlarla tutar
+        varsayilan = varsayilan_surekli()
+        d["surekli"] = sorted(kume - varsayilan)
+        d["haric"] = sorted(varsayilan - kume)
+        if not d["haric"]:
+            d.pop("haric")
         _yaz(yol, d)
     gercek = {s["ad"]: s for s in liste(proje, kullanici_dizin, eklenti_dizin)}[ad]
     return {"ad": ad, "istenen": konum, "durum": gercek["durum"], "konum": gercek["konum"], "tamam": gercek["konum"] == konum}

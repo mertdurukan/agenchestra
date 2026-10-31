@@ -11,6 +11,7 @@ import skill_surekli as SS  # noqa: E402
 @pytest.fixture
 def ortam(tmp_path, monkeypatch):
     monkeypatch.delenv("ORKESTRA_SKILL_SUREKLI", raising=False)
+    monkeypatch.setattr(S, "VARSAYILAN_YOL", str(tmp_path / "yok.json"))  # eklenti varsayılanı (ADR-0119) testten bağımsız
     kul = tmp_path / "kul"
     pr = tmp_path / "pr"
     for ad, govde in (("birinci", "BIRINCI-GOVDE"), ("ikinci", "IKINCI-GOVDE"), ("ucuncu", "UCUNCU-GOVDE")):
@@ -55,3 +56,22 @@ def test_dosya_bozuksa_bos(ortam):
     with open(os.path.join(p, "skill_durum.json"), "w") as f:
         f.write("{bozuk")
     assert SS.baglam(**ortam) == ""
+
+
+def test_eklenti_varsayilani_her_projede_surekli(ortam, monkeypatch, tmp_path):
+    ayar = tmp_path / "varsayilan.json"
+    ayar.write_text('{"varsayilan": ["birinci"]}', encoding="utf-8")
+    monkeypatch.setattr(S, "VARSAYILAN_YOL", str(ayar))
+    assert "birinci" in S.surekli_oku(ortam["proje"])
+    assert "BIRINCI-GOVDE" in SS.baglam(**ortam)
+
+
+def test_proje_varsayilani_haric_birakir_ve_geri_acar(ortam, monkeypatch, tmp_path):
+    ayar = tmp_path / "varsayilan.json"
+    ayar.write_text('{"varsayilan": ["birinci"]}', encoding="utf-8")
+    monkeypatch.setattr(S, "VARSAYILAN_YOL", str(ayar))
+    S.konum_ata("birinci", "ihtiyacta", **ortam)
+    assert "birinci" not in S.surekli_oku(ortam["proje"])
+    assert SS.baglam(**ortam) == ""
+    S.konum_ata("birinci", "surekli", **ortam)
+    assert "birinci" in S.surekli_oku(ortam["proje"])
