@@ -357,15 +357,22 @@ def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bo
     if md:
         gorulen.add(os.path.normcase(os.path.abspath(md)))
         satirlar.append(baglanti_satiri("mevcut durum", md, proje_koku))
-    for ad, etiket in (("plan.md", "plan dosyası"), ("todo.md", "to-do dosyası")):
+    try:  # ADR-0127: kullanıcıya kimliksiz türev görünüm gider; plan.md ve todo.md kapı kaydı olarak kalır
+        import plan_gorunum
+        plan_gorunum.uret(klasor)
+    except Exception:
+        pass
+    for ad, gorunum, etiket in (("plan.md", "plan_gorunum.md", "plan dosyası"), ("todo.md", "todo_gorunum.md", "to-do dosyası")):
         yol = os.path.join(klasor, ad)
         if os.path.isfile(yol):
             gorulen.add(os.path.normcase(os.path.abspath(yol)))
-            satirlar.append(baglanti_satiri(etiket, yol, proje_koku))
-    sz = SIRA.sozlesme_yolu(klasor)  # ADR-0035: ilk satır mevcut durum olarak kalır (K-003), sözleşme planın ardından gelir
+            g_yol = os.path.join(klasor, gorunum)
+            if os.path.isfile(g_yol):
+                gorulen.add(os.path.normcase(os.path.abspath(g_yol)))
+            satirlar.append(baglanti_satiri(etiket, g_yol if os.path.isfile(g_yol) else yol, proje_koku))
+    sz = SIRA.sozlesme_yolu(klasor)  # ADR-0127: sözleşme iç kayıttır; kullanıcıya bağlantı verilmez (ADR-0035'i kısmen değiştirir)
     if sz:
         gorulen.add(os.path.normcase(os.path.abspath(sz)))
-        satirlar.append(baglanti_satiri("görev sözleşmesi", sz, proje_koku))
     adaylar = []
     try:
         adlar = sorted(os.listdir(klasor))
