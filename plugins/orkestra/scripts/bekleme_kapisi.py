@@ -80,6 +80,8 @@ def sinirsiz_donguler(komut, ayar: dict) -> list[str]:
                 continue
             if _var(ayar.get("sinir_kaliplari"), blok):
                 continue
+            if _var(ayar.get("surec_sinir_kaliplari"), blok) and not _surec_sinir_gecersiz(blok, ayar):
+                continue
             if _var(ayar.get("sayac_artirim_kaliplari"), blok) and _var(ayar.get("sayac_karsilastirma_kaliplari"), blok):
                 continue
             sonuc.append(" ".join(blok.split())[:120])
