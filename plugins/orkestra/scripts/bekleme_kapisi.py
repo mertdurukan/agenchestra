@@ -62,6 +62,24 @@ def _veri_disi(komut: str) -> str:
     return _TIRNAK.sub('""', _HEREDOC.sub(" ", komut))
 
 
+def _surec_sinir_gecersiz(blok: str, ayar: dict) -> bool:
+    """`until A && ! pgrep ...`: dosya koşulu hiç gerçekleşmezse süreç ölse de döngü biter mi? Hayır, süreç canlılığı
+    yalnız tek başına koşulsa sınırdır. `until` koşulunda bağlaç (`until_ve_kalibi`) varsa süreç sınırı sayılmaz."""
+    if not re.match(r"\s*until\b", blok):
+        return False
+    govde = None
+    for k in ayar.get("govde_baslangic_kalibi") or []:
+        try:
+            m = re.search(k, blok)
+        except re.error:
+            continue
+        if m:
+            govde = m.start()
+            break
+    kosul = blok if govde is None else blok[:govde]
+    return _var(ayar.get("until_ve_kalibi"), kosul)
+
+
 def sinirsiz_donguler(komut, ayar: dict) -> list[str]:
     """Bekleme (`bekleme_kaliplari`) içeren ama sınırı (`sinir_kaliplari`; ya da sayaç artırımı + karşılaştırma birlikte)
     olmayan döngü blokları (özgün yazımıyla, ilk 120 karakter)."""
