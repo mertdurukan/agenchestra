@@ -2936,6 +2936,9 @@ def session_start(inp: dict):
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
     import hook_kaydi
     hook_kaydi.yukleme_yaz(sd, inp.get("session_id"))
+    hk_uyari = hook_kaydi.uyari(sd)  # I-309: önceki zaman aşımı varsa tek satır (yoksa 0 karakter)
+    if hk_uyari:
+        ek = ek + chr(10) + hk_uyari
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
 
 

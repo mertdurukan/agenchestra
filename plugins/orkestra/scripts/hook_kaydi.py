@@ -185,6 +185,47 @@ def yukleme_yaz(sd: str | None, oturum, eklenti_koku: str | None = None) -> None
         pass
 
 
+def uyari(sd: str | None, simdi: float | None = None) -> str:
+    """Son 24 saatte zaman aşımına uğrayan, daha önce bildirilmemiş hook'lar için tek kısa satır; yoksa boş (0 karakter).
+    Her zaman aşımı bir kez bildirilir (`hook_uyari.json` son bildirilen zamanı tutar). Engellemez, veridir."""
+    if not sd or not etkin():
+        return ""
+    try:
+        yetim_tara(sd)
+        simdi = simdi if simdi is not None else time.time()
+        isaret = os.path.join(sd, "hook_uyari.json")
+        try:
+            with open(isaret, encoding="utf-8") as f:
+                son = float(json.load(f).get("son") or 0)
+        except (OSError, ValueError, AttributeError):
+            son = 0.0
+        yol = os.path.join(sd, "gunluk.jsonl")
+        with open(yol, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 400_000))
+            satirlar = f.read().decode("utf-8", "replace").splitlines()
+        yeni, en_son = {}, son
+        for s in satirlar:
+            if '"hook_zaman_asimi"' not in s:
+                continue
+            try:
+                k = json.loads(s)
+            except ValueError:
+                continue
+            t = _epoch(k.get("zaman") or "")
+            if t <= son or simdi - t > 86400 or t == float("inf"):
+                continue
+            yeni[k.get("olay") or "?"] = yeni.get(k.get("olay") or "?", 0) + 1
+            en_son = max(en_son, t)
+        if not yeni:
+            return ""
+        L.atomik_yaz(isaret, json.dumps({"son": en_son}))
+        ayrinti = ", ".join(f"{o} x{n}" for o, n in sorted(yeni.items()))
+        return f"orkestra: önceki hook zaman aşımı ({ayrinti}); yüklenmemiş olabilir. Ayrıntı: orkestra oturum hook"
+    except Exception:
+        return ""
+
+
 def _epoch(z: str) -> float:
     try:
         import datetime

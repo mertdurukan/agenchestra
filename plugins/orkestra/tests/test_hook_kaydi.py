@@ -73,6 +73,14 @@ class HookKaydiTest(unittest.TestCase):
         self.assertIn("SessionStart", y["hook_olaylari"])
         self.assertGreater(y["skill_sayisi"], 10)
 
+    def test_uyari_zaman_asimi_yoksa_bos_varsa_bir_kez(self):
+        self.assertEqual(H.uyari(self.sd), "")
+        self._yaz(oturum="o1", tur="hook_zaman_asimi", olay="SessionStart")
+        u = H.uyari(self.sd)
+        self.assertIn("SessionStart x1", u)
+        self.assertLess(len(u), 140)
+        self.assertEqual(H.uyari(self.sd), "")  # aynı zaman aşımı ikinci kez bildirilmez
+
     def test_zaman_asimlari_hooks_json_ile_uyumlu(self):
         with open(os.path.join(os.path.dirname(__file__), "..", "hooks", "hooks.json"), encoding="utf-8") as f:
             h = json.load(f)["hooks"]
