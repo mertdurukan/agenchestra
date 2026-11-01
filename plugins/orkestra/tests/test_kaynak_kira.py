@@ -28,7 +28,7 @@ SAHTE = r'''
 import os, sys, time
 sys.path.insert(0, sys.argv[1])
 import kaynak_kira as K
-bariyer, ad, istenen, tut, gunluk = sys.argv[2], sys.argv[3], int(sys.argv[4]), float(sys.argv[5]), sys.argv[6]
+bariyer, ad, istenen, tut, gunluk = sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5], sys.argv[6]
 if bariyer != "-":
     open(os.path.join(bariyer, ad), "w").close()
     while len(os.listdir(bariyer)) < 2:
@@ -36,7 +36,11 @@ if bariyer != "-":
 with K.kira(istenen, komut="sahte " + ad) as k:
     t0 = time.time()
     print("ALINDI", ad, k.isci, flush=True)
-    time.sleep(tut)
+    if tut.startswith("dosya:"):  # sabit süre yerine olay: test bırak dosyasını yazana kadar (en çok 120 sn) tut
+        while not os.path.exists(tut[6:]) and time.time() - t0 < 120:
+            time.sleep(0.02)
+    else:
+        time.sleep(float(tut))
     t1 = time.time()
 with open(gunluk, "a", encoding="utf-8") as f:
     f.write(f"{ad} {k.isci} {t0:.4f} {t1:.4f}\n")
