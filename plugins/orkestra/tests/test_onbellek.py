@@ -269,6 +269,19 @@ class OnbellekModlari(_OnbellekTemel):
         self.assertEqual(kod, 1, c)
         self.assertIn("BAYAT isabet", c)
 
+    def test_eklenti_varsayilani_isabeti_uygular(self):
+        """ADR-0129: ezmede `onbellek` alanı yokken eklenti ayarı (true) geçerli; ikinci çağrı süreç açmaz."""
+        _yaz(self.ayar, {"mod": "golge", "yoklama_s": 0.05})
+        with mock.patch.dict(os.environ, {"ORKESTRA_KAYNAK_KIRA_AYAR": self.ayar}):
+            for k in (T.KAPAT_ENV, "CLAUDE_PROJECT_DIR"):
+                os.environ.pop(k, None)
+            self.assertEqual(T.mod(self.tmp), "ihlal")
+        self.assertEqual(self.kos()[0], 0)
+        kod, c = self.kos()
+        self.assertEqual(kod, 0, c)
+        self.assertRegex(c, r"(?m)^önbellekten: [0-9a-f]{12} ")
+        self.assertEqual(self.surec_sayisi(), 1)
+
     def test_kapali_iken_eski_davranis(self):
         self.onbellek(False)
         self.assertEqual(self.kos()[0], 0)
