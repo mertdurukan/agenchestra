@@ -566,7 +566,7 @@ def baslik_uret(istek, azami: int = 70) -> str:
 
 def proje_sec(projeler, istek: str) -> int:
     """Eşlemedeki proje listesinde işin klasör köküne düşen proje dizini: orkestra konulu istek 'orkestra'/'orchestr'
-    adlı projeye gider (yoksa ilk proje). Böylece orkestra işleri iş klasörünü RNV altında açmaz."""
+    adlı projeye gider (yoksa ilk proje). Böylece orkestra işleri iş klasörünü AcmeCo altında açmaz."""
     projeler = list(projeler or [])
     if _ORKESTRA_ANAHTAR.search(str(istek or "")):
         for i, p in enumerate(projeler):

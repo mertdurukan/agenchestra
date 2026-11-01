@@ -23,9 +23,24 @@ def sahte(dizin, ad):
     return yol
 
 
-def calistir(path_dizinleri, extra_env=None):
+def sh_dizini(tmp):
+    """Yalnız sh ve dirname içeren dizin: sh'nin gerçek dizinindeki python3/python PATH'e sızmaz (Linux/macOS).
+    Windows'ta sh'nin kendi dizini kullanılır (Git sh DLL'lerine bağlı, kopyası çalışmaz)."""
+    if os.name != "posix":
+        return os.path.dirname(SH)
+    d = os.path.join(str(tmp), "_sh")
+    os.makedirs(d, exist_ok=True)
+    for ad in ("sh", "dirname"):
+        kaynak = shutil.which(ad)
+        hedef = os.path.join(d, ad)
+        if kaynak and not os.path.exists(hedef):
+            os.symlink(os.path.realpath(kaynak), hedef)
+    return d
+
+
+def calistir(path_dizinleri, extra_env=None, sh_yol=None):
     env = {k: v for k, v in os.environ.items() if k != "ORKESTRA_PYTHON"}
-    env["PATH"] = os.pathsep.join(path_dizinleri + [os.path.dirname(SH)])
+    env["PATH"] = os.pathsep.join(path_dizinleri + [sh_yol or os.path.dirname(SH)])
     env.update(extra_env or {})
     return subprocess.run([SH, os.path.join(BIN, "orkestra"), "--help"], env=env, capture_output=True, text=True)
 
@@ -41,7 +56,7 @@ def test_python3_yoksa_python(tmp_path):
     d = str(tmp_path / "a")
     sahte(d, "python")
     sahte(d, "py")
-    assert "python-calisti" in calistir([d]).stdout.replace("python3-calisti", "")
+    assert "python-calisti" in calistir([d], sh_yol=sh_dizini(tmp_path)).stdout.replace("python3-calisti", "")
 
 
 def test_windowsapps_stub_atlanir(tmp_path):
@@ -49,7 +64,7 @@ def test_windowsapps_stub_atlanir(tmp_path):
     gercek = str(tmp_path / "gercek")
     sahte(stub, "python3")
     sahte(gercek, "python")
-    r = calistir([stub, gercek])
+    r = calistir([stub, gercek], sh_yol=sh_dizini(tmp_path))
     assert "python-calisti" in r.stdout and "python3-calisti" not in r.stdout
 
 

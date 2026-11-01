@@ -4,7 +4,7 @@
 
 **Tarih:** 2026-10-30
 
-**Bağlam:** I-253 ile 19 hazır MCP kayıt defterine alındı (McD ADR-0097). Kullanıcı hangi MCP ve skill'in açık olacağını orkestra web arayüzünden, tek sayfada seçmek istedi. Kayıt değiştirmek için terminal gerekiyordu.
+**Bağlam:** I-253 ile 19 hazır MCP kayıt defterine alındı (DemoRoot ADR-0097). Kullanıcı hangi MCP ve skill'in açık olacağını orkestra web arayüzünden, tek sayfada seçmek istedi. Kayıt değiştirmek için terminal gerekiyordu.
 
 **Karar:**
 
@@ -26,4 +26,4 @@
 - **Olumsuz:** MCP değişikliği yeni oturumda etkili olur; eklenti skill'i listede görünmeye devam eder; skill ayarı çalışma alanı başınadır.
 - **Geri alma:** panel uçlarını ve `app.js` bölümü 10c'yi kaldırmak yeterli; MCP kayıtları `orkestra mcp kur` ile yönetilmeye devam eder.
 
-**İlgili iş:** I-254 (McD); McD ADR-0097 (MCP kaydı), P-030, P-033; eklenti ADR-0097 (ADR hedef depo). McD'deki ilk kayıt bu ADR'ye taşındı.
+**İlgili iş:** I-254 (DemoRoot); DemoRoot ADR-0097 (MCP kaydı), P-030, P-033; eklenti ADR-0097 (ADR hedef depo). DemoRoot'deki ilk kayıt bu ADR'ye taşındı.

@@ -37,7 +37,7 @@ class EslemeTest(Temel):
 
     def test_baska_projenin_hafizasi_reddedilir(self):
         self.assertFalse(perspektif.hafiza_projeye_ait(self.proje, self.baska_proje()))
-        # kodlu ad öneki klasör sınırında olmalı: "C--x-McD" "C--x-McD2"nin sahibi sayılmaz
+        # kodlu ad öneki klasör sınırında olmalı: "C--x-DemoRoot" "C--x-DemoRoot2"nin sahibi sayılmaz
         self.assertFalse(perspektif.hafiza_projeye_ait(self.proje + "2", hafiza_yolu(self.proje)))
 
     def test_tanınmayan_yol_ve_kapatma_engellenmez(self):

@@ -66,9 +66,9 @@ class AlanListesi(unittest.TestCase):
         m = re.search(r're\.search\(r"([^"]*worktrees[^"]*)", yol, re\.I\)', kaynak)
         self.assertTrue(m)
         desen = re.compile(m.group(1), re.I)
-        for yol in (r"C:\ork_tmp_p11x\ork_canli_1", r"C:\Mert\McD\.claude\worktrees\ab", r"C:\Users\x\AppData\Local\Temp\z"):
+        for yol in (r"C:\ork_tmp_p11x\ork_canli_1", r"C:\Work\DemoRoot\.claude\worktrees\ab", r"C:\Users\x\AppData\Local\Temp\z"):
             self.assertTrue(desen.search(yol + "\\"), yol)
-        self.assertFalse(desen.search(r"C:\Mert\McD" + "\\"))
+        self.assertFalse(desen.search(r"C:\Work\DemoRoot" + "\\"))
 
 
 class SonEtkinlik(unittest.TestCase):

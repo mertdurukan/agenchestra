@@ -143,7 +143,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - İşçi is-bitti'si `--teknik <json_dosya>` (yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler) olmadan geçmez (çıkış 4; kapatma: `ORKESTRA_TEKNIK_KAPISI=0`). Denetçi teknik notun çıktıyla tutarlılığına bakar; tutarsızsa ret.
 
 ## İyi uygulamalar: veri ve agentic ürünler
-Sorgu üreten, veriyle cevap veren ya da araç çağıran bir sistem (ajan, rapor, panel) tasarlanırken ya da incelenirken bu listeye bakılır. Kaynak: RNV agentic kod okuması (18.10.2026).
+Sorgu üreten, veriyle cevap veren ya da araç çağıran bir sistem (ajan, rapor, panel) tasarlanırken ya da incelenirken bu listeye bakılır. Kaynak: AcmeCo agentic kod okuması (18.10.2026).
 - **Anlamsal katman:** metrik bir kez tanımlanır (ad, formül, kapsam; ör. ciro KDV dahil mi, hangi kanal, hangi tarih kolonu), sorgular oradan üretilir. Aynı metriği her istemde ya da sorguda yeniden yazmak tutarsız sayı üretir.
 - **Değerlendirme odaklı geliştirme:** altın soru seti (soru, beklenen cevap ya da sorgu) önce kurulur; her değişiklik bu sete karşı ölçülür. Set olmadan "iyileşti" denmez.
 - **Katmanlı güvenlik ve izleme:** girdi kapısı, üretilen SQL'in doğrulayıcısı (salt okuma, izinli tablo), kullanıcıya özgü veri sınırı ve çağrı izi (ör. Langfuse). Tek kapıya güvenilmez.

@@ -21,10 +21,10 @@ class Notlar(unittest.TestCase):
         self.assertEqual(len(H.notlar("kayıt [düzeltme: 13.10 prod teyidi kapsam daralması]")), 1)
 
     def test_baglanti_not_degil(self):
-        self.assertEqual(H.notlar("bkz [[klibre-db]] ve [[düzeltme-kaydi-uzun-ad]]"), [])
+        self.assertEqual(H.notlar("bkz [[demoapp-db]] ve [[düzeltme-kaydi-uzun-ad]]"), [])
 
     def test_isaretsiz_parantez_not_degil(self):
-        self.assertEqual(H.notlar("tablo (rnv.ml_forecast kolonu için ayrıntı var)"), [])
+        self.assertEqual(H.notlar("tablo (acmeco.ml_forecast kolonu için ayrıntı var)"), [])
 
     def test_kisa_isaret_not_degil(self):
         self.assertEqual(H.notlar("madde (düzeltildi) tamam"), [])
@@ -53,7 +53,7 @@ class Tekrarlar(unittest.TestCase):
         self.assertEqual(H.tekrarlar({"a.md": SATIR, "b.md": "temiz"}), [])
 
     def test_farkli_notlar_bulgu_degil(self):
-        self.assertEqual(H.tekrarlar({"a.md": "(düzeltme: [[klibre-db]])", "b.md": "(düzeltme: [[baska-kayit]])"}), [])
+        self.assertEqual(H.tekrarlar({"a.md": "(düzeltme: [[demoapp-db]])", "b.md": "(düzeltme: [[baska-kayit]])"}), [])
 
     def test_ayni_dosyada_iki_kez(self):
         self.assertEqual(H.tekrarlar({"a.md": SATIR + "\n" + SATIR})[0]["adet"], 2)
@@ -65,11 +65,11 @@ class Tekrarlar(unittest.TestCase):
 
 class Yol(unittest.TestCase):
     def test_hafiza_yolu(self):
-        self.assertTrue(H.hafiza_yolu_mu(r"C:\Users\PC\.claude\projects\C--Mert-McD\memory\klibre.md"))
+        self.assertTrue(H.hafiza_yolu_mu(r"C:\Users\PC\.claude\projects\C--Work-DemoRoot\memory\demoapp.md"))
         self.assertTrue(H.hafiza_yolu_mu("/home/u/.claude/projects/x/memory/alt/k.md"))
 
     def test_hafiza_disi_yol(self):
-        self.assertFalse(H.hafiza_yolu_mu(r"C:\Mert\McD\README.md"))
+        self.assertFalse(H.hafiza_yolu_mu(r"C:\Work\DemoRoot\README.md"))
         self.assertFalse(H.hafiza_yolu_mu(r"C:\Users\PC\.claude\projects\x\memory\k.txt"))
 
 

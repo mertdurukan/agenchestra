@@ -40,7 +40,7 @@ class TeknikPanel(unittest.TestCase):
         self.port = self.sunucu.server_address[1]
         threading.Thread(target=self.sunucu.serve_forever, daemon=True).start()
         # iş + üç kart: G-010 yeni (teknik not var), G-002 eski (teknik not yok); olusturma sırası G-002 < G-010 < G-003
-        self.is_id = IK.is_ac(self.sd, "001-20261013-PE-1-deneme-is", os.path.join(self.proje, "RNV", "001-20261013-PE-1-deneme-is"))["id"]
+        self.is_id = IK.is_ac(self.sd, "001-20261013-PE-1-deneme-is", os.path.join(self.proje, "ACMECO", "001-20261013-PE-1-deneme-is"))["id"]
         self.kod = os.path.join(self.proje, "modul.py")
         with open(self.kod, "w", encoding="utf-8", newline="\n") as f:
             f.write("import json\nimport requests\n")

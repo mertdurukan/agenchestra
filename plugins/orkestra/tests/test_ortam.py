@@ -106,9 +106,9 @@ class Yorumlayici(unittest.TestCase):
 
 class Profil(unittest.TestCase):
     def test_gecerli_profil_salt_okunur(self):
-        p = D.profil("klibre_pg", {"tur": "postgres", "kimlik": "klibre_db", "kapi": ".claude/skills/db-olcum/scripts/kapi.py"})
+        p = D.profil("demoapp_pg", {"tur": "postgres", "kimlik": "demoapp_db", "kapi": ".claude/skills/db-olcum/scripts/kapi.py"})
         self.assertTrue(p["salt_okunur"])
-        self.assertEqual(p["kimlik"], "klibre_db")
+        self.assertEqual(p["kimlik"], "demoapp_db")
 
     def test_salt_okunur_olmayan_reddedilir(self):
         with self.assertRaises(D.ProfilHata):
@@ -124,9 +124,9 @@ class Profil(unittest.TestCase):
         os.environ["ORKESTRA_KIMLIK_DIZINI"] = d
         try:
             os.makedirs(os.path.join(d, "p"))
-            with open(os.path.join(d, "p", "klibre_db.env"), "w") as f:
+            with open(os.path.join(d, "p", "demoapp_db.env"), "w") as f:
                 f.write("A=1\n")
-            p = D.profil("a", {"tur": "postgres", "kimlik": "klibre_db"})
+            p = D.profil("a", {"tur": "postgres", "kimlik": "demoapp_db"})
             self.assertEqual(D.coz(p, "p")["kimlik_durumu"], "var")
             self.assertEqual(D.coz(dict(p, kimlik="yok_kayit"), "p")["kimlik_durumu"], "çözülemedi")
         finally:

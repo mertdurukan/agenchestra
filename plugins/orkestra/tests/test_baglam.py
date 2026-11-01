@@ -16,27 +16,27 @@ import niyet  # noqa: E402
 import ork_lib as L  # noqa: E402
 
 DIS = "C:/dis/ornek-depo"
-ESLEME = {"surum": 1, "projeler": ["RNV", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_", "gorev_deseni": r"^\d{3}-",
+ESLEME = {"surum": 1, "projeler": ["ACMECO", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_", "gorev_deseni": r"^\d{3}-",
           "haric": ["98_calisma"], "dis_kokler": {DIS: "Claude_Orkestrasyon"}}
 
 
 class Yoldan(unittest.TestCase):
     def test_ornekler(self):
         for yol, bek in [
-            ("RNV/05_sohbet_ajani/002-x/a.md", "RNV/05_sohbet_ajani/002-x"),
-            ("RNV/01_agentic_degerlendirme/a.md", "RNV/01_agentic_degerlendirme"),
-            ("RNV/Business Core/a.md", "RNV"),
-            ("RNV/98_calisma/x/a.py", "RNV"),
+            ("ACMECO/05_sohbet_ajani/002-x/a.md", "ACMECO/05_sohbet_ajani/002-x"),
+            ("ACMECO/01_agentic_degerlendirme/a.md", "ACMECO/01_agentic_degerlendirme"),
+            ("ACMECO/Business Core/a.md", "ACMECO"),
+            ("ACMECO/98_calisma/x/a.py", "ACMECO"),
             ("Claude_Orkestrasyon/003-y/a.md", "Claude_Orkestrasyon/003-y"),
             ("CLAUDE.md", ""), ("README.md", ""), (".claude/orkestra/x", ""), ("baska/a.md", ""),
-            ("RNV\\01_agentic_degerlendirme\\a.md", "RNV/01_agentic_degerlendirme"),
+            ("ACMECO\\01_agentic_degerlendirme\\a.md", "ACMECO/01_agentic_degerlendirme"),
         ]:
             self.assertEqual(B.yoldan(ESLEME, None, yol), bek, yol)
 
     def test_mutlak_proje_ve_dis_kok(self):
         p = "C:/proje/ornek"
-        self.assertEqual(B.yoldan(ESLEME, p, "C:\\proje\\ornek\\RNV\\05_sohbet_ajani\\002-x\\a.md"), "RNV/05_sohbet_ajani/002-x")
-        self.assertEqual(B.yoldan(ESLEME, p, "c:/proje/ornek/rnv/01_a/b.md"), "RNV/01_a")
+        self.assertEqual(B.yoldan(ESLEME, p, "C:\\proje\\ornek\\ACMECO\\05_sohbet_ajani\\002-x\\a.md"), "ACMECO/05_sohbet_ajani/002-x")
+        self.assertEqual(B.yoldan(ESLEME, p, "c:/proje/ornek/acmeco/01_a/b.md"), "ACMECO/01_a")
         self.assertEqual(B.yoldan(ESLEME, p, "C:/proje/ornek/CLAUDE.md"), "")
         self.assertEqual(B.yoldan(ESLEME, p, "C:/proje/ornek/.claude/orkestra/x"), "")
         self.assertEqual(B.yoldan(ESLEME, p, DIS + "/plugins/orkestra/scripts/hook.py"), "Claude_Orkestrasyon")
@@ -44,8 +44,8 @@ class Yoldan(unittest.TestCase):
         self.assertEqual(B.yoldan(ESLEME, p, "D:/baska/a.md"), "")
 
     def test_esleme_yok(self):
-        self.assertEqual(B.yoldan(None, None, "RNV/01_a/b.md"), "")
-        self.assertEqual(B.coz(None, None, ["RNV/01_a/b.md"], []), "")
+        self.assertEqual(B.yoldan(None, None, "ACMECO/01_a/b.md"), "")
+        self.assertEqual(B.coz(None, None, ["ACMECO/01_a/b.md"], []), "")
 
     def test_esleme_oku(self):
         with tempfile.TemporaryDirectory() as sd:
@@ -55,32 +55,32 @@ class Yoldan(unittest.TestCase):
             self.assertIsNone(B.esleme_oku(sd))
             with open(os.path.join(sd, "baglam.json"), "w") as f:
                 json.dump(ESLEME, f)
-            self.assertEqual(B.esleme_oku(sd)["projeler"], ["RNV", "Claude_Orkestrasyon"])
+            self.assertEqual(B.esleme_oku(sd)["projeler"], ["ACMECO", "Claude_Orkestrasyon"])
 
     def test_modulde_projeye_ozgu_ad_yok(self):
         with open(os.path.join(SCRIPTS, "baglam.py"), encoding="utf-8") as f:
             kaynak = f.read()
-        for ad in ("RNV", "McD", "Desktop", "Orkestrasyon"):
+        for ad in ("ACMECO", "DemoRoot", "Desktop", "Orkestrasyon"):
             self.assertNotIn(ad, kaynak)
 
 
 class Coz(unittest.TestCase):
     def test_yazilan_okunandan_agir(self):
-        self.assertEqual(B.coz(ESLEME, None, ["RNV/01_a/x.md"], ["RNV/02_b/y.md", "RNV/02_b/z.md"]), "RNV/01_a")
+        self.assertEqual(B.coz(ESLEME, None, ["ACMECO/01_a/x.md"], ["ACMECO/02_b/y.md", "ACMECO/02_b/z.md"]), "ACMECO/01_a")
 
     def test_okunan_cok_ise_kazanir(self):
-        okunan = ["RNV/02_b/1.md", "RNV/02_b/2.md", "RNV/02_b/3.md", "RNV/02_b/4.md"]
-        self.assertEqual(B.coz(ESLEME, None, ["RNV/01_a/x.md"], okunan), "RNV/02_b")
+        okunan = ["ACMECO/02_b/1.md", "ACMECO/02_b/2.md", "ACMECO/02_b/3.md", "ACMECO/02_b/4.md"]
+        self.assertEqual(B.coz(ESLEME, None, ["ACMECO/01_a/x.md"], okunan), "ACMECO/02_b")
 
     def test_esitlikte_derin(self):
-        self.assertEqual(B.coz(ESLEME, None, ["RNV/a.md", "RNV/01_a/b.md"], []), "RNV/01_a")
+        self.assertEqual(B.coz(ESLEME, None, ["ACMECO/a.md", "ACMECO/01_a/b.md"], []), "ACMECO/01_a")
 
     def test_esitlikte_en_son(self):
-        self.assertEqual(B.coz(ESLEME, None, ["RNV/01_a/x.md", "RNV/02_b/y.md"], []), "RNV/02_b")
+        self.assertEqual(B.coz(ESLEME, None, ["ACMECO/01_a/x.md", "ACMECO/02_b/y.md"], []), "ACMECO/02_b")
 
     def test_bos_oy_almaz(self):
         self.assertEqual(B.coz(ESLEME, None, ["CLAUDE.md"], ["x/y.md"]), "")
-        self.assertEqual(B.coz(ESLEME, None, ["CLAUDE.md", "RNV/01_a/b.md"], []), "RNV/01_a")
+        self.assertEqual(B.coz(ESLEME, None, ["CLAUDE.md", "ACMECO/01_a/b.md"], []), "ACMECO/01_a")
 
 
 class Temel(unittest.TestCase):
@@ -169,7 +169,7 @@ class TranskriptOku(Temel):
 
 class StopHook(Temel):
     def test_esleme_yokken_bos_ama_anahtar_var(self):
-        self.transkript(self.ana, [self.yaz("RNV", "01_a", "x.md")])
+        self.transkript(self.ana, [self.yaz("ACMECO", "01_a", "x.md")])
         self.stop()
         satirlar = self.maliyet()
         self.assertTrue(satirlar)
@@ -182,52 +182,52 @@ class StopHook(Temel):
 
     def test_maliyet_ve_defter_baglam(self):
         self.esleme_yaz()
-        self.transkript(self.ana, [self.yaz("RNV", "05_sohbet_ajani", "002-x", "a.md")])
+        self.transkript(self.ana, [self.yaz("ACMECO", "05_sohbet_ajani", "002-x", "a.md")])
         self.stop()
         for s in self.maliyet():
-            self.assertEqual(s["baglam"], "RNV/05_sohbet_ajani/002-x")
+            self.assertEqual(s["baglam"], "ACMECO/05_sohbet_ajani/002-x")
             self.assertEqual(s["surec"], "orkestrasyon")
         d = self.defter()
-        self.assertEqual(d[-1]["baglam"], "RNV/05_sohbet_ajani/002-x")
+        self.assertEqual(d[-1]["baglam"], "ACMECO/05_sohbet_ajani/002-x")
         self.assertEqual(d[-1]["surec"], "orkestrasyon")
         o = self.oturum()
-        self.assertEqual(o["baglam"], "RNV/05_sohbet_ajani/002-x")
+        self.assertEqual(o["baglam"], "ACMECO/05_sohbet_ajani/002-x")
         self.assertGreater(o["ofset"], 0)
 
     def test_dosyasiz_turda_korunur_ve_ofset_ilerler(self):
         self.esleme_yaz()
-        self.transkript(self.ana, [self.yaz("RNV", "01_a", "x.md")])
+        self.transkript(self.ana, [self.yaz("ACMECO", "01_a", "x.md")])
         self.stop()
         ofset1 = self.oturum()["ofset"]
         self.ekle(("Bash", {"command": "ls"}))
         self.stop()
-        self.assertEqual(self.oturum()["baglam"], "RNV/01_a")
+        self.assertEqual(self.oturum()["baglam"], "ACMECO/01_a")
         self.assertGreater(self.oturum()["ofset"], ofset1)
-        self.assertEqual(self.maliyet()[-1]["baglam"], "RNV/01_a")
+        self.assertEqual(self.maliyet()[-1]["baglam"], "ACMECO/01_a")
 
     def test_yeni_tur_baglami_gunceller(self):
         self.esleme_yaz()
-        self.transkript(self.ana, [self.yaz("RNV", "01_a", "x.md")])
+        self.transkript(self.ana, [self.yaz("ACMECO", "01_a", "x.md")])
         self.stop()
-        self.ekle(self.yaz("RNV", "02_b", "y.md"))
+        self.ekle(self.yaz("ACMECO", "02_b", "y.md"))
         self.stop()
-        self.assertEqual(self.oturum()["baglam"], "RNV/02_b")
+        self.assertEqual(self.oturum()["baglam"], "ACMECO/02_b")
 
     def test_niyet_yedegi(self):
         self.esleme_yaz()
-        niyet.olay(self.oid, os.path.join(self.t.name, "baska"), "niyet", ne="a", neden="b", baglam="RNV/03_z")
-        self.assertEqual(niyet.son_baglam(self.oid), "RNV/03_z")
+        niyet.olay(self.oid, os.path.join(self.t.name, "baska"), "niyet", ne="a", neden="b", baglam="ACMECO/03_z")
+        self.assertEqual(niyet.son_baglam(self.oid), "ACMECO/03_z")
         self.transkript(self.ana, [("Bash", {"command": "ls"})])
         self.stop()
-        self.assertEqual(self.maliyet()[-1]["baglam"], "RNV/03_z")
-        self.assertEqual(self.oturum()["baglam"], "RNV/03_z")
+        self.assertEqual(self.maliyet()[-1]["baglam"], "ACMECO/03_z")
+        self.assertEqual(self.oturum()["baglam"], "ACMECO/03_z")
 
     def test_niyet_yedegi_dosya_varsa_kullanilmaz(self):
         self.esleme_yaz()
-        niyet.olay(self.oid, os.path.join(self.t.name, "baska"), "niyet", ne="a", neden="b", baglam="RNV/03_z")
-        self.transkript(self.ana, [self.yaz("RNV", "01_a", "x.md")])
+        niyet.olay(self.oid, os.path.join(self.t.name, "baska"), "niyet", ne="a", neden="b", baglam="ACMECO/03_z")
+        self.transkript(self.ana, [self.yaz("ACMECO", "01_a", "x.md")])
         self.stop()
-        self.assertEqual(self.maliyet()[-1]["baglam"], "RNV/01_a")
+        self.assertEqual(self.maliyet()[-1]["baglam"], "ACMECO/01_a")
 
     def test_niyet_baglam_metni(self):
         self.assertIn("--baglam", niyet.baglam_metni(self.oid))
@@ -250,31 +250,31 @@ class AltAjan(Temel):
     def test_bos_ise_ana_oturum(self):
         self.esleme_yaz()
         with open(os.path.join(self.sd, "oturumlar", f"{self.oid}.json"), "w") as f:
-            json.dump({"ofset": 0, "baglam": "RNV/01_a"}, f)
+            json.dump({"ofset": 0, "baglam": "ACMECO/01_a"}, f)
         self.alt([("Bash", {"command": "ls"})])
-        self.assertEqual(self.maliyet()[-1]["baglam"], "RNV/01_a")
-        self.assertEqual(self.defter()[-1]["baglam"], "RNV/01_a")
+        self.assertEqual(self.maliyet()[-1]["baglam"], "ACMECO/01_a")
+        self.assertEqual(self.defter()[-1]["baglam"], "ACMECO/01_a")
 
     def test_esleme_yokken_bos(self):
-        self.alt([self.yaz("RNV", "01_a", "a.md")])
+        self.alt([self.yaz("ACMECO", "01_a", "a.md")])
         self.assertEqual(self.maliyet()[-1]["baglam"], "")
         self.assertEqual(self.defter()[-1]["baglam"], "")
 
     def test_ajan_onbellegine_yazilir(self):
         self.esleme_yaz()
-        self.alt([self.yaz("RNV", "01_a", "a.md")], aid="ccc", ilk="#GOREV:G-9 #SUREC:is\nx")
+        self.alt([self.yaz("ACMECO", "01_a", "a.md")], aid="ccc", ilk="#GOREV:G-9 #SUREC:is\nx")
         with open(os.path.join(self.sd, "oturumlar", "ajan_ccc.json"), encoding="utf-8") as f:
-            self.assertEqual(json.load(f)["baglam"], "RNV/01_a")
+            self.assertEqual(json.load(f)["baglam"], "ACMECO/01_a")
 
 
 class NiyetCli(Temel):
     def test_baglam_kaydedilir(self):
         ap = argparse.ArgumentParser()
         niyet.ekle_ayristirici(ap.add_subparsers())
-        a = ap.parse_args(["niyet", "--ne", "x", "--neden", "y", "--baglam", "RNV/01_a", "--oturum", "o-cli"])
+        a = ap.parse_args(["niyet", "--ne", "x", "--neden", "y", "--baglam", "ACMECO/01_a", "--oturum", "o-cli"])
         with contextlib.redirect_stdout(io.StringIO()):
             niyet.cmd(a)
-        self.assertEqual(niyet.son_baglam("o-cli"), "RNV/01_a")
+        self.assertEqual(niyet.son_baglam("o-cli"), "ACMECO/01_a")
 
 
 if __name__ == "__main__":

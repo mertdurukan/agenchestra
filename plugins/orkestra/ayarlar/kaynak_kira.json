@@ -1,7 +1,7 @@
 {
   "aciklama": "Makine genelinde test koşusu kirası ve ortak işçi bütçesi (I-309 P4, scripts/kaynak_kira.py). mod: kapali (eski davranış) | golge (kira alınır, beklenmez; bekleme gerekseydi sıra satırı + kapi_golge) | ihlal (kuyrukta beklenir, işçi bütçeyle kısılır). Proje ezmesi: .claude/orkestra/kaynak_kira.json. ORKESTRA_KAYNAK_KIRA=0 kapatır.",
   "mod": "ihlal",
-  "mod_gerekce": "ADR-0131: kullanıcı kararıyla ihlal (01.11.2026). Gölge dönemi kısaydı: McD gunluk.jsonl'da kaynak_kira kapi_golge sayısı 0 (kilit_olcum.py); geçiş ölçümle değil, eşzamanlı tam koşuların çekirdek ve belleği aşmasını önlemek için verildi. Geri alma: mod golge ya da kapali.",
+  "mod_gerekce": "ADR-0131: kullanıcı kararıyla ihlal (01.11.2026). Gölge dönemi kısaydı: DemoRoot gunluk.jsonl'da kaynak_kira kapi_golge sayısı 0 (kilit_olcum.py); geçiş ölçümle değil, eşzamanlı tam koşuların çekirdek ve belleği aşmasını önlemek için verildi. Geri alma: mod golge ya da kapali.",
   "sona_erme_s": 30,
   "sona_erme_gerekce": "heartbeat 10 sn'de bir yazılır (süre/3); 30 sn iki kaçırılmış yenilemeye dayanır, öldürülen koşunun kirası en geç yarım dakikada devralınır.",
   "bekleme_ust_s": 1800,

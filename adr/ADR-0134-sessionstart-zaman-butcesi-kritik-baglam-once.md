@@ -33,4 +33,4 @@
 **İlgili iş ya da kural kimliği:** I-314, ADR-0113, ADR-0119, P-022, K-006
 
 
-**Not:** Aynı karar McD projesinde ADR-0132 olarak kayıtlıdır (I-314).
+**Not:** Aynı karar DemoRoot projesinde ADR-0132 olarak kayıtlıdır (I-314).

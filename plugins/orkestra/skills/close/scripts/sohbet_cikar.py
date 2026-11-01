@@ -64,7 +64,7 @@ def sinifla(metin, meta=False):
     """(kaynak, metin): 'kullanici' ya da 'sistem'.
 
     Sistem: meta mesaj, skill gövdesi, bildirim blokları, argümansız slash komutu (/reload-plugins,
-    /orkestra:close çağrısının kendisi). Argümanlı komut kullanıcı isteğidir ("/db-olcum Boyner"),
+    /orkestra:close çağrısının kendisi). Argümanlı komut kullanıcı isteğidir ("/db-olcum AcmeRetail"),
     close'un kendi çağrısı hariç.
     """
     if meta or metin.startswith(SISTEM_BASLANGIC + SISTEM_GOVDE):

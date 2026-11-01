@@ -4,7 +4,7 @@
 
 **Tarih:** 2026-10-31
 
-**Bağlam:** I-294 sohbetinde `find /c/Mert/McD -name karar_kapisi.py` 19:07'den 20:00'ye kadar koştu. ADR-0039 gölge kapısı uyarıyı aynı sohbette 6 satırda verdi; uyarı zorlama olmadığı için komut yine de çalıştı. Aynı sohbette ajanın ilk düzeltme önerisi çözümü model alışkanlığına ve tur sonu hatırlatmaya koydu; mevcut gölge kapıyı ve önleme merdivenini (P-045) aramadı. Kök neden metni (ADR-0101) merdiveni ve mevcut mekanizma aramasını sormuyor.
+**Bağlam:** I-294 sohbetinde `find /c/Mert/DemoRoot -name karar_kapisi.py` 19:07'den 20:00'ye kadar koştu. ADR-0039 gölge kapısı uyarıyı aynı sohbette 6 satırda verdi; uyarı zorlama olmadığı için komut yine de çalıştı. Aynı sohbette ajanın ilk düzeltme önerisi çözümü model alışkanlığına ve tur sonu hatırlatmaya koydu; mevcut gölge kapıyı ve önleme merdivenini (P-045) aramadı. Kök neden metni (ADR-0101) merdiveni ve mevcut mekanizma aramasını sormuyor.
 
 **Karar:**
 

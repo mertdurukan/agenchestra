@@ -31,7 +31,7 @@ class SahteSurec:
 
 
 def ayar_ornek():
-    return {"ortam": "kopya", "kapi": True, "kimlik_servisi": "db", "veritabani": "klibre", "sslmode": "require",
+    return {"ortam": "kopya", "kapi": True, "kimlik_servisi": "db", "veritabani": "demoapp", "sslmode": "require",
             "anahtarlar": {"host": "H", "port": "P", "kullanici": "U", "parola": "S"},
             "sunucu_komutu": ["postgres-mcp", "--access-mode=restricted"]}
 
@@ -44,7 +44,7 @@ def test_uri_salt_okunur_ve_parola_kodlanir():
     assert "default_transaction_read_only%3Don" in uri
     assert "sslmode=require" in uri
     assert SIR not in uri  # özel karakterler yüzde-kodlanır
-    assert re.match(r"^postgresql://kullanici%40sunucu:[^@/?#]+@sunucu\.example:5432/klibre\?", uri)
+    assert re.match(r"^postgresql://kullanici%40sunucu:[^@/?#]+@sunucu\.example:5432/demoapp\?", uri)
 
 
 def test_ayar_restricted_olmadan_reddedilir():

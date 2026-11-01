@@ -6,7 +6,7 @@
 
 **Bağlam:**
 
-Orkestra denetimlerinin kök neden analizi (McD iş 129, `kok_neden_analizi_20261024.md` §2 ve §5) retlerin çoğunun sonradan yakalayan kapılardan geldiğini gösterdi. Aynı hata kaynağında önlenebilecekken üretilip reddediliyor. Ölçülmüş tek doğal deney ADR-0040: K-003 bağlantı satırları hook'a verilince ret 34'ten 0'a indi. Kapı sayısı arttıkça kural yükü ve dolanma (R8) da artıyor.
+Orkestra denetimlerinin kök neden analizi (DemoRoot iş 129, `kok_neden_analizi_20261024.md` §2 ve §5) retlerin çoğunun sonradan yakalayan kapılardan geldiğini gösterdi. Aynı hata kaynağında önlenebilecekken üretilip reddediliyor. Ölçülmüş tek doğal deney ADR-0040: K-003 bağlantı satırları hook'a verilince ret 34'ten 0'a indi. Kapı sayısı arttıkça kural yükü ve dolanma (R8) da artıyor.
 
 **Karar:**
 

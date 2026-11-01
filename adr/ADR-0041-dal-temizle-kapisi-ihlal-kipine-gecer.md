@@ -15,7 +15,7 @@ I-201'de eklenen `dal_temizle` kapısı P-028 gereği gölge kipte açıldı (AD
 **Seçenekler:**
 
 - Gölgede birkaç oturum ölçmek: elendi, kullanıcı doğrudan geçişi istedi.
-- Proje ezmesiyle yalnız McD'de açmak: elendi, kapı her projede aynı davranmalı (P-022).
+- Proje ezmesiyle yalnız DemoRoot'de açmak: elendi, kapı her projede aynı davranmalı (P-022).
 
 **Sonuçlar:**
 
@@ -23,4 +23,4 @@ I-201'de eklenen `dal_temizle` kapısı P-028 gereği gölge kipte açıldı (AD
 - Olumsuz: yanlış aday seçilirse dal silinir; `branch -d` birleşmemiş dalı reddeder ve bundle yedeği vardır, risk düşüktür.
 - Geri alma: ayarda `mod` değerini `golge` yap ya da `ORKESTRA_DAL_TEMIZLE=0`; silinen dal bundle'dan `git fetch <bundle> <dal>` ile döner.
 
-**İlgili:** I-201, P-028, ADR-0035, ADR-0050 (McD)
+**İlgili:** I-201, P-028, ADR-0035, ADR-0050 (DemoRoot)

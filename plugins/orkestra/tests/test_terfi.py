@@ -145,8 +145,8 @@ class DenetleTest(unittest.TestCase):
         self.assertTrue(any("kart kimliği" in x for x in self.isabet("G-146 reddedildi")))
 
     def test_windows_yolu(self):
-        self.assertTrue(any("Windows yolu" in x for x in self.isabet("bkz C:\\Mert\\McD\\x.md")))
-        self.assertTrue(any("Windows yolu" in x for x in self.isabet("bkz C:/Mert/McD")))
+        self.assertTrue(any("Windows yolu" in x for x in self.isabet("bkz C:\\Work\\DemoRoot\\x.md")))
+        self.assertTrue(any("Windows yolu" in x for x in self.isabet("bkz C:/Work/DemoRoot")))
 
     def test_eposta(self):
         self.assertTrue(any("e-posta" in x for x in self.isabet("yaz: ad@ornek.com")))
@@ -189,12 +189,12 @@ class KapiTest(unittest.TestCase):
 
     def test_kirli_kural_eklentiye_yazilmaz(self):
         with self.assertRaises(ValueError) as c:
-            onay.kural_ekle(self.sd, "G-146 kartında C:\\Mert yolu", "ad@ornek.com", katman="plugin")
+            onay.kural_ekle(self.sd, "G-146 kartında C:\\Work yolu", "ad@ornek.com", katman="plugin")
         self.assertIn("kart kimliği", str(c.exception))
         self.assertEqual(self.depo_kurallari(), [])
 
     def test_proje_katmani_degismez(self):
-        r = onay.kural_ekle(self.sd, "G-146 kartı C:\\Mert yolu", "PE-612")
+        r = onay.kural_ekle(self.sd, "G-146 kartı C:\\Work yolu", "PE-612")
         self.assertEqual(r["katman"], "proje")
 
     def test_tasi_kirli_reddedilir_temiz_gecer(self):
@@ -226,7 +226,7 @@ class KapiTest(unittest.TestCase):
 
     def test_duzenle_proje_katmani_degismez(self):
         r = onay.kural_ekle(self.sd, "Genel kural", "Neden")
-        onay.kural_duzenle(self.sd, r["id"], "G-146 kartı C:\\Mert yolu", "PE-612")
+        onay.kural_duzenle(self.sd, r["id"], "G-146 kartı C:\\Work yolu", "PE-612")
         self.assertEqual(self.depo_kurallari(), [])
 
 

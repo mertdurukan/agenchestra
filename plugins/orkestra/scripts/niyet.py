@@ -475,7 +475,7 @@ def _yol_anahtar(yol):
 
 def alan_sohbeti_mi(proje_yol: str | None, alan_yol: str | None, tum_yollar=()) -> bool:
     """Sohbetin projesi bu çalışma alanına mı ait? Alan klasörü ya da altındaki klasör sayılır; iç içe daha özgül
-    bir çalışma alanı varsa (ör. McD altındaki worktree) sohbet ona aittir."""
+    bir çalışma alanı varsa (ör. DemoRoot altındaki worktree) sohbet ona aittir."""
     p, a = _yol_anahtar(proje_yol), _yol_anahtar(alan_yol)
     if not p or not a:
         return False

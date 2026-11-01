@@ -140,7 +140,7 @@ class TemizMakineTest(unittest.TestCase):
         self.assertLess(time.perf_counter() - t, 10, "hook zaman aşımı sınırına yaklaştı")
         self.assertEqual(r.stdout.strip(), "")
         self.assertFalse(os.path.exists(os.path.join(self.proje, ".claude", "orkestra")))
-        bitis = time.time() + 60
+        bitis = time.time() + 240  # yavaş CI (Windows/py3.9) doktoru 60 sn'yi aşabilir
         d = {}
         while time.time() < bitis:
             try:

@@ -60,7 +60,7 @@ class DenetleTest(unittest.TestCase):
         durumlar = {
             "sha": "a1b2c3d4e5f",
             "yol": "plugins/orkestra/scripts/panel.py",
-            "surucu_yolu": "C:\\Mert\\panel",
+            "surucu_yolu": "C:\\Work\\panel",
             "ters_tirnak": "`panel`",
             "tablo": "a | b",
             "url": "https://example.com",

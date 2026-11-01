@@ -573,7 +573,7 @@ def kaydet(alt):
     r.add_argument("--md", action="store_true")
     r.add_argument("--csv", action="store_true")
     r.add_argument("--cikti")
-    r.add_argument("--baglam", help="yalnız bu önekle başlayan baglamlar (ör. RNV ya da RNV/05_sohbet_ajani)")
+    r.add_argument("--baglam", help="yalnız bu önekle başlayan baglamlar (ör. AcmeCo ya da AcmeCo/05_sohbet_ajani)")
     r.set_defaults(f=cmd_maliyet_rapor)
     tu = mal.add_parser("tur")
     tu.add_argument("--oturum", required=True)

@@ -12,7 +12,7 @@ from unittest import mock
 
 DEPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 ARACLAR = os.path.join(DEPO, "araclar")
-YASAK = ("C:/Mert", "C:\\Users\\PC", "C:\\\\Users\\\\PC", "McD")
+YASAK = ("C:/Work", "C:\\Users\\PC", "C:\\\\Users\\\\PC", "DemoRoot")
 
 
 def yukle(ad):

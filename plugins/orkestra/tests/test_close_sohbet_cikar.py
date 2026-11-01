@@ -176,8 +176,8 @@ class SistemMesajiTest(unittest.TestCase):
     def test_argumanli_komut_kullanici_istegidir(self):
         veri = self._cikar([
             "<command-name>/db-olcum</command-name>\n<command-message>db-olcum</command-message>\n"
-            "<command-args>Boyner'i ölç</command-args>"])
-        self.assertEqual(veri["turlar"][0]["metin"], "/db-olcum Boyner'i ölç")
+            "<command-args>AcmeRetail'i ölç</command-args>"])
+        self.assertEqual(veri["turlar"][0]["metin"], "/db-olcum AcmeRetail'i ölç")
 
     def test_argumanli_close_cagrisi_kapsam_disi(self):
         veri = self._cikar([

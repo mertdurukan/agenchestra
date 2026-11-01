@@ -255,7 +255,7 @@ class EslestirTest(unittest.TestCase):
         self.assertEqual(iy.eslestir("depo taşıma", isler)[0]["id"], "X-2")
 
     def test_k1_ilgisiz_dusuk_puan(self):
-        for x in iy.eslestir("Boyner kampanya fiyat raporu", ACIK):
+        for x in iy.eslestir("AcmeRetail kampanya fiyat raporu", ACIK):
             self.assertLess(x["puan"], 0.2)
 
     def test_k1_tam_ortusme_yuksek(self):
@@ -337,12 +337,12 @@ class EslestirTest(unittest.TestCase):
             self.assertIn("I-013", k[1])
 
     def test_k4_ilgisiz_istek_acar(self):
-        self.assertEqual(iy.karar(iy.eslestir("Boyner kampanya fiyat raporu", [I013])), ("ac", None))
-        self.assertEqual(iy.karar(iy.eslestir("Boyner kampanya fiyat raporu", ACIK)), ("ac", None))
+        self.assertEqual(iy.karar(iy.eslestir("AcmeRetail kampanya fiyat raporu", [I013])), ("ac", None))
+        self.assertEqual(iy.karar(iy.eslestir("AcmeRetail kampanya fiyat raporu", ACIK)), ("ac", None))
 
     def test_k4_ayrim_olculebilir(self):
         ilgili = iy.eslestir("Orkestra iş yönlendirme tür alan ayrımı", [I013])[0]["puan"]
-        ilgisiz = iy.eslestir("Boyner kampanya fiyat raporu", [I013])[0]["puan"]
+        ilgisiz = iy.eslestir("AcmeRetail kampanya fiyat raporu", [I013])[0]["puan"]
         self.assertGreater(ilgili - ilgisiz, 0.3)
 
     def test_k4_diger_isler_dogru_eslesir(self):

@@ -29,7 +29,7 @@ def yaz(yol, metin):
 
 class ProjeAdiYok(unittest.TestCase):
     def test_skill_ve_ayar_dosyalarinda_proje_adi_yok(self):
-        rx = re.compile(r"klibre|Boyner|RNV|McD")
+        rx = re.compile(r"demoapp|AcmeRetail|ACMECO|DemoRoot")
         bulunan = []
         yollar = [os.path.join(KOK, "ayarlar", a) for a in ("db_olcum.json", "iddia_dogrula.json")]
         for kok in (os.path.join(KOK, "skills", "db-olcum"), os.path.join(KOK, "skills", "iddia-dogrula")):

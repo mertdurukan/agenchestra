@@ -386,7 +386,7 @@ def yaz(c):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--dizin", default=os.path.join(os.path.expanduser("~"), ".claude", "projects", "C--Mert-McD"))
+    ap.add_argument("--dizin", default=os.path.join(os.path.expanduser("~"), ".claude", "projects", re.sub(r"[^A-Za-z0-9]", "-", os.getcwd())))
     ap.add_argument("--kesit", help="bu zamandan (ISO; saat dilimi yoksa yerel) sonraki günlük satırları sayılmaz")
     ap.add_argument("--bas", help="yalnız ilk günlük satırı bu zamandan (ISO) sonra olan oturumlar taranır (uygulama sonrası pencere)")
     ap.add_argument("--once-kesit", help="S1 karşılaştırması: önceki pencere bu zamana kadar; sonraki pencere --bas'tan başlar")

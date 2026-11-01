@@ -70,10 +70,10 @@ class Ortamlar(unittest.TestCase):
 
     def test_haric_projeden(self):
         with open(os.path.join(self.sd, "ortam.json"), "w", encoding="utf-8") as f:
-            json.dump({"haric": ["yayin"], "codebase_veri": {"api": ["klibre_pg"]}}, f)
+            json.dump({"haric": ["yayin"], "codebase_veri": {"api": ["demoapp_pg"]}}, f)
         k = self.kayit()
         self.assertNotIn("ortam:yayin", k)
-        self.assertEqual(k["ortam:api"]["veri_kaynaklari"], ["klibre_pg"])
+        self.assertEqual(k["ortam:api"]["veri_kaynaklari"], ["demoapp_pg"])
 
     def test_sir_degeri_yok(self):
         self.kayit()

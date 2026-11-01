@@ -2,5 +2,5 @@
   "mod": "ipucu",
   "esik_onbellek_okuma": 5000000,
   "tekrar_aralik_tur": 20,
-  "aciklama": "I-271: ana ajanın tek turunda (Stop'tan Stop'a) önbellek okuması esik_onbellek_okuma token'ı aşarsa sonraki kullanıcı mesajında tek satırlık devir ipucu bağlama eklenir; engellemez. Aynı oturumda son uyarıdan en az tekrar_aralik_tur tur geçmeden yeniden uyarılmaz. mod: ipucu | kapali. Ölçüm (McD): 5 M üstü tur ana ajan turlarının %4,7'si (239/5136), harcamanın %19,8'i. Proje ezmesi: .claude/orkestra/devir_esigi.json (anahtar bazında). ORKESTRA_DEVIR_ESIGI=0 kapatır."
+  "aciklama": "I-271: ana ajanın tek turunda (Stop'tan Stop'a) önbellek okuması esik_onbellek_okuma token'ı aşarsa sonraki kullanıcı mesajında tek satırlık devir ipucu bağlama eklenir; engellemez. Aynı oturumda son uyarıdan en az tekrar_aralik_tur tur geçmeden yeniden uyarılmaz. mod: ipucu | kapali. Ölçüm (DemoRoot): 5 M üstü tur ana ajan turlarının %4,7'si (239/5136), harcamanın %19,8'i. Proje ezmesi: .claude/orkestra/devir_esigi.json (anahtar bazında). ORKESTRA_DEVIR_ESIGI=0 kapatır."
 }

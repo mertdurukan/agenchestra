@@ -15,20 +15,20 @@ import niyet  # noqa: E402
 
 class AlanSuzme(unittest.TestCase):
     def test_k1_alan_ve_alt_klasor(self):
-        self.assertTrue(niyet.alan_sohbeti_mi("C:/Mert/McD", "C:/Mert/McD"))
-        self.assertTrue(niyet.alan_sohbeti_mi("C:/Mert/McD/RNV", "C:/Mert/McD"))
-        self.assertFalse(niyet.alan_sohbeti_mi("C:/Mert/McD2", "C:/Mert/McD"))
-        self.assertFalse(niyet.alan_sohbeti_mi("C:/Mert", "C:/Mert/McD"))
+        self.assertTrue(niyet.alan_sohbeti_mi("C:/Work/DemoRoot", "C:/Work/DemoRoot"))
+        self.assertTrue(niyet.alan_sohbeti_mi("C:/Work/DemoRoot/ACMECO", "C:/Work/DemoRoot"))
+        self.assertFalse(niyet.alan_sohbeti_mi("C:/Work/DemoRoot2", "C:/Work/DemoRoot"))
+        self.assertFalse(niyet.alan_sohbeti_mi("C:/Work", "C:/Work/DemoRoot"))
 
     def test_k2_ic_ice_alan(self):
-        tum = ["C:/Mert/McD", "C:/Mert/McD/.claude/worktrees/x"]
-        p = "C:/Mert/McD/.claude/worktrees/x"
+        tum = ["C:/Work/DemoRoot", "C:/Work/DemoRoot/.claude/worktrees/x"]
+        p = "C:/Work/DemoRoot/.claude/worktrees/x"
         self.assertTrue(niyet.alan_sohbeti_mi(p, tum[1], tum))
         self.assertFalse(niyet.alan_sohbeti_mi(p, tum[0], tum))
 
     def test_k3_bos_yol(self):
-        self.assertFalse(niyet.alan_sohbeti_mi("", "C:/Mert/McD"))
-        self.assertFalse(niyet.alan_sohbeti_mi(None, "C:/Mert/McD"))
+        self.assertFalse(niyet.alan_sohbeti_mi("", "C:/Work/DemoRoot"))
+        self.assertFalse(niyet.alan_sohbeti_mi(None, "C:/Work/DemoRoot"))
 
 
 if __name__ == "__main__":

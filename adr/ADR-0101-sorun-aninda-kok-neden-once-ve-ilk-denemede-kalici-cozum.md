@@ -6,7 +6,7 @@
 
 **Bağlam:**
 
-`root-cause-first` skill'i (v2.1.0) eklentide yalnız yönergeydi; "Root-Cause-First Engineering Policy" bloğu ise yalnız McD'nin CLAUDE.md'sindeydi. K-006 kural metniydi, hata anında bağlamda değildi. Başka projedeki eklenti kullanıcıları davranışı almıyordu. Kullanıcı (30.10.2026): orkestra sorun ya da hata çıktığında önce kök nedeni analiz etsin, sorunu ilk aşamada best in class çözsün, her eklenti kullanıcısında etkin olsun.
+`root-cause-first` skill'i (v2.1.0) eklentide yalnız yönergeydi; "Root-Cause-First Engineering Policy" bloğu ise yalnız DemoRoot'nin CLAUDE.md'sindeydi. K-006 kural metniydi, hata anında bağlamda değildi. Başka projedeki eklenti kullanıcıları davranışı almıyordu. Kullanıcı (30.10.2026): orkestra sorun ya da hata çıktığında önce kök nedeni analiz etsin, sorunu ilk aşamada best in class çözsün, her eklenti kullanıcısında etkin olsun.
 
 **Karar:**
 

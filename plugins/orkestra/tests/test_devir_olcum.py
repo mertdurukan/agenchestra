@@ -40,7 +40,7 @@ class DevirOlcum(unittest.TestCase):
         self.assertEqual(DO.tur_sinifi(["/a/x.py", "/a/y.py", "/a/z.py"]), "muaf_olmayan")
 
     def test_taban_transkript(self):
-        os.makedirs(os.path.join(self.t, "C--Mert-McD-x"))
+        os.makedirs(os.path.join(self.t, "C--Work-DemoRoot-x"))
 
         def kullanici():
             return {"type": "user", "message": {"content": "yap"}}
@@ -49,11 +49,11 @@ class DevirOlcum(unittest.TestCase):
             return {"type": "assistant", "message": {"content": [
                 {"type": "tool_use", "name": n, "input": ({"file_path": y} if y else {})} for n, y in araclar]}}
         yazim = [("Write", f"/p/{i}.py") for i in range(3)]
-        self.jsonl("C--Mert-McD-x/o.jsonl", [
+        self.jsonl("C--Work-DemoRoot-x/o.jsonl", [
             kullanici(), asistan(*yazim),
             kullanici(), asistan(*yazim, ("Agent", None)),
             kullanici(), asistan(("Write", "/p/plan.md"), ("Write", "/p/todo.md"), ("Write", "/p/mevcut_durum_1.md"))])
-        r = DO.taban(self.t, (2000, 1, 1, 0, 0, 0, 0, 0, 0), "C--Mert-McD")
+        r = DO.taban(self.t, (2000, 1, 1, 0, 0, 0, 0, 0, 0), "C--Work-DemoRoot")
         self.assertEqual((r["muaf_olmayan_tur"], r["alt_ajanli"], r["alt_ajansiz"]), (2, 1, 1))
 
     def test_kume_testi(self):

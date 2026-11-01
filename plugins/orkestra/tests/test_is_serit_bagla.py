@@ -58,7 +58,7 @@ class Bagla(unittest.TestCase):
 
     # ------------------------------------------------------------ yardımcılar
     def baglam_yaz(self, dis=None):
-        d = {"surum": 1, "projeler": ["RNV", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_",
+        d = {"surum": 1, "projeler": ["ACMECO", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_",
              "gorev_deseni": r"^\d{3}-", "haric": ["98_calisma"], "dis_kokler": {}}
         if dis:
             d["dis_kokler"] = {dis: "Claude_Orkestrasyon"}
@@ -66,7 +66,7 @@ class Bagla(unittest.TestCase):
             json.dump(d, f)
 
     def gorev_klasoru(self, ad="001-y", surec="05_x"):
-        return os.path.join(self.proje, "RNV", surec, ad)
+        return os.path.join(self.proje, "ACMECO", surec, ad)
 
     def oku(self, yol):
         with open(yol, encoding="utf-8") as f:
@@ -155,7 +155,7 @@ class Bagla(unittest.TestCase):
 
     def test_test_alani_gorev_klasorunu_cozmez(self):
         # G-035: çözüm yazma_alani esas; test_alani'ndaki görev klasörü işi belirlemez (eski G-023 kuralı kalktı).
-        # yazma 'docs/**' çözülemez → (d) ilk projede (RNV) başlığa göre yeni iş; kart yine bağlı, çıkış 0.
+        # yazma 'docs/**' çözülemez → (d) ilk projede (ACMECO) başlığa göre yeni iş; kart yine bağlı, çıkış 0.
         self.baglam_yaz()
         k = self.gorev_klasoru()
         r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "kod", "--kabul", "k", "--sinif", "kod", "--yazma", "docs/**",
@@ -167,7 +167,7 @@ class Bagla(unittest.TestCase):
         self.assertEqual(kayit["baslik"], "kod")
         self.assertNotEqual(os.path.normcase(os.path.abspath(kayit["klasor"])), os.path.normcase(os.path.abspath(k)))
         self.assertEqual(os.path.normcase(os.path.dirname(os.path.abspath(kayit["klasor"]))),
-                         os.path.normcase(os.path.join(self.proje, "RNV")))
+                         os.path.normcase(os.path.join(self.proje, "ACMECO")))
 
     def test_kapali_gorev_isine_kart_baglanmaz(self):
         self.baglam_yaz()
@@ -223,8 +223,8 @@ class Bagla(unittest.TestCase):
             g = self.yeni("dış", os.path.join(dis, "x", "a.py").replace("\\", "/"))
             self.assertEqual(self.kart_json(g)["is"], i)
             self.assertEqual(list(self.isler()), [i])
-            # RNV/<süreç> düzeyi (görev klasörü yok) de oturum işine gider
-            g2 = self.yeni("süreç", os.path.join(self.proje, "RNV", "05_x", "not.md").replace("\\", "/"))
+            # ACMECO/<süreç> düzeyi (görev klasörü yok) de oturum işine gider
+            g2 = self.yeni("süreç", os.path.join(self.proje, "ACMECO", "05_x", "not.md").replace("\\", "/"))
             self.assertEqual(self.kart_json(g2)["is"], i)
             self.assertEqual(list(self.isler()), [i])
         finally:
@@ -239,7 +239,7 @@ class Bagla(unittest.TestCase):
         kayit = self.isler()["I-001"]
         self.assertEqual(kayit["baslik"], "düz")
         self.assertEqual(os.path.normcase(os.path.dirname(os.path.abspath(kayit["klasor"]))),
-                         os.path.normcase(os.path.join(self.proje, "RNV")))
+                         os.path.normcase(os.path.join(self.proje, "ACMECO")))
         g2 = self.yeni("ikinci", "docs/**")  # artık oturum işi var → aynı işe
         self.assertEqual(self.kart_json(g2)["is"], "I-001")
         self.assertEqual(list(self.isler()), ["I-001"])

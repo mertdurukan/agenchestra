@@ -7,7 +7,7 @@ import unittest
 
 import test_cekirdek as TC
 
-ESLEME = {"projeler": ["RNV", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_", "gorev_deseni": r"^\d{3}-",
+ESLEME = {"projeler": ["ACMECO", "Claude_Orkestrasyon"], "surec_deseni": r"^\d{2}_", "gorev_deseni": r"^\d{3}-",
           "haric": ["98_calisma"], "dis_kokler": {}}
 
 
@@ -108,16 +108,16 @@ class KartIsBagi(unittest.TestCase):
     # ------------------------------------------------------------ K1 çözüm sırası
     def test_k1a_acik_is_secenegi_yazma_alanini_ve_oturumu_yener(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        self.klasor_ac("RNV/01_a/002-iki", "iki")  # oturum I-002'de
-        g, _ = self.kart_ac("x", "RNV/01_a/002-iki/**", "--is", i1)
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/002-iki", "iki")  # oturum I-002'de
+        g, _ = self.kart_ac("x", "ACMECO/01_a/002-iki/**", "--is", i1)
         self.assertEqual(self.kart_json(g)["is"], i1)
         self.assertEqual(self.oku(os.path.join(self.is_klasoru(i1), "is.json"))["kartlar"], [g])
 
     def test_k1a_toplu_json_is_alani(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        self.klasor_ac("RNV/01_a/002-iki", "iki")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/002-iki", "iki")
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
             json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "is": i1}], f)
@@ -127,47 +127,47 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k1b_oturum_isi_yazma_alanindan_once_gelir(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        self.klasor_ac("RNV/01_a/002-iki", "iki")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/002-iki", "iki")
         self.cli("is", "devam", i1)
-        g, _ = self.kart_ac("x", "RNV/01_a/002-iki/**")
+        g, _ = self.kart_ac("x", "ACMECO/01_a/002-iki/**")
         self.assertEqual(self.kart_json(g)["is"], i1)
 
     def test_k1c_yazma_alani_klasorunde_is_json_varsa_o_is_kullanilir(self):
         self.baglam_yaz()
-        i1, yol = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, yol = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.oturumu_birak()
-        g, _ = self.kart_ac("x", "RNV/01_a/001-bir/alt/dosya.py")
+        g, _ = self.kart_ac("x", "ACMECO/01_a/001-bir/alt/dosya.py")
         self.assertEqual(self.kart_json(g)["is"], i1)
         self.assertEqual(self.merkez()["sayac"], 1)  # yeni iş açılmadı
-        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "RNV", "01_a")), ["001-bir"])
+        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "ACMECO", "01_a")), ["001-bir"])
         self.assertEqual(self.oku(os.path.join(yol, "is.json"))["kartlar"], [g])
 
     def test_k1c_klasorde_is_json_yoksa_orada_is_acilir(self):
         self.baglam_yaz()
-        klasor = os.path.join(self.proje, "RNV", "05_s", "003-var")
+        klasor = os.path.join(self.proje, "ACMECO", "05_s", "003-var")
         os.makedirs(klasor)
-        g, _ = self.kart_ac("x", "RNV/05_s/003-var/**")
+        g, _ = self.kart_ac("x", "ACMECO/05_s/003-var/**")
         i = self.kart_json(g)["is"]
         self.assertTrue(i)
         self.assertEqual(self.is_klasoru(i), os.path.abspath(klasor))
         self.assertTrue(os.path.exists(os.path.join(klasor, "is.json")))
-        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "RNV", "05_s")), ["003-var"])
+        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "ACMECO", "05_s")), ["003-var"])
 
     def test_k1c_mutlak_yol_proje_kokune_gore_cozulur(self):
         self.baglam_yaz()
-        klasor = os.path.join(self.proje, "RNV", "05_s", "003-var")
+        klasor = os.path.join(self.proje, "ACMECO", "05_s", "003-var")
         os.makedirs(klasor)
         g, _ = self.kart_ac("x", os.path.join(klasor, "a.py"))
         self.assertEqual(self.is_klasoru(self.kart_json(g)["is"]), os.path.abspath(klasor))
 
     def test_k1c_yazma_alani_ilk_girdi_kullanilir(self):
         self.baglam_yaz()
-        klasor = os.path.join(self.proje, "RNV", "05_s", "003-ilk")
+        klasor = os.path.join(self.proje, "ACMECO", "05_s", "003-ilk")
         os.makedirs(klasor)
-        g, _ = self.kart_ac("x", "RNV/05_s/003-ilk/**", "--yazma", "RNV/05_s/004-ikinci/**")
+        g, _ = self.kart_ac("x", "ACMECO/05_s/003-ilk/**", "--yazma", "ACMECO/05_s/004-ikinci/**")
         self.assertEqual(self.is_klasoru(self.kart_json(g)["is"]), os.path.abspath(klasor))
-        self.assertFalse(os.path.exists(os.path.join(self.proje, "RNV", "05_s", "004-ikinci")))
+        self.assertFalse(os.path.exists(os.path.join(self.proje, "ACMECO", "05_s", "004-ikinci")))
 
     def test_k1c_dis_kok_eslemesi_proje_kokunde_klasor_acar(self):
         dis = os.path.join(self.proje, "_dis_depo").replace("\\", "/")
@@ -181,11 +181,11 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k1d_gorev_klasorune_cozulmezse_surec_kokunda_nnn_acilir(self):
         self.baglam_yaz()
-        sk = os.path.join(self.proje, "RNV", "05_sohbet")
+        sk = os.path.join(self.proje, "ACMECO", "05_sohbet")
         os.makedirs(os.path.join(sk, "001-eski"))
         os.makedirs(os.path.join(sk, "004-baska"))
         os.makedirs(os.path.join(sk, "acik_klasor"))  # numarasız: sayılmaz
-        g, _ = self.kart_ac("Çözüm Şeması İşi", "RNV/05_sohbet/dosya.md")
+        g, _ = self.kart_ac("Çözüm Şeması İşi", "ACMECO/05_sohbet/dosya.md")
         kl = self.is_klasoru(self.kart_json(g)["is"])
         self.assertEqual(os.path.dirname(kl), os.path.abspath(sk))
         ad = os.path.basename(kl)
@@ -205,22 +205,22 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         g, _ = self.kart_ac("Baska alan", "docs/**")
         kl = self.is_klasoru(self.kart_json(g)["is"])
-        self.assertTrue(self.alt_yol_mu(kl, os.path.join(self.proje, "RNV")), kl)
+        self.assertTrue(self.alt_yol_mu(kl, os.path.join(self.proje, "ACMECO")), kl)
         self.assertRegex(os.path.basename(kl), r"^\d{3}-\d{8}-baska-alan$")
 
     def test_k1d_yazma_alani_hic_yoksa_da_baglanir(self):
         self.baglam_yaz()
         g, _ = self.kart_ac("Yazmasız")
         kl = self.is_klasoru(self.kart_json(g)["is"])
-        self.assertTrue(self.alt_yol_mu(kl, os.path.join(self.proje, "RNV")), kl)
+        self.assertTrue(self.alt_yol_mu(kl, os.path.join(self.proje, "ACMECO")), kl)
         self.assertTrue(os.path.exists(os.path.join(kl, "is.json")))
 
     def test_k1d_nnn_uc_hane_ve_en_buyuk_arti_bir(self):
         self.baglam_yaz()
-        sk = os.path.join(self.proje, "RNV", "02_x")
+        sk = os.path.join(self.proje, "ACMECO", "02_x")
         for n in ("009-a", "012-b", "003-c"):
             os.makedirs(os.path.join(sk, n))
-        g, _ = self.kart_ac("Yeni", "RNV/02_x/dosya.md")
+        g, _ = self.kart_ac("Yeni", "ACMECO/02_x/dosya.md")
         self.assertTrue(os.path.basename(self.is_klasoru(self.kart_json(g)["is"])).startswith("013-"))
 
     # ------------------------------------------------------------ K2 asla bağsız / ret yok
@@ -233,7 +233,7 @@ class KartIsBagi(unittest.TestCase):
     def test_k2_bozuk_baglam_json_ret_vermez(self):
         with open(os.path.join(self.sd, "baglam.json"), "w") as f:
             f.write("{bozuk")
-        g, _ = self.kart_ac("Bozuk eşleme", "RNV/x/a.md")
+        g, _ = self.kart_ac("Bozuk eşleme", "ACMECO/x/a.md")
         self.assertTrue(self.kart_json(g)["is"])
 
     def test_k2_toplu_her_kartta_is_dolu(self):
@@ -241,7 +241,7 @@ class KartIsBagi(unittest.TestCase):
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
             json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"]},
-                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/002-x/**"]}], f)
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["ACMECO/01_a/002-x/**"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         for x in json.loads(r.stdout):
@@ -250,24 +250,24 @@ class KartIsBagi(unittest.TestCase):
     def test_k2_kod_karti_da_baglanir(self):
         self.baglam_yaz()
         r = self.cli("kart", "yeni", "--soru", "Kısa test sorusu?", "--baslik", "Kod", "--kabul", "k", "--sinif", "kod", "--test-komutu", "python -m unittest",
-                     "--test-alani", "tests/**", "--yazma", "RNV/01_a/002-k/**")
+                     "--test-alani", "tests/**", "--yazma", "ACMECO/01_a/002-k/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(self.kart_json(r.stdout.strip()).get("is"))
 
     # ------------------------------------------------------------ K3 kapalı iş
     def test_k3_kapali_oturum_isi_yazma_alani_isine_gecer(self):
         self.baglam_yaz()
-        i0, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        i1, _ = self.klasor_ac("RNV/01_a/002-iki", "iki")  # oturum I-002
+        i0, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        i1, _ = self.klasor_ac("ACMECO/01_a/002-iki", "iki")  # oturum I-002
         self.cli("is", "kapat", i1)
-        g, _ = self.kart_ac("x", "RNV/01_a/001-bir/**")
+        g, _ = self.kart_ac("x", "ACMECO/01_a/001-bir/**")
         self.assertEqual(self.kart_json(g)["is"], i0)
 
     def test_k3_kapali_oturum_isi_yazma_alani_yoksa_yeni_is_acilir(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.cli("is", "kapat", i1)
-        g, _ = self.kart_ac("Kapalı sonrası", "RNV/01_a/dosya.md")
+        g, _ = self.kart_ac("Kapalı sonrası", "ACMECO/01_a/dosya.md")
         i = self.kart_json(g)["is"]
         self.assertNotEqual(i, i1)
         self.assertEqual(self.merkez()["isler"][i]["durum"], "acik")
@@ -275,9 +275,9 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k3_kapali_acik_is_secenegi_hata_vermez(self):
         self.baglam_yaz()
-        i1, kl = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, kl = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.cli("is", "kapat", i1)
-        r = self.yeni("x", "RNV/01_a/001-bir/**", "--is", i1)
+        r = self.yeni("x", "ACMECO/01_a/001-bir/**", "--is", i1)
         self.assertEqual(r.returncode, 0, r.stderr)
         i = self.kart_json(r.stdout.strip())["is"]
         self.assertNotEqual(i, i1)
@@ -286,7 +286,7 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k3_kapali_is_toplu_json_is_alani_hata_vermez(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.cli("is", "kapat", i1)
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
@@ -300,7 +300,7 @@ class KartIsBagi(unittest.TestCase):
     def test_k4_acilan_is_oturuma_baglanir_ve_kayitlar_guncellenir(self):
         self.baglam_yaz()
         self.assertIsNone(self.oturum_isi())
-        g, _ = self.kart_ac("x", "RNV/01_a/003-yeni/**")
+        g, _ = self.kart_ac("x", "ACMECO/01_a/003-yeni/**")
         i = self.kart_json(g)["is"]
         self.assertEqual(self.oturum_isi(), i)
         ij = self.oku(os.path.join(self.is_klasoru(i), "is.json"))
@@ -311,22 +311,22 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k4_mevcut_isi_bulunca_da_oturuma_baglanir(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.oturumu_birak()
-        self.kart_ac("x", "RNV/01_a/001-bir/**")
+        self.kart_ac("x", "ACMECO/01_a/001-bir/**")
         self.assertEqual(self.oturum_isi(), i1)
 
     def test_k4_oturum_zaten_bagliysa_acik_is_oturumu_degistirmez(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        i2, _ = self.klasor_ac("RNV/01_a/002-iki", "iki")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        i2, _ = self.klasor_ac("ACMECO/01_a/002-iki", "iki")
         self.kart_ac("x", None, "--is", i1)
         self.assertEqual(self.oturum_isi(), i2)
 
     def test_k4_ikinci_kart_ayni_isi_kullanir_yeni_klasor_acmaz(self):
         self.baglam_yaz()
-        g1, _ = self.kart_ac("a", "RNV/01_a/dosya.md")
-        g2, _ = self.kart_ac("b", "RNV/01_a/dosya.md")
+        g1, _ = self.kart_ac("a", "ACMECO/01_a/dosya.md")
+        g2, _ = self.kart_ac("b", "ACMECO/01_a/dosya.md")
         i = self.kart_json(g1)["is"]
         self.assertEqual(self.kart_json(g2)["is"], i)
         self.assertEqual(self.oku(os.path.join(self.is_klasoru(i), "is.json"))["kartlar"], [g1, g2])
@@ -335,7 +335,7 @@ class KartIsBagi(unittest.TestCase):
     # ------------------------------------------------------------ K5 stderr izi
     def test_k5_stderr_kart_basina_tek_satir_stdout_degismez(self):
         self.baglam_yaz()
-        g, r = self.kart_ac("İz kartı", "RNV/01_a/003-yeni/**")
+        g, r = self.kart_ac("İz kartı", "ACMECO/01_a/003-yeni/**")
         i = self.kart_json(g)["is"]
         self.assertEqual(r.stdout.strip(), g)
         s = self.sorgu_satirlari(r.stderr, g)
@@ -347,9 +347,9 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k5_mevcut_is_icin_yeni_is_denmez(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.oturumu_birak()
-        g, r = self.kart_ac("x", "RNV/01_a/001-bir/**")
+        g, r = self.kart_ac("x", "ACMECO/01_a/001-bir/**")
         s = self.sorgu_satirlari(r.stderr, g)
         self.assertEqual(len(s), 1, r.stderr)
         self.assertIn(f"{g} → {i1}", s[0])
@@ -357,7 +357,7 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k5_oturum_ve_acik_is_yollari_da_tek_satir_yazar(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         g, r = self.kart_ac("x")
         self.assertEqual(len(self.sorgu_satirlari(r.stderr, g)), 1, r.stderr)
         self.assertIn(f"{g} → {i1}", r.stderr)
@@ -381,15 +381,15 @@ class KartIsBagi(unittest.TestCase):
         self.baglam_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/a.md"]},
-                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/b.md"]},
-                       {"soru": "Kısa test sorusu?", "baslik": "c", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/05_s/c.md"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["ACMECO/05_s/a.md"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["ACMECO/05_s/b.md"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "c", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["ACMECO/05_s/c.md"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         ids = [x["id"] for x in json.loads(r.stdout)]
         isler = {self.kart_json(g)["is"] for g in ids}
         self.assertEqual(len(isler), 1)
-        self.assertEqual(len(self.nnn_klasorleri(os.path.join(self.proje, "RNV", "05_s"))), 1)
+        self.assertEqual(len(self.nnn_klasorleri(os.path.join(self.proje, "ACMECO", "05_s"))), 1)
         self.assertEqual(len(self.merkez()["isler"]), 1)
         self.assertEqual(self.oku(os.path.join(self.is_klasoru(isler.pop()), "is.json"))["kartlar"], ids)
 
@@ -410,16 +410,16 @@ class KartIsBagi(unittest.TestCase):
         r = self.cli("kart", "toplu", plan)
         self.assertNotEqual(r.returncode, 0)  # kabul kriteri eksik: gerçek doğrulama hatası hâlâ ret
         self.assertFalse(os.path.exists(os.path.join(self.sd, "isler.json")))
-        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "RNV")), [])
+        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "ACMECO")), [])
 
     # ------------------------------------------------------------ K7 geri doldurma
     def sahipsiz_hazirla(self):
         """Üç sahipsiz kart: biri mevcut klasörde is.json'lu, ikisi aynı yeni süreç kökünde."""
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        ga, _ = self.kart_ac("a", "RNV/01_a/001-bir/**")
-        gb, _ = self.kart_ac("b", "RNV/05_s/x.md")
-        gc, _ = self.kart_ac("c", "RNV/05_s/y.md")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        ga, _ = self.kart_ac("a", "ACMECO/01_a/001-bir/**")
+        gb, _ = self.kart_ac("b", "ACMECO/05_s/x.md")
+        gc, _ = self.kart_ac("c", "ACMECO/05_s/y.md")
         for g in (ga, gb, gc):
             self.sahipsiz_yap(g)
         self.oturumu_birak()
@@ -449,7 +449,7 @@ class KartIsBagi(unittest.TestCase):
         self.assertEqual(ib, ic, "aynı klasöre çözülen sahipsiz kartlar tek işe bağlanır")
         self.assertNotEqual(ib, i1)
         kl = self.is_klasoru(ib)
-        self.assertEqual(os.path.dirname(kl), os.path.abspath(os.path.join(self.proje, "RNV", "05_s")))
+        self.assertEqual(os.path.dirname(kl), os.path.abspath(os.path.join(self.proje, "ACMECO", "05_s")))
         self.assertEqual(self.oku(os.path.join(kl, "is.json"))["kartlar"], [gb, gc])
         self.assertIn(ga, self.oku(os.path.join(self.is_klasoru(i1), "is.json"))["kartlar"])
         self.assertIn(ib, self.merkez()["isler"])
@@ -467,14 +467,14 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k7_sahipsiz_kart_yoksa_kuru_kosu_da_yok_der(self):
         self.baglam_yaz()
-        self.kart_ac("a", "RNV/05_s/x.md")
+        self.kart_ac("a", "ACMECO/05_s/x.md")
         r = self.cli("is", "onar", "--kartlar")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("sahipsiz kart yok", r.stdout.lower())
 
     def test_k7_bagli_kartlara_dokunmaz(self):
         self.baglam_yaz()
-        g, _ = self.kart_ac("a", "RNV/05_s/x.md")
+        g, _ = self.kart_ac("a", "ACMECO/05_s/x.md")
         i = self.kart_json(g)["is"]
         self.assertEqual(self.cli("is", "onar", "--kartlar", "--uygula").returncode, 0)
         self.assertEqual(self.kart_json(g)["is"], i)
@@ -482,7 +482,7 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k7_kartlar_bayragi_olmadan_onar_eski_davranis(self):
         self.baglam_yaz()
-        self.klasor_ac("RNV/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         r = self.cli("is", "onar")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("sahipsiz", r.stdout.lower())
@@ -493,12 +493,12 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k1c_yetim_is_json_merkeze_kaydedilir_yeni_klasor_acilmaz(self):
         self.baglam_yaz()
-        i1, yol = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, yol = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.oturumu_birak()
         os.remove(os.path.join(self.sd, "isler.json"))  # is.json duruyor, merkez kaydı yok
-        g, r = self.kart_ac("x", "RNV/01_a/001-bir/**")
+        g, r = self.kart_ac("x", "ACMECO/01_a/001-bir/**")
         i = self.kart_json(g)["is"]
-        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "RNV", "01_a")), ["001-bir"], r.stderr)
+        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "ACMECO", "01_a")), ["001-bir"], r.stderr)
         self.assertEqual(i, i1)
         self.assertIn(i, self.merkez()["isler"])
         self.assertEqual(self.is_klasoru(i), os.path.abspath(yol))
@@ -506,17 +506,17 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k1c_yetim_is_json_sonrasi_yeni_kimlik_yinelenmez(self):
         self.baglam_yaz()
-        i1, _ = self.klasor_ac("RNV/01_a/001-bir", "bir")
-        self.klasor_ac("RNV/01_a/002-iki", "iki")
+        i1, _ = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/002-iki", "iki")
         self.oturumu_birak()
         os.remove(os.path.join(self.sd, "isler.json"))
-        self.kart_ac("x", "RNV/01_a/001-bir/**")
+        self.kart_ac("x", "ACMECO/01_a/001-bir/**")
         self.oturumu_birak()
-        i3, _ = self.klasor_ac("RNV/01_a/003-uc", "uc")
+        i3, _ = self.klasor_ac("ACMECO/01_a/003-uc", "uc")
         self.assertGreater(self.kimlik_no(i3), 2)
         kimlikler = []
         for k in ("001-bir", "002-iki", "003-uc"):
-            kimlikler.append(self.oku(os.path.join(self.proje, "RNV", "01_a", k, "is.json"))["id"])
+            kimlikler.append(self.oku(os.path.join(self.proje, "ACMECO", "01_a", k, "is.json"))["id"])
         self.assertEqual(len(set(kimlikler)), 3, kimlikler)
         self.assertGreaterEqual(self.merkez()["sayac"], 3)
 
@@ -529,10 +529,10 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k2_bozuk_isler_json_kart_yeni_basarili_yedek_ve_yeniden_kurulum(self):
         self.baglam_yaz()
-        i1, yol = self.klasor_ac("RNV/01_a/001-bir", "bir")
+        i1, yol = self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.oturumu_birak()
         self.bozuk_merkez_yaz()
-        r = self.yeni("Bozuk merkez", "RNV/01_a/001-bir/**")
+        r = self.yeni("Bozuk merkez", "ACMECO/01_a/001-bir/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("Traceback", r.stderr)
         g = r.stdout.strip()
@@ -542,19 +542,19 @@ class KartIsBagi(unittest.TestCase):
         merkez = self.merkez()  # geçerli JSON olmalı
         self.assertIn(i, merkez["isler"])
         self.assertIn(i1, merkez["isler"])  # bilinen is.json'dan yeniden kuruldu
-        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "RNV", "01_a")), ["001-bir"])
+        self.assertEqual(self.nnn_klasorleri(os.path.join(self.proje, "ACMECO", "01_a")), ["001-bir"])
 
     def test_k2_bozuk_isler_json_yeni_is_kimligi_cakismaz(self):
         self.baglam_yaz()
-        self.klasor_ac("RNV/01_a/001-bir", "bir")
-        self.klasor_ac("RNV/01_a/002-iki", "iki")
+        self.klasor_ac("ACMECO/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/002-iki", "iki")
         self.oturumu_birak()
         self.bozuk_merkez_yaz()
-        g, _ = self.kart_ac("Yeni", "RNV/01_a/009-yeni/**")  # bilinmeyen klasör: yeni iş açılır
+        g, _ = self.kart_ac("Yeni", "ACMECO/01_a/009-yeni/**")  # bilinmeyen klasör: yeni iş açılır
         i = self.kart_json(g)["is"]
         self.assertGreater(self.kimlik_no(i), 2)
         kimlikler = []
-        for kok, _d, dosyalar in os.walk(os.path.join(self.proje, "RNV")):
+        for kok, _d, dosyalar in os.walk(os.path.join(self.proje, "ACMECO")):
             if "is.json" in dosyalar:
                 kimlikler.append(self.oku(os.path.join(kok, "is.json"))["id"])
         self.assertEqual(len(kimlikler), 3, kimlikler)
@@ -570,13 +570,13 @@ class KartIsBagi(unittest.TestCase):
 
     def test_k2_bozuk_isler_json_kart_toplu_basarili(self):
         self.baglam_yaz()
-        self.klasor_ac("RNV/01_a/001-bir", "bir")
+        self.klasor_ac("ACMECO/01_a/001-bir", "bir")
         self.oturumu_birak()
         self.bozuk_merkez_yaz()
         plan = os.path.join(self.proje, "plan.json")
         with open(plan, "w", encoding="utf-8") as f:
-            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/001-bir/**"]},
-                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["RNV/01_a/007-x/**"]}], f)
+            json.dump([{"soru": "Kısa test sorusu?", "baslik": "a", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["ACMECO/01_a/001-bir/**"]},
+                       {"soru": "Kısa test sorusu?", "baslik": "b", "sinif": "belge", "kabul_kriterleri": ["k"], "yazma_alani": ["ACMECO/01_a/007-x/**"]}], f)
         r = self.cli("kart", "toplu", plan)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("Traceback", r.stderr)

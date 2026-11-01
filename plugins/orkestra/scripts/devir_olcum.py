@@ -1,7 +1,7 @@
 """Devir oranı ölçümü (ADR-0099), salt okuma; model çağırmaz.
 
   devir_olcum.py --n-hesapla [--p1 0.204 --p2 0.354 --alfa 0.05 --guc 0.8]   grup başına gereken tur (bağımsız)
-  devir_olcum.py --taban [--proje-kok ~/.claude/projects --tarih 2026-10-14 --on-ek C--Mert-McD]
+  devir_olcum.py --taban [--proje-kok ~/.claude/projects --tarih 2026-10-14 --on-ek C--Work-DemoRoot]
         transkriptlerden: iş belgesi dışında >=3 ayrı dosya yazılan ana ajan turları ve içinde alt ajan olanlar
   devir_olcum.py --deney [--klasor DURUM_DIZINI]
         gunluk.jsonl `devir_olay` kayıtları (kontrol / hatırlatma) ile zaman.jsonl `alt` satırlarını birleştirir;
@@ -184,7 +184,7 @@ def main(argv=None) -> int:
     ap.add_argument("--alfa", type=float, default=0.05)
     ap.add_argument("--guc", type=float, default=0.8)
     ap.add_argument("--proje-kok", default=os.path.expanduser("~/.claude/projects"))
-    ap.add_argument("--on-ek", default="C--Mert-McD")
+    ap.add_argument("--on-ek", default=re.sub(r"[^A-Za-z0-9]", "-", os.getcwd()))
     ap.add_argument("--tarih", default="2026-10-14")
     ap.add_argument("--klasor", default=None)
     a = ap.parse_args(argv)

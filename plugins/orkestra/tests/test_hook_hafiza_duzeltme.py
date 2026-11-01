@@ -35,7 +35,7 @@ class HookHafizaDuzeltme(unittest.TestCase):
         os.environ["ORKESTRA_SIRA_KAPISI"] = "0"
         os.environ["ORKESTRA_ONAY_KAPISI"] = "0"
         for ad in ("a.md", "b.md", "c.md"):
-            self.yaz(ad, f"- ML çöküşü\n- Boyner kapsam\n")
+            self.yaz(ad, f"- ML çöküşü\n- AcmeRetail kapsam\n")
 
     def tearDown(self):
         self._env.stop()
@@ -113,12 +113,12 @@ class HookHafizaDuzeltme(unittest.TestCase):
     def test_multiedit_ayni_dosyada_iki_not(self):
         deny, _, _ = self.pre("MultiEdit", {"file_path": self.yol("a.md"), "edits": [
             {"old_string": "- ML çöküşü", "new_string": "- ML çöküşü " + NOT},
-            {"old_string": "- Boyner kapsam", "new_string": "- Boyner kapsam " + NOT}]})
+            {"old_string": "- AcmeRetail kapsam", "new_string": "- AcmeRetail kapsam " + NOT}]})
         self.assertTrue(deny)
 
     def test_tek_not_ve_farkli_not_serbest(self):
-        self.assertFalse(self.duzenle("a.md", "- ML çöküşü", "- ML çöküşü (düzeltme: [[klibre-db]])")[0])
-        self.uygula("a.md", "- ML çöküşü", "- ML çöküşü (düzeltme: [[klibre-db]])")
+        self.assertFalse(self.duzenle("a.md", "- ML çöküşü", "- ML çöküşü (düzeltme: [[demoapp-db]])")[0])
+        self.uygula("a.md", "- ML çöküşü", "- ML çöküşü (düzeltme: [[demoapp-db]])")
         self.assertFalse(self.duzenle("b.md", "- ML çöküşü", "- ML çöküşü (düzeltme: [[baska-kayit]])")[0])
 
     def test_mevcut_tekrari_artirmayan_duzenleme_serbest(self):

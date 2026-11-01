@@ -4,7 +4,7 @@
 
 **Tarih:** 2026-10-30
 
-**Bağlam:** ADR kapısı (P-015) yalnız işin açıldığı projenin `adr/` klasörüne bakıyor. Eklenti davranışını değiştiren kararlar McD'ye yazıldı (84 dosyanın 36'sı eklentiyi anıyor); eklenti deposunda 13 ADR var, ADR-0096 iki depoda farklı içerik taşıyor, McD'nin uzak deposu olmadığından 77 ADR dosyası yedeksiz. Kullanıcı: "Orkestra içerisinde tutmak daha best in class değil midir?"
+**Bağlam:** ADR kapısı (P-015) yalnız işin açıldığı projenin `adr/` klasörüne bakıyor. Eklenti davranışını değiştiren kararlar DemoRoot'ye yazıldı (84 dosyanın 36'sı eklentiyi anıyor); eklenti deposunda 13 ADR var, ADR-0096 iki depoda farklı içerik taşıyor, DemoRoot'nin uzak deposu olmadığından 77 ADR dosyası yedeksiz. Kullanıcı: "Orkestra içerisinde tutmak daha best in class değil midir?"
 
 **Karar:**
 
@@ -26,4 +26,4 @@
 - **Olumsuz:** iki depoda aynı numara sürer (geçmiş çakışma); depo adı atıfta zorunlu olur.
 - **Geri alma:** `**Kök:**` çözümünü kapıdan çıkarmak eski davranışı geri getirir; komut ve doktor kontrolü bağımsız silinir.
 
-**İlgili iş:** I-256 (McD); P-015, P-022; ADR-0098 (McD, I-254) bu karara taşınır.
+**İlgili iş:** I-256 (DemoRoot); P-015, P-022; ADR-0098 (DemoRoot, I-254) bu karara taşınır.

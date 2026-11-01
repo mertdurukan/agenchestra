@@ -20,7 +20,7 @@ def plan(*maddeler: tuple[int, str, str], ek: str = "") -> str:
     return "\n".join(parcalar)
 
 
-# I-216 planının P blokları (RNV/064-20261023-golge-modda-degil-dogrudan-al/plan.md), alanlar birebir kopya.
+# I-216 planının P blokları (ACMECO/064-20261023-golge-modda-degil-dogrudan-al/plan.md), alanlar birebir kopya.
 I216_PLAN = """# Orkestra: plan aşamasında maksimum paralellik
 
 ## 4. Plan maddeleri
@@ -71,7 +71,7 @@ I216_PLAN = """# Orkestra: plan aşamasında maksimum paralellik
 
 **Önce:** yok
 
-**Yazma alanı:** RNV/98_calisma/paralellik_taban_20261023/**, RNV/064-20261023-golge-modda-degil-dogrudan-al/taban_olcum_20261023.md
+**Yazma alanı:** ACMECO/98_calisma/paralellik_taban_20261023/**, ACMECO/064-20261023-golge-modda-degil-dogrudan-al/taban_olcum_20261023.md
 
 ## Dalgalar
 
@@ -104,11 +104,11 @@ class OnceAyristirma(unittest.TestCase):
 
 class Kesisim(unittest.TestCase):
     def test_glob_ve_onek(self):
-        self.assertTrue(PA.alan_kesisir({"RNV/98/x/**"}, {"RNV/98/x/a/b.py"}))
+        self.assertTrue(PA.alan_kesisir({"ACMECO/98/x/**"}, {"ACMECO/98/x/a/b.py"}))
         self.assertTrue(PA.alan_kesisir({"tests/test_*.py"}, {"tests/test_dalga.py"}))
         self.assertTrue(PA.alan_kesisir({"scripts/"}, {"scripts/a.py"}))
         self.assertTrue(PA.alan_kesisir({"a/**"}, {"a/b/*.py"}))
-        self.assertFalse(PA.alan_kesisir({"RNV/98/x/**"}, {"RNV/98/y.md"}))
+        self.assertFalse(PA.alan_kesisir({"ACMECO/98/x/**"}, {"ACMECO/98/y.md"}))
         self.assertFalse(PA.alan_kesisir({"a.py"}, {"b.py"}))
 
 

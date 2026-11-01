@@ -1,5 +1,5 @@
 {
   "aciklama": "Çıplak tam test koşusu yönlendirmesi (I-309 P6, scripts/hook.py _test_yonlendirme, PreToolUse Bash). Çıplak `pytest` / `python -m pytest` / `python -m unittest [discover]` makine kirasını, ortak işçi bütçesini ve sonuç önbelleğini atlar. mod: golge (kapi_golge kaydı + engellemeyen ipucu) | ihlal (komut reddedilir, kapi_ret kaydı). Hedefli çağrı (tek dosya *.py, düğüm ::, -k, --lf, unittest modül adı) ve test koşmayan çağrı (--collect-only, --version, -h) hiçbir modda engellenmez. Proje ezmesi: .claude/orkestra/test_yonlendirme.json. ORKESTRA_TEST_YONLENDIRME=0 kapatır; kaynak_kira modu kapali iken de susar.",
   "mod": "ihlal",
-  "mod_gerekce": "ADR-0131: kullanıcı kararıyla ihlal (01.11.2026). Gölge dönemi kısaydı: McD gunluk.jsonl'da test_yonlendirme kapi_golge sayısı 0 (kilit_olcum.py); yanlış pozitif ölçümü kapi_ret kayıtlarıyla ihlal modunda sürer."
+  "mod_gerekce": "ADR-0131: kullanıcı kararıyla ihlal (01.11.2026). Gölge dönemi kısaydı: DemoRoot gunluk.jsonl'da test_yonlendirme kapi_golge sayısı 0 (kilit_olcum.py); yanlış pozitif ölçümü kapi_ret kayıtlarıyla ihlal modunda sürer."
 }

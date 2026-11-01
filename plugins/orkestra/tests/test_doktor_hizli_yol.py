@@ -104,6 +104,7 @@ class HizliYolTest(unittest.TestCase):
         while time.time() < bitis and not cfg.makine_taze_mi():
             time.sleep(0.5)
         self.assertTrue(cfg.makine_taze_mi(), "arka plan doktor makine.json yazmadı")
+        bitis = time.time() + 240  # yavaş CI (Windows/py3.9) doktoru 90 sn'yi aşabilir; ikinci bekleme kendi süresini alır
         while time.time() < bitis and not isinstance(cfg.makine_oku().get("son_doktor"), dict):
             time.sleep(0.5)
         self.assertIsInstance(cfg.makine_oku().get("son_doktor"), dict, "doktor çalışma işaretini yazmadı")

@@ -125,7 +125,7 @@ class PanelIsler(unittest.TestCase):
                                     "zaman": "2026-10-14T10:00:00Z"}) + "\n")
 
     def is_ac(self, ad, todo=None):
-        klasor = os.path.join(self.proje, "RNV", ad)
+        klasor = os.path.join(self.proje, "ACMECO", ad)
         k = IK.is_ac(self.sd, ad, klasor)
         if todo is not None:
             with open(os.path.join(klasor, "todo.md"), "w", encoding="utf-8", newline="\n") as f:

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#161b2e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58a6ff"/>
+      <stop offset="1" stop-color="#a371f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="80" y="96" width="8" height="150" rx="4" fill="url(#accent)"/>
+  <text x="112" y="180" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="88" font-weight="700" fill="#f0f6fc">Agenchestra</text>
+  <text x="112" y="240" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="32" fill="#9da7b3">Cost-ladder multi-agent orchestration for Claude Code</text>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#e6edf3">
+    <rect x="80" y="320" width="540" height="110" rx="14" fill="#1c2333" stroke="#30384d"/>
+    <text x="112" y="388" fill="#58a6ff">&#9650;</text><text x="152" y="388">Cost ladder</text>
+    <rect x="660" y="320" width="540" height="110" rx="14" fill="#1c2333" stroke="#30384d"/>
+    <text x="692" y="388" fill="#a371f7">&#10003;</text><text x="732" y="388">Independent reviewer</text>
+    <rect x="80" y="460" width="540" height="110" rx="14" fill="#1c2333" stroke="#30384d"/>
+    <text x="112" y="528" fill="#3fb950">&#8741;</text><text x="152" y="528">Parallel waves</text>
+    <rect x="660" y="460" width="540" height="110" rx="14" fill="#1c2333" stroke="#30384d"/>
+    <text x="692" y="528" fill="#f0883e">&#9679;</text><text x="732" y="528">Live panel</text>
+  </g>
+</svg>

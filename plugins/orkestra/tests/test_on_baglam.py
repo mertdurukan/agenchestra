@@ -124,7 +124,7 @@ class OnBaglam(unittest.TestCase):
 
     def test_kimlik_adi_degersiz(self):
         os.environ["ORKESTRA_ON_BAGLAM"] = "1"
-        with mock.patch("kimlik.liste", return_value=[("McD", "langfuse", ["LANGFUSE_HOST", "LANGFUSE_KEY"])]):
+        with mock.patch("kimlik.liste", return_value=[("DemoRoot", "langfuse", ["LANGFUSE_HOST", "LANGFUSE_KEY"])]):
             c = self.uret("langfuse izlerini incelemek istiyorum lütfen yardım et")
         self.assertIn("kimlik: langfuse (LANGFUSE_HOST, LANGFUSE_KEY) · kaynak: kimlik klasörü", c)
         self.assertNotIn("=", c)

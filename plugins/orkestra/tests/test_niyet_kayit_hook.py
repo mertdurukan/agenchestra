@@ -69,11 +69,11 @@ class NiyetKayitHook(unittest.TestCase):
 
     def test_sonuc_yazildiktan_sonra_da_niyet_gorunur(self):
         # G-091: niyet → sonuc sırası 'kayıtlı niyet yok' demez (niyet.son_baglam)
-        self.yaz("o1", "niyet", ne="iş a", neden="hedef b", baglam="RNV/01_x")
+        self.yaz("o1", "niyet", ne="iş a", neden="hedef b", baglam="ACMECO/01_x")
         self.yaz("o1", "sonuc", sonuc="bitti")
         self.hook_baglami("o1")
         self.assertEqual(len(self.niyetler("o1")), 1)
-        self.assertEqual(niyet.son_baglam("o1"), "RNV/01_x")
+        self.assertEqual(niyet.son_baglam("o1"), "ACMECO/01_x")
 
     def test_yalniz_sonuc_olan_oturumda_yok_satiri_surer(self):
         self.yaz("o2", "sonuc", sonuc="bitti")

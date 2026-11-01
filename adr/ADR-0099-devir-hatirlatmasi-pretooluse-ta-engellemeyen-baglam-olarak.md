@@ -6,7 +6,7 @@
 
 **Bağlam:**
 
-McD'nin zaman.jsonl kaydına göre (14–30.10.2026) araç çağrılarının %82'si ana ajanda, 242 işin 90'ında alt ajan yok. Bir turda üç ya da daha fazla Edit/Write yapılan 318 turun 163'ünde alt ajan çalışmadı.
+DemoRoot'nin zaman.jsonl kaydına göre (14–30.10.2026) araç çağrılarının %82'si ana ajanda, 242 işin 90'ında alt ajan yok. Bir turda üç ya da daha fazla Edit/Write yapılan 318 turun 163'ünde alt ajan çalışmadı.
 
 KURALLAR.md satır 11–24 devri yalnız tavsiye olarak tarif eder; hook'larda devir kararını hatırlatan ya da izleyen kod yok.
 

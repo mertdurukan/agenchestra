@@ -6,7 +6,7 @@
 
 **Bağlam:**
 
-I-190 oturumunda `grep -r` (C:\Mert\McD) ve `find` (C:\Users\PC) ön planda, zaman sınırsız çalıştırıldı; 120 sn sonra harness ikisini arka plana aldı ve gösterge "arka plan görevleri sürüyor" dedi. P-012 madde 4 aramayı aktif işin klasörüyle sınırlar ama yalnız metindir. Orkestra izleyicisi (`hook.py` `_acik_arka_plan`) yalnız `run_in_background: true` çağrılarını sayar, zaman aşımıyla arka plana düşenleri görmez.
+I-190 oturumunda `grep -r` (C:\Work\DemoRoot) ve `find` (C:\Users\PC) ön planda, zaman sınırsız çalıştırıldı; 120 sn sonra harness ikisini arka plana aldı ve gösterge "arka plan görevleri sürüyor" dedi. P-012 madde 4 aramayı aktif işin klasörüyle sınırlar ama yalnız metindir. Orkestra izleyicisi (`hook.py` `_acik_arka_plan`) yalnız `run_in_background: true` çağrılarını sayar, zaman aşımıyla arka plana düşenleri görmez.
 
 **Karar:**
 

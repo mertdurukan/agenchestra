@@ -30,10 +30,10 @@ POZITIF = ["grep -r foo C:/Users/PC",
            "find C:/Users/PC -name '*.py'",
            "find / -name x",
            "cd /tmp && grep -rl abc C:/Users",
-           "grep -r foo C:/Mert/McD"]
+           "grep -r foo C:/Work/DemoRoot"]
 NEGATIF = ["timeout 20 grep -r foo C:/Users/PC",
            "timeout 30 find C:/Users/PC -name x",
-           "grep -r foo C:/Mert/McD/RNV/063-x",
+           "grep -r foo C:/Work/DemoRoot/ACMECO/063-x",
            "grep foo C:/Users/PC/dosya.txt",
            "ls C:/Users/PC",
            "echo grep -r",
@@ -166,34 +166,34 @@ class TestHookBaglantisi(_Proje):
 
 # ADR-0123 derlemi: gerçek oturum kayıtlarından (1375 Bash `find`/`grep -r` komutu, 31.10.2026) seçilmiş reddedilmesi gerekenler
 # ve gerçek meşru komutlar; ikisi de elle sınıflandı.
-REDDEDILMELI = ["find /c/Mert/McD -name karar_kapisi.py",
+REDDEDILMELI = ["find /c/Work/DemoRoot -name karar_kapisi.py",
                 "find / -name panel.py -path '*orkestra*' 2>/dev/null | grep -v node_modules | head",
                 "find / -name 'pe41-deck*' 2>/dev/null | head",
                 "find / -ipath '*orkestra*' -name 'panel*' -not -path '*/node_modules/*' 2>/dev/null | head",
-                "find /c/Mert/McD -iname '*rakip*' -o -iname '*karsilastir*' 2>/dev/null",
+                "find /c/Work/DemoRoot -iname '*rakip*' -o -iname '*karsilastir*' 2>/dev/null",
                 "find /c/Users/PC /c/Mert -iname '*rakip_karsilastirmasi*' 2>/dev/null | head",
                 "find /c/Users/PC/Desktop /c/Users/PC/Downloads /c/Mert -newer x",
                 "find /c/Users/PC/.claude -name 'perspektif-ajani.md' 2>/dev/null",
                 "find 'C:/Mert' 'C:/Users/PC/Desktop' -iname '*acik_ve_profesyonel*' 2>/dev/null",
-                "cd /c/Mert/McD && find /c/Mert/McD -name '*.py'",
+                "cd /c/Work/DemoRoot && find /c/Work/DemoRoot -name '*.py'",
                 "ls /c/Users/PC/Desktop; find /c/Mert -name x",
                 "find ~ -name '*.log'",
                 "find /c/Users -name x"]
-GECMELI = ["timeout 20 find /c/Mert/McD -name karar_kapisi.py",
-           "find /c/Mert/McD -maxdepth 1 -name x",
-           "find /c/Mert/McD -name node_modules -prune -o -name x -print",
+GECMELI = ["timeout 20 find /c/Work/DemoRoot -name karar_kapisi.py",
+           "find /c/Work/DemoRoot -maxdepth 1 -name x",
+           "find /c/Work/DemoRoot -name node_modules -prune -o -name x -print",
            "find . -name '*.py'",
            "find Claude_Orkestrasyon/isler -name 'plan.md'",
-           "find /c/Mert/McD/RNV/063-x -name '*.md'",
-           "find /c/Users/PC/.claude/projects/C--Mert-McD/memory -name '*.md'",
+           "find /c/Work/DemoRoot/ACMECO/063-x -name '*.md'",
+           "find /c/Users/PC/.claude/projects/C--Work-DemoRoot/memory -name '*.md'",
            "find $s -type f | wc -l",
            "echo \"$(grep -rlic 'a\\|b' $s | wc -l) dosya / $(find $s -type f | wc -l)\"",
            "git ls-files | grep -i taslak; find / -maxdepth 0",
            "timeout 30 find / -name x",
            "ls /c/Users/PC/Desktop",
-           "grep foo /c/Mert/McD/dosya.txt",
+           "grep foo /c/Work/DemoRoot/dosya.txt",
            "git log --oneline -3 -- Claude_Orkestrasyon/",
-           "cat /c/Users/PC/.claude/projects/C--Mert-McD/memory/MEMORY.md",
+           "cat /c/Users/PC/.claude/projects/C--Work-DemoRoot/memory/MEMORY.md",
            "py -3.13 -m pytest -q tests/test_x.py",
            "python3 -c \"print('find / -name x')\" | head"]
 
@@ -224,12 +224,12 @@ class TestReddetKipi(_Proje):
                 self.assertEqual(GT.reddet_metni(m, self.sd), "", m)
 
     def test_ret_metni_hazir_duzeltilmis_komutu_verir(self):
-        metin = GT.reddet_metni("find /c/Mert/McD -name x", self.sd)
-        self.assertIn("timeout 20 find /c/Mert/McD -name x", metin)
+        metin = GT.reddet_metni("find /c/Work/DemoRoot -name x", self.sd)
+        self.assertIn("timeout 20 find /c/Work/DemoRoot -name x", metin)
         self.assertIn("Glob", metin)
 
     def test_hook_find_komutunu_kosmadan_reddeder(self):
-        ho = self.pre("find /c/Mert/McD -name karar_kapisi.py").get("hookSpecificOutput", {})
+        ho = self.pre("find /c/Work/DemoRoot -name karar_kapisi.py").get("hookSpecificOutput", {})
         self.assertEqual(ho.get("permissionDecision"), "deny")
         self.assertIn("timeout 20 find", ho.get("permissionDecisionReason", ""))
         kayit = [g for g in self.gunluk() if g.get("kural") == "genis_tarama"]
@@ -247,12 +247,12 @@ class TestReddetKipi(_Proje):
 
     def test_golge_kipinde_reddetmez(self):
         self.proje_ayari({"mod": "golge"})
-        self.assertEqual(GT.reddet_metni("find /c/Mert/McD -name x", self.sd), "")
-        self.assertNotEqual(self.pre("find /c/Mert/McD -name x").get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+        self.assertEqual(GT.reddet_metni("find /c/Work/DemoRoot -name x", self.sd), "")
+        self.assertNotEqual(self.pre("find /c/Work/DemoRoot -name x").get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
 
     def test_ortam_degiskeni_kapatir(self):
         os.environ["ORKESTRA_GENIS_TARAMA"] = "0"
-        self.assertEqual(GT.reddet_metni("find /c/Mert/McD -name x", self.sd), "")
+        self.assertEqual(GT.reddet_metni("find /c/Work/DemoRoot -name x", self.sd), "")
 
 
 class TestZamanAsimiAcikGorev(_Proje):

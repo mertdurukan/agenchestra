@@ -1,6 +1,6 @@
 """Yol bazlı gönderim kapısı (ADR-0012): yasak yollara dokunan commit hiçbir uzak depoya gitmez.
 
-Yasak yollar `<git kökü>/.claude/orkestra/push_kapisi.json` içinde {"yollar": ["RNV", ...]} (ya da
+Yasak yollar `<git kökü>/.claude/orkestra/push_kapisi.json` içinde {"yollar": ["AcmeCo", ...]} (ya da
 ORKESTRA_PUSH_YASAK ortam değişkeni, virgüllü). `kur` .git/hooks/pre-push dosyasını yazar; var olan bir
 pre-push `pre-push.onceki` adıyla saklanır ve kapıdan sonra çalıştırılır (zincir). Hook atlama bayrağı kullanılmaz.
 """
@@ -79,10 +79,32 @@ def ihlaller(kok: str, uzak: str, girdi: str, yasak: list[str]) -> list[str]:
     return bad
 
 
+def icerik_ihlalleri(kok: str, uzak: str, girdi: str) -> list[str]:
+    """pre-push aralığındaki commit'lerin eklediği satırlarda yasak içerik deseni (yapılandırma yoksa boş)."""
+    import icerik_kapisi
+    sonuc: list[str] = []
+    for satir in girdi.splitlines():
+        p = satir.split()
+        if len(p) < 4 or p[1] == SIFIR:
+            continue
+        lsha, rsha = p[1], p[3]
+        aralik = [lsha, "--not", f"--remotes={uzak}"] if rsha == SIFIR else [f"{rsha}..{lsha}"]
+        try:
+            sonuc += icerik_kapisi.push_ihlalleri(kok, _git, aralik)
+        except KapiHata:
+            continue
+    return sonuc
+
+
 def kontrol(uzak: str, girdi: str, kok: str | None = None) -> int:
     kok = kok or git_koku()
     yasak = yollar(kok)
     bad = ihlaller(kok, uzak, girdi, yasak)
+    icerik = icerik_ihlalleri(kok, uzak, girdi)
+    if icerik:
+        print(f"GONDERIM ENGELLENDI: yasak içerik deseni eklenmiş ({'; '.join(icerik)}).", file=sys.stderr)
+        print("Kural: push_kapisi.json icerik_desenleri; örnek veri nötr adlarla yazılır, kapı atlanmaz.", file=sys.stderr)
+        return 1
     if bad:
         print(f"GONDERIM ENGELLENDI: yasak yola ({', '.join(yasak)}) dokunan commit var ({' '.join(bad)}).", file=sys.stderr)
         print("Kural: orkestra push-kapisi (ADR-0012); kapı atlanmaz.", file=sys.stderr)

@@ -3,7 +3,7 @@
 Düzen: <kök>/<proje>/<servis>.env ve ortak servisler için <kök>/_ortak/<servis>.env.
 Kök: ORKESTRA_KIMLIK_DIZINI ya da ~/.orkestra/credentials (eklenti ve depo dışında; güncellemeden etkilenmez).
 Değer YALNIZ `al()` ile çağıran süreçte döner; CLI hiçbir komutta değer yazmaz, hata iletilerinde de değer yoktur.
-Öncelik: aynı adlı ortam değişkeni dosyadan önce gelir (CI, KLIBRE_PROD_PW uyumu).
+Öncelik: aynı adlı ortam değişkeni dosyadan önce gelir (CI, DEMOAPP_PROD_PW uyumu).
 """
 from __future__ import annotations
 

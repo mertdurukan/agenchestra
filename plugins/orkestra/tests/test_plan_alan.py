@@ -20,7 +20,7 @@ import is_kaydi as K  # noqa: E402
 import is_sirasi as S  # noqa: E402
 from komutlar import plan_alan as PA  # noqa: E402
 
-GERCEK = r"C:\Mert\McD\.claude\worktrees\orkestra-denetim-k-k-neden-4992ea\129-20261024-orkestra-denetimleri-kok-neden-analizi"
+GERCEK = r"C:\Work\DemoRoot\.claude\worktrees\orkestra-denetim-k-k-neden-4992ea\129-20261024-orkestra-denetimleri-kok-neden-analizi"
 
 IS_JSON = {"id": "I-224", "sira": "mevcut-durum-plan-todo", "sozlesme": True, "kalite": True, "gap": True,
            "uretim": True, "paralel": True, "dogrulama": "plan-iddia"}

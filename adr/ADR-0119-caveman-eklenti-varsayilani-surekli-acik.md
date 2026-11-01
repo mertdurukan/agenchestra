@@ -4,7 +4,7 @@
 
 **Tarih:** 2026-10-31
 
-**Bağlam:** Caveman skill'i yalnız /caveman ile açılıyordu. Kullanıcı her sohbette ve orkestrayı kullanan her projede otomatik çalışmasını istedi. ADR-0113'te sürekli açık kaydı yalnız projenin `skill_durum.json` dosyasındaydı; eklenti varsayılanı yoktu. McD projesine yazmak P-022'ye aykırıydı.
+**Bağlam:** Caveman skill'i yalnız /caveman ile açılıyordu. Kullanıcı her sohbette ve orkestrayı kullanan her projede otomatik çalışmasını istedi. ADR-0113'te sürekli açık kaydı yalnız projenin `skill_durum.json` dosyasındaydı; eklenti varsayılanı yoktu. DemoRoot projesine yazmak P-022'ye aykırıydı.
 
 **Karar:**
 

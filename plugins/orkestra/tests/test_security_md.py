@@ -14,8 +14,8 @@ YOL = os.path.join(DEPO, "SECURITY.md")
 
 
 def _adr_dizini():
-    """ADR'ler eklentiyi kullanan projededir; ORKESTRA_ADR_DIZINI ya da bu makinedeki McD projesi. Yoksa None."""
-    for d in (os.environ.get("ORKESTRA_ADR_DIZINI"), r"C:\Mert\McD\adr"):
+    """ADR'ler eklentiyi kullanan projededir; ORKESTRA_ADR_DIZINI ya da bu makinedeki DemoRoot projesi. Yoksa None."""
+    for d in (os.environ.get("ORKESTRA_ADR_DIZINI"), r"C:\Work\DemoRoot\adr"):
         if d and os.path.isdir(d):
             return d
     return None

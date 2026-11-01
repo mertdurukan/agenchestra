@@ -59,7 +59,7 @@ class SeritDuzelt(unittest.TestCase):
             json.dump(k, f, ensure_ascii=False, indent=2)
 
     def kur(self, todo):
-        klasor = os.path.join(self.proje, "RNV", "05_x", "001-y")
+        klasor = os.path.join(self.proje, "ACMECO", "05_x", "001-y")
         r = self.cli("is", "ac", "Deneme işi", "--klasor", klasor)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.is_id = r.stdout.strip().splitlines()[-1].split()[0]

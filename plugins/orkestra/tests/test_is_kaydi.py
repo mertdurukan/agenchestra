@@ -180,10 +180,10 @@ class OtomatikIsAcmaTest(unittest.TestCase):
         self.assertEqual(b, "Panel düğmesini düzelt")
 
     def test_proje_sec_orkestra_istegi(self):
-        pr = ["RNV", "Claude_Orkestrasyon"]
+        pr = ["ACMECO", "Claude_Orkestrasyon"]
         self.assertEqual(K.proje_sec(pr, "orkestra hook hızını ölç"), 1)
-        self.assertEqual(K.proje_sec(pr, "klibre fiyat tablosu"), 0)
-        self.assertEqual(K.proje_sec(["RNV"], "orkestra hook"), 0)
+        self.assertEqual(K.proje_sec(pr, "demoapp fiyat tablosu"), 0)
+        self.assertEqual(K.proje_sec(["ACMECO"], "orkestra hook"), 0)
 
     def test_klasor_ayir_es_zamanli_benzersiz_numara(self):
         with tempfile.TemporaryDirectory() as t:

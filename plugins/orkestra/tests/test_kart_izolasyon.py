@@ -203,7 +203,7 @@ class KartIzolasyonu(unittest.TestCase):
         os.makedirs(ic)
         git(ic, "init", "-q")
         ic_u = ic.replace("\\", "/")
-        # dış depoda iç depoyu kapsayan alan tek başına geçer (ana projede 'RNV/**' altında kod depoları var)
+        # dış depoda iç depoyu kapsayan alan tek başına geçer (ana projede 'ACMECO/**' altında kod depoları var)
         g0, r = self.kapi("vendor/**")
         self.assertEqual(r.returncode, 0, r.stderr)
         # iç depodaki kart, onu kapsayan dış kartla çakışır (80e438e 'farklı ağaç' diye atlıyordu)

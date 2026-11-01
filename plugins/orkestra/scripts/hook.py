@@ -929,6 +929,20 @@ def _kapi_uygula(kar, neden: str):
         sor(neden)
 
 
+def _icerik_kapisi(arac: str, girdi: dict, tam: str) -> None:
+    """Yasak içerik desenini (push_kapisi.json `icerik_desenleri`) yazım anında reddeder; yapılandırma yoksa sessiz.
+    Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır. ORKESTRA_ICERIK_KAPISI=0 kapatır."""
+    if os.environ.get("ORKESTRA_ICERIK_KAPISI") == "0" or arac not in ("Write", "Edit", "MultiEdit"):
+        return
+    try:
+        import icerik_kapisi as IK
+        neden = IK.yazim_ihlali(arac, girdi, tam)
+    except Exception:
+        return
+    if neden:
+        reddet(neden)
+
+
 def _hafiza_duzeltme_kapisi(arac: str, girdi: dict, tam: str) -> None:
     """ADR-0029: hafıza .md yazımı birebir aynı düzeltme notunu ikinci kez ekliyorsa reddedilir (mod=golge: yalnız uyarı).
     Ana ve alt ajan aynıdır. ORKESTRA_HAFIZA_DUZELTME=0 kapatır. Fail-open: kapı kodunda her istisna çağrıyı serbest bırakır."""
@@ -1117,6 +1131,7 @@ def pre_tool_use(inp: dict):
             gec()
         tam = os.path.abspath(os.path.join(inp.get("cwd") or os.getcwd(), yol))
         _hafiza_duzeltme_kapisi(arac, girdi, tam)
+        _icerik_kapisi(arac, girdi, tam)
         try:
             rel = os.path.relpath(tam, sd).replace("\\", "/")
         except ValueError:

@@ -8,7 +8,7 @@
 
 Kullanıcı, eşzamanlı tam test koşularının çekirdek ve belleği aşmasının hemen önlenmesi için üç parçanın da açılmasına karar verdi.
 
-Ölçüm (`python scripts/kilit_olcum.py --sd C:\Mert\McD\.claude\orkestra`, 01.11.2026 10:17): `kapi_golge` içinde `test_yonlendirme` 0, `kaynak_kira` 0, `test_onbellek` 0; gunluk.jsonl'da "BAYAT" isabet kaydı 0.
+Ölçüm (`python scripts/kilit_olcum.py --sd C:\Work\DemoRoot\.claude\orkestra`, 01.11.2026 10:17): `kapi_golge` içinde `test_yonlendirme` 0, `kaynak_kira` 0, `test_onbellek` 0; gunluk.jsonl'da "BAYAT" isabet kaydı 0.
 
 Gölge dönemi çok kısaydı (aynı gün açıldı). Sıfır sayılar "yanlış pozitif yok" kanıtı değildir, yalnız ölçülecek olay henüz olmadığını gösterir; önbellek gölgeye hiç alınmadığı için BAYAT sayısı ölçülmemiştir.
 

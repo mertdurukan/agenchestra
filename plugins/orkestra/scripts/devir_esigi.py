@@ -2,7 +2,7 @@
 
 Ana ajanın tek turunda (bir Stop'tan sonrakine) önbellek okuması `esik_onbellek_okuma` token'ı aşarsa, sonraki kullanıcı
 mesajında (UserPromptSubmit) tek satırlık engellemeyen bir ipucu bağlama girer: oturumu `/orkestra:devir` ile yeni sohbete
-taşımayı düşün. Ölçüm (McD): 5 M üstü tur ana ajan turlarının %4,7'si (239/5136), harcamanın %19,8'i.
+taşımayı düşün. Ölçüm (DemoRoot): 5 M üstü tur ana ajan turlarının %4,7'si (239/5136), harcamanın %19,8'i.
 
 soguk_onbellek.devir_uyarisi'nden farkı: o, tek çağrının BAĞLAM boyutuna bakar ve oturumda bir kez uyarır; bu, turun
 TOPLAM önbellek okumasına bakar (çok çağrılı uzun turlar) ve `tekrar_aralik_tur` turda bir yeniden uyarabilir.
