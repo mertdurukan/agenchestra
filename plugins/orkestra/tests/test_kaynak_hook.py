@@ -2,6 +2,7 @@
 
 K1: çıplak `pytest` Bash komutu gunluk.jsonl'a `kapi_golge` (kapi=test_yonlendirme) yazar ve ipucu bağlamı verir;
     `test_paralel.py` komutu ve hedefli çağrı (tek dosya, -k, unittest modülü) yazmaz; ihlal modunda reddedilir.
+    Eklenti varsayılanı ihlal (ADR-0129): ezmesiz projede çıplak tam koşu deny, hedefli çağrı geçer; gölge ezmeyle.
 K2: /api/kaynaklar sahip ve bekleyen kaydını (pid, komut, işçi, süre) döndürür; kaynaklar.js node ile sözdizimi geçer ve
     aynı veriyi çizer.
 Hepsi geçici dizinde koşar; gerçek kira dizinine ve proje durum klasörüne yazılmaz.
