@@ -152,6 +152,28 @@ class EsZamanliBütce(Ortam):
                 pass
         self.assertEqual(K.durum()["bekleyenler"], [])
 
+    def test_bekleyen_kesilirse_bekleyen_kaydi_silinir(self):
+        """Bekleyen süreç KeyboardInterrupt/SystemExit ile ölürse kuyruk başı tıkanmaz: kaydı her çıkışta silinir."""
+        self.ayar()
+        p = self.sahte_baslat("sahip", 4, 10)
+        self.addCleanup(p.kill)
+        self.sahip_bekle()
+        for hata in (KeyboardInterrupt, SystemExit):
+            sayac = {"n": 0}
+            gercek = time.sleep
+
+            def uyu(s, _h=hata):
+                sayac["n"] += 1
+                if sayac["n"] >= 3:  # kuyruğa yazıldıktan ve en az bir yoklamadan sonra kesil
+                    raise _h()
+                gercek(s)
+
+            with mock.patch.object(K.time, "sleep", side_effect=uyu):
+                with self.assertRaises(hata):
+                    with K.kira(1, cikti=io.StringIO()):
+                        pass
+            self.assertEqual(K.durum()["bekleyenler"], [], hata.__name__)
+
     def test_gercek_test_paralel_kuyruga_girer(self):
         """Uçtan uca: tam bütçeli sahip varken test_paralel.py 'sıra: 2' yazar, sahip bırakınca koşar."""
         self.ayar()
