@@ -28,6 +28,6 @@
 - **Olumlu:** kullanıcı yalnız anlaşılır belge görür; kapılar değişmez.
 - **Olumsuz:** görünüm dosyası ikinci bir çıktıdır; kayıt değişince yenilenmesi gerekir (bağlantı komutu her çağrıda yeniler).
 - **Geri alma yolu:** `belge_baglantilari` içindeki görünüm yönlendirmesi kaldırılır; kayıt dosyaları zaten değişmedi.
-- **Uygulama durumu:** plan ve todo görünümü, sözleşme bağlantısının kaldırılması hazır. Birleşik şablonlar, çalışma özeti alan adları, teslim sırası kuralı ve yol seçimi kuralı sonraki adımlardır.
+- **Uygulama durumu:** plan ve todo görünümü, sözleşme bağlantısının kaldırılması, Geri alma alanının kalkması ve kurallar (P-050 teslim sırası, P-051 doğrulanabilir şey, P-052 yol seçimi) hazır. Birleşik şablonlar (mevcut durum + bulgu, sözleşme + rapor), çalışma özeti alan adları (tek "Şef Özeti", "Neden bu yol?", "Harita" adı) ve teslim sırasının kod zorlaması sonraki adımlardır; bu adımlar kapı değişikliği gerektirir.
 
 **İlgili iş ya da kural kimliği:** I-305; K-003, K-005, K-006, P-018, ADR-0126.

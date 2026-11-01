@@ -1244,7 +1244,60 @@
         }
       ],
       "etkinlesme": "2026-10-31T22:43:26+03:00"
+    },
+    {
+      "id": "P-050",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Belgeler üretilip tamamlandıktan sonra, plan ya da auto modu fark etmeden, şu sırayla kullanıcıya verilir. İşin başında: 1) Mevcut durum ve bulgular, 2) Plan, 3) Todo. İşin sonunda: 1) Çalışma özeti, 2) Sözleşme ve rapor, 3) Jira önerisi. (1) Bir belge yarım iken verilmez; tamamlanana kadar beklenir. (2) Kullanıcıya plan ve todo için kayıttan türetilen görünüm dosyaları (plan_gorunum.md, todo_gorunum.md) verilir; kimlik, Dayanak, Gap, Dalgalar ve denetim bloğu gösterilmez. (3) Sözleşme tek başına kullanıcıya verilmez; \"Sözleşme ve rapor\" belgesinin parçasıdır. Zorlama: is_kaydi.belge_baglantilari sırayı ve görünüm yönlendirmesini üretir, scripts/plan_gorunum.py, tests/test_belge_baglanti_worktree.py. (ORK-ADR-0136)",
+      "neden": "Kullanıcı belgelerin sırasını ve okunabilirliğini istedi: kimlikli plan/todo ve sözleşme kullanıcıya anlam taşımıyordu (01.11.2026).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-11-01T12:48:24+03:00",
+      "guncelleme": "2026-11-01T12:48:24+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-11-01T12:48:24+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Belgeler üretilip tamamlandıktan sonra, plan ya da auto modu fark etmeden, şu sırayla kullanıcıya verilir. İşin başında: 1) Mevcut durum ve bulgular, 2) Plan, 3) Todo. İşin sonunda: 1) Çalışma özeti, 2) Sözleşme ve rapor, 3) Jira önerisi. (1) Bir belge yarım iken verilmez; tamamlanana kadar beklenir. (2) Kullanıcıya plan ve todo için kayıttan türetilen görünüm dosyaları (plan_gorunum.md, todo_gorunum.md) verilir; kimlik, Dayanak, Gap, Dalgalar ve denetim bloğu gösterilmez. (3) Sözleşme tek başına kullanıcıya verilmez; \"Sözleşme ve rapor\" belgesinin parçasıdır. Zorlama: is_kaydi.belge_baglantilari sırayı ve görünüm yönlendirmesini üretir, scripts/plan_gorunum.py, tests/test_belge_baglanti_worktree.py. (ORK-ADR-0136)"
+        }
+      ],
+      "etkinlesme": "2026-11-01T12:48:24+03:00"
+    },
+    {
+      "id": "P-051",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Veritabanı, kod, komut ya da API ile bakılabilen hiçbir şey belgede \"Doğrulanamayanlar\" bölümüne yazılmaz; belge yazılmadan önce bakılır. Bölüme yalnız denenip somut engele takılan madde girer ve engel yazılır (erişim, yetki, süre, kapalı sistem). \"Bakılmadı\" engel sayılmaz. Bir madde doğrulanamıyor yazılacaksa önce kök neden sorulur: neden bakılmadı, hangi adım (kural, şablon, kart, skill) bakmayı zorunlu kılmalıydı; düzeltme o kaynağa yapılır (K-006). Zorlama: yalnız bu kural ve şablon yönergeleri (sablonlar/plan*.md, sablonlar/calisma_ozeti.md); mekanik kapı yoktur. (ORK-ADR-0136)",
+      "neden": "Veritabanından bakılabilecek bir iddia \"doğrulanamayan\" listesine yazılmıştı; kullanıcı kök neden analizi istedi (01.11.2026).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-11-01T12:48:24+03:00",
+      "guncelleme": "2026-11-01T12:48:24+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-11-01T12:48:24+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Veritabanı, kod, komut ya da API ile bakılabilen hiçbir şey belgede \"Doğrulanamayanlar\" bölümüne yazılmaz; belge yazılmadan önce bakılır. Bölüme yalnız denenip somut engele takılan madde girer ve engel yazılır (erişim, yetki, süre, kapalı sistem). \"Bakılmadı\" engel sayılmaz. Bir madde doğrulanamıyor yazılacaksa önce kök neden sorulur: neden bakılmadı, hangi adım (kural, şablon, kart, skill) bakmayı zorunlu kılmalıydı; düzeltme o kaynağa yapılır (K-006). Zorlama: yalnız bu kural ve şablon yönergeleri (sablonlar/plan*.md, sablonlar/calisma_ozeti.md); mekanik kapı yoktur. (ORK-ADR-0136)"
+        }
+      ],
+      "etkinlesme": "2026-11-01T12:48:24+03:00"
+    },
+    {
+      "id": "P-052",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: İşte iki yol varsa (örn. eski sürümü geliştirmeye devam etmek ya da yeni sürüme taşımak), plan önce hangi yolun geleceğe taşınacağına mevcut durumdaki kanıtla karar verir (hangisi yaşıyor, hangisi emekli, taşıma maliyeti ve riski). Karar \"Kararlar\" bölümünde ilk maddedir. Seçilmeyen yola yatırım yapılmaz; yapılıyorsa gerekçesi aynı bölümde yazılır. Yanlış yapıyı doğru biçimde sürdürmek best in class sayılmaz. Zorlama: sablonlar/plan*.md Kararlar yönergesi ve plan denetçisinin sorusu; mekanik kapı yoktur. (ORK-ADR-0136)",
+      "neden": "Plan eski sürümde geliştirmeyi sürdürürken yeni sürüme taşıma hiç tartışılmamıştı (01.11.2026).",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-11-01T12:48:25+03:00",
+      "guncelleme": "2026-11-01T12:48:25+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-11-01T12:48:25+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: İşte iki yol varsa (örn. eski sürümü geliştirmeye devam etmek ya da yeni sürüme taşımak), plan önce hangi yolun geleceğe taşınacağına mevcut durumdaki kanıtla karar verir (hangisi yaşıyor, hangisi emekli, taşıma maliyeti ve riski). Karar \"Kararlar\" bölümünde ilk maddedir. Seçilmeyen yola yatırım yapılmaz; yapılıyorsa gerekçesi aynı bölümde yazılır. Yanlış yapıyı doğru biçimde sürdürmek best in class sayılmaz. Zorlama: sablonlar/plan*.md Kararlar yönergesi ve plan denetçisinin sorusu; mekanik kapı yoktur. (ORK-ADR-0136)"
+        }
+      ],
+      "etkinlesme": "2026-11-01T12:48:25+03:00"
     }
-  ],
-  "etkinlesme": "2026-10-31T18:30:00+03:00"
+  ]
 }
