@@ -162,6 +162,30 @@ def kosucu_birak(sd: str, sahip: str) -> bool:
         return True
 
 
+def kurtar(sd: str, sahip: str | None = None, simdi: float | None = None, bayat_s: float = BAYAT_S) -> list[str]:
+    """Ölen koşucunun bıraktığı `kosuyor` teslimleri `bekliyor`a döndürür (sıra korunur); dönen: kurtarılan kimlikler.
+    Yalnız koşucu kilidi yoksa, bayatsa ya da çağıran `sahip`in kendisindeyse çalışır (tek-koşucu değişmezi: kilidi
+    tutan koşucudan başka canlı koşu yoktur, öyleyse kalan `kosuyor` kayıtları sahipsizdir). Canlı başka sahip varsa [].
+    Kilit sırası kosucu -> kuyruk; diğer işlevler tek kilit aldığından kilitlenme olmaz. Genel `gecis` bu geçişi açmaz."""
+    t = time.time() if simdi is None else simdi
+    with L.kilit(kosucu_yolu(sd), bekleme_s=KILIT_BEKLEME_S):
+        k = _kosucu_oku(kosucu_yolu(sd))
+        if k.get("sahip") and k.get("sahip") != sahip and t - float(k.get("t") or 0) < bayat_s:
+            return []
+        yol = kuyruk_yolu(sd)
+        os.makedirs(os.path.dirname(yol), exist_ok=True)
+        kurtarilan = []
+        with L.kilit(yol, bekleme_s=KILIT_BEKLEME_S):
+            for onceki in sorted(_katla(L.jsonl_oku(yol)).values(), key=lambda x: int(x.get("sira") or 0)):
+                if onceki.get("durum") != "kosuyor":
+                    continue
+                kayit = {a: v for a, v in onceki.items() if a not in ("v", "onceki", "neden")}
+                kayit.update({"durum": "bekliyor", "zaman": L.simdi(), "neden": "koşucu durdu: kurtarıldı"})
+                _ekle_kilitli(yol, kayit)
+                kurtarilan.append(str(onceki["teslim"]))
+        return kurtarilan
+
+
 def kosucu(sd: str) -> dict:
     """Kilit kaydı ({} yoksa); `bayat` alanı hesaplanır."""
     k = _kosucu_oku(kosucu_yolu(sd))
