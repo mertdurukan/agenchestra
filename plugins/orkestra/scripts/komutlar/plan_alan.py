@@ -23,7 +23,7 @@ from komutlar._ortak import hata
 DOLDUR = "<doldur>"
 ZINCIR = ("Gap", "Sözleşme", "Dayanak", "İddialar", "Önce", "Yazma alanı")
 _NO = re.compile(r"^([A-Za-z])?(\d+)$")
-_GAP_SATIR = re.compile(r"^\s*[-*]\s+\*\*G(\d+):?\*\*(.*)$", re.M)
+_GAP_SATIR = re.compile(r"^\s*[-*]\s+\*\*G?(\d+)[:.]?\*\*(.*)$", re.M)
 _MD_ANMA = re.compile(r"MD\s*§\s*(\d+)")
 
 

@@ -61,6 +61,9 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 ## 4. Plan maddeleri
 
 <!-- doldur: her madde ayrı başlık ve zorunlu alanlar:
+Başlık, madde bitince ne olacağını anlatan düz cümledir (ör. `### P1 Saldırı mesajları modele gitmeden engellenir`).
+"Girdi kapısı" gibi etiket olmaz.
+Todo görünümünde kullanıcı bu başlığı okur.
 ```markdown
 ### P1 Başlık
 **Ne:**
