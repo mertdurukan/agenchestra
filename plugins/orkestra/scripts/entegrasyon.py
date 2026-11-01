@@ -181,8 +181,15 @@ _AD_EN_COK = 37  # test adı kısaltması: `_SIR`'ın 40+ karakterlik kesintisiz
 _SON_SATIR = 3
 
 
+_TEST_ADI = re.compile(r"^test_?[a-z0-9_]*(?:\[[^\]]{0,30}\])?$|^Test[A-Za-z0-9]*$")
+
+
 def _kisa_ad(ad: str) -> str:
+    """Yalnız test tanımlayıcısı biçimindeki ad (test_snake_case, TestSinif) kısaltılır; başka biçim önce redakte
+    edilir: rastgele bir sırrı kısaltıp `_SIR` kalıbının altına indirmek onu sızdırırdı."""
     ad = ad.split("::")[-1]
+    if not _TEST_ADI.match(ad):
+        return OF.redakte(ad)[:_AD_EN_COK + 10]
     return ad if len(ad) <= _AD_EN_COK else ad[:_AD_EN_COK] + "…"
 
 
