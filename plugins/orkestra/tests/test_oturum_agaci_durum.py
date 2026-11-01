@@ -212,8 +212,9 @@ class OturumAgaciDurum(unittest.TestCase):
         import is_kaydi as K
         sd = os.path.join(self.ana, ".claude", "orkestra")
         self.assertEqual(K.devral_ipucu(sd, self.wt), "")  # kopya boş
-        with open(os.path.join(self.wt, ".claude", "orkestra", "gunluk.jsonl"), "w", encoding="utf-8", newline="\n") as f:
-            f.write('{"a":1}\n')
+        os.makedirs(os.path.join(self.wt, ".claude", "orkestra", "onaylar"), exist_ok=True)  # I-314: ipucu içerik değil kayıt adı sayar
+        with open(os.path.join(self.wt, ".claude", "orkestra", "onaylar", "O-1.json"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("{}")
         satir = K.devral_ipucu(sd, self.wt)
         self.assertIn("orkestra durum devral", satir)
         self.assertNotIn("\n", satir)
