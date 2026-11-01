@@ -599,7 +599,7 @@ def _auto_ozet_eksigi(klasor, metin):
             return kalan[0]
         return None
     # ADR-0132: her girdi karar, gerekçe, alternatif ve geri alma alanlarını taşır; gölge modunda yalnız uyarır (P-028)
-    eksik = _auto_karar_alan_eksigi(m.group(1))
+    eksik = [] if os.environ.get("ORKESTRA_AUTO_KARAR_ALAN_KAPISI") == "0" else _auto_karar_alan_eksigi(m.group(1))
     if eksik:
         import kapi_mod as KM
         kalan = KM.ihlal_ver(klasor, "auto_karar_alan", [f"calisma_ozeti: `## Otomatik kararlar` girdilerinde alan eksik: {', '.join(eksik)} (ADR-0132)"])
