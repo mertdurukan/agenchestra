@@ -51,22 +51,21 @@ def _ozet(sureler):
 
 
 def toplam_dogrulugu(port, alan_id, sd):
-    """S2: panel pencere toplamı == tekilleştirilmiş defter toplamı (aynı pencere tanımı, ork_lib.pencere_icinde)."""
-    panel_p = json.loads(_al(port, f"/analitik.json?alan={urllib.parse.quote(alan_id)}")[1])["pencere"]
+    """S2: panelin /ozet.json maliyet toplamı (bugün, tüm zaman) == tekilleştirilmiş defter toplamı."""
+    panel_m = json.loads(_al(port, f"/ozet.json?alan={urllib.parse.quote(alan_id)}")[1])["maliyet"]
     bugun = datetime.date.today()
-    toplam = collections.defaultdict(float)
+    toplam = {"bugun": 0.0, "tum_zaman": 0.0}
     for r in L.maliyet_kayitlari(sd):
         z = L.yerel_zaman(r.get("zaman"))
-        if z is None:
-            continue
-        for p in L.PENCERELER:
-            if L.pencere_icinde(p, z.date(), bugun):
-                toplam[p] += r.get("maliyet_usd") or 0.0
+        usd = r.get("maliyet_usd") or 0.0
+        toplam["tum_zaman"] += usd
+        if z is not None and z.date() == bugun:
+            toplam["bugun"] += usd
     sonuc = {}
-    for p in L.PENCERELER:
-        fark = round((panel_p.get(p) or {}).get("usd", 0.0) - toplam[p], 4)
-        sonuc[p] = {"panel_usd": (panel_p.get(p) or {}).get("usd"), "defter_usd": round(toplam[p], 4), "fark": fark,
-                    "tamam": abs(fark) <= TOLERANS_USD}
+    for p, anahtar in (("bugun", "bugun"), ("tum_zaman", "toplam")):
+        panel_usd = panel_m.get(anahtar) or 0.0
+        fark = round(panel_usd - toplam[p], 4)
+        sonuc[p] = {"panel_usd": panel_usd, "defter_usd": round(toplam[p], 4), "fark": fark, "tamam": abs(fark) <= TOLERANS_USD}
     return sonuc
 
 
