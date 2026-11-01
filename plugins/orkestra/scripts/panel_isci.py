@@ -81,6 +81,17 @@ def uret(ad: str, alan: str | None, yerel):
         return yerel()
     try:
         return _havuz_al().submit(calistir, ad, alan).result(timeout=ZAMAN_ASIMI)
-    except Exception:  # noqa: BLE001 — BrokenProcessPool, zaman aşımı, ValueError: havuz yenilenir, istek düşmez
+    except Exception as e:  # noqa: BLE001 — BrokenProcessPool, zaman aşımı, ValueError: havuz yenilenir, istek düşmez
+        _hata_yaz(ad, e)
         _havuzu_at()
         return yerel()
+
+
+def _hata_yaz(ad: str, e: Exception) -> None:
+    """Yedeğe düşme nedeni kalıcı olsun (sessiz yedek, işçinin hiç çalışmadığını gizler)."""
+    try:
+        import ork_lib as L  # noqa: PLC0415
+        with open(os.path.join(L.GENEL_DIZIN, "panel_isci_hata.log"), "a", encoding="utf-8") as f:
+            f.write(f"{L.simdi()} {ad} {type(e).__name__}: {str(e)[:300]}" + chr(10))
+    except Exception:  # noqa: BLE001
+        pass
