@@ -105,6 +105,7 @@ class AjanTipKaydi(unittest.TestCase):
         self.assertEqual(M.yeniden_tip_satir({"surec": "bilinmiyor", "ajan": "general-purpose"}, bul)["surec"], "genel-ajan")
         r = {"surec": "tip-okunamadi", "ajan": "?", "agent_id": "yok", "oturum": "o"}
         self.assertIs(M.yeniden_tip_satir(r, bul), r)
+        self.assertEqual(M.yeniden_tip_satir({"surec": "bilinmiyor", "ajan": "?", "agent_id": "yok", "oturum": "o"}, bul)["surec"], "tip-okunamadi")
         r2 = {"surec": "is", "ajan": "?"}
         self.assertIs(M.yeniden_tip_satir(r2, bul), r2)
 
