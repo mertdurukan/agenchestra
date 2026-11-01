@@ -186,6 +186,7 @@ class TestHookGolge(_Proje):
         c = self.pre("python -m pytest -q")
         self.assertEqual(c["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("test_paralel.py", c["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIn("gh workflow run orkestra-tam-takim.yml", c["hookSpecificOutput"]["permissionDecisionReason"])
 
 
 class TestHookIhlalVarsayilan(_Proje):
