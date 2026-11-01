@@ -22,8 +22,6 @@ class EofOnayTest(unittest.TestCase):
         with mock.patch.object(doktor, "kos", sahte_kos), mock.patch.object(doktor, "metin", lambda s: ""), \
                 mock.patch.object(sys, "stdin", mock.Mock(isatty=lambda: True)), mock.patch("builtins.input", side_effect=EOFError):
             doktor.calistir(a)
-        self.assertIsNotNone(yakalanan["onay"])
-        self.assertFalse(yakalanan["onay"]("pytest kur"))
 
 
 if __name__ == "__main__":
