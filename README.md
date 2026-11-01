@@ -27,6 +27,8 @@ Requires Claude Code, Python 3 and `git`.
 
 Then open a new Claude Code session in any project. Remove with `python agenchestra/araclar/projeye_kur.py --kullanici --kaldir`.
 
+The test gate runs under the interpreter in the `ORKESTRA_PYTHON` environment variable. If it is unset, it uses `py -3.13` when available, otherwise the running Python. Install `pytest` in that interpreter (`python -m pip install pytest`) before running the tests.
+
 ## Usage
 
 ```
