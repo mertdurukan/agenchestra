@@ -982,7 +982,7 @@ def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -
 
 
 def _bekleme_kapisi(inp: dict, komut: str) -> None:
-    """I-326 (ADR-0138): sınırsız bekleme döngüsü. Hata komutu bozmaz; ihlal modunda ret, gölgede kayıt + uyarı."""
+    """I-326 (ADR-0139): sınırsız bekleme döngüsü. Hata komutu bozmaz; ihlal modunda ret, gölgede kayıt + uyarı."""
     global _BEKLEYEN_UYARI
     try:
         import bekleme_kapisi as _bk
