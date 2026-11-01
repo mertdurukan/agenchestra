@@ -18,7 +18,21 @@ description: "Orkestra'da /auto modunu açar: kullanıcının mesajı onay yerin
 1. İşi `orkestra:is` skill'iyle aç ya da bağlı işe devam et.
 2. Üç belgeyi sırayla yaz: mevcut durum, plan, todo. Belgeler tamamlanınca hook onayı `verildi` yapar (olay `onay:auto`).
 3. Planı sonuna kadar uygula. Her madde için kanıt notu yaz, işçi çıktısını ayrı denetçiden geçir.
-4. İşi `orkestra is kapat` ile kapat; çalışma özeti "Plandan sapmalar" ve "Kullanıcıya kalanlar" bölümlerini taşır.
+4. İşi `orkestra is kapat` ile kapat; çalışma özeti "Plandan sapmalar", "Otomatik kararlar" ve "Kullanıcıya kalanlar" bölümlerini taşır.
+
+## Tam otonomi ve best in class (ADR-0132)
+
+`/auto` işi kullanıcıya dönmeden çalışma özetine kadar sürer; araya durma, onay ya da "devam edeyim mi" yoktur.
+
+- **Best in class:** her konuda, plan maddesi başına şu dört soru yanıtlanır (P-030): kök neden mi ele alınıyor, en az iki uygulanabilir alternatif tartıldı mı, kapsam daraltılırken çözümün özü korundu mu, ölçüm yöntemi yeterli mi. Belirtiyi yamayan ya da tek yaklaşımı deneyen çözüm best in class sayılmaz.
+- **Durmama:** tur bir konuda tıkansa da diğer maddeler sürer; iş çalışma özeti yazılıp `orkestra is kapat` çalışana kadar bırakılmaz.
+- **Kullanıcıya kalan iş:** önce kendin çöz. Elinde araç, anahtar, API ya da tarayıcı varsa işi yap. Çözemediğin işte best in class güvenli varsayılanı seç, uygula ve kararı yaz.
+- **Her otomatik karar** özetin `## Otomatik kararlar` bölümüne dört alanla yazılır:
+  - **Karar:** ne yapıldı ya da ne yanıt verildi.
+  - **Gerekçe:** neden bu, hangi kanıta dayanıyor.
+  - **Alternatifler:** değerlendirilen diğer yollar.
+  - **Geri alma:** kararı geri almanın yolu.
+- **Çözülemeyenler:** parola girişi, değeri yalnız kullanıcıda olan sır ve hesap açma otomatik çözülmez (kesin sınır). Bunlar "Kullanıcıya kalanlar" altında, ne yapıldığı ve uygulanan güvenli varsayılanla birlikte sıralanır; koşu durmaz.
 
 ## Sınırlar
 
