@@ -50,8 +50,6 @@ def masaustu_oturumlari() -> dict:
     Yalnız bu dört alan okunur. Bağlantı: claude://claude.ai/epitaxy/<uygulama kimliği> (uygulamanın kendi
     sohbet bağlantısı; belgelenmiş bir arayüz değildir, uygulama sürümüyle değişebilir).
     """
-    kok = os.path.join(os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming"),
-                       "Claude", "claude-code-sessions")
     onb_yolu = os.path.join(GENEL_DIZIN, "masaustu_onbellek.json")
     try:
         with open(onb_yolu, encoding="utf-8") as f:
