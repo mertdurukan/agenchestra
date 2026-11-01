@@ -270,7 +270,9 @@ def sahip_satirlari(sonuclar, sd=None, kosan=None):
         import is_talebi
         import oturum_farkindalik as F
         import test_atif
-        sd = sd or ork_lib_durum_dizini()
+        if sd is None:
+            import ork_lib
+            sd = ork_lib.durum_dizini()
         kosan = kosan or os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or "-"
         if not sd or is_talebi.mod(sd) == "kapali":
             return []
