@@ -1,5 +1,6 @@
 """İzin politikası: kabuk ve MCP kapısı, mod/ortam/ezme katmanları, hook uçtan uca, doktor kontrolü."""
 import json
+import re
 import os
 import shutil
 import sys
@@ -229,12 +230,15 @@ class HookUcAdanUca(unittest.TestCase):
             shutil.rmtree(bos, ignore_errors=True)
 
     def test_hooks_json_tum_araclari_kapsar(self):
-        # eşleşme ".*": Read, Glob, Grep, Agent, Skill gibi araçlar da politikadan geçer (varsayılan Claude Code istemine düşmez)
+        # ADR-0143: Read/Grep/Glob/ToolSearch genel kapıdan çıktı (hız); kimlik klasörü okumaları ikinci girişte kapıdan geçer
         with open(os.path.join(KOK, "hooks", "hooks.json"), encoding="utf-8") as f:
-            eslesme = json.load(f)["hooks"]["PreToolUse"][0]["matcher"]
-        self.assertEqual(eslesme, ".*")
-        for a in ("mcp__github__x", "WebFetch", "WebSearch", "Bash", "PowerShell", "Write", "Read", "Glob", "Grep", "Agent", "Skill"):
-            self.assertRegex(a, eslesme)
+            pre = json.load(f)["hooks"]["PreToolUse"]
+        genel = re.compile(pre[0]["matcher"])
+        for a in ("mcp__github__x", "WebFetch", "WebSearch", "Bash", "PowerShell", "Write", "Agent", "Skill"):
+            self.assertRegex(a, genel)
+        for a in ("Read", "Glob", "Grep", "ToolSearch"):
+            self.assertIsNone(genel.search(a), a)
+        self.assertEqual(pre[1]["matcher"], "Read|Grep|Glob")
 
     def test_session_start_politikayi_duyurur(self):
         g = {"session_id": OTURUM, "cwd": self.proje, "hook_event_name": "SessionStart", "source": "startup"}

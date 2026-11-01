@@ -155,6 +155,10 @@ def _oturum_olu(ol, simdi) -> bool:
     return bool(ol and (ol[1] == "kapandi" or (simdi - ol[0]).total_seconds() / 3600 >= ASILI_OTURUM_SESSIZ_SAAT))
 
 
+_OTURUM_DIGER_ON = ("acik_ajan_", "is_", "panel_ac_", "alan_", "onay_kaydi_", "yonlendirme_")
+_OTURUM_DIGER_SON = (".baglanti.json", ".devir_esigi.json")
+
+
 def arka_plan_oturumlari(sd: str, simdi=None) -> dict:
     """oturum -> açık arka plan görevi sayısı (Stop kancasının `oturumlar/<oturum>.json` içindeki `acik_gorevler` kaydı).
     Kapanmış ya da niyet.ARKA_PLAN_ZAMAN_ASIMI_DK'dır etkinliği olmayan oturum sayılmaz (niyet.gorunum ile aynı ölçüt)."""
@@ -167,7 +171,8 @@ def arka_plan_oturumlari(sd: str, simdi=None) -> dict:
         return out
     olaylar = None
     for ad in adlar:
-        if not ad.endswith(".json") or ad.startswith(("acik_ajan_", "is_")):
+        # `<oid>.json` dışındaki kayıtlar acik_gorevler taşımaz: açmadan atla
+        if not ad.endswith(".json") or ad.startswith(_OTURUM_DIGER_ON) or ad.endswith(_OTURUM_DIGER_SON):
             continue
         try:
             with open(os.path.join(sd, "oturumlar", ad), encoding="utf-8") as f:
@@ -708,6 +713,11 @@ def yaz_arka_plan(sd: str, proje: str) -> None:
 def isci(sd: str, proje: str) -> None:
     """Arka plan işçisi: `kirli` > `islenen` olduğu sürece özeti yazar. Kilidi bıraktıktan sonra bir kez daha bakar."""
     yol = os.path.join(sd, "ozet.json")
+    try:
+        if os.environ.get("ORKESTRA_OTURUM_BUDAMA") != "0" and _budama_zamani_geldi(sd):
+            oturum_budama(sd)
+    except Exception:  # noqa: BLE001 — budama özet yazımını asla engellemez
+        pass
     for _ in range(50):   # üst sınır: durmayan tetik akışında sonsuz döngü olmasın
         fd = _kos_kilidi_al(yol)
         if fd is None:
@@ -724,6 +734,55 @@ def isci(sd: str, proje: str) -> None:
             os.close(fd)
         if _sayac(yol + ".kirli") <= _sayac(yol + ".islenen"):
             return
+
+
+# --- oturumlar/ budaması (I-003): ölü oturumun yeniden üretilebilir ara dosyaları sınırsız birikmesin -------------
+BUDAMA_SAAT = 48        # bu kadar süredir değişmeyen ara dosya silinir
+BUDAMA_ARALIK_S = 6 * 3600
+_BUDANIR_SON = (".devir", ".isdeg", ".soguk", ".json.lock", ".devir_esigi.json")
+_BUDANIR_ON = ("panel_ac_", "yonlendirme_", "devir_")   # devir_*.md devir belgesidir: budanmaz, yalnız .log
+_ASLA_BUDANMAZ = ("onay_kaydi_", "acik_ajan_", "is_")    # onay kaydı denetim izidir; açık ajan/iş kaydı canlıdır
+
+
+def oturum_budama(sd: str, saat: float = BUDAMA_SAAT, simdi: float | None = None) -> int:
+    """`oturumlar/` altında `saat` saattir değişmeyen ara dosyaları siler; silinen sayısını döner.
+    Budanan: .devir/.isdeg/.soguk işaretleri, .lock dosyaları, devir_esigi sayacı, panel_ac_/yonlendirme_ kayıtları,
+    devir_*.log. Budanmayan: `<oid>.json` (oturum durumu, özet okur), `.baglanti.json`, `alan_*`, onay_kaydi_*, devir_*.md."""
+    simdi = time.time() if simdi is None else simdi
+    sinir = simdi - saat * 3600
+    dizin = os.path.join(sd, "oturumlar")
+    n = 0
+    try:
+        adlar = os.listdir(dizin)
+    except OSError:
+        return 0
+    for ad in adlar:
+        if ad.startswith(_ASLA_BUDANMAZ) or ad.endswith(".baglanti.json"):
+            continue
+        if not (ad.endswith(_BUDANIR_SON) or (ad.startswith(_BUDANIR_ON) and ad.endswith((".json", ".log")))):
+            continue
+        yol = os.path.join(dizin, ad)
+        try:
+            if os.stat(yol).st_mtime < sinir:
+                os.remove(yol)
+                n += 1
+        except OSError:
+            continue   # kilitli ya da yarışta silinmiş: sonraki turda
+    return n
+
+
+def _budama_zamani_geldi(sd: str) -> bool:
+    yol = os.path.join(sd, "oturum_budama.json")
+    try:
+        if time.time() - os.stat(yol).st_mtime < BUDAMA_ARALIK_S:
+            return False
+    except OSError:
+        pass
+    try:
+        L.atomik_yaz(yol, json.dumps({"zaman": L.simdi()}))
+    except OSError:
+        return False
+    return True
 
 
 if __name__ == "__main__" and len(sys.argv) == 4 and sys.argv[1] == "--isci":
