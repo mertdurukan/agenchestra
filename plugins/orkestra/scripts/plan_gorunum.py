@@ -132,7 +132,7 @@ def todo_gorunumu(todo: str, plan: str) -> str:
             plan_bl = _p_bloklari(govde)
     sira = []
     for i, (n, bas, alan) in enumerate(plan_bl or [], 1):
-        p_ad[n] = (i, bas, alan.get("Kabul", ""))
+        p_ad[n] = (i, bas, alan.get("Kabul", ""), _ne_ozeti(alan.get("Ne", "")))
         sira.append(n)
     gruplar: dict[int, list[tuple[bool, str, str]]] = {}
     baslik = next((s[2:].strip() for s in todo.splitlines() if s.startswith("# ")), "Yapılacaklar")
@@ -150,10 +150,10 @@ def todo_gorunumu(todo: str, plan: str) -> str:
     for n in sira + [k for k in gruplar if k not in sira]:
         if n not in gruplar:
             continue
-        no, bas, kabul = p_ad.get(n, (n, f"Madde {n}", ""))
-        cikti += [f"## {no}. {bas}", ""]
+        no, bas, kabul, ne = p_ad.get(n, (n, f"Madde {n}", "", ""))
+        cikti += [f"## {no}. {bas}" + (f": {ne}" if ne else ""), ""]
         if kabul:
-            cikti += [f"Bitti sayılır: {kabul}", ""]
+            cikti += [kabul[:1].upper() + kabul[1:], ""]
         for yapildi, metin, kanit in gruplar[n]:
             cikti.append(f"- [{'x' if yapildi else ' '}] {metin}" + (f" (kanıt: {kanit})" if kanit and yapildi else ""))
         cikti.append("")
