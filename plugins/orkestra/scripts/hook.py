@@ -1163,6 +1163,8 @@ def pre_tool_use(inp: dict):
         genis_ret = _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
         if genis_ret:
             reddet(genis_ret)
+        if arac == "Bash":
+            _bekleme_kapisi(inp, komut)
         # Kilitli test denetimi yalnız yazma işleci içeren komutta anlamlı; yalnız-okuma komutunda kartları (125 JSON) okuma.
         kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd)) if _KABUK_YAZMA_ON.search(komut) else None
         if kgid:
