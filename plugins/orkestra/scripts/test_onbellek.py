@@ -26,14 +26,15 @@ Anahtar nasıl türer ve neden (bayat "geçti" en büyük risktir; her belirsizl
 Anahtarın göremediği girdiler (kurulu paketler, işletim sistemi durumu, saate bağlı testler) GECERLILIK_S ile sınırlanır.
 
 Mod (`ayarlar/kaynak_kira.json` `onbellek` alanı; proje ezmesi ve ORKESTRA_KAYNAK_KIRA_AYAR kaynak_kira.ayarlar ile):
-- false | "kapali" (varsayılan): hiçbir şey yapılmaz, anahtar bile hesaplanmaz. ORKESTRA_TEST_ONBELLEK=0 da kapatır.
+- false | "kapali": hiçbir şey yapılmaz, anahtar bile hesaplanmaz. ORKESTRA_TEST_ONBELLEK=0 da kapatır. Ayar dosyası
+  yoksa ya da alan eksikse kod varsayılanı budur (güvenli yön).
 - "golge" (P-028 ölçüm adımı): anahtar hesaplanır, geçen sonuç yazılır; isabet ya da beklenecek koşu olsaydı satır
   yazılır ve gunluk.jsonl'a `kapi_golge` düşer, ama koşu YİNE yapılır. Gölge koşusu isabetin doğru olup olmadığını da
-  ölçer: önbellek "geçti" derken koşu düşerse "BAYAT isabet" kaydı düşer. ihlal geçişi bu sayı 0 iken ayrı kararla.
+  ölçer: önbellek "geçti" derken koşu düşerse "BAYAT isabet" kaydı düşer.
 - true | "ihlal": isabet ve tek uçuş gerçekten uygulanır.
-Varsayılan neden false: kira (P4) kendisi gölge ölçümünde; önbellek gölgesi aynı koşulara anahtar hesabı (~1 sn) ve
-kayıt yazımı ekleyip o ölçümü karıştırır (P4 testi `onbellek: false` varsayılanını kilitler). Sıradaki adım "golge"
-ile isabet ve BAYAT sayısını ölçmek, sonra ayrı kararla true.
+Eklenti ayarı true (ADR-0129, 01.11.2026, kullanıcı kararı): gölge ölçümü yapılmadan açıldı (BAYAT isabet sayısı 0,
+çünkü önbellek gölgeye hiç alınmadı). Anahtar kiradan ÖNCE hesaplanır (~0,5 sn, eklenti kökü); kira kuyruğundaki
+"sıra:" satırı bu yüzden anahtar hesabından sonra gelir (P4 uçtan uca testi sahibi süreyle değil olayla tutar).
 Gerekçe (golge -> ihlal düzeni): önbellek bir kapı gibi davranışı değiştirir (koşuyu atlar) ve en büyük riski (bayat geçti) ancak gerçek koşuyla
 yan yana ölçülerek görülür; kapi_mod'un golge -> ihlal düzeni buna birebir uyar. `kapi_mod.mod` bool tanımadığı için mod
 burada okunur, gölge kaydı yine `kapi_mod.kaydet` ile yazılır.
