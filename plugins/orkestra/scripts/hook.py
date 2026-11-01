@@ -1799,8 +1799,19 @@ def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
         if not olcum:
             return
         yol, is_id = os.path.join(sd, "gunluk.jsonl"), _oturum_isi(sd, oid)
+        deney = {}  # I-319 P6: üç kollu deney; kol ve kalibre aşımı ölçüm satırına eklenir, hata ölçümü düşürmez
+        try:
+            import cikti_deney as CD
+            dayar = CD.ayar_oku(sd)
+            dkol = CD.kol(oid, dayar)
+            if dkol:
+                tip = CD.tur_tipi(CB.son_kullanici_mesaji(inp.get("transcript_path")), sd)
+                deney = {"kol": dkol, "tip": tip, "kalibre_asim": CD.kalibre_asim(olcum, tip, dayar)}
+                CD.stop_kaydet(sd, oid, olcum, ayar, dayar)
+        except Exception:
+            deney = {}
         L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "cikti_olcum", "toplam": olcum["toplam"],
-                           "kapanis": olcum["kapanis"], "is": is_id})
+                           "kapanis": olcum["kapanis"], "is": is_id, **deney})
         nedenler = CB.asimlar(olcum, ayar)
         if nedenler:
             kip = CB.mod(ayar)
