@@ -3776,7 +3776,7 @@ def main():
             sd = L.durum_dizini(inp.get("cwd"))
             if sd:
                 import ozet
-                ozet.yaz(sd, L.proje_dizini(inp.get("cwd")))
+                ozet.yaz_arka_plan(sd, L.proje_dizini(inp.get("cwd")))
         raise
     except Exception as e:  # güvenli taraf
         _sonuc = "hata"

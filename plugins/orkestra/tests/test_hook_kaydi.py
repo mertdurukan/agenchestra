@@ -90,6 +90,41 @@ class HookKaydiTest(unittest.TestCase):
                     if "hook.py" in k["command"]:
                         self.assertEqual(k["timeout"], H.ZA_S.get(olay, H.VARSAYILAN_ZA_S), olay)
 
+    def _hizli(self, n):
+        for _ in range(n):
+            y = H.basla(self.sd, "PreToolUse", "o1", "Read")
+            H.bitir(self.sd, y, "PreToolUse", "o1", "Read", "ok", 5)
+
+    def test_ornekleme_kapaliyken_hizli_yol_satir_yazmaz(self):
+        os.environ.pop("ORKESTRA_HOOK_ORNEK", None)
+        self._hizli(200)
+        self.assertEqual(self._g(), [])
+
+    def test_ornekleme_1_20_binom_araliginda(self):
+        import random
+        random.seed(328)
+        os.environ["ORKESTRA_HOOK_ORNEK"] = "20"
+        try:
+            self._hizli(1000)
+        finally:
+            os.environ.pop("ORKESTRA_HOOK_ORNEK", None)
+        g = self._g()
+        self.assertTrue(22 <= len(g) <= 78, len(g))   # beklenen 50, binom sigma ~6,9; 4 sigma = +-28
+        self.assertTrue(all(x.get("ornek") is True for x in g))
+
+    def test_ornekleme_yavas_ve_hatali_hook_degismez(self):
+        os.environ["ORKESTRA_HOOK_ORNEK"] = "bozuk"
+        try:
+            y = H.basla(self.sd, "PreToolUse", "o1", "Read")
+            H.bitir(self.sd, y, "PreToolUse", "o1", "Read", "ok", 5)
+            self.assertEqual(self._g(), [])
+        finally:
+            os.environ.pop("ORKESTRA_HOOK_ORNEK", None)
+        y = H.basla(self.sd, "PreToolUse", "o1", "Read")
+        H.bitir(self.sd, y, "PreToolUse", "o1", "Read", "ok", 2000)
+        self.assertEqual(len(self._g()), 1)
+        self.assertNotIn("ornek", self._g()[0])
+
 
 if __name__ == "__main__":
     unittest.main()

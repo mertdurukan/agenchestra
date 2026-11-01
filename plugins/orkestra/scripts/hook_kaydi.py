@@ -5,12 +5,14 @@ Sorun: Claude Code zaman aşımında hook sürecini öldürür; süreç kendini 
 `gunluk.jsonl`'a `tur=hook_calisma` yazılır. Silinmemiş eski işaret = öldürülmüş hook; sonraki hook ya da
 `orkestra oturum hook` onu `tur=hook_zaman_asimi` olarak kaydeder (sürecin canlı olmadığı doğrulanır).
 Sıcak yol: hızlı ve başarılı PreToolUse için günlük satırı yazılmaz (yalnız işaret yazılıp silinir).
+Ölçüm dönemi için ORKESTRA_HOOK_ORNEK=N hızlı başarılı PreToolUse'un 1/N'ini `ornek: true` ile yazar (varsayılan kapalı; I-328 P5).
 Hatada sessiz; hook çıktısı değişmez. ORKESTRA_HOOK_KAYDI=0 kapatır.
 """
 from __future__ import annotations
 
 import json
 import os
+import random
 import time
 
 import ork_lib as L
@@ -41,6 +43,15 @@ def basla(sd: str | None, olay: str, oturum, arac=None, agent=None) -> str | Non
         return None
 
 
+def _ornekle(rng=random.random) -> bool:
+    """ORKESTRA_HOOK_ORNEK=N (N>1) ise çağrıların 1/N'i True; kapalı/hatalı değerde False."""
+    try:
+        n = int(os.environ.get("ORKESTRA_HOOK_ORNEK", "0"))
+    except ValueError:
+        return False
+    return n > 1 and rng() < 1.0 / n
+
+
 def bitir(sd: str | None, yol: str | None, olay: str, oturum, arac, sonuc: str, ms: float) -> None:
     """sonuc: ok | cikis_<kod> | hata. İşareti siler; günlük satırı yazar (hızlı başarılı PreToolUse hariç)."""
     if not yol:
@@ -50,11 +61,16 @@ def bitir(sd: str | None, yol: str | None, olay: str, oturum, arac, sonuc: str, 
     except OSError:
         pass
     try:
+        ornek = False
         if olay == "PreToolUse" and sonuc == "ok" and ms < YAVAS_MS:
-            return
-        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
-                     {"zaman": L.simdi(), "oturum": oturum, "tur": "hook_calisma", "olay": olay, "arac": arac,
-                      "sonuc": sonuc, "sure_ms": round(ms)})
+            if not _ornekle():
+                return
+            ornek = True
+        kayit = {"zaman": L.simdi(), "oturum": oturum, "tur": "hook_calisma", "olay": olay, "arac": arac,
+                 "sonuc": sonuc, "sure_ms": round(ms)}
+        if ornek:
+            kayit["ornek"] = True
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), kayit)
     except Exception:
         pass
 
