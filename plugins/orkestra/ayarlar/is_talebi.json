@@ -1,0 +1,5 @@
+{
+  "mod": "golge",
+  "jaccard_esik": 0.6,
+  "aciklama": "mod: golge = aynı todo işi başka canlı oturumda ise uyarılır ve gunluk.jsonl'a kapi_golge/is_talebi düşer, hiçbir şey engellenmez; ihlal = ikinci talep reddedilir ve madde sahibe devredilir; kapali = kayıt yok. İhlale geçiş: `orkestra is rapor` etiketli uyarıda Wilson %95 üst sınırı <= %5 ve en az 100 etiket (ADR-0138, P-028). Etiketler: <sd>/is_talebi_etiket.jsonl {\"dogru\": true|false}. Kapatma: ORKESTRA_IS_TALEBI=0. Proje ezmesi: .claude/orkestra/is_talebi.json."
+}
