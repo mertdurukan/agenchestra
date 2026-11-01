@@ -645,7 +645,12 @@ def calistir(a) -> int:
     proje = a.proje or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     onay = None
     if a.duzelt and not a.evet and not a.json and sys.stdin.isatty():
-        onay = lambda ac: input(f"B sınıfı onarım (makineyi değiştirir): {ac}. Uygulansın mı? [e/H] ").strip().lower() in ("e", "evet", "y", "yes")
+        def onay(ac):
+            # Windows'ta Python < 3.12 NUL aygıtı için isatty() True döner: arka plan koşusunda giriş yoksa EOF "hayır" sayılır
+            try:
+                return input(f"B sınıfı onarım (makineyi değiştirir): {ac}. Uygulansın mı? [e/H] ").strip().lower() in ("e", "evet", "y", "yes")
+            except EOFError:
+                return False
     sonuc = kos(Baglam(proje=proje, kuru=a.kuru, proje_kod=not a.arka_plan), duzelt=a.duzelt, evet_b=a.evet, onay=onay)
     print(json.dumps(sonuc, ensure_ascii=False, indent=2) if a.json else metin(sonuc))
     return 1 if sonuc["zorunlu_hata"] else 0
