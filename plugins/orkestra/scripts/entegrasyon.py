@@ -63,9 +63,6 @@ def _cikili_mi(depo: str, hedef: str) -> bool:
     return f"branch refs/heads/{hedef}" in (s.strip() for s in satirlar)
 
 
-TestSonucu = "bool | tuple[bool, str]"
-
-
 def _test_fn(test_komutu) -> Callable[[str], tuple[bool, str]]:
     """test_komutu: None (varsayılan tam paket), komut listesi ya da callable(agac_yolu) -> bool | (bool, gunluk)."""
     if callable(test_komutu):
@@ -175,6 +172,54 @@ class _Kosu:
         return None, [], suclular
 
 
+_BASARISIZ = re.compile(r"^(?:FAILED|ERROR)\s+(\S+)|^(?:FAIL|ERROR):\s+(\S+)", re.M)
+_AD_EN_COK = 37  # test adı kısaltması: `_SIR`'ın 40+ karakterlik kesintisiz dizi kalıbına takılmasın
+_SON_SATIR = 3
+
+
+def _kisa_ad(ad: str) -> str:
+    ad = ad.split("::")[-1]
+    return ad if len(ad) <= _AD_EN_COK else ad[:_AD_EN_COK] + "…"
+
+
+def karantina_notu(bilgi: dict) -> str:
+    """Suçlu oturuma gidecek not: teslim, dal, neden, başarısız test adları, günlüğün son satırları. Günlük sır
+    süzgecinden (oturum_farkindalik._SIR) REDAKTE edilir, reddedilmez; sonuç OF.NOT_EN_COK karaktere kısaltılır."""
+    gunluk = OF.redakte(str(bilgi.get("gunluk") or ""))
+    adlar = list(dict.fromkeys(_kisa_ad(m.group(1) or m.group(2)) for m in _BASARISIZ.finditer(gunluk)))[:5]
+    son = [" ".join(s.split())[:80] for s in gunluk.splitlines() if s.strip()][-_SON_SATIR:]
+    parca = [f"Kuyruk karantinası: teslim {bilgi.get('teslim')} (dal {bilgi.get('dal') or '-'}) main'e girmedi;"
+             f" {str(bilgi.get('neden') or '')[:70]}."]
+    if adlar:
+        parca.append("Başarısız: " + ", ".join(adlar) + ".")
+    parca.append("Düzeltip yeniden teslim et.")
+    if son:
+        parca.append("Son satırlar: " + " / ".join(son))
+    metin = OF.redakte(" ".join(" ".join(parca).split()))
+    if len(metin) > OF.NOT_EN_COK:
+        metin = metin[:OF.NOT_EN_COK - 1] + "…"
+    return OF.redakte(metin)[:OF.NOT_EN_COK]
+
+
+def karantina_bildir(sd: str, bilgi: dict, simdi: float | None = None) -> dict:
+    """Entegrasyon kancası (P4): notu suçlu oturumun gelen kutusuna `not_birak` ile bırakır ve kuyruk kaydına iz yazar
+    (not_t, not_ofset). Oturum kapalıysa not kutuda bekler; 60 dk okunmazsa oturum_farkindalik.sahipsiz_tara
+    karantinayı `sahipsiz` işaretler. Oturum bilinmiyorsa not gitmez, iz yine yazılır (sahipsizliğe aday)."""
+    oturum = str(bilgi.get("oturum") or "").strip()
+    ok, hata = False, "oturum bilinmiyor"
+    ofset = None
+    if oturum and oturum != "-":
+        ok, hata = OF.not_birak(sd, oturum, "kuyruk", karantina_notu(bilgi))
+        if ok:
+            try:
+                ofset = os.path.getsize(OF.gelen_yol(sd, oturum))
+            except OSError:
+                ofset = None
+    K.alan_ekle(sd, bilgi["teslim"], not_t=time.time() if simdi is None else simdi, not_ofset=ofset,
+                **({} if ok else {"not_hata": hata}))
+    return {"gitti": ok, "hata": hata, "oturum": oturum or None}
+
+
 def _karantina(sd: str, t: dict, neden: str, gunluk: str, kanca, sonuc: dict) -> None:
     K.gecis(sd, t["teslim"], "karantina", neden=neden)
     bilgi = {"teslim": t["teslim"], "oturum": t.get("oturum"), "dal": t.get("dal"), "neden": neden, "gunluk": gunluk}
@@ -201,7 +246,8 @@ def entegre_et(sd: str, depo: str, test_komutu=None, sahip: str | None = None, h
     try:
         sonuc["kurtarilan"] = K.kurtar(sd, sahip=sahip)
         if _cikili_mi(depo, hedef):
-            return {**sonuc, "durum": "hedef_cikili"}
+            sonuc["durum"] = "hedef_cikili"
+            return sonuc
         uc = _sha(depo, f"refs/heads/{hedef}")
         if not uc:
             raise EntegrasyonHatasi(f"hedef dal yok: {hedef}")
