@@ -1,4 +1,4 @@
-# ADR-0141: Entegrasyon kuyruğu, tek şeritte birleşik tam koşu
+# ADR-0142: Entegrasyon kuyruğu, tek şeritte birleşik tam koşu
 
 **Durum:** Kabul edildi
 

@@ -48,7 +48,7 @@ Adımlar:
 9. Doğrula: `git diff --stat $OLD $NEW` çıktısında yalnız kendi dosyaların olmalı.
 10. Ana indeksi eşitle: `git reset -q HEAD -- <yollar>`. Yapmazsan sonraki commit işini geri alır.
 
-## Entegrasyon kuyruğu (ADR-0141)
+## Entegrasyon kuyruğu (ADR-0142)
 - Durumlar: bekliyor → kosuyor → birlesti; kosuyor → karantina (kırmızı koşuda suçlu); karantina → bekliyor (düzeltme yeniden teslim edilince).
 - Ölü koşucu kurtarma: koşucu süreci ölürse `kuyruk.kurtar` takılı kosuyor kaydını bekliyor'a döndürür ve kilidi bırakır.
 
@@ -97,7 +97,7 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 
 ## Test takımı
 - Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; işçi sayısı CPU ve bellekten otomatik, `ORKESTRA_PARALEL_N` ezer; 16 çekirdekte ~4,5 dk, seri ~32 dk; P-041).
-- Kuyruk kuralı (ADR-0141): commit öncesi yalnız hedefli test (kartın `test_alani`); tam paket oturumda koşulmaz.
+- Kuyruk kuralı (ADR-0142): commit öncesi yalnız hedefli test (kartın `test_alani`); tam paket oturumda koşulmaz.
 - Tam paket `orkestra teslim kuyruk ekle` ile entegrasyon kuyruğuna teslim edilir.
 - Entegrasyon şeridi (`scripts/entegrasyon.py`) birleşik tam koşuyu bir kez yapar; yeşilde main'e fast-forward, kırmızıda bisect + karantina, suçlu oturuma `not_birak` ile geri bildirim. Düzeltmeyi bağlamı olan oturum yapar.
 - Tek-koşucu kilidi aynı anda bir koşuya izin verir. Kapı `ayarlar/kuyruk.json` (gölge); `ORKESTRA_KUYRUK_KAPISI=0` kapatır.
