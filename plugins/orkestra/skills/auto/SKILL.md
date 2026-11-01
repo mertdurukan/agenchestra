@@ -46,7 +46,7 @@ description: "Orkestra'da /auto modunu açar: kullanıcının mesajı onay yerin
 ## Yetki ve soru yasağı (ADR-0086)
 
 - `/auto` mesajı Jira ve GitHub dahil kapsamdaki her eylem için açık yetkidir: `git push`, `gh` yazma, GitHub/Jira REST ve MCP yazma çağrıları sorulmadan çalışır (`ask` → `allow`, yalnız bağlı işin modu `auto` iken).
-- Kullanıcıya soru sorulmaz: `AskUserQuestion` ve `ask` alanı dolu `wrap_up` reddedilir. Kararı en iyi uygulamayla kendin ver, çalışma özetinin "Otomatik kararlar" bölümüne yaz.
+- Kullanıcıya soru sorulmaz: `AskUserQuestion` ve `ask` alanı dolu `wrap_up` reddedilir. Yanıt metninde de soru sorma ("…mı kastettin?", "hangisini istersin?" yazılmaz). Kararı en iyi uygulamayla kendin ver, çalışma özetinin "Otomatik kararlar" bölümüne yaz.
 - Mod okunamazsa `plan` davranışı geçerlidir. `ORKESTRA_AUTO_YETKI=0` bu yetkiyi kapatır.
 
 Değeri yalnız kullanıcıda olan işler (parola, hesap açma, başka ekibin işi) koşuyu durdurmaz. Diğer maddeler tamamlanır, bunlar çalışma özetinde "Kullanıcıya kalanlar" altında, ne yapıldığı ve uygulanan güvenli varsayılanla birlikte yazılır.

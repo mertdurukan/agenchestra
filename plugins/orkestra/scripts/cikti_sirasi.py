@@ -183,3 +183,14 @@ def kullanici_uyarisi(baslik: str, ayar: dict, sinif: str = "sira") -> str:
     if sinif in ("sahip", "kanit") and ayar.get("kullanici_uyarisi_" + sinif):
         return ayar["kullanici_uyarisi_" + sinif].replace("{baslik}", baslik)
     return (ayar.get("kullanici_uyarisi") or "Uyarı: '{baslik}' bölümü yanıtın sonunda değil (ADR-0135).").replace("{baslik}", baslik)
+
+
+def metin_sorusu(yanit) -> str:
+    """ADR-0133: yanıtın son anlamlı satırı (kod bloğu, satır içi kod, alıntı `>` ve bağlantı satırları atılır) `?` ile
+    bitiyorsa o satırı döner, yoksa boş. Auto modunda kullanıcıya düz metinle soru sorulduğunu yakalar (gölge)."""
+    metin = re.sub(r"```.*?```", " ", str(yanit or ""), flags=re.S)
+    metin = re.sub(r"`[^`\n]*`", " ", metin)
+    satirlar = [x.strip() for x in metin.splitlines() if x.strip() and not x.lstrip().startswith(">")]
+    satirlar = [x for x in satirlar if not re.match(r"^[-*]?\s*[\w ığüşöçİĞÜŞÖÇ]+:\s*\[", x)]
+    son = satirlar[-1] if satirlar else ""
+    return son if re.search(r"\?[\"')\]*_]*$", son) else ""

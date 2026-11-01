@@ -885,7 +885,7 @@ def _izin_karar_yaz(arac: str, kar, neden: str, sd: str, oturum) -> None:
 
 _AUTO_SOZLESME = (
     "Orkestra /auto sözleşmesi (ADR-0086): bu mesaj Jira ve GitHub dahil kapsamdaki her eylem için açık yetkidir. "
-    "Kullanıcıya soru sorma (AskUserQuestion ve wrap_up 'ask' reddedilir); kararı en iyi uygulamayla kendin ver ve "
+    "Kullanıcıya soru sorma (AskUserQuestion ve wrap_up 'ask' reddedilir; yanıt metninde de soru sorma, '…mı kastettin?' yazma); kararı en iyi uygulamayla kendin ver ve "
     "çalışma özetindeki '## Otomatik kararlar' bölümüne yaz. Zorla/silme/ayna push, kalıcı silme, sır okuma ve veritabanı "
     "yazma yasak kalır; değeri yalnız kullanıcıda olan işler 'Kullanıcıya kalanlar' altına yazılır, koşu durmaz."
 )
@@ -893,7 +893,9 @@ _AUTO_SOZLESME = (
 
 def _auto_soru_kapisi(arac: str, girdi: dict, sd: str, oturum, aid) -> None:
     """ADR-0086: bağlı işin modu `auto` ise ana ajan kullanıcıya soru soramaz: AskUserQuestion ve dolu `ask` alanlı wrap_up
-    reddedilir (kutu yalnız özetle açılabilir). Mod okunamıyorsa serbest (plan davranışı). ORKESTRA_AUTO_YETKI=0 kapatır."""
+    reddedilir (kutu yalnız özetle açılabilir). Mod okunamıyorsa serbest (plan davranışı). ORKESTRA_AUTO_YETKI=0 kapatır.
+    ADR-0133: wrap_up için izin kipi düzeltilmiş girdiyi sormadan uygulamaya elverişliyse (`_KENDILIGINDEN_YAZAN_KIPLER`) ret
+    yerine `ask`/`actions`/`blocked` silinip updatedInput ile geçer; AskUserQuestion ve diğer kiplerde ret sürer."""
     if aid or not oturum:
         return
     if arac == "AskUserQuestion":
@@ -907,6 +909,11 @@ def _auto_soru_kapisi(arac: str, girdi: dict, sd: str, oturum, aid) -> None:
         import izin_politikasi
         auto = izin_politikasi._auto_modu(sd, oturum)
     except Exception:
+        return
+    if auto and arac != "AskUserQuestion" and _IZIN_KIPI in _KENDILIGINDEN_YAZAN_KIPLER:
+        global _GUNCEL_GIRDI, _KULLANICI_MESAJI  # ADR-0133: ret yerine girdi düzeltilir; tur kaybolmaz
+        _GUNCEL_GIRDI = {k: v for k, v in (girdi or {}).items() if k not in ("ask", "actions", "blocked")}
+        _KULLANICI_MESAJI = "orkestra (ADR-0133): auto modunda wrap_up 'ask' alanı kaldırıldı; karar plan.md 'Otomatik kararlar'a yazılır."
         return
     if auto:
         reddet("auto modunda kullanıcıya soru sorulmaz (ADR-0086): kararı en iyi uygulamayla kendin ver ve plan.md'deki "
@@ -1703,6 +1710,23 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _auto_metin_sorusu_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0133 (gölge, P-028): auto modunda yanıt düz metin soruyla bitiyorsa `kural_ihlal / auto_metin_sorusu` günlüğe
+    yazılır; engellemez. Asıl önlem `_AUTO_SOZLESME` ve auto skill'indeki yasaktır. Hatada sessiz geçer."""
+    try:
+        import cikti_sirasi as CS
+        import izin_politikasi
+        if not izin_politikasi._auto_modu(sd, oid):
+            return
+        son = CS.metin_sorusu(inp.get("last_assistant_message"))
+        if son:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+                                                             "kural": "auto_metin_sorusu", "mod": "golge",
+                                                             "is": _oturum_isi(sd, oid), "cumle": son[-200:]})
+    except Exception:
+        return
+
+
 def _cikti_sirasi_yanit(sd: str, oid, inp: dict) -> None:
     """ADR-0135: karar bekleyen bölüm yanıtın son bölümü olmalı (ayrıntı: cikti_sirasi.py). Her kipte günlüğe
     `kural_ihlal / cikti_sirasi` yazılır; `block` kipinde tur başına bir kez block, ikinci denemede (`stop_hook_active`)
@@ -2065,6 +2089,7 @@ def stop(inp: dict):
         _onleme_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _cikti_sirasi_yanit(sd, oid, inp)
+        _auto_metin_sorusu_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları
     if perspektif:

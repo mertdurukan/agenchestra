@@ -234,12 +234,27 @@ class SoruYasagi(unittest.TestCase):
         soru("AskUserQuestion", {"questions": []}, False)
 
     def test_auto_wrap_up_ask_reddedilir_asksiz_gecer(self):
-        with self.assertRaises(Reddedildi):
-            soru("mcp__ccd_turn__wrap_up", {"recap": "x", "ask": "Push?"}, True)
-        with self.assertRaises(Reddedildi):
-            soru("wrap_up", {"recap": "x", "ask": "Push?"}, True)
+        # ADR-0133: güvenli olmayan kipte (default, plan) eski ret sürer
+        for kip in ("default", "plan", ""):
+            with mock.patch.object(H, "_IZIN_KIPI", kip):
+                with self.assertRaises(Reddedildi):
+                    soru("mcp__ccd_turn__wrap_up", {"recap": "x", "ask": "Push?"}, True)
+                with self.assertRaises(Reddedildi):
+                    soru("wrap_up", {"recap": "x", "ask": "Push?"}, True)
         soru("mcp__ccd_turn__wrap_up", {"recap": "x"}, True)
         soru("mcp__ccd_turn__wrap_up", {"recap": "x", "ask": "  "}, True)
+
+    def test_auto_wrap_up_ask_guvenli_kipte_duzeltilir(self):
+        for kip in ("auto", "acceptEdits", "bypassPermissions"):
+            with mock.patch.object(H, "_IZIN_KIPI", kip), mock.patch.object(H, "_GUNCEL_GIRDI", None),                     mock.patch.object(H, "_KULLANICI_MESAJI", ""):
+                soru("mcp__ccd_turn__wrap_up", {"recap": "x", "ask": "Push?", "actions": [{"label": "a"}], "blocked": True}, True)
+                self.assertEqual(H._GUNCEL_GIRDI, {"recap": "x"})
+                self.assertIn("ADR-0133", H._KULLANICI_MESAJI)
+
+    def test_auto_askuserquestion_guvenli_kipte_de_reddedilir(self):
+        with mock.patch.object(H, "_IZIN_KIPI", "auto"):
+            with self.assertRaises(Reddedildi):
+                soru("AskUserQuestion", {"questions": []}, True)
 
     def test_plan_wrap_up_ask_gecer(self):
         soru("mcp__ccd_turn__wrap_up", {"recap": "x", "ask": "Push?"}, False)

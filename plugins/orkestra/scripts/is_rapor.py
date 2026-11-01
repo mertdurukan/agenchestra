@@ -257,6 +257,17 @@ def _kapi_bekleniyor(sd: str) -> dict:
     return _kapi_olaylari(sd)[1]
 
 
+def _hook_ret(sd: str, n: int = 3) -> list:
+    """ADR-0133: hook reddinin en sık `n` kaynağı (ret_olcum.say: hata.jsonl `hook-red`, sınıf R1–R9 ve kapı); yeni sayaç yok."""
+    try:
+        import ret_olcum as RO
+        c = RO.say(RO.yukle(sd))
+        return [{"kapi": k, "sinif": RO.sinif_turet({"kapi": k}), "n": v}
+                for k, v in sorted(c["kapi"].items(), key=lambda x: -x[1])[:n]]
+    except Exception:
+        return []
+
+
 def rapor(sd: str) -> dict:
     v = _veri(sd)
     mal, zam, isler, kartlar = v["mal"], v["zam"], v["isler"], v["kartlar"]
@@ -305,7 +316,7 @@ def rapor(sd: str) -> dict:
     }
     kapi_ret, kapi_bekl = _kapi_olaylari(sd)
     return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": kapi_ret,
-            "kapi_bekleniyor": kapi_bekl, "yontem": _yontem(sd), "ihlal_kanit": _ihlal_kanitlari(sd),
+            "kapi_bekleniyor": kapi_bekl, "hook_ret": _hook_ret(sd), "yontem": _yontem(sd), "ihlal_kanit": _ihlal_kanitlari(sd),
             "cikti": _cikti(sd), "is_talebi": _is_talebi(sd)}
 
 
@@ -437,6 +448,9 @@ def metin(r: dict) -> str:
     bekl = r.get("kapi_bekleniyor") or {}
     if bekl:
         ret_satiri.append("denetçi bekleniyor (ret sayılmaz): " + ", ".join(f"{k} {n}" for k, n in bekl.items()))
+    hr = r.get("hook_ret") or []
+    if hr:
+        ret_satiri.append("en sık hook retleri: " + ", ".join(f"{x['kapi']} ({x['sinif']}) {x['n']}" for x in hr))
     kn = r.get("ihlal_kanit") or []
     if kn:
         ret_satiri += ["", f"son {len(kn)} ihlal/ret kanıtı:", _tablo(

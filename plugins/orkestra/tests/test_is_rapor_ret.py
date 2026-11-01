@@ -55,3 +55,24 @@ class RaporRetAyrimi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RaporHookRet(unittest.TestCase):
+    """ADR-0133: `is rapor` hook-red kaynaklarını ret_olcum'dan en sık üçe indirip gösterir."""
+    setUp = TC.Cekirdek.setUp
+    tearDown = TC.Cekirdek.tearDown
+
+    def test_en_sik_hook_retleri_raporda(self):
+        with open(os.path.join(self.sd, "hata.jsonl"), "a", encoding="utf-8") as f:
+            for kapi, n in (("P-016", 4), ("P-005", 2), ("K-005", 1), ("ADR-0086", 1)):
+                for _ in range(n):
+                    f.write(json.dumps({"zaman": "2026-11-01T10:00:00+03:00", "tur": "hook-red", "kapi": kapi, "ileti": "x"}) + "\n")
+        r = is_rapor.rapor(self.sd)
+        self.assertEqual([x["kapi"] for x in r["hook_ret"]][:2], ["P-016", "P-005"])
+        self.assertEqual(len(r["hook_ret"]), 3)
+        self.assertIn("en sık hook retleri: P-016", is_rapor.metin(r))
+
+    def test_ret_yoksa_satir_yok(self):
+        r = is_rapor.rapor(self.sd)
+        self.assertEqual(r["hook_ret"], [])
+        self.assertNotIn("en sık hook retleri", is_rapor.metin(r))

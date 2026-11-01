@@ -200,3 +200,20 @@ class UzunlukKapisiTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MetinSorusu(unittest.TestCase):
+    """ADR-0133: auto yanıtı düz metin soruyla bitiyor mu."""
+
+    def test_soru_biten_yanit_yakalanir(self):
+        self.assertTrue(CS.metin_sorusu("Bitti.\nBu kuralı mı kastettin?"))
+        self.assertTrue(CS.metin_sorusu("Tamam.\nDevam edeyim mi? "))
+
+    def test_soru_olmayan_ya_da_kod_icindeki_yakalanmaz(self):
+        self.assertEqual(CS.metin_sorusu("Bitti. Test geçti."), "")
+        self.assertEqual(CS.metin_sorusu("Sonuç\n```\nx = a ? b : c?\n```"), "")
+        self.assertEqual(CS.metin_sorusu("Sonuç\n> alıntı soru mu?"), "")
+        self.assertEqual(CS.metin_sorusu("Sonuç.\n`a?`"), "")
+
+    def test_auto_sozlesmesi_metin_sorusunu_yasaklar(self):
+        self.assertIn("yanıt metninde de soru sorma", hook._AUTO_SOZLESME)
