@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 _KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VARSAYILAN_YOL = os.path.join(_KOK, "ayarlar", "cikti_butce.json")
@@ -103,3 +104,41 @@ def asimlar(olcum: dict, ayar: dict) -> list[str]:
     if olcum.get("kapanis") is not None and olcum["kapanis"] > ks:
         nedenler.append(f"kutudan sonraki kapanış {olcum['kapanis']} karakter (sınır {ks})")
     return nedenler
+
+
+def son_kullanici_mesaji(transkript) -> str:
+    """Transkriptteki son gerçek kullanıcı mesajının metni; okunamazsa boş."""
+    if not transkript:
+        return ""
+    try:
+        with open(transkript, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            boy = f.tell()
+            f.seek(max(0, boy - _OKUMA_SINIRI))
+            satirlar = f.read().splitlines()
+    except Exception:
+        return ""
+    son = ""
+    for ham in satirlar:
+        try:
+            o = json.loads(ham)
+        except Exception:
+            continue
+        if isinstance(o, dict) and _gercek_kullanici_mesaji(o):
+            icerik = (o.get("message") or {}).get("content")
+            son = icerik if isinstance(icerik, str) else " ".join(
+                str(b.get("text") or "") for b in icerik or [] if isinstance(b, dict) and b.get("type") == "text")
+    return son
+
+
+def muaf(mesaj: str, ayar: dict) -> bool:
+    """Kullanıcı kapsamlı inceleme/uzun yanıt istiyorsa (P-001 istisnası) uzunluk kapısı block vermez."""
+    return any(re.search(k, mesaj or "", re.IGNORECASE) for k in ayar.get("muafiyet_kaliplari") or [])
+
+
+def mod(ayar: dict) -> str:
+    """'block' (aşımda tur başına bir kez kısaltma ister), 'golge' ya da 'kapali'."""
+    if os.environ.get("ORKESTRA_CIKTI_BUTCE") == "0":
+        return "kapali"
+    m = ayar.get("mod", "kapali")
+    return m if m in ("golge", "block", "kapali") else "kapali"

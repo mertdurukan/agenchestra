@@ -1803,6 +1803,14 @@ def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
                            "kapanis": olcum["kapanis"], "is": is_id})
         nedenler = CB.asimlar(olcum, ayar)
         if nedenler:
+            kip = CB.mod(ayar)
+            if kip == "block" and not CB.muaf(CB.son_kullanici_mesaji(inp.get("transcript_path")), ayar):
+                L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_ihlal", "kapi": CB.KAPI, "is": is_id,
+                                   "neden": "; ".join(nedenler)})
+                if not inp.get("stop_hook_active"):
+                    L.hook_cikti({"decision": "block", "reason": "Orkestra (P-001): yanıt çok uzun (" + "; ".join(nedenler)
+                                  + "). Sonuç tek cümle, en çok 3 madde, karar en sonda biçiminde kısalt; ayrıntı belgede kalsın."})
+                return
             L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "kapi": CB.KAPI, "is": is_id,
                                "neden": "; ".join(nedenler)})
     except SystemExit:
