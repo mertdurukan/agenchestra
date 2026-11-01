@@ -150,25 +150,34 @@
     if (k.istek) return k.istek;
     if (!taze && k.veri && Date.now() - k.zaman < 2000) return k.veri;
     k.istek = (async () => {
-      const ctl = new AbortController();
-      const zs = setTimeout(() => ctl.abort(), 30000);
+      // Geçici yavaşlık/ağ kopukluğu: zaman aşımı ve ağ hatasında bir kez daha denenir (I-312 P4); sunucu hatası (HTTP/JSON) denenmez.
+      const DENEME = 2, SINIR_MS = 20000;
       try {
         if (!alanAl(yol)) throw new Error('Bu ayrıntı için çalışma alanı gerekir; bağlantıda alan yok ve kimlik tek bir alanda bulunamadı.');
-        const r = await fetch(urlAl(yol), { signal: ctl.signal });
-        const v = await r.json().catch(() => null);
-        if (!r.ok || !v) throw new Error((v && v.hata) || 'HTTP ' + r.status);
-        const imza = imzasi(v);
-        const degisti = imza !== k.imza;
-        Object.assign(k, { veri: v, hata: null, zaman: Date.now(), imza });
-        V.sonBasari = Date.now();
-        if (yol === GUNC_YOL) guncellemeIzle();
-        if (degisti) { eksikleriGetir(); planla(); }
-        return v;
+        let son = null;
+        for (let n = 1; n <= DENEME; n++) {
+          const ctl = new AbortController();
+          const zs = setTimeout(() => ctl.abort(), SINIR_MS);
+          try {
+            const r = await fetch(urlAl(yol), { signal: ctl.signal });
+            const v = await r.json().catch(() => null);
+            if (!r.ok || !v) { const e = new Error((v && v.hata) || 'HTTP ' + r.status); e.sunucu = true; throw e; }
+            const imza = imzasi(v);
+            const degisti = imza !== k.imza;
+            Object.assign(k, { veri: v, hata: null, bayat: false, zaman: Date.now(), imza });
+            V.sonBasari = Date.now();
+            if (yol === GUNC_YOL) guncellemeIzle();
+            if (degisti) { eksikleriGetir(); planla(); }
+            return v;
+          } catch (e) { son = e; if (e.sunucu) break; } finally { clearTimeout(zs); }
+        }
+        throw son;
       } catch (e) {
-        k.hata = e.name === 'AbortError' ? 'Zaman aşımı (30 sn)' : (e.message || String(e));
+        k.hata = e.name === 'AbortError' ? `Zaman aşımı (${DENEME} deneme)` : (e.message || String(e));
+        k.bayat = !!k.veri;   // son iyi veri ekranda kalır; hata kartı yalnız hiç veri yokken çıkar (bekle)
         planla();
         return null;
-      } finally { clearTimeout(zs); k.istek = null; }
+      } finally { k.istek = null; }
     })();
     return k.istek;
   }
@@ -360,22 +369,23 @@
   function olcuGizle(ad, pencere) { const s = olcuGizli(); s.add(ad + '|' + pencere); depo.koy(OLCU_GIZLI, JSON.stringify([...s])); planla(); }
   function gelenOgeleri() {
     const on = d('/onaylar.json').veri, sm = d('/simdi.json').veri, oz = d('/ozet.json').veri, an = d('/analitik.json').veri;
-    const g = { karar: [], sohbet: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
+    const g = { karar: [], insan: [], teslim: [], sahipsiz: [], kart: [], olcu: [] };
+    const insanOnay = [], insanEtki = [];
     const gu = d(GUNC_YOL).veri;   // eklenti güncellemesi her zaman en üstte; "Sonra" yalnız 'yeni' durumunu gizler (koşu ve hata görünür kalır)
     if (gu && ['yeni', 'calisiyor', 'bitti', 'hata'].includes(gu.durum) && !(gu.durum === 'yeni' && gu.ertelendi)) g.karar.push({ tur: 'guncelleme', g: gu });
     if (on && on.acik !== false) {
-      (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(altAlan(k))).forEach(k => g.karar.push({ tur: 'onay', k }));
+      (on.kayitlar || []).filter(k => k.durum === 'bekliyor' && !ertelenen.has(altAlan(k))).forEach(k => insanOnay.push({ tur: 'onay', k }));
       // uygulama ve perspektif eylemleri çalışma alanına özeldir: birleşik kipte her alan kendi satırını alır
       const ozetler = tumMu() ? (on.alan_ozetleri || []) : [{ alan: null, sayac: on.sayac, perspektif: on.perspektif, uygulama: on.uygulama }];
       // koşu sürerken kart kalır ama "uygulanıyor" gösterir; koşu kayıtları kapatınca sayaç sıfırlanır, kart kalkar
       uygulaOgeleri(ozetler).forEach(o => g.karar.push(o));
-      (on.kayitlar || []).filter(k => k.etki?.soru_bekliyor).forEach(k => g.karar.push({ tur: 'etki', k }));
+      (on.kayitlar || []).filter(k => k.etki?.soru_bekliyor).forEach(k => insanEtki.push({ tur: 'etki', k }));
       ozetler.forEach(o => {   // perspektif elle başlar (ADR-0026): zamanı gelince burada görünür
         const pd = o.perspektif?.durum;
         if (pd?.zamani_geldi && !pd.calisiyor) g.karar.push({ tur: 'perspektif', d: pd, alan: o.alan });
       });
     }
-    if (sm) (sm.oturumlar || []).filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => g.sohbet.push({ tur: 'sohbet', o }));
+    g.insan = insanGruplari(insanOnay.concat(insanEtki), sm ? (sm.oturumlar || []) : []);
     if (oz && oz.acik !== false) (oz.kartlar || []).filter(k => !['teslim', 'iptal'].includes(k.durum)).forEach(k => (k.durum === 'onaylandi' ? g.teslim : k.sahip_arsivli ? g.sahipsiz : g.kart).push({ tur: 'kart', k }));   // I-145: onaylı = teslim bekliyor; sahibi arşivli = sahipsiz
     if (an?.onbellek?.katman_5dk_son_24s > 0) g.karar.push({ tur: 'katman5', n: an.onbellek.katman_5dk_son_24s });   // 5 dk önbellek katmanı nöbeti (I-144)
     if (an?.hedef_panosu?.olculer) {   // seçili pencerenin hedef dışı ölçüleri
@@ -385,7 +395,22 @@
     }
     return g;
   }
-  const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + g.sohbet.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length; };
+  // İnsan kararı bekleyen işler (onay, etki sorusu, seni bekleyen sohbet) kararın geldiği sohbete göre tek kartta toplanır.
+  // Sohbete bağlı olmayan kararlar alan başına tek "sohbetsiz" kartta durur. Kart en son hareketi olan en üstte.
+  function insanGruplari(kararlar, oturumlar) {
+    const sohbetler = new Map(oturumlar.map(o => [o.oturum, o]));
+    const gruplar = new Map();
+    const al = (anahtar, oturum, alan) => {
+      if (!gruplar.has(anahtar)) { const o = oturum ? sohbetler.get(oturum) : null; gruplar.set(anahtar, { anahtar, oturum: oturum || '', o, alan, kararlar: [], bekliyor: false }); }
+      return gruplar.get(anahtar);
+    };
+    kararlar.forEach(e => { const ot = e.k.oturum || ''; al(ot ? 'o:' + ot : 's:' + (e.k.alan?.id || ''), ot, e.k.alan).kararlar.push(e); });
+    oturumlar.filter(o => o.bekleyen === 'sen' && !o.arsiv).forEach(o => { al('o:' + o.oturum, o.oturum, null).bekliyor = true; });
+    const zaman = x => Math.max(0, ...x.kararlar.map(e => Date.parse(e.k.olusturma) || 0), Date.parse(x.o?.son_zaman) || 0);
+    return [...gruplar.values()].map(x => ({ ...x, zaman: zaman(x) })).sort((a, b) => b.zaman - a.zaman);
+  }
+  const insanSay = g => g.insan.reduce((n, x) => n + x.kararlar.length + (x.bekliyor ? 1 : 0), 0);
+  const gelenSayisi = () => { const g = gelenOgeleri(); return g.karar.length + insanSay(g) + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length; };
 
   // Eklenti güncelleme kartı (ADR-0039): yeni | calisiyor | bitti | hata. Koşu LLM çağırmaz; aynı kod `orkestra update` ile çalışır.
   const kisaSha = s => String(s ?? '').slice(0, 7);
@@ -429,23 +454,48 @@
         <div class="eylemler"><button class="dugme kucuk" data-eylem="guncelle-ertele" title="Yeni bir sürüm çıkana kadar hatırlatma">Sonra</button> <button class="dugme ana-d kucuk" data-eylem="guncelle">Güncelle</button></div></article>`;
   }
 
+  // Sağ panel: tek karar satırı (grup kartının içinde). Satıra tıklamak gruptaki sohbeti açar.
+  function insanKararHtml(e) {
+    const k = e.k;
+    if (e.tur === 'etki') return H`<li class="ik-karar" data-gez data-etki="${k.id}">
+        <div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">etki ölçümü</span>${alanRozeti(k)}</div>
+        <div class="baslik">${k.baslik}</div>
+        <div class="eylemler"><a class="dugme kucuk" href="/onaylar?alan=${enc(k.alan?.id || V.alan)}#etki">Yanıtla</a></div></li>`;
+    const sec = Array.isArray(k.secenekler) ? k.secenekler : [];
+    return H`<li class="ik-karar" data-gez data-onay="${k.id}">
+        <div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.tur}</span>${alanRozeti(k)}<span class="soluk kucuk-y" style="margin-left:auto">${B.goreli(k.olusturma)}</span></div>
+        <div class="baslik">${k.baslik}</div>
+        ${k.metin && k.metin !== k.baslik ? H`<div class="metin">${k.metin}</div>` : ''}
+        ${k.vaat?.metin ? H`<div class="meta">Beklenen etki: ${k.vaat.metin}</div>` : ''}
+        <div class="eylemler">${sec.length
+          ? H`<div class="secenekler">${sec.map(x => H`<button class="dugme kucuk" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="onay" data-secim="${x}">${x}</button>`)}</div>`
+          : H`<button class="dugme ana-d kucuk" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="onay" title="Onayla (a)">Onayla</button>`}
+          <button class="dugme kucuk tehlike" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="ret" title="Reddet (r)">Reddet</button></div></li>`;
+  }
+  const IK_GORUNEN = 4;   // bir sohbet kartında en çok bu kadar karar açık durur, kalanı "daha" altında
+  function insanGrupHtml(x) {
+    const s = x.o, n = x.kararlar.length + (x.bekliyor ? 1 : 0);
+    const ad = x.oturum ? (s?.sohbet || s?.kisa || 'Sohbet ' + String(x.oturum).slice(0, 8)) : 'Sohbete bağlı olmayan kararlar';
+    const ilk = x.kararlar.slice(0, IK_GORUNEN), kalan = x.kararlar.slice(IK_GORUNEN);
+    const baglanti = x.oturum ? H` data-oturum="${x.oturum}" data-ad="${ad}" title="Tıkla: bu sohbeti aç"` : '';
+    return H`<article class="oge insan-kart${x.oturum ? ' tikla' : ''}" data-gez data-insan="${x.anahtar}"${baglanti} style="--renk:var(--uyari)">
+      <div class="ik-bas"><div class="simge">${simge(x.oturum ? 'sohbet' : 'onay')}</div>
+        <div class="govde"><div class="baslik">${ad}</div>
+          <div class="meta">${s?.proje ? H`<span>${s.proje}</span><span>·</span>` : ''}<span>${B.goreli(new Date(x.zaman).toISOString())}</span><span>·</span><span>${n} bekleyen</span>${alanRozeti(x.kararlar[0]?.k || {})}</div></div>
+        ${x.oturum ? H`<button class="dugme ana-d kucuk" data-eylem="sohbet-ac" data-oturum="${x.oturum}" data-ad="${ad}" data-birincil>Sohbete git</button>` : ''}</div>
+      ${x.bekliyor && s?.bekleme ? H`<div class="metin ik-bekleme">“${s.bekleme}”</div>` : x.bekliyor ? H`<div class="metin ik-bekleme">Bu sohbet senin yanıtını bekliyor.</div>` : ''}
+      ${x.kararlar.length ? H`<ul class="ik-liste">${ilk.map(insanKararHtml)}${kalan.length ? H`<li class="ik-daha"><details class="ac"><summary>${kalan.length} karar daha</summary><ul class="ik-liste">${kalan.map(insanKararHtml)}</ul></details></li>` : ''}</ul>` : ''}</article>`;
+  }
+  function insanPanelHtml(g) {
+    const n = insanSay(g), son = g.insan.find(x => x.oturum);
+    return H`<aside class="insan-panel" aria-label="İnsan kararı bekleyen işler">
+      <div class="ip-bas"><h2>İnsan kararı bekleyen <span class="say">${n}</span></h2>
+        ${son ? H`<button class="dugme hayalet kucuk" data-eylem="sohbet-ac" data-oturum="${son.oturum}" data-ad="${son.o?.sohbet || son.o?.kisa || 'son sohbet'}" title="En son hareketi olan sohbeti aç">Son sohbete git</button>` : ''}</div>
+      ${g.insan.length ? g.insan.map(insanGrupHtml) : bos('Senden karar beklenmiyor', 'Onay, yanıt ya da karar bekleyen sohbet yok.')}</aside>`;
+  }
+
   function ogeHtml(o) {
     if (o.tur === 'guncelleme') return guncellemeHtml(o.g);
-    if (o.tur === 'onay') {
-      const k = o.k, sec = Array.isArray(k.secenekler) ? k.secenekler : [];
-      return H`<article class="oge" data-gez data-onay="${k.id}" style="--renk:var(--vurgu)">
-        <div class="simge">${simge('onay')}</div>
-        <div class="govde"><div class="yatay"><span class="kimlik">${k.id}</span><span class="etiket">${k.tur}</span>${alanRozeti(k)}</div>
-          <div class="baslik">${k.baslik}</div>
-          ${k.metin && k.metin !== k.baslik ? H`<div class="metin">${k.metin}</div>` : ''}
-          ${k.vaat?.metin ? H`<div class="meta">Beklenen etki: ${k.vaat.metin}</div>` : ''}
-          <div class="meta">${B.goreli(k.olusturma)}</div></div>
-        <div class="eylemler">${sec.length
-          ? H`<div class="secenekler">${sec.map(s => H`<button class="dugme kucuk" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="onay" data-secim="${s}">${s}</button>`)}</div>`
-          : H`<button class="dugme ana-d kucuk" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="onay" title="Onayla (a)">Onayla</button>`}
-          <button class="dugme kucuk tehlike" data-eylem="karar" data-id="${k.id}" data-alan="${k.alan?.id || ''}" data-sonuc="ret" title="Reddet (r)">Reddet</button></div>
-      </article>`;
-    }
     if (o.tur === 'uygula') return H`<article class="oge" data-gez style="--renk:var(--bilgi)">
         <div class="simge">${simge('oynat')}</div>
         <div class="govde">${o.alan ? H`<div class="yatay">${alanRozeti(o)}</div>` : ''}<div class="baslik">${o.kosu ? o.n + ' onaylı karar şu an uygulanıyor' : o.n + ' onaylı karar uygulanmayı bekliyor'}</div>
@@ -463,20 +513,6 @@
         <div class="simge">${simge('goz')}</div>
         <div class="govde"><div class="baslik">5 dakikalık önbellek katmanı</div>
           <div class="metin">Son 24 saatte ${B.sayi(o.n)} ana ajan çağrısı 5 dakikalık katmana yazdı. 5 dakikayı aşan her duraksama bağlamı yeniden yazdırır; 1 saatlik katman beklenir.</div></div></article>`;
-    if (o.tur === 'etki') return H`<article class="oge" data-gez style="--renk:var(--uyari)">
-        <div class="simge">${simge('goz')}</div>
-        <div class="govde"><div class="yatay"><span class="kimlik">${o.k.id}</span>${alanRozeti(o.k)}</div><div class="baslik">Etki ölçümü kararını bekliyor</div>
-          <div class="metin">${o.k.baslik}</div></div>
-        <div class="eylemler"><a class="dugme kucuk" href="/onaylar?alan=${enc(o.k.alan?.id || V.alan)}#etki">Yanıtla</a></div></article>`;
-    if (o.tur === 'sohbet') {
-      const s = o.o;
-      return H`<article class="oge" data-gez style="--renk:var(--uyari)">
-        <div class="simge">${simge('sohbet')}</div>
-        <div class="govde"><div class="baslik">${s.sohbet || s.kisa}</div>
-          ${s.bekleme ? H`<div class="metin">“${s.bekleme}”</div>` : ''}
-          <div class="meta"><span>${s.proje}</span><span>·</span><span>${B.goreli(s.son_zaman)}</span>${s.ne ? H`<span>·</span><span>${s.ne}</span>` : ''}</div></div>
-        <div class="eylemler">${s.link ? H`<a class="dugme ana-d kucuk" href="${s.link}" data-birincil>Claude'da aç</a>` : ''}</div></article>`;
-    }
     if (o.tur === 'kart') {
       const k = o.k, eski = (Date.now() - new Date(k.guncelleme).getTime()) / 864e5;
       const sohbet = k.sahip_arsivli ? null : (k.son_oturum || k.oturum);   // I-145: arşivli sahibe yönlendirme yok
@@ -512,17 +548,20 @@
         ${karo('Harcama · ' + pencereAd(p), pw ? B.para(pw.usd, pw.token) : '–', H`${spark(gun)}<span>son ${gun.length} gün</span>`, '#/maliyet')}
         ${karo('Claude çalışıyor', B.sayi(sm?.sayac?.claude ?? 0), 'sohbet')}
         ${karo('Açık iş', il ? B.sayi(acikIs) : '–', 'İşlere git →', '#/isler')}
-        ${karo('Karar bekleyen', B.sayi(g.karar.length), g.karar.length ? 'aşağıda' : 'yok')}
+        ${karo('Karar bekleyen', B.sayi(insanSay(g)), insanSay(g) ? 'sağda' : 'yok')}
       </div>` : '';
-    const toplam = g.karar.length + g.sohbet.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length;
+    const toplam = g.karar.length + insanSay(g) + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length;
     const grup = (baslik, liste) => liste.length ? H`<section class="gelen-grup"><h2>${baslik} <span class="say">${liste.length}</span></h2>${liste.map(ogeHtml)}</section>` : '';
+    // Sol: sistem işleri ve kartlar (eskisi gibi). Sağ: insan kararı bekleyen işler, sohbete göre gruplu.
+    const sol = H`${grup('Karar ver', g.karar)}${grup('Teslim bekleyen kartlar', g.teslim)}${grup('Sahipsiz kartlar', g.sahipsiz)}${grup('Takılan kartlar', g.kart)}${grup('Hedef dışı ölçüler', g.olcu)}`;
+    const solVar = g.karar.length + g.teslim.length + g.sahipsiz.length + g.kart.length + g.olcu.length > 0;
     const govde = yuk || (toplam === 0
       ? bos('Gelen kutusu boş', 'Senden beklenen bir karar, yanıt ya da müdahale yok.')
-      : H`${grup('Karar ver', g.karar)}${grup('Seni bekleyen sohbetler', g.sohbet)}${grup('Teslim bekleyen kartlar', g.teslim)}${grup('Sahipsiz kartlar', g.sahipsiz)}${grup('Takılan kartlar', g.kart)}${grup('Hedef dışı ölçüler', g.olcu)}`);
+      : H`<div class="gelen-bolum"><div class="gelen-sol yigin">${solVar ? sol : bos('Sistem işi yok', 'Güncelleme, kart ya da ölçü bekleyen bir şey yok.')}</div>${insanPanelHtml(g)}</div>`);
     const not = tumMu() ? H`<p class="birlesik-not">Hedef dışı ölçüler (oran ve hedef panoları) toplanamaz; tek bir çalışma alanı seçince görünür.</p>` : '';
     return {
       baslik: 'Gelen kutusu',
-      govde: H`<div class="icerik yigin" style="max-width:920px">${ust}${govde}${not}</div>`,
+      govde: H`<div class="icerik yigin" style="max-width:1320px">${ust}${govde}${not}</div>`,
     };
   }
 
