@@ -1,0 +1,18 @@
+{
+  "mod": "golge",
+  "tuz": "cikti_deney_v1",
+  "oranlar": {
+    "kontrol": 1,
+    "geri_bildirim": 1,
+    "kalibre": 1
+  },
+  "hedef_kol_tur": 376,
+  "kalibre_sinirlari": {
+    "soru": 700,
+    "gorev": 800,
+    "kutu_oncesi": 400,
+    "kapanis": 300
+  },
+  "bildirim_azami": 200,
+  "aciklama": "Çıktı bütçesi geri bildirim deneyi (I-319 P6; rapor 149 §4). Oturum kimliğinden sha256(tuz:oturum) ile deterministik, oturum düzeyinde kol ataması; oranlar ağırlıktır (eşit). kontrol: davranış değişmez, ek bağlam yok. geri_bildirim: önceki tur cikti_butce sınırını aştıysa UserPromptSubmit'te tek kısa satır. kalibre: her istekte tur tipine göre sınır (kutusuz soru/görev, wrap_up kutusu öncesi ve kapanış). Kol her tur cikti_olcum ve kapi_golge satırında `kol` alanıdır; kalibre sınırının aşımı `kalibre_asim`. mod golge: deney koşar, hiçbir tur engellenmez, ret yok; kapali: kol atanmaz. Kapatma: ORKESTRA_CIKTI_DENEY=0. Proje ezmesi: .claude/orkestra/cikti_butce_deney.json. Hedef: kol başına 376 tur (DE 2,11; alfa 0,025)."
+}
