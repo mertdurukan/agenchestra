@@ -123,6 +123,14 @@ def plan_gorunumu(metin: str) -> str:
     return "\n".join(cikti).rstrip() + "\n"
 
 
+def _ne_ozeti(ne: str) -> str:
+    """Plan maddesinin 'Ne' alanından başlığa eklenecek kısa açıklama (ilk cümle; kod işareti atılır)."""
+    s = re.sub(r"`[^`]*`", "", _temiz(ne))
+    s = re.sub(r"\s{2,}", " ", s).strip(" .,:;-")
+    ilk = re.split(r"(?<=[.!?])\s", s)[0].strip(" .")
+    return ilk if 8 <= len(ilk) <= 90 else ""
+
+
 def todo_gorunumu(todo: str, plan: str) -> str:
     """todo.md → plan maddesi başlığı altında gruplanmış, düz cümleli görünüm."""
     p_ad = {}
