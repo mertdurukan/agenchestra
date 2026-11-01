@@ -251,7 +251,7 @@ def yeniden_tip_satir(r: dict, tip_bul) -> dict:
     if not ajan or ajan == "?":
         ajan = tip_bul(r.get("oturum"), r.get("agent_id")) if r.get("agent_id") else None
     if not ajan or ajan == "?":
-        return r
+        return dict(r, surec="tip-okunamadi") if r.get("surec") == "bilinmiyor" else r  # `bilinmiyor` artık üretilmez
     yeni = L.surec_turet(ajan, "bilinmiyor")
     return dict(r, ajan=ajan, surec=yeni)
 
