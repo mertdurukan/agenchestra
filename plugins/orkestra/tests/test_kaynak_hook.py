@@ -138,6 +138,16 @@ def _kayit(pid, komut, isci, gecen_s=5.0):
 
 
 class TestHookGolge(_Proje):
+    """Eklenti varsayılanı ihlal (ADR-0129); gölge davranışı proje ezmesiyle ayrıca sınanır."""
+
+    def setUp(self):
+        super().setUp()
+        self.yonlendirme_ayari({"mod": "golge"})
+
+    def yonlendirme_ayari(self, d):
+        with open(os.path.join(self.sd, hook.TEST_YONLENDIRME_KAPI + ".json"), "w", encoding="utf-8") as f:
+            json.dump(d, f)
+
     def test_ciplak_pytest_kapi_golge_yazar_ve_ipucu_verir(self):
         self.kayit_yaz(sahipler=[_kayit(os.getpid(), "test_paralel.py -q", 4)])
         c = self.pre("pytest")
