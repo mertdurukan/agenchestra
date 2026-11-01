@@ -107,6 +107,28 @@ STATIK.update({f"/{ad}.js": (f"{ad}.js", "application/javascript; charset=utf-8"
 STATIK.update({f"/{ad}.css": (f"{ad}.css", "text/css; charset=utf-8") for ad in SAYFA_CSS})
 YONLENDIR = {"/analitik": "/verim", "/analitik.html": "/verim"}
 DURUM = os.path.join(L.GENEL_DIZIN, "panel.json")
+GECIKME_GUNLUK = os.path.join(L.GENEL_DIZIN, "panel_gecikme.jsonl")
+GECIKME_YAVAS_S = 1.0            # bu süreyi aşan istek "yavas" işaretlenir (I-312 S1)
+GECIKME_GUNLUK_AZAMI = 2_000_000  # bayt: aşılınca dosya sıfırlanır (tek dosya, dönüşümsüz)
+_gecikme_kilit = threading.Lock()
+
+
+def gecikme_yaz(yol: str, sure_s: float, kod: int | None = None) -> None:
+    """Her GET isteğinin uçtan uca süresini günlüğe yazar; GECIKME_YAVAS_S üstü 'yavas': true taşır (I-312 P1).
+    Günlük hatası isteği asla bozmaz."""
+    try:
+        u = urllib.parse.urlparse(yol)
+        alan = (urllib.parse.parse_qs(u.query).get("alan") or [""])[0]
+        satir = {"zaman": L.simdi(), "yol": u.path, "alan": alan, "sn": round(sure_s, 3), "kod": kod,
+                 "yavas": sure_s >= GECIKME_YAVAS_S}
+        with _gecikme_kilit:
+            if os.path.isfile(GECIKME_GUNLUK) and os.path.getsize(GECIKME_GUNLUK) > GECIKME_GUNLUK_AZAMI:
+                os.remove(GECIKME_GUNLUK)
+            os.makedirs(os.path.dirname(GECIKME_GUNLUK), exist_ok=True)
+            with open(GECIKME_GUNLUK, "a", encoding="utf-8") as f:
+                f.write(json.dumps(satir, ensure_ascii=False) + "\n")
+    except Exception:  # noqa: BLE001
+        pass
 SURUM = "21"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 GUNCELLEME = panel_guncelleme.Guncelleme()  # eklenti güncelleme durumu (kullanıcı düzeyi, ADR-0039); testte değiştirilir
 
@@ -853,6 +875,7 @@ def _isleyici():
             pass
 
         def _gonder(self, kod, tip, govde: bytes, kapat=False):
+            self._son_kod = kod
             self.send_response(kod)
             if kapat:
                 self.send_header("Connection", "close")
@@ -1231,6 +1254,14 @@ def _isleyici():
             return self._gonder(200, "application/json; charset=utf-8", json.dumps(sonuc, ensure_ascii=False).encode("utf-8"))
 
         def do_GET(self):
+            t0 = time.time()
+            self._son_kod = None
+            try:
+                return self._do_get()
+            finally:
+                gecikme_yaz(self.path, time.time() - t0, self._son_kod)
+
+        def _do_get(self):
             u = urllib.parse.urlparse(self.path)
             q = urllib.parse.parse_qs(u.query)
             red = _tum_alan_reddi(u.path, q)
