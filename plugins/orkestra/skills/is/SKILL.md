@@ -28,7 +28,7 @@ Ayrıntı (kart alanları, plan yolu, workflow, kapılar, toplama) `${CLAUDE_PLU
 - Plan yolu eşikleri `.claude/orkestra/plan_yolu.json` (yoksa skill klasöründeki `plan_yolu.json`): küçük iş `dogrudan` (kartları sen yaz), belirsiz iş `triyaj` (`orkestra:triyaj`), büyük iş `devir` (araştırmacılar + T3 plan kartı). Yolu plan özetinin ilk satırına yaz.
 - Kod yazan alt iş önce MEVCUT DURUMU tanır: işçi kod yazmadan `orkestra kart mevcut <id> --dosya <json>` ile mevcut durum notunu kaydeder; kartın `girdi`sine ilgili dosya yollarını yaz.
 - Her kart: `baslik`, `soru` (tek cümle, ≤200 karakter; önce en ucuz kanıt), `basamak` (T0-T4; kuşkuda DAHA DÜŞÜĞÜ; model ayarları ayarlar/model_politikasi.json), `kabul_kriterleri` (ölçülebilir), `yazma_alani` (paralel kartlarda kesişmez), `bagimliliklar` (yalnız çıktı bağımlılığı).
-- Kod kartı (`sinif` = "kod"): `test_komutu` (daraltılmış), `test_alani`; riskli kartta `tdd: true` (test yazarı + kırmızı kapı, işçi testlere dokunamaz). Tam paket kartta değil, iş sonunda bir kez koşar.
+- Kod kartı (`sinif` = "kod"): `test_komutu` (daraltılmış), `test_alani`; riskli kartta `tdd: true` (test yazarı + kırmızı kapı, işçi testlere dokunamaz). Kartta tam paket yazılmaz.
 - Kartları plan JSON'una yaz, `orkestra kart toplu --json-dosya <plan.json>`; kullanıcıya 3-8 satır plan göster, "önce planı göster" denmedikçe onay bekleme.
 
 ## 2. Dağıt

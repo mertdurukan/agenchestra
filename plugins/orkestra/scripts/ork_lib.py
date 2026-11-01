@@ -1788,7 +1788,7 @@ def test_komutu_daralt(komut: str, proje: str, desenler: list[str]) -> tuple[str
     → (komut, not). Geniş = konumsal yol yok (cwd'nin tamamı) ya da bir konumsal yol klasör. Zaten dosya/düğüm
     verilmişse, pytest/test_paralel dışı bir koşucuysa (ör. unittest discover) ya da ORKESTRA_TEST_DARALT=0 ise
     komut aynen döner (not None). test_alani'na uyan test dosyası (test_*.py / *_test.py) yoksa (None, not): koşulacak
-    test yok, tam paket koşturulmaz. Tam paket iş sonunda bir kez ayrıca koşar."""
+    test yok, tam paket koşturulmaz."""
     if os.environ.get("ORKESTRA_TEST_DARALT", "").strip() == "0":
         return komut, None
     ham = _TOKEN_RE.findall(komut or "")
