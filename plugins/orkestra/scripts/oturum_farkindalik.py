@@ -326,6 +326,14 @@ _SIR = re.compile(r"(?i)(parola|password|passwd|secret|token|api[_-]?key|bearer|
                   r"|sk-[A-Za-z0-9]{16,}|[A-Za-z0-9+/_-]{40,}")
 
 
+REDAKTE = "[REDAKTE]"
+
+
+def redakte(metin: str) -> str:
+    """Sır kalıplarını (`_SIR`) işaretle değiştirir; not_birak'ın reddettiği metin bu süzgeçten geçince gönderilebilir."""
+    return _SIR.sub(REDAKTE, metin or "")
+
+
 def gelen_yol(sd: str, oturum: str) -> str:
     return os.path.join(sd, "oturumlar", f"{oturum}.gelen.jsonl")
 
