@@ -24,7 +24,7 @@
 
 **Sonuçlar:**
 
-- Olumlu: 01.11.2026 gerçek derlemi (144 `sleep` + `until/while` Bash komutu, ~/.claude oturum günlükleri): 106 sınırsız döngü yakalandı, 38 komut geçti (8 sınırlı döngü, 30 döngü olmayan/veri metni); elle sınıflama sonrası kaçak 0, yanlış pozitif 0. Derlemde 7 kaçak bulundu ve kalıplarla kapatıldı (`SECONDS` yazımı, `until A && ! pgrep`, `while tasklist`).
+- Olumlu: 01.11.2026 gerçek derlemi (144 `sleep` + `until/while` Bash komutu, ~/.claude oturum günlükleri): 106 sınırsız döngü yakalandı, 38 komut geçti (8 sınırlı döngü, 30 döngü olmayan/veri metni); elle sınıflama sonrası kaçak 0, yanlış pozitif 0. İlk geçişte derlemde 6 kaçak (`until <dosya> && ! pgrep`) ve 1 yanlış pozitif (`while tasklist | grep`) çıktı; kalıplar düzeltilince sıfırlandı. Sentetik testte `$((SECONDS-start))` kaçağı da kapandı.
 - Sınırlama: negatif n=38 (<60 hedef); kural-of-three ile yanlış pozitif üst sınırı ≈ %8. İhlal geçişinden önce `kapi_golge` sayısıyla genişletilir. `run_in_background` alanının hook girdisinde görünürlüğü doğrulanmadı; ret metni her iki durumda geçerli.
 - Olumsuz: `until` koşulunda `&&` varsa süreç sınırı yok sayılır; nadir sınırlı döngüler golge dönemde uyarı alabilir.
 - Geri alma: `ORKESTRA_BEKLEME_KAPISI=0` ya da ayarda `mod` değeri; kancayı kaldırmak `hook.py` içindeki `_bekleme_kapisi` çağrısını silmekle olur.
