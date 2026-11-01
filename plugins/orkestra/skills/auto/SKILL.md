@@ -49,4 +49,4 @@ description: "Orkestra'da /auto modunu açar: kullanıcının mesajı onay yerin
 - Kullanıcıya soru sorulmaz: `AskUserQuestion` ve `ask` alanı dolu `wrap_up` reddedilir. Kararı en iyi uygulamayla kendin ver, çalışma özetinin "Otomatik kararlar" bölümüne yaz.
 - Mod okunamazsa `plan` davranışı geçerlidir. `ORKESTRA_AUTO_YETKI=0` bu yetkiyi kapatır.
 
-Değeri yalnız kullanıcıda olan işler (parola, hesap açma, başka ekibin işi) koşuyu durdurmaz. Diğer maddeler tamamlanır, bunlar çalışma özetinde "Kullanıcıya kalanlar" altında sıralanır.
+Değeri yalnız kullanıcıda olan işler (parola, hesap açma, başka ekibin işi) koşuyu durdurmaz. Diğer maddeler tamamlanır, bunlar çalışma özetinde "Kullanıcıya kalanlar" altında, ne yapıldığı ve uygulanan güvenli varsayılanla birlikte yazılır.
