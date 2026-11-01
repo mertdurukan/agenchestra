@@ -269,33 +269,39 @@ def kira(istenen: int, komut: str | None = None, kaynak: str = "test_kosusu", pr
 
     # 2) ihlal: kuyrukta bekle (bekleyen de heartbeat yazar, yoksa ölü sayılır)
     basla = time.time()
-    while not alindi:
-        time.sleep(yoklama)
-        try:
-            with L.kilit(yol, bekleme_s=_KILIT_BEKLEME_S):
-                d = _oku(yol)
-                simdi = time.time()
-                devral_yaz(_temizle(d, simdi, sona_erme))
-                if not any(x["kimlik"] == kimlik for x in d["bekleyenler"]):
-                    d["bekleyenler"].append(ben)  # başkası ölü sandıysa sona yeniden yazıl
-                for x in d["bekleyenler"]:
-                    if x["kimlik"] == kimlik:
-                        x["son"] = simdi
-                if girebilir(d):
-                    d["bekleyenler"] = [x for x in d["bekleyenler"] if x["kimlik"] != kimlik]
-                    ben["son"] = simdi
-                    d["sahipler"].append(ben)
-                    alindi = True
-                elif simdi - basla > bekleme_ust:
-                    d["bekleyenler"] = [x for x in d["bekleyenler"] if x["kimlik"] != kimlik]
+    try:
+        while not alindi:
+            time.sleep(yoklama)
+            try:
+                with L.kilit(yol, bekleme_s=_KILIT_BEKLEME_S):
+                    d = _oku(yol)
+                    simdi = time.time()
+                    devral_yaz(_temizle(d, simdi, sona_erme))
+                    if not any(x["kimlik"] == kimlik for x in d["bekleyenler"]):
+                        d["bekleyenler"].append(ben)  # başkası ölü sandıysa sona yeniden yazıl
+                    for x in d["bekleyenler"]:
+                        if x["kimlik"] == kimlik:
+                            x["son"] = simdi
+                    if girebilir(d):
+                        d["bekleyenler"] = [x for x in d["bekleyenler"] if x["kimlik"] != kimlik]
+                        ben["son"] = simdi
+                        d["sahipler"].append(ben)
+                        _yaz(yol, d)
+                        alindi = True
+                        break
+                    if simdi - basla > bekleme_ust:
+                        raise KiraZamanAsimi(f"kaynak kirası {bekleme_ust:g} sn içinde alınamadı; sahip: "
+                                             + (_ozet(d["sahipler"][0]) if d["sahipler"] else "-"))
                     _yaz(yol, d)
-                    raise KiraZamanAsimi(f"kaynak kirası {bekleme_ust:g} sn içinde alınamadı; sahip: "
-                                         + (_ozet(d["sahipler"][0]) if d["sahipler"] else "-"))
-                _yaz(yol, d)
-        except TimeoutError as e:
-            if isinstance(e, KiraZamanAsimi):
-                raise
-            continue  # kayıt kilidi o an alınamadı; yeniden yokla
+            except TimeoutError as e:
+                if isinstance(e, KiraZamanAsimi):
+                    raise
+                continue  # kayıt kilidi o an alınamadı; yeniden yokla
+    finally:
+        # Her çıkış yolunda (zaman aşımı, KeyboardInterrupt, SystemExit, beklenmeyen hata) bekleyen kaydı silinir;
+        # silinmezse kuyruk başı sona_erme_s boyunca tıkanır.
+        if not alindi:
+            _bekleyen_sil(yol, kimlik)
     if k.sira:
         yaz(f"kaynak kirası: alındı ({time.time() - basla:.1f} sn beklendi, işçi: {isci})")
 
