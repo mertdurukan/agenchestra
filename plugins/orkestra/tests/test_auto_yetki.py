@@ -303,6 +303,42 @@ class KararKaydi(unittest.TestCase):
             json.dump({"mod": "plan"}, f)
         self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, "## Özet\nx\n"))
 
+    GOVDE_BASI = "## Plandan sapmalar\nYok\n\n## Kullanıcıya kalanlar\nYok\n\n## Otomatik kararlar\n"
+    TAM = ("- **Karar:** push edildi\n  - **Gerekçe:** açık yetki\n  - **Alternatifler:** PR açmak\n"
+           "  - **Geri alma:** git revert\n")
+
+    def test_alan_eksigi_ayrik_kontrol(self):
+        self.assertEqual(isler._auto_karar_alan_eksigi("Yok"), [])
+        self.assertEqual(isler._auto_karar_alan_eksigi(self.TAM), [])
+        self.assertEqual(isler._auto_karar_alan_eksigi("- push edildi\n"), ["Karar", "Gerekçe", "Alternatifler", "Geri alma"])
+        self.assertEqual(isler._auto_karar_alan_eksigi("- **Karar:** x\n  - **Gerekçe:** y\n"), ["Alternatifler", "Geri alma"])
+
+    def test_ikinci_girdide_alan_eksigi(self):
+        iki = self.TAM + "- **Karar:** ikinci\n  - **Gerekçe:** z\n"
+        self.assertEqual(isler._auto_karar_alan_eksigi(iki), ["Alternatifler", "Geri alma"])
+
+    def test_alan_eksigi_golgede_kaydeder_engellemez(self):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", return_value="golge"), mock.patch.object(KM, "kaydet", return_value=False) as k:
+            self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, self.GOVDE_BASI + "- push edildi\n"))
+        self.assertEqual(k.call_args[0][1], "auto_karar_alan")
+
+    def test_tam_girdide_alan_kapisi_susar(self):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "kaydet") as k:
+            self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, self.GOVDE_BASI + self.TAM))
+        k.assert_not_called()
+
+    def test_alan_eksigi_ihlalde_engeller(self):
+        import kapi_mod as KM
+        with mock.patch.object(KM, "mod", return_value="ihlal"):
+            sonuc = isler._auto_ozet_eksigi(self.klasor, self.GOVDE_BASI + "- push edildi\n")
+        self.assertIn("alan eksik", sonuc or "")
+
+    def test_alan_kapisi_varsayilan_golge(self):
+        import kapi_mod as KM
+        self.assertEqual(KM.mod("auto_karar_alan"), "golge")
+
 
 class UcAdim(_Onay):
     """Hook düzeyinde uçtan uca (S6): /auto mesajı → push allow, soru deny; /plan mesajı → push ask."""
