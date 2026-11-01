@@ -65,7 +65,7 @@ def _veri_disi(komut: str) -> str:
 def _surec_sinir_gecersiz(blok: str, ayar: dict) -> bool:
     """`until A && ! pgrep ...`: dosya koşulu hiç gerçekleşmezse süreç ölse de döngü biter mi? Hayır, süreç canlılığı
     yalnız tek başına koşulsa sınırdır. `until` koşulunda bağlaç (`until_ve_kalibi`) varsa süreç sınırı sayılmaz."""
-    if not re.match(r"\s*until\b", blok):
+    if not _var(ayar.get("until_baslangic_kalibi"), blok):
         return False
     govde = None
     for k in ayar.get("govde_baslangic_kalibi") or []:
