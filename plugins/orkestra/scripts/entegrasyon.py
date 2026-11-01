@@ -22,15 +22,18 @@ ağacın dosyalarını eski bırakır. Model çağırmaz.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from typing import Callable
 
 import kuyruk as K
+import oturum_farkindalik as OF
 
 VARSAYILAN_TEST = "plugins/orkestra/scripts/test_paralel.py"  # depo köküne göre; orkestra eklenti deposu düzeni
 FF_DENEME = 3
