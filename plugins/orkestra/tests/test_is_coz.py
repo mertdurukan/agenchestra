@@ -106,7 +106,7 @@ class _Ortak(unittest.TestCase):
             kom += ["--agent-id", agent_id]
         p = ic_kos.kos(kom, env=env, cwd=self.proje)
         self.assertEqual(p.returncode, 0, p.stderr)
-        s = self.jl("maliyet.jsonl")
+        s = self.jl("maliyet_tur.jsonl")  # I-319 P3: tur gözlem defterine yazılır
         self.assertTrue(s)
         return s[-1]
 
