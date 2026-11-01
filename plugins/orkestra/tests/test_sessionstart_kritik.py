@@ -18,7 +18,8 @@ BASLIK = "[Sürekli açık skill: orkestra:caveman]"
 
 
 def kos(cwd, **env_ek):
-    env = dict(os.environ, PYTHONUTF8="1", **env_ek)
+    env = dict(os.environ, PYTHONUTF8="1", ORKESTRA_SKILL_SUREKLI="1")  # conftest varsayılanı 0
+    env.update(env_ek)
     return subprocess.run([sys.executable, KRITIK], input=json.dumps({"cwd": cwd, "session_id": "kr-1"}), cwd=cwd,
                           env=env, capture_output=True, text=True, encoding="utf-8")
 
@@ -78,7 +79,11 @@ class SessionStartKritik(unittest.TestCase):
         with open(os.path.join(KOK, "hooks", "hooks.json"), encoding="utf-8") as f:
             komutlar = [h["command"] for g in json.load(f)["hooks"]["SessionStart"] for h in g["hooks"]]
         self.assertEqual(len(komutlar), 2)
-        self.assertTrue(any("sessionstart_kritik.py" in k for k in komutlar))
+        kritik = [k for k in komutlar if "sessionstart_kritik.py" in k]
+        self.assertEqual(len(kritik), 1)
+        s = '"${CLAUDE_PLUGIN_ROOT}/scripts/sessionstart_kritik.py"'  # ana hook ile aynı python/py -3/python3 seçicisi
+        self.assertEqual(kritik[0], f"if command -v python >/dev/null 2>&1; then exec python {s}; "
+                                    f"elif command -v py >/dev/null 2>&1; then exec py -3 {s}; else exec python3 {s}; fi")
         self.assertTrue(any("hook.py" in k and "SessionStart" in k for k in komutlar))
 
 
