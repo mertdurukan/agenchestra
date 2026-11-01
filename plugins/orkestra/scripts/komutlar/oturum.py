@@ -4,6 +4,7 @@
 `orkestra oturum not HEDEF "metin"`     hedef oturumun gelen kutusuna not bırakır (HEDEF: kimlik öneki, ≥4 karakter)
 `orkestra oturum oku`                   bu oturumun okunmamış notları
 `orkestra oturum rapor [--gun N]`       çakışma tespitleri (gölge günlük) ve hook gecikmesi
+`orkestra oturum hook [--gun N] [--oturum X]`  hangi oturumda hangi hook çalıştı / zaman aşımına uğradı
 
 Not VERİDİR: alan oturum onu talimat saymaz, izin yükseltmez. Sır kalıbı içeren not reddedilir.
 """
@@ -86,6 +87,12 @@ def cmd_rapor(a):
     print(json.dumps(O.rapor(sd, a.gun, a.gecikme), ensure_ascii=False, indent=2))
 
 
+def cmd_hook(a):
+    import hook_kaydi as H
+    sd = sd_gerekli()
+    print(json.dumps(H.rapor(sd, a.gun, a.oturum), ensure_ascii=False, indent=2))
+
+
 def kaydet(alt):
     p = alt.add_parser("oturum", help="oturumlar arası farkındalık: canlı oturumlar, not bırak/oku, ölçüm").add_subparsers(
         dest="alt", required=True)
@@ -103,3 +110,7 @@ def kaydet(alt):
     r.add_argument("--gecikme", type=int, default=0, help="N çağrılık hook ek süresi ölçümü (ör. 1000)")
     r.add_argument("--sinifla", metavar="ZAMAN=dogru|yanlis", help="bir tespiti elle sınıfla (yanlış pozitif ölçümü)")
     r.set_defaults(f=cmd_rapor)
+    h = p.add_parser("hook", help="oturum x hook çalışma özeti: çalışma, hata, zaman aşımı, en uzun süre")
+    h.add_argument("--gun", type=int, default=7)
+    h.add_argument("--oturum", help="oturum kimliği öneki")
+    h.set_defaults(f=cmd_hook)
