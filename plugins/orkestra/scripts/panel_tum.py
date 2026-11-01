@@ -259,6 +259,8 @@ def _pencere(ok, kartlar: list) -> dict:
         out[w] = {"kart_sayisi": sum(int(p.get("kart_sayisi") or 0) for p in pw),
                   # kart başı ortalama ve medyan alanlar arasında toplanmaz: boş bırakılır (arayüz "–" gösterir)
                   "birim": {k: (sum(int((p.get("birim") or {}).get("teslim_kart") or 0) for p in pw) if k == "teslim_kart" else None) for k in birim_ilk},
+                  "kartsiz": {"usd": round(sum(float((p.get("kartsiz") or {}).get("usd") or 0) for p in pw), 6),
+                              "token": sum(int((p.get("kartsiz") or {}).get("token") or 0) for p in pw)},
                   "en_pahali": _en_pahali(ok, w, "en_pahali"), "en_pahali_token": _en_pahali(ok, w, "en_pahali_token"),
                   "basamak": [],   # ilk geçiş ve ret oranı satırları toplanamaz
                   "akis_ozet": analitik._akis_ozet([k for k in kartlar if w in (k.get("penceresi") or [])])}

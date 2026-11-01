@@ -822,6 +822,9 @@
     const onc = pw.onceki, fark = onc && birimDeger(onc) ? birimDeger(pw) / birimDeger(onc) - 1 : null;
     const bu = ap.birim || {};
     const bos0 = `${ad} içinde harcama yok.`;
+    const ks = ap.kartsiz || {}, ksDeger = tok ? ks.token : ks.usd;
+    // Kart listesi yalnız görev kimlikli satırlardan gelir; pencerede kartsız harcama varsa "harcama yok" demek yanlıştır.
+    const bosKart = ksDeger > 0 ? `${ad} içinde kart harcaması yok; ${B.para(ks.usd, ks.token)} kartsız (ana ajan ve görevsiz satırlar).` : bos0;
     const tm = tumMu();
     const eksikAy = (ay.tahmin_eksik_alanlar || []).join(', ');
     const hedefler = tm ? H`<p class="birlesik-not">Hedefler, oranlar ve basamak verimi toplanamaz; tek bir çalışma alanı seçince görünür. Harcama, model, süreç ve en pahalı kartlar tüm orkestralı alanlar için toplanmıştır.</p>`
@@ -841,7 +844,7 @@
       </div>
       ${onbellekKarti(an.onbellek)}
       <div class="izgara iki" style="align-items:start">
-        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">${ad} · tıkla: koşu izi</span></div><div class="kart-ic">${pahali.length ? pahali.map(([id, v, alanId]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}${ek('', alanId ? { alan: { id: alanId } } : null)}" data-gez><span class="kimlik">${id}</span>${tm && alanId ? H`<span class="etiket alan-rozet">${alanAd(alanId)}</span>` : ''}<span class="yol"><i style="width:${(v / mx(pahali) * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.para(v, v)}</span></a>`) : H`<p class="soluk">${bos0}</p>`}</div></section>
+        <section class="kart"><div class="kart-bas"><h2>En pahalı kartlar</h2><span class="soluk kucuk-y">${ad} · tıkla: koşu izi</span></div><div class="kart-ic">${pahali.length ? pahali.map(([id, v, alanId]) => H`<a class="cubuk-l" href="#/kart/${enc(id)}${ek('', alanId ? { alan: { id: alanId } } : null)}" data-gez><span class="kimlik">${id}</span>${tm && alanId ? H`<span class="etiket alan-rozet">${alanAd(alanId)}</span>` : ''}<span class="yol"><i style="width:${(v / mx(pahali) * 100).toFixed(1)}%;--renk:var(--seri-2)"></i></span><span class="d">${B.para(v, v)}</span></a>`) : H`<p class="soluk">${bosKart}</p>`}</div></section>
         ${tm ? '' : H`<section class="kart"><div class="kart-bas"><h2>Basamak verimi</h2><span class="soluk kucuk-y">${ad} içinde oluşan kartlar</span></div><div class="tablo-kap"><table class="tablo"><thead><tr><th>Basamak</th><th class="sayi">Kart</th><th class="sayi">İlk geçiş</th><th class="sayi">Ret</th><th class="sayi">Kart başı</th></tr></thead>
           <tbody>${(ap.basamak || []).map(s => H`<tr><td><span class="etiket">${s.basamak}</span></td><td class="sayi">${B.sayi(s.kart)}</td><td class="sayi">${B.yuzde(s.ilk_gecis_orani)}</td><td class="sayi" style="${s.ret_orani > 0.15 ? 'color:var(--kotu)' : ''}">${B.yuzde(s.ret_orani)}</td><td class="sayi">${B.para(s.kart_basi_usd, s.kart_basi_token)}</td></tr>`)}</tbody></table></div></section>`}
       </div>`;
