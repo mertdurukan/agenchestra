@@ -57,9 +57,14 @@ def masaustu_oturumlari() -> dict:
     except Exception:
         onb = {}
     out, yeni, degisti = {}, {}, False
-    dosyalar = glob.glob(os.path.join(kok, "*", "*", "local_*.json"))
+    dosyalar = []
+    for kok in cfg.claude_veri_kokleri():
+        dosyalar += glob.glob(os.path.join(kok, "claude-code-sessions", "*", "*", "local_*.json"))
+    MASAUSTU_DURUM["bayat"] = False
     if not dosyalar and onb:
-        # Süreç uygulamanın kayıt klasörünü göremiyor (farklı APPDATA/oturum ortamı): önbelleği ezme, bununla devam et.
+        # Süreç uygulamanın kayıt klasörünü göremiyor (farklı APPDATA/oturum ortamı ya da uygulama verisini taşıdı):
+        # önbelleği ezme, bununla devam et ama bayat işaretle (20.10.2026'da veri taşındı, 12 gün fark edilmedi).
+        MASAUSTU_DURUM["bayat"] = True
         for k in onb.values():
             if isinstance(k, dict) and k.get("cli") and k.get("id"):
                 out[k["cli"]] = {"id": k["id"], "baslik": k.get("baslik"), "arsiv": k.get("arsiv"),
