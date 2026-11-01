@@ -981,6 +981,30 @@ def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -
     _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
 
 
+def _bekleme_kapisi(inp: dict, komut: str) -> None:
+    """I-326 (ADR-0139): sınırsız bekleme döngüsü. Hata komutu bozmaz; ihlal modunda ret, gölgede kayıt + uyarı."""
+    global _BEKLEYEN_UYARI
+    try:
+        import bekleme_kapisi as _bk
+        import kapi_mod
+        cwd = inp.get("cwd") or os.getcwd()
+        s = _bk.karar(komut, cwd)
+        if not s:
+            return
+        mod, mesaj, parca = s
+        olay = f"{parca[:80]} oturum={str(inp.get('session_id') or '')[:8]}"
+        if mod == "ihlal":
+            kapi_mod.ret_kaydet(cwd, _bk.KAPI, olay)
+            reddet(mesaj)
+            return
+        kapi_mod.kaydet(cwd, _bk.KAPI, olay)
+        _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + mesaj
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
 def _main_kopya_kapisi(inp: dict, girdi: dict, arac: str) -> None:
     """I-302 (ADR-0122): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
     global _BEKLEYEN_UYARI
@@ -1163,6 +1187,8 @@ def pre_tool_use(inp: dict):
         genis_ret = _genis_tarama_kapisi(sd, inp.get("session_id"), komut)
         if genis_ret:
             reddet(genis_ret)
+        if arac == "Bash":
+            _bekleme_kapisi(inp, komut)
         # Kilitli test denetimi yalnız yazma işleci içeren komutta anlamlı; yalnız-okuma komutunda kartları (125 JSON) okuma.
         kgid = kabuk_kilitli_yazma(komut, kilitli_testler(sd)) if _KABUK_YAZMA_ON.search(komut) else None
         if kgid:
@@ -3716,7 +3742,7 @@ def main():
             sd = L.durum_dizini(inp.get("cwd"))
             if sd:
                 import ozet
-                ozet.yaz(sd, L.proje_dizini(inp.get("cwd")))
+                ozet.yaz_arka_plan(sd, L.proje_dizini(inp.get("cwd")))
         raise
     except Exception as e:  # güvenli taraf
         _sonuc = "hata"
