@@ -452,6 +452,7 @@ def atif_yaz(sd, oturum, is_id, kaynak) -> bool:
                   if r.get("oturum") == oturum and (not r.get("is") or r.get("is") == "-")]
         if not bagsiz:
             return False
+        baglanma_duzeltmesi(sd, oturum, is_id)  # I-319 P4: atif olayı tekrar yazılmasa da yeni bağsız satırlar atanır
         yol = os.path.join(sd, "atif.jsonl")
         with kilit(os.path.join(sd, "atif_kontrol")):  # jsonl_ekle yol'un kendi kilidini alır: ayrı kilit
             if any(e.get("oturum") == oturum and e.get("is") == is_id for e in jsonl_oku(yol)):
