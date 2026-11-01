@@ -25,7 +25,9 @@ class IsitmaTesti(unittest.TestCase):
             return {"acik": True}
 
         for p in (mock.patch.object(panel, "ISITMA_ADIM", 0.05), mock.patch.object(panel, "ISITMA_TABAN", 0.3),
-                  mock.patch.object(panel, "_ozet_json", ozet)):
+                  mock.patch.object(panel, "_ozet_json", ozet),
+                  mock.patch.object(panel, "_imza_alan", lambda alan: time.time()),   # kaynak sürekli değişiyor: ısıtıcı yeniler
+                  mock.patch.object(panel.L, "calisma_alanlari", return_value=[{"id": "x", "ad": "x", "yol": "x", "orkestra": True}])):
             p.start()
             self.addCleanup(p.stop)
         sunucu = http.server.ThreadingHTTPServer(("127.0.0.1", 0), panel._isleyici())

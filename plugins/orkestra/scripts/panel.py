@@ -76,6 +76,7 @@ import onay  # noqa: E402
 import kural_dosya  # noqa: E402
 import kullanici_todo as KT  # noqa: E402
 import panel_guncelleme  # noqa: E402
+import panel_isci  # noqa: E402
 
 POST_MAX = 64 * 1024
 DOSYA_POST_MAX = 2 * kural_dosya.DOSYA_MAX  # JSON kaçışları için pay
@@ -259,6 +260,29 @@ def _ayarlar_yaz(acik: bool) -> dict:
         return {"tamam": False, "hata": "ORKESTRA_BILDIRIM ortam değişkeni ayarı belirliyor; önce onu kaldır."}
     bildirim.ayar_yaz(acik)
     return {"tamam": True, **_ayarlar_durum()}
+
+
+def _imza_alan(alan_id) -> tuple:
+    """Üreticinin kaynak imzası: alanın (ya da '*' / None için orkestralı tüm alanların) durum dosyaları + takvim günü.
+    Isıtıcı imza değişmediyse ağır üreticiyi yeniden koşturmaz (gün dönümü bugun/bu_ay pencerelerini değiştirdiği için imzada)."""
+    alanlar = [a for a in L.calisma_alanlari() if a.get("orkestra") and (alan_id in (None, TUM_ALAN) or a["id"] == alan_id)]
+    return (time.strftime("%Y-%m-%d"), tuple((a["id"], _akis_imza(a, os.path.join(a["yol"], ".claude", "orkestra"))) for a in alanlar))
+
+
+_AGIR_YOLLAR = frozenset({"/ozet.json", "/analitik.json", "/isler.json"})  # saniyeler süren üreticiler: yanlış alanın verisiyle koşmasın
+
+
+def _bilinmeyen_alan_reddi(yol: str, q: dict) -> bytes | None:
+    """Kayıtlı olmayan alan kimliği (ör. alan=tum) hesaplanmadan 404 olur. Eskiden ilk orkestralı alana sessizce düşüyor ve
+    ağır üreticiyi başka alanın verisiyle koşturuyordu (yanlış veri + yanıt gecikmesi). Yalnız ağır üreticiler (_AGIR_YOLLAR); boş ve '*' kimlik etkilenmez. ORKESTRA_PANEL_ALAN_KAPISI=0 eski geri düşüşü verir."""
+    alan = (q.get("alan") or [""])[0]
+    if not alan or alan == TUM_ALAN or os.environ.get("ORKESTRA_PANEL_ALAN_KAPISI") == "0":
+        return None
+    if yol not in _AGIR_YOLLAR:   # hafif uç noktalarda ilk alana geri düşüş belgelenmiş sözleşmedir (test_panel_onay) ve ucuzdur
+        return None
+    if any(x["id"] == alan for x in L.calisma_alanlari()):
+        return None
+    return json.dumps({"acik": False, "hata": "Tanımsız çalışma alanı.", "alan": alan}, ensure_ascii=False).encode("utf-8")
 
 
 def _tum_alan_reddi(yol: str, q: dict, yazma: bool = False) -> bytes | None:
@@ -777,6 +801,7 @@ def _onay_islemi(sd: str, g: dict):
 
 ISITMA_ADIM = 5.0         # sn: ısıtıcının kontrol adımı
 ISITMA_TABAN = 45.0       # sn: ısıtma aralığı alt sınırı (boşta CPU <%10; ESKI_AZAMI=120 altında)
+IMZA_AZAMI = 300.0        # sn: kaynak imzası değişmese de değer bundan eskiyse yeniden hesaplanır (göreli zaman alanları bayatlamasın)
 ISITMA_TABAN_AGIR = 90.0  # sn: ağır anahtarlar (isler, analitik) için alt sınır (ESKI_AZAMI=120 altında)
 
 
@@ -788,7 +813,14 @@ def _isleyici():
     yenileniyor: set = set()
     ESKI_AZAMI = 120.0  # sn: bundan eski değer hemen verilmez, istek yenilemeyi bekler
 
+    imzalar: dict = {}  # anahtar -> üretim başındaki kaynak imzası (ısıtıcı değişmediyse yeniden hesaplamaz)
+
     def _uret_ve_sakla(anahtar, uret):
+        try:
+            imza_fn = son_istek.get(anahtar, (0, None, 0, None))[3]
+            im = imza_fn() if imza_fn else None   # üretimden ÖNCE: hesap sürerken kaynak değişirse bir sonraki tur yeniler
+        except Exception:  # noqa: BLE001
+            im = None
         try:
             veri = uret()
         except Exception as e:  # noqa: BLE001
@@ -796,6 +828,7 @@ def _isleyici():
         v = json.dumps(veri, ensure_ascii=False).encode("utf-8")
         with kilit:
             onbellek[anahtar] = (time.time(), v)
+            imzalar[anahtar] = (im, time.time())   # (kaynak imzası, gerçek hesap zamanı: tazeleme bunu uzatmaz)
         return v
 
     def _arkada_yenile(anahtar, uret, ak):
@@ -810,7 +843,7 @@ def _isleyici():
     # böylece 120 sn boşluktan sonraki ilk istek üretimi (saniyeler) beklemez. Aralık TTL'den büyük, ağır anahtarlarda 30 sn.
     ISITMA_PENCERE = 600.0
     ISITMA_AGIR = frozenset({"isler", "analitik", "analitik-tum"})
-    son_istek: dict = {}  # anahtar -> (zaman, uret, sure)
+    son_istek: dict = {}  # anahtar -> (zaman, uret, sure, imza_fn)
     isitici: dict = {"var": False}
 
     def _isitma_araligi(anahtar, sure):
@@ -824,7 +857,7 @@ def _isleyici():
                 return
             with kilit:
                 adaylar = list(son_istek.items())
-            for anahtar, (zi, uret, sure) in adaylar:
+            for anahtar, (zi, uret, sure, imza_fn) in adaylar:
                 simdi = time.time()
                 with kilit:
                     if simdi - zi > ISITMA_PENCERE:
@@ -832,6 +865,14 @@ def _isleyici():
                         continue
                     if anahtar in yenileniyor or simdi - onbellek.get(anahtar, (0.0, b""))[0] < _isitma_araligi(anahtar, sure):
                         continue
+                    if imza_fn is not None and anahtar in imzalar:
+                        try:
+                            ayni = imza_fn() == imzalar[anahtar][0]
+                        except Exception:  # noqa: BLE001
+                            ayni = False
+                        if ayni and simdi - imzalar[anahtar][1] <= IMZA_AZAMI:   # kaynak değişmedi: değer hâlâ doğru, yaşını tazele
+                            onbellek[anahtar] = (time.time(), onbellek[anahtar][1])
+                            continue
                     yenileniyor.add(anahtar)
                     ak = anahtar_kilit.setdefault(anahtar, threading.Lock())
                 _arkada_yenile(anahtar, uret, ak)
@@ -842,18 +883,30 @@ def _isleyici():
         isitici["var"] = True
         threading.Thread(target=_isitma_dongusu, daemon=True).start()
 
-    def onbellekli(anahtar, sure, uret):
+    def onbellekli(anahtar, sure, uret, imza=None):
         # Genel kilit yalnız sözlük erişimini korur; hesaplama anahtar başına kilitlenir. Yavaş bir uç nokta
         # (ör. ozet.json) başka uç noktaları bekletmez, aynı anahtar ise tek kez hesaplanır.
         # Süresi dolmuş ama ESKI_AZAMI'den yeni değer varsa hemen verilir, yenileme arkada tek iş parçacığında
         # yapılır (tarayıcı yoklaması üretimi beklemez). Hiç değer yoksa ya da çok eskiyse istek üretimi bekler.
         _isiticiyi_baslat()
         with kilit:
-            son_istek[anahtar] = (time.time(), uret, sure)
+            son_istek[anahtar] = (time.time(), uret, sure, imza)
             z, v = onbellek.get(anahtar, (0.0, b""))
             yas = time.time() - z
             if yas <= sure:
                 return v
+        if imza is not None and v and anahtar in imzalar and time.time() - imzalar[anahtar][1] <= IMZA_AZAMI:
+            try:
+                ayni = imza() == imzalar[anahtar][0]
+            except Exception:  # noqa: BLE001
+                ayni = False
+            if ayni:   # kaynak değişmedi: değer hâlâ doğru; yaşını tazele, hesaplama
+                with kilit:
+                    onbellek[anahtar] = (time.time(), v)
+                return v
+        with kilit:
+            z, v = onbellek.get(anahtar, (0.0, b""))
+            yas = time.time() - z
             ak = anahtar_kilit.setdefault(anahtar, threading.Lock())
             if v and yas <= ESKI_AZAMI:
                 if anahtar not in yenileniyor:
@@ -1267,6 +1320,9 @@ def _isleyici():
             red = _tum_alan_reddi(u.path, q)
             if red is not None:
                 return self._gonder(400, "application/json; charset=utf-8", red)
+            red = _bilinmeyen_alan_reddi(u.path, q)
+            if red is not None:
+                return self._gonder(404, "application/json; charset=utf-8", red)
             if u.path in SAYFALAR:
                 ad = SAYFALAR[u.path]
                 yol = os.path.join(ASSETS, ad)
@@ -1296,14 +1352,14 @@ def _isleyici():
             if u.path == "/ozet.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli(("ozet", alan), 1.0, lambda: _ozet_json(alan)))
+                                    onbellekli(("ozet", alan), 1.0, lambda: panel_isci.uret("ozet", alan, lambda: _ozet_json(alan)), lambda: _imza_alan(alan)))
             if u.path == "/analitik.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli(("analitik", alan), 10.0, lambda: _analitik_json(alan)))
+                                    onbellekli(("analitik", alan), 10.0, lambda: panel_isci.uret("analitik", alan, lambda: _analitik_json(alan)), lambda: _imza_alan(alan)))
             if u.path == "/analitik-tum.json":
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli("analitik-tum", 20.0, analitik.tum_alanlar))
+                                    onbellekli("analitik-tum", 20.0, lambda: panel_isci.uret("analitik-tum", None, analitik.tum_alanlar), lambda: _imza_alan(None)))
             if u.path == "/simdi.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
@@ -1319,7 +1375,7 @@ def _isleyici():
             if u.path == "/isler.json":
                 alan = (q.get("alan") or [None])[0]
                 return self._gonder(200, "application/json; charset=utf-8",
-                                    onbellekli(("isler", alan), 2.0, lambda: _isler_json(alan)))
+                                    onbellekli(("isler", alan), 2.0, lambda: panel_isci.uret("isler", alan, lambda: _isler_json(alan)), lambda: _imza_alan(alan)))
             if u.path == "/teknik.json":
                 alan, is_id, kart = ((q.get(x) or [None])[0] for x in ("alan", "is", "kart"))
                 ret = {x: (q.get(x) or [""])[0] for x in _RET_SUZGEC} if (q.get("ret") or [None])[0] == "1" else None
@@ -1416,6 +1472,8 @@ def calistir(port: int, durum_yaz: bool = True) -> None:
     sunucu = http.server.ThreadingHTTPServer(("127.0.0.1", port), _isleyici())
     if durum_yaz:
         L.atomik_yaz(DURUM, json.dumps({"port": port, "pid": os.getpid(), "surum": SURUM, "zaman": L.simdi()}))
+        panel_isci.ETKIN = True   # ağır üreticiler ayrı işçi süreçte koşar (I-315); panel süreci GIL'i hafif isteklere bırakır
+        panel_isci.isitma()
         threading.Thread(target=_isit, args=(port,), daemon=True).start()
         if os.environ.get("ORKESTRA_GUNCELLEME_YOKLA") != "0":
             GUNCELLEME.yoklamayi_baslat()   # açılışta ve 30 dk'da bir git fetch; ağ yoksa sessiz
@@ -1428,7 +1486,7 @@ def _isit(port: int) -> None:
         alanlar = [a["id"] for a in L.calisma_alanlari() if a.get("orkestra")]
     except Exception:  # noqa: BLE001
         return
-    for alan in alanlar:
+    for alan in ["*", *alanlar]:   # '*' tarayıcının TEMEL istekleridir (I-312): ilk sayfa açılışı soğuk üretimi beklemesin
         for yol in ("isler", "simdi", "analitik", "ozet", "onaylar"):
             try:
                 urllib.request.urlopen(f"http://127.0.0.1:{port}/{yol}.json?alan={alan}", timeout=30).read()
