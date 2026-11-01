@@ -143,3 +143,122 @@ def test_ihlal_modunda_uyari_oneki_ve_kapi_ihlal_kaydi(tmp_path):
     F.golge_yaz(sd, "aaaaaaaa-0000", k[0], None, "arac_oncesi")
     turler = [json.loads(x)["tur"] for x in open(os.path.join(sd, "gunluk.jsonl"), encoding="utf-8")]
     assert turler == ["kapi_ihlal", "kapi_golge"]
+
+
+# ---------------------------------------------------------------- bağlam paketi ve devir (I-324 P3, S4/S5/S8)
+
+def _is_kur(tmp_path, sd, notlar):
+    """Merkez kayıtta I-9 ve iş klasöründe todo.md (verilen '- [x]' notlarıyla)."""
+    klasor = tmp_path / "is9"
+    klasor.mkdir()
+    (klasor / "is.json").write_text(json.dumps({"id": "I-9", "baslik": "Todo çakışması"}), encoding="utf-8")
+    satirlar = ["# Todo", "- [ ] P9: bitmedi — kanıt: görünmemeli"]
+    satirlar += [f"- [x] P{i}: madde {i} — 2026-11-01: {n}" for i, n in enumerate(notlar, 1)]
+    (klasor / "todo.md").write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+    with open(os.path.join(sd, "isler.json"), "w", encoding="utf-8") as f:
+        json.dump({"isler": {"I-9": {"klasor": str(klasor), "baslik": "Todo çakışması", "durum": "acik"}}}, f)
+    return str(klasor)
+
+
+def _sahip_kur(tmp_path, sd, t0):
+    """Sahip oturum scripts/x.py yazmış; tests/test_x.py düşer. (depo, test yolu, kaynak yolu)"""
+    import test_atif as A
+    depo = _depo(tmp_path / "d")
+    kaynak = os.path.join(depo, "scripts", "x.py")
+    F.kaydet(sd, "aaaa1111-0000", depo, dosya=kaynak, is_id="I-9", simdi=t0)
+    test = os.path.join(depo, "tests", "test_x.py")
+    return A, test, kaynak
+
+
+def test_paket_olustur_todo_kanit_notlari_ve_sinirlar(tmp_path):
+    sd = _sd(tmp_path)
+    notlar = [f"kanıt: pytest tests/test_{i}.py => {i} passed" for i in range(12)] + ["kanıt: password: hunter2xx"]
+    notlar.append("kanıt: " + "uzun " * 60)
+    _is_kur(tmp_path, sd, notlar)
+    p = F.paket_olustur(sd, "I-9", [f"d{i}.py" for i in range(25)], test="tests/test_x.py::test_a")
+    assert p["is_id"] == "I-9" and p["baslik"] == "Todo çakışması" and p["test"] == "tests/test_x.py::test_a"
+    kn = p["todo_kanit_notlari"]
+    assert len(kn) == F.PAKET_NOT_EN_COK and all(len(n) <= F.PAKET_NOT_UZUNLUK for n in kn)
+    assert not any("hunter2" in n for n in kn)  # sır kalıbı taşıyan not pakete girmez
+    assert not any("görünmemeli" in n for n in kn)  # açık madde kanıt sayılmaz
+    assert kn[-1].endswith("…")  # uzun not kısaltıldı
+    assert len(p["yazilan_dosyalar"]) == F.PAKET_DOSYA_EN_COK and p["yazilan_dosyalar"][-1] == "d24.py"
+    bos = F.paket_olustur(sd, "I-yok", [])
+    assert bos["todo_kanit_notlari"] == [] and bos["baslik"] == "" and "test" not in bos
+
+
+def test_paket_canli_sahibe_gelen_kutusuna_duser(tmp_path):
+    sd = _sd(tmp_path)
+    _is_kur(tmp_path, sd, ["kanıt: pytest => 3 passed"])
+    t0 = time.time()
+    A, test, kaynak = _sahip_kur(tmp_path, sd, t0)
+    atif = A.sahip_bul(sd, test, [{"dosya": kaynak, "tur": "ad_kurali"}], simdi=t0 + 60, test_adi="test_a")
+    assert atif["sahip"] == "aaaa1111-0000" and atif["canli"]
+    assert F.cozum_sorumlusu(atif) == "sahip"
+    p = F.paket_olustur(sd, "I-9", [kaynak], test=atif["test"])
+    y = F.paket_yonlendir(sd, "bbbb2222-0000", atif, p)
+    assert y["sorumlu"] == "sahip" and y["hedef"] == "aaaa1111-0000" and y["birakildi"], y
+    m = F.gelen_metin(sd, "aaaa1111-0000")
+    assert "Bağlam paketi I-9" in m and "test_x.py::test_a" in m and "x.py" in m and "3 passed" in m
+    assert "bbbb2222" in m  # koşan oturum kimden olarak görünür
+
+
+def test_paket_olu_ve_sahipsiz_kosana_doner(tmp_path):
+    sd = _sd(tmp_path)
+    t0 = time.time()
+    A, test, kaynak = _sahip_kur(tmp_path, sd, t0)
+    olu = A.sahip_bul(sd, test, [{"dosya": kaynak, "tur": "ad_kurali"}], simdi=t0 + 31 * 60)
+    assert olu["sahip"] == "aaaa1111-0000" and not olu["canli"]
+    p = F.paket_olustur(sd, "I-9", [kaynak], test=olu["test"])
+    for atif in (olu, {"test": test, "sahip": None, "kanit": None, "canli": False}, None):
+        assert F.cozum_sorumlusu(atif) == "kosan"
+        y = F.paket_yonlendir(sd, "bbbb2222-0000", atif, p)
+        assert y["sorumlu"] == "kosan" and y["hedef"] == "bbbb2222-0000" and not y["birakildi"]
+        assert "Bağlam paketi I-9" in y["metin"]  # paket koşana metin olarak döner
+    assert not os.path.exists(F.gelen_yol(sd, "aaaa1111-0000"))  # ölü sahibin kutusuna yazılmadı
+    assert not os.path.exists(F.gelen_yol(sd, "bbbb2222-0000"))  # yeni kanal yok: koşana kutu değil, metin
+
+
+def test_paket_sir_kalibi_reddedilir(tmp_path):
+    sd = _sd(tmp_path)
+    for kn in (["token=abcd1234efgh"], ["sk-" + "A" * 20], ["X" * 45]):
+        p = {"is_id": "I-9", "baslik": "", "todo_kanit_notlari": kn, "yazilan_dosyalar": []}
+        ok, hata = F.paket_birak(sd, "aaaa1111-0000", "bbbb2222-0000", p)
+        assert not ok and "sır" in hata
+        y = F.paket_yonlendir(sd, "bbbb2222-0000", {"sahip": None}, p)
+        assert not y["birakildi"] and y["metin"] == "" and "sır" in y["hata"]  # koşana da sır dönmez
+    assert not os.path.exists(F.gelen_yol(sd, "aaaa1111-0000"))
+    # kimlik alanındaki uzun ad (test adı, dosya adı) sır sayılmaz: belirteç kırpılır
+    uzun = "test_" + "cok_uzun_bir_test_adi_" * 3
+    p = {"is_id": "I-9", "test": f"tests/test_x.py::{uzun}", "yazilan_dosyalar": ["a/" + "b" * 50 + ".py"]}
+    ok, hata = F.paket_birak(sd, "aaaa1111-0000", "bbbb2222-0000", p)
+    assert ok, hata
+
+
+def test_paket_uzunluk_siniri(tmp_path):
+    sd = _sd(tmp_path)
+    p = {"is_id": "I-9", "baslik": "b", "todo_kanit_notlari": ["kanıt: " + "uzun not " * 12] * 10,
+         "yazilan_dosyalar": [f"scripts/d{i}.py" for i in range(20)], "test": "tests/test_x.py::test_a"}
+    assert len(F.paket_metni(p)) > F.NOT_EN_COK
+    ok, hata = F.paket_birak(sd, "aaaa1111-0000", "bbbb2222-0000", p)
+    assert ok, hata
+    with open(F.gelen_yol(sd, "aaaa1111-0000"), encoding="utf-8") as f:
+        kayit = json.loads(f.readline())
+    assert len(kayit["metin"]) <= F.NOT_EN_COK and kayit["metin"].endswith("…")
+    assert "(+15)" in kayit["metin"]  # dosya listesi özetlenir
+    assert len(F.paket_yonlendir(sd, "bbbb2222-0000", {"sahip": None}, p)["metin"]) <= F.NOT_EN_COK
+
+
+def test_paket_devret_isaret_metni_ve_sahibe_paket(tmp_path):
+    sd = _sd(tmp_path)
+    _is_kur(tmp_path, sd, ["kanıt: pytest => 2 passed"])
+    depo = _depo(tmp_path / "d")
+    F.kaydet(sd, "bbbb2222-0000", depo, dosya=os.path.join(depo, "scripts", "y.py"), is_id="I-9")
+    F.kaydet(sd, "aaaa1111-0000", depo, is_id="I-9")
+    d = F.devret(sd, "bbbb2222-0000", "aaaa1111-0000", "I-9", 3, "paket_birak ekle")
+    assert d["isaret"] == "devredildi → I-9#3"
+    assert d["birakildi"] and not d["hata"]
+    assert d["paket"]["madde"] == "#3 paket_birak ekle" and any(x.endswith("y.py") for x in d["paket"]["yazilan_dosyalar"])
+    m = F.gelen_metin(sd, "aaaa1111-0000")
+    assert "madde: #3 paket_birak ekle" in m and "y.py" in m and "2 passed" in m
+    assert F.devret(sd, "bbbb2222-0000", "aaaa1111-0000", "I-9", 4, "token: gizli123")["paket"].get("madde") is None
