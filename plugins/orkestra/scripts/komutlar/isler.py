@@ -597,7 +597,29 @@ def _auto_ozet_eksigi(klasor, metin):
         kalan = KM.ihlal_ver(klasor, "auto_kararlar", ["calisma_ozeti: `## Otomatik kararlar` bölümü yok ya da boş (/auto, ADR-0086); yoksa 'Yok' yaz"])
         if kalan:
             return kalan[0]
+        return None
+    # ADR-0132: her girdi karar, gerekçe, alternatif ve geri alma alanlarını taşır; gölge modunda yalnız uyarır (P-028)
+    eksik = _auto_karar_alan_eksigi(m.group(1))
+    if eksik:
+        import kapi_mod as KM
+        kalan = KM.ihlal_ver(klasor, "auto_karar_alan", [f"calisma_ozeti: `## Otomatik kararlar` girdilerinde alan eksik: {', '.join(eksik)} (ADR-0132)"])
+        if kalan:
+            return kalan[0]
     return None
+
+
+AUTO_KARAR_ALANLARI = (("Karar", r"Karar"), ("Gerekçe", r"Gerek[çc]e"), ("Alternatifler", r"Alternatif(?:ler)?"), ("Geri alma", r"Geri[ \t]+alma"))
+
+
+def _auto_karar_alan_eksigi(govde):
+    """`## Otomatik kararlar` gövdesinde karar, gerekçe, alternatif, geri alma alanlarından eksik olanların adları; 'Yok' ya da tamamsa boş.
+    Her alan adı en az girdi sayısı kadar geçer (girdi = en çok sayılan alan adının geçiş sayısı)."""
+    metin = re.sub(r"<!--.*?-->", "", govde, flags=re.S).strip()
+    if re.fullmatch(r"[-*\s]*yok\.?\s*", metin, re.I):
+        return []
+    sayilar = {ad: len(re.findall(rf"(?:^|[\s*_>-])\**{kalip}\**[ \t]*:", metin, re.I | re.M)) for ad, kalip in AUTO_KARAR_ALANLARI}
+    girdi = max(max(sayilar.values()), 1)
+    return [ad for ad, n in sayilar.items() if n < girdi]
 
 
 ADR_ALANLARI = ("Durum", "Tarih", "Bağlam", "Karar", "Seçenekler", "Sonuçlar")
