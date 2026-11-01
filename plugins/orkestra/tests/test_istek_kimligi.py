@@ -291,7 +291,7 @@ class Satirlar(_Ortak):
             kom += ["--agent-id", agent_id]
         p = ic_kos.kos(kom, env=env, cwd=self.proje)
         self.assertEqual(p.returncode, 0, p.stderr)
-        s = [r for r in self.jl("maliyet.jsonl") if r.get("kaynak") == "tur"]
+        s = [r for r in self.jl("maliyet_tur.jsonl") if r.get("kaynak") == "tur"]  # I-319 P3: gözlem defteri
         self.assertTrue(s)
         return s[-1]
 
