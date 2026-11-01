@@ -333,6 +333,24 @@ def kesif_python() -> str:
     return sys.executable
 
 
+def claude_veri_kokleri() -> list[str]:
+    """Claude masaüstü uygulamasının veri klasörü adayları (var olanlar, kesin sıra).
+
+    Uygulama verisini sürümle yer değiştirir: `%APPDATA%\\Claude`, `%LOCALAPPDATA%\\Claude`,
+    `%LOCALAPPDATA%\\Claude-Data\\<kurulum>` (20.10.2026 sonrası bu makinede) ve MSIX
+    `%LOCALAPPDATA%\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude`. Kayıt ya da exe arayan herkes bu listeyi kullanır."""
+    adaylar: list[str] = []
+    for ev in ("APPDATA", "LOCALAPPDATA"):
+        kok = os.environ.get(ev, "")
+        if not kok:
+            continue
+        adaylar.append(os.path.join(kok, "Claude"))
+        adaylar += sorted(glob.glob(os.path.join(kok, "Claude-Data", "*")))
+        adaylar += sorted(glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude")))
+    gorulen: set[str] = set()
+    return [a for a in adaylar if os.path.isdir(a) and not (a in gorulen or gorulen.add(a))]
+
+
 def kesif_claude_exe() -> str | None:
     """%APPDATA%/%LOCALAPPDATA% altındaki en yeni claude.exe, sonra PATH'teki claude.
     Masaüstü uygulaması iki yerleşim kullanır: `Claude\\claude-code\\<sürüm>\\<özet>` ve
