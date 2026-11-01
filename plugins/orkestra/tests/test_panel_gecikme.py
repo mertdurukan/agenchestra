@@ -60,9 +60,7 @@ class TodoOnbellekTest(unittest.TestCase):
                 m2 = IK.todo_maddeleri(d)
                 self.assertEqual(ay.call_count, 1)
                 self.assertNotEqual(m2[0]["metin"], "bozuldu")
-                open(yol, "w", encoding="utf-8").write("- [x] P1: a
-- [ ] P2: b
-")
+                open(yol, "w", encoding="utf-8").write("- [x] P1: a\n- [ ] P2: b\n")
                 self.assertEqual(len(IK.todo_maddeleri(d)), 2)
                 self.assertEqual(ay.call_count, 2)
 
