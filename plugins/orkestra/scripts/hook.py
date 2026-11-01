@@ -1002,6 +1002,53 @@ def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -
     _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
 
 
+def _bekleme_kaydi_kapisi(inp: dict, sd: str, arac: str, komut: str) -> None:
+    """ADR-0146: ana ajanın araç çağrısı açık bekleme kaydına "beklerken yapılan iş" olarak yazılır; yeni kayıt varsa
+    bağımsız todo maddeleri bağlama eklenir (kayıt başına bir kez); kabukta kayıtsız sleep/poll gölge kaydı (ihlal: ret).
+    Alt ajan atlanır. Hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
+    global _BEKLEYEN_UYARI
+    try:
+        import bekleme_kaydi as _bk
+        if inp.get("agent_id") or not _bk.acik_mi():
+            return
+        oid = str(inp.get("session_id") or "")
+        cwd = inp.get("cwd") or os.getcwd()
+        if arac in KABUK_ARACLARI:
+            s = _bk.karar(komut, cwd, sd)
+            if s:
+                mod, mesaj, parca = s
+                olay = f"{parca[:80]} oturum={oid[:8]}"
+                import kapi_mod
+                if mod == "ihlal":
+                    kapi_mod.ret_kaydet(cwd, _bk.KAPI, olay)
+                    reddet(mesaj)
+                    return
+                kapi_mod.kaydet(cwd, _bk.KAPI, olay)
+                _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + mesaj
+        acik = _bk.liste(sd)
+        if not acik:
+            return
+        if "orkestra" not in (komut or "") or "bekleme" not in (komut or ""):
+            _bk.adim(sd, oid)
+        for k in acik:
+            if k.get("bildirildi"):
+                continue
+            isler = []
+            try:
+                import is_kaydi
+                for g in is_kaydi.is_liste(sd, "acik"):
+                    if str(g.get("id")) == str(k.get("is") or _bagli_is(sd, oid)) and g.get("klasor"):
+                        isler = _bk.bagimsiz_isler(g["klasor"], k.get("p"))
+            except Exception:
+                pass
+            _bk.bildirildi_isaretle(sd, k["id"])
+            _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + _bk.baglam_satiri(k, isler)
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
 def _bekleme_kapisi(inp: dict, komut: str) -> None:
     """I-326 (ADR-0139): sınırsız bekleme döngüsü. Hata komutu bozmaz; ihlal modunda ret, gölgede kayıt + uyarı."""
     global _BEKLEYEN_UYARI
@@ -1090,6 +1137,7 @@ def pre_tool_use(inp: dict):
         raise
     except Exception:
         pass
+    _bekleme_kaydi_kapisi(inp, sd, arac, girdi.get("command") or "")  # ADR-0146
 
     try:
         import is_onay as _io

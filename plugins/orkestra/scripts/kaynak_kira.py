@@ -202,6 +202,28 @@ def _golge_kaydet(proje: str | None, neden: str) -> None:
         pass
 
 
+def _bekleme_ac(proje: str | None, ne: str) -> tuple[str, str] | None:
+    """ADR-0146: kuyrukta gerçekten beklenecekse bekleme kaydı açar (ajan bağımsız işe yönelir). En iyi çaba: hata kirayı bozmaz."""
+    try:
+        import bekleme_kaydi as BK
+        sd = L.durum_dizini(proje or os.getcwd())
+        if not sd or not BK.acik_mi():
+            return None
+        return sd, BK.ac(sd, ne, "kaynak kirası alınır ya da zaman aşımı", None, "kaynak_kira")["id"]
+    except Exception:
+        return None
+
+
+def _bekleme_kapat(kayit: tuple[str, str] | None, neden: str) -> None:
+    if not kayit:
+        return
+    try:
+        import bekleme_kaydi as BK
+        BK.kapat(kayit[0], kayit[1], neden=neden)
+    except Exception:
+        pass
+
+
 def _bekleyen_sil(yol: str, kimlik: str) -> None:
     """Bekleyen kaydını kuyruktan siler (en iyi çaba; kilit alınamazsa kayıt sona_erme_s ile düşer)."""
     try:
@@ -282,6 +304,7 @@ def kira(istenen: int, komut: str | None = None, kaynak: str = "test_kosusu", pr
 
     # 2) ihlal: kuyrukta bekle (bekleyen de heartbeat yazar, yoksa ölü sayılır)
     basla = time.time()
+    bekleme = None if alindi else _bekleme_ac(proje, f"kaynak kirası kuyruğu: sıra {k.sira}, komut {_komut_ozeti(komut)}")
     try:
         while not alindi:
             time.sleep(yoklama)
@@ -315,6 +338,7 @@ def kira(istenen: int, komut: str | None = None, kaynak: str = "test_kosusu", pr
         # silinmezse kuyruk başı sona_erme_s boyunca tıkanır.
         if not alindi:
             _bekleyen_sil(yol, kimlik)
+        _bekleme_kapat(bekleme, "alindi" if alindi else "zaman_asimi")
     if k.sira:
         yaz(f"kaynak kirası: alındı ({time.time() - basla:.1f} sn beklendi, işçi: {isci})")
 

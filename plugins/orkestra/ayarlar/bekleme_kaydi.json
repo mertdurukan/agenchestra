@@ -1,0 +1,16 @@
+{
+  "mod": "golge",
+  "mod_aciklama": "ADR-0146, P-028: golge = kapi_golge kaydi + uyari, komut engellenmez; ihlal = ret. ihlal gecisi >=14 gun ve >=30 bekleme_kapat olayi olcumunden sonra (yanlis pozitif <=%10, elle siniflama) ayri ADR ile. Olcum: orkestra bekleme rapor. Kapatma: ORKESTRA_BEKLEME_KAYDI=0.",
+  "sona_erme_s": 7200,
+  "bosluk_esik_s": 90,
+  "bosluk_gerekce": "ardisik arac cagrilari arasindaki bu sureyi asan aralik ajanin durdugu sure sayilir; blokta bekleyen ajan arac cagirmaz, tum sure bos olur. Tipik bir model turunun ust siniri; olcumde ayarlanir.",
+  "sleep_min_s": 5,
+  "komut_kaliplari": [
+    "(?:^|[\\s;&|(])sleep\\s+(?P<sn>\\d+(?:\\.\\d+)?)",
+    "\\bStart-Sleep\\b",
+    "\\bgh\\s+run\\s+watch\\b",
+    "\\btimeout\\s+/t\\s+\\d+"
+  ],
+  "uyari_metni": "Orkestra (ADR-0146, golge): kayitsiz bekleme komutu. Once `orkestra bekleme ac \"<ne>\" --olay \"<hangi olayla biter>\"` ile bekleme kaydi ac; kosuyu `run_in_background` ile baslat, bagimsiz todo maddelerini yap, bitince `orkestra bekleme kapat <id>`.",
+  "ret_metni": "Orkestra (ADR-0146): kayitsiz bekleme komutu reddedildi. Once `orkestra bekleme ac \"<ne>\" --olay \"<hangi olayla biter>\"` ile bekleme kaydi ac; kosuyu `run_in_background` ile baslat, bagimsiz todo maddelerini yap, bitince `orkestra bekleme kapat <id>`."
+}

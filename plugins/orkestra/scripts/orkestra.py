@@ -83,12 +83,13 @@ from komutlar import konu  # noqa: E402  (`orkestra konu`; ADR-0116)
 from komutlar import paralel  # noqa: E402  (`orkestra paralel`; ADR-0100)
 from komutlar import olay  # noqa: E402  (`orkestra olay`; I-286, ADR-0109)
 from komutlar import kapi  # noqa: E402  (`orkestra kapi durum`; ADR-0095)
+from komutlar import bekleme  # noqa: E402  (`orkestra bekleme`; ADR-0146)
 from komutlar import oturum  # noqa: E402  (`orkestra oturum`; ADR-0125)
 from komutlar import teslim_kuyruk  # noqa: E402  (`orkestra teslim kuyruk`; I-323 P2)
 from komutlar import git_denetim as git_komut  # noqa: E402  (`orkestra git denetim`; I-325)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu, paralel, olay, kapi, oturum, teslim_kuyruk, git_komut)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu, paralel, olay, kapi, bekleme, oturum, teslim_kuyruk, git_komut)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

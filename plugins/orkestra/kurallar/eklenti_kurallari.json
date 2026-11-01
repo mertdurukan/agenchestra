@@ -1306,6 +1306,24 @@
         }
       ],
       "etkinlesme": "2026-11-01T12:48:25+03:00"
+    },
+    {
+      "id": "P-053",
+      "katman": "plugin",
+      "metin": "ZORUNLU, istisnasız: Bir şey beklenirken (kaynak kirası kuyruğu, arka plan görevi, CI koşusu, denetçi) ajan boşa durmaz. (1) Bekleme noktasında `orkestra bekleme ac <ne> --olay <hangi olayla biter>` ile tek kayıt açılır; kayıtsız sleep, Start-Sleep ve gh run watch kullanılmaz. (2) Kayıt açılınca işin todo'sundaki bekleneni beklemeyen bağımsız açık maddeler (P-035 'Önce:' ve 'Yazma alanı:') yapılır; bekleneni bildirim gelince alınır, uzun koşu run_in_background ile başlatılır. (3) Bekleme bitince `orkestra bekleme kapat <id>` ölçümü (bekleme_s, bos_s, yapilan) gunluk.jsonl'a yazar. Zorlama: scripts/bekleme_kaydi.py, hook._bekleme_kaydi_kapisi, ayarlar/bekleme_kaydi.json (mod {{mod:bekleme_kaydi}}, P-028; ihlal geçişi ≥14 gün ve ≥30 olay ölçümünden sonra ayrı kararla; ORKESTRA_BEKLEME_KAYDI=0 kapatır), tests/test_bekleme_kaydi.py. (ORK-ADR-0146)",
+      "neden": "Test kirası kuyruğu beklenirken boşa durulması (I-342); bağımsız işler plan aşamasında (P-035) ayrılıyor ama çalışma anında beklemede kullanılmıyordu.",
+      "durum": "etkin",
+      "kaynak": "cli",
+      "olusturma": "2026-11-02T01:40:38+03:00",
+      "guncelleme": "2026-11-02T01:40:38+03:00",
+      "gecmis": [
+        {
+          "zaman": "2026-11-02T01:40:38+03:00",
+          "olay": "eklendi",
+          "metin": "ZORUNLU, istisnasız: Bir şey beklenirken (kaynak kirası kuyruğu, arka plan görevi, CI koşusu, denetçi) ajan boşa durmaz. (1) Bekleme noktasında `orkestra bekleme ac <ne> --olay <hangi olayla biter>` ile tek kayıt açılır; kayıtsız sleep, Start-Sleep ve gh run watch kullanılmaz. (2) Kayıt açılınca işin todo'sundaki bekleneni beklemeyen bağımsız açık maddeler (P-035 'Önce:' ve 'Yazma alanı:') yapılır; bekleneni bildirim gelince alınır, uzun koşu run_in_background ile başlatılır. (3) Bekleme bitince `orkestra bekleme kapat <id>` ölçümü (bekleme_s, bos_s, yapilan) gunluk.jsonl'a yazar. Zorlama: scripts/bekleme_kaydi.py, hook._bekleme_kaydi_kapisi, ayarlar/bekleme_kaydi.json (mod golge, P-028; ihlal geçişi ≥14 gün ve ≥30 olay ölçümünden sonra ayrı kararla; ORKESTRA_BEKLEME_KAYDI=0 kapatır), tests/test_bekleme_kaydi.py. (ADR-0146)"
+        }
+      ],
+      "etkinlesme": "2026-11-02T01:40:38+03:00"
     }
   ]
 }
