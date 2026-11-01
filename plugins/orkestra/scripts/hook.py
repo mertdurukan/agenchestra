@@ -230,7 +230,12 @@ def _test_yonlendirme(komut: str, cwd: str | None) -> str:
     import kapi_mod
     if kapi_mod.mod(TEST_YONLENDIRME_KAPI, cwd) == "ihlal":
         kapi_mod.ret_kaydet(cwd or os.getcwd(), TEST_YONLENDIRME_KAPI, f"çıplak test koşusu: {parca}")
-        reddet(ileti)
+        reddet(f"çıplak tam test koşusu reddedildi ({parca}): kira, ortak işçi bütçesi ve sonuç önbelleği almaz.\n"
+               f"- tam takım: `python {kosucu}` (ek yol ve -n verilebilir; aynı kod için sonuç önbellekten döner)\n"
+               f"- hedefli: tek dosya `pytest tests/test_x.py`, düğüm `pytest tests/test_x.py::Sinif::test_y`, "
+               f"süzgeç `pytest -k <ad>` ya da `python -m unittest tests.test_x` engellenmez\n"
+               f"- {durum}. Kapatma: ORKESTRA_TEST_YONLENDIRME=0 ya da .claude/orkestra/{TEST_YONLENDIRME_KAPI}.json "
+               f"içinde \"mod\": \"golge\".")
     kapi_mod.kaydet(cwd or os.getcwd(), TEST_YONLENDIRME_KAPI, f"çıplak test koşusu: {parca}")
     return f"orkestra (gölge, {TEST_YONLENDIRME_KAPI}): {ileti}"
 
