@@ -1005,6 +1005,9 @@ def todo_ekle(klasor: str, metin: str) -> str:
     neden = todo_ekle_ihlali(klasor, metin)
     if neden:
         raise ValueError(neden)
+    uyari, ret = todo_talep(klasor, metin)  # I-324 P4: aynı iş başka canlı oturumda mı (S1, S8)
+    if ret:
+        raise ValueError(ret)
     yol = _todo_yol(klasor)
     with L.kilit(yol):
         icerik = _todo_oku(yol) if os.path.exists(yol) else "# Yapılacaklar\n\n"
@@ -1013,7 +1016,71 @@ def todo_ekle(klasor: str, metin: str) -> str:
         if icerik and not icerik.endswith("\n"):
             icerik += "\n"
         L.atomik_yaz(yol, icerik + f"- [ ] {metin}\n")
+    if uyari:
+        print(uyari, file=sys.stderr)
     return metin
+
+
+def _durum_dizini_bul(klasor: str) -> str | None:
+    """İş klasöründen yukarı çıkarak `.claude/orkestra` durum dizini; yoksa None."""
+    yol = os.path.abspath(klasor)
+    while True:
+        aday = os.path.join(yol, ".claude", "orkestra")
+        if os.path.isdir(aday):
+            return aday
+        ust = os.path.dirname(yol)
+        if ust == yol:
+            return None
+        yol = ust
+
+
+def _sahip_madde_no(sd: str, sahip: dict) -> str:
+    """Sahibin iş todo'sunda talep metnine uyan açık maddenin 1-tabanlı sırası; bulunamazsa '?'."""
+    try:
+        g = merkez_giris(sd, str(sahip.get("is_id") or "")) or {}
+        hedef = " ".join(str(sahip.get("madde") or "").split())[:40].lower()
+        if not (g.get("klasor") and hedef):
+            return "?"
+        for n, m in enumerate(todo_ozet(g["klasor"])["acik_maddeler"], 1):
+            if " ".join(m.split()).lower().startswith(hedef):
+                return str(n)
+    except Exception:
+        pass
+    return "?"
+
+
+def todo_talep(klasor: str, metin: str) -> tuple[str, str]:
+    """I-324 P4: madde eklenirken is_talebi.talep_al çağırır. Dönüş (uyarı satırı, ret nedeni); ikisi de boş olabilir.
+    Gölgede sahip varsa tek satır uyarı ve devir önerisi (kapi_golge kaydını is_talebi yazar); ihlalde ret nedeni ve
+    madde sahibe devredilir (paket sahibin gelen kutusuna; devredenin todo'suna otomatik yazım yok). Talep hatası
+    todo yazımını asla düşürmez: istisna uyarı satırına döner. ORKESTRA_IS_TALEBI=0 ya da oturum kimliği yoksa sessiz."""
+    try:
+        import is_talebi as T
+        oturum = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID")
+        sd = _durum_dizini_bul(klasor)
+        if not (sd and oturum) or T.mod(sd) == "kapali":
+            return "", ""
+        is_id = (klasor_kaydi(klasor) or {}).get("id")
+        r = T.talep_al(sd, oturum, is_id, metin)
+        if r.get("durum") == "hata":
+            return f"orkestra: uyarı: iş talebi alınamadı ({r.get('hata')})", ""
+        if r.get("durum") != "sahip_var" or not r.get("sahip"):
+            return "", ""
+        s = r["sahip"]
+        no = _sahip_madde_no(sd, s)
+        ref = f"{s.get('is_id') or '-'}#{no}"
+        uyari = f"UYARI: bu iş {ref} altında oturum {str(s.get('oturum'))[:8]}'de"
+    except Exception as e:  # talep todo komutunu düşürmez
+        return f"orkestra: uyarı: iş talebi denetlenemedi ({type(e).__name__})", ""
+    if not r.get("reddedildi"):
+        return f"{uyari} (gölge; devir önerisi: kendi todo'nda 'devredildi → {ref}' işaretle)", ""
+    try:
+        import oturum_farkindalik as F
+        d = F.devret(sd, oturum, str(s.get("oturum")), s.get("is_id"), no, metin)
+        ek = f"işaret: {d['isaret']}; paket " + ("sahibe bırakıldı" if d.get("birakildi") else f"bırakılamadı ({d.get('hata')})")
+    except Exception as e:
+        ek = f"devir paketi bırakılamadı ({type(e).__name__})"
+    return "", f"{uyari}: talep reddedildi, madde sahibe devredildi ({ek})"
 
 
 def todo_bitir(klasor: str, secici: str, not_: str | None = None) -> str:
