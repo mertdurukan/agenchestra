@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -654,3 +655,72 @@ def alan_ozeti(alan_id: str | None) -> dict:
     o = olustur(sd, alan["yol"]) if alan["orkestra"] else _hafif(alan)
     o["alan"] = {"id": alan["id"], "ad": alan["ad"], "yol": alan["yol"], "orkestra": alan["orkestra"]}
     return o
+
+
+# ---------------------------------------------------------------- arka plan yazımı (I-328 P1)
+
+def _kos_kilidi_al(yol: str):
+    """`ozet.json.kos` kilidini BEKLEMEDEN dener (L.kilit zaman aşımında .zaman_asimi.log satırı yazar; burada yazmaz).
+    Alırsa açık fd'yi döner, alamazsa None. fd kapanınca (işçi ölse de) işletim sistemi kilidi düşürür."""
+    fd = os.open(yol + ".kos", os.O_RDWR | os.O_CREAT)
+    try:
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd
+    except OSError:
+        os.close(fd)
+        return None
+
+
+def _sayac(yol: str) -> int:
+    try:
+        with open(yol, encoding="utf-8") as f:
+            return int(f.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def yaz_arka_plan(sd: str, proje: str) -> None:
+    """Hook yolu: özeti kullanıcıyı bekletmeden yeniletir. `ozet.json.kirli` sayacını yükseltir ve işçiyi başlatır;
+    işçi zaten koşuyorsa kendiliğinden çıkar ve koşan işçi bitişte `kirli` > `islenen` görüp yineler (kaçan uyandırma yok).
+    ORKESTRA_OZET_ESITZAMANLI=1 eski eşzamanlı yazımı geri getirir."""
+    if os.environ.get("ORKESTRA_OZET_ESITZAMANLI") == "1":
+        yaz(sd, proje)
+        return
+    try:
+        yol = os.path.join(sd, "ozet.json")
+        L.atomik_yaz(yol + ".kirli", str(time.time_ns()))
+        import cfg
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "--isci", sd, proje], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=cfg.ARKA_PLAN_BAYRAK,
+                         close_fds=True)
+    except Exception:  # noqa: BLE001  (başlatılamazsa eski yola düş: panel bayat kalmasın)
+        yaz(sd, proje)
+
+
+def isci(sd: str, proje: str) -> None:
+    """Arka plan işçisi: `kirli` > `islenen` olduğu sürece özeti yazar. Kilidi bıraktıktan sonra bir kez daha bakar."""
+    yol = os.path.join(sd, "ozet.json")
+    for _ in range(50):   # üst sınır: durmayan tetik akışında sonsuz döngü olmasın
+        fd = _kos_kilidi_al(yol)
+        if fd is None:
+            return   # başka işçi var; bitişte kirli'ye bakacak
+        try:
+            while True:
+                t = _sayac(yol + ".kirli")
+                if t <= _sayac(yol + ".islenen"):
+                    break
+                yaz(sd, proje)
+                L.atomik_yaz(yol + ".islenen", str(t))
+        finally:
+            os.close(fd)
+        if _sayac(yol + ".kirli") <= _sayac(yol + ".islenen"):
+            return
+
+
+if __name__ == "__main__" and len(sys.argv) == 4 and sys.argv[1] == "--isci":
+    isci(sys.argv[2], sys.argv[3])

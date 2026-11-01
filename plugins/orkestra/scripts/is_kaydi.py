@@ -1178,14 +1178,46 @@ def todo_denetle(sd: str, kok: str | None = None) -> list[dict]:
     return out
 
 
-def todo_denetle_satiri(sd: str, kok: str | None = None) -> str:
-    """Sorun varsa TEK satırlık uyarı, yoksa boş metin."""
-    r = todo_denetle(sd, kok)
-    if not r:
+def _todo_denetle_imza(sd: str) -> str:
+    """Önbellek imzası: isler.json mtime+boyut (iş eklenince/değişince önbellek geçersiz olur)."""
+    try:
+        st = os.stat(os.path.join(sd, "isler.json"))
+        return f"{st.st_mtime_ns}:{st.st_size}"
+    except OSError:
         return ""
+
+
+def todo_denetle_satiri(sd: str, kok: str | None = None) -> str:
+    """Sorun varsa TEK satırlık uyarı, yoksa boş metin.
+
+    Ağaç taraması SessionStart'ı ~1,6 sn bekletiyordu (I-328): sonuç ORKESTRA_TODO_DENETLE_TTL sn (varsayılan 600) boyunca
+    ve isler.json imzası aynıyken `todo_denetle_onbellek.json`'dan döner. TTL=0 önbelleği kapatır."""
+    try:
+        ttl = float(os.environ.get("ORKESTRA_TODO_DENETLE_TTL", "600"))
+    except ValueError:
+        ttl = 600.0
+    yol = os.path.join(sd, "todo_denetle_onbellek.json")
+    anahtar = os.path.abspath(kok or L.proje_dizini())
+    imza = _todo_denetle_imza(sd)
+    if ttl > 0 and imza:
+        try:
+            with open(yol, encoding="utf-8") as f:
+                d = json.load(f)
+            if (isinstance(d, dict) and d.get("kok") == anahtar and d.get("imza") == imza
+                    and 0 <= time.time() - float(d.get("zaman", 0)) < ttl and isinstance(d.get("satir"), str)):
+                return d["satir"]
+        except (OSError, ValueError, TypeError):
+            pass
+    r = todo_denetle(sd, kok)
     w = sum(1 for x in r if x["tur"] == "worktree")
-    return (f"Orkestra: {len(r)} todo dosyası işe bağlı değil ({w} worktree kopyası) — bayatlar; "
-            "`orkestra is todo-denetle` ile gör, işin todo.md'sine taşı.")
+    satir = "" if not r else (f"Orkestra: {len(r)} todo dosyası işe bağlı değil ({w} worktree kopyası) — bayatlar; "
+                              "`orkestra is todo-denetle` ile gör, işin todo.md'sine taşı.")
+    if ttl > 0 and imza:
+        try:
+            L.atomik_yaz(yol, json.dumps({"kok": anahtar, "imza": imza, "zaman": time.time(), "satir": satir}, ensure_ascii=False))
+        except OSError:
+            pass
+    return satir
 
 
 def todo_madde_bitir(sd: str, is_id: str, madde: str, gid: str) -> tuple[bool, str]:
