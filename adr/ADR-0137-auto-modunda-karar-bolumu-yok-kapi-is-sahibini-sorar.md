@@ -30,7 +30,7 @@
 **Sonuçlar:**
 
 - Olumlu: ajan yapabileceği işi kullanıcıya bırakamaz; ret metni nedene konuşur.
-- Olumsuz: ajan kesin sınır dışı işi "Kullanıcıya kalanlar" diye adlandırıp kapıyı aşabilir; özet kapısı (isler._auto_ozet_eksigi) ve ilk 30 turluk elle sınıflama bunu yakalar.
+- Olumsuz: ajan kesin sınır dışı işi "Kullanıcıya kalanlar" diye adlandırıp kapıyı aşabilir; özet kapısı (isler._auto_ozet_eksigi) yalnız "Kullanıcıya kalanlar" bölümünün varlığını yoklar, gövdeyle eşleşmeyi değil. Bunu yakalayan: "Denendi:" içerik biçimi kapısı ve ilk 30 auto turun elle sınıflanması; "Denendi:" içeriğinin anlamca doğruluğu ölçülmez (bilinçli sınır).
 - Geri alma: ayarlar/cikti_sirasi.json `auto_sinif: false` ya da `ORKESTRA_CIKTI_SIRASI=0`.
 
 **İlgili iş ya da kural kimliği:** I-322, ADR-0135 (genişletir, yerine geçmez), ADR-0086, P-001, P-029.
