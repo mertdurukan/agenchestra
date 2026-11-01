@@ -286,7 +286,7 @@ class KararKaydi(unittest.TestCase):
         self.assertEqual(k.call_args[0][1], "auto_kararlar")
 
     def test_bolum_varsa_gunluk_yazilmaz(self):
-        metin = "## Plandan sapmalar\nYok\n\n## Kullanıcıya kalanlar\nYok\n\n## Otomatik kararlar\n- push edildi\n"
+        metin = "## Plandan sapmalar\nYok\n\n## Kullanıcıya kalanlar\nYok\n\n## Otomatik kararlar\n- **Karar:** push edildi\n  - **Gerekçe:** x\n  - **Alternatifler:** y\n  - **Geri alma:** z\n"
         import kapi_mod as KM
         with mock.patch.object(KM, "kaydet") as k:
             self.assertIsNone(isler._auto_ozet_eksigi(self.klasor, metin))
