@@ -35,6 +35,11 @@ class Temel(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.d = self._tmp.name
         self.addCleanup(self._tmp.cleanup)
+        # Kira ihlal ve önbellek açık (ADR-0129): alt koşucu gerçek makine kira kuyruğunda beklemesin ve sonuç
+        # önbelleğine yazmasın; kira/önbellek davranışı test_kaynak_kira.py ve test_onbellek.py'de sınanır.
+        p = mock.patch.dict(os.environ, {"ORKESTRA_KAYNAK_KIRA_DIZINI": os.path.join(self.d, ".kira")})
+        p.start()
+        self.addCleanup(p.stop)
 
     def yaz(self, ad, icerik):
         yol = os.path.join(self.d, ad)
