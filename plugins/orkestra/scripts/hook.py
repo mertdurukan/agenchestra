@@ -167,7 +167,7 @@ def kabuk_kilitli_yazma(komut: str, kilitli: dict[str, str]) -> str | None:
 # (test_onbellek) yalnız orada alınır. Çıplak `pytest` / `python -m pytest` / `python -m unittest` bunları atlar.
 # Kapsam dışı (yanlış pozitif azaltma): hedefli çağrı (tek dosya `*.py`, düğüm `::`, `-k` süzgeci, unittest modül adı)
 # kısa sürer ve tam takımla çakışma riski küçüktür; toplama/yardım (`--collect-only`, `--version`, `-h`) test koşmaz;
-# komutta `test_paralel` geçiyorsa koşu zaten kiralıdır (iç içe koşu kira almaz). Kapı adı ayrı tutulur ki gölge ölçümü
+# `test_paralel` çağıran komut parçası zaten kiralıdır (iç içe koşu kira almaz); muafiyet parça başınadır. Kapı adı ayrı tutulur ki gölge ölçümü
 # ve ihlal geçişi kira kapısından bağımsız karar olsun (P-028); kira modu `kapali` ise kapı da susar.
 TEST_YONLENDIRME_KAPI = "test_yonlendirme"
 _TEST_ON = re.compile(r"pytest|py\.test|unittest", re.I)
