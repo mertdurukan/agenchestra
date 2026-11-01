@@ -146,8 +146,26 @@ def _sayac_artir(sd, oturum_id) -> int:
     return n
 
 
+def tekrar_notu(inp, sd) -> str:
+    """Aynı araç hatası imzası son 7 günde eşik (hata_en_cok.UYARI_ESIK) ve üzerindeyse tek satır: sayı ve kök neden
+    durumu (ADR-0141); eşiğin altında boş. İmza, yazıcıyla aynı biçimde (araç adı + maskeli ileti) hesaplanır."""
+    try:
+        import hata_en_cok as HE
+        import hata_kayit as HK
+        ileti = f"{inp.get('tool_name') or '?'}: {L.maskele(str(inp.get('error') or ''))}"[:HK.ILETI_EN_COK]
+        im = HE.imza_goster("arac-hatasi", ileti)
+        for r in HE.birlestir(sd, HE.UYARI_GUN, "arac"):
+            if r["imza"] == im and r["sayi"] >= HE.UYARI_ESIK:
+                return (f"Tekrar eden araç hatası: {r['sayi']} kez / {HE.UYARI_GUN} gün, kök neden durumu "
+                        f"{HE.DURUM_ETIKET.get(r['durum'], r['durum'])} (orkestra hata en-cok --kaynak arac).")
+    except Exception:
+        pass
+    return ""
+
+
 def arac_metni(inp, sd=None) -> str:
-    """Araç başarısızlığında ipucu: oturumun 1. başarısızlığında, sonra her `arac_hatasi_her`. başarısızlıkta."""
+    """Araç başarısızlığında ipucu: oturumun 1. başarısızlığında, sonra her `arac_hatasi_her`. başarısızlıkta.
+    Tekrar eşiği aşılmışsa imzanın sayısı ve kök neden durumu ayrıca eklenir (seyreltmeden bağımsız)."""
     try:
         if not sd or not isinstance(inp, dict) or inp.get("is_interrupt"):
             return ""
@@ -156,8 +174,9 @@ def arac_metni(inp, sd=None) -> str:
             return ""
         her = max(1, int(ayar.get("arac_hatasi_her", 3) or 3))
         n = _sayac_artir(sd, inp.get("session_id"))
-        if n != 1 and n % her != 0:
-            return ""
-        return _metin(sd, inp.get("session_id"), "arac_basligi", "Araç hatası anı", ARAC_MAX, "arac")
+        ipucu = ""
+        if n == 1 or n % her == 0:
+            ipucu = _metin(sd, inp.get("session_id"), "arac_basligi", "Araç hatası anı", ARAC_MAX, "arac")
+        return " ".join(x for x in (ipucu, tekrar_notu(inp, sd)) if x)
     except Exception:
         return ""

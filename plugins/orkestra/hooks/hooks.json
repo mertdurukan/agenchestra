@@ -24,6 +24,12 @@
     "SubagentStart": [
       { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStart; fi", "timeout": 10 } ] }
     ],
+    "PermissionDenied": [
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PermissionDenied; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PermissionDenied; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" PermissionDenied; fi", "timeout": 10 } ] }
+    ],
+    "StopFailure": [
+      { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" StopFailure; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" StopFailure; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" StopFailure; fi", "timeout": 10 } ] }
+    ],
     "SubagentStop": [
       { "hooks": [ { "type": "command", "command": "if command -v python >/dev/null 2>&1; then exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStop; elif command -v py >/dev/null 2>&1; then exec py -3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStop; else exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook.py\" SubagentStop; fi", "timeout": 30 } ] }
     ],

@@ -3456,11 +3456,45 @@ def post_tool_use_failure(inp: dict):
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
                          {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "skill_hata",
                           "skill": g.get("skill") or g.get("name"), "hata": L.maskele(str(inp.get("error") or ""))[:200]})
+        if sd and not inp.get("is_interrupt"):  # kullanıcı kesmesi hata değildir; her başarısız araç hata defterine yazılır (I-329)
+            import hata_kayit
+            hata_kayit.arac_hatasi(sd, inp.get("tool_name"), inp.get("error"), "alt" if inp.get("agent_id") else "ana")
         if sd:
             import kok_neden_enjeksiyonu
             ipucu = kok_neden_enjeksiyonu.arac_metni(inp, sd)
             if ipucu:
                 L.hook_cikti({"hookSpecificOutput": {"hookEventName": "PostToolUseFailure", "additionalContext": ipucu}})
+    except Exception:
+        pass
+    gec()
+
+
+def _olay_bilgisi(inp: dict):
+    """Yeni olay yüklerinin şeması canlı doğrulanmadı (ADR-0141): ilk yazımlarda alan adları satıra düşer."""
+    return {"alanlar": sorted(str(k) for k in inp)[:20]}
+
+
+def permission_denied(inp: dict):
+    """I-329 P3: izin reddi hata defterine (hook-red ile çift yazılmaz); engellemez, hook'u düşürmez."""
+    try:
+        sd = L.durum_dizini(inp.get("cwd"))
+        if sd:
+            import hata_kayit
+            neden = inp.get("reason") or inp.get("error") or inp.get("message") or "izin reddedildi"
+            hata_kayit.izin_reddi(sd, inp.get("tool_name"), neden, "alt" if inp.get("agent_id") else "ana", _olay_bilgisi(inp))
+    except Exception:
+        pass
+    gec()
+
+
+def stop_failure(inp: dict):
+    """I-329 P3: API hatasıyla biten tur hata defterine; engellemez."""
+    try:
+        sd = L.durum_dizini(inp.get("cwd"))
+        if sd:
+            import hata_kayit
+            ileti = inp.get("error") or inp.get("error_type") or inp.get("message") or "tur API hatasıyla bitti"
+            hata_kayit.tur_api_hatasi(sd, ileti, _olay_bilgisi(inp))
     except Exception:
         pass
     gec()
@@ -3713,7 +3747,7 @@ OLAYLAR = {
     "Notification": notification,
     "PreToolUse": pre_tool_use, "SubagentStart": subagent_start, "SubagentStop": subagent_stop, "Stop": stop,
     "SessionStart": session_start, "UserPromptSubmit": user_prompt_submit, "PostToolUse": post_tool_use,
-    "PostToolUseFailure": post_tool_use_failure,
+    "PostToolUseFailure": post_tool_use_failure, "PermissionDenied": permission_denied, "StopFailure": stop_failure,
     "SessionEnd": session_end, "ConfigChange": config_change, "PreCompact": pre_compact,
 }
 
