@@ -94,14 +94,13 @@ def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_i
         if not konum:
             return False
         dosya_n = _norm(dosya) if dosya else None
-        if dosya_n:  # değişmediyse kilitsiz çık: yalnız okuma (yazma yolunun ortanca maliyeti kilit + atomik yazımdır)
-            d0, k0 = L._oturum_json_oku(yol)
-            e0 = k0.get("konum") if d0 != "bozuk" and isinstance(k0.get("konum"), dict) else {}
-            if (e0 and dosya_n in (e0.get("yazilan") or []) and e0.get("dal") == konum["dal"]
-                    and e0.get("depo") == konum["depo"] and e0.get("worktree") == konum["worktree"]
-                    and (not is_id or e0.get("is") == is_id) and t - float(e0.get("gorulme") or 0) < YENILE_S):
-                _durum["degismedi"] = True
-                return True
+        d0, k0 = L._oturum_json_oku(yol) if dosya_n else ("yok", {})  # kilitsiz ön okuma: değişmediyse yazma yok
+        e0 = k0.get("konum") if d0 != "bozuk" and isinstance(k0.get("konum"), dict) else {}
+        if (e0 and dosya_n in (e0.get("yazilan") or []) and e0.get("dal") == konum["dal"]
+                and e0.get("depo") == konum["depo"] and e0.get("worktree") == konum["worktree"]
+                and (not is_id or e0.get("is") == is_id) and t - float(e0.get("gorulme") or 0) < YENILE_S):
+            _durum["degismedi"] = True
+            return True
         with L.kilit(yol):
             durum, kayit = L._oturum_json_oku(yol)
             if durum == "bozuk":
@@ -123,8 +122,50 @@ def kaydet(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, is_i
         return False
 
 
+ADAY_S = 45  # canlı komşu özetlerinin önbellek ömrü: yeni komşu / yeni yazılan dosya en geç bu kadar sonra görülür
+
+
+def _canli_konumlar(sd: str, klasor: str, t: float, esik_s: float, taze: bool) -> dict[str, dict]:
+    """Canlı (son esik_s içinde görülen) oturumların `konum` özetleri: {kayıt adı: konum}. Dizin taraması ve kayıt okuma
+    ~3000 girdili dizinde ~25 ms tutar; `taze` değilse sd/oturum_adaylar.json önbelleği ADAY_S boyunca kullanılır (hook gecikmesi),
+    SessionStart her zaman taze tarar."""
+    yol = os.path.join(sd, "oturum_adaylar.json")
+    if not taze:
+        try:
+            with open(yol, encoding="utf-8") as f:
+                c = json.load(f)
+            if 0 <= t - float(c["t"]) < ADAY_S and c.get("esik") == esik_s and isinstance(c.get("konumlar"), dict):
+                return c["konumlar"]
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+    sonuc = {}
+    try:
+        with os.scandir(klasor) as it:
+            for e in it:
+                ad = e.name
+                if not ad.endswith(".json") or ".baglanti" in ad or ad.startswith("acik_ajan_"):
+                    continue
+                try:
+                    if t - e.stat().st_mtime > esik_s:
+                        continue
+                    with open(e.path, encoding="utf-8") as f:
+                        kayit = json.load(f)
+                except (OSError, ValueError):
+                    continue
+                k = kayit.get("konum") if isinstance(kayit, dict) else None
+                if isinstance(k, dict) and t - float(k.get("gorulme") or 0) <= esik_s:
+                    sonuc[ad] = {x: k.get(x) for x in ("depo", "dal", "worktree", "ana", "yazilan", "gorulme", "is")}
+    except OSError:
+        return {}
+    try:
+        L.atomik_yaz(yol, json.dumps({"t": t, "esik": esik_s, "konumlar": sonuc}, ensure_ascii=False))
+    except Exception:
+        pass
+    return sonuc
+
+
 def komsular(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, esik_s: float = CANLI_S,
-             simdi: float | None = None, git_islemi: bool = False) -> list[dict]:
+             simdi: float | None = None, git_islemi: bool = False, taze: bool = True) -> list[dict]:
     """Aynı depoda canlı başka oturumlar. Neden: dosya (aynı yazılan dosya), dal (aynı dal), worktree (aynı çalışma ağacı),
     yuzey (iki taraftan biri ana ağaçta/`main`'de) ya da depo (yalnız `git_islemi` iken: dal/ağaç değiştiren git komutu).
     Dosya > dal > worktree > yuzey > depo sırasıyla en güçlü neden seçilir; güçlüler önce gelir."""
@@ -135,25 +176,9 @@ def komsular(sd: str, oturum: str, cwd: str | None, dosya: str | None = None, es
         return []
     t = time.time() if simdi is None else simdi
     dosya_n = _norm(dosya) if dosya else None
-    klasor = os.path.join(sd, "oturumlar")
     sonuc = []
-    try:
-        girdiler = list(os.scandir(klasor))
-    except OSError:
-        return []
-    for e in girdiler:
-        ad = e.name
-        if not ad.endswith(".json") or ".baglanti" in ad or ad.startswith("acik_ajan_") or ad[:-5] == oturum:
-            continue
-        try:
-            if t - e.stat().st_mtime > esik_s:
-                continue
-            with open(e.path, encoding="utf-8") as f:
-                kayit = json.load(f)
-        except (OSError, ValueError):
-            continue
-        k = kayit.get("konum") if isinstance(kayit, dict) else None
-        if not isinstance(k, dict) or k.get("depo") != konum["depo"] or t - float(k.get("gorulme") or 0) > esik_s:
+    for ad, k in _canli_konumlar(sd, os.path.join(sd, "oturumlar"), t, esik_s, taze).items():
+        if ad[:-5] == oturum or k.get("depo") != konum["depo"] or t - float(k.get("gorulme") or 0) > esik_s:
             continue
         if dosya_n and dosya_n in (k.get("yazilan") or []):
             neden = "dosya"
@@ -177,7 +202,7 @@ def git_yazan_komut(komut: str | None) -> bool:
     return bool(komut and _GIT_YAZAN.search(komut))
 
 
-def satir(komsu_listesi: list[dict], ek: str = "") -> str:
+def satir(komsu_listesi: list[dict], ek: str = "", mod: str = "golge") -> str:
     """Tek kısa bağlam satırı (≤250 karakter). Boş listede boş metin: çakışmasız durumda ek bağlam 0 karakter."""
     if not komsu_listesi:
         return ""
@@ -186,36 +211,61 @@ def satir(komsu_listesi: list[dict], ek: str = "") -> str:
               "yuzey": "ortak yüzeyde (ana ağaç/main)", "depo": "aynı depoda"}[k["neden"]]
     ek_say = f" (+{len(komsu_listesi) - 1} oturum)" if len(komsu_listesi) > 1 else ""
     is_ = f", iş {k['is']}" if k.get("is") else ""
-    s = (f"Eş zamanlı oturum {k['oturum'][:8]} {etiket}{ek_say}: dal {k['dal']}{is_}, {k['dk']} dk önce. "
+    s = ("UYARI: " if mod == "ihlal" else "") + (f"Eş zamanlı oturum {k['oturum'][:8]} {etiket}{ek_say}: dal {k['dal']}{is_}, {k['dk']} dk önce. "
          f"{ek}Akışı bozma; gerekirse `orkestra oturum not {k['oturum'][:8]} \"...\"`.")
     return s[:250]
 
 
-def uyar_bir_kez(sd: str, oturum: str, anahtar: str) -> bool:
-    """Oturum başına aynı uyarı en çok bir kez: anahtar yeniyse kaydeder ve True döner."""
+def uyar_yeniler(sd: str, oturum: str, anahtarlar: list[str]) -> set[str]:
+    """Oturum başına aynı uyarı en çok bir kez: anahtarlardan daha önce uyarılmamış olanları kaydeder ve döndürür.
+    Tek okuma; yeni anahtar yoksa kilit ve yazım yok (çok komşulu durumda hook gecikmesi)."""
+    if not anahtarlar:
+        return set()
     try:
         yol = L._oturum_json_yol(sd, oturum)
+
+        def eski(kayit):
+            k = kayit.get("konum") if isinstance(kayit.get("konum"), dict) else {}
+            return k, [x for x in (k.get("uyarilan") or []) if isinstance(x, str)]
+
+        durum, kayit = L._oturum_json_oku(yol)
+        if durum != "bozuk" and not (set(anahtarlar) - set(eski(kayit)[1])):
+            return set()
         with L.kilit(yol):
             durum, kayit = L._oturum_json_oku(yol)
             if durum == "bozuk":
-                return False
-            k = kayit.get("konum") if isinstance(kayit.get("konum"), dict) else {}
-            u = [x for x in (k.get("uyarilan") or []) if isinstance(x, str)]
-            if anahtar in u:
-                return False
-            k["uyarilan"] = (u + [anahtar])[-UYARILAN_EN_COK:]
+                return set()
+            k, u = eski(kayit)
+            yeni = [a for a in dict.fromkeys(anahtarlar) if a not in u]
+            if not yeni:
+                return set()
+            k["uyarilan"] = (u + yeni)[-UYARILAN_EN_COK:]
             kayit["konum"] = k
             L.atomik_yaz(yol, json.dumps(kayit, ensure_ascii=False))
-        return True
+        return set(yeni)
     except Exception:
-        return False
+        return set()
 
 
-def golge_yaz(sd: str, oturum: str, komsu: dict, dosya: str | None, olay: str) -> None:
-    """Tespiti gunluk.jsonl'a `kapi_golge` olarak yazar (ölçüm: orkestra is rapor)."""
+def uyar_bir_kez(sd: str, oturum: str, anahtar: str) -> bool:
+    return anahtar in uyar_yeniler(sd, oturum, [anahtar])
+
+
+def kapi_modu(cwd: str | None = None) -> str:
+    """Kapı modu (ADR-0127): `golge` ya da `ihlal`. Her iki modda da hiçbir şey engellenmez; ihlalde tespit `kapi_ihlal`
+    olarak günlüğe düşer ve bağlam satırı 'UYARI' ile başlar."""
+    try:
+        import kapi_mod
+        return kapi_mod.mod(KAPI, cwd)
+    except Exception:
+        return "golge"
+
+
+def golge_yaz(sd: str, oturum: str, komsu: dict, dosya: str | None, olay: str, mod: str = "golge") -> None:
+    """Tespiti gunluk.jsonl'a `kapi_golge` (golge) ya da `kapi_ihlal` (ihlal) olarak yazar (ölçüm: orkestra oturum rapor)."""
     try:
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
-                     {"zaman": L.simdi(), "tur": "kapi_golge", "kapi": KAPI, "olay": olay, "oturum": oturum[:8],
+                     {"zaman": L.simdi(), "tur": "kapi_ihlal" if mod == "ihlal" else "kapi_golge", "kapi": KAPI, "olay": olay, "oturum": oturum[:8],
                       "komsu": komsu["oturum"][:8], "neden": komsu["neden"], "dosya": bool(dosya)})
     except Exception:
         pass
@@ -242,13 +292,15 @@ def arac_oncesi(sd: str, oturum: str, cwd: str | None, arac: str, girdi: dict, a
         if dosya and not git_i and _durum["degismedi"]:
             return notlar  # aynı dosya 60 sn içinde zaten tarandı: komşu taraması (dizin gezme) yinelenmez; yeni komşu ≤60 sn sonra görülür
         yeni = []
-        for k in komsular(sd, oturum, cwd, dosya, git_islemi=git_i):
-            if k["neden"] == "depo" and not git_i:
-                continue
-            if uyar_bir_kez(sd, oturum, f"{k['oturum'][:8]}:{k['neden']}"):
+        adaylar = [k for k in komsular(sd, oturum, cwd, dosya, git_islemi=git_i, taze=False)
+                   if not (k["neden"] == "depo" and not git_i)]
+        mod = kapi_modu(cwd)
+        taze_anahtar = uyar_yeniler(sd, oturum, [f"{k['oturum'][:8]}:{k['neden']}" for k in adaylar])
+        for k in adaylar:
+            if f"{k['oturum'][:8]}:{k['neden']}" in taze_anahtar:
                 yeni.append(k)
-                golge_yaz(sd, oturum, k, dosya, "arac_oncesi")
-        return chr(10).join(x for x in (satir(yeni, "git komutu dal/ağacı değiştirebilir. " if git_i else ""), notlar) if x)
+                golge_yaz(sd, oturum, k, dosya, "arac_oncesi", mod)
+        return chr(10).join(x for x in (satir(yeni, "git komutu dal/ağacı değiştirebilir. " if git_i else "", mod), notlar) if x)
     except Exception:
         return ""
 
@@ -259,9 +311,10 @@ def oturum_basi(sd: str, oturum: str, cwd: str | None, is_id: str | None = None)
         if not (etkin() and sd and oturum) or not kaydet(sd, oturum, cwd, is_id=is_id):
             return ""
         ks = komsular(sd, oturum, cwd)
+        mod = kapi_modu(cwd)
         for k in ks:
-            golge_yaz(sd, oturum, k, None, "oturum_basi")
-        return chr(10).join(x for x in (satir(ks), gelen_metin(sd, oturum)) if x)
+            golge_yaz(sd, oturum, k, None, "oturum_basi", mod)
+        return chr(10).join(x for x in (satir(ks, mod=mod), gelen_metin(sd, oturum)) if x)
     except Exception:
         return ""
 
