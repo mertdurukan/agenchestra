@@ -18,6 +18,9 @@
     "(?:^|[\\s;&|(])kill\\s+-0\\b",
     "\\bpgrep\\b"
   ],
+  "until_baslangic_kalibi": [
+    "^\\s*until\\b"
+  ],
   "until_ve_kalibi": [
     "&&"
   ],
