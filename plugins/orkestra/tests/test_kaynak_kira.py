@@ -318,10 +318,13 @@ class Modlar(Ortam):
             self.assertEqual(len(K.durum()["sahipler"]), 1)
         self.assertNotIn(K.SAHIP_ENV, os.environ)
 
-    def test_varsayilan_ayar_golge_onbellek_kapali(self):
+    def test_varsayilan_ayar_ihlal_onbellek_acik(self):
+        """ADR-0129: kullanıcı kararıyla ihlal + önbellek açık; gölge ve kapalı davranışları yukarıda ayar ezmesiyle sınanır."""
         with open(os.path.join(KOK, "ayarlar", "kaynak_kira.json"), encoding="utf-8") as f:
             d = json.load(f)
-        self.assertEqual((d["mod"], d["onbellek"]), ("golge", False))
+        self.assertEqual((d["mod"], d["onbellek"]), ("ihlal", True))
+        self.assertIn("ADR-0129", d["mod_gerekce"])
+        self.assertIn("ADR-0129", d["onbellek_gerekce"])
         self.assertIn("sona_erme_s", d)
         self.assertIn("bekleme_ust_s", d)
 
