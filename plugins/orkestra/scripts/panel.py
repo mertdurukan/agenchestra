@@ -1489,7 +1489,10 @@ def calistir(port: int, durum_yaz: bool = True) -> None:
 def _isit(port: int) -> None:
     """Açılışta ağır uç noktaları bir kez ister; ilk sayfa açılışı soğuk üretimi beklemez (en iyi çaba)."""
     try:
-        alanlar = [a["id"] for a in L.calisma_alanlari() if a.get("orkestra")]
+        # Tarayıcının ilk isteği /alanlar.json'dır: listeyi önbellekli uç noktadan al ki ilk açılış soğuk üretimi (tüm transkript taraması)
+        # ağır uç noktaların ısıtmasıyla yarışarak beklemesin.
+        ham = urllib.request.urlopen(f"http://127.0.0.1:{port}/alanlar.json", timeout=60).read()
+        alanlar = [a["id"] for a in json.loads(ham) if a.get("orkestra")]
     except Exception:  # noqa: BLE001
         return
     for alan in ["*", *alanlar]:   # '*' tarayıcının TEMEL istekleridir (I-312): ilk sayfa açılışı soğuk üretimi beklemesin

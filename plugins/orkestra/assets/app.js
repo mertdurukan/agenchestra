@@ -1376,12 +1376,21 @@
     inp.focus();
   }
   // ================================================================ 15. Başlangıç
-  window.addEventListener('hashchange', () => { derinBaglanti(); gorunumCiz(); gerekler(rota()).forEach(y => getir(y)); document.getElementById('ana').focus({ preventScroll: true }); window.scrollTo(0, 0); });
+  const ALAN_DENEME = 6;
+  window.addEventListener('hashchange', () => { if (!V.alan) return; derinBaglanti(); gorunumCiz(); gerekler(rota()).forEach(y => getir(y)); document.getElementById('ana').focus({ preventScroll: true }); window.scrollTo(0, 0); });
   async function basla() {
     rayCiz();
-    try {
-      V.alanlar = await fetch('/alanlar.json').then(r => r.json());
-    } catch (e) { V.alanlar = []; }
+    document.getElementById('ana').innerHTML = bos('Çalışma alanları yükleniyor', 'Sunucu yanıt verince liste gelir.', 'uyari').__h;
+    // Alan listesi tüm transkriptleri tarar; sunucu ilk çağrıda yavaş ya da meşgul olabilir. Boş liste kalıcı hata sayılmaz, yeniden denenir.
+    V.alanlar = [];
+    for (let deneme = 0; deneme < ALAN_DENEME && !V.alanlar.some(a => a.orkestra); deneme++) {
+      if (deneme) await new Promise(r => setTimeout(r, 1000 * deneme));
+      try {
+        const r = await fetch('/alanlar.json');
+        const liste = r.ok ? await r.json() : null;
+        V.alanlar = Array.isArray(liste) ? liste : [];
+      } catch (e) { V.alanlar = []; }
+    }
     const ork = V.alanlar.filter(a => a.orkestra);
     const adresAlan = new URLSearchParams(location.search).get('alan');
     const istenen = adresAlan || depo.al('orkestra.alan');

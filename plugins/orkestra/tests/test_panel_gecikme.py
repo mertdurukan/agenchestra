@@ -68,7 +68,10 @@ class TodoOnbellekTest(unittest.TestCase):
 class IsitmaKapsamiTest(unittest.TestCase):
     def test_acilis_isitmasi_yildiz_alani_da_ister(self):
         istenen = []
-        with mock.patch.object(panel.L, "calisma_alanlari", return_value=[{"id": "a", "orkestra": True}]),                 mock.patch.object(panel.urllib.request, "urlopen", side_effect=lambda u, timeout=0: istenen.append(u) or mock.Mock(read=lambda: b"")):
+        def sahte(u, timeout=0):   # alan listesi önbellekli /alanlar.json'dan gelir (test_panel_isit_alanlar.py)
+            istenen.append(u)
+            return mock.Mock(read=lambda: b'[{"id": "a", "orkestra": true}]' if u.endswith("/alanlar.json") else b"")
+        with mock.patch.object(panel.urllib.request, "urlopen", side_effect=sahte):
             panel._isit(1)
         self.assertTrue(any("alan=*" in u for u in istenen))
         self.assertTrue(any("alan=a" in u for u in istenen))
