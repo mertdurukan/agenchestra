@@ -1645,6 +1645,17 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _auto_devam_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0132: /auto işi açıkken özet yazılmadan biten tur gölgede günlüğe yazılır (ayrıntı: auto_devam.py)."""
+    try:
+        import auto_devam
+        auto_devam.kontrol(sd, oid, inp)
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _kabuk_sozdizimi_yanit(sd: str, oid, inp: dict) -> None:
     """ADR-0102, P-043: yanıttaki kabuk kod bloğunda kullanıcı profiline yasak kalıp varsa günlüğe
     `kural_ihlal / kabuk_sozdizimi` yazılır. Yalnız golge (engellemez); hatada sessiz geçer."""
