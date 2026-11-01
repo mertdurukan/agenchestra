@@ -3,11 +3,13 @@ I-271 öncesi yalnız boş denetçi satırından doğmuş `kapi_ret` kayıtları
 kodda değişiklik yoktur, bu dosya davranışı sabitler."""
 import json
 import os
+import sys
 import unittest
 
 import test_cekirdek as TC
 
-import is_rapor  # noqa: E402  (test_cekirdek scripts yolunu ekler)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+import is_rapor  # noqa: E402
 
 ESKI_BEKLEYEN = ("best in class denetimi: `**Üretim noktası:**` satırı `✔` ile başlamıyor (ayrı denetçi doldurur; ADR-0069); "
                  "best in class denetimi: `**Denetçi:**` satırı denetçi ajan kimliği taşımıyor (ADR-0069)")
