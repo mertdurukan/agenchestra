@@ -2,18 +2,22 @@
 
 Kaynaklar: hata.jsonl (hook, cli, ozet), gunluk.jsonl tur=hook-hatasi (hata.jsonl'de karşılığı olmayan eski satırlar),
 gunluk.jsonl tur=kural_ihlal ve kart retleri (analitik.ret_kayitlari: kural_aday ile aynı tek ret kuralı).
-Satır: {imza, kaynak, sayi, son_zaman, ornek}. Kart imzası kart:<sınıf>:<neden>, kural imzası kural:<kural>.
+Satır: {imza, kaynak, sayi, son_zaman, ornek}; `arac` satırı ayrıca `durum` taşır (acik | cozuldu | yeniden_acildi, ADR-0141). Kart imzası kart:<sınıf>:<neden>, kural imzası kural:<kural>.
 """
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import re
 
 import ork_lib as L
 import hata_kayit as HK
 
-KAYNAKLAR = ("hook", "cli", "ozet", "kart", "kural", "davranis")
+KAYNAKLAR = ("hook", "cli", "ozet", "kart", "kural", "davranis", "arac")
+SAYILAN = ("hook", "cli", "ozet", "davranis", "arac")   # hata.jsonl'den okunan kaynaklar
+KOK_DURUM_DOSYA = "kok_durum.json"
+DURUM_ETIKET = {"acik": "açık", "cozuldu": "çözüldü", "yeniden_acildi": "yeniden açıldı"}
 ESLESME_SN = 10          # gunluk hook-hatasi ile hata.jsonl satırı aynı olay sayılma farkı
 UYARI_GUN = 7
 UYARI_ESIK = 3
@@ -84,10 +88,10 @@ def birlestir(sd: str, gun=0, kaynak: str | None = None, kural_haric: bool = Fal
     sayim: dict = {}
     hatalar = _dict(L.jsonl_oku(os.path.join(sd, HK.DOSYA)))
     gunluk = _dict(L.jsonl_oku(os.path.join(sd, "gunluk.jsonl")))
-    if kaynak in (None, "hook", "cli", "ozet", "davranis"):  # davranis: ajanın kod dışı hataları (ADR-0037)
+    if kaynak is None or kaynak in SAYILAN:  # davranis: ajanın kod dışı hataları (ADR-0037); arac: başarısız araç çağrısı (ADR-0141)
         for h in hatalar:
             k = h.get("kaynak")
-            if k in ("hook", "cli", "ozet", "davranis") and kaynak in (None, k) and pencerede(h.get("zaman")):
+            if k in SAYILAN and kaynak in (None, k) and pencerede(h.get("zaman")):
                 im = imza_goster(h.get("tur"), h.get("ileti")) if h.get("tur") else h.get("imza") or "?"
                 _topla(sayim, k, im, h.get("zaman"), h.get("ileti"))
     if kaynak in (None, "hook"):
@@ -104,11 +108,47 @@ def birlestir(sd: str, gun=0, kaynak: str | None = None, kural_haric: bool = Fal
         for k, d, sinif, _bas, kod, _kok in AN.ret_kayitlari(L.kartlar(sd, derin=False)):
             if pencerede(d.get("zaman")):
                 _topla(sayim, "kart", f"kart:{sinif}:{kod}", d.get("zaman"), k.get("id"))
-    return sorted(sayim.values(), key=lambda r: (-r["sayi"], r["imza"], r["kaynak"]))
+    satirlar = sorted(sayim.values(), key=lambda r: (-r["sayi"], r["imza"], r["kaynak"]))
+    cozumler = kok_durum_oku(sd)
+    for r in satirlar:
+        if r["kaynak"] == "arac":
+            r["durum"] = durum_bul(cozumler, r["imza"], r["son_zaman"])
+    return satirlar
+
+
+def kok_durum_oku(sd: str) -> dict:
+    """{imza: {"zaman": çözüm anı}}; dosya yok ya da bozuksa boş sözlük."""
+    try:
+        with open(os.path.join(sd, KOK_DURUM_DOSYA), encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def durum_bul(cozumler: dict, imza: str, son_zaman: str) -> str:
+    """acik: çözüm kaydı yok; cozuldu: son tekrar çözümden önce ya da aynı an; yeniden_acildi: çözümden sonra yeni satır var."""
+    kayit = cozumler.get(imza)
+    z = kayit.get("zaman") if isinstance(kayit, dict) else None
+    if not z:
+        return "acik"
+    return "cozuldu" if str(son_zaman or "") <= str(z) else "yeniden_acildi"
+
+
+def coz(sd: str, imza: str) -> bool:
+    """İmzayı çözüldü işaretler (şimdiki an); hata.jsonl'e dokunmaz. Yazılamazsa False."""
+    cozumler = kok_durum_oku(sd)
+    cozumler[imza] = {"zaman": L.simdi()}
+    try:
+        L.atomik_yaz(os.path.join(sd, KOK_DURUM_DOSYA), json.dumps(cozumler, ensure_ascii=False, indent=1))
+        return True
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def satir_metni(r: dict) -> str:
-    return f"{r['sayi']:>4}  [{r['kaynak']}] {r['imza']}  (son {r['son_zaman'][:16].replace('T', ' ')})"
+    durum = f" [{DURUM_ETIKET.get(r['durum'], r['durum'])}]" if r.get("durum") else ""
+    return f"{r['sayi']:>4}  [{r['kaynak']}] {r['imza']}  (son {r['son_zaman'][:16].replace('T', ' ')}){durum}"
 
 
 def esik_satiri(sd: str, gun: int = UYARI_GUN, esik: int = UYARI_ESIK) -> str:
@@ -116,7 +156,7 @@ def esik_satiri(sd: str, gun: int = UYARI_GUN, esik: int = UYARI_ESIK) -> str:
     Kural ihlalleri (gölge kipte sürekli üretilir) uyarıya girmez; hata kaynakları (hook, cli, ozet, kart) girer."""
     try:
         for r in birlestir(sd, gun):
-            if r["kaynak"] != "kural" and r["sayi"] >= esik:
+            if r["kaynak"] != "kural" and r.get("durum") != "cozuldu" and r["sayi"] >= esik:
                 son = f" {r['sayi']} kez (orkestra hata en-cok)"
                 ad = f"HATA: {r['imza']}"
                 return ad[:max(0, UYARI_EN_COK - len(son))] + son
