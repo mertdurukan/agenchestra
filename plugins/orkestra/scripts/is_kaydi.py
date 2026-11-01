@@ -1124,10 +1124,10 @@ def devral_ipucu(sd: str, cwd: str | None = None) -> str:
         if not os.path.isdir(kaynak) or os.path.normcase(os.path.realpath(kaynak)) == os.path.normcase(os.path.realpath(sd)):
             return ""
         import durum_devral
-        n = durum_devral.devralinmamis_sayisi(kaynak, sd)
+        n = durum_devral.ipucu_say(kaynak, sd)  # I-314: içerik okumaz; tam karşılaştırma planla yalnız komutta
         if not n:
             return ""
-        return (f"Orkestra: bu worktree'nin durum kopyasında ana klasörde olmayan {n} kayıt var; "
+        return (f"Orkestra: bu worktree'nin durum kopyasında ana klasörde olmayan en az {n} kayıt var; "
                 "`orkestra durum devral --uygula` ile ana klasöre al.")
     except Exception:
         return ""

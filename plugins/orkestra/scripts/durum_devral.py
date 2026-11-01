@@ -148,6 +148,37 @@ def devralinmamis_sayisi(kaynak: str, hedef: str) -> int:
         return 0
 
 
+def ipucu_say(kaynak: str, hedef: str) -> int:
+    """SessionStart ipucu için ucuz sayım: yalnız dizin adları ve isler.json anahtarları; dosya içeriği (jsonl, çakışma) okunmaz.
+
+    `planla` tam karşılaştırmadır ve worktree'de onbinlerce `open` ile 10 sn hook sınırını aşar (I-314); ipucu yalnız
+    "devralınacak kayıt var mı" sorusuna yanıt verir, tam sayı `orkestra durum devral` çıktısındadır. Hatada 0."""
+    try:
+        n = 0
+        k_is = (_oku_json(os.path.join(kaynak, "isler.json"), {}).get("isler") or {})
+        h_is = (_oku_json(os.path.join(hedef, "isler.json"), {}).get("isler") or {})
+        n += sum(1 for k in k_is if k not in h_is)
+        for klasor in DOSYA_KLASORLERI:
+            try:
+                hedef_adlar = {e.name for e in os.scandir(os.path.join(hedef, klasor))}
+            except OSError:
+                hedef_adlar = set()
+            try:
+                with os.scandir(os.path.join(kaynak, klasor)) as it:
+                    for e in it:
+                        if _KILIT_DOSYASI.search(e.name) or e.name in hedef_adlar:
+                            continue
+                        if e.name == GORULEN and klasor == "onaylar":
+                            continue
+                        if e.is_file():
+                            n += 1
+            except OSError:
+                continue
+        return n
+    except Exception:
+        return 0
+
+
 def uygula(kaynak: str, hedef: str, plan: dict, simdi: str | None = None) -> dict:
     """Planı hedefe işler; yedek ve damga yazar. Dönen: {yedek, eklenen, cakisma}."""
     simdi = simdi or L.simdi()

@@ -248,3 +248,13 @@ Kaynak: `scripts/oturum_farkindalik.py`; hook girişleri `hook.py` `session_star
 - Bağlam yalnız çakışmada eklenir; kapı `ayarlar/oturum_farkindalik.json` (mod `golge`), kapatma `ORKESTRA_OTURUM_FARKINDALIK=0`.
 - Ölçüm: `orkestra oturum rapor [--gecikme 1000] [--sinifla ZAMAN=dogru|yanlis]`. `ihlal` geçişi için ≥60 sınıflı tespit ve yanlış pozitif ≤ %10 gerekir.
 - Testler: `tests/test_oturum_farkindalik.py`, `test_oturum_farkindalik_hook.py`, `test_oturum_senaryo.py` (iki oturum), `test_dal_temizle_oturum.py`. Senaryo testi gerçek yerleşimi taklit eder: oturum worktree'si projenin `.claude/worktrees/` altında olmalı.
+
+## SessionStart bağlam teslimi (I-314, ADR-0134)
+
+Kaynak: `scripts/sessionstart_kritik.py` (bağımsız ikinci SessionStart komutu, `hooks/hooks.json`), `scripts/hook.py` `session_start`, `scripts/durum_devral.py` `ipucu_say`.
+
+- Sürekli açık skill gövdeleri (caveman) ve `Kurallar:` yolu ana hook'tan ayrı, kendi 10 sn'si içinde üretilir; ana hook aşımı bunları düşürmez. Kapatma: `ORKESTRA_SKILL_SUREKLI=0`.
+- Worktree'de devral ipucu içerik okumaz (`ipucu_say`: dizin adları + isler.json anahtarları); tam karşılaştırma `planla` yalnız `orkestra durum devral` komutunda koşar. İpucundaki sayı alt sınırdır (jsonl satırları sayılmaz).
+- İzleme (gunluk.jsonl): `hook_basla` (hook başladı), `hook_sure` (+ `bolumler` ms, `yavas`), `baglam` (ana hook teslimi), `baglam_kritik` (kritik hook teslimi, `surum` etiketli), `kapi_golge` `sessionstart_yavas` (>10 sn, P-028).
+- Teşhis: `hook_basla` var, `baglam` yok = ana hook aşımı (H1); `hook_basla` yok = hook hiç çalışmadı (H2). Payda `tur=istek` kaydı olan oturumlardır; kayıt teslimi istemcinin aldığı bağlama eşit sayılmaz.
+- Testler: `tests/test_sessionstart_kritik.py`, `test_hook_sure_bolumler.py`, `test_durum_devral.py` (ipucu_say).

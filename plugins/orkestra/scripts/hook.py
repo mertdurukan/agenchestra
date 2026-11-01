@@ -2856,6 +2856,13 @@ def session_start(inp: dict):
     """SessionStart bağlamı: üç sabit satır (bağlı iş + kart; uyarılar; kurallar yolu + izin kipi), tipik durumda ≤600, en kötü durumda ≤700 karakter.
     Perspektif, panel açma, etki izleme ve onay yönergesi yalnız koşul sağlanınca ayrı satır olarak eklenir."""
     _t0 = time.perf_counter()
+    _bol, _bs = {}, [_t0]
+
+    def _m(ad):  # I-314 P3: bölüm süreleri (ms), hook_sure kaydındaki `bolumler`
+        _n = time.perf_counter()
+        _bol[ad] = _bol.get(ad, 0) + round((_n - _bs[0]) * 1000)
+        _bs[0] = _n
+    _hook_basla(inp)
     _doktor_hizli_yol(inp)
     import oturum_bakim
     bakim = oturum_bakim.etkin()  # ADR-0092: ağır bakım ayrık koşucuda; kapalıysa eski eşzamanlı yol
@@ -2868,6 +2875,7 @@ def session_start(inp: dict):
     sd = L.durum_dizini(inp.get("cwd")) or _otomatik_ac(inp)
     if not sd:
         gec()
+    _m("hazirlik")
     import perspektif
     perspektif.oturum_say(sd, inp.get("source"))
     if bakim:
@@ -2892,7 +2900,9 @@ def session_start(inp: dict):
     ds = _durum_satiri(sd, inp.get("session_id"))  # I-224 P6: satır sayısı değişmesin diye 1. satırın sonuna eklenir
     if ds:
         satir1 = f"{satir1.rstrip('.')}. {ds}"
+    _m("is_durumu")
     uyarilar, onay_ek = _ss_uyarilar(sd, inp)
+    _m("uyarilar")
     satir2 = ("Uyarı: " + "; ".join(uyarilar))[:300] if uyarilar else ""
     ek_satirlar = [not_satiri] if not_satiri else []
     proje_ = L.proje_dizini(inp.get("cwd"))
@@ -2909,6 +2919,7 @@ def session_start(inp: dict):
         zu = perspektif.zaman_uyarisi(sd, _perspektif_oto(), r)
         if zu:
             ek_satirlar.append(zu)
+    _m("perspektif")
     try:  # eklenti kural katmanı değiştiyse bu projenin kural dosyası yenilenir; hata hook'u düşürmez
         import onay
         yazildi, fark = onay.kural_dosyasi_esitle_fark(sd)
@@ -2938,6 +2949,7 @@ def session_start(inp: dict):
     if korunan:
         ek = ek[:max(0, 1800 - len(korunan) - 1)] + "\n" + korunan
     ek = ek[:1800]
+    _m("satirlar")
     try:  # ADR-0036: compact/resume sonrası PreCompact'ta yazılan devir özeti bağlama eklenir
         import devir_ozeti
         dv = devir_ozeti.baglam(sd, inp)
@@ -2945,13 +2957,8 @@ def session_start(inp: dict):
             ek = ek + chr(10) + dv
     except Exception:
         pass
-    try:  # ADR-0113: sürekli açık skill gövdeleri; hata hook'u düşürmez
-        import skill_surekli
-        sk = skill_surekli.baglam(proje_)
-        if sk:
-            ek = ek + chr(10) + sk
-    except Exception:
-        pass
+    _m("devir")
+    # ADR-0113/ADR-0132: sürekli açık skill gövdeleri artık bağımsız ikinci hook'ta (sessionstart_kritik.py); ana hook yavaşlasa da teslim edilir
     try:  # ADR-0125: konum kaydı + yalnız çakışma varsa tek satır
         import oturum_farkindalik as _of
         of = _of.oturum_basi(sd, inp.get("session_id"), inp.get("cwd"))
@@ -2959,7 +2966,8 @@ def session_start(inp: dict):
             ek = ek + chr(10) + of
     except Exception:
         pass
-    _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000)
+    _m("farkindalik")
+    _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000, _bol)
     import baglam_kaydi
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
@@ -2968,12 +2976,34 @@ def session_start(inp: dict):
 SESSIONSTART_SURE_ESIK_MS = 2000  # I-255 P3: üstü gölge uyarı (P-028); ihlal geçişi ölçümden sonra ayrı kararla
 
 
-def _sure_yaz(sd: str, oid, ms: float) -> None:
-    """SessionStart süresini gunluk.jsonl'a yazar (tur=hook_sure); eşik aşımı ayrıca kapi_golge olur. Hatada sessiz."""
+SESSIONSTART_YAVAS_MS = 10000  # I-314 P3: hook zaman aşımı (hooks.json) ile aynı; üstü gölge uyarı `sessionstart_yavas` (P-028)
+
+
+def _hook_basla(inp: dict) -> None:
+    """Hook'un başladığını yazar (tur=hook_basla): hook_basla var, tur=baglam yok = aşım (H1); ikisi de yok = hook çalışmadı (H2).
+    Durum dizini yoksa ya da yazım başarısızsa sessiz; hook'u asla düşürmez."""
+    try:
+        sd = L.durum_dizini(inp.get("cwd"))
+        if sd:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": inp.get("session_id"),
+                                                             "tur": "hook_basla", "olay": "SessionStart"})
+    except Exception:
+        pass
+
+
+def _sure_yaz(sd: str, oid, ms: float, bolumler: dict | None = None) -> None:
+    """SessionStart süresini gunluk.jsonl'a yazar (tur=hook_sure, bölüm süreleri ve yavas bayrağıyla); eşik aşımı ayrıca kapi_golge olur. Hatada sessiz."""
     try:
         yol = os.path.join(sd, "gunluk.jsonl")
-        L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "hook_sure", "olay": "SessionStart", "sure_ms": round(ms)})
-        if ms > SESSIONSTART_SURE_ESIK_MS:
+        kayit = {"zaman": L.simdi(), "oturum": oid, "tur": "hook_sure", "olay": "SessionStart", "sure_ms": round(ms)}
+        if bolumler is not None:
+            kayit["bolumler"] = bolumler
+            kayit["yavas"] = ms > SESSIONSTART_YAVAS_MS
+        L.jsonl_ekle(yol, kayit)
+        if ms > SESSIONSTART_YAVAS_MS:
+            L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "kapi": "sessionstart_yavas",
+                               "neden": f"SessionStart {round(ms)} ms > {SESSIONSTART_YAVAS_MS} ms; bölümler: {bolumler or {}}"[:400]})
+        elif ms > SESSIONSTART_SURE_ESIK_MS:
             L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "kapi": "sessionstart_sure",
                                "neden": f"SessionStart {round(ms)} ms > {SESSIONSTART_SURE_ESIK_MS} ms"})
     except Exception:

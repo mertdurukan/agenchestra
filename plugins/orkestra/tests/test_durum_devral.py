@@ -164,6 +164,32 @@ class DurumDevral(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("devralınacak", r.stderr)
 
+    def test_ipucu_say_kayit_adlarini_sayar(self):  # I-314 S4: isler anahtarı + onay + oturum dosyası
+        self._veri()
+        yaz(os.path.join(self.kaynak, "oturumlar", "S-1.json"), "{}")
+        self.assertEqual(DD.ipucu_say(self.kaynak, self.hedef), 5)  # I-003, I-004, I-009 + O-1 + S-1
+        yaz(os.path.join(self.kaynak, "oturumlar", ".tmp_x"), "{}")  # kilit/geçici dosya sayılmaz
+        self.assertEqual(DD.ipucu_say(self.kaynak, self.hedef), 5)
+
+    def test_ipucu_say_onlarca_dosyada_en_fazla_isler_json_acar(self):  # I-314 S1: open sayısı dosya sayısından bağımsız
+        import builtins
+        self._veri()
+        for i in range(300):
+            yaz(os.path.join(self.kaynak, "oturumlar", f"S-{i}.json"), "{}")
+            yaz(os.path.join(self.hedef, "oturumlar", f"S-{i}.json"), "{}")
+        gercek, acilan = builtins.open, []
+
+        def say_ac(yol, *a, **k):
+            acilan.append(str(yol))
+            return gercek(yol, *a, **k)
+        builtins.open = say_ac
+        try:
+            DD.ipucu_say(self.kaynak, self.hedef)
+        finally:
+            builtins.open = gercek
+        self.assertLessEqual(len(acilan), 2, acilan)
+        self.assertTrue(all(a.endswith("isler.json") for a in acilan), acilan)
+
 
 if __name__ == "__main__":
     unittest.main()
