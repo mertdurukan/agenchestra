@@ -179,12 +179,62 @@ class TestHookGolge(_Proje):
         self.pre("pytest")
         self.assertEqual(self.golgeler(), [])
 
-    def test_ihlal_modu_reddeder(self):
-        with open(os.path.join(self.sd, hook.TEST_YONLENDIRME_KAPI + ".json"), "w", encoding="utf-8") as f:
-            json.dump({"mod": "ihlal"}, f)
+    def test_ihlal_ezmesi_reddeder(self):
+        self.yonlendirme_ayari({"mod": "ihlal"})
         c = self.pre("python -m pytest -q")
         self.assertEqual(c["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("test_paralel.py", c["hookSpecificOutput"]["permissionDecisionReason"])
+
+
+class TestHookIhlalVarsayilan(_Proje):
+    """ADR-0129: eklenti varsayılanı ihlal; proje ezmesi yokken çıplak tam koşu reddedilir, hedefli çağrı geçer."""
+
+    def retler(self):
+        yol = os.path.join(self.sd, "gunluk.jsonl")
+        if not os.path.isfile(yol):
+            return []
+        with open(yol, encoding="utf-8") as f:
+            return [o for o in (json.loads(s) for s in f if s.strip())
+                    if o.get("tur") == "kapi_ret" and o.get("kapi") == hook.TEST_YONLENDIRME_KAPI]
+
+    def test_eklenti_ayari_ihlal(self):
+        with open(os.path.join(KOK, "ayarlar", hook.TEST_YONLENDIRME_KAPI + ".json"), encoding="utf-8") as f:
+            d = json.load(f)
+        self.assertEqual(d["mod"], "ihlal")
+        self.assertIn("ORKESTRA_TEST_YONLENDIRME=0", d["aciklama"])
+        self.assertFalse(os.path.isfile(os.path.join(self.sd, hook.TEST_YONLENDIRME_KAPI + ".json")))
+        import kapi_mod
+        self.assertEqual(kapi_mod.mod(hook.TEST_YONLENDIRME_KAPI, self.tmp), "ihlal")
+
+    def test_ciplak_pytest_deny_ve_eyleme_donuk_ileti(self):
+        for komut in ("pytest", "python -m pytest -q plugins/orkestra/tests", "python -m unittest discover -s tests"):
+            c = self.pre(komut)
+            h = c.get("hookSpecificOutput") or {}
+            self.assertEqual(h.get("permissionDecision"), "deny", komut)
+            neden = h.get("permissionDecisionReason", "")
+            self.assertIn("tam takım: `python ", neden)
+            self.assertIn("test_paralel.py`", neden)
+            self.assertIn("hedefli:", neden)
+            self.assertIn("-k <ad>", neden)
+            self.assertIn("::", neden)
+        self.assertEqual(len(self.retler()), 3)
+        self.assertEqual(self.golgeler(), [])
+
+    def test_hedefli_cagri_ihlalde_engellenmez(self):
+        for komut in ("pytest tests/test_x.py", "pytest -k kira", "pytest tests/test_x.py::Sinif::test_y",
+                      "python -m unittest tests.test_kaynak_kira", "PYTHONUTF8=1 python scripts/test_paralel.py -q",
+                      "pytest --collect-only"):
+            c = self.pre(komut)
+            self.assertNotEqual((c.get("hookSpecificOutput") or {}).get("permissionDecision"), "deny", komut)
+        self.assertEqual(self.retler(), [])
+
+    def test_ortam_sifir_ve_kira_kapali_ihlalde_de_susar(self):
+        os.environ["ORKESTRA_TEST_YONLENDIRME"] = "0"
+        self.assertNotEqual((self.pre("pytest").get("hookSpecificOutput") or {}).get("permissionDecision"), "deny")
+        os.environ.pop("ORKESTRA_TEST_YONLENDIRME")
+        self.kira_ayari({"mod": "kapali"})
+        self.assertNotEqual((self.pre("pytest").get("hookSpecificOutput") or {}).get("permissionDecision"), "deny")
+        self.assertEqual(self.retler(), [])
 
 
 class TestPanelUcNoktasi(_Proje):
