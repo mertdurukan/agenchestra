@@ -63,6 +63,23 @@ class TestSiniflama(unittest.TestCase):
         for k in HARIC:
             self.assertIsNone(hook.ciplak_test_kosusu(k), k)
 
+    def test_degiskenli_yorumlayici_yakalanir(self):
+        for k in ("$PY -m pytest", "\"$PYTHON\" -m pytest -q", "${PY} -m pytest tests/",
+                  "PYTHONUTF8=1 $VENV_PY -m unittest discover", "'$PY' -m pytest"):
+            self.assertIsNotNone(hook.ciplak_test_kosusu(k), k)
+        for k in ("echo $X pytest", "grep pytest $F", "$X pytest", "echo $PY -m pytest", "$PY -m pytest -k kira"):
+            self.assertIsNone(hook.ciplak_test_kosusu(k), k)
+
+    def test_test_paralel_yalniz_kendi_parcasini_muaf_tutar(self):
+        for k in ("python scripts/test_paralel.py && pytest",
+                  "python scripts/test_paralel.py; python -m pytest -q",
+                  "python scripts/test_paralel.py || pytest tests/",
+                  "pytest | tee x.log; python scripts/test_paralel.py"):
+            self.assertIsNotNone(hook.ciplak_test_kosusu(k), k)
+        for k in ("python scripts/test_paralel.py && echo pytest",
+                  "PYTHONUTF8=1 python plugins/orkestra/scripts/test_paralel.py -q | tail -5"):
+            self.assertIsNone(hook.ciplak_test_kosusu(k), k)
+
 
 class _Proje(unittest.TestCase):
     def setUp(self):
