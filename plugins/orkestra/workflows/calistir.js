@@ -366,9 +366,79 @@ const ajanSayaci = {}
 const KART_AJAN_TAVANI = (args && Number.isInteger(args.kart_ajan_tavani) && args.kart_ajan_tavani > 0)
   ? args.kart_ajan_tavani : VARSAYILAN_KART_AJAN_TAVANI
 const tavanda = (k, gerekli) => (ajanSayaci[k.id] || 0) + (gerekli || 1) > KART_AJAN_TAVANI
-function kartAjani(k, istem, o) {
+// ---- eşzamanlılık sınırlayıcı (AIMD) + altyapı hatasında yeniden deneme + kritik yol önceliği
+// Varsayılan sınır yok (davranış değişmez). Bir ajan çağrısı İSTİSNA fırlatırsa (429, aşırı yük, taşıma hatası) sınır
+// o anki eşzamanlılığın yarısına düşer (en az SINIR_ALT), çağrı üstel bekleyişle AJAN_YENIDEN_DENEME kez yeniden denenir;
+// her başarıda sınır yavaşça (sinir kadar başarıda +1) SINIR_UST'e doğru açılır. args.en_cok_ajan başlangıç sınırı koyar.
+// Beklemedeki çağrılardan kritik yolu en uzun olan (oncelik[id]: kendinden sonra gelen en uzun bağımlı zincir) önce girer.
+// Sonuç döndürmeyen (null) ajan varsayılan olarak yeniden denenmez (args.bos_yeniden_deneme ile açılır): maliyetli ve
+// bazı durumlarda deterministiktir. Yeniden denemeler kart ajan tavanına sayılmaz (altyapı arızası kartın suçu değil).
+const AJAN_YENIDEN_DENEME = (args && Number.isInteger(args.ajan_yeniden_deneme) && args.ajan_yeniden_deneme >= 0)
+  ? args.ajan_yeniden_deneme : 2
+const BOS_YENIDEN_DENEME = (args && Number.isInteger(args.bos_yeniden_deneme) && args.bos_yeniden_deneme >= 0)
+  ? args.bos_yeniden_deneme : 0
+const SINIR_ALT = 2
+const SINIR_UST = (args && Number.isInteger(args.en_cok_ajan) && args.en_cok_ajan > 0) ? args.en_cok_ajan : 64
+const eszamanlilik = {
+  sinir: (args && Number.isInteger(args.en_cok_ajan) && args.en_cok_ajan > 0) ? args.en_cok_ajan : Infinity,
+  aktif: 0, enCokAktif: 0, basari: 0, kuyrukBeklemeMs: 0, yenidenDeneme: 0, sinirDususu: 0, kuyruk: [],
+}
+const oncelik = {} // kart id → kritik yol yüksekliği (calistir bölümü kartlar yüklenince doldurur)
+const simdi = () => (typeof Date !== 'undefined' ? Date.now() : 0)
+const uyku = ms => (typeof setTimeout === 'function' ? new Promise(r => setTimeout(r, ms)) : Promise.resolve())
+function yuvaAl(oncelikDegeri) {
+  const e = eszamanlilik
+  const baslangic = simdi()
+  const gir = () => { e.aktif++; e.enCokAktif = Math.max(e.enCokAktif, e.aktif); e.kuyrukBeklemeMs += simdi() - baslangic }
+  if (e.aktif < e.sinir) { gir(); return Promise.resolve() }
+  return new Promise(coz => { e.kuyruk.push({ o: oncelikDegeri || 0, gir, coz }) })
+}
+function yuvaBirak() {
+  eszamanlilik.aktif--
+  kuyruguBosalt()
+}
+function kuyruguBosalt() {
+  const e = eszamanlilik
+  while (e.kuyruk.length && e.aktif < e.sinir) {
+    let en = 0
+    for (let i = 1; i < e.kuyruk.length; i++) if (e.kuyruk[i].o > e.kuyruk[en].o) en = i
+    const [x] = e.kuyruk.splice(en, 1)
+    x.gir(); x.coz()
+  }
+}
+function sinirDusur(aktifAni) {
+  const e = eszamanlilik
+  const taban = Math.max(SINIR_ALT, Math.floor(Math.min(e.sinir, Math.max(aktifAni, SINIR_ALT)) / 2))
+  if (taban < e.sinir) { e.sinir = taban; e.sinirDususu++ }
+  e.basari = 0
+}
+function sinirAc() {
+  const e = eszamanlilik
+  if (!Number.isFinite(e.sinir)) return
+  e.basari++
+  if (e.basari >= e.sinir && e.sinir < SINIR_UST) { e.sinir++; e.basari = 0; kuyruguBosalt() }
+}
+async function kartAjani(k, istem, o) {
+  const e = eszamanlilik
   ajanSayaci[k.id] = (ajanSayaci[k.id] || 0) + 1
-  return agent(istem, o)
+  let bosDeneme = 0
+  for (let deneme = 0; ; deneme++) {
+    await yuvaAl(oncelik[k.id])
+    const aktifAni = e.aktif
+    let sonuc = null, istisna = false
+    try { sonuc = await agent(istem, o) } catch (err) { istisna = true }
+    yuvaBirak()
+    if (sonuc) { sinirAc(); return sonuc }
+    if (istisna) {
+      sinirDusur(aktifAni)
+      if (deneme >= AJAN_YENIDEN_DENEME) return null
+    } else if (bosDeneme++ >= BOS_YENIDEN_DENEME) {
+      return null
+    }
+    e.yenidenDeneme++
+    log(`${k.id}: ajan ${istisna ? 'hata verdi' : 'sonuç döndürmedi'} → yeniden deneme ${deneme + 1} (sınır ${Number.isFinite(e.sinir) ? e.sinir : 'yok'})`)
+    await uyku(Math.min(500 * 2 ** deneme, 8000))
+  }
 }
 function tavanSonucu(k, basamak, gecmis, sonRet) {
   log(`${k.id}: kart ajan tavanı (${KART_AJAN_TAVANI}) doldu → durduruldu; ana ajan kartı beklemede yapmalı`)
@@ -680,10 +750,29 @@ function calistir(id, yol) {
   return soz[id]
 }
 
+// Kritik yol önceliği: kartın yüksekliği = 1 + en uzun bağımlı zincir (döngüye karşı korumalı).
+const bagimlilar = {}
+for (const k of kartlar) for (const d of (k.bagimliliklar || []).filter(x => kimlik[x])) (bagimlilar[d] = bagimlilar[d] || []).push(k.id)
+function yukseklik(id, yol) {
+  if (oncelik[id] !== undefined) return oncelik[id]
+  if (yol.has(id)) return 0
+  const y2 = new Set(yol).add(id)
+  oncelik[id] = 1 + Math.max(0, ...(bagimlilar[id] || []).map(b => yukseklik(b, y2)))
+  return oncelik[id]
+}
+for (const k of kartlar) yukseklik(k.id, new Set())
+
 log(`${kartlar.length} kart; bağımsız olanlar paralel koşuyor.`)
 const sonuclar = await Promise.all(kartlar.map(k => calistir(k.id, [])))
 const say = d => sonuclar.filter(s => s.durum === d).length
 log(`Bitti: ${say('onaylandi')} onaylandı, ${say('reddedildi')} reddedildi, ${say('kart-duzeltilmeli')} kart düzeltilmeli, ${say('atlandi')} atlandı, ${say('kilitli')} kilitli, ${say('tavan')} tavan, ${say('butce')} bütçe, ${say('alan-cakismasi')} alan çakışması, ${say('ortam')} ortam, ${say('hata')} hata.`)
 const ajanToplam = Object.values(ajanSayaci).reduce((a, b) => a + b, 0)
 log(`Ajan: ${ajanToplam} (kart başına tavan ${KART_AJAN_TAVANI}).`)
-return { sonuclar }
+// Ölçüm (paralellik tanısı): en çok eşzamanlı ajan, sınırlayıcı kuyruğunda toplam bekleme, yeniden deneme ve sınır düşüşü.
+const olcum = {
+  en_cok_eszamanli_ajan: eszamanlilik.enCokAktif, kuyruk_bekleme_ms: eszamanlilik.kuyrukBeklemeMs,
+  yeniden_deneme: eszamanlilik.yenidenDeneme, sinir_dususu: eszamanlilik.sinirDususu,
+  son_sinir: Number.isFinite(eszamanlilik.sinir) ? eszamanlilik.sinir : null,
+}
+log(`Eşzamanlılık: en çok ${olcum.en_cok_eszamanli_ajan} ajan, kuyrukta ${olcum.kuyruk_bekleme_ms} ms, ${olcum.yeniden_deneme} yeniden deneme, ${olcum.sinir_dususu} sınır düşüşü.`)
+return { sonuclar, olcum }
