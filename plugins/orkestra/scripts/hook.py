@@ -3054,6 +3054,11 @@ def session_start(inp: dict):
     _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000, _bol)
     import baglam_kaydi
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
+    import hook_kaydi
+    hook_kaydi.yukleme_yaz(sd, inp.get("session_id"))
+    hk_uyari = hook_kaydi.uyari(sd)  # I-309: önceki zaman aşımı varsa tek satır (yoksa 0 karakter)
+    if hk_uyari:
+        ek = ek + chr(10) + hk_uyari
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
 
 
@@ -3420,6 +3425,11 @@ def post_tool_use_failure(inp: dict):
     """ADR-0101: araç başarısızlığında kök neden önce ipucu (seyreltilmiş); engellemez, hata hook'u düşürmez."""
     try:
         sd = L.durum_dizini(inp.get("cwd"))
+        if sd and inp.get("tool_name") == "Skill":  # yüklenmeyen skill iz bırakır (I-309)
+            g = inp.get("tool_input") or {}
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
+                         {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "skill_hata",
+                          "skill": g.get("skill") or g.get("name"), "hata": L.maskele(str(inp.get("error") or ""))[:200]})
         if sd:
             import kok_neden_enjeksiyonu
             ipucu = kok_neden_enjeksiyonu.arac_metni(inp, sd)
@@ -3688,9 +3698,19 @@ def main():
     isleyici = OLAYLAR.get(olay)
     if isleyici is None:  # P12: bilinmeyen olay hook'u düşürmez (çıkış 0, hook-hatasi yazılmaz)
         sys.exit(0)
+    _sd0 = L.durum_dizini(inp.get("cwd"))
+    _hk = _t0 = None
+    if _sd0:
+        import hook_kaydi
+        if olay in ("SessionStart", "Stop"):
+            hook_kaydi.yetim_tara(_sd0)
+        _t0 = time.perf_counter()
+        _hk = hook_kaydi.basla(_sd0, olay, inp.get("session_id"), inp.get("tool_name"), inp.get("agent_id"))
+    _sonuc = "ok"
     try:
         isleyici(inp)
-    except SystemExit:
+    except SystemExit as e:
+        _sonuc = "ok" if e.code in (None, 0) else f"cikis_{e.code}"
         if olay in ("SessionStart", "SubagentStop", "Stop") or (
                 olay == "PostToolUse" and inp.get("tool_name") in ("Skill", "Agent", "Task", "Workflow")):
             sd = L.durum_dizini(inp.get("cwd"))
@@ -3699,6 +3719,7 @@ def main():
                 ozet.yaz(sd, L.proje_dizini(inp.get("cwd")))
         raise
     except Exception as e:  # güvenli taraf
+        _sonuc = "hata"
         try:
             sd = L.durum_dizini(inp.get("cwd"))
             if sd:
@@ -3714,6 +3735,10 @@ def main():
             if KORUNAN_IZ.search(hedef):
                 reddet("kapı iç hata verdi; korunan dosyaya dokunuş güvenlik için reddedildi.")
         gec()
+    finally:
+        if _hk:
+            hook_kaydi.bitir(_sd0, _hk, olay, inp.get("session_id"), inp.get("tool_name"), _sonuc,
+                             (time.perf_counter() - _t0) * 1000)
 
 
 if __name__ == "__main__":
