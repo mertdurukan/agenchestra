@@ -179,19 +179,35 @@ class EsZamanliBütce(Ortam):
             self.assertEqual(K.durum()["bekleyenler"], [], hata.__name__)
 
     def test_gercek_test_paralel_kuyruga_girer(self):
-        """Uçtan uca: tam bütçeli sahip varken test_paralel.py 'sıra: 2' yazar, sahip bırakınca koşar."""
+        """Uçtan uca: tam bütçeli sahip varken test_paralel.py 'sıra: 2' yazar, sahip bırakınca koşar.
+
+        Sahip sabit süre (eski: 2.0 sn) değil, koşucu 'sıra: 2' satırını basana kadar tutar. Kök neden: test_paralel.py
+        kiradan ÖNCE önbellek anahtarını hesaplar (eklenti kökünün tam içerik özeti; isabette kira hiç alınmaz, doğru
+        sıra budur). Önbellek açıkken (ADR-0129) içe aktarma + anahtar yük altında sahibin sabit süresini aşınca koşucu
+        kuyruğa hiç girmiyordu; eski geçiş `onbellek: false` varsayılanına dayanıyordu. Olayla eşleme yarışı kaldırır."""
         self.ayar()
         tdir = os.path.join(self.d, "testler")
         os.makedirs(tdir)
         with open(os.path.join(tdir, "test_x.py"), "w", encoding="utf-8") as f:
             f.write("def test_x():\n    assert True\n")
-        p = self.sahte_baslat("sahip", 4, 2.0)
+        birak = os.path.join(self.d, "birak")
+        p = self.sahte_baslat("sahip", 4, "dosya:" + birak)
         self.addCleanup(p.kill)
         self.sahip_bekle()
-        r = subprocess.run([sys.executable, KOSUCU, "-n", "4", tdir], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", env=self.env, cwd=self.d, timeout=120)
-        cikti = r.stdout + r.stderr
-        self.assertEqual(r.returncode, 0, cikti)
+        kosu = subprocess.Popen([sys.executable, KOSUCU, "-n", "4", tdir], stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=self.env,
+                                cwd=self.d)
+        self.addCleanup(kosu.kill)
+        satirlar = []
+        bitis = time.time() + 120
+        for satir in kosu.stdout:  # 'sıra:' satırı görülene kadar sahip kirayı tutar
+            satirlar.append(satir)
+            if "kaynak kirası: sıra:" in satir or time.time() > bitis:
+                break
+        open(birak, "w").close()
+        satirlar.append(kosu.communicate(timeout=120)[0])
+        cikti = "".join(satirlar)
+        self.assertEqual(kosu.returncode, 0, cikti)
         self.assertRegex(cikti, r"sıra: 2, sahip: \d+/sahte sahip")
         self.assertIn("kaynak kirası: alındı", cikti)
         self.assertIn("1 dosya, 0 düşen", cikti)
