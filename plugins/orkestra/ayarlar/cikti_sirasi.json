@@ -10,5 +10,31 @@
     "^(senden|sizden) (beklenen\\w*|istenen\\w*)$",
     "^seçim( bekleyen\\w*)?$"
   ],
-  "aciklama": "Karar sırası kapısı (ADR-0135, I-321, P-001/P-029 tamamlayıcısı): karar bekleyen bölüm yanıtın son bölümü olmalı. mod: block = ihlalde tur başına bir kez yeniden yazma ister, ikinci denemede tur geçer, kural_ihlal / cikti_sirasi günlüğe yazılır ve kullanıcıya tek satır uyarı gider (hook yanıt metnini değiştiremez); golge = yalnız günlük; kapali. Sıra kapısı kullanıcı kararıyla ilk günden block'tadır (P-028 bilinçli istisnası, emsal P-033). Belge bağlantı satırları (K-003) bölüm sayılmaz. Kapatma: ORKESTRA_CIKTI_SIRASI=0. Proje ezmesi: .claude/orkestra/cikti_sirasi.json."
+  "aciklama": "Karar sırası kapısı (ADR-0135, I-321, P-001/P-029 tamamlayıcısı): karar bekleyen bölüm yanıtın son bölümü olmalı. mod: block = ihlalde tur başına bir kez yeniden yazma ister, ikinci denemede tur geçer, kural_ihlal / cikti_sirasi günlüğe yazılır ve kullanıcıya tek satır uyarı gider (hook yanıt metnini değiştiremez); golge = yalnız günlük; kapali. Sıra kapısı kullanıcı kararıyla ilk günden block'tadır (P-028 bilinçli istisnası, emsal P-033). Belge bağlantı satırları (K-003) bölüm sayılmaz. Kapatma: ORKESTRA_CIKTI_SIRASI=0. Proje ezmesi: .claude/orkestra/cikti_sirasi.json.",
+  "kesin_sinir_basliklari": [
+    "^kullanıcıya kalan\\w*$"
+  ],
+  "auto_yasak_basliklar": [
+    "^(sana|size) kalan\\w*",
+    "^karar$",
+    "^karar\\w* bekleyen\\w*",
+    "^kararınız gereken",
+    "^onay\\w* bekleyen",
+    "^seçim",
+    "^açık kalan",
+    "^(senden|sizden)\\b"
+  ],
+  "kanit_etiketi": "Denendi:",
+  "bos_kanit_kaliplari": [
+    "^yok$",
+    "^denenmedi$",
+    "^-+$",
+    "^hiç$",
+    "^yapılmadı$"
+  ],
+  "auto_sinif": true,
+  "uyari_sahip": "Orkestra (ADR-0137): auto modunda karar bölümü yoktur: '{baslik}' bölümündeki işi kendin yap ve uygula. Yapamıyorsan işi 'Kullanıcıya kalanlar' son bölümüne, 'Denendi:' kanıtıyla yaz (yalnız parola, sır, hesap, push kararı gibi kesin sınırlar).",
+  "uyari_kanit": "Orkestra (ADR-0137): 'Kullanıcıya kalanlar' maddesi 'Denendi:' kanıtı taşımıyor: '{baslik}'. Önce işi kendin dene; denediğini ve engelini 'Denendi: <komut/sonuç>' ile yaz, denemediysen yap.",
+  "kullanici_uyarisi_sahip": "Uyarı: auto yanıtında '{baslik}' karar bölümü var; iş sahibi ajan olmalıydı (ADR-0137).",
+  "kullanici_uyarisi_kanit": "Uyarı: 'Kullanıcıya kalanlar' maddesi 'Denendi:' kanıtsız: {baslik} (ADR-0137)."
 }
