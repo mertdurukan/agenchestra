@@ -134,6 +134,10 @@ def _is(tmp_path, ad, is_id):
     k.mkdir()
     (k / "is.json").write_text(json.dumps({"id": is_id, "baslik": ad}), encoding="utf-8")
     (k / "todo.md").write_text("# Yapılacaklar\n\n", encoding="utf-8")
+    m = tmp_path / ".claude" / "orkestra" / "isler.json"
+    v = json.loads(m.read_text(encoding="utf-8")) if m.exists() else {"sayac": 0, "isler": {}}
+    v["isler"][is_id] = {"klasor": str(k), "baslik": ad, "durum": "acik"}
+    m.write_text(json.dumps(v), encoding="utf-8")
     return str(k)
 
 
