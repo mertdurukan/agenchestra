@@ -306,15 +306,19 @@ def arac_oncesi(sd: str, oturum: str, cwd: str | None, arac: str, girdi: dict, a
 
 
 def oturum_basi(sd: str, oturum: str, cwd: str | None, is_id: str | None = None) -> str:
-    """SessionStart: konumu yazar; aynı depoda canlı komşu varsa tek satır (komşu başına bir kez değil: oturum başına bir)."""
+    """SessionStart: konumu yazar; aynı depoda canlı komşu varsa tek satır (komşu başına bir kez değil: oturum başına bir).
+    Sahipsiz karantina (I-323 P4) varsa git konumundan bağımsız tek satır daha eklenir."""
     try:
-        if not (etkin() and sd and oturum) or not kaydet(sd, oturum, cwd, is_id=is_id):
+        if not (etkin() and sd and oturum):
             return ""
+        sahipsiz = sahipsiz_satir(sd)
+        if not kaydet(sd, oturum, cwd, is_id=is_id):
+            return sahipsiz
         ks = komsular(sd, oturum, cwd)
         mod = kapi_modu(cwd)
         for k in ks:
             golge_yaz(sd, oturum, k, None, "oturum_basi", mod)
-        return chr(10).join(x for x in (satir(ks, mod=mod), gelen_metin(sd, oturum)) if x)
+        return chr(10).join(x for x in (satir(ks, mod=mod), gelen_metin(sd, oturum), sahipsiz) if x)
     except Exception:
         return ""
 
@@ -324,6 +328,14 @@ def oturum_basi(sd: str, oturum: str, cwd: str | None, is_id: str | None = None)
 NOT_EN_COK = 300
 _SIR = re.compile(r"(?i)(parola|password|passwd|secret|token|api[_-]?key|bearer|accountkey|sas)\s*[:=]\s*\S+"
                   r"|sk-[A-Za-z0-9]{16,}|[A-Za-z0-9+/_-]{40,}")
+
+
+REDAKTE = "[REDAKTE]"
+
+
+def redakte(metin: str) -> str:
+    """Sır kalıplarını (`_SIR`) işaretle değiştirir; not_birak'ın reddettiği metin bu süzgeçten geçince gönderilebilir."""
+    return _SIR.sub(REDAKTE, metin or "")
 
 
 def gelen_yol(sd: str, oturum: str) -> str:
@@ -406,6 +418,51 @@ def gelen_metin(sd: str, oturum: str) -> str:
                 + " | ".join(f"[{x.get('kimden', '-')}] {x['metin'][:NOT_EN_COK]}" for x in n))
     except Exception:
         return ""
+
+
+# ---------------------------------------------------------------- sahipsiz karantina (I-323 P4, sözleşme S4, S8)
+
+SAHIPSIZ_S = 60 * 60
+
+
+def gelen_ofset(sd: str, oturum: str | None) -> int:
+    """Oturumun gelen kutusunda okuduğu bayt ofseti (`konum.gelen_ofset`); kayıt yoksa 0."""
+    if not oturum:
+        return 0
+    durum, kayit = L._oturum_json_oku(L._oturum_json_yol(sd, oturum))
+    k = kayit.get("konum") if durum != "bozuk" and isinstance(kayit.get("konum"), dict) else {}
+    return int(k.get("gelen_ofset") or 0)
+
+
+def sahipsiz_tara(sd: str, simdi: float | None = None, esik_s: float = SAHIPSIZ_S) -> list[dict]:
+    """Karantinadaki teslimlerden suçluya giden notu `esik_s` (60 dk) içinde okunmayanları `sahipsiz` işaretler
+    (kuyruk.alan_ekle). Not hiç gidemediyse (oturum yok) `not_ofset` boştur ve süre dolunca yine sahipsiz olur.
+    Dönen: geçerli sahipsiz karantina kayıtları."""
+    import kuyruk as K
+    t = time.time() if simdi is None else simdi
+    for k in K.liste(sd, "karantina"):
+        if k.get("sahipsiz") or k.get("not_t") is None or t - float(k["not_t"]) < esik_s:
+            continue
+        ofset = k.get("not_ofset")
+        if ofset and gelen_ofset(sd, k.get("oturum")) >= int(ofset):
+            continue  # not okundu: sahibi haberdar
+        K.alan_ekle(sd, k["teslim"], sahipsiz=True, sahipsiz_t=t)
+    return [k for k in K.liste(sd, "karantina") if k.get("sahipsiz")]
+
+
+def sahipsiz_satir(sd: str, simdi: float | None = None) -> str:
+    """SessionStart bağlamı: sahipsiz karantina varsa tek satır (≤250 karakter), yoksa boş metin."""
+    try:
+        ks = sahipsiz_tara(sd, simdi=simdi)
+    except Exception:
+        return ""
+    if not ks:
+        return ""
+    adlar = ", ".join(f"{k['teslim']} ({k.get('dal') or '-'})" for k in ks[:3])
+    ek = f" +{len(ks) - 3}" if len(ks) > 3 else ""
+    s = (f"Sahipsiz karantina ({len(ks)}): {adlar}{ek}; suçlu oturum notu 60 dk okumadı. "
+         "`orkestra teslim kuyruk liste --durum karantina` ile bak, düzeltip yeniden teslim et.")
+    return redakte(s)[:250]
 
 
 def canli_mi(sd: str | None, worktree: str | None = None, dal: str | None = None, esik_s: float = CANLI_S,

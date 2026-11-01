@@ -48,6 +48,10 @@ Adımlar:
 9. Doğrula: `git diff --stat $OLD $NEW` çıktısında yalnız kendi dosyaların olmalı.
 10. Ana indeksi eşitle: `git reset -q HEAD -- <yollar>`. Yapmazsan sonraki commit işini geri alır.
 
+## Entegrasyon kuyruğu (ADR-0134)
+- Durumlar: bekliyor → kosuyor → birlesti; kosuyor → karantina (kırmızı koşuda suçlu); karantina → bekliyor (düzeltme yeniden teslim edilince).
+- Ölü koşucu kurtarma: koşucu süreci ölürse `kuyruk.kurtar` takılı kosuyor kaydını bekliyor'a döndürür ve kilidi bırakır.
+
 ## Oturum worktree'si ve durum kaynağı (ADR-0033)
 Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/worktrees/<ad>-<hex>`, dal `claude/<ad>-<hex>`) ve git dışı `.claude/orkestra` klasörünü ona kopyalar. Durum tek kaynaktan çözülür:
 - `ork_lib.proje_dizini`: cwd (ya da `CLAUDE_PROJECT_DIR`) bir worktree ise (`.git` bir DOSYA) ve ana ağaçta `.claude/orkestra` varsa ana ağaç kökünü döndürür. Hook, `orkestra` komutu ve panel aynı kaydı görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (testler ve kaçış kapısı). Belgeler (`Claude_Orkestrasyon/NNN-…`, `adr/`) git izli olduğu için worktree dalında kalır.
@@ -93,7 +97,10 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 
 ## Test takımı
 - Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; işçi sayısı CPU ve bellekten otomatik, `ORKESTRA_PARALEL_N` ezer; 16 çekirdekte ~4,5 dk, seri ~32 dk; P-041).
-- Değişiklikten sonra commit'ten önce koş.
+- Kuyruk kuralı (ADR-0134): commit öncesi yalnız hedefli test (kartın `test_alani`); tam paket oturumda koşulmaz.
+- Tam paket `orkestra teslim kuyruk ekle` ile entegrasyon kuyruğuna teslim edilir.
+- Entegrasyon şeridi (`scripts/entegrasyon.py`) birleşik tam koşuyu bir kez yapar; yeşilde main'e fast-forward, kırmızıda bisect + karantina, suçlu oturuma `not_birak` ile geri bildirim. Düzeltmeyi bağlamı olan oturum yapar.
+- Tek-koşucu kilidi aynı anda bir koşuya izin verir. Kapı `ayarlar/kuyruk.json` (gölge); `ORKESTRA_KUYRUK_KAPISI=0` kapatır.
 - CLI çağrıları süreç içinde koşar: test yardımcıları (`test_cekirdek.kos`, `test_test_kapisi.kos` vb.) `tests/ic_kos.py` üzerinden `orkestra.py`/`hook.py` `main()`'ini aynı argv, cwd, ortam ve stdin ile çağırır. Alt süreç başına ~0,5 sn gidiyordu; en yavaş dosyalar 5-10 kat hızlandı (15.10). Ev dizinini değiştiren testlerde içe aktarımda hesaplanan ev yolları (GENEL_DIZIN türevleri) çağrı süresince yeni eve çevrilir.
 - Gerçek alt süreçle uçtan uca doğrulama: `ORKESTRA_IC_KOS=0` ile koş (yayın öncesi ya da süreç içi farkından şüphelenince).
 - Yeni testte CLI'yi `subprocess.run` ile değil `ic_kos.kos([CLI, ...], cwd=..., env=...)` ile çağır; uçtan uca kalması gereken (hook betiği, git, node) çağrılar alt süreçte kalır.
