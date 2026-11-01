@@ -243,11 +243,11 @@ class Cekirdek(unittest.TestCase):
         self.assertFalse([x for x in L.maliyet_kayitlari(self.sd) if x.get("kaynak") == "tur"])
 
     def test_sayac_alt_klasorden_de_proje_kaydina_yazar(self):
-        """Çalışma dizini proje içi alt klasörken (.claude/orkestra) tur kaydı projenin maliyet.jsonl dosyasına düşer."""
+        """Çalışma dizini proje içi alt klasörken (.claude/orkestra) tur kaydı projenin gözlem defterine düşer."""
         r = kos([CLI, "maliyet", "tur", "--oturum", OTURUM, "--model", "claude-opus-5-5",
                  "--giris", "7", "--cikis", "11", "--onb-okuma", "0", "--onb-yazma", "0", "--sure-ms", "1"], self.sd)
         self.assertEqual(r.returncode, 0, r.stderr)
-        satirlar = [json.loads(s) for s in open(os.path.join(self.sd, "maliyet.jsonl"), encoding="utf-8") if s.strip()]
+        satirlar = [json.loads(s) for s in open(os.path.join(self.sd, "maliyet_tur.jsonl"), encoding="utf-8") if s.strip()]
         tur = [x for x in satirlar if x.get("kaynak") == "tur" and x.get("cikis") == 11]
         self.assertEqual(len(tur), 1, satirlar)
 
