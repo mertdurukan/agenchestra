@@ -48,6 +48,10 @@ Adımlar:
 9. Doğrula: `git diff --stat $OLD $NEW` çıktısında yalnız kendi dosyaların olmalı.
 10. Ana indeksi eşitle: `git reset -q HEAD -- <yollar>`. Yapmazsan sonraki commit işini geri alır.
 
+## Entegrasyon kuyruğu (ADR-0134)
+- Durumlar: bekliyor → kosuyor → birlesti; kosuyor → karantina (kırmızı koşuda suçlu); karantina → bekliyor (düzeltme yeniden teslim edilince).
+- Ölü koşucu kurtarma: koşucu süreci ölürse `kuyruk.kurtar` takılı kosuyor kaydını bekliyor'a döndürür ve kilidi bırakır.
+
 ## Oturum worktree'si ve durum kaynağı (ADR-0033)
 Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/worktrees/<ad>-<hex>`, dal `claude/<ad>-<hex>`) ve git dışı `.claude/orkestra` klasörünü ona kopyalar. Durum tek kaynaktan çözülür:
 - `ork_lib.proje_dizini`: cwd (ya da `CLAUDE_PROJECT_DIR`) bir worktree ise (`.git` bir DOSYA) ve ana ağaçta `.claude/orkestra` varsa ana ağaç kökünü döndürür. Hook, `orkestra` komutu ve panel aynı kaydı görür. `ORKESTRA_DURUM_YEREL=1` yerel kopyayı seçer (testler ve kaçış kapısı). Belgeler (`Claude_Orkestrasyon/NNN-…`, `adr/`) git izli olduğu için worktree dalında kalır.
