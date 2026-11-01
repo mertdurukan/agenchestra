@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "mod: golge = /auto işi açıkken ve çalışma özeti yokken tur biterse gunluk.jsonl'a kapi_golge olarak düşer, tur engellenmez; ihlal = tur başına bir kez devam hatırlatmasıyla block. Geçiş ölçütü: ilk 20 /auto işinde kapi_golge elle sınıflanır, yanlış pozitif en çok %10 ise kullanıcı kararıyla ihlale geçilir (ADR-0132, plan K5). Kapatma: ORKESTRA_AUTO_DEVAM_KAPISI=0. Proje ezmesi: .claude/orkestra/auto_devam.json."
+}
