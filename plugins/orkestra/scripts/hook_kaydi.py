@@ -124,21 +124,33 @@ def rapor(sd: str, gun: int = 7, oturum: str | None = None) -> dict:
     yetim_tara(sd)
     esik = time.time() - gun * 86400
     ozet: dict = {}
+    skiller: dict = {}
+    acilan: set = set()
+    gorulen: set = set()
     yol = os.path.join(sd, "gunluk.jsonl")
     try:
         with open(yol, encoding="utf-8") as f:
             for s in f:
-                if '"hook_' not in s:
+                if '"hook_' not in s and '"skill' not in s and '"oturum_yukleme"' not in s:
                     continue
                 try:
                     k = json.loads(s)
                 except ValueError:
                     continue
-                if k.get("tur") not in ("hook_calisma", "hook_zaman_asimi"):
+                if k.get("tur") not in ("hook_calisma", "hook_zaman_asimi", "skill", "skill_hata", "oturum_yukleme"):
                     continue
                 if oturum and not str(k.get("oturum") or "").startswith(oturum):
                     continue
                 if k.get("zaman") and _epoch(k["zaman"]) < esik:
+                    continue
+                ok = str(k.get("oturum") or "-")[:8]
+                if k["tur"] == "oturum_yukleme":
+                    acilan.add(ok)
+                    continue
+                gorulen.add(ok)
+                if k["tur"] in ("skill", "skill_hata"):
+                    d = skiller.setdefault(ok, {"yuklendi": [], "hata": []})
+                    d["yuklendi" if k["tur"] == "skill" else "hata"].append(k.get("skill") or "?")
                     continue
                 o = ozet.setdefault(str(k.get("oturum") or "-")[:8], {}).setdefault(
                     k.get("olay") or "?", {"calisma": 0, "hata": 0, "zaman_asimi": 0, "en_uzun_ms": 0})
@@ -150,7 +162,27 @@ def rapor(sd: str, gun: int = 7, oturum: str | None = None) -> dict:
                     o["en_uzun_ms"] = max(o["en_uzun_ms"], int(k.get("sure_ms") or 0))
     except OSError:
         pass
-    return ozet
+    return {"hook": ozet, "skill": skiller, "acilis_eksik": sorted(gorulen - acilan)}
+
+
+def yukleme_yaz(sd: str | None, oturum, eklenti_koku: str | None = None) -> None:
+    """SessionStart sonunda `tur=oturum_yukleme`: bu oturumda yüklenmesi beklenen hook olayları ve skill sayısı.
+    Satır yoksa SessionStart tamamlanmamıştır (zaman aşımı ya da hata); rapor bunu `acilis_eksik` diye işaretler."""
+    if not sd or not etkin():
+        return
+    try:
+        kok = eklenti_koku or os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.join(os.path.dirname(__file__), "..")
+        with open(os.path.join(kok, "hooks", "hooks.json"), encoding="utf-8") as f:
+            olaylar = sorted(json.load(f).get("hooks", {}))
+        try:
+            skiller = sum(1 for e in os.scandir(os.path.join(kok, "skills")) if os.path.isfile(os.path.join(e.path, "SKILL.md")))
+        except OSError:
+            skiller = None
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
+                     {"zaman": L.simdi(), "oturum": oturum, "tur": "oturum_yukleme", "hook_olaylari": olaylar,
+                      "skill_sayisi": skiller})
+    except Exception:
+        pass
 
 
 def _epoch(z: str) -> float:

@@ -2934,6 +2934,8 @@ def session_start(inp: dict):
     _sure_yaz(sd, inp.get("session_id"), (time.perf_counter() - _t0) * 1000)
     import baglam_kaydi
     baglam_kaydi.kaydet(sd, "SessionStart", inp.get("session_id"), ek)
+    import hook_kaydi
+    hook_kaydi.yukleme_yaz(sd, inp.get("session_id"))
     L.hook_cikti({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ek}})
 
 
@@ -3266,6 +3268,11 @@ def post_tool_use_failure(inp: dict):
     """ADR-0101: araç başarısızlığında kök neden önce ipucu (seyreltilmiş); engellemez, hata hook'u düşürmez."""
     try:
         sd = L.durum_dizini(inp.get("cwd"))
+        if sd and inp.get("tool_name") == "Skill":  # yüklenmeyen skill iz bırakır (I-309)
+            g = inp.get("tool_input") or {}
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
+                         {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "skill_hata",
+                          "skill": g.get("skill") or g.get("name"), "hata": L.maskele(str(inp.get("error") or ""))[:200]})
         if sd:
             import kok_neden_enjeksiyonu
             ipucu = kok_neden_enjeksiyonu.arac_metni(inp, sd)

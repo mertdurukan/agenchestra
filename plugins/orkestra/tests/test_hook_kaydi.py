@@ -46,12 +46,32 @@ class HookKaydiTest(unittest.TestCase):
         g = self._g()
         self.assertEqual(g[0]["tur"], "hook_zaman_asimi")
         self.assertEqual(g[0]["olay"], "SessionStart")
-        self.assertEqual(H.rapor(self.sd)["o1"]["SessionStart"]["zaman_asimi"], 1)
+        self.assertEqual(H.rapor(self.sd)["hook"]["o1"]["SessionStart"]["zaman_asimi"], 1)
 
     def test_suresi_dolmamis_isaret_dokunulmaz(self):
         y = H.basla(self.sd, "Stop", "o1")
         self.assertEqual(H.yetim_tara(self.sd), 0)
         self.assertTrue(os.path.exists(y))
+
+    def _yaz(self, **k):
+        import ork_lib as L
+        L.jsonl_ekle(os.path.join(self.sd, "gunluk.jsonl"), {"zaman": L.simdi(), **k})
+
+    def test_skill_yuklendi_ve_hata_oturum_bazinda(self):
+        self._yaz(oturum="o1", tur="skill", skill="devir")
+        self._yaz(oturum="o1", tur="skill_hata", skill="caveman")
+        r = H.rapor(self.sd)["skill"]["o1"]
+        self.assertEqual(r, {"yuklendi": ["devir"], "hata": ["caveman"]})
+
+    def test_acilis_eksik_oturum_yukleme_satiri_yoksa(self):
+        H.yukleme_yaz(self.sd, "tamam")
+        self._yaz(oturum="tamam", tur="hook_calisma", olay="Stop", sonuc="ok", sure_ms=5)
+        self._yaz(oturum="eksik", tur="hook_calisma", olay="Stop", sonuc="ok", sure_ms=5)
+        r = H.rapor(self.sd)
+        self.assertEqual(r["acilis_eksik"], ["eksik"])
+        y = [x for x in self._g() if x["tur"] == "oturum_yukleme"][0]
+        self.assertIn("SessionStart", y["hook_olaylari"])
+        self.assertGreater(y["skill_sayisi"], 10)
 
     def test_zaman_asimlari_hooks_json_ile_uyumlu(self):
         with open(os.path.join(os.path.dirname(__file__), "..", "hooks", "hooks.json"), encoding="utf-8") as f:
