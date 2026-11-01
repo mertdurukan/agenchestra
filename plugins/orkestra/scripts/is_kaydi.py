@@ -112,8 +112,8 @@ SABLON_DIZINI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 
 # tür -> (şablon dosyası, hedef dosya adı kalıbı, sohbet bağlantı etiketi)
 BELGE_TURLERI = {
-    "sozlesme": ("sozlesme.md", "sozlesme_{gun}.md", "görev sözleşmesi"),
-    "mevcut_durum":("mevcut_durum.md", "mevcut_durum_{gun}.md", "mevcut durum"),
+    "sozlesme": ("sozlesme.md", "sozlesme_{gun}.md", "sözleşme ve rapor"),
+    "mevcut_durum":("mevcut_durum.md", "mevcut_durum_{gun}.md", "mevcut durum ve bulgular"),
     "plan": ("plan.md", "plan.md", "plan dosyası"),
     "todo": ("todo.md", "todo.md", "to-do dosyası"),
     "ozet": ("calisma_ozeti.md", "calisma_ozeti_{gun}.md", "çalışma özeti"),
@@ -162,9 +162,9 @@ def ozet_baslik_eksigi(metin: str) -> str | None:
     return None
 
 
-_SEF_KATMAN1 = ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen",
+_SEF_KATMAN1 = ("Durum", "Amaç neydi?", "Ne yapıldı?", "Neden bu yol?", "Ana sayı", "Senden beklenen",
                 "Amaca tamamen ulaşıldı mı?", "Tamamen yapılanlar", "Açık kalanlar")
-_SEF_HARITA_ZORUNLU = ("Denenenler", "Doğrulanmayanlar", "Kararlar")
+_SEF_HARITA_ZORUNLU = ("Denenenler", "Doğrulanamayanlar", "Kararlar")
 _SEF_TESLIM = ("Değişiklik", "Test", "Deploy")  # ADR-0136: Geri alma satırı kalktı
 _SEF_DURUM_ILK = re.compile(r"^(?:Tamam|Kısmen|Engelli)(?![^\W_])")
 _ALAN_SONU = re.compile(r"^(?:\*\*[^*\n]+[:?]\*\*|#)")
@@ -196,12 +196,12 @@ def _alan_govdesi(metin: str, ad: str) -> str | None:
 
 
 def _teslim_eksigi(harita: str) -> list[str]:
-    """ADR-0091: `## Harita` altındaki `**Teslim:**` bloğu ve dört `- **<alt>:** <değer>` satırı; eksik ya da boş alt
+    """ADR-0091: `## Ayrıntılar` altındaki `**Teslim:**` bloğu ve dört `- **<alt>:** <değer>` satırı; eksik ya da boş alt
     satırı adıyla döner."""
     satirlar = harita.splitlines()
     bas = next((i for i, s in enumerate(satirlar) if re.match(r"^\*\*Teslim:?\*\*", s)), None)
     if bas is None:
-        return ["`## Harita` altında `**Teslim:**` bloğu yok (Değişiklik, Test, Deploy)"]
+        return ["`## Ayrıntılar` altında `**Teslim:**` bloğu yok (Değişiklik, Test, Deploy)"]
     blok: list[str] = []
     for t in satirlar[bas + 1:]:
         if _ALAN_SONU.match(t):
@@ -219,10 +219,10 @@ def _teslim_eksigi(harita: str) -> list[str]:
 
 
 def sef_ozeti_eksigi(metin: str, katman1_azami: int = 1200) -> list[str]:
-    """İki katmanlı Şef Özeti (ADR-0085, ADR-0091): `**Amaç neydi?**` taşıyan özette `## Harita` bölümü, içinde dolu
-    Denenenler, Doğrulanmayanlar ve Kararlar alanları olmalı; katman 1 (Şef Özeti alanları) gövdesi `katman1_azami`
+    """İki katmanlı Şef Özeti (ADR-0085, ADR-0091): `**Amaç neydi?**` taşıyan özette `## Ayrıntılar` bölümü, içinde dolu
+    Denenenler, Doğrulanamayanlar ve Kararlar alanları olmalı; katman 1 (Şef Özeti alanları) gövdesi `katman1_azami`
     karakteri aşmamalı. Yeni biçim (`**Amaca tamamen ulaşıldı mı?**` yok) ayrıca dolu `Durum` (ilk sözcük Tamam, Kısmen
-    ya da Engelli), dolu `Nasıl karar verildi?` ve Harita altında dört satırı dolu `Teslim` bloğu ister; o etiketi
+    ya da Engelli), dolu `Neden bu yol?` ve Ayrıntılar altında dört satırı dolu `Teslim` bloğu ister; o etiketi
     taşıyan eski biçim bu uyarıları almaz. `Amaç neydi?` taşımayan özet etkilenmez. Eksik nedenleri döner; tamamsa []."""
     govde = re.sub(r"<!--.*?-->", "", metin or "", flags=re.S)
     if not re.search(r"^\*\*Amaç neydi\?\*\*", govde, re.M):
@@ -235,24 +235,24 @@ def sef_ozeti_eksigi(metin: str, katman1_azami: int = 1200) -> list[str]:
             eksik.append("Şef Özeti `**Durum:**` alanı yok ya da boş: ilk sözcük Tamam, Kısmen ya da Engelli")
         elif not _SEF_DURUM_ILK.match(durum):
             eksik.append("Şef Özeti `**Durum:**` ilk sözcüğü Tamam, Kısmen ya da Engelli olmalı")
-        if not _alan_govdesi(govde, "Nasıl karar verildi?"):
-            eksik.append("Şef Özeti `**Nasıl karar verildi?**` alanı yok ya da boş")
-    m = re.search(r"^##[ \t]+Harita[ \t]*$(.*?)(?=^##[ \t]|\Z)", govde, re.M | re.S)
+        if not _alan_govdesi(govde, "Neden bu yol?"):
+            eksik.append("Şef Özeti `**Neden bu yol?**` alanı yok ya da boş")
+    m = re.search(r"^##[ \t]+(?:Ayrıntılar|Harita)[ \t]*$(.*?)(?=^##[ \t]|\Z)", govde, re.M | re.S)
     if not m or not m.group(1).strip():
-        eksik.append("`## Harita` bölümü yok ya da boş: yöntem, katman, sayı ve kanıt oraya yazılır")
+        eksik.append("`## Ayrıntılar` bölümü yok ya da boş: yöntem, katman, sayı ve kanıt oraya yazılır")
     else:
         for ad in _SEF_HARITA_ZORUNLU:
             d = _alan_govdesi(m.group(1), ad)
             if d is None:
-                eksik.append(f"`## Harita` altında `**{ad}:**` alanı yok")
+                eksik.append(f"`## Ayrıntılar` altında `**{ad}:**` alanı yok")
             elif not d:
-                eksik.append(f"`## Harita` altında `**{ad}:**` boş (yoksa 'Yok' yaz)")
+                eksik.append(f"`## Ayrıntılar` altında `**{ad}:**` boş (yoksa 'Yok' yaz)")
         if yeni_bicim:
             eksik.extend(_teslim_eksigi(m.group(1)))
     uzunluk = sum(len(_alan_govdesi(govde, ad) or "") for ad in _SEF_KATMAN1)
     if uzunluk > katman1_azami:
         eksik.append(f"Şef Özeti (katman 1) gövdesi {uzunluk} karakter, en çok {katman1_azami}: "
-                     "yöntem ve ayrıntıyı `## Harita`ya taşı")
+                     "yöntem ve ayrıntıyı `## Ayrıntılar`a taşı")
     return eksik
 
 
@@ -331,6 +331,9 @@ def plan_madde_ekle(klasor: str, no: int, blok: str) -> str:
     return yol
 
 
+_SONDA_SIRA = {"çalışma özeti": 0, "sözleşme ve rapor": 1, "jira önerisi": 2}
+
+
 def baglanti_satiri(etiket: str, yol: str, proje_koku: str) -> str:
     """'<etiket>: [<ad>](<proje köküne göre yol>)'. Yol her zaman '/' ile yazılır; kök dışındaysa mutlaktır."""
     mutlak = os.path.abspath(yol)
@@ -370,7 +373,7 @@ def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bo
             if os.path.isfile(g_yol):
                 gorulen.add(os.path.normcase(os.path.abspath(g_yol)))
             satirlar.append(baglanti_satiri(etiket, g_yol if os.path.isfile(g_yol) else yol, proje_koku))
-    sz = SIRA.sozlesme_yolu(klasor)  # ADR-0127: sözleşme iç kayıttır; kullanıcıya bağlantı verilmez (ADR-0035'i kısmen değiştirir)
+    sz = SIRA.sozlesme_yolu(klasor)  # ADR-0136: sözleşme iç kayıttır; işin sonunda "sözleşme ve rapor" olarak çalışma özetinden sonra verilir
     if sz:
         gorulen.add(os.path.normcase(os.path.abspath(sz)))
     adaylar = []
@@ -390,6 +393,10 @@ def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bo
     for yol in ek or []:
         ad = os.path.basename(yol)
         adaylar.append((next((e for k, e in _BELGE_KALIPLARI if k.match(ad)), "belge"), yol))
+    if sz and any(e == "çalışma özeti" for e, _ in adaylar):
+        adaylar.append(("sözleşme ve rapor", sz))
+        gorulen.discard(os.path.normcase(os.path.abspath(sz)))
+    adaylar.sort(key=lambda a: _SONDA_SIRA.get(a[0], 3))  # ADR-0136: işin sonunda çalışma özeti, sözleşme ve rapor, jira önerisi
     for etiket, yol in adaylar:
         anahtar = os.path.normcase(os.path.abspath(yol))
         if anahtar in gorulen:
