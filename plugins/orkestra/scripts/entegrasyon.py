@@ -12,8 +12,9 @@ Akış (`entegre_et`):
      suçlu, kendinden öncekilerle yeşil olup kendisi eklenince kırmızılaşan teslimdir. Bu, etkileşim hatasında
      (ayrı yeşil, birlikte kırmızı) son ekleneni sorumlu atar. Suçlu karantinaya alınır, kalanlar yeniden koşulur;
      bilinen yeşil önek korunur, ikinci suçlu aynı yolla bulunur.
-  5. Her suçlu için `kanca(bilgi)` çağrılır (bilgi: teslim, oturum, dal, neden, gunluk). Bildirim (P4) buraya bağlanır;
-     bu modül not göndermez.
+  5. Her suçlu için `kanca(bilgi)` çağrılır (bilgi: teslim, oturum, dal, neden, gunluk). Varsayılan kanca
+     `karantina_bildir` (P4): redakte ve kısaltılmış günlüğü suçlu oturumun gelen kutusuna `not_birak` ile bırakır.
+     `kanca=None` bildirimi kapatır.
 
 Ortak git indeksi: birleştirmeler geçici worktree'nin kendi indeksinde yapılır, ana çalışma ağacının indeksine
 dokunulmaz; hedef dal bir çalışma ağacında çıkılıysa (checkout) ilerletilmez ("hedef_cikili"), çünkü update-ref o
