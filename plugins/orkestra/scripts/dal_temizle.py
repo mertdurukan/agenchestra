@@ -438,6 +438,7 @@ def kapanis(cwd: str, is_id: str = "") -> str:
     """`orkestra is kapat` sonrası: oturum dalını güvenli koşulda `main`'e birleştirir (kipe göre), artık dalları ve biten
     worktree'leri temizler; oturum dalı hâlâ `main`'e birleşmemişse uyarı metni döndürür.
     Oturum dalının kendisi çalışan worktree'de açık olduğundan burada silinemez; worktree atıl kalınca sonraki SessionStart kaldırır."""
+    uyarilar = []
     try:
         b = kapanis_birlestir(cwd, kapi_mod.mod(KAPI, cwd), is_id)
         calistir(cwd, kaynak="is_kapat")
@@ -446,7 +447,14 @@ def kapanis(cwd: str, is_id: str = "") -> str:
             neden = ""
             if b and b["sonuc"] not in ("", "birlestirirdi"):
                 neden = f" ({b['sonuc']}" + (f": {', '.join(b['dosyalar'][:5])}" if b["dosyalar"] else "") + ")"
-            return f"oturum dalı '{dal}' main'e birleşmemiş{neden}; birleştirmeden dal temizlenmez (git merge --no-ff {dal} main'de)."
+            uyarilar.append(f"oturum dalı '{dal}' main'e birleşmemiş{neden}; birleştirmeden dal temizlenmez (git merge --no-ff {dal} main'de).")
     except Exception:
         pass
-    return ""
+    try:
+        import git_denetim
+        u = git_denetim.uyari(cwd)  # uzakta tek kopya commit'ler kaybolmadan görünür olur (I-325); gönderim yalnız açık istekle
+        if u:
+            uyarilar.append(u)
+    except Exception:
+        pass
+    return " ".join(uyarilar)
