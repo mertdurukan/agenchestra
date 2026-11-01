@@ -112,7 +112,7 @@ class HizliYolTest(unittest.TestCase):
         if not isinstance(cfg.makine_oku().get("son_doktor"), dict):
             # arka plan sürecin çıktısı atılır; eşzamanlı koşup nedenini hata iletisine koy
             r = subprocess.run([sys.executable, os.path.join(KOK, "scripts", "doktor.py"), "--duzelt", "--arka-plan"],
-                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300, **cfg.PENCERESIZ)
+                               stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300, **cfg.PENCERESIZ)
             ayrac = chr(10)
             self.fail(ayrac.join(["doktor çalışma işaretini yazmadı; eşzamanlı koşu rc=%s" % r.returncode,
                                   "stdout=" + r.stdout[-600:], "stderr=" + r.stderr[-1200:], "makine=%s" % cfg.makine_oku()]))
