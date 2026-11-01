@@ -358,12 +358,8 @@ def kesif_claude_exe() -> str | None:
     CLAUDE_CODE_EXECPATH olmadığından 'Şimdi uygula' yalnız keşfe güvenir; yeni yerleşim bilinmezse düğme
     'oturum açmamış' diye yanlış hata veriyordu."""
     adaylar: list[str] = []
-    for kok in (os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")):
-        if not kok:
-            continue
-        adaylar += glob.glob(os.path.join(kok, "Claude", "claude-code", "*", "*", "claude.exe"))
-        adaylar += glob.glob(os.path.join(kok, "Claude-Data", "*", "claude-code", "*", "*", "claude.exe"))
-        adaylar += glob.glob(os.path.join(kok, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "claude-code", "*", "*", "claude.exe"))
+    for kok in claude_veri_kokleri():
+        adaylar += glob.glob(os.path.join(kok, "claude-code", "*", "*", "claude.exe"))
     adaylar = [a for a in adaylar if os.path.exists(a)]
     if adaylar:
         return max(adaylar, key=os.path.getmtime)
