@@ -11,23 +11,18 @@
 
 **Amaç:**
 
-<!-- doldur: iki satır. 1) Hangi değişiklik planlanıyor. 2) Bu belge hangi soruyu yanıtlıyor (değişikliğin hangi koda, davranışa ve veriye dokunacağı). plan.md ve todo.md bu belgeye dayanır. -->
+<!-- doldur: tek satır: hangi değişiklik planlanıyor. Belgenin ne işe yaradığını anlatan cümle yazılmaz. -->
 
-- 
 - 
 
 **Ölçüm saati:**
 
-<!-- doldur: her bilgi ayrı satır, bu dört etiketle:
+<!-- doldur: her bilgi ayrı satır, bu iki etiketle (dal ve commit yazılmaz):
 - Tarih ve saat: GG.AA.YYYY SS:DD (yerel)
-- Depo: ad ya da yol
-- Dal: ad
-- Commit: kısa hash ve tarihi -->
+- Depo: ad ya da yol -->
 
 - Tarih ve saat: 
 - Depo: 
-- Dal: 
-- Commit: 
 
 **Harita:**
 
