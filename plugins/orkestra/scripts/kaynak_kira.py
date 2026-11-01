@@ -202,6 +202,19 @@ def _golge_kaydet(proje: str | None, neden: str) -> None:
         pass
 
 
+def _bekleyen_sil(yol: str, kimlik: str) -> None:
+    """Bekleyen kaydını kuyruktan siler (en iyi çaba; kilit alınamazsa kayıt sona_erme_s ile düşer)."""
+    try:
+        with L.kilit(yol, bekleme_s=_KILIT_BEKLEME_S):
+            d = _oku(yol)
+            kalan = [x for x in d["bekleyenler"] if x.get("kimlik") != kimlik]
+            if len(kalan) != len(d["bekleyenler"]):
+                d["bekleyenler"] = kalan
+                _yaz(yol, d)
+    except Exception:
+        pass
+
+
 @contextmanager
 def kira(istenen: int, komut: str | None = None, kaynak: str = "test_kosusu", proje: str | None = None,
          cikti=None):
