@@ -29,7 +29,7 @@ class IsBelge(unittest.TestCase):
             plan = f.read()
         self.assertTrue(plan.startswith("# Deneme işi\n"))
         basliklar = re.findall(r"^## (.+)$", plan, re.M)
-        self.assertEqual(basliklar, ["Amaç", "Kararlar", "Kapsam", "Riskler", "Doğrulanmayanlar"])
+        self.assertEqual(basliklar, ["Amaç", "Kararlar", "Kapsam", "Riskler", "Doğrulanamayanlar"])
         self.assertNotIn("{", plan)
 
     def test_belge_ozet_olusturur_ve_baglanti_basar(self):
@@ -41,8 +41,8 @@ class IsBelge(unittest.TestCase):
         self.assertTrue(os.path.exists(yol))
         satirlar = r.stdout.splitlines()
         self.assertTrue(satirlar[0].startswith("oluşturuldu: "), satirlar[0])
-        self.assertEqual(satirlar[1], "plan dosyası: [plan.md](is1/plan.md)")
-        self.assertEqual(satirlar[2], "to-do dosyası: [todo.md](is1/todo.md)")
+        self.assertEqual(satirlar[1], "plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)")
+        self.assertEqual(satirlar[2], "to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)")
         self.assertEqual(satirlar[3], f"çalışma özeti: [calisma_ozeti_{gun}.md](is1/calisma_ozeti_{gun}.md)")
         with open(yol, encoding="utf-8") as f:
             metin = f.read()
@@ -81,8 +81,8 @@ class IsBelge(unittest.TestCase):
     def test_baglanti_plan_todo_ve_yakin_belgeler(self):
         i, klasor = self.ac()
         r = self.cli("is", "baglanti", i)
-        self.assertEqual(r.stdout.splitlines(), ["plan dosyası: [plan.md](is1/plan.md)",
-                                                 "to-do dosyası: [todo.md](is1/todo.md)"])
+        self.assertEqual(r.stdout.splitlines(), ["plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)",
+                                                 "to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)"])
         yeni = os.path.join(klasor, "rapor.md")
         eski = os.path.join(klasor, "bulgu.md")
         for yol in (yeni, eski, os.path.join(klasor, "devir.md"), os.path.join(klasor, "kod.py")):
@@ -103,14 +103,14 @@ class IsBelge(unittest.TestCase):
         with open(ek, "w", encoding="utf-8") as f:
             f.write("x\n")
         s = self.cli("is", "baglanti", i, "--ek", ek, "--ek", os.path.join(klasor, "plan.md")).stdout.splitlines()
-        self.assertEqual(s, ["plan dosyası: [plan.md](is1/plan.md)", "to-do dosyası: [todo.md](is1/todo.md)",
+        self.assertEqual(s, ["plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)", "to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)",
                              "çalışma özeti: [notlar_ozet.md](is1/notlar_ozet.md)"])
 
     def test_devam_baglanti_satirlari_icerir(self):
         i, _ = self.ac()
         r = self.cli("is", "devam", i)
-        self.assertIn("plan dosyası: [plan.md](is1/plan.md)", r.stdout)
-        self.assertIn("to-do dosyası: [todo.md](is1/todo.md)", r.stdout)
+        self.assertIn("plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)", r.stdout)
+        self.assertIn("to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)", r.stdout)
 
 
 class BaglantiSatiri(unittest.TestCase):

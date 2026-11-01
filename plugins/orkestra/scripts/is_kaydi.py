@@ -165,7 +165,7 @@ def ozet_baslik_eksigi(metin: str) -> str | None:
 _SEF_KATMAN1 = ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen",
                 "Amaca tamamen ulaşıldı mı?", "Tamamen yapılanlar", "Açık kalanlar")
 _SEF_HARITA_ZORUNLU = ("Denenenler", "Doğrulanmayanlar", "Kararlar")
-_SEF_TESLIM = ("Değişiklik", "Test", "Deploy", "Geri alma")
+_SEF_TESLIM = ("Değişiklik", "Test", "Deploy")  # ADR-0136: Geri alma satırı kalktı
 _SEF_DURUM_ILK = re.compile(r"^(?:Tamam|Kısmen|Engelli)(?![^\W_])")
 _ALAN_SONU = re.compile(r"^(?:\*\*[^*\n]+[:?]\*\*|#)")
 _TABLO_AYRAC = re.compile(r"^\s*\|[\s|:\-]*\|\s*$")
@@ -201,7 +201,7 @@ def _teslim_eksigi(harita: str) -> list[str]:
     satirlar = harita.splitlines()
     bas = next((i for i, s in enumerate(satirlar) if re.match(r"^\*\*Teslim:?\*\*", s)), None)
     if bas is None:
-        return ["`## Harita` altında `**Teslim:**` bloğu yok (Değişiklik, Test, Deploy, Geri alma)"]
+        return ["`## Harita` altında `**Teslim:**` bloğu yok (Değişiklik, Test, Deploy)"]
     blok: list[str] = []
     for t in satirlar[bas + 1:]:
         if _ALAN_SONU.match(t):

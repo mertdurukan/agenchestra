@@ -31,7 +31,7 @@
 
 **Nasıl karar verildi?**
 
-<!-- doldur: en çok 2 cümle; neyi kanıtlayıp eledik, neden bu yol, kontrolün sınırı. Ayrıntı `## Harita`daki Denenenler ve Kararlar'da. -->
+<!-- doldur: en çok 2 cümle, düz dille: hangi yolu seçtik, neden, neyi eledik. Kullanıcı bağlamı bilmez: kısaltma ve iç terim kullanma. Ayrıntı `## Harita`daki Denenenler ve Kararlar'da. -->
 
 **Ana sayı:**
 
@@ -57,8 +57,6 @@
 
 - Tarih ve saat: {tarih} {saat} (yerel)
 - Depo: 
-- Dal: 
-- Commit: 
 
 **Denenenler:**
 
@@ -74,7 +72,7 @@
 
 **Doğrulanmayanlar:**
 
-<!-- doldur: denenmeyen ya da ölçülemeyen her şey ayrı satır ve nedeniyle (erişim, süre, kapsam dışı); yoksa "Yok". -->
+<!-- doldur: yalnız denenip engele takılan şey girer; her satır konu ve somut engel (erişim, yetki, süre). Veritabanı, kod, komut ya da API ile bakılabilen şey bu bölüme yazılmaz, önce bakılır (ADR-0136); "bakılmadı" engel değildir. Yoksa "Yok". -->
 
 - 
 
@@ -86,20 +84,15 @@
 
 **Teslim:**
 
-<!-- doldur (ADR-0091): Jira Done yorumu bu dört satırdan türetilir; satır başına bir değer, somut ad, sürüm ya da bağlantı ile. Değişiklik: PR bağlantısı ve birleşen commit. Test: hangi testler koştu, sonuç. Deploy: hangi ortama, ne zaman; ya da "çıkmadı, neden". Geri alma: geri alma yolu. Yapılmadıysa "yok" ve nedeni. -->
+<!-- doldur (ADR-0091): Jira Done yorumu bu üç satırdan türetilir; satır başına bir değer, somut ad, sürüm ya da bağlantı ile. Değişiklik: PR bağlantısı ve birleşen commit. Test: hangi testler koştu, sonuç. Deploy: hangi ortama, ne zaman; ya da "çıkmadı, neden". Yapılmadıysa "yok" ve nedeni. -->
 
 - **Değişiklik:** 
 - **Test:** 
 - **Deploy:** 
-- **Geri alma:** 
 
 **Açık işlerin ayrıntısı:**
 
 <!-- doldur: `Açık kalanlar`daki her iş için neden bekliyor, kimde ve sonraki adım; yoksa "Yok". -->
-
-- 
-
-**İlgili dosyalar:**
 
 - 
 

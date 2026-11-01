@@ -10,7 +10,7 @@
 
 ## Kararlar
 
-<!-- doldur: her karar ayrı satır: `- **K1:** karar. Neden: …`. -->
+<!-- doldur: her karar ayrı satır: `- karar. Neden: …`. -->
 
 ## Kapsam
 
@@ -18,8 +18,8 @@
 
 ## Riskler
 
-<!-- doldur: her risk ayrı satır: `- **R1:** risk → olasılık: düşük | orta | yüksek → önlem`; yoksa "Yok". -->
+<!-- doldur: her risk ayrı satır: `- risk → olasılık: düşük | orta | yüksek → önlem`; yoksa "Yok". -->
 
-## Doğrulanmayanlar
+## Doğrulanamayanlar
 
-<!-- doldur: yalnız doğrulanması denenip doğrulanamayanlar; her madde Konu, Denenen, Engel satırlarıyla; yoksa "Yok". -->
+<!-- doldur: yalnız doğrulanması DENENİP engele takılanlar; bakılabilen her şeye (veritabanı, kod, komut, API) önce bakılır, "bakılmadı" engel değildir (ADR-0136); her madde Konu, Denenen, Engel satırlarıyla; yoksa "Yok". -->

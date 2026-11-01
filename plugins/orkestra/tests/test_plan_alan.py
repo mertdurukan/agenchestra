@@ -204,7 +204,7 @@ def _eksikler(kok):
 
 
 ZINCIR_SOZCUK = ("Gap", "G4", "Sözleşme", "S3", "S4", "Dayanak", "MD §", "İddialar", "Önce", "Yazma alanı", "dalga", "Dalga")
-ELLE = {"Ne", "Dokunulan yer", "Kabul", "Geri alma", "Mevcut varlık", "Alternatifler", "Üretim noktası"}
+ELLE = {"Ne", "Dokunulan yer", "Kabul", "Mevcut varlık", "Alternatifler", "Üretim noktası"}
 
 
 class PlanAlanTesti(unittest.TestCase):

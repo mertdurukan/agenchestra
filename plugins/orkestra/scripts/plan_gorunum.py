@@ -16,7 +16,7 @@ _ETIKET = re.compile(r"^\*\*([^*:]+):\*\*\s*(.*)$")
 _GIZLI_BOLUM = ("dalgalar", "gap kapsama", "best in class denetimi")
 _GIZLI_ALAN = ("Sıra", "Önce oku", "ADR", "LLM çıktısı", "Hazırlanma saati")
 _GOSTERILEN_ALAN = {"Ne": "Ne yapılacak", "Kabul": "Bitti sayılır"}  # P maddesinde kullanıcıya giden alanlar
-_NUMARA = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?[RSK]\d+(?:\*\*)?:?\s*")
+_NUMARA = re.compile(r"^\s*(?:[-*]\s+)?\*{0,2}[RSK]\d+:?\*{0,2}:?\s*")
 _DAYANAK = re.compile(r"\s*Dayanak:\s*MD\s*§[\d.]+\.?", re.I)
 _P_ATIF = re.compile(r"\s*\((?:P\d+(?:[,\s]+)?)+\)")
 
@@ -85,7 +85,6 @@ def plan_gorunumu(metin: str) -> str:
     saat = hazirlanma(metin)
     if saat:
         cikti += [f"<sub>Hazırlanma: {saat}</sub>", ""]
-    maddeler_yaz = False
     for ad, govde in bolumler[1:]:
         ad_k = re.sub(r"^\d+\.\s*", "", ad).strip()
         if ad_k.lower() in _GIZLI_BOLUM:
@@ -109,7 +108,6 @@ def plan_gorunumu(metin: str) -> str:
                 for k, etiket in _GOSTERILEN_ALAN.items():
                     if alan.get(k):
                         cikti += [f"**{etiket}:** {_temiz(alan[k]) if k == 'Ne' else alan[k]}", ""]
-            maddeler_yaz = True
         elif ad_k == "Riskler":
             m = _maddeler(govde)
             if m:
@@ -122,14 +120,13 @@ def plan_gorunumu(metin: str) -> str:
             icerik = [s for s in govde if s.strip()]
             if icerik:
                 cikti += [f"## {ad_k}", ""] + icerik + [""]
-    del maddeler_yaz
     return "\n".join(cikti).rstrip() + "\n"
 
 
 def todo_gorunumu(todo: str, plan: str) -> str:
     """todo.md → plan maddesi başlığı altında gruplanmış, düz cümleli görünüm."""
     p_ad = {}
-    plan_bl = _p_bloklari(_bolumler(plan)[1:][0][1]) if False else None
+    plan_bl = None
     for ad, govde in _bolumler(plan)[1:]:
         if re.sub(r"^\d+\.\s*", "", ad).strip() == "Plan maddeleri":
             plan_bl = _p_bloklari(govde)

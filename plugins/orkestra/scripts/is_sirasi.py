@@ -1148,7 +1148,7 @@ def _plan_temel_eksikleri(klasor: str, metin: str) -> list[str]:
             eksik.append(f"P{n}: dayanak MD §{dayanaklar[0]} geçersiz (§1-§{md_son if gapli_mi(klasor) else md_sayi})")
     if kaliteli_mi(klasor):  # ADR-0126: plan `## Özet` taşımaz; ilk satır bölüm başlıklarında `**Sonuç:**`
         for n, blok in sorted(bloklar.items()):
-            for alan in ("Kabul", "Geri alma"):
+            for alan in ("Kabul",):  # ADR-0136: Geri alma alanı kalktı
                 if not alan_dolu(blok, alan):
                     eksik.append(f"P{n}: `**{alan}:**` alanı yok ya da boş (P-018)")
     return eksik

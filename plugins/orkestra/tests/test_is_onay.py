@@ -248,8 +248,8 @@ class KutuOncesiBaglanti(_Onay):
         self.belgeler()
         deny, neden = self.pre("mcp__ccd_turn__wrap_up", komut="x")
         self.assertFalse(deny)
-        self.assertIn("plan dosyası: [plan.md]", self.son_cikti["systemMessage"])
-        self.assertIn("to-do dosyası: [todo.md]", self.son_cikti["systemMessage"])
+        self.assertIn("plan dosyası: [plan_gorunum.md]", self.son_cikti["systemMessage"])
+        self.assertIn("to-do dosyası: [todo_gorunum.md]", self.son_cikti["systemMessage"])
 
     def test_ikinci_cagri_satir_tekrarlamaz(self):
         self.belgeler()

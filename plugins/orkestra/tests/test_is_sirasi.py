@@ -253,8 +253,8 @@ class IsSirasi(unittest.TestCase):
         self.yaz(os.path.join(klasor, "todo.md"), "- [ ] P1: x\n")
         satirlar = self.cli("is", "baglanti", i).stdout.splitlines()
         self.assertEqual(satirlar[0], f"mevcut durum: [{MD_AD}](is1/{MD_AD})")
-        self.assertEqual(satirlar[1], "plan dosyası: [plan.md](is1/plan.md)")
-        self.assertEqual(satirlar[2], "to-do dosyası: [todo.md](is1/todo.md)")
+        self.assertEqual(satirlar[1], "plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)")
+        self.assertEqual(satirlar[2], "to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)")
 
     # ------------------------------------------------------------ yazım anı kapısı (hook)
     def test_hook_plan_yazimi_mevcut_durum_tamam_olmadan_reddedilir(self):
@@ -504,13 +504,12 @@ class KaliteCitasi(unittest.TestCase):
         self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(kabul=""))
         e = S.plan_eksikleri(self.k)
         self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
-        self.assertTrue(any(x.startswith("P2:") and "Geri alma" in x for x in e), e)
+        self.assertTrue(any(x.startswith("P2:") and "Kabul" in x for x in e), e)
 
     def test_doldur_yer_tutucusu_bos_sayilir(self):
         self.yaz(os.path.join(self.k, "plan.md"), self.plan_metni(kabul="**Kabul:** <doldur>\n\n**Geri alma:** <doldur> sonra\n"))
         e = S.plan_eksikleri(self.k)
         self.assertTrue(any(x.startswith("P1:") and "Kabul" in x for x in e), e)
-        self.assertTrue(any(x.startswith("P1:") and "Geri alma" in x for x in e), e)
         self.assertTrue(S.alan_dolu("**Kabul:** testler geçer; `<doldur>` kalmaz", "Kabul"))  # metin içi alıntı dolu sayılır
         self.assertFalse(S.alan_dolu("**Kabul:** `<doldur>`", "Kabul"))
 
@@ -624,7 +623,7 @@ class PlanYazimRaporu(unittest.TestCase):
         self.assertTrue(m.startswith("plan.md yazılamaz (P-005"), m)
         self.assertLess(m.index("Ret nedeni (1):"), m.index("Diğer eksikler"))
         for parca in ("aranan şey", "bağlantısı yok", "P1: `MD §<k>` dayanağı yok", "P2: dayanak MD §9 geçersiz",
-                      "P1: `**Kabul:**`", "P2: `**Geri alma:**`", "P1: `**Gap:** G<n>`",
+                      "P1: `**Kabul:**`", "P2: `**Kabul:**`", "P1: `**Gap:** G<n>`",
                       "P2: `**Gap:** G<n>`", "G1: hiçbir P", "G2: hiçbir P"):
             self.assertIn(parca, m)
         self.assertNotIn("Özet", m)  # ADR-0126
@@ -656,7 +655,7 @@ class PlanYazimRaporu(unittest.TestCase):
         for i in maddeler:
             self.assertTrue(satirlar[i + 1].startswith("   → "), satirlar[i:i + 2])
         for duzeltme in ("P1 altına yaz: `**Gap:** G1`", "P1 altına yaz: `**Kabul:** <ölçülebilir ölçüt>`",
-                         "P2 altına yaz: `**Geri alma:**", "P1 altına yaz: `**Dayanak:** MD §3`",
+                         "P2 altına yaz: `**Kabul:**", "P1 altına yaz: `**Dayanak:** MD §3`",
                          "`- **G2:** Kapsam dışı: <gerekçe>`", "P1 altına yaz: `**Alternatifler:**`"):
             self.assertIn(duzeltme, m)
 

@@ -1,5 +1,7 @@
 # {baslik}: plan
 
+**Hazırlanma saati:** {tarih} {saat}
+
 <!-- Yazım kuralları (tüm belge):
 1. Her ayrı ifade ayrı bir satırdır (madde işareti ya da numara ile); bir satırda en çok bir cümle, ~200 karakter.
 2. Başlık hiyerarşisi: `##` ana başlık, `###` alt başlık (`### P1 Ad`); kalın etiket başlık yerine kullanılmaz, yalnız alan adı olarak kullanılır.
@@ -23,9 +25,6 @@
 
 <!-- doldur: iki satırda da açılı yer tutucuyu silip değeri yaz; doldurulmadan kapı reddeder. ADR (P-015): `ADR-nnnn` (adr/ klasöründe dosyası olur) ya da `gerekmez — <neden>`. LLM çıktısı (P-032): `yok — <en az 3 sözcük gerekçe>` ya da `kullanıcıya gider — Doğrulama: <yol>`. -->
 
-**Hazırlanma saati:**
-
-{tarih} {saat}
 
 ## 1. Hedef
 
@@ -57,7 +56,7 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 
 ## 3. Kararlar
 
-<!-- doldur: her karar ayrı satır: - **K1:** karar. Neden: ... Dayanak: MD §n -->
+<!-- doldur (ADR-0136): iki yol varsa (örn. eski ve yeni sürüm) önce hangisinin yaşayacağı mevcut durum kanıtıyla belirlenir; seçilmeyen yola yatırım yapılmaz, yapılıyorsa gerekçesi burada yazılır. Her karar: her karar ayrı satır: - karar. Neden: ... Dayanak: MD §n -->
 
 ## 4. Plan maddeleri
 
@@ -74,7 +73,6 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 **İddialar:** C1, C2   (bu maddenin uygulanabilirliği hangi iddialara bağlı)
 **Kapatır:** C5   (yalnız spike maddesinde: bu madde C5'in ❌'sini kapatmak için koşulur)
 **Kabul:** ölçülebilir tek ölçüt (komut çıktısı, sayı, dosya:satır); "yapıldı" kabul değildir (kalite kapısında zorunlu)
-**Geri alma:** değişikliği geri almanın yolu (kalite kapısında zorunlu)
 **Önce:** zorunlu: `yok` ya da virgülle `P<n> — Çıktı: <o maddenin hangi çıktısını okuduğu>` / `P<n> — Çakışma: <hangi dosyada yazma alanı kesişir>`; yalnız gerçek bağımlılık yaz, "sıra düzgün olsun" gerekçe değildir
 **Yazma alanı:** bu maddenin yazacağı dosyalar (virgülle; glob olabilir); aynı dalgadaki maddelerin alanları kesişmez
 **Alternatifler:** en az iki uygulanabilir yaklaşım, madde işaretli ayrı satırlarda: `- Seçilen: … Neden: …` ve `- Elenen: … Neden elendi: …` (P-030; `orkestra standart goster best_in_class`)
@@ -106,11 +104,11 @@ Plan yazarından AYRI `orkestra:denetci` dört soruyu yanıtlar (`orkestra stand
 
 ## 5. Riskler
 
-<!-- doldur: her risk ayrı satır, tam bu biçimde: `- **R1:** risk → olasılık: düşük | orta | yüksek → önlem (P<n>)`. Risk yoksa tek satır: "Yok". -->
+<!-- doldur: her risk ayrı satır, tam bu biçimde: `- risk → olasılık: düşük | orta | yüksek → önlem (P<n>)`. Risk yoksa tek satır: "Yok". -->
 
-## 6. Doğrulanmayanlar
+## 6. Doğrulanamayanlar
 
-<!-- doldur: yalnız doğrulanması denenip DOĞRULANAMAYAN şeyler; yoksa tek satır: "Yok". Her madde üç satır: Konu (neyin doğrulanamadığı), Denenen (hangi yol denendi), Engel (neden doğrulanamadı, kim kapatabilir). -->
+<!-- doldur: yalnız doğrulanması DENENİP engele takılan şeyler; veritabanı, kod, komut ya da API ile bakılabilen her şeye plan yazılmadan önce bakılır, "bakılmadı" engel değildir (ADR-0136); yoksa tek satır: "Yok". Her madde üç satır: Konu (neyin doğrulanamadığı), Denenen (hangi yol denendi), Engel (neden doğrulanamadı, kim kapatabilir). -->
 
 ## 7. Tahminler
 

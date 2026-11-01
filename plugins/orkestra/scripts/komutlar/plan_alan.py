@@ -6,7 +6,7 @@
 Zincir alanları (Gap, Sözleşme, Dayanak, İddialar, Önce, Yazma alanı) iş belgelerinden doğrulanıp türetilir:
 G'ler mevcut durum gap bölümünden, S'ler sözleşmenin `## Başarı kriterleri` bölümünden, C'ler ve P'ler plan.md'den okunur.
 Dayanak, seçilen G satırlarının andığı `MD §k` bölümünden türer (anma yoksa `MD §<gap bölümü> G<n>`). Serbest alanlar
-(Ne, Kabul, Geri alma, Alternatifler, Üretim noktası …) `<doldur>` yer tutucusuyla kalır. Alan sırası işin plan
+(Ne, Kabul, Alternatifler, Üretim noktası …) `<doldur>` yer tutucusuyla kalır. Alan sırası işin plan
 şablonundan gelir (`is_kaydi.plan_alan_sirasi`); plan biçimi değişmez, elle yazılmış planlar aynen geçerlidir.
 Var olmayan G/S/C/P numarası çıkış 2 ile reddedilir. `--yaz` olmadan dosya değişmez (yalnız stdout).
 """
@@ -152,7 +152,7 @@ def iskelet(klasor: str, gap=None, soz=None, iddia=None, onceki=None, yazma=None
 
     sira = [a for a in is_kaydi.plan_alan_sirasi(klasor) if a != "Kapatır"]
     if not sira:
-        sira = ["Ne", "Dayanak", "Dokunulan yer", "Kabul", "Geri alma", "Önce", "Gap", "Sözleşme", "Mevcut varlık",
+        sira = ["Ne", "Dayanak", "Dokunulan yer", "Kabul", "Önce", "Gap", "Sözleşme", "Mevcut varlık",
                 "Alternatifler", "Üretim noktası"]
     if "Yazma alanı" not in sira and ("Yazma alanı" in deger or k["paralel"]):
         sira.insert(sira.index("Önce") + 1 if "Önce" in sira else len(sira), "Yazma alanı")
