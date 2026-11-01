@@ -1,4 +1,4 @@
-"""I-326 (ADR-0138): sınırsız bekleme döngüsü kapısı (scripts/bekleme_kapisi.py), hook bağlantısı, mod ve kapatma.
+"""I-326 (ADR-0139): sınırsız bekleme döngüsü kapısı (scripts/bekleme_kapisi.py), hook bağlantısı, mod ve kapatma.
 `PYTHONUTF8=1 py -3.13 -m pytest -q plugins/orkestra/tests/test_bekleme_kapisi.py`
 Kalıplar testte sabitlenmez; ayardan okunur. Hepsi geçici projede koşar.
 """

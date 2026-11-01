@@ -1,4 +1,4 @@
-"""Sınırsız bekleme döngüsü kapısı (ADR-0138): Bash komutunda zaman sınırı, sayaç ya da süreç canlılığı kontrolü olmayan
+"""Sınırsız bekleme döngüsü kapısı (ADR-0139): Bash komutunda zaman sınırı, sayaç ya da süreç canlılığı kontrolü olmayan
 bekleme döngüsü komut koşmadan yakalanır; sınırsız döngü arka plan görevi olarak sonsuza dek açık kalır. Model çağrılmaz.
 
 Kalıplar, ret/uyarı metni ve mod kodda durmaz: `ayarlar/bekleme_kapisi.json` (eklenti varsayılanı) ve proje durum
@@ -64,8 +64,8 @@ def _veri_disi(komut: str) -> str:
 
 def _surec_sinir_gecersiz(blok: str, ayar: dict) -> bool:
     """`until A && ! pgrep ...`: dosya koşulu hiç gerçekleşmezse süreç ölse de döngü biter mi? Hayır, süreç canlılığı
-    yalnız tek başına koşulsa sınırdır. `until` koşulunda bağlaç (`until_ve_kalibi`) varsa süreç sınırı sayılmaz."""
-    if not _var(ayar.get("until_baslangic_kalibi"), blok):
+    yalnız tek başına koşulsa sınırdır. `until` koşulunda bağlaç (`kosul_ve_kalibi`) varsa süreç sınırı sayılmaz."""
+    if not _var(ayar.get("tersine_dongu_kalibi"), blok):
         return False
     govde = None
     for k in ayar.get("govde_baslangic_kalibi") or []:
@@ -77,7 +77,7 @@ def _surec_sinir_gecersiz(blok: str, ayar: dict) -> bool:
             govde = m.start()
             break
     kosul = blok if govde is None else blok[:govde]
-    return _var(ayar.get("until_ve_kalibi"), kosul)
+    return _var(ayar.get("kosul_ve_kalibi"), kosul)
 
 
 def sinirsiz_donguler(komut, ayar: dict) -> list[str]:

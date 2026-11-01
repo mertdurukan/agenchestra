@@ -1,6 +1,6 @@
 {
   "mod": "golge",
-  "mod_aciklama": "ADR-0138, P-028: golge = kapi_golge kaydi + uyari, komut engellenmez; ihlal = ret. ihlal gecisi >=14 gun ve >=30 olay olcumunden sonra ayri ADR ile. Kapatma: ORKESTRA_BEKLEME_KAPISI=0.",
+  "mod_aciklama": "ADR-0139, P-028: golge = kapi_golge kaydi + uyari, komut engellenmez; ihlal = ret. ihlal gecisi >=14 gun ve >=30 olay olcumunden sonra ayri ADR ile. Kapatma: ORKESTRA_BEKLEME_KAPISI=0.",
   "dongu_kaliplari": [
     "\\b(?:until|while)\\b(?P<govde>.*?)\\bdone\\b"
   ],
@@ -39,6 +39,6 @@
     "\\s-(?:lt|le|ge|gt)\\s",
     "\\(\\([^)]*[<>]"
   ],
-  "ret_metni": "Orkestra (ADR-0138): zaman sinirsiz bekleme dongusu reddedildi (`until/while ... sleep`; timeout, sayac ya da `timeout N` sarmasi yok). Takili kalan dongu arka plan gorevi olarak sonsuza dek acik kalir. Dogru yol: kosuyu `run_in_background` ile baslat, bitince bildirim gelir, sonucu cikti dosyasindan oku; ya da dongunun basina sinir koy: `timeout 120 bash -c '...'` / sayac (`i=0; until ... || [ $i -ge 30 ]; do i=$((i+1)); sleep 5; done`). Dosya var mi testi tek basina sinir degildir.",
-  "uyari_metni": "Orkestra (ADR-0138, golge): zaman sinirsiz bekleme dongusu. Kosuyu `run_in_background` ile baslat ve bildirimi bekle ya da dongunun basina `timeout N` / sayac koy."
+  "ret_metni": "Orkestra (ADR-0139): zaman sinirsiz bekleme dongusu reddedildi (`until/while ... sleep`; timeout, sayac ya da `timeout N` sarmasi yok). Takili kalan dongu arka plan gorevi olarak sonsuza dek acik kalir. Dogru yol: kosuyu `run_in_background` ile baslat, bitince bildirim gelir, sonucu cikti dosyasindan oku; ya da dongunun basina sinir koy: `timeout 120 bash -c '...'` / sayac (`i=0; until ... || [ $i -ge 30 ]; do i=$((i+1)); sleep 5; done`). Dosya var mi testi tek basina sinir degildir.",
+  "uyari_metni": "Orkestra (ADR-0139, golge): zaman sinirsiz bekleme dongusu. Kosuyu `run_in_background` ile baslat ve bildirimi bekle ya da dongunun basina `timeout N` / sayac koy."
 }
