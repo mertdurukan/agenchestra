@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import copy
 import json
 import os
 import re
@@ -1265,11 +1266,33 @@ def _todo_metin(ham: str) -> str:
     return t if len(t) <= 100 else t[:99] + "…"
 
 
+_TODO_ONBELLEK: dict = {}   # yol -> (mtime_ns, boyut, maddeler); I-312: panel yenilemesi 300 todo dosyasını yeniden açmasın
+_TODO_ONBELLEK_AZAMI = 2000
+
+
 def todo_maddeleri(klasor: str) -> list[dict]:
-    """TODO.md'nin üst düzey onay kutulu maddeleri (dosya sırası)."""
+    """TODO.md'nin üst düzey onay kutulu maddeleri (dosya sırası). Dosya değişmediyse ayrıştırma önbellekten gelir."""
     yol = _todo_dosyasi(klasor)
     if not yol:
         return []
+    try:
+        st = os.stat(yol)
+        imza = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        imza = None
+    if imza is not None:
+        hit = _TODO_ONBELLEK.get(yol)
+        if hit and hit[0] == imza:
+            return copy.deepcopy(hit[1])
+    sonuc = _todo_ayristir(yol)
+    if imza is not None:
+        if len(_TODO_ONBELLEK) >= _TODO_ONBELLEK_AZAMI:
+            _TODO_ONBELLEK.clear()
+        _TODO_ONBELLEK[yol] = (imza, copy.deepcopy(sonuc))
+    return sonuc
+
+
+def _todo_ayristir(yol: str) -> list[dict]:
     out, bolum, son = [], "", None
     with open(yol, encoding="utf-8-sig", errors="replace") as f:
         for satir in f:
