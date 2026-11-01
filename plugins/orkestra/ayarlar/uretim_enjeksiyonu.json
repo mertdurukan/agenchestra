@@ -11,7 +11,7 @@
       "dosya": [
         "plan.md"
       ],
-      "metin": "Plan maddesi: Ne, Dayanak, Dokunulan yer, Gap, Sözleşme, Mevcut varlık, İddialar, Kabul, Geri alma, Önce, Yazma alanı, Alternatifler (Seçilen/Elenen), Üretim noktası (tek satır: Düzeltme: <yer> — <önleme>). Alanlar ayrı satırda (K-005). İskelet: orkestra is belge <iş> plan."
+      "metin": "Plan maddesi: Ne, Dayanak, Dokunulan yer, Gap, Sözleşme, Mevcut varlık, İddialar, Kabul, Geri alma, Önce, Yazma alanı, Alternatifler (Seçilen/Elenen), Üretim noktası (madde işaretsiz: **Üretim noktası:** Düzeltme: <yer> — <önleme>). Alanlar ayrı satırda. İskelet: orkestra is belge <iş> plan."
     },
     {
       "tur": "todo",

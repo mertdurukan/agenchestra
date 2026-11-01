@@ -78,10 +78,8 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 **Önce:** zorunlu: `yok` ya da virgülle `P<n> — Çıktı: <o maddenin hangi çıktısını okuduğu>` / `P<n> — Çakışma: <hangi dosyada yazma alanı kesişir>`; yalnız gerçek bağımlılık yaz, "sıra düzgün olsun" gerekçe değildir
 **Yazma alanı:** bu maddenin yazacağı dosyalar (virgülle; glob olabilir); aynı dalgadaki maddelerin alanları kesişmez
 **Alternatifler:** en az iki uygulanabilir yaklaşım, madde işaretli ayrı satırlarda: `- Seçilen: … Neden: …` ve `- Elenen: … Neden elendi: …` (P-030; `orkestra standart goster best_in_class`)
-**Üretim noktası:** sorunun doğduğu yer ve orada önleme, üç türden biri, her tür ayrı satırda (tek satıra ' · ' ile sıkıştırma: biçim kapısı reddeder):
-- `Düzeltme: <kural|şablon|skill|betik|kart|istem|hook|ayar|standart ya da yol> — <orada önleme>`
-- `Kontrol: <yer> — <ne kontrol edilir>; Kaynakta çözülmedi çünkü: <neden>`
-- `Yeni yetenek — <düzeltilecek kusur olmadığının gerekçesi>`
+**Üretim noktası:** Düzeltme: <kural|şablon|skill|betik|kart|istem|hook|ayar|standart ya da yol> — <orada önleme, en az 15 karakter>
+(Tek satır, madde işaretsiz; ' · ' ile sıkıştırma ve `- ` önekini biçim kapısı reddeder. Diğer iki tür aynı satırda alanın değeri olur: `Kontrol: <yer> — <ne kontrol edilir>; Kaynakta çözülmedi çünkü: <neden>` ya da `Yeni yetenek — <düzeltilecek kusur olmadığının gerekçesi>`.)
 (K-006; `uretim: true` işlerde zorunlu, her maddenin metni kendine özgü olur; hata, ret, kusur, tekrar geçen maddede `Yeni yetenek` yazılmaz)
 ```
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
