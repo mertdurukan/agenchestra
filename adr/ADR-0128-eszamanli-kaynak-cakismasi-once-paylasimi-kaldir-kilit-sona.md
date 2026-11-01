@@ -39,6 +39,8 @@ Olumsuz: önbellek geçersiz kılma mantığı ek karmaşıklıktır.
 
 Gölge dönemi: `kaynak_kira` ve `test_yonlendirme` kapıları `kapi_golge` kaydı yazar, engellemez; ihlal geçişi `orkestra is rapor` sayıları ölçüldükten sonra ayrı kararla yapılır.
 
+Güncelleme: ADR-0129 — 01.11.2026'da kullanıcı kararıyla `kaynak_kira` ve `test_yonlendirme` ihlal moduna alındı, test sonucu önbelleği açıldı (gölge dönemi kısa, sayılar ADR-0129'da).
+
 Geri alma: her parça ayarla kapatılır (`kaynak_kira.json` mod alanı `kapali`, `ORKESTRA_TEST_YONLENDIRME=0`) ve ayrı commit'tir.
 
 **İlgili iş ya da kural kimliği:** I-309, P-028, P-029 yanında K-006, P-022.
