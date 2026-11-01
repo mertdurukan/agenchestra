@@ -222,11 +222,11 @@ class Cekirdek(unittest.TestCase):
         self.assertIn(g, r.stdout)
         self.assertIn("claude-haiku-5-5", r.stdout)
 
-    def test_sayac_tur_kaydi_transkript_tahminini_ezer(self):
+    def test_sayac_tur_kaydi_maliyet_defterine_girmez(self):
+        """I-319 P3 (ADR-0095): maliyet.jsonl'in tek token kaynağı hook'tur; sayaç turu gözlem defterine yazılır."""
         g = self.kart()
         tr = self.alt_ajan_transkripti("w7", g, "is")
         self.hook("SubagentStop", {"agent_id": "w7", "agent_type": "orkestra:isci-t1", "agent_transcript_path": tr})
-        # sayaç modülü: aynı ajan için kesin tur kullanımı (çıkış transkripttekinden çok daha büyük)
         r = kos([CLI, "maliyet", "tur", "--oturum", OTURUM, "--agent-id", "w7", "--model", "claude-haiku-5-5",
                  "--giris", "13", "--cikis", "5000", "--onb-okuma", "300", "--onb-yazma", "40"], self.proje)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -234,11 +234,13 @@ class Cekirdek(unittest.TestCase):
         import ork_lib as L
         satirlar = [x for x in L.maliyet_kayitlari(self.sd) if x.get("agent_id") == "w7"]
         self.assertEqual(len(satirlar), 1)
-        self.assertEqual((satirlar[0]["kaynak"], satirlar[0]["cikis"], satirlar[0]["gorev"], satirlar[0]["surec"]), ("tur", 5000, g, "is"))
-        # ana döngü turu: agent id yok → ana-ajan / orkestrasyon
+        self.assertEqual((satirlar[0]["kaynak"], satirlar[0]["cikis"], satirlar[0]["gorev"], satirlar[0]["surec"]), ("hook", 70, g, "is"))
+        # ana döngü turu: agent id yok → gözlem satırı ana-ajan / orkestrasyon etiketiyle
         kos([CLI, "maliyet", "tur", "--oturum", OTURUM, "--model", "claude-opus-5-5", "--giris", "5", "--cikis", "100"], self.proje)
-        ana = [x for x in L.maliyet_kayitlari(self.sd) if x.get("agent_id") is None and x.get("kaynak") == "tur"]
-        self.assertEqual((ana[0]["ajan"], ana[0]["surec"]), ("ana-ajan", "orkestrasyon"))
+        gozlem = [json.loads(s) for s in open(os.path.join(self.sd, "maliyet_tur.jsonl"), encoding="utf-8") if s.strip()]
+        ana = [x for x in gozlem if x.get("agent_id") is None]
+        self.assertEqual((ana[0]["ajan"], ana[0]["surec"], ana[0]["kaynak"]), ("ana-ajan", "orkestrasyon", "tur"))
+        self.assertFalse([x for x in L.maliyet_kayitlari(self.sd) if x.get("kaynak") == "tur"])
 
     def test_sayac_alt_klasorden_de_proje_kaydina_yazar(self):
         """Çalışma dizini proje içi alt klasörken (.claude/orkestra) tur kaydı projenin maliyet.jsonl dosyasına düşer."""
