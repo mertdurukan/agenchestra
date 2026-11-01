@@ -167,3 +167,49 @@ def arac_hatasi(sd, arac, ileti, ajan=None, tur: str = "arac-hatasi", baglam=Non
                 "kok": kok_neden(tur, ileti)})
     except Exception:  # noqa: BLE001
         pass
+
+
+DEDUP_SN = 10   # aynı reddin hook-red ve izin-reddi olarak çift yazılmaması için pencere (ADR-0141)
+
+
+def _hook_red_var(sd, oturum: str, arac, sn: int = DEDUP_SN) -> bool:
+    """hata.jsonl sonunda aynı oturum ve aracın `sn` saniye içindeki `hook-red` satırı var mı; okunamazsa False."""
+    try:
+        with open(os.path.join(sd, DOSYA), "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - _DENEME_PENCERE))
+            veri = f.read().decode("utf-8", errors="replace")
+        for satir in reversed(veri.splitlines()):
+            if '"hook-red"' not in satir:
+                continue
+            try:
+                k = json.loads(satir)
+            except ValueError:
+                continue
+            if not (isinstance(k, dict) and k.get("tur") == "hook-red" and k.get("oturum") == oturum
+                    and k.get("arac") == arac):
+                continue
+            import datetime
+            t = datetime.datetime.fromisoformat(str(k.get("zaman")).replace("Z", "+00:00"))
+            t = t if t.tzinfo else t.astimezone()
+            return abs((datetime.datetime.now(t.tzinfo) - t).total_seconds()) <= sn
+    except Exception:  # noqa: BLE001
+        pass
+    return False
+
+
+def izin_reddi(sd, arac, neden, ajan=None, baglam=None) -> bool:
+    """PermissionDenied olayı: aynı oturum ve araçta son DEDUP_SN sn içinde hook-red varsa yazmaz (çift sayım olmasın).
+    Yazdıysa True. İstisna fırlatmaz."""
+    try:
+        if _hook_red_var(sd, _oturum(), arac):
+            return False
+        arac_hatasi(sd, arac, neden, ajan, "izin-reddi", baglam)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def tur_api_hatasi(sd, ileti, baglam=None) -> None:
+    """StopFailure olayı: API hatasıyla biten tur (oran sınırı, aşırı yük, faturalama)."""
+    arac_hatasi(sd, "Stop", ileti, None, "tur-api-hatasi", baglam)
