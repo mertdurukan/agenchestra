@@ -213,7 +213,8 @@ class TestHookIhlalVarsayilan(_Proje):
             h = c.get("hookSpecificOutput") or {}
             self.assertEqual(h.get("permissionDecision"), "deny", komut)
             neden = h.get("permissionDecisionReason", "")
-            self.assertIn("tam takım: `python ", neden)
+            self.assertIn("gh workflow run orkestra-tam-takim.yml", neden)
+            self.assertIn("yerelde zorunluysa `python ", neden)
             self.assertIn("test_paralel.py`", neden)
             self.assertIn("hedefli:", neden)
             self.assertIn("-k <ad>", neden)
