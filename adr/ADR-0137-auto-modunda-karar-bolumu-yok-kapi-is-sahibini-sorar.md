@@ -16,6 +16,8 @@
 - Kapı auto modunu tanır (`izin_politikasi._auto_modu`).
 - Auto'da kesin sınır dışı karar başlığı ("sana kalan", "karar", "onay bekleyen", "seçim") "sahip" ihlalidir: ret metni işi kendin yapmayı, yapamıyorsan "Engel" yazmayı ister.
 - Kesin sınır ("Kullanıcıya kalanlar": parola, sır, hesap, push kararı) sonda geçer, ortadaysa "sira" ihlalidir.
+- Yuvadaki her madde içerikli "Denendi:" taşır (boş, "yok", "denenmedi", "-" geçmez).
+- Deterministik yedek yanıt yoktur: Stop hook yanıt metnini değiştiremez; ikinci denemede tur geçer, kullanıcıya uyarı satırı ve günlük girişi gider (P-032 için en yakın uygulanabilir yol).
 - Plan modunda davranış değişmez.
 - Tur başı yönergesi ve auto skill'i kuralı kaynakta söyler; kapı güvenlik ağıdır.
 
