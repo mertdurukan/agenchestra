@@ -128,7 +128,7 @@ def main():
         sd = L.durum_dizini()
         if sd and not (a.komut == "kart" and alt_komut in ("goster", "liste")):
             import ozet
-            ozet.yaz(sd, L.proje_dizini())
+            ozet.yaz_arka_plan(sd, L.proje_dizini())   # hook ile aynı yol: CLI soğuk özet hesabını (~40 sn) beklemez
     if a.komut in ("is", "plan"):
         # İş belgelerini yazan komutlardan sonra belgeleri commit et (ORKESTRA_OTO_COMMIT açıksa); komutu bozmaz.
         try:

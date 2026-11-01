@@ -585,6 +585,9 @@ def yaz(sd: str, proje: str) -> dict | None:
         except OSError:
             pass
         return o
+    except TimeoutError:
+        # Kilidi tutan soğuk hesap (~40 sn) 20 sn'yi aştı: hata sayılmaz; None dönüşü işçinin sayacı ilerletmesini önler
+        return None
     except PermissionError:
         # Hedef başka bir okuyucuda kilitli (Windows): hata sayılmaz, işaret bırakılır; sonraki tetikte yeniden yazılır.
         try:
@@ -714,7 +717,8 @@ def isci(sd: str, proje: str) -> None:
                 t = _sayac(yol + ".kirli")
                 if t <= _sayac(yol + ".islenen"):
                     break
-                yaz(sd, proje)
+                if yaz(sd, proje) is None:
+                    return   # yazım olmadı: sayaç ilerlemez, sonraki tetik yeniden dener
                 L.atomik_yaz(yol + ".islenen", str(t))
         finally:
             os.close(fd)
