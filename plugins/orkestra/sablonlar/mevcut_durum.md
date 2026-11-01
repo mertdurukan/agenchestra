@@ -54,7 +54,7 @@
 <!-- doldur:
 - İlk satır `**Sonuç:**`: mevcut koruma yeterli mi (tek cümle).
 - `### 2.1 Çalışan korumalar` ve `### 2.2 Eksik ya da çalışmayan korumalar` alt başlıkları.
-- Her madde: `- **koruma adı:** ne yapıyor (kanıt)`.
+- Her madde: `- **koruma adı:** ne yapıyor (kanıt)`; 2.2'de durum açık yazılır: "eksik" (hiç yok) ya da "çalışmıyor" (var ama etkisiz).
 - Her iddia dosya:satır, komut çıktısı ya da ölçüm saatiyle desteklenir; kanıtsız iddia yazılmaz. -->
 
 ## 3. Etki haritası
