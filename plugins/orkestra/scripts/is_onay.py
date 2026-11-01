@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 
 import is_sirasi as SIRA
 import ork_lib as L
@@ -387,16 +388,33 @@ def _worktree_esdeger(klasor: str, proje_n: str, tam: str) -> tuple:
     return ((kok + klasor[len(proje_n):], kok),)
 
 
+def _gecici_kokler() -> list:
+    return [tempfile.gettempdir(), "/tmp", os.path.expanduser("~/.claude")]
+
+
+def gecici_yol_mu(yol: str) -> bool:
+    """Yol geçici dizinde (scratchpad, %TEMP%, /tmp) ya da kullanıcının ~/.claude klasöründe (hafıza, ayar) mi (I-318)."""
+    n = os.path.normcase(os.path.abspath(yol))
+    for a in _gecici_kokler():
+        k = os.path.normcase(os.path.abspath(a)).rstrip(os.sep)
+        if n == k or n.startswith(k + os.sep):
+            return True
+    return False
+
+
 def yazma_engeli(kayit: dict, proje: str, tam: str) -> str:
-    """`bekliyor` iken yazılan dosya izinli mi: kapı yalnız proje içi yazımı bekletir (I-224: scratchpad, %TEMP% gibi proje
-    dışı yollar serbest); proje içinde işin klasörü (is.json hariç) ve proje adr/ klasörü izinlidir. İş klasörü projenin
+    """`bekliyor` iken yazılan dosya izinli mi: geçici dizin (scratchpad, %TEMP%) ve ~/.claude serbest; proje dışındaki diğer
+    kalıcı yollar (I-318: eklenti kaynağı dahil) reddedilir; proje içinde işin klasörü (is.json hariç) ve proje adr/ klasörü izinlidir. İş klasörü projenin
     kökü ya da atası ise yalnız .md dosyaları izinlidir. Boş döner = izin."""
     tam = os.path.normcase(os.path.abspath(tam))
     if os.path.basename(tam) == "is.json":
         return "is.json elle yazılmaz; onayı yalnız kullanıcı mesajı verir."
     kokler = {os.path.normcase(os.path.abspath(k)) for k in (proje, L.baglanti_koku(proje)) if k}
     if not any(tam == k or tam.startswith(k.rstrip(os.sep) + os.sep) for k in kokler):
-        return ""
+        if gecici_yol_mu(tam):
+            return ""
+        return ("iş onay bekliyor (P-016): proje dışındaki kalıcı yola (başka depo, eklenti kaynağı dahil) da kullanıcı "
+                "onaylamadan yazılmaz; geçici dizin (scratchpad, %TEMP%) ve kullanıcı ~/.claude klasörü serbesttir.")
     for kok in kokler:  # oturum bağlı worktree'deyse onun adr/ klasörü de (ADR-0035)
         adr = os.path.join(kok, "adr")
         if tam.startswith(adr + os.sep):
@@ -616,6 +634,44 @@ def kabuk_yazma_engeli(kayit: dict, proje: str, komut: str, cwd: str | None = No
         if neden:
             return neden + " (kabukla yazım da aynı kapıdan geçer.)"
     return ""
+
+
+# I-318: bağsız oturum kapısı kabuk yazımını da görür. Hedefleri `kabuk_hedefleri` çıkarır; yorumlayıcı gövdesindeki
+# (python heredoc, python -c) dosya yazımı ayrıca aranır, çünkü heredoc gövdesi hedef çıkarmaya girmez.
+_YORUMLAYICI_ADI = re.compile(r"\b(?:python[\d.]*|py|node|perl|ruby)(?:\.exe)?\b", re.I)
+_OPEN_YAZ = re.compile(
+    r"""\bopen\(\s*(?:[rbuf]{0,2}(?P<q>['"])(?P<yol>[^'"\n]+)(?P=q))?[^)\n]*?,\s*(?:mode\s*=\s*)?[rbu]{0,2}['"][wax][bt+]*['"]""")
+_DOLAYLI_YAZ = re.compile(r"\.write_text\(|\.write_bytes\(|\bshutil\.(?:copy\w*|move|rmtree)\(|\bos\.(?:replace|rename|remove|unlink)\(")
+
+
+def betik_yazimlari(komut: str) -> tuple[list, bool]:
+    """Yorumlayıcı kodundaki dosya yazımı: (açık yazılan yol sabitleri, hedefi çıkarılamayan yazım var mı)."""
+    if not _YORUMLAYICI_ADI.search(komut or ""):
+        return [], False
+    sabit, bilinmeyen = [], False
+    for m in _OPEN_YAZ.finditer(komut):
+        if m.group("yol"):
+            sabit.append(m.group("yol"))
+        else:
+            bilinmeyen = True
+    return sabit, bilinmeyen or bool(_DOLAYLI_YAZ.search(komut))
+
+
+def kabuk_kalici_yazimlar(komut: str, cwd: str | None = None) -> tuple[list, bool]:
+    """Kabuk komutunun geçici dizin dışına yazdığı yollar ve hedefi çözülemeyen yazım var mı (I-318)."""
+    kalici, bilinmeyen = [], False
+    taban = os.path.abspath(cwd or os.getcwd())
+    for h in kabuk_hedefleri(komut, cwd):
+        if h is None:
+            bilinmeyen = True
+        elif not gecici_yol_mu(h):
+            kalici.append(h)
+    sabit, bil2 = betik_yazimlari(komut)
+    for y in sabit:
+        h = os.path.normcase(os.path.abspath(os.path.join(taban, os.path.expanduser(y))))
+        if not gecici_yol_mu(h):
+            kalici.append(h)
+    return kalici, bilinmeyen or bil2
 
 
 # ADR-0031: kullanıcı commit/push'u açıkça istediği turda yalnız bu git alt komutları kapıdan geçer.

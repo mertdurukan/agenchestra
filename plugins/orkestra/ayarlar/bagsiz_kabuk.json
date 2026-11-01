@@ -1,0 +1,4 @@
+{
+  "mod": "ihlal",
+  "aciklama": "mod: ihlal = bağsız oturumda geçici dizin dışına dosya yazan kabuk komutu reddedilir ve gunluk.jsonl'a kapi_ret düşer; golge = yalnız kapi_golge kaydı, iş engellenmez. Kapatma: ORKESTRA_BAGSIZ_KABUK_KAPISI=0. Proje ezmesi: .claude/orkestra/bagsiz_kabuk.json (ADR-0133, P-033 emsali: ilk gün ihlal)."
+}

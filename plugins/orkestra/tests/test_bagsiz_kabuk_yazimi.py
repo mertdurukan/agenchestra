@@ -19,25 +19,25 @@ import is_kaydi  # noqa: E402
 import is_onay  # noqa: E402
 
 OTURUM = "kabuk1234567890-oturum"
-GECICI = tempfile.gettempdir().replace(os.sep, "/")
 
 # Meşru komutlar: bağsız oturumda da reddedilmemeli (yanlış pozitif eşiği: hiçbiri reddedilmez).
-MESRU = [
-    "ls -la",
-    "git status",
-    "git log --oneline | head -5",
-    "git diff --stat",
-    "python -m pytest -q tests/test_x.py",
-    "echo merhaba 2>&1",
-    "cat README.md",
-    "grep -rn bugun src | head",
-    "python -c \"print(open('a.txt').read())\"",
-    "python scripts/x.py --json 2>&1 | tail -3",
-    "orkestra is liste > /dev/null 2>&1",
-    "python - <<'EOF'\nprint(open('a.txt', 'r').read())\nEOF",
-    f"git log --oneline > {GECICI}/log.txt",
-    f"cp a.txt {GECICI}/yedek.txt",
-]
+def mesru(gecici):
+    return [
+        "ls -la",
+        "git status",
+        "git log --oneline | head -5",
+        "git diff --stat",
+        "python -m pytest -q tests/test_x.py",
+        "echo merhaba 2>&1",
+        "cat README.md",
+        "grep -rn bugun src | head",
+        "python -c \"print(open('a.txt').read())\"",
+        "python scripts/x.py --json 2>&1 | tail -3",
+        "orkestra is liste > /dev/null 2>&1",
+        "python - <<'EOF'\nprint(open('a.txt', 'r').read())\nEOF",
+        f"git log --oneline > {gecici}/log.txt",
+        f"cp a.txt {gecici}/yedek.txt",
+    ]
 
 
 class _Kabuk(unittest.TestCase):
@@ -47,6 +47,10 @@ class _Kabuk(unittest.TestCase):
         os.makedirs(os.path.join(self.sd, "oturumlar"))
         self._env = mock.patch.dict(os.environ, {}, clear=False)
         self._env.start()
+        # Gerçek %TEMP% proje dizinini de kapsar; testte geçici kök proje dışında ayrı bir dizindir.
+        self.gecici = tempfile.mkdtemp(prefix="ork_gecici_").replace(os.sep, "/")
+        self._gk = mock.patch.object(is_onay, "_gecici_kokler", lambda: [self.gecici, os.path.expanduser("~/.claude")])
+        self._gk.start()
         for k in ("CLAUDE_PROJECT_DIR", "ORKESTRA_RUYA", "ORKESTRA_PERSPEKTIF", "ORKESTRA_IS_KAPISI",
                   "ORKESTRA_BAGSIZ_KABUK_KAPISI", "ORKESTRA_ONAY_KAPISI"):
             os.environ.pop(k, None)
@@ -56,8 +60,10 @@ class _Kabuk(unittest.TestCase):
         self.a = is_kaydi.is_ac(self.sd, "Fatura raporlama entegrasyonu", os.path.join(self.proje, "isler", "001-fatura"))
 
     def tearDown(self):
+        self._gk.stop()
         self._env.stop()
         shutil.rmtree(self.proje, ignore_errors=True)
+        shutil.rmtree(self.gecici, ignore_errors=True)
 
     def baglan(self, oid=OTURUM):
         with open(os.path.join(self.sd, "oturumlar", oid + ".json"), "w", encoding="utf-8") as f:
@@ -141,15 +147,15 @@ class BagsizKabukReddi(_Kabuk):
 class YanlisPozitifVeMuafiyet(_Kabuk):
     def test_mesru_komutlar_reddedilmez(self):
         self.kok_kurulum_dogrula()
-        self.assertGreaterEqual(len(MESRU), 12)
-        for komut in MESRU:
+        self.assertGreaterEqual(len(mesru(self.gecici)), 12)
+        for komut in mesru(self.gecici):
             with self.subTest(komut=komut):
                 self.assertFalse(self.kabuk(komut)[0], komut)
 
     def test_gecici_dizine_yazim_serbest(self):
         self.kok_kurulum_dogrula()
-        self.assertFalse(self.kabuk(f"echo x > {GECICI}/a.txt")[0])
-        self.assertFalse(self.kabuk("python - <<'EOF'\nopen('" + GECICI + "/a.txt', 'w').write('x')\nEOF")[0])
+        self.assertFalse(self.kabuk(f"echo x > {self.gecici}/a.txt")[0])
+        self.assertFalse(self.kabuk("python - <<'EOF'\nopen('" + self.gecici + "/a.txt', 'w').write('x')\nEOF")[0])
 
 
 class ModVeKapatma(_Kabuk):
@@ -212,9 +218,9 @@ class OnayBeklerkenProjeDisi(_Kabuk):
         self.assertTrue(self.pre("Bash", komut=f"echo x > {self.dis_dosya.replace(os.sep, '/')}")[0])
 
     def test_gecici_dizin_ve_kullanici_klasoru_serbest(self):
-        self.assertFalse(self.pre("Write", os.path.join(tempfile.gettempdir(), "ork_gecici_x", "a.txt"))[0])
+        self.assertFalse(self.pre("Write", os.path.join(self.gecici, "x", "a.txt"))[0])
         self.assertFalse(self.pre("Write", os.path.expanduser("~/.claude/projects/x/memory/not.md"))[0])
-        self.assertFalse(self.pre("Bash", komut=f"echo x > {GECICI}/a.txt")[0])
+        self.assertFalse(self.pre("Bash", komut=f"echo x > {self.gecici}/a.txt")[0])
 
 
 class GeciciYol(unittest.TestCase):
