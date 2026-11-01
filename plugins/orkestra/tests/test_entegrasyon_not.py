@@ -83,6 +83,12 @@ def test_sir_kalipli_gunluk_reddedilmez_redakte_gider(tmp_path, monkeypatch):
     assert not OF._SIR.search(metin)
 
 
+def test_test_adi_yerinde_sir_kisaltilarak_sizmaz():
+    metin = E.karantina_notu({"teslim": "t8", "dal": "d", "neden": "n",
+                              "gunluk": f"FAILED {SAHTE_SIR}\nFAILED x.py::token={SAHTE_SIR[:12]}\n"})
+    assert "Q" * 12 not in metin and not OF._SIR.search(metin) and OF.REDAKTE in metin
+
+
 def test_uzun_gunluk_not_en_cok_sinirina_kisalir_ve_gonderilir(tmp_path):
     gunluk = "\n".join(f"FAILED tests/t.py::test_cok_uzun_bir_test_adi_numara_{i:03d}_ve_devami" for i in range(50))
     gunluk += "\n" + "x " * 2000
