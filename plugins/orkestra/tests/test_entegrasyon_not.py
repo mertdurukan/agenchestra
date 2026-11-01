@@ -84,14 +84,13 @@ def test_sir_kalipli_gunluk_reddedilmez_redakte_gider(tmp_path, monkeypatch):
     assert not OF._SIR.search(metin)
 
 
-def test_uzun_gunluk_not_en_cok_sinirina_kisalir():
+def test_uzun_gunluk_not_en_cok_sinirina_kisalir_ve_gonderilir(tmp_path):
     gunluk = "\n".join(f"FAILED tests/t.py::test_cok_uzun_bir_test_adi_numara_{i:03d}_ve_devami" for i in range(50))
     gunluk += "\n" + "x " * 2000
     metin = E.karantina_notu({"teslim": "t9", "dal": "dal-t9", "neden": "ilk kırmızı önek", "gunluk": gunluk})
     assert len(metin) <= OF.NOT_EN_COK and not OF._SIR.search(metin)
-    ok, hata = OF.not_birak(str(os.getcwd()) if False else os.path.join(os.path.dirname(__file__), "_yok_"), "x", "k", metin) \
-        if False else (True, "")
-    assert ok and hata == ""
+    assert "test_cok_uzun_bir_test_adi" in metin  # uzun ad kısaltılır, redakte edilmez
+    assert OF.not_birak(str(tmp_path), SUCLU, "kuyruk", metin) == (True, "")
 
 
 def test_kapali_oturumda_not_bekler_60_dk_sonra_sahipsiz(tmp_path, monkeypatch):
