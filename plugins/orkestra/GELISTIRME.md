@@ -96,8 +96,11 @@ Claude uygulaması oturum başına bir git worktree açar (`<proje>/.claude/work
 - Testler: `tests/test_hata_kayit.py`, `tests/test_hata_en_cok.py`.
 
 ## Test takımı
-- Tam paket: `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; işçi sayısı CPU ve bellekten otomatik, `ORKESTRA_PARALEL_N` ezer; 16 çekirdekte ~4,5 dk, seri ~32 dk; P-041).
-- Kuyruk kuralı (ADR-0142): commit öncesi yalnız hedefli test (kartın `test_alani`); tam paket oturumda koşulmaz.
+- **Tek test kuralı (ADR-0146):** oturum yalnız hedefli test koşar (kartın `test_alani`, tek dosya, `::` düğümü ya da `-k`); tam paket oturumda ve yerel makinede koşulmaz.
+- Tam paket GitHub Actions'ta koşar: `.github/workflows/orkestra-tam-takim.yml` (`main` push'u, gece 02:00 UTC, elle `gh workflow run orkestra-tam-takim.yml`; ubuntu ve windows, Python 3.13, 30 dk zaman aşımı). Hızlı katman `orkestra-test.yml` her push ve PR'da koşar.
+- Kırmızı koşuda başarısız testler job özetinde listelenir: `gh run view <id> --log-failed` ya da özet sayfası.
+- Yerelde zorunlu tam koşu gerekirse (ör. CI erişilemez): `python plugins/orkestra/scripts/test_paralel.py` (paralel koşar; işçi sayısı CPU ve bellekten otomatik, `ORKESTRA_PARALEL_N` ezer; 16 çekirdekte ~4,5 dk, seri ~32 dk; P-041).
+- Kuyruk kuralı (ADR-0142): commit öncesi yalnız hedefli test; tam paket entegrasyon kuyruğuyla teslim edilir.
 - Tam paket `orkestra teslim kuyruk ekle` ile entegrasyon kuyruğuna teslim edilir.
 - Entegrasyon şeridi (`scripts/entegrasyon.py`) birleşik tam koşuyu bir kez yapar; yeşilde main'e fast-forward, kırmızıda bisect + karantina, suçlu oturuma `not_birak` ile geri bildirim. Düzeltmeyi bağlamı olan oturum yapar.
 - Tek-koşucu kilidi aynı anda bir koşuya izin verir. Kapı `ayarlar/kuyruk.json` (gölge); `ORKESTRA_KUYRUK_KAPISI=0` kapatır.
