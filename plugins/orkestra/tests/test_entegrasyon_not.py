@@ -183,4 +183,3 @@ def test_alan_ekle_durum_alanini_degistirmez(tmp_path):
     else:
         raise AssertionError("durum alan_ekle ile değişmemeli")
     assert K.liste(sd)[0]["durum"] == "bekliyor"
-    assert time.time() > 0
