@@ -1940,6 +1940,7 @@ def stop(inp: dict):
         _kimlik_kapisi_yanit(sd, oid, inp)
         _secim_kapisi_yanit(sd, oid, inp)
         _kabuk_sozdizimi_yanit(sd, oid, inp)
+        _auto_devam_yanit(sd, oid, inp)
         _kanitsiz_iddia_yanit(sd, oid, inp)
         _onleme_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
