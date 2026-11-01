@@ -51,7 +51,7 @@ class Sablon(unittest.TestCase):
         yerler = [t.index("\n" + s + "\n") for s in sira]
         self.assertEqual(yerler, sorted(yerler))
         harita = ["## Harita", "**Ölçüm saati:**", "**Denenenler:**", "**Sayılar:**", "**Doğrulanmayanlar:**",
-                  "**Kararlar:**", "**Teslim:**", "**Açık işlerin ayrıntısı:**", "**İlgili dosyalar:**",
+                  "**Kararlar:**", "**Teslim:**", "**Açık işlerin ayrıntısı:**",
                   "## Plana göre gerçekleşen"]
         yerler = [t.index("\n" + s + "\n") for s in harita]
         self.assertEqual(yerler, sorted(yerler))
@@ -65,7 +65,7 @@ class Sablon(unittest.TestCase):
         with open(SABLON, encoding="utf-8") as f:
             t = f.read()
         self.assertGreaterEqual(t.count("Teslim"), 1)
-        for ad in ("Değişiklik", "Test", "Deploy", "Geri alma"):
+        for ad in ("Değişiklik", "Test", "Deploy"):
             self.assertIn(f"- **{ad}:**", t)
 
 
@@ -218,8 +218,8 @@ class YeniAlanEksigi(unittest.TestCase):
         self.assertFalse(any(a in x for x in e for a in ("Değişiklik", "Geri alma", "- **Test")), e)
 
     def test_teslim_satiri_ya_da_blok_yok(self):
-        e = IK.sef_ozeti_eksigi(self.TAM.replace("- **Geri alma:** canlıya değişiklik çıkmadı.\n", ""))
-        self.assertTrue(any("Geri alma" in x and "yok" in x for x in e), e)
+        e = IK.sef_ozeti_eksigi(self.TAM.replace("- **Deploy:** çıkmadı; PR ve sütun anlamı teyidi bekliyor.\n", ""))  # ADR-0136: Geri alma satırı kalktı
+        self.assertTrue(any("Deploy" in x and "yok" in x for x in e), e)
         e = IK.sef_ozeti_eksigi(YENI_B1 + HARITA)
         self.assertTrue(any("**Teslim:**" in x and "bloğu yok" in x for x in e), e)
 
