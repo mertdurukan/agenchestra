@@ -535,7 +535,7 @@ def _sef_ozeti_ayar(klasor):
 
 
 def _sef_ozeti_kapisi(klasor, metin):
-    """ADR-0085: iki katmanlı Şef Özeti (`## Harita` ve zorunlu alanları, katman 1 uzunluğu); kapı `sef_ozeti`
+    """ADR-0085: iki katmanlı Şef Özeti (`## Ayrıntılar` ve zorunlu alanları, katman 1 uzunluğu); kapı `sef_ozeti`
     (gölge: uyarır ve kaydeder, ihlal: reddeder). Eski biçimli özet etkilenmez."""
     if os.environ.get("ORKESTRA_SEF_OZETI_KAPISI") == "0":
         return None

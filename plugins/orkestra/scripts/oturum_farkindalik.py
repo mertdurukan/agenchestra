@@ -465,6 +465,150 @@ def sahipsiz_satir(sd: str, simdi: float | None = None) -> str:
     return redakte(s)[:250]
 
 
+# ---------------------------------------------------------------- bağlam paketi ve devir (I-324 P3, S4/S5/S8)
+# Paket yeni bir kanal değildir: kısa metne çevrilip not_birak süzgecinden (sır kalıbı, NOT_EN_COK) gelen kutusuna gider.
+
+PAKET_NOT_EN_COK = 10
+PAKET_DOSYA_EN_COK = 20
+PAKET_NOT_UZUNLUK = 120
+_BELIRTEC_EN_COK = 36  # _SIR'in 40+ karakterlik belirteç kalıbına test adı / dosya adı takılmasın
+_TODO_X = re.compile(r"^\s*[-*]\s+\[[xX]\]\s+(?P<govde>.+?)\s*$")
+
+
+def _kisalt(s: str, n: int) -> str:
+    s = " ".join((s or "").split())
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _is_klasoru(sd: str, is_id: str) -> tuple[str | None, str]:
+    """(iş klasörü, başlık) merkez kayıttan; bulunamazsa (None, '')."""
+    try:
+        import is_kaydi  # geç içe aktarma: is_kaydi büyük, döngüsel bağımlılık riski yok ama yükü yalnız gerekince
+        g = is_kaydi.merkez_giris(sd, is_id) or {}
+    except Exception:
+        return None, ""
+    return (g.get("klasor") or None), (g.get("baslik") or "")
+
+
+def _todo_kanitlari(klasor: str | None) -> list[str]:
+    """todo.md'deki '- [x]' satırlarının kanıt notları (' — ' sonrası; yoksa madde gövdesi), kısaltılmış.
+    Sır kalıbı taşıyan not pakete girmez (atlanır). En çok PAKET_NOT_EN_COK, en yeniler (dosyada sonda olanlar)."""
+    if not klasor:
+        return []
+    try:
+        with open(os.path.join(klasor, "todo.md"), encoding="utf-8", errors="replace") as f:
+            satirlar = f.read().splitlines()
+    except OSError:
+        return []
+    notlar = []
+    for s in satirlar:
+        m = _TODO_X.match(s)
+        if not m:
+            continue
+        govde = m.group("govde")
+        not_ = govde.rsplit(" — ", 1)[1] if " — " in govde else govde
+        if _SIR.search(not_):
+            continue
+        notlar.append(_kisalt(not_, PAKET_NOT_UZUNLUK))
+    return notlar[-PAKET_NOT_EN_COK:]
+
+
+def paket_olustur(sd: str, is_id: str, dosyalar, test: str | None = None, madde: str | None = None,
+                  klasor: str | None = None) -> dict:
+    """Yapılandırılmış bağlam paketi: {is_id, baslik, todo_kanit_notlari, yazilan_dosyalar, test?, madde?}.
+    İş klasörü merkez kayıttan çözülür (`klasor` verilirse o). Sır kalıbı taşıyan başlık/not/madde pakete girmez."""
+    k, baslik = _is_klasoru(sd, is_id) if klasor is None else (klasor, "")
+    if klasor is not None and not baslik:
+        try:
+            with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+                baslik = (json.load(f) or {}).get("baslik") or ""
+        except (OSError, ValueError, AttributeError):
+            baslik = ""
+    baslik = "" if _SIR.search(baslik or "") else _kisalt(baslik, 80)
+    dl = [d for d in (dosyalar or []) if isinstance(d, str) and d.strip()]
+    paket = {"is_id": str(is_id or "-"), "baslik": baslik, "todo_kanit_notlari": _todo_kanitlari(k),
+             "yazilan_dosyalar": list(dict.fromkeys(dl))[-PAKET_DOSYA_EN_COK:]}
+    if test:
+        paket["test"] = str(test)
+    if madde and not _SIR.search(madde):
+        paket["madde"] = _kisalt(madde, PAKET_NOT_UZUNLUK)
+    return paket
+
+
+def _belirtec_kirp(s: str) -> str:
+    """Kimlik niteliğindeki alanda (dosya, test adı) 40+ karakterlik belirteci böler: _SIR yanlış pozitifini önler."""
+    return re.sub(r"[A-Za-z0-9+/_-]{%d,}" % (_BELIRTEC_EN_COK + 1), lambda m: m.group(0)[:_BELIRTEC_EN_COK] + "…", s)
+
+
+def paket_metni(paket: dict) -> str:
+    """Paketin gelen kutusu metni (en çok NOT_EN_COK). Kanıt notları serbest metindir, kırpılmaz; sır denetimi çağıranda."""
+    p = paket or {}
+    parca = [f"Bağlam paketi {p.get('is_id', '-')}" + (f" «{p['baslik']}»" if p.get("baslik") else "")]
+    if p.get("madde"):
+        parca.append(f"madde: {p['madde']}")
+    if p.get("test"):
+        t = str(p["test"])
+        dosya, _, ad = t.partition("::")
+        parca.append("test: " + _belirtec_kirp(os.path.basename(dosya) + (f"::{ad}" if ad else "")))
+    dl = p.get("yazilan_dosyalar") or []
+    if dl:
+        adlar = [_belirtec_kirp(os.path.basename(d.rstrip("/\\")) or d) for d in dl[-5:]]
+        parca.append("dosyalar: " + ", ".join(adlar) + (f" (+{len(dl) - 5})" if len(dl) > 5 else ""))
+    kn = p.get("todo_kanit_notlari") or []
+    if kn:
+        parca.append("kanıt: " + "; ".join(kn))
+    return " | ".join(parca)
+
+
+def paket_birak(sd: str, hedef: str, kimden: str, paket: dict) -> tuple[bool, str]:
+    """Paketi kısa metne çevirip not_birak ile hedefin gelen kutusuna bırakır. Sır kalıbı varsa (kırpmadan ÖNCE
+    tam metinde) reddedilir: kırpma sırrın yarısını sızdırmasın. Uzun metin NOT_EN_COK'a kısaltılır."""
+    tam = paket_metni(paket)
+    if _SIR.search(tam):
+        return False, "paket sır/anahtar kalıbı içeriyor; sır yalnız yeriyle anılır"
+    return not_birak(sd, hedef, kimden, _kisalt(tam, NOT_EN_COK))
+
+
+def cozum_sorumlusu(atif_sonucu: dict | None) -> str:
+    """test_atif.atfet öğesi -> 'sahip' (sahip var ve canlı; paket sahibe bırakılır) | 'kosan' (sahipsiz/ölü: koşan çözer)."""
+    a = atif_sonucu if isinstance(atif_sonucu, dict) else {}
+    return "sahip" if a.get("sahip") and a.get("canli") else "kosan"
+
+
+def paket_yonlendir(sd: str, kosan: str, atif_sonucu: dict | None, paket: dict) -> dict:
+    """S4/S5: sahip canlıysa paket sahibin gelen kutusuna gider; değilse paket koşana döner (metin olarak, kutuya yazılmaz).
+    Dönüş: {sorumlu, hedef, birakildi, hata, metin}."""
+    sorumlu = cozum_sorumlusu(atif_sonucu)
+    tam = paket_metni(paket)
+    if _SIR.search(tam):
+        return {"sorumlu": sorumlu, "hedef": None, "birakildi": False,
+                "hata": "paket sır/anahtar kalıbı içeriyor; sır yalnız yeriyle anılır", "metin": ""}
+    metin = _kisalt(tam, NOT_EN_COK)
+    if sorumlu == "sahip":
+        hedef = atif_sonucu["sahip"]
+        ok, hata = paket_birak(sd, hedef, kosan, paket)
+        return {"sorumlu": sorumlu, "hedef": hedef, "birakildi": ok, "hata": hata, "metin": metin}
+    return {"sorumlu": sorumlu, "hedef": kosan, "birakildi": False, "hata": "", "metin": metin}
+
+
+def _yazilanlar(sd: str, oturum: str) -> list[str]:
+    try:
+        _, kayit = L._oturum_json_oku(L._oturum_json_yol(sd, oturum))
+        k = kayit.get("konum") if isinstance(kayit.get("konum"), dict) else {}
+        return [x for x in (k.get("yazilan") or []) if isinstance(x, str)]
+    except Exception:
+        return []
+
+
+def devret(sd: str, kimden_oturum: str, hedef_oturum: str, is_id, madde_no, madde_metni: str) -> dict:
+    """S8: aynı işe ikinci talepte madde sahibe devredilir. Hedefe (devreden oturumun son yazdıklarıyla) paket bırakır;
+    devreden todo'suna yazacağı işaret metnini döndürür (yazma P4'te). Dönüş: {isaret, birakildi, hata, paket}."""
+    isaret = f"devredildi → {is_id}#{madde_no}"
+    paket = paket_olustur(sd, str(is_id), _yazilanlar(sd, kimden_oturum), madde=f"#{madde_no} {madde_metni or ''}".strip())
+    ok, hata = paket_birak(sd, hedef_oturum, kimden_oturum, paket)
+    return {"isaret": isaret, "birakildi": ok, "hata": hata, "paket": paket}
+
+
 def canli_mi(sd: str | None, worktree: str | None = None, dal: str | None = None, esik_s: float = CANLI_S,
              simdi: float | None = None) -> bool:
     """Verilen çalışma ağacında ya da dalda canlı bir oturum kaydı var mı (dal temizliği gibi araçlar için, yalnız okuma)."""

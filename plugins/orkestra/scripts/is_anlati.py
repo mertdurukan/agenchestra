@@ -282,7 +282,7 @@ def denetim_baglami(paket: dict) -> dict:
 
 
 def guclu_fiil_izni(paket: dict) -> bool:
-    """Kapanmış + tüm madde Doğrulandı + 'Doğrulanmayanlar' öğesi yok + çalışma özeti var."""
+    """Kapanmış + tüm madde Doğrulandı + 'Doğrulanamayanlar' öğesi yok + çalışma özeti var."""
     if paket["is"].get("durum") != "kapandi":
         return False
     if not paket["belgeler"].get("calisma_ozeti"):
@@ -290,7 +290,7 @@ def guclu_fiil_izni(paket: dict) -> bool:
     m = paket["maddeler"]
     if not m or any(x["durum"] != "Doğrulandı" for x in m):
         return False
-    return not any(s.startswith("Doğrulanmayanlar:") for s in paket["sinirlar"])
+    return not any(s.startswith("Doğrulanamayanlar:") for s in paket["sinirlar"])
 
 
 # ---------------------------------------------------------------- paket
@@ -381,7 +381,7 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
     if not ne_icin:
         ne_icin = _paragraflar(_bolum(metin["plan"], r"Özet"))
     # Şef Özeti biçiminde sonuç yalnız `Ne yapıldı?` altındandır; eski biçimde `## Özet` paragrafları + `Ana bulgu`
-    sonuc = _etiket(ozet, "Ne yapıldı?") or (_paragraflar(_bolum(ozet, r"Özet")) + _etiket(ozet, "Ana bulgu"))
+    sonuc = _etiket(ozet, "Ne yapıldı?") or (_paragraflar(_bolum(ozet, r"(?:Şef )?Özet")) + _etiket(ozet, "Ana bulgu"))
     yontem = _etiket(metin["mevcut_durum"], "Yöntem")
     kararlar = [_kes(re.sub(r"^\s*[-*]\s*", "", s)) for s in _bolum(metin["plan"], r"3\. Kararlar").splitlines()
                 if re.match(r"^\s*[-*]\s*\*\*K\d+:\*\*", s)]
@@ -393,11 +393,11 @@ def paket(is_kaydi: dict, sd: str | None = None) -> dict:
             uyarilar.append(f"{adr[0][8:]} dosyası adr/ altında bulunamadı")
         else:
             yontem += adr
-    # Şef Özeti (B1) alanları: Durum → "Ne yaptım?", Nasıl karar verildi? → "Nasıl yaptım?". Alan yoksa eski kaynak.
+    # Şef Özeti (B1) alanları: Durum → "Ne yaptım?", Neden bu yol? → "Nasıl yaptım?". Alan yoksa eski kaynak.
     durum = " ".join(_etiket(ozet, "Durum"))
-    nasil_karar = _etiket(ozet, "Nasıl karar verildi?") or list(yontem)
+    nasil_karar = _etiket(ozet, "Neden bu yol?") or list(yontem)
     ana_sayi = _etiket(ozet, "Ana sayı")
-    sinirlar = ["Doğrulanmayanlar: " + x for x in _etiket(metin["calisma_ozeti"], "Doğrulanmayanlar")
+    sinirlar = ["Doğrulanamayanlar: " + x for x in _etiket(metin["calisma_ozeti"], "Doğrulanamayanlar")
                 if x.strip(" .").lower() not in ("yok", "-")]
     sinirlar += ["Açık iş: " + x for x in (_etiket(ozet, "Açık kalanlar") + _etiket(ozet, "Açık işler"))
                  if x.strip(" .").lower() not in ("yok", "-")]

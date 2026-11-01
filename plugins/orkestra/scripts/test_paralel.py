@@ -253,7 +253,68 @@ def _kos(a, dosyalar, argv, ucus):
     kod = 1 if (dus or asim) else 0
     if ucus is not None:
         ucus.kaydet(kod, chr(10).join(satirlar), time.time() - t0)
+    if kod == 1 and dusenler:  # I-324 P4: rapordan sonra, önbellek kaydına girmez; çıkış kodu değişmez
+        for s in sahip_satirlari(sonuclar):
+            print(s)
     return kod
+
+
+SAHIP_EN_COK = 10
+
+
+def sahip_satirlari(sonuclar, sd=None, kosan=None):
+    """Düşen her testi test_atif.atfet ile sahip oturuma eşler (S3); sahip canlıysa bağlam paketi onun gelen kutusuna
+    bırakılır (S4), değilse paket metni koşana döner (S5). Dönüş en çok SAHIP_EN_COK 'sahip:' satırı. Kapalı modda
+    (ORKESTRA_IS_TALEBI=0), durum dizini ya da oturum yoksa boş liste; her hata yutulur (koşucu bozulmaz)."""
+    try:
+        import is_talebi
+        import oturum_farkindalik as F
+        import test_atif
+        if sd is None:
+            import ork_lib
+            sd = ork_lib.durum_dizini()
+        kosan = kosan or os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or "-"
+        if not sd or is_talebi.mod(sd) == "kapali":
+            return []
+        eklenti = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        satir, gorulen = [], set()
+        for dosya, kod, cikti, _, _ in sonuclar:
+            if kod == 0 or not cikti:
+                continue
+            for a in test_atif.atfet(cikti, sd, eklenti, kok=calisma_dizini(dosya) or os.getcwd()):
+                if len(satir) >= SAHIP_EN_COK:
+                    return satir
+                if a.get("test") in gorulen:
+                    continue
+                gorulen.add(a.get("test"))
+                ad = os.path.basename(str(a.get("test") or "").split("::")[0]) + (
+                    "::" + str(a["test"]).split("::", 1)[1] if "::" in str(a.get("test") or "") else "")
+                sahip = a.get("sahip")
+                if not sahip:
+                    satir.append(f"sahip: - (sahipsiz) {ad[:120]} — koşan oturum çözer")
+                    continue
+                is_id = _oturum_isi(sd, sahip)
+                paket = F.paket_olustur(sd, is_id or "-", F._yazilanlar(sd, sahip), test=a.get("test"))
+                y = F.paket_yonlendir(sd, kosan, a, paket)
+                if y.get("sorumlu") == "sahip":
+                    durum = "paket sahibin gelen kutusuna bırakıldı" if y.get("birakildi") else f"paket bırakılamadı ({y.get('hata')})"
+                else:
+                    durum = "sahip canlı değil, koşan çözer: " + (y.get("metin") or "")[:200]
+                satir.append(f"sahip: {str(sahip)[:8]} {ad[:120]} — {durum}")
+        return satir
+    except Exception as e:
+        return [f"sahip: atıf yapılamadı ({type(e).__name__})"]
+
+
+def _oturum_isi(sd, oturum):
+    """Oturum kaydının `konum.is` alanı (sahibin işi); yoksa None."""
+    try:
+        import ork_lib
+        _, kayit = ork_lib._oturum_json_oku(ork_lib._oturum_json_yol(sd, oturum))
+        k = kayit.get("konum") if isinstance(kayit, dict) else None
+        return k.get("is") if isinstance(k, dict) else None
+    except Exception:
+        return None
 
 
 if __name__ == "__main__":

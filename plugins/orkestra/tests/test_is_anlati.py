@@ -70,7 +70,7 @@ Sahte amaç.
 
 Sahte bulgu.
 
-**Doğrulanmayanlar:**
+**Doğrulanamayanlar:**
 
 - Yok
 
@@ -289,9 +289,9 @@ class GucluFiilTest(unittest.TestCase):
     def test_dogrulanmayan_var_false(self):
         o = Ortam()
         self.addCleanup(o.kapat)
-        ozet = OZET.replace("**Doğrulanmayanlar:**\n\n- Yok", "**Doğrulanmayanlar:**\n\n- Canlıda gözlenmedi")
+        ozet = OZET.replace("**Doğrulanamayanlar:**\n\n- Yok", "**Doğrulanamayanlar:**\n\n- Canlıda gözlenmedi")
         p = IA.paket(tam_is(o, ozet=ozet), o.sd)
-        self.assertEqual(p["sinirlar"], ["Doğrulanmayanlar: Canlıda gözlenmedi"])
+        self.assertEqual(p["sinirlar"], ["Doğrulanamayanlar: Canlıda gözlenmedi"])
         self.assertFalse(p["guclu_fiil_izni"])
 
     def test_ozet_yok_false(self):
@@ -332,7 +332,7 @@ class MetinTest(unittest.TestCase):
 
 
 class SefOzetiAlanlariTest(unittest.TestCase):
-    """B1 biçimli Özet: Durum, Nasıl karar verildi?, Ana sayı pakete girer; eski biçimde paket eskisi gibi kalır."""
+    """B1 biçimli Özet: Durum, Neden bu yol?, Ana sayı pakete girer; eski biçimde paket eskisi gibi kalır."""
 
     def setUp(self):
         self.o = Ortam()
@@ -351,7 +351,7 @@ class SefOzetiAlanlariTest(unittest.TestCase):
         p = IA.paket(tam_is(self.o, ozet=self.yeni), self.o.sd)
         self.assertEqual(p["durum"], self.alan("Durum"))
         self.assertTrue(p["durum"].startswith("Kısmen. Kod, test ve ölçüm tamam"))
-        self.assertEqual(p["nasil_karar"], [self.alan("Nasıl karar verildi?")])
+        self.assertEqual(p["nasil_karar"], [self.alan("Neden bu yol?")])
         self.assertEqual(p["ana_sayi"], [self.alan("Ana sayı")])
         self.assertNotEqual(p["nasil_karar"], p["yontem"])
         self.assertEqual(IA.denetim_baglami(p), {"guclu_fiil_izni": p["guclu_fiil_izni"], "durum": "Kısmen"})

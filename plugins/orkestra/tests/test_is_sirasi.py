@@ -127,7 +127,7 @@ class IsSirasi(unittest.TestCase):
         self.assertIn("P-005", r.stderr)
         with open(os.path.join(klasor, MD_AD), encoding="utf-8") as f:
             md = f.read()
-        self.assertTrue(md.startswith("# Deneme işi: mevcut durum\n"))
+        self.assertTrue(md.startswith("# Deneme işi: mevcut durum ve bulgular\n"))
         self.assertNotIn("{", md)
         self.assertEqual([n for n in range(1, 6) if f"## {n}." in md], [1, 2, 3, 4, 5])
 

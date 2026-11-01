@@ -94,6 +94,23 @@ def _kapi_golge(sd: str) -> dict:
     return dict(sorted(sayi.items()))
 
 
+TALEP_ORNEK = 100  # is_talebi ihlal geçişi için en az etiketli uyarı (ADR-0138, S7)
+TALEP_UST = 0.05   # yanlış pozitif oranının Wilson %95 üst sınırı eşiği
+
+
+def _is_talebi(sd: str) -> dict:
+    """Gölge `is_talebi` uyarıları ve elle etiketler (`is_talebi_etiket.jsonl`: {"dogru": bool}); Wilson üst sınırı ve karar."""
+    uyari = sum(1 for o in L.jsonl_oku(os.path.join(sd, "gunluk.jsonl"))
+                if isinstance(o, dict) and o.get("tur") == "kapi_golge" and o.get("kapi") == "is_talebi")
+    et = [o for o in L.jsonl_oku(os.path.join(sd, "is_talebi_etiket.jsonl")) if isinstance(o, dict) and "dogru" in o]
+    n, yanlis = len(et), sum(1 for o in et if not o["dogru"])
+    from kanit_olcum import wilson
+    ust = wilson(yanlis, n)[1] if n else None
+    karar = ("ihlal geçişi önerilir (karar ayrı)" if n >= TALEP_ORNEK and ust <= TALEP_UST
+             else f"gölgede kal: etiket {n}/{TALEP_ORNEK}" if n < TALEP_ORNEK else "gölgede kal: yanlış pozitif yüksek")
+    return {"uyari": uyari, "etiket": n, "yanlis": yanlis, "ust": ust, "karar": karar}
+
+
 CIKTI_ORNEK = 200  # ihlal geçişi kararı için en az tur (ADR-0075, plan K6)
 CIKTI_HEDEF = {"ortanca": 400, "p90": 800}
 
@@ -289,7 +306,7 @@ def rapor(sd: str) -> dict:
     kapi_ret, kapi_bekl = _kapi_olaylari(sd)
     return {"satirlar": satirlar, "kalite": kalite, "kapi_golge": _kapi_golge(sd), "kapi_ret": kapi_ret,
             "kapi_bekleniyor": kapi_bekl, "yontem": _yontem(sd), "ihlal_kanit": _ihlal_kanitlari(sd),
-            "cikti": _cikti(sd)}
+            "cikti": _cikti(sd), "is_talebi": _is_talebi(sd)}
 
 
 def paralellik_olcumu(sd: str, is_id: str, klasor: str | None, kart_is: dict | None = None,
