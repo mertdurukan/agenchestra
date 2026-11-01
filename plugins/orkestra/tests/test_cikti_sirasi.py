@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.join(KOK, "scripts"))
 import cikti_butce as CB  # noqa: E402
 import cikti_sirasi as CS  # noqa: E402
 import secim_ekrani_hatirlatma as SH  # noqa: E402
+import hook  # noqa: E402
+import izin_politikasi  # noqa: E402
 
 AYAR = CS.ayar_oku()
 KORPUS = json.load(open(os.path.join(KOK, "tests", "fixtures", "cikti_sirasi_korpus.json"), encoding="utf-8"))
@@ -58,7 +60,7 @@ class SiraKapisiTest(unittest.TestCase):
         self.assertEqual(CS.mod(AYAR), "block")
 
     def test_korpus_kacirma_sifir_yanlis_pozitif_siniri(self):
-        """20 ihlalli (2 gerçek + 18 türetilmiş) ve 30 ihlalsiz gerçek yanıt: kaçırma 0/20, yanlış pozitif ≤2/30."""
+        """20 ihlalli (2 gerçek + 18 türetilmiş) ve 30 ihlalsiz gerçek yanıt: kaçırma 0/20, yanlış pozitif ≤1/30."""
         ihlalsiz = KORPUS["ihlalsiz"]
         self.assertEqual(len(ihlalsiz), 30)
         yanlis_pozitif = sum(1 for y in ihlalsiz if CS.ihlal(y, AYAR))
@@ -70,7 +72,88 @@ class SiraKapisiTest(unittest.TestCase):
             ihlalli.append(f"{ihlalsiz[i]}\n\n{baslik}{ayrac}bir karar bekliyor.{sonra}")
         self.assertEqual(len(ihlalli), 20)
         self.assertEqual([i for i, y in enumerate(ihlalli) if not CS.ihlal(y, AYAR)], [])
-        self.assertLessEqual(yanlis_pozitif, 2, f"yanlış pozitif {yanlis_pozitif}/30")
+        self.assertLessEqual(yanlis_pozitif, 1, f"yanlış pozitif {yanlis_pozitif}/30")
+
+
+def _auto(y):
+    return CS.siniflandir(y, AYAR, True)
+
+
+class AutoKapisiTest(unittest.TestCase):
+    """I-322 (ADR-0137): auto'da karar bölümü yok; kesin sınır yuvası sonda ve her madde `Denendi:` kanıtlı."""
+
+    def test_s1_auto_karar_basligi_sahip_ihlali(self):
+        for b in ("**Sana kalan:** dalı birleştir.", "**Karar:** B seçilsin.", "**Onay bekleyen:** plan.", "## Seçim\nA mı B mi?"):
+            y = f"Sonuç.\n\n{b}\n\nSon paragraf."
+            self.assertEqual(_auto(y)[0], "sahip", b)
+        self.assertIn("kendin yap", CS.uyari_metni("sana kalan", AYAR, "sahip"))
+
+    def test_s2_yuva_sonda_gecer_ortada_sira(self):
+        sonda = "Özet.\n\n## Plandan sapmalar\n- Yok\n\n## Kullanıcıya kalanlar\n- Parola. Denendi: kimlik klasörü tarandı, kayıt yok"
+        ortada = "Özet.\n\n## Kullanıcıya kalanlar\n- Parola. Denendi: kayıt yok\n\n## Plandan sapmalar\n- Yok"
+        self.assertEqual(_auto(sonda), ("", ""))
+        self.assertEqual(_auto(ortada)[0], "sira")
+
+    def test_s3_plan_modu_degismez(self):
+        y = "Sonuç.\n\n**Sana kalan:** dalı birleştir.\n\n- Başka madde"
+        self.assertEqual(CS.siniflandir(y, AYAR, False), ("sira", "sana kalan"))
+        sonda = "Sonuç.\n\n- Madde\n\n**Sana kalan:** dalı birleştir."
+        self.assertEqual(CS.siniflandir(sonda, AYAR, False), ("", ""))
+
+    def test_s4_yonerge_300u_asmaz_ve_kaynak_ifadeleri_icerir(self):
+        ham = SH.ayar_oku()["tur_basi_yonerge"].strip()
+        self.assertLessEqual(len(ham), SH.TUR_BASI_SINIR)
+        for parca in ("önce kendin çöz", "Denendi", "Kullanıcıya kalanlar"):
+            self.assertIn(parca, ham)
+        skill = open(os.path.join(KOK, "skills", "auto", "SKILL.md"), encoding="utf-8").read()
+        self.assertIn("Denendi:", skill)
+
+    def test_s5_gercek_iki_ihlal_auto_da_yakalanir(self):
+        self.assertEqual([_auto(y)[0] for y in KORPUS["ihlalli_gercek"]], ["sahip", "sahip"])
+
+    def test_s6_yuvadaki_madde_icerikli_denendi_ister(self):
+        def yuva(madde):
+            return f"Özet.\n\n## Kullanıcıya kalanlar\n{madde}"
+        for kotu in ("- Dalı birleştir", "- Parola. Denendi:", "- Parola. Denendi: yok", "- Parola. Denendi: denenmedi",
+                     "- Parola. Denendi: -", "- İlk. Denendi: x\n- İkinci madde"):
+            self.assertEqual(_auto(yuva(kotu))[0], "kanit", kotu)
+        for iyi in ("- Parola. Denendi: kimlik klasörü tarandı, kayıt yok", "Yok", "- Yok",
+                    "- İlk. Denendi: a\n- İkinci. Denendi: b"):
+            self.assertEqual(_auto(yuva(iyi)), ("", ""), iyi)
+
+    def test_korpus_auto_kolu_kacirma_sifir_plan_ozgu_haric_yanlis_pozitif_sifir(self):
+        ihlalsiz = KORPUS["ihlalsiz"]
+        plan_ozgu = [i for i, y in enumerate(ihlalsiz) if _auto(y)[0]]
+        self.assertEqual(plan_ozgu, [4, 6, 10], "plan_ozgu başlıklar auto_yasak_basliklar'dan türer")
+        payda = len(ihlalsiz) - len(plan_ozgu)
+        self.assertEqual(payda, 27)
+        ihlalli = list(KORPUS["ihlalli_gercek"])
+        for i in range(18):
+            baslik = BASLIKLAR[i % len(BASLIKLAR)]
+            ayrac = "\n" if baslik.startswith("#") else " "
+            ihlalli.append(f"{ihlalsiz[i]}\n\n{baslik}{ayrac}bir karar bekliyor.\n\n- sonradan eklenen madde")
+        self.assertEqual([i for i, y in enumerate(ihlalli) if not _auto(y)[0]], [])
+
+    def test_hook_auto_blok_eder_plan_modunda_eski_ret_gunluge_sinif_yazar(self):
+        y = "Sonuç.\n\n**Sana kalan:** dalı birleştir.\n\n- madde"
+        eski = izin_politikasi._auto_modu
+        eski_cikti = hook.L.hook_cikti
+        ciktilar = []
+        hook.L.hook_cikti = lambda obj=None, kod=0: ciktilar.append(obj)
+        try:
+            for auto, beklenen in ((True, "sahip"), (False, "sira")):
+                izin_politikasi._auto_modu = lambda sd, oturum, a=auto: a
+                with tempfile.TemporaryDirectory() as sd:
+                    ciktilar.clear()
+                    hook._cikti_sirasi_yanit(sd, "o1", {"last_assistant_message": y})
+                    self.assertEqual(ciktilar[0]["decision"], "block")
+                    kayit = [json.loads(x) for x in open(os.path.join(sd, "gunluk.jsonl"), encoding="utf-8")]
+                    self.assertEqual(kayit[0]["sinif"], beklenen)
+                    if auto:
+                        self.assertIn("kendin yap", ciktilar[0]["reason"])
+        finally:
+            izin_politikasi._auto_modu = eski
+            hook.L.hook_cikti = eski_cikti
 
 
 class IskeletTest(unittest.TestCase):

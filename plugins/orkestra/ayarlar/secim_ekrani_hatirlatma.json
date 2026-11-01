@@ -1,7 +1,7 @@
 {
   "mod": "block",
   "hatirlatma": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Cümleyi yanıttan çıkar ve butonla sun: wrap_up (ask = tek karar cümlesi; actions[0] = önerilen, tek öneri varsa 'Yap' düğmesi, gerekirse tek alternatif) ya da AskUserQuestion (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). İş açma ya da komut gerektiren öneri tek eylemli düğmeyle sunulur (ör. 'İş aç'); tıklanınca komutu sen çalıştırırsın. Kullanıcı yalnız tıklar; yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
-  "tur_basi_yonerge": "Orkestra: yanıt = sonuç tek cümle, en çok 3 madde; karar gerekiyorsa EN SONA (wrap_up: ask tek karar, actions[0] önerilen; auto'da 'Kullanıcıya kalanlar' son bölüm). Düz metinle 'istersen/yap de' yazma. Karar yoksa düğme açma.",
+  "tur_basi_yonerge": "Orkestra: yanıt = sonuç tek cümle, en çok 3 madde; karar gerekiyorsa EN SONA (wrap_up: ask tek karar, actions[0] önerilen). Auto'da karar yok: önce kendin çöz; kalan engel yalnız son 'Kullanıcıya kalanlar' bölümünde, madde başına 'Denendi: …'. 'İstersen/yap de' yazma.",
   "secim_araclari": [
     "AskUserQuestion",
     "wrap_up"

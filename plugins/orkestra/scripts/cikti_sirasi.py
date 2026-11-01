@@ -105,10 +105,81 @@ def ihlal(yanit, ayar: dict) -> str:
     return ""
 
 
-def uyari_metni(baslik: str, ayar: dict) -> str:
+_MADDE = re.compile(r"^(?:[-*]|\d+[.)])\s+")
+_BOS_SATIR = re.compile(r"^\W*(yok|yoktur|hiç)\W*$", re.IGNORECASE)
+
+
+def _kalip(ayar: dict, anahtar: str, varsayilan=()):
+    return [re.compile(k, re.IGNORECASE) for k in ayar.get(anahtar) or varsayilan]
+
+
+def _yuva_maddeleri(satirlar: list[str]) -> list[str]:
+    """Yuva içeriğini maddelere böler: madde işaretli satır yeni maddedir, girintili/devam satırı öncekine eklenir;
+    madde işareti yoksa paragraf bir maddedir. Belge bağlantı satırları ve boş satırlar atlanır."""
+    maddeler: list[str] = []
+    for s in satirlar:
+        if not s.strip() or _BAGLANTI.match(s):
+            continue
+        if _MADDE.match(s.strip()) and not s[:1].isspace():
+            maddeler.append(s.strip())
+        elif maddeler:
+            maddeler[-1] += " " + s.strip()
+        else:
+            maddeler.append(s.strip())
+    return maddeler
+
+
+def _kanitsiz_madde(madde: str, ayar: dict) -> bool:
+    """Madde `kanit_etiketi` ("Denendi:") sonrası içerik taşımıyorsa True; "Yok" maddesi yuvayı boş sayar."""
+    govde = _MADDE.sub("", madde).strip()
+    if _BOS_SATIR.match(govde):
+        return False
+    etiket = ayar.get("kanit_etiketi") or "Denendi:"
+    i = govde.lower().find(etiket.lower())
+    if i < 0:
+        return True
+    kalan = re.sub(r"^[\s*_]+|[\s*_.]+$", "", govde[i + len(etiket):])
+    bos = [re.compile(k, re.IGNORECASE) for k in ayar.get("bos_kanit_kaliplari") or []]
+    return not kalan or any(b.match(kalan) for b in bos)
+
+
+def siniflandir(yanit, ayar: dict, auto: bool) -> tuple[str, str]:
+    """(sınıf, başlık/madde). Sınıf: "" | "sahip" | "sira" | "kanit". Auto değilse yalnız eski sıra denetimi ("sira").
+    Auto'da: kesin sınır yuvası ("Kullanıcıya kalanlar") dışındaki karar başlığı "sahip"; yuva ortadaysa "sira"; yuvadaki
+    her madde `Denendi:` kanıtı taşımıyorsa "kanit" (ADR-0137)."""
+    if not auto or ayar.get("auto_sinif") is False:
+        b = ihlal(yanit, ayar)
+        return ("sira", b) if b else ("", "")
+    if not (yanit or "").strip():
+        return "", ""
+    yuva = _kalip(ayar, "kesin_sinir_basliklari")
+    yasak = _kalip(ayar, "karar_basliklari") + _kalip(ayar, "auto_yasak_basliklar")
+    parcalar = bolumler(yanit)
+    for i, (baslik, satirlar) in enumerate(parcalar):
+        if not baslik:
+            continue
+        if any(k.search(baslik) for k in yuva):
+            if any(_icerik_var(s) for _b, s in parcalar[i + 1:]):
+                return "sira", baslik
+            for madde in _yuva_maddeleri(satirlar):
+                if _kanitsiz_madde(madde, ayar):
+                    return "kanit", madde[:80]
+        elif any(k.search(baslik) for k in yasak):
+            return "sahip", baslik
+    return "", ""
+
+
+def uyari_metni(baslik: str, ayar: dict, sinif: str = "sira") -> str:
+    if sinif in ("sahip", "kanit"):
+        ozel = ayar.get("uyari_" + sinif)
+        if ozel:
+            return ozel.replace("{baslik}", baslik)
+
     return (ayar.get("uyari") or "Orkestra (ADR-0135): karar bekleyen bölüm yanıtın en sonunda olmalı: '{baslik}' bölümünün "
             "ardında içerik var. Bölümü yanıtın son bölümüne taşı; karar yoksa bölümü sil.").replace("{baslik}", baslik)
 
 
-def kullanici_uyarisi(baslik: str, ayar: dict) -> str:
+def kullanici_uyarisi(baslik: str, ayar: dict, sinif: str = "sira") -> str:
+    if sinif in ("sahip", "kanit") and ayar.get("kullanici_uyarisi_" + sinif):
+        return ayar["kullanici_uyarisi_" + sinif].replace("{baslik}", baslik)
     return (ayar.get("kullanici_uyarisi") or "Uyarı: '{baslik}' bölümü yanıtın sonunda değil (ADR-0135).").replace("{baslik}", baslik)

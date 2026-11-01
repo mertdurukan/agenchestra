@@ -26,7 +26,7 @@ description: "Orkestra'da /auto modunu açar: kullanıcının mesajı onay yerin
 
 - **Best in class:** her konuda, plan maddesi başına şu dört soru yanıtlanır (P-030): kök neden mi ele alınıyor, en az iki uygulanabilir alternatif tartıldı mı, kapsam daraltılırken çözümün özü korundu mu, ölçüm yöntemi yeterli mi. Belirtiyi yamayan ya da tek yaklaşımı deneyen çözüm best in class sayılmaz.
 - **Durmama:** tur bir konuda tıkansa da diğer maddeler sürer; iş çalışma özeti yazılıp `orkestra is kapat` çalışana kadar bırakılmaz.
-- **Kullanıcıya kalan iş:** önce kendin çöz. Elinde araç, anahtar, API ya da tarayıcı varsa işi yap. Çözemediğin işte best in class güvenli varsayılanı seç, uygula ve kararı yaz.
+- **Kullanıcıya kalan iş:** önce kendin çöz. Elinde araç, anahtar, API ya da tarayıcı varsa işi yap. Çözemediğin işte best in class güvenli varsayılanı seç, uygula ve kararı yaz. Yanıt gövdesinde karar bölümü ('Sana kalan', 'Karar', 'Seçim', 'Onay bekleyen') yazma; değeri yalnız kullanıcıda olan engel yanıtın SON bölümü 'Kullanıcıya kalanlar'a girer ve her maddesi 'Denendi: <ne denendi, sonuç>' taşır (ADR-0137); denemediğin işi madde yapma, yap.
 - **Her otomatik karar** özetin `## Otomatik kararlar` bölümüne dört alanla yazılır:
   - **Karar:** ne yapıldı ya da ne yanıt verildi.
   - **Gerekçe:** neden bu, hangi kanıta dayanıyor.
