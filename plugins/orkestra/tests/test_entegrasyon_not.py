@@ -7,7 +7,6 @@ Her test geçici git deposu ve geçici durum dizini kullanır.
 import json
 import os
 import sys
-import time
 
 KOK = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(KOK, "scripts"))
