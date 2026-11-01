@@ -1,0 +1,45 @@
+name: orkestra-tam-takim
+# Tam test takımı yerelde değil burada koşar (I-341, ADR-0146). Her push ve PR'da koşmaz:
+# yalnız main'e push, gece ve elle. Hızlı katman orkestra-test.yml'de kalır.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+concurrency:
+  group: orkestra-tam-takim-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  tam-takim:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: "1"
+      ORKESTRA_DOKTOR_OTOMATIK: "0"
+      ORKESTRA_KAYNAK_KIRA: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install pytest
+      - name: Tam takım
+        shell: bash
+        run: |
+          python plugins/orkestra/scripts/test_paralel.py plugins/orkestra/tests 2>&1 | tee tam_takim.log
+          exit "${PIPESTATUS[0]}"
+      - name: Başarısız testleri özete yaz
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "### Başarısız testler (${{ matrix.os }})"
+            echo '```'
+            grep -E "^(FAILED|ERROR)" tam_takim.log | head -100 || echo "FAILED/ERROR satırı yok; günlüğe bak"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
