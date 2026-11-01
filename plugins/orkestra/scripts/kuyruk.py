@@ -10,6 +10,7 @@ Durumlar ve geçişler:
               kosuyor -> karantina
   karantina -> bekliyor   (yalnız `ekle` ile: suçlu oturum düzeltip yeniden teslim eder; kuyruğun sonuna girer)
   kosuyor -> bekliyor     (yalnız `kurtar` ile: koşucu kilidi bayat/yok ya da çağıranındır; ölen koşucunun artığı)
+  karantina + sahipsiz    (alan, `alan_ekle` ile: suçluya giden not 60 dk okunmadı; oturum_farkindalik.sahipsiz_tara)
 
 Tek-koşucu kilidi: `<durum>/kuyruk/kosucu.json` {sahip, pid, t}. Aynı anda tek entegrasyon koşusu; canlı sahibi olan
 kilidi ikinci koşucu alamaz. Sahip `kosucu_tazele` ile t'yi yeniler; t BAYAT_S (30 sn) eskiyse kilit bayattır ve
