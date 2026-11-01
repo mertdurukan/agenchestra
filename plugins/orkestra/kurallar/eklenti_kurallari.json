@@ -577,7 +577,8 @@
           "metin": "ZORUNLU, istisnasız: Orkestra projesinin kendisi ve orkestranın açık olduğu her proje için Architecture Decision Record (ADR) tutulur. (1) Mimari ya da kalıcı etkisi olan her karar (bileşen ya da bağımlılık seçimi, veri ve dosya düzeni, kural ya da hook mekanizması, güvenlik ya da izin sınırı, bir seçeneğin reddi) için karar uygulanmadan önce ADR yazılır; karar sonradan değişirse eski ADR silinmez, 'Yerine geçildi: ADR-nnnn' diye işaretlenir ve yeni ADR açılır. (2) Yer: projenin adr/ klasörü (yoksa açılır), dosya adı ADR-nnnn-<kisa-baslik>.md, numara klasördeki en büyükten türer, ardışık ve tekrarsızdır. (3) Alanlar ayrı paragraflarda ve kalın etiketle: Durum (Önerildi | Kabul edildi | Reddedildi | Yerine geçildi), Tarih, Bağlam (karar neden gerekti), Karar, Seçenekler (değerlendirilen ve elenen, her biri neden), Sonuçlar (olumlu, olumsuz, geri alma yolu), İlgili iş ya da kural kimliği. (4) Her iş mevcut durum ve plan aşamasında 'ADR gerekir mi?' sorusunu yanıtlar ve plan.md'ye tek satır yazar: '**ADR:** ADR-nnnn' (adr/ klasöründe dosyası olmalı) ya da '**ADR:** gerekmez — <neden>'. (5) İş kapanışında çalışma özeti bu işte açılan ya da değişen ADR'leri listeler. (6) ADR kısa tutulur (bir ekran) ve K-005 okunabilirlik düzenine uyar. Zorlama: orkestra is kapat plan.md'de geçerli '**ADR:**' satırı yoksa reddeder; iş hiç yapılmadan kapanıyorsa --ozetsiz \"neden\" kapıyı atlar (ORKESTRA_ADR_KAPISI=0 kapıyı kapatır). Hook'un hatırlatması yetmez: kapıyı atlayarak kapatmak yasaktır."
         }
       ],
-      "etkinlesme": "2026-10-18T14:53:40+03:00"
+      "etkinlesme": "2026-10-18T14:53:40+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-016",
@@ -600,7 +601,8 @@
           "metin": "ZORUNLU, istisnasız: Bir işe başlanınca (orkestra is ac ya da is devam) kullanıcıdan açık onay gelmeden uygulamaya geçilmez: kod/dosya değişikliği, commit ve bağımlılık ekleme yapılmaz. Önce sırayla (1) mevcut durum, (2) plan, (3) todo hazırlanır ve ilk mesajlarda bu sırayla bağlantılarıyla kullanıcıya gösterilir (K-003 satırları, P-005 sırası); kullanıcı onaylayınca iş başlar. (4) Çalışma özeti işin kapanışında, bağlantı satırlarının en sonunda verilir. Kullanıcı 'yap', 'onaylıyorum' gibi bir onay vermeden iş başlatılmaz; engel varsa durum ve engel söylenir. Zorlama: is.json 'onay' alanı (yeni sıralı iş bekliyor doğar; is devam alansız işte todo'da biten madde yoksa bekliyor koyar); PreToolUse hook'u bekliyor iken işin belgeleri ve adr/ dışına yazmayı, git commit/add/merge/rebase/reset ve bağımlılık kurma komutlarını ana ve alt ajanda reddeder; durumu yalnız kullanıcının onay mesajı (UserPromptSubmit), kullanıcının seçim ekranı yanıtı (PostToolUse AskUserQuestion; ADR-0078: ana ajan, tek soruluk açık onay sorusu, gerçek seçim, onay yanıtı; hatada onay verilmez) ya da kullanıcı terminalinden 'orkestra is onayla' değiştirir ve ön koşulu üç belgenin tamam olmasıdır. ORKESTRA_ONAY_KAPISI=0 kapatır. Bu kural P-012 madde 1'in yerini alır."
         }
       ],
-      "etkinlesme": "2026-10-18T17:34:59+03:00"
+      "etkinlesme": "2026-10-18T17:34:59+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-017",
@@ -618,7 +620,8 @@
           "metin": "ZORUNLU, istisnasız: Orkestra'da gap analizi (hedef durum ile mevcut durum arasındaki fark) iki geçişlidir ve plan bunsuz tamam sayılmaz. (1) Plandan önce: mevcut durum belgesinin '## 6. Gap analizi' bölümünde hedef durum ve her gap bir satırla yazılır ('- **G1:** hedef → mevcut → fark'); gap satırı olmayan mevcut durum tamam sayılmaz, plan.md yazılamaz. (2) Plandan sonra: her gap bir plan maddesinin '**Gap:** G<n>' alanında anılır ya da plandaki '## Gap kapsama' bölümünde 'Kapsam dışı: <gerekçe>' ile gerekçelendirilir, her plan maddesi mevcut durumda var olan bir gap'i gösterir; sonuç plan doğrulama karar bloğuna 'Gap kapsaması' satırı olarak yazılır. Zorlama: is.json 'gap' alanı (yeni sıralı iş gap:true doğar; bayraksız işler muaf); is_sirasi.mevcut_durum_eksikleri birinci geçişi, plan_eksikleri ve plan_dogrulama ikinci geçişi denetler; ORKESTRA_GAP_KAPISI=0 kapatır."
         }
       ],
-      "etkinlesme": "2026-10-19T08:38:41+03:00"
+      "etkinlesme": "2026-10-19T08:38:41+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-018",
@@ -636,7 +639,8 @@
           "metin": "ZORUNLU, istisnasız: Mevcut durum, plan, todo ve çalışma özeti belgeleri ortak bir kalite çıtasına uyar (best in class). (1) Çalışma özeti en üstte '## Özet' bölümü (Şef Özeti) taşır; mevcut durum, plan ve sözleşme Özet taşımaz, her bölümün ilk satırı '**Sonuç:**' olur (ORK-ADR-0126). (2) Plan maddesi '**Kabul:**' (ölçülebilir ölçüt) ve '**Geri alma:**' alanlarını taşır, gerekiyorsa '**Önce:**'. (3) Todo maddesi bitirilirken kanıt notu yazılır ('orkestra is todo <iş> --bitti <n> --not \"kanıt: komut çıktısı ya da dosya:satır\"'); kanıtsız [x] satırı reddedilir. (4) Çalışma özeti '## Plana göre gerçekleşen' bölümünde plandaki her P ve mevcut durum §6'daki her G için durum ve kanıt verir; anılmayan P ya da G varsa is kapat reddeder. Zorlama: is.json 'kalite' alanı (yeni sıralı iş kalite:true doğar; bayraksız işler muaf); is_sirasi.mevcut_durum_eksikleri, plan_eksikleri, todo_satir_ihlalleri, is_kaydi.todo_bitir ve isler._ozet_eksigi denetler; ORKESTRA_KALITE_KAPISI=0 kapatır."
         }
       ],
-      "etkinlesme": "2026-10-19T08:56:03+03:00"
+      "etkinlesme": "2026-10-19T08:56:03+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-019",
@@ -654,7 +658,8 @@
           "metin": "ZORUNLU, istisnasız: Her projede betikle üretilen kalıcı bir sistem haritası vardır (.claude/orkestra/sistem_haritasi/: sır ve yapılandırma yeri, dış bağlantılar, çalışan süreçler, giriş noktaları ve modüller, altyapı, veri modeli, bağımlılıklar, açık iş ve ADR). (1) Yeni sohbet ve yeni iş önce harita INDEX'ini okur; kayıt yoksa ya da kaynağı değişmişse 'orkestra harita oku' ilgili katmanı baştan tarayıp yeniden yazar, elle düzenlenmez. (2) Haritalı işte her plan maddesi '**Mevcut varlık:**' alanını taşır: dokunduğu yerde zaten var olan mekanizmanın harita kayıt kimliği ya da 'yok — <aranan>'; aynı sistemi ikinci kez kurmak ve mevcut düzeni (örn. Key Vault'taki sır) bypass etmek bu alanda görünür olur. (3) İş kapanışında eskimiş harita kendiliğinden yenilenir, kullanıcıya ek adım çıkmaz. (4) Harita sır değeri taşımaz; canlı kaynaklar (Azure, canlı veritabanı) taranmaz, kodda atıf varsa 'doğrulanamadı' işaretlenir. Zorlama: is.json 'harita' alanı (yeni sıralı iş harita:true doğar; bayraksız işler muaf); is_sirasi.mevcut_varlik_eksikleri plan kapısında, isler._harita_yenile kapanışta; ORKESTRA_HARITA_KAPISI=0 kapatır."
         }
       ],
-      "etkinlesme": "2026-10-19T13:31:16+03:00"
+      "etkinlesme": "2026-10-19T13:31:16+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-020",
@@ -677,7 +682,8 @@
           "metin": "Çalışma modları: kullanıcı bir işe /plan (varsayılan) ya da /auto ile başlar. /plan: mevcut durum, plan ve todo hazırlanır, kullanıcı onaylayana kadar uygulama yok (P-016). /auto: kullanıcının mesajı onay yerine geçer; üç belge yine yazılır, hook onayı belgeler tamamlanınca verir; iş sonuna kadar koşulur. /auto altında kesin sınırlar (push, sır, DB salt okunur), izin hook'u, denetçi, ADR, gap ve kanıt kapıları aynen geçerlidir; ajan kendi onayını ya da mod alanını yazamaz. Kullanıcıya ait işler (parola, push kararı, başka ekibin işi) koşuyu durdurmaz: diğer maddeler tamamlanır, bunlar çalışma özetinde 'Kullanıcıya kalanlar' bölümünde sıralı verilir; özet ayrıca 'Plandan sapmalar' bölümünü taşır. Zorlama: is.json 'mod' alanı, is_onay.otomatik_onay, isler._auto_ozet_eksigi; ORKESTRA_MOD_KAPISI=0 kapatır."
         }
       ],
-      "etkinlesme": "2026-10-20T15:44:52+03:00"
+      "etkinlesme": "2026-10-20T15:44:52+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-021",
@@ -950,7 +956,8 @@
           "not": "I-300: kapı modu elle yazılmaz, {{mod:<ayar>}} yer tutucusu üretimde ayardan basılır (ORK-ADR-0125)"
         }
       ],
-      "etkinlesme": "2026-10-23T11:44:56+03:00"
+      "etkinlesme": "2026-10-23T11:44:56+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-034",
@@ -998,7 +1005,8 @@
           "not": "I-300: kapı modu elle yazılmaz, {{mod:<ayar>}} yer tutucusu üretimde ayardan basılır (ORK-ADR-0125)"
         }
       ],
-      "etkinlesme": "2026-10-23T18:46:32+03:00"
+      "etkinlesme": "2026-10-23T18:46:32+03:00",
+      "yukle": "hook"
     },
     {
       "id": "P-036",
