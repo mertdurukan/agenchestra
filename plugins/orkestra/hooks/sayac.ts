@@ -1,4 +1,5 @@
-// Orkestra token sayacı: motorun her tur sonunda bildirdiği KESİN kullanımı (turn.complete.usage) deftere yazar.
+// Orkestra token sayacı: motorun her tur sonunda bildirdiği kullanımı (turn.complete.usage) gözlem defterine
+// (maliyet_tur.jsonl) yazar; maliyet.jsonl'in tek token kaynağı Stop/SubagentStop hook'udur (I-319 P3, ADR-0095).
 // Ana döngü ve her alt ajan (agentId) için ayrı satır; görev/süreç eşlemesini CLI yapar.
 // Neden: alt ajan transkriptleri yanıtın başındaki kullanım anlık görüntüsünü tutar, çıkış tokenı eksik kalır.
 import type { EngineInterface, Register } from 'claude-code'
