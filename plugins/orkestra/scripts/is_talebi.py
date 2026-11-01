@@ -209,6 +209,8 @@ def talep_al(sd: str, oturum: str, is_id, madde_metni: str, yazma_alani=None, si
             dusen = {id(x) for x in olu_es + olu}
             talepler = [x for x in talepler if id(x) not in dusen]
             kendi = next((x for x in talepler if _kendi_mi(x, oturum, is_id, tok)), None)
+            if kendi:  # yenilemede yalnız kendi talebinden ÖNCE alınmış talep sahiptir (gölgede sonra gelen ikinci değil)
+                canli = [p for p in canli if float(p[0].get("zaman") or 0) < float(kendi.get("zaman") or 0)]
             sonuc: dict = {"mod": m}
             if canli:
                 ilk, neden = canli[0]
