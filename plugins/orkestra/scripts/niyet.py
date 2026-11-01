@@ -253,7 +253,7 @@ def ac(oturum: str) -> dict:
     bayrak = 0x08000000 if os.name == "nt" else 0  # pencere açma
     subprocess.Popen([exe, "--desktop", "--resume", oturum], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, creationflags=bayrak, close_fds=True)
-    return {"tamam": True, "yol": "cli"}
+    return {"tamam": True, "yol": "cli", **({"uyari": uyari} if uyari else {})}
 
 
 def perspektif_sohbeti_ac(proje_yol: str) -> dict:
