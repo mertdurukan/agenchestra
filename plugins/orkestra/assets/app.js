@@ -149,9 +149,9 @@
     const k = kayit(yol);
     if (k.istek) return k.istek;
     if (!taze && k.veri && Date.now() - k.zaman < 2000) return k.veri;
+    const DENEME = 2, SINIR_MS = 20000;
     k.istek = (async () => {
       // Geçici yavaşlık/ağ kopukluğu: zaman aşımı ve ağ hatasında bir kez daha denenir (I-312 P4); sunucu hatası (HTTP/JSON) denenmez.
-      const DENEME = 2, SINIR_MS = 20000;
       try {
         if (!alanAl(yol)) throw new Error('Bu ayrıntı için çalışma alanı gerekir; bağlantıda alan yok ve kimlik tek bir alanda bulunamadı.');
         let son = null;
@@ -1106,7 +1106,7 @@
     const e = document.getElementById('canli'), m = document.getElementById('canliMetin');
     if (!e || !m) return;
     const yas = V.sonBasari ? (Date.now() - V.sonBasari) / 1000 : null;
-    const bayat = yas != null && yas > 90;
+    const bayat = (yas != null && yas > 90) || [...V.onbellek.values()].some(k => k.bayat);   // son veri var ama yenilenemiyor (I-312 P4)
     e.className = 'satir canli' + (V.canli && !bayat ? ' acik' : bayat ? ' bayat' : '');
     m.textContent = (V.canli ? 'Canlı' : 'Yeniden bağlanıyor') + (yas != null ? ' · ' + (yas < 10 ? 'şimdi güncellendi' : B.goreli(new Date(V.sonBasari).toISOString())) : '');
   }
