@@ -120,7 +120,11 @@ Planın dışına çıkılan işler ve kalan işler de ayrı satırlarla yazıl�
 
 ## Otomatik kararlar
 
-<!-- yalnız /auto işlerinde (ADR-0086): kullanıcıya sorulmadan verilen her karar ayrı satır: karar, seçilen, elenen, neden; yoksa "Yok". -->
+<!-- yalnız /auto işlerinde (ADR-0086, ADR-0132): kullanıcıya sorulmadan verilen her karar ayrı madde ve dört alanla; yoksa "Yok".
+- **Karar:** ne yapıldı ya da ne yanıt verildi.
+  - **Gerekçe:** neden bu, hangi kanıta dayanıyor.
+  - **Alternatifler:** değerlendirilen diğer yollar.
+  - **Geri alma:** kararı geri almanın yolu. -->
 
 ## Kullanıcıya kalanlar
 
