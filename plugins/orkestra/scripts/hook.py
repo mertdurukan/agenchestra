@@ -1823,7 +1823,7 @@ def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
                                   + "). Sonuç tek cümle, en çok 3 madde, karar en sonda biçiminde kısalt; ayrıntı belgede kalsın."})
                 return
             L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "kapi": CB.KAPI, "is": is_id,
-                               "neden": "; ".join(nedenler)})
+                               "neden": "; ".join(nedenler), **({"kol": deney["kol"]} if deney else {})})
     except SystemExit:
         raise
     except Exception:
