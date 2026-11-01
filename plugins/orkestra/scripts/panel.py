@@ -424,8 +424,14 @@ def _sohbet_arka_plan(a: dict) -> list[dict]:
     try:
         for r in niyet.gorunum(alan_yol=a["yol"]).get("oturumlar", []):
             if r.get("bekleyen") == "claude":
-                out.append({"tur": "sohbet", "ad": r.get("ne") or r.get("sohbet") or r.get("kisa"),
-                            "baslangic": r.get("son_zaman")})
+                baslik = r.get("sohbet")  # kenar çubuğundaki ad; yoksa sohbet adı oturum kimliği kısaltmasına düşer
+                tanimli = bool(baslik) and baslik != r.get("kisa")
+                ad = baslik if tanimli else (r.get("ne") or r.get("yedek") or r.get("kisa"))
+                ayrinti = r.get("ne") if (tanimli and r.get("niyet_var") and r.get("ne") != ad) else None
+                sessiz = r.get("sessiz_dk")
+                out.append({"tur": "sohbet", "ad": ad, "ayrinti": ayrinti, "baslangic": r.get("son_zaman"),
+                            "son_zaman": r.get("son_zaman"), "sessiz_dk": sessiz,
+                            "sessiz": isinstance(sessiz, int) and sessiz >= niyet.SESSIZ_ESIK_DK})
     except Exception:  # noqa: BLE001
         pass
     return out

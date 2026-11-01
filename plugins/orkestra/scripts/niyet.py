@@ -29,6 +29,7 @@ MASAUSTU_DURUM = {"bayat": False}  # son masaustu_oturumlari() çağrısı kayı
 GENEL_DIZIN = os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel")
 NIYET_YOLU = os.path.join(GENEL_DIZIN, "niyet.jsonl")
 AZAMI_BAYT = 3 * 1024 * 1024
+SESSIZ_ESIK_DK = 10  # "Claude çalışıyor" satırında bu kadar dk transkript/olay yoksa panel "sessiz" diye işaretler (durumu değiştirmez)
 ARKA_PLAN_ZAMAN_ASIMI_DK = 60  # arka plan turundan sonra bu kadar dk etkinlik yoksa "beklemede"
 ESKI_GUN = 3         # bu kadar gün dokunulmayan sohbet "beklemede" sayılır
 GORUNUM_GUN = 7       # şeritte gösterilen en eski etkinlik
@@ -642,6 +643,7 @@ def gorunum(gun: int = GORUNUM_GUN, alan_yol: str | None = None) -> dict:
             "ne": s["ne"], "neden": s["neden"], "sonuc": s["sonuc"], "yedek": yedek, "niyet_var": bool(s["ne"]),
             "bekleyen": bekleyen, "bekleme": s["bekleme"] if bekleyen == "sen" else None, "son_zaman": s["son_zaman"], "baslangic": s["baslangic"], "istek_sayisi": s["istek_sayisi"],
             "son_istek": _kisalt(s["son_istek"], 160), "arka_plan": bool(s["arka_plan"]),
+            "sessiz_dk": int(bosta_dk) if bosta_dk < 9999 else None,
             "kartlar": {"acik": len(acik_kart), "toplam": len(kartlar.get(s["oturum"], [])),
                         "teslim": sum(1 for k in kartlar.get(s["oturum"], []) if k["durum"] == "teslim"),
                         "aktif": acik_kart[:3]},
