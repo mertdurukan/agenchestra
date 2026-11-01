@@ -189,8 +189,10 @@ def _kisa_ad(ad: str) -> str:
 def karantina_notu(bilgi: dict) -> str:
     """Suçlu oturuma gidecek not: teslim, dal, neden, başarısız test adları, günlüğün son satırları. Günlük sır
     süzgecinden (oturum_farkindalik._SIR) REDAKTE edilir, reddedilmez; sonuç OF.NOT_EN_COK karaktere kısaltılır."""
-    gunluk = OF.redakte(str(bilgi.get("gunluk") or ""))
-    adlar = list(dict.fromkeys(_kisa_ad(m.group(1) or m.group(2)) for m in _BASARISIZ.finditer(gunluk)))[:5]
+    ham = str(bilgi.get("gunluk") or "")
+    # adlar ham günlükten alınıp kısaltılır (uzun test adı 40+ dizi kalıbına takılmasın); metnin tamamı sonda redakte
+    adlar = list(dict.fromkeys(_kisa_ad(m.group(1) or m.group(2)) for m in _BASARISIZ.finditer(ham)))[:5]
+    gunluk = OF.redakte(ham)
     son = [" ".join(s.split())[:80] for s in gunluk.splitlines() if s.strip()][-_SON_SATIR:]
     parca = [f"Kuyruk karantinası: teslim {bilgi.get('teslim')} (dal {bilgi.get('dal') or '-'}) main'e girmedi;"
              f" {str(bilgi.get('neden') or '')[:70]}."]
