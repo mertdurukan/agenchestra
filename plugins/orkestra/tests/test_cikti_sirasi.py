@@ -64,7 +64,9 @@ class SiraKapisiTest(unittest.TestCase):
         yanlis_pozitif = sum(1 for y in ihlalsiz if CS.ihlal(y, AYAR))
         ihlalli = list(KORPUS["ihlalli_gercek"])
         for i in range(18):
-            ihlalli.append(f"{ihlalsiz[i]}\n\n{BASLIKLAR[i % len(BASLIKLAR)]} bir karar bekliyor.\n\n- sonradan eklenen madde")
+            baslik = BASLIKLAR[i % len(BASLIKLAR)]
+            sonra = "\n\n## Ek bölüm\n- sonradan eklenen madde" if baslik.startswith("#") else "\n\n- sonradan eklenen madde"
+            ihlalli.append(f"{ihlalsiz[i]}\n\n{baslik} bir karar bekliyor.{sonra}")
         self.assertEqual(len(ihlalli), 20)
         self.assertEqual([i for i, y in enumerate(ihlalli) if not CS.ihlal(y, AYAR)], [])
         self.assertLessEqual(yanlis_pozitif, 2, f"yanlış pozitif {yanlis_pozitif}/30")
