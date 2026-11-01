@@ -226,7 +226,8 @@ def _test_yonlendirme(komut: str, cwd: str | None) -> str:
     if bek:
         durum += f", bekleyen: {len(bek)}"
     ileti = (f"çıplak tam test koşusu ({parca}) kira, ortak işçi bütçesi ve sonuç önbelleği almaz; tam takım için "
-             f"`python {kosucu}` kullan. Tek dosya ya da -k hedefli çağrı serbesttir. {durum}.")
+             f"GitHub Actions'ta koşar: `gh workflow run orkestra-tam-takim.yml` (yerelde zorunluysa `python {kosucu}`). "
+             f"Tek dosya ya da -k hedefli çağrı serbesttir. {durum}.")
     import kapi_mod
     if kapi_mod.mod(TEST_YONLENDIRME_KAPI, cwd) == "ihlal":
         kapi_mod.ret_kaydet(cwd or os.getcwd(), TEST_YONLENDIRME_KAPI, f"çıplak test koşusu: {parca}")
