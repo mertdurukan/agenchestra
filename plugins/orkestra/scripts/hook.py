@@ -981,6 +981,30 @@ def _ajan_kapsam_kapisi(inp: dict, arac: str, girdi: dict, sd: str, atip: str) -
     _BEKLEYEN_UYARI = f"orkestra (gölge): {neden}"
 
 
+def _bekleme_kapisi(inp: dict, komut: str) -> None:
+    """I-326 (ADR-0138): sınırsız bekleme döngüsü. Hata komutu bozmaz; ihlal modunda ret, gölgede kayıt + uyarı."""
+    global _BEKLEYEN_UYARI
+    try:
+        import bekleme_kapisi as _bk
+        import kapi_mod
+        cwd = inp.get("cwd") or os.getcwd()
+        s = _bk.karar(komut, cwd)
+        if not s:
+            return
+        mod, mesaj, parca = s
+        olay = f"{parca[:80]} oturum={str(inp.get('session_id') or '')[:8]}"
+        if mod == "ihlal":
+            kapi_mod.ret_kaydet(cwd, _bk.KAPI, olay)
+            reddet(mesaj)
+            return
+        kapi_mod.kaydet(cwd, _bk.KAPI, olay)
+        _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + " " if _BEKLEYEN_UYARI else "") + mesaj
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
 def _main_kopya_kapisi(inp: dict, girdi: dict, arac: str) -> None:
     """I-302 (ADR-0122): hata aracı bozmaz; yalnız ihlal modundaki ret çıkışı yükseltir."""
     global _BEKLEYEN_UYARI
