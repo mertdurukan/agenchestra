@@ -21,7 +21,10 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cfg  # noqa: E402
 import ork_lib as L  # noqa: E402
+
+MASAUSTU_DURUM = {"bayat": False}  # son masaustu_oturumlari() çağrısı kayıt dizinini göremeyip önbellekle mi döndü
 
 GENEL_DIZIN = os.path.join(os.path.expanduser("~"), ".claude", "orkestra-panel")
 NIYET_YOLU = os.path.join(GENEL_DIZIN, "niyet.jsonl")
