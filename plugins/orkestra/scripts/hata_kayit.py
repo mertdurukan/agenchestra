@@ -37,6 +37,10 @@ TURLER = {
     "is-klasoru-yanlis": ("betik", True, "`is ac` başka işin kaydını içeren klasörü reddeder; yeni alt klasör açılır"),
     "kabuk-sozdizimi": ("istem", None, "oturum bağlamında kabuk ayrımı: Bash=POSIX, PowerShell=Windows cmdlet'i"),
     "hook-red": ("kural", None, "reddin kapı kimliğindeki kuralın kaynağı (ilk yazımda uyum) ya da hook mesajı"),
+    # Araç hatası (I-329, ADR-0141): kaynağı iletiden mekanik bilinemez; tekrarında kök neden ipucu imzayı sayar
+    "arac-hatasi": ("arac", None, "başarısız araç çağrısının girdisi ya da ortamı; tekrar eden imza kök neden analizine girer"),
+    "izin-reddi": ("kural", None, "reddi veren izin kuralı ya da auto modu sınıflandırıcısı; kuralın ilk yazımda uyumu"),
+    "tur-api-hatasi": ("belirsiz", None, "API hatasıyla biten tur (oran sınırı, aşırı yük, faturalama); eklenti dışı"),
 }
 _KAPI_KIMLIGI = re.compile(r"\b(?:[KP]-\d{3}|ADR-\d{4})\b")
 
@@ -149,3 +153,17 @@ def davranis(sd, tur: str, ileti: str, baglam=None, **ret) -> None:
     `ret`: kaydet()'in ret bağlamı kwargs'ı (kapi, arac, dosya, ajan, metin); hook-red çağrısı bunları geçirebilir.
     """
     kaydet(sd, "davranis", tur, ileti, baglam, {"sinif": "davranis", "kok": kok_neden(tur, str(ileti or ""))}, **ret)
+
+
+def arac_hatasi(sd, arac, ileti, ajan=None, tur: str = "arac-hatasi", baglam=None) -> None:
+    """Başarısız araç çağrısı satırı (I-329): üst düzey `kaynak: arac`, `ajan: ana|alt` ve iç içe `kok` alanı. İstisna fırlatmaz.
+
+    İleti yazılmadan önce maskelenir (sır sızmaz); imza araç adını içerir, aynı araçta aynı hata aynı imzayı verir.
+    `kaynak` (üst düzey) satırın nereden geldiğidir, `kok.kaynak` kök neden sınıfıdır; iki alan ayrı anlamdadır."""
+    try:
+        ileti = f"{arac or '?'}: {L.maskele(str(ileti or ''))}"
+        kaydet(sd, "arac", tur, ileti, baglam,
+               {"sinif": "arac", "arac": arac, "ajan": ajan if ajan in ("ana", "alt") else None,
+                "kok": kok_neden(tur, ileti)})
+    except Exception:  # noqa: BLE001
+        pass

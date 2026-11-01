@@ -3456,6 +3456,9 @@ def post_tool_use_failure(inp: dict):
             L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"),
                          {"zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "skill_hata",
                           "skill": g.get("skill") or g.get("name"), "hata": L.maskele(str(inp.get("error") or ""))[:200]})
+        if sd and not inp.get("is_interrupt"):  # kullanıcı kesmesi hata değildir; her başarısız araç hata defterine yazılır (I-329)
+            import hata_kayit
+            hata_kayit.arac_hatasi(sd, inp.get("tool_name"), inp.get("error"), "alt" if inp.get("agent_id") else "ana")
         if sd:
             import kok_neden_enjeksiyonu
             ipucu = kok_neden_enjeksiyonu.arac_metni(inp, sd)
