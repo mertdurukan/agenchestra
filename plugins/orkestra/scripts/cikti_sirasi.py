@@ -59,6 +59,7 @@ def bolumler(yanit: str) -> list[tuple[str, list[str]]]:
     Satır başı kalın etiketin aynı satırdaki devamı bölümün ilk içerik satırıdır."""
     sonuc: list[tuple[str, list[str]]] = [("", [])]
     kodda = False
+    etiket_maddesi = None  # son bölüm satır başı etiketle açıldıysa: madde (True) ya da paragraf (False)
     for satir in (yanit or "").splitlines():
         if _KOD_CITI.match(satir):
             kodda = not kodda
@@ -70,11 +71,19 @@ def bolumler(yanit: str) -> list[tuple[str, list[str]]]:
         m = _BASLIK.match(satir)
         if m:
             sonuc.append((_etiket_metni(m.group("b")), []))
+            etiket_maddesi = None
             continue
         m = _ETIKET.match(satir)
         if m:
             sonuc.append((_etiket_metni(m.group("b")), [m.group("k").strip()] if m.group("k").strip() else []))
+            etiket_maddesi = bool(re.match(r"\s*[-*]\s", satir))
             continue
+        if etiket_maddesi is not None:
+            # etiket bölümü maddeyse girintisiz satır, paragrafsa boş satır bölümü bitirir
+            biter = (not satir.strip()) if not etiket_maddesi else (bool(satir.strip()) and not satir[:1].isspace())
+            if biter:
+                sonuc.append(("", []))
+                etiket_maddesi = None
         sonuc[-1][1].append(satir)
     return sonuc
 
