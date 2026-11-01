@@ -58,6 +58,57 @@ def onbellek(sd: str) -> dict:
         return {}
 
 
+def _u_maliyet(sd: str, cwd: str):
+    import maliyet_anomali as MA
+    olay = [x for x in MA.calistir(sd, 1) if x["kural"] in ("K3", "K4", "K5")]
+    if olay:
+        return "MALİYET: " + ", ".join(f"{x['kural']} {x['kart']}" for x in olay[:3]) + " (`orkestra maliyet anomali --gun 1`)"
+
+
+def _u_hata(sd: str, cwd: str):
+    import hata_en_cok as HE
+    return HE.esik_satiri(sd) or None
+
+
+def _u_iz(sd: str, cwd: str):
+    import iz as IZ
+    if IZ.kapsama_satiri(sd):
+        return "iz kapsama eşik aşımı (`orkestra iz kapsama`)"
+
+
+def _u_todo(sd: str, cwd: str):
+    import is_kaydi
+    if is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(cwd)):
+        return "işe bağlı olmayan todo dosyası var (`orkestra is todo-denetle`)"
+
+
+def _u_devral(sd: str, cwd: str):
+    import is_kaydi
+    if is_kaydi.devral_ipucu(sd, cwd):
+        return "worktree durum kopyasında devralınmamış kayıt var (`orkestra durum devral`)"
+
+
+# SessionStart uyarıları: her biri 0,3-0,7 sn tutan, günlük/saatlik değişen bilgilendirme kontrolleri (ADR-0145).
+UYARI_ADIMLARI = (("uyari_maliyet", _u_maliyet), ("uyari_hata", _u_hata), ("uyari_iz", _u_iz),
+                  ("uyari_todo", _u_todo), ("uyari_devral", _u_devral))
+
+
+def yavas_uyarilar(sd: str, cwd: str | None) -> list[str]:
+    """Bakım açıkken son koşunun önbelleğindeki uyarı satırları (hook'ta hesap yok); kapalıyken eşzamanlı hesap."""
+    if etkin():
+        c = onbellek(sd)
+        return [c[ad] for ad, _ in UYARI_ADIMLARI if isinstance(c.get(ad), str) and c[ad]]
+    cikti = []
+    for _, f in UYARI_ADIMLARI:
+        try:
+            v = f(sd, cwd)
+        except Exception:  # noqa: BLE001
+            v = None
+        if v:
+            cikti.append(v)
+    return cikti
+
+
 def _adimlar(sd: str, cwd: str) -> list:
     """(ad, çağrılabilir) listesi; dönen değer varsa önbelleğe ad anahtarıyla yazılır."""
     import dal_temizle
@@ -70,7 +121,7 @@ def _adimlar(sd: str, cwd: str) -> list:
         ("dal_temizle", lambda: dal_temizle.calistir(cwd or os.getcwd(), kaynak="oturum_bakim") and None),
         ("etki_izle", lambda: etki.izle(sd) and None),
         ("bayatlik", L.bayatlik),
-    ]
+    ] + [(ad, (lambda f=f: f(sd, cwd))) for ad, f in UYARI_ADIMLARI]
 
 
 def _kilit_al(sd: str):

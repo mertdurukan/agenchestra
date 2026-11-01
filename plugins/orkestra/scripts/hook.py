@@ -2966,32 +2966,9 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
             u.append(f"UYARI: çalışan orkestra kopyası kaynaktan {b['farkli']} dosya farklı; `orkestra guncelle`")
     except Exception:
         pass
-    try:
-        import maliyet_anomali as MA
-        olay = [x for x in MA.calistir(sd, 1) if x["kural"] in ("K3", "K4", "K5")]
-        if olay:
-            u.append("MALİYET: " + ", ".join(f"{x['kural']} {x['kart']}" for x in olay[:3]) + " (`orkestra maliyet anomali --gun 1`)")
-    except Exception:
-        pass
-    try:
-        import hata_en_cok as HE
-        hs = HE.esik_satiri(sd)
-        if hs:
-            u.append(hs)
-    except Exception:
-        pass
-    try:
-        import iz as IZ
-        if IZ.kapsama_satiri(sd):
-            u.append("iz kapsama eşik aşımı (`orkestra iz kapsama`)")
-    except Exception:
-        pass
-    try:
-        import is_kaydi
-        if is_kaydi.todo_denetle_satiri(sd, L.proje_dizini(inp.get("cwd"))):
-            u.append("işe bağlı olmayan todo dosyası var (`orkestra is todo-denetle`)")
-        if is_kaydi.devral_ipucu(sd, inp.get("cwd")):
-            u.append("worktree durum kopyasında devralınmamış kayıt var (`orkestra durum devral`)")
+    try:  # yavaş, yavaş değişen uyarılar ayrık bakım koşucusunun önbelleğinden okunur (ADR-0145)
+        import oturum_bakim
+        u += oturum_bakim.yavas_uyarilar(sd, inp.get("cwd"))
     except Exception:
         pass
     return u, onay_ek
