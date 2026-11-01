@@ -47,6 +47,35 @@ class IsSeritTekGirisTest(unittest.TestCase):
             mg.assert_called_once_with("sd", "I-1")
 
 
+class TodoOnbellekTest(unittest.TestCase):
+    def test_degismeyen_todo_bir_kez_ayristirilir_degisince_yenilenir(self):
+        with tempfile.TemporaryDirectory() as d:
+            yol = os.path.join(d, "todo.md")
+            open(yol, "w", encoding="utf-8").write("- [ ] P1: a\n")
+            IK._TODO_ONBELLEK.clear()
+            with mock.patch.object(IK, "_todo_dosyasi", return_value=yol), \
+                    mock.patch.object(IK, "_todo_ayristir", wraps=IK._todo_ayristir) as ay:
+                m1 = IK.todo_maddeleri(d)
+                m1[0]["metin"] = "bozuldu"          # çağıranın değişikliği önbelleği kirletmemeli
+                m2 = IK.todo_maddeleri(d)
+                self.assertEqual(ay.call_count, 1)
+                self.assertNotEqual(m2[0]["metin"], "bozuldu")
+                open(yol, "w", encoding="utf-8").write("- [x] P1: a
+- [ ] P2: b
+")
+                self.assertEqual(len(IK.todo_maddeleri(d)), 2)
+                self.assertEqual(ay.call_count, 2)
+
+
+class IsitmaKapsamiTest(unittest.TestCase):
+    def test_acilis_isitmasi_yildiz_alani_da_ister(self):
+        istenen = []
+        with mock.patch.object(panel.L, "calisma_alanlari", return_value=[{"id": "a", "orkestra": True}]),                 mock.patch.object(panel.urllib.request, "urlopen", side_effect=lambda u, timeout=0: istenen.append(u) or mock.Mock(read=lambda: b"")):
+            panel._isit(1)
+        self.assertTrue(any("alan=*" in u for u in istenen))
+        self.assertTrue(any("alan=a" in u for u in istenen))
+
+
 class IstemciYenidenDenemeTest(unittest.TestCase):
     def test_getir_zaman_asiminda_yeniden_dener_ve_bayat_isaretler(self):
         js = open(os.path.join(KOK, "assets", "app.js"), encoding="utf-8").read()
