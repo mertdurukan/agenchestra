@@ -16,12 +16,13 @@
   ],
   "surec_sinir_kaliplari": [
     "(?:^|[\\s;&|(])kill\\s+-0\\b",
-    "\\bpgrep\\b"
+    "\\bpgrep\\b",
+    "\\btasklist\\b"
   ],
-  "until_baslangic_kalibi": [
+  "tersine_dongu_kalibi": [
     "^\\s*until\\b"
   ],
-  "until_ve_kalibi": [
+  "kosul_ve_kalibi": [
     "&&"
   ],
   "govde_baslangic_kalibi": [
