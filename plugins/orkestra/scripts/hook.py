@@ -650,7 +650,7 @@ def _bagli_is(sd: str, oid):
         return None
 
 
-def _is_kapisi(sd: str, oid, proje: str, tam: str) -> None:
+def _is_kapisi(sd: str, oid, proje: str, tam: str, kabuk: str | None = None) -> None:
     """P4-P5: bağsız oturumda ana ajanın yazması (Write/Edit/MultiEdit/NotebookEdit; plan.md/todo.md dahil) reddedilir;
     red metni bağlanma komutlarını ve en yakın iki işi söyler. ORKESTRA_IS_KAPISI=0 kapatır. Fail-open: oturum
     kimliği yoksa, merkez kayıt bozuksa ya da kapı kodunda herhangi bir istisna olursa çağrı serbest kalır."""
@@ -679,8 +679,38 @@ def _is_kapisi(sd: str, oid, proje: str, tam: str) -> None:
             "`orkestra is devam <id>` ya da `orkestra is ac \"<başlık>\" --klasor <klasör>`, sonra yazımı tekrarla."))
     except Exception:
         return
+    if neden and kabuk is not None:  # I-318: kabuk yazımı; kapı kapi_mod ayarından çalışır (golge: yalnız kayıt)
+        neden = neden.replace("bağsız oturumda dosya yazılmaz (plan.md/todo.md dahil)",
+                              f"bağsız oturumda dosya yazan kabuk komutu da çalışmaz ({kabuk}; plan.md/todo.md dahil)")
+        try:
+            import kapi_mod
+            if kapi_mod.mod(BAGSIZ_KABUK_KAPI, proje) != "ihlal":
+                kapi_mod.kaydet(proje, BAGSIZ_KABUK_KAPI, neden)
+                return
+            kapi_mod.ret_kaydet(proje, BAGSIZ_KABUK_KAPI, neden)
+        except Exception:
+            return
     if neden:
         reddet(neden)
+
+
+BAGSIZ_KABUK_KAPI = "bagsiz_kabuk"
+
+
+def _bagsiz_kabuk_kapisi(sd: str, oid, proje: str, komut: str, cwd) -> None:
+    """I-318: bağsız oturumda geçici dizin dışına dosya yazan kabuk komutu (yönlendirme, tee, sed -i, cp/mv/rm, Set-Content,
+    yorumlayıcı kodundaki open(..., 'w')) reddedilir. Alt ajan çağrıları da kapsanır (oturum bağsızsa alt ajan da bağsızdır).
+    Hedef çıkarma is_onay.kabuk_hedefleri'dir. ORKESTRA_BAGSIZ_KABUK_KAPISI=0 kapatır; hatada serbest."""
+    if os.environ.get("ORKESTRA_BAGSIZ_KABUK_KAPISI") == "0" or not komut:
+        return
+    try:
+        import is_onay
+        kalici, bilinmeyen = is_onay.kabuk_kalici_yazimlar(komut, cwd)
+    except Exception:
+        return
+    if not kalici and not bilinmeyen:
+        return
+    _is_kapisi(sd, oid, proje, kalici[0] if kalici else "", kabuk=kalici[0] if kalici else "hedefi çıkarılamayan yazım")
 
 
 def _is_klasorunu_commitle(klasor, cwd):
@@ -1138,6 +1168,7 @@ def pre_tool_use(inp: dict):
         if kgid:
             reddet(f"kilitli test: komut {kgid} kartının kilitli test dosyasına yazıyor/siliyor. Kilit yalnız ana ajanın "
                    "`orkestra kart test-kilit-ac` komutuyla açılır.")
+        _bagsiz_kabuk_kapisi(sd, inp.get("session_id"), L.proje_dizini(inp.get("cwd")), komut, inp.get("cwd"))
         _kapi_uygula(kar, kneden)
         # Tırnak içi metin veridir (heredoc dışı argüman, python -c kodu): komut analizinden çıkarılır.
         # İstisna: tırnaklanmış program yolu "…/orkestra.py" korunur (tırnakları atılır).
@@ -1243,6 +1274,7 @@ def subagent_start(inp: dict):
 
 
 def _maliyet_satirlari(sd, ozet, taban):
+    """maliyet.jsonl'in TEK token yazıcısı (I-319 P3, ADR-0095): sayaç turu artık maliyet_tur.jsonl gözlem defterine gider."""
     for model, m in ozet["modeller"].items():
         L.jsonl_ekle(os.path.join(sd, "maliyet.jsonl"), dict(taban, model=model, **m))
 
@@ -2082,7 +2114,7 @@ def _esleme_ayari(sd: str) -> dict:
 
 
 BAGSIZ_SECIM = ("Bu sohbet bir işe bağlı değil; ilk araç çağrısından önce `orkestra is devam <id>` ya da "
-                "`orkestra is ac \"<başlık>\" --klasor <klasör>` ile kullanıcıya sormadan kendin bağlan (bağlanmadan dosya yazılamaz).")
+                "`orkestra is ac \"<başlık>\" --klasor <klasör>` ile kullanıcıya sormadan kendin bağlan (bağlanmadan Write/Edit ve dosya yazan kabuk komutu çalışmaz).")
 
 
 def _bagsiz_secim_satiri(acik: list, puanlar: list, idler=None, devam: bool = False, bas: str = BAGSIZ_SECIM) -> str:
