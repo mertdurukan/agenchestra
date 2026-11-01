@@ -3287,6 +3287,18 @@ def user_prompt_submit(inp: dict):
                 parcalar.append(devir_esigi.ipucu_al(sd, inp.get("session_id")))
             except Exception:
                 pass
+            try:  # I-319 P6: çıktı bütçesi deneyi; kontrol kolunda boş, metin ≤200 karakter, hata hook'u düşürmez
+                import cikti_deney
+                if not inp.get("agent_id"):
+                    dayar = cikti_deney.ayar_oku(sd)
+                    db = cikti_deney.bildirim(sd, inp.get("session_id"), metin, dayar)
+                    if db:
+                        parcalar.append(db)
+                        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
+                            "zaman": L.simdi(), "oturum": inp.get("session_id"), "tur": "cikti_deney_bildirim",
+                            "kol": cikti_deney.kol(inp.get("session_id"), dayar), "uzunluk": len(db)})
+            except Exception:
+                pass
             parcalar.append(_durum_satiri(sd, inp.get("session_id")))  # I-224 P6: onay işlendikten sonraki güncel durum
             try:  # ADR-0024: göreve özgü ön bağlam; varsayılan kapalı, hata hook'u düşürmez
                 import on_baglam
