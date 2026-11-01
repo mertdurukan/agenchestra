@@ -235,11 +235,16 @@ def _karantina(sd: str, t: dict, neden: str, gunluk: str, kanca, sonuc: dict) ->
             sonuc.setdefault("kanca_hata", []).append(f"{t['teslim']}: {e}")
 
 
+VARSAYILAN_KANCA = object()  # entegre_et: kanca verilmezse karantina_bildir; None bildirimi kapatır
+
+
 def entegre_et(sd: str, depo: str, test_komutu=None, sahip: str | None = None, hedef: str = "main",
-               kanca: Callable[[dict], None] | None = None, ff_deneme: int = FF_DENEME) -> dict:
+               kanca: Callable[[dict], None] | None = VARSAYILAN_KANCA, ff_deneme: int = FF_DENEME) -> dict:
     """Kuyruğu bir tur işler. Dönen: durum (birlesti|karantina|bos|mesgul|hedef_cikili|ff_basarisiz|kilit_kayip),
     birlesen, karantina [{teslim, oturum, neden}], kosu (tam paket koşu sayısı), bisect_kosu, flaky, yeniden_temel,
     hedef_sha, geri_donen (bitmeden bekliyor'a dönenler)."""
+    if kanca is VARSAYILAN_KANCA:
+        kanca = lambda bilgi: karantina_bildir(sd, bilgi)  # noqa: E731
     sahip = sahip or f"entegrasyon-{os.getpid()}-{uuid.uuid4().hex[:6]}"
     sonuc: dict = {"durum": "bos", "birlesen": [], "karantina": [], "kosu": 0, "bisect_kosu": 0, "flaky": False,
                    "yeniden_temel": 0, "hedef_sha": None, "geri_donen": []}
