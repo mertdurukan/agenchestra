@@ -1,0 +1,4 @@
+{
+  "mod": "golge",
+  "aciklama": "mod: golge = oturum teslimi kuyruğa verilmeden (orkestra teslim kuyruk ekle) tam paket koşulduysa ya da kuyruk eksiği varsa uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, iş engellenmez; ihlal = eksik varsa reddedilir. İlk karar P-028: önce golge, ölçülünce (orkestra is rapor) ihlal. Kapatma: ORKESTRA_KUYRUK_KAPISI=0. Proje ezmesi: .claude/orkestra/kuyruk.json (ADR-0035)."
+}

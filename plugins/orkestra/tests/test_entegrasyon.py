@@ -155,7 +155,7 @@ def test_ff_yarisinda_yeniden_temellendirme(tmp_path, tmp_path_factory):
     s = E.entegre_et(sd, depo, test_komutu=yaris)
     assert s["yeniden_temel"] == 1 and s["kosu"] == 2 and s["durum"] == "birlesti"
     assert {"yaris.txt", "t1.txt", "t2.txt"} <= _main_dosyalari(depo)
-    yaris_sha = _git(depo, "log", "--format=%H", "-1", "--", "yaris.txt")
+    yaris_sha = _git(depo, "log", "--format=%H", "-1", "main", "--", "yaris.txt")
     _git(depo, "merge-base", "--is-ancestor", yaris_sha, "main")  # yarışan commit kaybolmadı (yalnız ff)
 
 

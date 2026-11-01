@@ -28,6 +28,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+import cfg  # noqa: E402
 import threading
 import time
 import uuid
@@ -51,7 +53,7 @@ class EntegrasyonHatasi(RuntimeError):
 def _git(cwd: str, *args: str, check: bool = True) -> subprocess.CompletedProcess:
     env = {k: v for k, v in os.environ.items() if k not in _GIT_SIZINTI}
     r = subprocess.run(["git", "-c", "safe.directory=*", *_GIT_KIMLIK, *args], cwd=cwd, capture_output=True,
-                       text=True, encoding="utf-8", errors="replace", env=env)
+                       text=True, encoding="utf-8", errors="replace", env=env, **cfg.PENCERESIZ)
     if check and r.returncode:
         raise EntegrasyonHatasi(f"git {' '.join(args)}: {(r.stderr or r.stdout).strip()[:500]}")
     return r
@@ -80,7 +82,7 @@ def _test_fn(test_komutu) -> Callable[[str], tuple[bool, str]]:
         env = {k: v for k, v in os.environ.items() if k not in _GIT_SIZINTI}
         env["PYTHONUTF8"] = "1"
         r = subprocess.run(komut, cwd=agac, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           env=env)
+                           env=env, **cfg.PENCERESIZ)
         return r.returncode == 0, ((r.stdout or "") + (r.stderr or ""))[-GUNLUK_SINIR:]
     return kos
 
