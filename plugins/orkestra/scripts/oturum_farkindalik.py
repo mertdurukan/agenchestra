@@ -306,15 +306,19 @@ def arac_oncesi(sd: str, oturum: str, cwd: str | None, arac: str, girdi: dict, a
 
 
 def oturum_basi(sd: str, oturum: str, cwd: str | None, is_id: str | None = None) -> str:
-    """SessionStart: konumu yazar; aynı depoda canlı komşu varsa tek satır (komşu başına bir kez değil: oturum başına bir)."""
+    """SessionStart: konumu yazar; aynı depoda canlı komşu varsa tek satır (komşu başına bir kez değil: oturum başına bir).
+    Sahipsiz karantina (I-323 P4) varsa git konumundan bağımsız tek satır daha eklenir."""
     try:
-        if not (etkin() and sd and oturum) or not kaydet(sd, oturum, cwd, is_id=is_id):
+        if not (etkin() and sd and oturum):
             return ""
+        sahipsiz = sahipsiz_satir(sd)
+        if not kaydet(sd, oturum, cwd, is_id=is_id):
+            return sahipsiz
         ks = komsular(sd, oturum, cwd)
         mod = kapi_modu(cwd)
         for k in ks:
             golge_yaz(sd, oturum, k, None, "oturum_basi", mod)
-        return chr(10).join(x for x in (satir(ks, mod=mod), gelen_metin(sd, oturum)) if x)
+        return chr(10).join(x for x in (satir(ks, mod=mod), gelen_metin(sd, oturum), sahipsiz) if x)
     except Exception:
         return ""
 
