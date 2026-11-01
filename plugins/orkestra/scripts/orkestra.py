@@ -27,7 +27,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra defter ekle G-001 --surec is [--yaptim M] [--sonuc M] [--not M]
   orkestra defter baglam G-001 [--max 2000]     ihtiyacın olan kayıtlar: kart + bağımlılıklar + aynı kartın geçmişi
   orkestra defter oku [--gorev G] [--son N] | ozet
-  orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | anomali [--gun N] [--json] | yeniden-etiketle [--uygula]
+  orkestra maliyet rapor [--gun N] [--md|--csv] [--cikti YOL] | ozet [--json] | anomali [--gun N] [--json] | yeniden-etiketle [--uygula] | yeniden-tip [--uygula]
   orkestra hata en-cok [--gun N] [--kaynak hook|cli|ozet|kart|kural] [--ilk N] [--json] | liste [--ilk N] [--json]   tekrar eden hatalar (salt okuma)
   orkestra onbellek kacak [--gun N] [--defter] [--olay] [--json]   önbellek kaçaklarını sınıfla (5 dk katman, model, boşluk, sıkıştırma) ve USD ile dök
   orkestra iz <istek_id|I-nnn|oturum> [--json|--csv] | iz kapsama [--json]   süre/token ağacı (toplam = defter) ve atıf kapsama ölçümü
@@ -120,7 +120,7 @@ def main():
     # Durumu değiştiren komutlardan sonra arayüz anlık görüntüsünü yenile.
     alt_komut = getattr(a, "alt", None)
     degistiren = {"kart", "perspektif", "ruya", "baslat"}
-    if a.komut in degistiren or (a.komut, alt_komut) in {("defter", "ekle"), ("maliyet", "tur"), ("maliyet", "gecmis"), ("maliyet", "yeniden-etiketle")}:
+    if a.komut in degistiren or (a.komut, alt_komut) in {("defter", "ekle"), ("maliyet", "tur"), ("maliyet", "gecmis"), ("maliyet", "yeniden-etiketle"), ("maliyet", "yeniden-tip")}:
         sd = L.durum_dizini()
         if sd and not (a.komut == "kart" and alt_komut in ("goster", "liste")):
             import ozet

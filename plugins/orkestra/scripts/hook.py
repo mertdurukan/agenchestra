@@ -1205,6 +1205,13 @@ def subagent_start(inp: dict):
                  "gorev": gorev, "surec": surec}, ensure_ascii=False))
         except Exception:
             pass
+        try:  # kalıcı tip kaydı: sayaç satırı (maliyet tur) tipi görev etiketi olmasa da buradan okur; subagent_stop üzerine yazar
+            onb = os.path.join(sd, "oturumlar", f"ajan_{aid}.json")
+            if inp.get("agent_type") and not os.path.exists(onb):
+                L.atomik_yaz(onb, json.dumps({"gorev": gorev, "surec": L.surec_turet(inp.get("agent_type"), surec),
+                                              "ajan": inp.get("agent_type")}, ensure_ascii=False))
+        except Exception:
+            pass
     if gorev == "-" or not L.kart_oku(sd, gorev):
         gec()
     if str(inp.get("agent_type") or "").endswith("denetci"):

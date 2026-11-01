@@ -832,6 +832,25 @@ def alt_ajan_transkripti(ana_transkript: str, session_id: str, agent_id: str) ->
     return os.path.join(os.path.dirname(ana_transkript), session_id, "subagents", f"agent-{agent_id}.jsonl")
 
 
+def jsonl_satirlari(yol: str) -> list[str]:
+    """Dosyanın ham satırları (yoksa boş liste); bozuk baytlar değiştirilir."""
+    if not os.path.exists(yol):
+        return []
+    with open(yol, encoding="utf-8", errors="replace") as f:
+        return f.read().splitlines()
+
+
+def alt_ajan_transkripti_ara(oturum: str, agent_id: str) -> str | None:
+    """Alt ajan transkripti: worktree oturumlarının transkripti ana ağaçtan ayrı proje dizinindedir
+    (~/.claude/projects/<ad>/<oturum>/subagents/agent-<id>.jsonl); tüm proje dizinlerinde aranır, yoksa None."""
+    import glob as _g
+    if not oturum or not agent_id:
+        return None
+    kok = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    bulunan = sorted(_g.glob(os.path.join(_g.escape(kok), "*", _g.escape(oturum), "subagents", f"agent-{_g.escape(agent_id)}.jsonl")))
+    return bulunan[0] if bulunan else None
+
+
 def alt_ajan_meta(transkript: str) -> dict:
     meta = transkript[: -len(".jsonl")] + ".meta.json" if transkript.endswith(".jsonl") else ""
     try:

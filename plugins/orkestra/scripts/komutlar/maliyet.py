@@ -284,9 +284,9 @@ def cmd_maliyet_yeniden_tip(a):
         return sayac
 
     if os.path.exists(yol):  # transkript aramaları kilit dışında (kilit bekleyenleri 3 sn'den fazla tutmasın)
-        say(open(yol, encoding="utf-8", errors="replace").read().splitlines())
+        say(L.jsonl_satirlari(yol))
     with L.kilit(yol):
-        satirlar = open(yol, encoding="utf-8", errors="replace").read().splitlines() if os.path.exists(yol) else []
+        satirlar = L.jsonl_satirlari(yol)
         sayac = say(satirlar)
         toplam = sum(sayac.values())
         ozet_s = ", ".join(f"{k[0]}→{k[1]}: {n}" for k, n in sorted(sayac.items())) or "yok"
