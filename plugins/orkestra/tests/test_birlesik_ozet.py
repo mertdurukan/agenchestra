@@ -88,7 +88,7 @@ class UcTanUca(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
     def test_eski_bicim_paket_ve_kapi_eskisi_gibi(self):
-        eski = SO.YENI + SO.HARITA.replace("\n## Harita", "\n## Harita", 1)
+        eski = SO.YENI + SO.HARITA.replace("\n## Ayrıntılar", "\n## Ayrıntılar", 1)
         self.ozet(eski)
         p = cli(self.kok, "anlati", "I-001", "--json")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)

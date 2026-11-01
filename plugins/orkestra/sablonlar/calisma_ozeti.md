@@ -2,7 +2,7 @@
 
 <!-- başlık: Jira kodu varsa "KOD Jira başlığı" (Jira'dan çekilen başlık); Jira'dan çekilmiyorsa görevin ne yaptığını anlatan en kısa başlık. Yalnız kod ("PE-635") ya da genel ifade yazma; yukarıdaki {baslik} yerini bu başlıkla değiştir. -->
 
-<!-- iki katman (ADR-0085, ADR-0091): `## Özet` yalnız kısa Şef Özeti'dir (gövde ≤ 1200 karakter); yöntem listesi, katman ayrıntısı, sayı tablosu ve kanıt ona girmez, hemen altındaki `## Harita`ya yazılır. Bu özet tek kaynaktır: yönetici anlatısı (`orkestra is anlati`) ve Jira Done yorumu (`orkestra is jira-yorum`) buradaki alanlardan türetilir, ayrıca yazılmaz. -->
+<!-- iki katman (ADR-0085, ADR-0091): `## Özet` yalnız kısa Şef Özeti'dir (gövde ≤ 1200 karakter); yöntem listesi, katman ayrıntısı, sayı tablosu ve kanıt ona girmez, hemen altındaki `## Ayrıntılar`a yazılır. Bu özet tek kaynaktır: yönetici anlatısı (`orkestra is anlati`) ve Jira Done yorumu (`orkestra is jira-yorum`) buradaki alanlardan türetilir, ayrıca yazılmaz. -->
 
 <!-- Yazım kuralları (tüm belge):
 1. Her ayrı ifade ayrı bir satırdır (madde işareti ya da numara ile); bir satırda en çok bir cümle, ~200 karakter.
@@ -11,9 +11,7 @@
 4. Belirsiz sahiplik ("bizim kod", "kendi sunucumuz") yazılmaz; somut ad yazılır (adres, sürüm, yol, tablo, müşteri).
 5. Tablo ve kod bloğu yok. -->
 
-## Özet
-
-***Şef Özeti***
+## Şef Özeti
 
 **Durum:**
 
@@ -25,13 +23,13 @@
 
 **Ne yapıldı?**
 
-<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar, en çok ~150 karakter. Her maddeye etiket koy: [Doğrulandı] (kanıtla sınandı), [Tamamlandı] (yapıldı, sınanmadı) ya da [Planlandı] (yapılmadı). Somut ad ve sayı ver; yöntem ve katman ayrıntısı `## Harita`ya. -->
+<!-- doldur: en çok 3 madde, her biri ayrı satırda ve fiille başlar, en çok ~150 karakter. Her maddeye etiket koy: [Doğrulandı] (kanıtla sınandı), [Tamamlandı] (yapıldı, sınanmadı) ya da [Planlandı] (yapılmadı). Somut ad ve sayı ver; yöntem ve katman ayrıntısı `## Ayrıntılar`a. -->
 
 - 
 
-**Nasıl karar verildi?**
+**Neden bu yol?**
 
-<!-- doldur: en çok 2 cümle, düz dille: hangi yolu seçtik, neden, neyi eledik. Kullanıcı bağlamı bilmez: kısaltma ve iç terim kullanma. Ayrıntı `## Harita`daki Denenenler ve Kararlar'da. -->
+<!-- doldur: en çok 2 cümle, düz dille: hangi yolu seçtik, neden, neyi eledik. Kullanıcı bağlamı bilmez: kısaltma ve iç terim kullanma. Ayrıntı `## Ayrıntılar`daki Denenenler ve Kararlar'da. -->
 
 **Ana sayı:**
 
@@ -43,13 +41,13 @@
 
 **Açık kalanlar:**
 
-<!-- doldur: yapılmayan ya da doğrulanamayan her iş tek satır ve nedeniyle; kullanıcıdan karar ya da onay gerekiyorsa tek cümleyle burada; ayrıntı `## Harita`daki "Açık işlerin ayrıntısı"nda; yoksa "Yok". -->
+<!-- doldur: yapılmayan ya da doğrulanamayan her iş tek satır ve nedeniyle; kullanıcıdan karar ya da onay gerekiyorsa tek cümleyle burada; ayrıntı `## Ayrıntılar`daki "Açık işlerin ayrıntısı"nda; yoksa "Yok". -->
 
 - 
 
-## Harita
+## Ayrıntılar
 
-<!-- harita (ADR-0085): kapsamlı katman. Denenenler, Doğrulanmayanlar ve Kararlar zorunludur (kapı bunları sınar); diğer alanlar işe göre. -->
+<!-- harita (ADR-0085): kapsamlı katman. Denenenler, Doğrulanamayanlar ve Kararlar zorunludur (kapı bunları sınar); diğer alanlar işe göre. -->
 
 **Ölçüm saati:**
 
@@ -70,7 +68,7 @@
 
 - 
 
-**Doğrulanmayanlar:**
+**Doğrulanamayanlar:**
 
 <!-- doldur: yalnız denenip engele takılan şey girer; her satır konu ve somut engel (erişim, yetki, süre). Veritabanı, kod, komut ya da API ile bakılabilen şey bu bölüme yazılmaz, önce bakılır (ADR-0136); "bakılmadı" engel değildir. Yoksa "Yok". -->
 

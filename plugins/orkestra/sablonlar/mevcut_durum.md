@@ -1,4 +1,4 @@
-# {baslik}: mevcut durum
+# {baslik}: mevcut durum ve bulgular
 
 <!-- Bu belge değişiklikten ÖNCEKİ durumu anlatır: dal, commit edilmemiş iş ya da yapılmış değişiklik burada yer almaz (onaydan önce yazılır, P-016). Yazım kuralları (tüm belge):
 1. Her ayrı ifade ayrı bir satırdır (madde işareti ya da numara ile); bir satırda en çok bir cümle, ~200 karakter.
@@ -79,3 +79,12 @@
 - Sonra her gap ayrı satır, tam bu biçimde: `- **G1:** hedef → mevcut (MD §n) → fark`.
 - Her satır tek fikir; hedef, mevcut ve fark kısa tutulur.
 - Gap yoksa bile en az bir satır yaz; "fark yok" gerekçesiyle belirt. -->
+
+## Bulgular
+
+<!-- doldur (ADR-0136: ölçüm ya da tarama yapıldıysa; ayrı bulgu belgesi yazılmaz, bulgu burada yaşar. Ölçüm yoksa tek satır: "Yok; ölçüm gerekmedi.").
+- İlk satır `**Sonuç:**`: en önemli bulgu, tek cümle ve ana sayı.
+- Her bulgu ayrı alt başlıktır: `### <bulgu adı>`.
+- Altında önce `**Durum:**` (kesin | güçlü | hipotez), sonra kanıt; her kanıt ayrı madde (kaynak, sayı, ölçüm saati).
+- Sayılar yazılırken kaynağından yeniden hesaplanır (K-002).
+- Bakılabilen hiçbir şey §4'e yazılmaz; önce bakılır (P-051). -->

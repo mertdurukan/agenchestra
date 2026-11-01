@@ -40,7 +40,7 @@ _GAP_SATIRI = re.compile(r"^\s*[-*]\s+\*\*G(\d+):?\*\*", re.M)
 _GAP_ALANI = re.compile(r"\*\*Gap:\*\*[ \t]*(.*)$", re.M)
 _GAP_NO = re.compile(r"\bG(\d+)\b")
 _KAPSAM_DISI = re.compile(r"^\s*[-*]\s+\*\*G(\d+):?\*\*.*?Kapsam dışı:\s*(.*)$", re.M)
-_OZET_BOLUMU = re.compile(r"^##[ \t]+Özet[ \t]*$(.*?)(?=^##[ \t]|^\*\*[^\n*]+:\*\*|\Z)", re.M | re.S)
+_OZET_BOLUMU = re.compile(r"^##[ \t]+(?:Şef )?Özet[ \t]*$(.*?)(?=^##[ \t]|^\*\*[^\n*]+:\*\*|\Z)", re.M | re.S)
 KANIT_MIN = 8  # todo [x] satırında " — " sonrası not en az bu kadar karakter
 GAP_GEREKCE_MIN = 8  # "Kapsam dışı:" sonrası gerekçe en az bu kadar karakter
 _DAYANAK = re.compile(r"MD\s*§\s*(\d+)")

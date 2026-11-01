@@ -52,7 +52,7 @@ Paketteki her madde bir durum, bir kanıt düzeyi ve izinli fiiller taşır. Dur
 Çalışma özeti yeni (Şef Özeti) biçimindeyse paket şu alanları taşır; eski biçimde alan yoksa paket eski kaynağa düşer (SONUÇ, YÖNTEM).
 
 - **Ne yaptım?** ← **DURUM** (Durum: Tamam, Kısmen ya da Engelli ve nedeni) + **SONUÇ** (Ne yapıldı?); **ANA SAYI** gerekiyorsa sözle anlatılır.
-- **Nasıl yaptım?** ← **NASIL KARAR** (Nasıl karar verildi?); yoksa **YÖNTEM**.
+- **Nasıl yaptım?** ← **NASIL KARAR** (Neden bu yol?); yoksa **YÖNTEM**.
 - **A10:** Durum Kısmen ya da Engelli iken taslak en az bir sınır ifadesi taşır (kısmen, henüz, bekliyor, yapılmadı, teyit, engel, açık); yoksa denetim reddeder. Durum Tamam ya da boşsa kural atlanır.
 
 ## Katkı ve yön ayrımı

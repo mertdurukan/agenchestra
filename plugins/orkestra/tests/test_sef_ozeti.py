@@ -1,5 +1,5 @@
 """I-209: çalışma özeti Şef Özeti biçimi (şablon, kapanış kapısı, iş anlatısı); eski biçim geriye uyumlu kalır.
-I-227 (ADR-0085): iki katman: kısa `## Özet` ve kapsamlı `## Harita`; `sef_ozeti` gölge kapısı."""
+I-227 (ADR-0085): iki katman: kısa `## Özet` ve kapsamlı `## Ayrıntılar`; `sef_ozeti` gölge kapısı."""
 import importlib
 import json
 import os
@@ -21,10 +21,10 @@ SABLON = os.path.join(KOK, "sablonlar", "calisma_ozeti.md")
 YENI = ("# T: çalışma özeti\n\n## Özet\n\n***Şef Özeti***\n\n**Amaç neydi?**\n\nÖzet biçimini düzeltmek.\n\n"
         "**Ne yapıldı?**\n\n- Şablonu yeniledim.\n\n**Amaca tamamen ulaşıldı mı?**\n\nEvet.\n\n"
         "**Tamamen yapılanlar:**\n\n- Şablon.\n\n**Açık kalanlar:**\n\n- Yok\n\n**Ölçüm saati:**\n\nx\n")
-HARITA = ("\n## Harita\n\n**Ölçüm saati:**\n\n26.10 10:00\n\n**Denenenler:**\n\n"
+HARITA = ("\n## Ayrıntılar\n\n**Ölçüm saati:**\n\n26.10 10:00\n\n**Denenenler:**\n\n"
           "| Katman ya da bileşen | Yöntem | Sonuç | Kanıt |\n| --- | --- | --- | --- |\n"
           "| Şablon | İki bölüm | işe yaradı | test_sef_ozeti.py |\n\n**Sayılar:**\n\n- 5 alan\n\n"
-          "**Doğrulanmayanlar:**\n\n- Yok\n\n**Kararlar:**\n\n- Kapı gölgede açıldı (ADR-0085)\n")
+          "**Doğrulanamayanlar:**\n\n- Yok\n\n**Kararlar:**\n\n- Kapı gölgede açıldı (ADR-0085)\n")
 IKI = YENI.replace("**Ölçüm saati:**\n\nx\n", "") + HARITA
 ESKI = "# T: çalışma özeti\n\n**Amaç:**\n\nEski amaç.\n\n**Ana bulgu:**\n\nEski bulgu.\n\n**Açık işler:**\n\n- Eski açık iş\n"
 
@@ -46,11 +46,11 @@ class Sablon(unittest.TestCase):
     def test_etiket_sirasi_ve_eski_etiketler_yok(self):
         with open(SABLON, encoding="utf-8") as f:
             t = f.read()
-        sira = ["***Şef Özeti***", "**Durum:**", "**Amaç neydi?**", "**Ne yapıldı?**", "**Nasıl karar verildi?**",
+        sira = ["## Şef Özeti", "**Durum:**", "**Amaç neydi?**", "**Ne yapıldı?**", "**Neden bu yol?**",
                 "**Ana sayı:**", "**Senden beklenen:**", "**Açık kalanlar:**"]
         yerler = [t.index("\n" + s + "\n") for s in sira]
         self.assertEqual(yerler, sorted(yerler))
-        harita = ["## Harita", "**Ölçüm saati:**", "**Denenenler:**", "**Sayılar:**", "**Doğrulanmayanlar:**",
+        harita = ["## Ayrıntılar", "**Ölçüm saati:**", "**Denenenler:**", "**Sayılar:**", "**Doğrulanamayanlar:**",
                   "**Kararlar:**", "**Teslim:**", "**Açık işlerin ayrıntısı:**",
                   "## Plana göre gerçekleşen"]
         yerler = [t.index("\n" + s + "\n") for s in harita]
@@ -115,7 +115,7 @@ YENI_B1 = ("# T: çalışma özeti\n\n## Özet\n\n***Şef Özeti***\n\n"
            "model alanları kaldırıldı. 3912 test geçti.\n"
            "- [Doğrulandı] Metodoloji sorusu modele gitmeden sabit yanıtla reddedilir; sızıntı yapan yanıt tablo yanıtına düşer.\n"
            "- [Planlandı] Jira yorumu taslağı yazıldı; Jira'ya yazılmadı.\n\n"
-           "**Nasıl karar verildi?** Nihai değerin yeri 33 şemalık katalog ve prosedür gövdeleriyle bulundu, dört şemada eşleşti. "
+           "**Neden bu yol?** Nihai değerin yeri 33 şemalık katalog ve prosedür gövdeleriyle bulundu, dört şemada eşleşti. "
            "Ret, giriş sınıflandırması ve çıkış doğrulamasıyla kodda zorlandı; üç kör turda yakalama yaklaşık %60 kaldı, bu sınır "
            "açıkça yazıldı.\n\n"
            "**Ana sayı:** `pytest tests/unit tests/contract` → 3912 passed, 1 skipped (27.10.2026).\n\n"
@@ -136,7 +136,7 @@ class YeniBicim(unittest.TestCase):
 
     def test_b1_ozet_1200_icinde(self):
         n = sum(len(IK._alan_govdesi(YENI_B1, ad) or "") for ad in
-                ("Durum", "Amaç neydi?", "Ne yapıldı?", "Nasıl karar verildi?", "Ana sayı", "Senden beklenen", "Açık kalanlar"))
+                ("Durum", "Amaç neydi?", "Ne yapıldı?", "Neden bu yol?", "Ana sayı", "Senden beklenen", "Açık kalanlar"))
         self.assertLessEqual(n, 1200, n)
 
     @_golge_sabit
@@ -158,12 +158,12 @@ class SefEksigi(unittest.TestCase):
     def test_eski_bicim_etkilenmez_haritasiz_yeni_bicim_uyarilir(self):
         self.assertEqual(IK.sef_ozeti_eksigi(ESKI), [])
         e = IK.sef_ozeti_eksigi(YENI)
-        self.assertTrue(any("`## Harita` bölümü yok" in x for x in e), e)
+        self.assertTrue(any("`## Ayrıntılar` bölümü yok" in x for x in e), e)
 
     def test_bos_sablon_uc_zorunlu_alan_icin_uyarir(self):
         with open(SABLON, encoding="utf-8") as f:
             e = IK.sef_ozeti_eksigi(f.read())
-        for ad in ("Denenenler", "Doğrulanmayanlar", "Kararlar"):
+        for ad in ("Denenenler", "Doğrulanamayanlar", "Kararlar"):
             self.assertTrue(any(ad in x and "boş" in x for x in e), e)
 
     def test_zorunlu_alan_eksik_ya_da_bos(self):
@@ -190,7 +190,7 @@ class SefEksigi(unittest.TestCase):
 
 
 class YeniAlanEksigi(unittest.TestCase):
-    """ADR-0091 (K7): `Amaca tamamen ulaşıldı mı?` taşımayan yeni biçim Durum, Nasıl karar verildi? ve Teslim ister."""
+    """ADR-0091 (K7): `Amaca tamamen ulaşıldı mı?` taşımayan yeni biçim Durum, Neden bu yol? ve Teslim ister."""
     TAM = YENI_B1 + HARITA.rstrip("\n") + "\n" + TESLIM_B1
 
     def test_varsayilan_esik_1200(self):
@@ -207,8 +207,8 @@ class YeniAlanEksigi(unittest.TestCase):
             self.assertEqual(IK.sef_ozeti_eksigi(self.TAM.replace("Kısmen.", ilk + ".", 1)), [])
 
     def test_nasil_karar_bos_uyarilir(self):
-        e = IK.sef_ozeti_eksigi(re.sub(r"(\*\*Nasıl karar verildi\?\*\*)[^\n]*", r"\1", self.TAM))
-        self.assertTrue(any("Nasıl karar verildi?" in x for x in e), e)
+        e = IK.sef_ozeti_eksigi(re.sub(r"(\*\*Neden bu yol\?\*\*)[^\n]*", r"\1", self.TAM))
+        self.assertTrue(any("Neden bu yol?" in x for x in e), e)
 
     def test_teslim_bos_alan_adiyla_uyarilir(self):
         e = IK.sef_ozeti_eksigi(self.TAM.replace("- **Deploy:** çıkmadı; PR ve sütun anlamı teyidi bekliyor.",
@@ -224,7 +224,7 @@ class YeniAlanEksigi(unittest.TestCase):
         self.assertTrue(any("**Teslim:**" in x and "bloğu yok" in x for x in e), e)
 
     def test_eski_etiketli_yeni_alan_uyarisi_almaz(self):
-        yeni_alan = ("Durum", "Nasıl karar verildi?", "Teslim")
+        yeni_alan = ("Durum", "Neden bu yol?", "Teslim")
         for metin in (YENI, IKI):
             e = IK.sef_ozeti_eksigi(metin)
             self.assertFalse(any(a in x for x in e for a in yeni_alan), e)
@@ -264,7 +264,7 @@ class SefKapi(unittest.TestCase):
         isler = importlib.import_module("komutlar.isler")
         k = self.klasor(YENI)
         with mock.patch.object(KM, "mod", side_effect=IHLAL_SEF):
-            self.assertIn("## Harita", isler._ozet_eksigi(k) or "")
+            self.assertIn("## Ayrıntılar", isler._ozet_eksigi(k) or "")
         os.rename(os.path.join(self.proje, "Claude_Orkestrasyon"), os.path.join(self.proje, "eski"))
         k2 = self.klasor(IKI)
         with mock.patch.object(KM, "mod", side_effect=IHLAL_SEF):
