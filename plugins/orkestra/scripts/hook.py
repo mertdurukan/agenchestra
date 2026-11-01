@@ -183,9 +183,11 @@ _TEST_KOSMAZ = re.compile(r"(?:^|\s)(?:--collect-only|--co|--version|-h|--help|-
 
 def ciplak_test_kosusu(komut: str) -> str | None:
     """Kabuk komutu çıplak TAM test koşusuysa koşucu parçasını (kısaltılmış) döndürür, değilse None."""
-    if not komut or not _TEST_ON.search(komut) or "test_paralel" in komut:
+    if not komut or not _TEST_ON.search(komut):
         return None
     for parca in _TEST_BOL.split(komut):
+        if "test_paralel" in parca:  # yalnız bu parça kiralı koşucudur; bileşik komuttaki çıplak pytest'i örtmez
+            continue
         sade = parca.replace('"', " ").replace("'", " ").strip()
         m = _TEST_KOSUCU.search(sade)
         if not m:
