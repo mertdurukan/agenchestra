@@ -1,4 +1,4 @@
 {
   "mod": "golge",
-  "aciklama": "mod: golge = auto işin çalışma özetinde `## Otomatik kararlar` girdilerinde karar, gerekçe, alternatifler ya da geri alma alanı eksikse uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = alanlar tamam olmadan özet doldurulmuş sayılmaz. Geçiş ölçütü: ilk 20 /auto işinde kapi_golge elle sınıflanır, yanlış pozitif en çok %10 ise kullanıcı kararıyla ihlale geçilir (ADR-0132, plan K5). Kapatma: ORKESTRA_AUTO_YETKI=0. Proje ezmesi: .claude/orkestra/auto_karar_alan.json."
+  "aciklama": "mod: golge = auto işin çalışma özetinde `## Otomatik kararlar` girdilerinde karar, gerekçe, alternatifler ya da geri alma alanı eksikse uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = alanlar tamam olmadan özet doldurulmuş sayılmaz. Geçiş ölçütü: ilk 20 /auto işinde kapi_golge elle sınıflanır, yanlış pozitif en çok %10 ise kullanıcı kararıyla ihlale geçilir (ADR-0132, plan K5). Kapatma: ORKESTRA_AUTO_KARAR_ALAN_KAPISI=0. Proje ezmesi: .claude/orkestra/auto_karar_alan.json."
 }
