@@ -1320,9 +1320,12 @@ def _kart_no(k: dict):
 def is_serit(sd: str, is_id: str, alt: bool = False, tum_kartlar: list[dict] | None = None) -> dict:
     """Bir iş için yapıldı/şimdi/sırada/planda-kart-yok/iptal kovaları (deterministik)."""
     kayit = is_al(sd, is_id)
-    giris = next((g for g in is_liste(sd) if g["id"] == is_id), None)
+    # Tek giriş çözülür: is_liste(sd) tüm işlerin klasörünü yeniden çözdüğü için panelde iş sayısının karesi kadar
+    # dosya sistemi çağrısı yapıyordu (I-312 P3: /isler.json alan=* soğukta ~20 sn)
+    giris = merkez_giris(sd, is_id)
     if not kayit or not giris:
         raise KeyError(f"iş yok: {is_id}")
+    giris = dict(giris, id=is_id)
     klasor = giris["klasor"]
     maddeler = todo_maddeleri(klasor)
     tum = tum_kartlar if tum_kartlar is not None else L.kartlar(sd, derin=False)  # yalnız okunur
