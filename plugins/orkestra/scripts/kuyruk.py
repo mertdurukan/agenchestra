@@ -105,6 +105,27 @@ def gecis(sd: str, teslim: str, yeni: str, neden: str | None = None) -> dict:
         return _ekle_kilitli(yol, kayit)
 
 
+_SABIT_ALANLAR = ("v", "teslim", "oturum", "dal", "test", "durum", "sira", "onceki")
+
+
+def alan_ekle(sd: str, teslim: str, **alanlar) -> dict:
+    """Durumu değiştirmeden geçerli kayda alan ekler (I-323 P4 bildirim izi: not_t, not_ofset, sahipsiz, sahipsiz_t).
+    Kimlik ve durum alanları bu yolla değiştirilemez; durum geçişi yalnız `gecis`, `ekle`, `kurtar` iledir.
+    `karantina` -> `sahipsiz`: karantina kaydına `sahipsiz: true` eklenir; yeniden teslim (`ekle`) yeni kayıtla siler."""
+    yasak = sorted(set(alanlar) & set(_SABIT_ALANLAR))
+    if yasak:
+        raise KuyrukHatasi(f"bu alanlar alan_ekle ile değişmez: {', '.join(yasak)}")
+    yol = kuyruk_yolu(sd)
+    os.makedirs(os.path.dirname(yol), exist_ok=True)
+    with L.kilit(yol, bekleme_s=KILIT_BEKLEME_S):
+        onceki = _katla(L.jsonl_oku(yol)).get(teslim)
+        if not onceki:
+            raise KuyrukHatasi(f"teslim kuyrukta yok: {teslim}")
+        kayit = {k: v for k, v in onceki.items() if k != "v"}
+        kayit.update(alanlar)
+        return _ekle_kilitli(yol, kayit)
+
+
 def liste(sd: str, durum: str | None = None) -> list[dict]:
     """Teslimlerin geçerli durumları, sıra numarasına göre."""
     kayitlar = sorted(_katla(L.jsonl_oku(kuyruk_yolu(sd))).values(), key=lambda k: int(k.get("sira") or 0))
