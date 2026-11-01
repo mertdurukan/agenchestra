@@ -109,7 +109,7 @@ class NiyetDurumTesti(unittest.TestCase):
             with open(onb, "w", encoding="utf-8") as f:
                 json.dump(icerik, f)
             with mock.patch.object(niyet, "GENEL_DIZIN", d), \
-                    mock.patch.dict(os.environ, {"APPDATA": os.path.join(d, "yok")}):
+                    mock.patch.dict(os.environ, {"APPDATA": os.path.join(d, "yok"), "LOCALAPPDATA": os.path.join(d, "yok")}):
                 out = niyet.masaustu_oturumlari()
             with open(onb, encoding="utf-8") as f:
                 kalan = json.load(f)

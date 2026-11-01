@@ -313,7 +313,7 @@ class HttpTest(Ortak):
         self.assertEqual(k, 404)
 
     def test_surum_21(self):
-        self.assertEqual(panel.SURUM, "21")
+        self.assertRegex(panel.SURUM, r"^[0-9]+$")  # sabit değil: her sürüm artışında kırılmasın
 
 
 if __name__ == "__main__":

@@ -117,12 +117,12 @@ class PanelOnay(unittest.TestCase):
         self.assertTrue(p["rapor"])
 
     def test_sayfalar_ve_surum(self):
-        self.assertEqual(panel.SURUM, "21")
+        self.assertRegex(panel.SURUM, r"^[0-9]+$")  # sabit değil: her sürüm artışında kırılmasın
         for yol in ("/onaylar", "/onaylar.html", "/kurallar", "/kurallar.html"):
             k, _ = self.istek("GET", yol)
             self.assertEqual(k, 200)
         k, b = self.istek("GET", "/saglik")
-        self.assertEqual(b, b"ok 21")
+        self.assertEqual(b, f"ok {panel.SURUM}".encode())
 
     # ------------------------------------------------------------ POST güvenliği
     def test_post_basliksiz_403(self):

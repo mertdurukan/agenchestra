@@ -79,6 +79,14 @@ class GitDenetim(unittest.TestCase):
         self.assertEqual((t["stash"], t["commitsiz"]), (1, 1))
         self.assertIn("stash: 1", git_denetim.rapor(self.depo))
 
+    def test_uzaksiz_depoda_uyari_yok(self):
+        yerel = os.path.join(self.t, "yerel")
+        subprocess.run(["git", "init", "-q", "-b", "main", yerel], check=True)
+        commit(yerel, "a")
+        git(yerel, "checkout", "-q", "-b", "dal")
+        commit(yerel, "b")
+        self.assertEqual(git_denetim.uyari(yerel), "")
+
     def test_depo_olmayan_yer_istisna_atmaz(self):
         self.assertEqual(git_denetim.uyari(self.t), "")
         self.assertEqual(git_denetim.tara(self.t)["yerel"], [])

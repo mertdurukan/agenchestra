@@ -56,6 +56,8 @@ def tara(depo: str) -> dict:
 def uyari(depo: str) -> str:
     """Uzakta tek kopyası olmayan ya da önde kalan yerel dallar için tek satır; yoksa ''."""
     try:
+        if UZAK not in _git(depo, "remote").split():
+            return ""  # uzak deposu olmayan depoda "gönderilmemiş" kavramı yok
         riskli = [d for d in tara(depo)["yerel"] if d["durum"] != "uzakta"]
     except Exception:
         return ""

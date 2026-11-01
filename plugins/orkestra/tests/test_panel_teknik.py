@@ -218,9 +218,9 @@ class TeknikPanel(unittest.TestCase):
             self.assertGreater(len(b), 100, yol)
 
     def test_k2_surum_ve_sekme(self):
-        self.assertEqual(panel.SURUM, "21")
+        self.assertRegex(panel.SURUM, r"^[0-9]+$")  # sabit değil: her sürüm artışında kırılmasın
         k, b, _ = self.get("/saglik")
-        self.assertEqual(b.decode(), "ok 21")
+        self.assertEqual(b.decode(), f"ok {panel.SURUM}")
         # Teknik sayfa menüden gizli (16.10.2026); adresle hâlâ açılır.
         self.assertNotIn("'/teknik'", oku("ortak.js"))
 

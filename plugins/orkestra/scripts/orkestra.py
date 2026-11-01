@@ -37,6 +37,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra onay karar ID (--onay|--ret) [--secim S] [--not N] | al ID [--oturum O] | uygulandi ID --ozet Z | iptal ID --not N | esitle
   orkestra kural liste [--json] [--katman proje|plugin] | oner --metin M [--neden N] | ekle --metin M [--neden N] [--katman proje|plugin] | duzenle ID --metin M | kaldir ID --not N
   orkestra kural tasi ID --katman proje|plugin [--kimligi-koru] | kapat ID [--not N] | ac ID | esitle   (katmanlar: KURALLAR.md, Kural katmanları)
+  orkestra git denetim [--depo YOL]   dal sınıfı (uzakta birleşmiş, tek kopya), stash ve commitsiz sayısı; salt okunur (I-325)
   orkestra standart liste | goster AD | yol AD | ekle AD   (ekip yapı standartları: PR, commit, dal, review, Jira yorumu; ADR-0006)
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
   orkestra konu ac "başlık" [--neden N] | liste [--oturum O] [--json] | rapor [--gun N] [--tum] [--etiket] [--yaz DOSYA] [--json]   sohbet konu defteri (ADR-0116)
@@ -84,9 +85,10 @@ from komutlar import olay  # noqa: E402  (`orkestra olay`; I-286, ADR-0109)
 from komutlar import kapi  # noqa: E402  (`orkestra kapi durum`; ADR-0095)
 from komutlar import oturum  # noqa: E402  (`orkestra oturum`; ADR-0125)
 from komutlar import teslim_kuyruk  # noqa: E402  (`orkestra teslim kuyruk`; I-323 P2)
+from komutlar import git_denetim as git_komut  # noqa: E402  (`orkestra git denetim`; I-325)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu, paralel, olay, kapi, oturum, teslim_kuyruk)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, adr, istek, konu, paralel, olay, kapi, oturum, teslim_kuyruk, git_komut)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:
