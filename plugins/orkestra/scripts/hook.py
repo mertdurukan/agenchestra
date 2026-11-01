@@ -17,7 +17,7 @@ import ork_lib as L  # noqa: E402
 import baglam as B  # noqa: E402
 import etkin_sure as ES  # noqa: E402
 
-KORUNAN_ADLAR = {"ortak_defter.md", "ortak_defter.jsonl", "maliyet.jsonl", "gunluk.jsonl", "atif.jsonl"}
+KORUNAN_ADLAR = {"ortak_defter.md", "ortak_defter.jsonl", "maliyet.jsonl", "maliyet_tur.jsonl", "gunluk.jsonl", "atif.jsonl"}
 YAZAN_ARACLAR = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 KABUK_ARACLARI = {"Bash", "PowerShell"}
 # Yalnız KOMUT KONUMUNDAKİ orkestra çağrısı: satır/segment başı (^ ; & | ( sonrası), isteğe bağlı
