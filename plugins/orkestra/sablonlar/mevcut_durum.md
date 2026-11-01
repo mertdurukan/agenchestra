@@ -32,7 +32,7 @@
 
 **Yöntem:**
 
-<!-- doldur: her okuma ya da koşu ayrı satır: ne yapıldı, hangi araçla (dosya okuma, komut, sorgu). Veriyle doğrulanabilen her şey burada çalışılır; bakılmayan şey "Yöntem"de yer almaz, §4'e girer. -->
+<!-- doldur: her okuma ya da koşu ayrı satır: ne yapıldı, hangi araçla (dosya okuma, komut, sorgu). Veriyle doğrulanabilen her şey burada çalışılır; bakılmayan şey "Yöntem"de yer almaz, §4'e girer. Yöntemi anlatmayan üst-bilgi cümlesi yazılmaz (örn. "satır numaraları şu tarihteki dosyalara aittir"): kanıt satır numaraları Ölçüm saati'ne bağlıdır. -->
 
 - 
 
