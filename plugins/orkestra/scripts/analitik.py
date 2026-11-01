@@ -420,6 +420,11 @@ def _denetci_basi(kart_id: str, kayitlar: list[dict], bitis, karar) -> datetime.
 
 def _akis_kartlari(kartlar: list[dict], kayitlar: list[dict]) -> list[dict]:
     out = []
+    # denetçi koşuları görev kimliğine göre bir kez gruplanır; kart başına tüm defteri taramak O(kart×satır) idi
+    den_idx: dict = {}
+    for r in kayitlar:
+        if r.get("gorev") and r.get("sure_ms") and _rol(r.get("ajan")) == "denetci":
+            den_idx.setdefault(r["gorev"], []).append(r)
     for k in kartlar:
         g = sorted(k.get("gecmis") or [], key=lambda x: x.get("zaman", ""))
         olus = _zaman(k.get("olusturma")) or (_zaman(g[0]["zaman"]) if g else None)
@@ -445,7 +450,7 @@ def _akis_kartlari(kartlar: list[dict], kayitlar: list[dict]) -> list[dict]:
                     toplam_den.append(_dk(bitis, d))
                     zamanlar = [_zaman(y.get("zaman")) for y in g[i + 1:] if y.get("olay") == "denetim-basladi"]
                     b = next((t for t in zamanlar if t and bitis <= t <= d), None)
-                    b = b or _denetci_basi(k["id"], kayitlar, bitis, d)
+                    b = b or _denetci_basi(k["id"], den_idx.get(k["id"], ()), bitis, d)
                     if b:
                         bekleme.append(_dk(bitis, b))
                         calisma.append(_dk(b, d))
@@ -596,11 +601,15 @@ def _pencereli(kartlar: list[dict], kayitlar: list[dict], akis_kartlari: list[di
         ks = [k for k in tum_kartlar if k.get("durum") != "iptal"]
         rs = [r for r in kayitlar if icinde(r.get("zaman"))]
         kart_usd, kart_tok = collections.Counter(), collections.Counter()
+        kartsiz_usd, kartsiz_tok = 0.0, 0   # görev kimliği olmayan satırlar (ana ajan, kartsız hook); kart listesi bunları saymaz
         for r in rs:
             g = _kart_anahtari(r)
             if g is not None:
                 kart_usd[g] += r.get("maliyet_usd") or 0.0
                 kart_tok[g] += sum(int(r.get(a) or 0) for a in L._TOKEN_ALANLARI)
+            else:
+                kartsiz_usd += r.get("maliyet_usd") or 0.0
+                kartsiz_tok += sum(int(r.get(a) or 0) for a in L._TOKEN_ALANLARI)
         teslim = [k for k in ks if L.kart_durumu_hesapla(k) == "teslim"]
         usd_l = [_r(kart_usd.get(k["id"], 0.0)) for k in teslim]
         tok_l = [kart_tok.get(k["id"], 0) for k in teslim]
@@ -611,6 +620,7 @@ def _pencereli(kartlar: list[dict], kayitlar: list[dict], akis_kartlari: list[di
                       "kart_basi_token": _r(sum(tok_l) / len(tok_l), 1) if tok_l else None, "kart_medyan_token": _medyan(tok_l)},
             "en_pahali": [[g, _r(v)] for g, v in kart_usd.most_common(10)],
             "en_pahali_token": [[g, v] for g, v in kart_tok.most_common(10)],
+            "kartsiz": {"usd": _r(kartsiz_usd), "token": kartsiz_tok},
             "basamak": _basamak(tum_kartlar, rs)["satirlar"],
             "akis_ozet": _akis_ozet([a for a in akis_kartlari if icinde(a.get("olusturma"))]),
         }
@@ -1309,15 +1319,16 @@ def _is_basina(sd: str, kartlar: list[dict]) -> dict:
     isiz_usd = sum(v for k, v in usd_i.items() if k not in kimlik)
     isiz_tok = sum(int(((v.get("token") or {}).get("toplam", 0)) or 0) for k, v in kal_i.items() if k not in kimlik)
     ort = lambda a: _r(sum(a) / len(a), 4) if a else None  # noqa: E731
+    # kart->iş eşlemesi ve dolu iş kümesi satır döngüsünün dışında bir kez kurulur (satır başına yeniden kurmak O(satır×kart))
+    kart_is = {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")}
+    dolu_kimlik = {x["id"] for x in dolu}
     return {
         "tamamlanan": len(kapali), "harcamali": len(dolu), "acik": len(isler) - len(kapali),
         "usd": {"toplam": _r(sum(x["usd"] for x in dolu)), "ortalama": ort([x["usd"] for x in dolu]),
                 "medyan": _medyan([x["usd"] for x in dolu])},
         "token": {"toplam": sum(x["token"] for x in dolu), "ortalama": _r(sum(x["token"] for x in dolu) / len(dolu), 1) if dolu else None,
                   "medyan": _medyan([x["token"] for x in dolu])},
-        "kalem": L.kalemler([r for r in L.maliyet_kayitlari(sd)
-                             if L.satir_isi(r, {k["id"]: k.get("is") for k in kartlar if k.get("id") and k.get("is")})
-                             in {x["id"] for x in dolu}]),
+        "kalem": L.kalemler([r for r in L.maliyet_kayitlari(sd) if L.satir_isi(r, kart_is) in dolu_kimlik]),
         "isiz": {"usd": _r(isiz_usd), "token": int(isiz_tok)},
         "isler": sorted(dolu, key=lambda x: -x["usd"])[:10],
     }
