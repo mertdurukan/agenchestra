@@ -29,6 +29,7 @@ POZITIF = [
     "while [ ! -f /tmp/ok ]; do sleep 3; done; cat /tmp/ok",
     "cd /tmp && until test -e a.txt; do sleep 1; done",
     "while ! curl -s localhost:8000 >/dev/null; do sleep 1; done",
+    "until [ -s /tmp/o.txt ] && ! pgrep -f test_paralel >/dev/null; do sleep 5; done",  # dosya hiç gelmezse süreç sınırı yetmez
     "i=0; until [ -f /tmp/x ]; do i=$((i+1)); sleep 1; done",  # artırım var, karşılaştırma yok: sınır değil
 ]
 NEGATIF = [
@@ -37,6 +38,7 @@ NEGATIF = [
     "n=0; while [ $n -lt 10 ]; do n=$((n+1)); sleep 1; done",
     "while ((i<10)); do ((i++)); sleep 1; done",
     "while kill -0 $PID 2>/dev/null; do sleep 2; done",
+    "until ! pgrep -f servis >/dev/null; do sleep 2; done",
     "while pgrep -f servis >/dev/null; do sleep 2; done",
     "start=$SECONDS; until [ -f x ] || [ $((SECONDS-start)) -gt 60 ]; do sleep 1; done",
     "for i in 1 2 3; do sleep 1; done",
@@ -50,6 +52,25 @@ NEGATIF = [
     "ls -la",
     "",
     None,
+]
+
+
+# Gerçek oturum komutlarından (01.11.2026 derlemi, 144 komut: 106 sınırsız, 38 geçen) yol/oturum kimliği silinerek alınmış örnekler.
+GERCEK_POZITIF = [
+    "until grep -q \"cikis=\" /tmp/taban_test.txt 2>/dev/null; do sleep 10; done; tail -15 /tmp/taban_test.txt",
+    "until [ $(ls *.jsonl | wc -l) -ge 6 ]; do sleep 5; done; sleep 20; wc -l *.jsonl; date +%H:%M",
+    "F=/tmp/s/test_out.txt; until grep -q '^exit=' $F; do sleep 5; done; tail -40 $F | cut -c1-220",
+    "until [ -s /tmp/o.output ] && ! tasklist | grep -qi pytest; do sleep 5; done; tail -5 /tmp/o.output",
+    "until grep -qiE \"passed|failed\" /tmp/tum.txt 2>/dev/null && ! pgrep -f test_paralel >/dev/null 2>&1; do sleep 5; done; tail -15 /tmp/tum.txt",
+    "cd /c/x && until [ $(grep -c tamam v1.txt) -ge 6 ] || grep -q \"HATA\" v1.txt; do sleep 5; done; cat v1.txt",
+]
+GERCEK_NEGATIF = [
+    "timeout 570 bash -c 'until grep -q \"tamam\" /tmp/s10.log; do sleep 15; done'; date +%H:%M:%S; tail -3 /tmp/s10.log",
+    "until grep -qiE \"passed|toplam\" $D/test.out 2>/dev/null || [ $SECONDS -gt 420 ]; do sleep 5; done; tail -5 $D/test.out",
+    "L=/tmp/b.txt; i=0; until [ $i -ge 360 ] || grep -q ok $L; do i=$((i+1)); sleep 1; done",
+    "while tasklist 2>/dev/null | grep -q pytest; do sleep 5; done; tail -3 /tmp/p.txt",
+    "py -3.13 -c \"\nimport time\nwhile time.time()-t<60:\n    time.sleep(1)\n\"",
+    "cat > t.py <<'EOF'\nwhile True:\n    time.sleep(1)\nEOF\npython t.py",
 ]
 
 
@@ -131,6 +152,15 @@ class TestKaliplar(_Proje):
         a = BK.ayar_oku()
         for k in NEGATIF:
             with self.subTest(k=k):
+                self.assertEqual(BK.sinirsiz_donguler(k, a), [], k)
+
+    def test_gercek_komutlar(self):
+        a = BK.ayar_oku()
+        for k in GERCEK_POZITIF:
+            with self.subTest(poz=k[:60]):
+                self.assertTrue(BK.sinirsiz_donguler(k, a), k)
+        for k in GERCEK_NEGATIF:
+            with self.subTest(neg=k[:60]):
                 self.assertEqual(BK.sinirsiz_donguler(k, a), [], k)
 
     def test_karar_golge_varsayilan(self):
