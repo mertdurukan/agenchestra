@@ -11,7 +11,7 @@
     "(?:^|[\\s;&|(])timeout\\s",
     "(?:^|[\\s;&|(])kill\\s+-0\\b",
     "\\bpgrep\\b",
-    "\\$SECONDS\\b",
+    "\\bSECONDS\\b",
     "\\bdate\\s+\\+%s\\b",
     "\\bfor\\s+\\w+\\s+in\\b",
     "(?:^|[\\s;&|(])seq\\s"
