@@ -465,6 +465,34 @@ def atif_yaz(sd, oturum, is_id, kaynak) -> bool:
         return False
 
 
+def baglanma_duzeltmesi(sd, oturum, is_id) -> int:
+    """I-319 P4: oturum bir işe bağlandığı anda, o oturumun o ana kadar yazılmış işsiz maliyet satırlarını
+    maliyet_duzeltme.jsonl'e (anahtar -> iş, kaynak 'baglanma') yalnız-ekleme olarak yazar; okuma katmanı
+    (_duzeltme_uygula) bindirir. Ham defter değişmez; zaten düzeltilmiş anahtar tekrar yazılmaz. Eklenen adet; hata 0."""
+    try:
+        if not (sd and oturum and is_id):
+            return 0
+        import maliyet_duzelt as MD
+        rows = _maliyet_kayitlari_oku(os.path.join(sd, "maliyet.jsonl"), duzeltme=False)  # tekilleştirilmiş + artık
+        hedef = [r for r in rows if r.get("oturum") == oturum and MD.isiz_mi(r)]
+        if not hedef:
+            return 0
+        an = simdi()
+        with kilit(os.path.join(sd, "maliyet_duzeltme_kontrol")):  # maliyet_duzelt.uygula ile aynı kilit
+            var = MD.duzeltme_haritasi(sd)
+            yeni = []
+            for r in hedef:
+                a = MD.satir_anahtari(r)
+                if a in var:
+                    continue
+                var[a] = is_id
+                yeni.append({"anahtar": a, "is": is_id, "kaynak": "baglanma", "zaman": an})
+            jsonl_toplu_ekle(MD.duzeltme_yolu(sd), yeni)
+        return len(yeni)
+    except Exception:
+        return 0
+
+
 def jsonl_oku(yol: str) -> list[dict]:
     if not os.path.exists(yol):
         return []
