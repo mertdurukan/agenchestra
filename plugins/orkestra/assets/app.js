@@ -235,7 +235,8 @@
     bildir('Sohbet açılıyor…');
     try {
       const r = await gonder('/ac?oturum=' + enc(oturum));
-      bildir(r.yol === 'cli' ? 'Sohbet Claude uygulamasında sürdürülüyor' : 'Açıldı: ' + (r.baslik || ad || 'sohbet'));
+      if (r.uyari) bildir(r.uyari, { hata: true });
+      else bildir(r.yol === 'cli' ? 'Sohbet Claude uygulamasında sürdürülüyor' : 'Açıldı: ' + (r.baslik || ad || 'sohbet'));
     } catch (x) { bildir('Açılamadı: ' + x.message, { hata: true }); }
   }
 
