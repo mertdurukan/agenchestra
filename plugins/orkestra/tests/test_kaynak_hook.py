@@ -157,6 +157,7 @@ class TestHookGolge(_Proje):
         self.assertIn("pytest", g[0]["neden"])
         ek = (c.get("hookSpecificOutput") or {}).get("additionalContext", "")
         self.assertIn("test_paralel.py", ek)
+        self.assertIn("gh workflow run orkestra-tam-takim.yml", ek)
         self.assertIn("1 kiralı test koşusu", ek)
         self.assertIn(f"sahip: {os.getpid()}/test_paralel.py -q", ek)
         self.assertNotEqual((c.get("hookSpecificOutput") or {}).get("permissionDecision"), "deny")
