@@ -1,10 +1,10 @@
-# ADR-0129: Test kirası ve çıplak test yönlendirmesi ihlal moduna, test sonucu önbelleği açık
+# ADR-0131: Test kirası ve çıplak test yönlendirmesi ihlal moduna, test sonucu önbelleği açık
 
 **Durum:** Kabul edildi
 
 **Tarih:** 01.11.2026
 
-**Bağlam:** ADR-0128 iki kapıyı P-028 gereği `golge` modunda açtı: test kirası (`ayarlar/kaynak_kira.json`) ve çıplak test koşusu yönlendirmesi (`test_yonlendirme`, hook.py PreToolUse). Test sonucu önbelleği (`onbellek`) kapalı başladı.
+**Bağlam:** ADR-0130 iki kapıyı P-028 gereği `golge` modunda açtı: test kirası (`ayarlar/kaynak_kira.json`) ve çıplak test koşusu yönlendirmesi (`test_yonlendirme`, hook.py PreToolUse). Test sonucu önbelleği (`onbellek`) kapalı başladı.
 
 Kullanıcı, eşzamanlı tam test koşularının çekirdek ve belleği aşmasının hemen önlenmesi için üç parçanın da açılmasına karar verdi.
 
@@ -35,4 +35,4 @@ Gölge dönemi çok kısaydı (aynı gün açıldı). Sıfır sayılar "yanlış
 - Olumsuz: anahtar kiradan önce hesaplanır (~0,5 sn); kuyruk "sıra:" satırı ondan sonra gelir. P4 uçtan uca testi sahibi sabit süre yerine olayla tutacak biçimde düzeltildi.
 - Geri alma: proje ezmesi `.claude/orkestra/kaynak_kira.json` (`mod: golge|kapali`, `onbellek: false`) ve `.claude/orkestra/test_yonlendirme.json` (`mod: golge`); ortam değişkenleri `ORKESTRA_KAYNAK_KIRA=0`, `ORKESTRA_TEST_ONBELLEK=0`, `ORKESTRA_TEST_YONLENDIRME=0`.
 
-**İlgili iş ya da kural kimliği:** I-309, ADR-0128 (güncellemesi), P-028.
+**İlgili iş ya da kural kimliği:** I-309, ADR-0130 (güncellemesi), P-028.

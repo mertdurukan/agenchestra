@@ -1,4 +1,4 @@
-# ADR-0128: Eşzamanlı kaynak çakışmasında önce paylaşımı kaldır, kilidi sona bırak
+# ADR-0130: Eşzamanlı kaynak çakışmasında önce paylaşımı kaldır, kilidi sona bırak
 
 **Durum:** Kabul edildi
 
@@ -39,7 +39,7 @@ Olumsuz: önbellek geçersiz kılma mantığı ek karmaşıklıktır.
 
 Gölge dönemi: `kaynak_kira` ve `test_yonlendirme` kapıları `kapi_golge` kaydı yazar, engellemez; ihlal geçişi `orkestra is rapor` sayıları ölçüldükten sonra ayrı kararla yapılır.
 
-Güncelleme: ADR-0129 — 01.11.2026'da kullanıcı kararıyla `kaynak_kira` ve `test_yonlendirme` ihlal moduna alındı, test sonucu önbelleği açıldı (gölge dönemi kısa, sayılar ADR-0129'da).
+Güncelleme: ADR-0131 — 01.11.2026'da kullanıcı kararıyla `kaynak_kira` ve `test_yonlendirme` ihlal moduna alındı, test sonucu önbelleği açıldı (gölge dönemi kısa, sayılar ADR-0131'da).
 
 Geri alma: her parça ayarla kapatılır (`kaynak_kira.json` mod alanı `kapali`, `ORKESTRA_TEST_YONLENDIRME=0`) ve ayrı commit'tir.
 

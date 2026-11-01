@@ -270,7 +270,7 @@ class OnbellekModlari(_OnbellekTemel):
         self.assertIn("BAYAT isabet", c)
 
     def test_eklenti_varsayilani_isabeti_uygular(self):
-        """ADR-0129: ezmede `onbellek` alanı yokken eklenti ayarı (true) geçerli; ikinci çağrı süreç açmaz."""
+        """ADR-0131: ezmede `onbellek` alanı yokken eklenti ayarı (true) geçerli; ikinci çağrı süreç açmaz."""
         _yaz(self.ayar, {"mod": "golge", "yoklama_s": 0.05})
         with mock.patch.dict(os.environ, {"ORKESTRA_KAYNAK_KIRA_AYAR": self.ayar}):
             for k in (T.KAPAT_ENV, "CLAUDE_PROJECT_DIR"):

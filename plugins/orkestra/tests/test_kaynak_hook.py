@@ -2,7 +2,7 @@
 
 K1: çıplak `pytest` Bash komutu gunluk.jsonl'a `kapi_golge` (kapi=test_yonlendirme) yazar ve ipucu bağlamı verir;
     `test_paralel.py` komutu ve hedefli çağrı (tek dosya, -k, unittest modülü) yazmaz; ihlal modunda reddedilir.
-    Eklenti varsayılanı ihlal (ADR-0129): ezmesiz projede çıplak tam koşu deny, hedefli çağrı geçer; gölge ezmeyle.
+    Eklenti varsayılanı ihlal (ADR-0131): ezmesiz projede çıplak tam koşu deny, hedefli çağrı geçer; gölge ezmeyle.
 K2: /api/kaynaklar sahip ve bekleyen kaydını (pid, komut, işçi, süre) döndürür; kaynaklar.js node ile sözdizimi geçer ve
     aynı veriyi çizer.
 Hepsi geçici dizinde koşar; gerçek kira dizinine ve proje durum klasörüne yazılmaz.
@@ -139,7 +139,7 @@ def _kayit(pid, komut, isci, gecen_s=5.0):
 
 
 class TestHookGolge(_Proje):
-    """Eklenti varsayılanı ihlal (ADR-0129); gölge davranışı proje ezmesiyle ayrıca sınanır."""
+    """Eklenti varsayılanı ihlal (ADR-0131); gölge davranışı proje ezmesiyle ayrıca sınanır."""
 
     def setUp(self):
         super().setUp()
@@ -188,7 +188,7 @@ class TestHookGolge(_Proje):
 
 
 class TestHookIhlalVarsayilan(_Proje):
-    """ADR-0129: eklenti varsayılanı ihlal; proje ezmesi yokken çıplak tam koşu reddedilir, hedefli çağrı geçer."""
+    """ADR-0131: eklenti varsayılanı ihlal; proje ezmesi yokken çıplak tam koşu reddedilir, hedefli çağrı geçer."""
 
     def retler(self):
         yol = os.path.join(self.sd, "gunluk.jsonl")

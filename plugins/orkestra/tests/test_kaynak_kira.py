@@ -183,7 +183,7 @@ class EsZamanliBütce(Ortam):
 
         Sahip sabit süre (eski: 2.0 sn) değil, koşucu 'sıra: 2' satırını basana kadar tutar. Kök neden: test_paralel.py
         kiradan ÖNCE önbellek anahtarını hesaplar (eklenti kökünün tam içerik özeti; isabette kira hiç alınmaz, doğru
-        sıra budur). Önbellek açıkken (ADR-0129) içe aktarma + anahtar yük altında sahibin sabit süresini aşınca koşucu
+        sıra budur). Önbellek açıkken (ADR-0131) içe aktarma + anahtar yük altında sahibin sabit süresini aşınca koşucu
         kuyruğa hiç girmiyordu; eski geçiş `onbellek: false` varsayılanına dayanıyordu. Olayla eşleme yarışı kaldırır."""
         self.ayar()
         tdir = os.path.join(self.d, "testler")
@@ -319,12 +319,12 @@ class Modlar(Ortam):
         self.assertNotIn(K.SAHIP_ENV, os.environ)
 
     def test_varsayilan_ayar_ihlal_onbellek_acik(self):
-        """ADR-0129: kullanıcı kararıyla ihlal + önbellek açık; gölge ve kapalı davranışları yukarıda ayar ezmesiyle sınanır."""
+        """ADR-0131: kullanıcı kararıyla ihlal + önbellek açık; gölge ve kapalı davranışları yukarıda ayar ezmesiyle sınanır."""
         with open(os.path.join(KOK, "ayarlar", "kaynak_kira.json"), encoding="utf-8") as f:
             d = json.load(f)
         self.assertEqual((d["mod"], d["onbellek"]), ("ihlal", True))
-        self.assertIn("ADR-0129", d["mod_gerekce"])
-        self.assertIn("ADR-0129", d["onbellek_gerekce"])
+        self.assertIn("ADR-0131", d["mod_gerekce"])
+        self.assertIn("ADR-0131", d["onbellek_gerekce"])
         self.assertIn("sona_erme_s", d)
         self.assertIn("bekleme_ust_s", d)
 

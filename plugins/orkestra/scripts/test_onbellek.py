@@ -32,7 +32,7 @@ Mod (`ayarlar/kaynak_kira.json` `onbellek` alanı; proje ezmesi ve ORKESTRA_KAYN
   yazılır ve gunluk.jsonl'a `kapi_golge` düşer, ama koşu YİNE yapılır. Gölge koşusu isabetin doğru olup olmadığını da
   ölçer: önbellek "geçti" derken koşu düşerse "BAYAT isabet" kaydı düşer.
 - true | "ihlal": isabet ve tek uçuş gerçekten uygulanır.
-Eklenti ayarı true (ADR-0129, 01.11.2026, kullanıcı kararı): gölge ölçümü yapılmadan açıldı (BAYAT isabet sayısı 0,
+Eklenti ayarı true (ADR-0131, 01.11.2026, kullanıcı kararı): gölge ölçümü yapılmadan açıldı (BAYAT isabet sayısı 0,
 çünkü önbellek gölgeye hiç alınmadı). Anahtar kiradan ÖNCE hesaplanır (~0,5 sn, eklenti kökü); kira kuyruğundaki
 "sıra:" satırı bu yüzden anahtar hesabından sonra gelir (P4 uçtan uca testi sahibi süreyle değil olayla tutar).
 Gerekçe (golge -> ihlal düzeni): önbellek bir kapı gibi davranışı değiştirir (koşuyu atlar) ve en büyük riski (bayat geçti) ancak gerçek koşuyla
