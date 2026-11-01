@@ -311,8 +311,16 @@ def cmd_maliyet_yeniden_tip(a):
     print(f"{toplam} satır yeniden etiketlendi ({ozet_s}); yedek: {yedek}")
 
 
+# I-319 P3 (ADR-0095): maliyet defterinde her token tek kaynakta yazılır; kaynak hook'tur (Stop/SubagentStop,
+# transkriptten mesaj kimliğiyle). Sayaç tur kullanımı aynı token'ı ikinci kez yazıyordu ve aynı span'de hook'tan
+# ~%21 eksik sayıyordu (netlenen 492 ana satırda hook_artik çıkışı 537 659 / tur 2 483 821); bu yüzden toplamlara
+# girmeyen ayrı gözlem defterine yazılır. Eski 'tur' satırları maliyet.jsonl'de kalır, okuyucu onları netlemeye devam eder.
+TUR_GOZLEM_DEFTERI = "maliyet_tur.jsonl"
+
+
 def cmd_maliyet_tur(a):
-    """Sayaç modülünden gelen KESİN tur kullanımını deftere yazar (orkestra kapalıysa sessizce çıkar)."""
+    """Sayaç modülünden gelen tur kullanımını GÖZLEM defterine (maliyet_tur.jsonl) yazar; maliyet.jsonl'e yazmaz
+    (I-319 P3: tek kaynak hook). Orkestra kapalıysa sessizce çıkar."""
     sd = L.durum_dizini()
     if not sd:
         return
