@@ -129,7 +129,8 @@ def _cikti(r) -> dict:
 # ------------------------------------------------------------------ K1: hooks.json
 
 # Ayrı ve kapı önekli girdiler (hook.py'ye gitmez): biçimleri kendi testlerinde sınanır.
-AYRI_BETIKLER = ("scripts/oto_commit.py",)  # tests/test_oto_commit.py
+AYRI_BETIKLER = ("scripts/oto_commit.py",  # tests/test_oto_commit.py
+                 "scripts/sessionstart_kritik.py")  # tests/test_sessionstart_kritik.py (ADR-0132)
 
 
 def _tum_kancalar() -> list[tuple[str, dict]]:
