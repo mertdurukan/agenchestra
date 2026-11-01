@@ -130,7 +130,7 @@ def gecikme_yaz(yol: str, sure_s: float, kod: int | None = None) -> None:
                 f.write(json.dumps(satir, ensure_ascii=False) + "\n")
     except Exception:  # noqa: BLE001
         pass
-SURUM = "21"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
+SURUM = "22"  # sayfa/sunucu sözleşmesi; değişince eski sunucu yeniden başlatılır
 GUNCELLEME = panel_guncelleme.Guncelleme()  # eklenti güncelleme durumu (kullanıcı düzeyi, ADR-0039); testte değiştirilir
 
 
