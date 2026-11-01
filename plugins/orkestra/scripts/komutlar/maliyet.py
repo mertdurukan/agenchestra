@@ -239,6 +239,78 @@ def cmd_maliyet_yeniden_etiketle(a):
     print(f"{degisen} kayıt yeniden etiketlendi ({ozet_s}); {onb} önbellek düzeltildi → {yol}")
 
 
+ETIKETSIZ_SUREC = ("tip-okunamadi", "bilinmiyor")
+
+
+def yeniden_tip_satir(r: dict, tip_bul) -> dict:
+    """`tip-okunamadi`/`bilinmiyor` satırında ajan tipini (satırdan, yoksa `tip_bul(oturum, agent_id)`'dan) çözüp
+    süreci `surec_turet` ile yeniden yazar; çözülemezse satır olduğu gibi döner."""
+    if r.get("surec") not in ETIKETSIZ_SUREC:
+        return r
+    ajan = r.get("ajan")
+    if not ajan or ajan == "?":
+        ajan = tip_bul(r.get("oturum"), r.get("agent_id")) if r.get("agent_id") else None
+    if not ajan or ajan == "?":
+        return r
+    yeni = L.surec_turet(ajan, "bilinmiyor")
+    return dict(r, ajan=ajan, surec=yeni)
+
+
+def cmd_maliyet_yeniden_tip(a):
+    """Geçmiş `tip-okunamadi`/`bilinmiyor` maliyet satırlarını ajan tipinden yeniden etiketler (varsayılan kuru çalıştırma;
+    --uygula yedek alır ve kilit altında yazar)."""
+    import shutil
+    sd = sd_gerekli()
+    yol = os.path.join(sd, "maliyet.jsonl")
+    onb = {}
+
+    def tip_bul(oturum, aid):
+        k = (oturum, aid)
+        if k not in onb:
+            tr = L.alt_ajan_transkripti_ara(oturum, aid)
+            onb[k] = (L.alt_ajan_meta(tr).get("agentType") if tr else None) or None
+        return onb[k]
+
+    def say(satirlar):
+        sayac = {}
+        for ham in satirlar:
+            try:
+                r = json.loads(ham)
+            except json.JSONDecodeError:
+                continue
+            y = yeniden_tip_satir(r, tip_bul)
+            if y is not r:
+                sayac[(r["surec"], y["surec"])] = sayac.get((r["surec"], y["surec"]), 0) + 1
+        return sayac
+
+    if os.path.exists(yol):  # transkript aramaları kilit dışında (kilit bekleyenleri 3 sn'den fazla tutmasın)
+        say(open(yol, encoding="utf-8", errors="replace").read().splitlines())
+    with L.kilit(yol):
+        satirlar = open(yol, encoding="utf-8", errors="replace").read().splitlines() if os.path.exists(yol) else []
+        sayac = say(satirlar)
+        toplam = sum(sayac.values())
+        ozet_s = ", ".join(f"{k[0]}→{k[1]}: {n}" for k, n in sorted(sayac.items())) or "yok"
+        if not a.uygula:
+            print(f"[kuru çalıştırma] {toplam} satır yeniden etiketlenecek ({ozet_s}). Uygulamak için --uygula.")
+            return
+        if not toplam:
+            print("yeniden etiketlenecek satır yok.")
+            return
+        yedek = f"{yol}.yedek-{L.simdi()[:19].replace(':', '').replace('-', '')}"
+        shutil.copy2(yol, yedek)
+        yeni = []
+        for ham in satirlar:
+            try:
+                r = json.loads(ham)
+            except json.JSONDecodeError:
+                yeni.append(ham)
+                continue
+            y = yeniden_tip_satir(r, tip_bul)
+            yeni.append(json.dumps(y, ensure_ascii=False) if y is not r else ham)
+        L.atomik_yaz(yol, "\n".join(yeni) + "\n")
+    print(f"{toplam} satır yeniden etiketlendi ({ozet_s}); yedek: {yedek}")
+
+
 def cmd_maliyet_tur(a):
     """Sayaç modülünden gelen KESİN tur kullanımını deftere yazar (orkestra kapalıysa sessizce çıkar)."""
     sd = L.durum_dizini()
@@ -255,10 +327,18 @@ def cmd_maliyet_tur(a):
             surec = L.surec_turet(ajan, surec)
         except Exception:
             tr = os.path.join(L.proje_oturum_dizini(L.proje_dizini()), a.oturum, "subagents", f"agent-{a.agent_id}.jsonl")
+            if not os.path.exists(tr):  # worktree oturumunun transkripti başka proje dizinindedir
+                tr = L.alt_ajan_transkripti_ara(a.oturum, a.agent_id) or tr
             o = L.transkript_oku(tr)
             gorev, surec = L.etiketler(o["ilk_kullanici"])
             ajan = L.alt_ajan_meta(tr).get("agentType") or "?"
             surec = L.surec_turet(ajan, surec)
+            if ajan == "?":  # güvenlik ağı (P-028 gölge): kaynakta (subagent_start) kaydedilemeyen tip izlenir
+                try:
+                    L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": a.oturum, "tur": "kapi_golge",
+                                 "kapi": "ajan_tipi", "is": "-", "neden": f"ajan tipi okunamadı: {a.agent_id}"})
+                except Exception:
+                    pass
             if ajan != "?":  # transkript henüz yoksa tipi okunamaz; "?" önbelleğe yazılırsa sonraki turlar da etiketsiz kalır
                 L.atomik_yaz(onb, json.dumps({"gorev": gorev, "surec": surec, "ajan": ajan}))
     elif os.environ.get("ORKESTRA_PERSPEKTIF"):
@@ -518,6 +598,9 @@ def kaydet(alt):
     ye.add_argument("--uygula", action="store_true")
     ye.add_argument("--transkript-dizini", help=argparse.SUPPRESS)
     ye.set_defaults(f=cmd_maliyet_yeniden_etiketle)
+    yt = mal.add_parser("yeniden-tip", help="geçmiş tip-okunamadi/bilinmiyor satırlarını ajan tipinden yeniden etiketler (varsayılan kuru koşu)")
+    yt.add_argument("--uygula", action="store_true", help="yedek alıp maliyet.jsonl'i yeniden yazar")
+    yt.set_defaults(f=cmd_maliyet_yeniden_tip)
     du = mal.add_parser("duzelt", help="işe bağsız geçmiş satırları kart/oturumdan işe atfeder (varsayılan kuru koşu)")
     du.add_argument("--uygula", action="store_true", help="maliyet_duzeltme.jsonl'e ekle (yoksa yalnız sayım)")
     du.set_defaults(f=cmd_maliyet_duzelt)
