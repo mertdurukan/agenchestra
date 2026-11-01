@@ -1677,6 +1677,37 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _cikti_sirasi_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0135: karar bekleyen bölüm yanıtın son bölümü olmalı (ayrıntı: cikti_sirasi.py). Her kipte günlüğe
+    `kural_ihlal / cikti_sirasi` yazılır; `block` kipinde tur başına bir kez block, ikinci denemede (`stop_hook_active`)
+    tur geçer, `kapi_ihlal` yazılır ve kullanıcıya tek satır uyarı gider (hook yanıt metnini değiştiremez)."""
+    global _KULLANICI_MESAJI
+    try:
+        import cikti_sirasi as CS
+        ayar = CS.ayar_oku(sd)
+        kip = CS.mod(ayar)
+        if kip == "kapali":
+            return
+        baslik = CS.ihlal(inp.get("last_assistant_message"), ayar)
+        if not baslik:
+            return
+        yol, is_id = os.path.join(sd, "gunluk.jsonl"), _oturum_isi(sd, oid)
+        ikinci = bool(inp.get("stop_hook_active"))
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal", "kural": CS.KAPI, "mod": kip,
+                           "baslik": baslik, "is": is_id})
+        if kip != "block":
+            return
+        if not ikinci:
+            L.hook_cikti({"decision": "block", "reason": CS.uyari_metni(baslik, ayar)})
+        L.jsonl_ekle(yol, {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_ihlal", "kapi": CS.KAPI, "is": is_id,
+                           "neden": f"ikinci denemede düzeltilmedi: {baslik}"})
+        _KULLANICI_MESAJI = "\n".join(x for x in (_KULLANICI_MESAJI, CS.kullanici_uyarisi(baslik, ayar)) if x)
+    except SystemExit:
+        raise
+    except Exception:
+        return
+
+
 def _auto_devam_yanit(sd: str, oid, inp: dict) -> None:
     """ADR-0132: /auto işi açıkken özet yazılmadan biten tur gölgede günlüğe yazılır (ayrıntı: auto_devam.py)."""
     try:
