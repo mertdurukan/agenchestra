@@ -243,6 +243,8 @@ def ac(oturum: str) -> dict:
             import subprocess
             subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", m["link"]])
         return {"tamam": True, "yol": "uygulama", "baslik": m.get("baslik")}
+    uyari = ("Claude uygulamasının sohbet kayıt klasörü bulunamadı (önbellek bayat); sohbet uygulamada açılmayabilir"
+             if MASAUSTU_DURUM["bayat"] else None)
     import subprocess
     import perspektif
     exe = perspektif.claude_exe()
