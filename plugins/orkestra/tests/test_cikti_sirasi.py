@@ -167,7 +167,7 @@ class IskeletTest(unittest.TestCase):
 
     def test_p001_kurali_karar_en_sonda_der(self):
         kurallar = open(os.path.join(KOK, "kurallar", "eklenti_kurallari.json"), encoding="utf-8").read()
-        self.assertIn("EN SONUNDA (ADR-0135", kurallar)
+        self.assertIn("EN SONUNDA (ORK-ADR-0135", kurallar)
 
 
 class UzunlukKapisiTest(unittest.TestCase):
