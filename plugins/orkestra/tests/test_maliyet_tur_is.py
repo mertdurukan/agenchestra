@@ -58,8 +58,9 @@ class _Ortak(unittest.TestCase):
             kom += ["--agent-id", agent_id]
         p = ic_kos.kos(kom[1:], env=env, cwd=self.proje)
         self.assertEqual(p.returncode, 0, p.stderr)
-        yol = os.path.join(self.sd, "maliyet.jsonl")
-        self.assertTrue(os.path.exists(yol), "maliyet satırı yazılmadı")
+        self.assertFalse(os.path.exists(os.path.join(self.sd, "maliyet.jsonl")), "tur maliyet.jsonl'e yazmamalı (I-319 P3)")
+        yol = os.path.join(self.sd, "maliyet_tur.jsonl")
+        self.assertTrue(os.path.exists(yol), "tur gözlem satırı yazılmadı")
         with open(yol, encoding="utf-8") as f:
             satirlar = [json.loads(s) for s in f if s.strip()]
         self.assertEqual(len(satirlar), 1)
