@@ -3,7 +3,7 @@ name: orkestra-tam-takim
 # yalnız main'e push, gece ve elle. Hızlı katman orkestra-test.yml'de kalır.
 on:
   push:
-    branches: [main]
+    branches: [main, tam-test-ci-i341]
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
