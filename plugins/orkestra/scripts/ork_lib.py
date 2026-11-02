@@ -2570,8 +2570,8 @@ def calisma_alanlari() -> list[dict]:
             if yol:
                 onb[aid] = {"yol": yol}
                 degisti = True
-        if not yol or re.search(r"[\\/]AppData[\\/]Local[\\/]Temp[\\/]|[\\/]ork_(?:tmp|canli)|[\\/]\.claude[\\/]worktrees[\\/]", yol, re.I):
-            continue  # geçici, test ve worktree kopyaları gerçek çalışma alanı değildir
+        if not yol or re.search(r"[\\/]AppData[\\/]Local[\\/]Temp[\\/]|[\\/]ork_(?:tmp|canli)|[\\/]\.claude[\\/]worktrees[\\/]|[\\/]scratch-workspaces[\\/]", yol, re.I):
+            continue  # geçici, test, worktree ve Claude masaüstü scratch kopyaları gerçek çalışma alanı değildir
         out.append({"id": aid, "ad": os.path.basename(yol.rstrip("\\/")) or yol, "yol": yol,
                     "orkestra": os.path.isdir(os.path.join(yol, ".claude", "orkestra")),
                     "sohbet": len(dosyalar),

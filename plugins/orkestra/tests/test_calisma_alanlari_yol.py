@@ -6,6 +6,7 @@ Kabul kriterleri:
   K2  Transkriptte ilk `cwd` başka klasörse, klasör adını üreten `cwd` seçilir.
   K3  Adı üreten yol önbellekteyse transkripte hiç dokunulmaz (maliyet artmaz).
   K4  Klasör adını üreten `cwd` yoksa eski davranış korunur (ilk `cwd`), alan düşmez.
+  K5  Claude masaüstü `scratch-workspaces` klasörleri (Local ve Roaming) listelenmez; gerçek alan kalır.
 """
 import json
 import os
@@ -81,6 +82,13 @@ class AlanYolu(unittest.TestCase):
         aid = kodla(GERCEK)
         self._proje(aid, [BASKA])
         self.assertEqual(self._yol(), BASKA)
+
+    def test_k5_scratch_workspaces_listelenmez(self):
+        yerel = r"C:\Users\PC\AppData\Local\Claude-Data\scratch-workspaces\x\scratch-2026-10-22-556f66"
+        dolasan = r"C:\Users\PC\AppData\Roaming\Claude\scratch-workspaces\y\scratch-2026-10-23-aaaaaa"
+        for yol in (GERCEK, yerel, dolasan):
+            self._proje(kodla(yol), [yol])
+        self.assertEqual([a["yol"] for a in ork_lib.calisma_alanlari()], [GERCEK])
 
 
 if __name__ == "__main__":
