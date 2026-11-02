@@ -262,7 +262,8 @@ def _kural_dosya_metni(sd: str) -> str:
     def kural_satirlari(liste_):
         for r in liste_:
             tarih = (r.get("etkinlesme") or r.get("olusturma") or "")[:10]
-            satirlar.append(f"- {_tek_satir(KM.mod_coz(r['metin'], sd))} ({r['id']}, {tarih})")
+            # ozet varsa her oturumda yüklenen dosyaya o girer; tam metin JSON ve KURALLAR.md'de kalır (üst sınır: OZET_ENCOK)
+            satirlar.append(f"- {_tek_satir(KM.mod_coz(r.get('ozet') or r['metin'], sd))} ({r['id']}, {tarih})")
 
     if plug_acik:  # tek katmanlıysa eski düzen (başlıksız) korunur
         satirlar += ["Çakışmada proje kuralı eklenti kuralından önce gelir.", "",
@@ -282,6 +283,7 @@ def _kural_dosya_metni(sd: str) -> str:
     return "\n".join(satirlar) + "\n"
 
 
+OZET_ENCOK = 400  # kural özetinin karakter üst sınırı (tests/test_kural_ozet.py zorlar)
 HOOK_SATIR_ONEK = "Hook ile yüklenen kurallar (bu dosyada yok, ilgili anda hook söyler): "
 
 
