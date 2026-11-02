@@ -172,7 +172,8 @@ class K3TeknikKapsama(unittest.TestCase):
             kart("G-5", olus="2026-10-16T10:30:00+03:00", teknik="   "),               # boşluk = boş
             kart("G-6", olus="2026-10-16T11:00:00+03:00", teknik="x", durum="planlandi"),  # onaylı/teslim değil
         ]
-        e = pano(kartlar)["olculer"]["teknik_not_kapsama"]["tum_zaman"]
+        h = dict(HEDEF, teknik_kapi_baslangic="2026-10-16T00:00:00+03:00")  # ofsetli: makine saat diliminden bağımsız
+        e = A.hedef_panosu(kartlar, [], simdi=SIMDI, hedef=h, esik=ESIK)["olculer"]["teknik_not_kapsama"]["tum_zaman"]
         self.assertEqual(e["payda"], 4)
         self.assertEqual(e["pay"], 2)
         self.assertEqual(e["deger"], 0.5)
@@ -432,9 +433,11 @@ class K8TeknikKapiSaati(unittest.TestCase):
 
     def test_yalniz_gun_verilirse_gun_basi_kapisi(self):
         h = dict(HEDEF, teknik_kapi_baslangic="2026-10-16")
+        # yalnız gün makinenin yerel gece yarısıdır (analitik.py): kartlar da aynı yerel gece yarısına göre kurulur
+        gece = datetime.datetime(2026, 10, 16).astimezone()
         kartlar = [
-            kart("G-1", olus="2026-10-15T23:59:00+03:00", teknik=""),   # önceki gün: paydada değil
-            kart("G-2", olus="2026-10-16T00:30:00+03:00", teknik="n"),  # gün başı sonrası: paydada, dolu
+            kart("G-1", olus=(gece - datetime.timedelta(minutes=1)).isoformat(timespec="seconds"), teknik=""),   # önceki gün: paydada değil
+            kart("G-2", olus=(gece + datetime.timedelta(minutes=30)).isoformat(timespec="seconds"), teknik="n"),  # gün başı sonrası: paydada, dolu
         ]
         e = A.hedef_panosu(kartlar, [], simdi=SIMDI, hedef=h, esik=ESIK)["olculer"]["teknik_not_kapsama"]["tum_zaman"]
         self.assertEqual((e["payda"], e["pay"], e["deger"]), (1, 1, 1.0))
