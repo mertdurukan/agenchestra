@@ -359,12 +359,12 @@ class OnayKapisiKabuk(unittest.TestCase):
     def test_k2_proje_ici_kabuk_yazimi_reddedilir(self):
         p = os.path.join(self.proje, "src", "a.py")
         for arac, komut in (("Bash", f"echo x > {p}"), ("Bash", f"echo x >> {p}"), ("Bash", f"printf x | tee {p}"),
-                            ("Bash", f"cp /tmp/a.py {p}"), ("Bash", f"mv x.py {self.proje}/src/"),
+                            ("Bash", f"cp /tmp/a.py {p}"), ("Bash", f"mv x.py {os.path.join(self.proje, 'src')}"),
                             ("Bash", f"cd {self.proje} && echo x > src/a.py"), ("Bash", f"rm -f {p}"),
                             ("Bash", f"cat > {p} <<'EOF'\nprint(1)\nEOF"),
                             ("PowerShell", f'Set-Content -Path "{p}" -Value x'), ("PowerShell", f"Set-Content '{p}' x"),
                             ("PowerShell", f'"x" | Out-File "{p}"'), ("PowerShell", f'Add-Content -LiteralPath "{p}" -Value x'),
-                            ("PowerShell", f'Copy-Item a.py -Destination "{self.proje}\\src"'),
+                            ("PowerShell", f'Copy-Item a.py -Destination "{os.path.join(self.proje, "src")}"'),
                             ("PowerShell", f"[IO.File]::WriteAllText('{p}', 'x')"),
                             ("PowerShell", "$f = 'x'; Set-Content $f 'y'"),
                             ("Bash", f"echo {{}} > {os.path.join(self.klasor, 'is.json')}")):
