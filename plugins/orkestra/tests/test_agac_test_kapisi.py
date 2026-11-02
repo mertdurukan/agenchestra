@@ -27,7 +27,7 @@ KIRMIZI_TEST = ("import os, sys, unittest\n"
 
 
 def kos(args, cwd, stdin=None):
-    env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1")
+    env = dict(os.environ, CLAUDE_CODE_SESSION_ID=OTURUM, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
     env.pop("CLAUDE_PROJECT_DIR", None)
     return ic_kos.kos(args, cwd=cwd, env=env, input=stdin)
 

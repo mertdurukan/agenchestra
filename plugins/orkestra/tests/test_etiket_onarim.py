@@ -79,10 +79,12 @@ class SubagentStop(Temel):
 
     def kos(self, girdi):
         eski = os.environ.pop("CLAUDE_PROJECT_DIR", None)
+        os.environ["ORKESTRA_OZET_ESITZAMANLI"] = "1"
         try:
             with self.assertRaises(SystemExit):
                 hook.subagent_stop(girdi)
         finally:
+            os.environ.pop("ORKESTRA_OZET_ESITZAMANLI", None)
             if eski is not None:
                 os.environ["CLAUDE_PROJECT_DIR"] = eski
 
@@ -135,7 +137,7 @@ class YenidenEtiketle(Temel):
             json.dump({"gorev": "-", "surec": "bilinmiyor", "ajan": "x"}, f)
 
     def kos(self, *ek):
-        env = dict(os.environ, PYTHONUTF8="1")
+        env = dict(os.environ, PYTHONUTF8="1", ORKESTRA_OZET_ESITZAMANLI="1")
         env.pop("CLAUDE_PROJECT_DIR", None)
         return ic_kos.kos([ORK, "maliyet", "yeniden-etiketle", "--transkript-dizini", self.pdir, *ek],
                           cwd=self.proje, env=env)

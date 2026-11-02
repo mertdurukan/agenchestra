@@ -106,7 +106,7 @@ class Karsilastirma(unittest.TestCase):
         return {"zaman": turlar(T0, 852) + turlar(SINIR, sonra_tur), "hatalar": hatalar, "denetimler": [], "gunluk": []}
 
     def test_k2_adr0040_etki_var(self):
-        o = RO.ozet(self.adr0040(400), baslangic="2026-10-22", sonrasi=SINIR.isoformat())
+        o = RO.ozet(self.adr0040(400), baslangic="2026-10-22T00:00:00+03:00", sonrasi=SINIR.isoformat())
         self.assertEqual((o["pencere"]["oncesi_tur"], o["pencere"]["sonrasi_tur"]), (852, 400))
         k = {r["ad"]: r for r in o["kapilar"]}["kapi:K-003"]
         self.assertEqual((k["oncesi"]["ret"], k["sonrasi"]["ret"]), (34, 0))
@@ -116,7 +116,7 @@ class Karsilastirma(unittest.TestCase):
         self.assertEqual(r1["karar"], "etki var")
 
     def test_k3_asgari_altinda_yetersiz_ornek(self):
-        o = RO.ozet(self.adr0040(50), baslangic="2026-10-22", sonrasi=SINIR.isoformat())
+        o = RO.ozet(self.adr0040(50), baslangic="2026-10-22T00:00:00+03:00", sonrasi=SINIR.isoformat())
         k = {r["ad"]: r for r in o["kapilar"]}["kapi:K-003"]
         self.assertGreater(k["asgari"], 50)
         self.assertEqual(k["karar"], "yetersiz örnek")
@@ -126,7 +126,7 @@ class Karsilastirma(unittest.TestCase):
     def test_etki_yok(self):
         g = self.adr0040(852)
         g["hatalar"] += [red(SINIR, i * 20, K003) for i in range(34)]   # sonrası aynı oran
-        o = RO.ozet(g, baslangic="2026-10-22", sonrasi=SINIR.isoformat())
+        o = RO.ozet(g, baslangic="2026-10-22T00:00:00+03:00", sonrasi=SINIR.isoformat())
         self.assertEqual({r["ad"]: r for r in o["kapilar"]}["kapi:K-003"]["karar"], "etki yok")
 
     def test_denetci_150_karar_asgarisi(self):
@@ -149,7 +149,7 @@ class UretimEnjeksiyonu(unittest.TestCase):
                {"zaman": z(SINIR, 2), "tur": "uretim_enjekte", "belge": "todo"},
                {"zaman": z(SINIR, 3), "tur": "kural_ihlal", "kural": "kimlik_once_bak"}]
         girdi = {"zaman": turlar(T0, 10) + turlar(SINIR, 10), "hatalar": [], "denetimler": [], "gunluk": gun}
-        o = RO.ozet(girdi, baslangic="2026-10-22", sonrasi=SINIR.isoformat())
+        o = RO.ozet(girdi, baslangic="2026-10-22T00:00:00+03:00", sonrasi=SINIR.isoformat())
         self.assertEqual(o["enjeksiyon"], {"oncesi": {"plan": 1}, "sonrasi": {"plan": 1, "todo": 1}})
         self.assertTrue(any("üretim anı enjeksiyonu" in s for s in RO.metin(o)))
         t = RO.ozet(girdi)
@@ -181,7 +181,7 @@ class Komut(unittest.TestCase):
         o = json.loads(r.stdout)
         s = {x["ad"]: x for x in o["siniflar"]}
         self.assertEqual((s["R1"]["ret"], s["R1"]["payda"], s[RO.TOPLAM]["ret"]), (1, 100, 1))
-        r = self.kos("hata", "ozet", "--baslangic", "2026-10-22", "--sonrasi", "2026-10-22T00:50:00+03:00")
+        r = self.kos("hata", "ozet", "--baslangic", "2026-10-22T00:00:00+03:00", "--sonrasi", "2026-10-22T00:50:00+03:00")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("R1", r.stdout)
         self.assertIn("yetersiz örnek", r.stdout)

@@ -21,7 +21,7 @@ HEDEF = {"surum": 1, "teknik_kapi_baslangic": "2026-10-16", "pencere_gun": 3, "u
                      "teknik_not_kapsama": {"tur": "alt", "hedef": 1.0}}}
 ESIK = {"surum": 7, "ret_sinifi": {"kapsam-eksik": "onlenebilir", "kriter-belirsiz": "plan-kusuru", "talimat-ihlali": "koruyucu"},
         "israf_siniflari": ["onlenebilir"]}
-SIMDI = datetime.datetime(2026, 10, 16, 12, 0, tzinfo=datetime.timezone.utc).astimezone()
+SIMDI = datetime.datetime(2026, 10, 16, 12, 0, tzinfo=datetime.timezone.utc).astimezone(datetime.timezone(datetime.timedelta(hours=3)))
 
 
 def z(gun_once=0, saat=0):

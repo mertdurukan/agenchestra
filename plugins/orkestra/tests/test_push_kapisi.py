@@ -60,6 +60,7 @@ class Kapi(unittest.TestCase):
         k = os.path.join(self.d, ".git", "hooks", "pre-push")
         with open(k, "w", encoding="utf-8", newline="\n") as f:
             f.write("#!/bin/sh\necho ONCEKI-CALISTI >&2\nexit 0\n")
+        os.chmod(k, 0o755)
         self.cli("push-kapisi", "kur")
         self.assertTrue(os.path.exists(k + ".onceki"))
         dosya(self.d, "b.txt"); git(self.d, "add", "-A"); git(self.d, "commit", "-qm", "b")

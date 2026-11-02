@@ -113,10 +113,7 @@ class HizliYolTest(unittest.TestCase):
             # arka plan sürecin çıktısı atılır; eşzamanlı koşup nedenini hata iletisine koy
             r = subprocess.run([sys.executable, os.path.join(KOK, "scripts", "doktor.py"), "--duzelt", "--arka-plan"],
                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300, **cfg.PENCERESIZ)
-            self.fail("doktor çalışma işaretini yazmadı; eşzamanlı koşu rc=%s
-stdout=%s
-stderr=%s
-makine=%s" % (
+            self.fail("doktor çalışma işaretini yazmadı; eşzamanlı koşu rc=%s\nstdout=%s\nstderr=%s\nmakine=%s" % (
                 r.returncode, r.stdout[-600:], r.stderr[-1200:], cfg.makine_oku()))
         self.assertIsInstance(cfg.makine_oku().get("son_doktor"), dict, "doktor çalışma işaretini yazmadı")
 

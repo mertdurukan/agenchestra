@@ -30,9 +30,9 @@ class AyarlarTesti(unittest.TestCase):
         self.assertEqual(bildirim.ayar(), (True, "varsayilan"))
 
     def test_kapat_ve_ac_makineye_yazilir(self):
-        bildirim.ayar_yaz(False)
-        self.assertEqual(bildirim.ayar(), (False, "makine"))
         with mock.patch.object(sys, "platform", "win32"):
+            bildirim.ayar_yaz(False)
+            self.assertEqual(bildirim.ayar(), (False, "makine"))
             self.assertFalse(bildirim.aktif())
             bildirim.ayar_yaz(True)
             self.assertTrue(bildirim.aktif())

@@ -26,7 +26,7 @@ def commit(yol, ad):
 
 class DalTemizleTest(unittest.TestCase):
     def setUp(self):
-        self.k = tempfile.mkdtemp()
+        self.k = os.path.realpath(tempfile.mkdtemp())
         self.depo = os.path.join(self.k, "depo")
         os.makedirs(self.depo)
         git(self.depo, "init", "-q", "-b", "main")
@@ -92,7 +92,7 @@ class AgacTemizleTest(unittest.TestCase):
     def setUp(self):
         self._ortam = os.environ.pop("CLAUDE_PROJECT_DIR", None)
         os.environ.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
-        self.k = tempfile.mkdtemp()
+        self.k = os.path.realpath(tempfile.mkdtemp())
         self.depo = os.path.join(self.k, "depo")
         os.makedirs(self.depo)
         git(self.depo, "init", "-q", "-b", "main")

@@ -130,7 +130,9 @@ class KuralAdayTest(unittest.TestCase):
                                "sayi-tutarsiz": "sayi-tutarli", "bicim": None})
 
     def test_k5_rapor_kontrol_etkin(self):
-        with tempfile.TemporaryDirectory() as sd:
+        with tempfile.TemporaryDirectory() as kok:
+            sd = os.path.join(kok, "proje", ".claude", "orkestra")
+            os.makedirs(sd)
             r = kural_aday.rapor(sd)
             self.assertEqual(set(r["kontrol_etkin"]), set(KK.kontrol_kimlikleri()))
             self.assertTrue(all(v is False for v in r["kontrol_etkin"].values()))
