@@ -303,7 +303,7 @@ class PerspektifKapisi(unittest.TestCase):
             os.makedirs(os.path.join(sd, "perspektif"))
             os.makedirs(hafiza)
             with open(os.path.join(hafiza, "MEMORY.md"), "w", encoding="utf-8") as f:
-                f.write("- [a](a.md) yol: `C:/yok/olmayan.md`\n")
+                f.write("- [a](a.md) yol: `%s`\n" % os.path.join(sd, "yok", "olmayan.md").replace("\\", "/"))
             g = P.girdi_yaz(sd, proje, hafiza)
             self.assertEqual(g["hafiza"]["olu_yol_sayisi"], 1)
             rapor = os.path.join(sd, "perspektif", "perspektif_20261001_0000.md")
