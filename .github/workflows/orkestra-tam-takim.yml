@@ -24,6 +24,13 @@ jobs:
       ORKESTRA_KAYNAK_KIRA: "0"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Git kimliği (testler commit atar)
+        shell: bash
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@example.invalid
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
