@@ -1,0 +1,44 @@
+{
+  "surum": 1,
+  "aciklama": "Cursor birebir uyum (issue #14) Claude koruma kurallari. Desen: 'dizin/**' ve 'dizin/' onek eslesir, digerleri fnmatch (* '/' dahil her seyi yer). Denetim araclar/cursor_koruma.py; kurallar PR'in taban surumunden okunur.",
+  "bayt_esit": [
+    "plugins/orkestra/hooks/hooks.json",
+    "plugins/orkestra/scripts/hook.py",
+    "plugins/orkestra/agents/**",
+    "plugins/orkestra/skills/**",
+    "plugins/orkestra/workflows/calistir.js",
+    "plugins/orkestra/.claude-plugin/**",
+    ".claude-plugin/**"
+  ],
+  "yazma_izin": [
+    "plugins/orkestra/cursor/**",
+    "plugins/orkestra/.cursor-plugin/**",
+    ".cursor-plugin/**",
+    "plugins/orkestra/hooks/cursor-hooks.json",
+    "plugins/orkestra/scripts/cursor_*",
+    "araclar/cursor_*",
+    "plugins/orkestra/ayarlar/model_politikasi.cursor.json",
+    "plugins/orkestra/tests/test_cursor_*",
+    ".github/workflows/cursor-*.yml",
+    "adr/**",
+    "plugins/orkestra/docs/**",
+    "plugins/orkestra/GELISTIRME.md",
+    "README.md"
+  ],
+  "ortak_kod": [
+    "plugins/orkestra/scripts/doktor.py",
+    "plugins/orkestra/scripts/panel.py",
+    "plugins/orkestra/scripts/ozet.py",
+    "plugins/orkestra/scripts/niyet.py",
+    "plugins/orkestra/scripts/model_politika.py",
+    "plugins/orkestra/scripts/routing_policy.py",
+    "plugins/orkestra/scripts/policy_validate.py",
+    "plugins/orkestra/scripts/denetim_politika.py",
+    "plugins/orkestra/scripts/komutlar/politika.py"
+  ],
+  "cerceve": [
+    "plugins/orkestra/cursor/koruma_kurallari.json",
+    "araclar/cursor_koruma.py",
+    ".github/workflows/cursor-koruma.yml"
+  ]
+}

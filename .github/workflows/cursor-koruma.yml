@@ -1,0 +1,68 @@
+name: cursor-koruma
+# Issue #14 PR-1: Cursor birebir uyum calismasinin Claude'u bozmadigini denetler.
+# - koruma: yalniz head dali "cursor/" ile baslayan PR ve push'larda; bayt esitligi + yazma izin listesi.
+# - test: tests/test_cursor_*.py dosyalarinin TUMU glob ile kosar (orkestra-test.yml elle yazilmis listeyi kosar,
+#   yeni test eklenince otomatik kosmaz). Ayni "cursor/" dal kosuluyla kosar; Claude tarafindaki PR'lar etkilenmez.
+on:
+  pull_request:
+  push:
+    branches: ["cursor/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  koruma:
+    if: startsWith(github.head_ref || github.ref_name, 'cursor/')
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUTF8: "1"
+      PR_GOVDE: ${{ github.event.pull_request.body }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Taban dalini getir
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: PR govdesini yaz
+        run: printf '%s' "$PR_GOVDE" > "$RUNNER_TEMP/pr_govde.md"
+      - name: Claude dosyalarinin sha256 listesi (kanit)
+        run: |
+          merge_base="$(git merge-base origin/main HEAD)"
+          echo "taban: $merge_base"
+          python araclar/cursor_koruma.py --liste "$merge_base" > "$RUNNER_TEMP/sha256_taban.json"
+          python araclar/cursor_koruma.py --liste HEAD > "$RUNNER_TEMP/sha256_head.json"
+          wc -l "$RUNNER_TEMP/sha256_taban.json" "$RUNNER_TEMP/sha256_head.json"
+      - name: Bayt esitligi ve yazma izin listesi
+        run: python araclar/cursor_koruma.py --denetle --taban origin/main --govde-dosya "$RUNNER_TEMP/pr_govde.md"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: claude-sha256
+          path: ${{ runner.temp }}/sha256_*.json
+          if-no-files-found: ignore
+
+  test:
+    if: startsWith(github.head_ref || github.ref_name, 'cursor/')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.13"]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"
+      ORKESTRA_DOKTOR_OTOMATIK: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install pytest
+      - name: Cursor testleri (glob)
+        shell: bash
+        working-directory: plugins/orkestra
+        run: python -m pytest tests/test_cursor_*.py -q

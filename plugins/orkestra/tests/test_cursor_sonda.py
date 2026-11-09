@@ -58,7 +58,8 @@ class Ortam(unittest.TestCase):
         bin_yolu = os.path.join(S.KOK, "bin")
         env = {"CLAUDE_CODE_SESSION_ID": "x", "ORKESTRA_OTURUM": "y", "ANTHROPIC_API_KEY": "z", "KALAN": "1",
                "SHELL": "/usr/bin/bash", "MSYSTEM": "MINGW64", "BASH_ENV": "b", "SHLVL": "1",
-               "PATH": os.pathsep.join([bin_yolu, "C:/arac/bin", "C:/Users/u/.claude/plugins/orkestra/bin"])}
+               # Surucu harfi yok: POSIX'te os.pathsep ':' olduğundan 'C:/x' ikiye bölünürdü (CI ubuntu/macos).
+               "PATH": os.pathsep.join([bin_yolu, "/arac/bin", "/home/u/.claude/plugins/orkestra/bin"])}
         with mock.patch.dict(os.environ, env, clear=True):
             o = S._temiz_ortam({"EK": "2"})
         self.assertNotIn("CLAUDE_CODE_SESSION_ID", o)
@@ -68,7 +69,7 @@ class Ortam(unittest.TestCase):
             self.assertNotIn(bash_izi, o)
         self.assertEqual(o["KALAN"], "1")
         self.assertEqual(o["EK"], "2")
-        self.assertEqual(o["PATH"], "C:/arac/bin")
+        self.assertEqual(o["PATH"], "/arac/bin")
 
     def test_agent_yoksa_atlanir(self):
         with mock.patch.object(S.shutil, "which", return_value=None):
