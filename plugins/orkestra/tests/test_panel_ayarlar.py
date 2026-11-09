@@ -14,6 +14,7 @@ from unittest import mock
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "scripts"))
 import bildirim  # noqa: E402
+import cfg  # noqa: E402
 import panel  # noqa: E402
 
 
@@ -32,7 +33,9 @@ class AyarlarTesti(unittest.TestCase):
     def test_kapat_ve_ac_makineye_yazilir(self):
         bildirim.ayar_yaz(False)
         self.assertEqual(bildirim.ayar(), (False, "makine"))
-        with mock.patch.object(sys, "platform", "win32"):
+        # sys.platform makine parmak izine girer; sahte platform makine ayarını "başka makinede yazılmış" (bayat) gösterir.
+        parmak = cfg.parmak_izi()
+        with mock.patch.object(sys, "platform", "win32"), mock.patch.object(cfg, "parmak_izi", return_value=parmak):
             self.assertFalse(bildirim.aktif())
             bildirim.ayar_yaz(True)
             self.assertTrue(bildirim.aktif())

@@ -152,6 +152,12 @@ _KOK_ONBELLEK: dict = {}
 _TEMEL_ONBELLEK: dict = {}
 
 
+def _goreli(dosya: str, kok: str) -> str:
+    """Dosyanın git kökünden göreli yolu ('/' ayraçlı). git kökü ile dosya yolu aynı klasörü farklı yazabilir (Windows
+    8.3 kısa ad `RUNNER~1`, macOS `/var` → `/private/var`); gerçek yollar karşılaştırılır, yoksa relpath yanlış çıkar."""
+    return os.path.relpath(os.path.realpath(dosya), os.path.realpath(kok)).replace(os.sep, "/")
+
+
 def _git_koku(dosya: str) -> str | None:
     d = os.path.dirname(os.path.abspath(dosya))
     while d and not os.path.isdir(d):
@@ -198,7 +204,7 @@ def _degisim(dosya: str, kart: dict) -> dict:
     kok = _git_koku(dosya)
     if not kok:
         return kayit
-    rel = os.path.relpath(os.path.abspath(dosya), kok).replace("\\", "/")
+    rel = _goreli(dosya, kok)
     kod, cikti = _git(kok, "log", "-1", "--format=%H", "--", rel)
     kayit["son_commit"] = (cikti.strip() or None) if kod == 0 else None
     kayit["kaynak"] = "git"
@@ -232,7 +238,7 @@ def _temel_kaynak(dosya: str, kart: dict) -> str | None:
     temel = _temel_commit(kok, kart)
     if not temel:
         return None
-    rel = os.path.relpath(os.path.abspath(dosya), kok).replace("\\", "/")
+    rel = _goreli(dosya, kok)
     kod, cikti = _git(kok, "show", f"{temel}:{rel}")
     return cikti if kod == 0 else None
 

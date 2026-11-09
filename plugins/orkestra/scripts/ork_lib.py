@@ -1165,7 +1165,9 @@ def yazma_alaninda_mi(proje: str, yol: str, desenler: list[str]) -> bool:
         return True
     if yol_altinda(tam, proje):
         return False
-    return yol_altinda(tam, tempfile.gettempdir()) and not git_koku(tam)
+    # Geçici klasör Windows'ta 8.3 kısa ad (RUNNER~1), macOS'ta /var → /private/var olabilir: gerçek yollar karşılaştırılır.
+    g, t = _gercek(tam), _gercek(tempfile.gettempdir())
+    return (g == t or g.startswith(t.rstrip("/") + "/")) and not git_koku(tam)
 
 
 # ---------------------------------------------------------------- kart izolasyonu
@@ -1767,6 +1769,9 @@ def kabuk_kos(komut: str, cwd: str, zaman_asimi: float) -> tuple[int, str, float
     ek = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
     env = dict(os.environ)
     env.setdefault("ORKESTRA_PYTHON", python_yorumlayici())  # test komutunun alt süreçleri aynı yorumlayıcıyı görsün
+    # Kapı koşuları .pyc yazmaz: kırmızıdan yeşile aynı boyutta ve aynı saniyede değişen kaynak, mtime+boyut denetimli
+    # bayat bytecode ile eski davranışı koşturur ve kapı yanlış sonuç verir.
+    env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     p = subprocess.Popen(komut, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          stdin=subprocess.DEVNULL, env=env, **ek)
     try:

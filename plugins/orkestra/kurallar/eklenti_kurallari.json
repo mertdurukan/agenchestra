@@ -1513,7 +1513,8 @@
           "metin": "Kodlama davranışı (Karpathy ilkeleri, MIT, multica-ai/andrej-karpathy-skills): (1) Kodlamadan önce düşün: varsayımı açık yaz, birden çok yorum varsa sessizce seçme, daha basit yol varsa söyle; belirsizse tahmin yerine sor. (2) Önce sadelik: istenenin ötesinde özellik, tek kullanımlık soyutlama, istenmemiş yapılandırma ve imkânsız durum için hata yönetimi ekleme. (3) Cerrahi değişiklik: yalnız gerekli satıra dokun; komşu kodu, yorumu, biçimi iyileştirme; mevcut stile uy; ilgisiz ölü kodu silme, an; yalnız kendi değişikliğinin artığı olan import ve fonksiyonu kaldır; her değişen satır isteğe izlenebilir olsun. (4) Hedef odaklı yürütme: işi doğrulanabilir hedefe çevir (hata için önce yeniden üreten test); çok adımlı işte her adıma kontrol yaz, doğrulanana dek döngüye gir. Önemsiz işte yargı kullan."
         }
       ],
-      "etkinlesme": "2026-11-07T20:26:35+03:00"
+      "etkinlesme": "2026-11-07T20:26:35+03:00",
+      "ozet": "Kodlamadan önce düşün (varsayımı yaz, belirsizse sor); önce sadelik (istenmeyen özellik ekleme); cerrahi değişiklik (yalnız gerekli satır, mevcut stile uy); hedef odaklı yürütme (doğrulanabilir hedef, hata için önce yeniden üreten test)."
     }
   ]
 }

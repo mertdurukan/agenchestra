@@ -295,7 +295,7 @@ def _k_git_fsmonitor(proje: str) -> Optional[Sonuc]:
     if deger.strip().lower() in _GIT_BOOLEAN:
         return None
     _, durum = _calistir(["git", "-C", proje, "status", "--porcelain"], 30)
-    if "cannot spawn" not in durum:
+    if not any(m in durum for m in ("cannot spawn", "cannot run")):  # Windows: spawn, POSIX: run
         return None
     return _hata(f"git core.fsmonitor değeri çalıştırılamıyor ({kaynak}); her git komutu hata verir",
                  proje=proje, fsmonitor_kaynak=os.path.normpath(os.path.join(proje, kaynak[5:])) if kaynak.startswith("file:") else "",

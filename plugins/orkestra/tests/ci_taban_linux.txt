@@ -1,20 +1,2 @@
-# CI tam takım tabanı (ubuntu-latest, Python 3.13): bilinen düşenler. Yeni düşen CI'yı kırar; düzelen satır silinir.
-# Kaynak: ci-yesil-tam-takim dalındaki ilk tam koşu (09.11.2026). Her satır ayrı düzeltilecek bir hatadır, kalıcı kabul değildir.
-tests/test_agac_test_kapisi.py::AgacProjeKokunuKapsamiyor::test_f2_eski_agacli_kod_kartinda_test_kos_ve_onay_acik_hata
-tests/test_cursor_sonda.py::Ortam::test_temiz_ortam_claude_degiskenlerini_ve_bin_yolunu_cikarir
-tests/test_doktor_git_fsmonitor.py::FsmonitorTest::test_gecersiz_deger_hata
-tests/test_doktor_git_fsmonitor.py::FsmonitorTest::test_onarim_geri_alinir
-tests/test_doktor_git_fsmonitor.py::FsmonitorTest::test_worktree_git_dosyasi
-tests/test_dokuman_uret.py::test_diskteki_basvuru_guncel
-tests/test_hedef_panosu.py::K3TeknikKapsama::test_yalniz_kapi_sonrasi_paydada
-tests/test_hedef_panosu.py::K8TeknikKapiSaati::test_yalniz_gun_verilirse_gun_basi_kapisi
-tests/test_izin_politikasi.py::OnayKapisiKabuk::test_k2_proje_ici_kabuk_yazimi_reddedilir
-tests/test_kural_kontrol.py::KuralAdayTest::test_k5_rapor_kontrol_etkin
-tests/test_kural_ozet.py::KuralOzet::test_ozetler_kisa_eksiksiz_ve_belirtec_koruyor
-tests/test_maliyet_duzeltme.py::KuralEtkiKancasi::test_k5_kural_onayi_kancalari_cagirir
-tests/test_panel_ayarlar.py::AyarlarTesti::test_kapat_ve_ac_makineye_yazilir
-tests/test_push_kapisi.py::Kapi::test_onceki_hook_zincirlenir_ve_kaldirinca_geri_gelir
-tests/test_ret_olcum.py::Karsilastirma::test_k2_adr0040_etki_var
-tests/test_ret_olcum.py::Komut::test_ozet_json_ve_metin_salt_okur
-tests/test_ret_olcum.py::UretimEnjeksiyonu::test_enjeksiyon_belge_turu_ve_pencere
-tests/test_tok_maliyet.py::PerspektifKapisi::test_girdi_degismedikce_kosu_atlanir
+# CI tam takım tabanı (ubuntu-latest, Python 3.13): bilinen düşenler. Şu an boş: tüm testler geçer.
+# Yeni düşen CI'yı kırar; bilinen bir hata ancak gerekçesiyle buraya eklenir (kalıcı kabul değil, düzeltilecek hata).

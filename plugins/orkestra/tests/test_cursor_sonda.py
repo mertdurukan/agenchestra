@@ -56,9 +56,12 @@ class Degerlendir(unittest.TestCase):
 class Ortam(unittest.TestCase):
     def test_temiz_ortam_claude_degiskenlerini_ve_bin_yolunu_cikarir(self):
         bin_yolu = os.path.join(S.KOK, "bin")
+        # Sürücü harfli yol POSIX'te os.pathsep (:) ile bölünür; yolu çalışılan işletim sistemine uygun kur.
+        ARAC = "C:/arac/bin" if os.name == "nt" else "/arac/bin"
+        KULLANICI = "C:/Users/u" if os.name == "nt" else "/home/u"
         env = {"CLAUDE_CODE_SESSION_ID": "x", "ORKESTRA_OTURUM": "y", "ANTHROPIC_API_KEY": "z", "KALAN": "1",
                "SHELL": "/usr/bin/bash", "MSYSTEM": "MINGW64", "BASH_ENV": "b", "SHLVL": "1",
-               "PATH": os.pathsep.join([bin_yolu, "C:/arac/bin", "C:/Users/u/.claude/plugins/orkestra/bin"])}
+               "PATH": os.pathsep.join([bin_yolu, ARAC, os.path.join(KULLANICI, ".claude", "plugins", "orkestra", "bin")])}
         with mock.patch.dict(os.environ, env, clear=True):
             o = S._temiz_ortam({"EK": "2"})
         self.assertNotIn("CLAUDE_CODE_SESSION_ID", o)
@@ -68,7 +71,7 @@ class Ortam(unittest.TestCase):
             self.assertNotIn(bash_izi, o)
         self.assertEqual(o["KALAN"], "1")
         self.assertEqual(o["EK"], "2")
-        self.assertEqual(o["PATH"], "C:/arac/bin")
+        self.assertEqual(o["PATH"], ARAC)
 
     def test_agent_yoksa_atlanir(self):
         with mock.patch.object(S.shutil, "which", return_value=None):

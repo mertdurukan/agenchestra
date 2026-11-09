@@ -2,7 +2,7 @@
 
 # Ortam değişkenleri
 
-Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
+Kaynakta geçen 140 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 
 | Değişken | Geçtiği betikler |
 |---|---|
@@ -11,11 +11,13 @@ Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_AGAC_KOKU` | ork_lib.py, orkestra.py |
 | `ORKESTRA_AJAN_KAPSAM` | ajan_kapsam.py, hook.py |
 | `ORKESTRA_ARSIV_DUGMESI` | arsiv_dugmesi.py |
+| `ORKESTRA_ARSIV_SUREC_KAPAT` | arsiv_surec.py |
 | `ORKESTRA_AUTO_DEVAM_KAPISI` | auto_devam.py |
 | `ORKESTRA_AUTO_KARAR_ALAN_KAPISI` | isler.py |
 | `ORKESTRA_AUTO_YETKI` | hook.py, izin_politikasi.py |
 | `ORKESTRA_BAGLAM_KAYDI` | baglam_kaydi.py, sessionstart_kritik.py |
 | `ORKESTRA_BAGSIZ_KABUK_KAPISI` | hook.py |
+| `ORKESTRA_BAGSIZ_OTOMATIK_BAGLA` | hook.py |
 | `ORKESTRA_BASH` | cfg.py, doktor.py |
 | `ORKESTRA_BASH_SOZDIZIMI` | bash_sozdizimi.py |
 | `ORKESTRA_BEKLEME_KAPISI` | bekleme_kapisi.py |
@@ -30,8 +32,11 @@ Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_CIKTI_SIRASI` | cikti_sirasi.py |
 | `ORKESTRA_CLAUDE_JSON` | araclar_mcp.py, mcp.py |
 | `ORKESTRA_CURSOR_ASK` | cursor_hook.py |
-| `ORKESTRA_CURSOR_DEBUG` | cursor_hook.py |
+| `ORKESTRA_CURSOR_DEBUG` | cursor_hook.py, cursor_sonda.py |
 | `ORKESTRA_CURSOR_HOOK_PY` | cursor_hook.py |
+| `ORKESTRA_CURSOR_KOMUT_YAZ` | cursor_hook.py, cursor_sonda.py, doktor.py |
+| `ORKESTRA_CURSOR_TEKIL` | cursor_hook.py |
+| `ORKESTRA_CURSOR_TEKIL_DIZIN` | cursor_hook.py |
 | `ORKESTRA_DAL_TEMIZLE` | dal_temizle.py |
 | `ORKESTRA_DEVIR_ESIGI` | devir_esigi.py |
 | `ORKESTRA_DEVIR_HATIRLATMA` | devir_hatirlatma.py |
@@ -65,6 +70,7 @@ Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_KAPANIS_KAPISI` | hook.py |
 | `ORKESTRA_KAPANIS_SUREC` | kapanis_surec.py |
 | `ORKESTRA_KARAR_KAPISI` | karar_kapisi.py |
+| `ORKESTRA_KART_GOLGE` | hook.py |
 | `ORKESTRA_KART_KONTROL` | kart.py, test_paralel.py |
 | `ORKESTRA_KAYNAK_KIRA` | kaynak_kira.py |
 | `ORKESTRA_KAYNAK_KIRA_AYAR` | kaynak_kira.py, test_onbellek.py |
@@ -91,6 +97,7 @@ Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_OTO_COMMIT` | hook.py, orkestra.py, oto_commit.py |
 | `ORKESTRA_OTO_COMMIT_ATIF` | oto_commit.py |
 | `ORKESTRA_OTO_COMMIT_BASH_YOLLAR` | oto_commit.py |
+| `ORKESTRA_OTURUM` | niyet.py, ork_lib.py |
 | `ORKESTRA_OTURUM_BAKIM` | oturum_bakim.py |
 | `ORKESTRA_OTURUM_FARKINDALIK` | oturum_farkindalik.py |
 | `ORKESTRA_OTURUM_SATIRI_STOPTA` | hook.py |
@@ -114,6 +121,7 @@ Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_PUSH_YASAK` | push_kapisi.py |
 | `ORKESTRA_PYTHON` | cfg.py, doktor.py, kur.py, ork_lib.py |
 | `ORKESTRA_REFLEKS` | refleks.py, refleks_hook.py |
+| `ORKESTRA_ROUTING_V2` | model_politika.py |
 | `ORKESTRA_SECIM_HATIRLATMA` | secim_ekrani_hatirlatma.py |
 | `ORKESTRA_SEF_OZETI_KAPISI` | isler.py |
 | `ORKESTRA_SESSIZLIK_DK` | ozet.py |
@@ -134,6 +142,7 @@ Kaynakta geçen 131 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_UYGULAMA_GUNLUGU` | cokus_kaydi.py, hata.py |
 | `ORKESTRA_YAPAMAM_KANITI` | yapamam_kaniti.py |
 | `ORKESTRA_YAYIN` | cfg.py |
+| `ORKESTRA_YAZMA_KURALI` | yazma_kurali.py |
 | `ORKESTRA_YOL_KAPISI` | is_sirasi.py |
 | `ORKESTRA_YOL_NOTU` | soru_sinif.py |
 | `ORKESTRA_YONTEM_ENJEKSIYONU` | yontem_enjeksiyonu.py |

@@ -15,13 +15,14 @@ import kpi as K  # noqa: E402
 
 OLCULER = ("ana_ajan_payi", "isci_cagrisi_kart", "onayli_kart_usd", "ret_orani", "teknik_not_kapsama")
 PENCERELER = ("bugun", "son_3_gun", "son_7_gun", "son_30_gun", "tum_zaman")
-HEDEF = {"surum": 1, "teknik_kapi_baslangic": "2026-10-16", "pencere_gun": 3, "uyari_carpani": 1.25, "teknik_uyari_alt": 0.8,
+HEDEF = {"surum": 1, "teknik_kapi_baslangic": "2026-10-16T00:00:00+03:00", "pencere_gun": 3, "uyari_carpani": 1.25, "teknik_uyari_alt": 0.8,
          "olculer": {"ana_ajan_payi": {"tur": "ust", "hedef": 0.40}, "isci_cagrisi_kart": {"tur": "ust", "hedef": 2},
                      "onayli_kart_usd": {"tur": "ust", "hedef": 1.5}, "ret_orani": {"tur": "band", "alt": 0.10, "ust": 0.20},
                      "teknik_not_kapsama": {"tur": "alt", "hedef": 1.0}}}
 ESIK = {"surum": 7, "ret_sinifi": {"kapsam-eksik": "onlenebilir", "kriter-belirsiz": "plan-kusuru", "talimat-ihlali": "koruyucu"},
         "israf_siniflari": ["onlenebilir"]}
-SIMDI = datetime.datetime(2026, 10, 16, 12, 0, tzinfo=datetime.timezone.utc).astimezone()
+# Sabit +03:00: kart zamanları +03:00 yazılı; makinenin saat dilimine (CI: UTC) bağlı kalmasın.
+SIMDI = datetime.datetime(2026, 10, 16, 15, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=3)))
 
 
 def z(gun_once=0, saat=0):
@@ -432,9 +433,12 @@ class K8TeknikKapiSaati(unittest.TestCase):
 
     def test_yalniz_gun_verilirse_gun_basi_kapisi(self):
         h = dict(HEDEF, teknik_kapi_baslangic="2026-10-16")
+        # Yalnız gün verilince kapı makinenin yerel gün başıdır; kart zamanları da yerel saat diliminde kurulur.
+        gun = datetime.datetime(2026, 10, 16).astimezone()
+        dk = datetime.timedelta(minutes=1)
         kartlar = [
-            kart("G-1", olus="2026-10-15T23:59:00+03:00", teknik=""),   # önceki gün: paydada değil
-            kart("G-2", olus="2026-10-16T00:30:00+03:00", teknik="n"),  # gün başı sonrası: paydada, dolu
+            kart("G-1", olus=(gun - dk).isoformat(), teknik=""),        # önceki gün: paydada değil
+            kart("G-2", olus=(gun + 30 * dk).isoformat(), teknik="n"),  # gün başı sonrası: paydada, dolu
         ]
         e = A.hedef_panosu(kartlar, [], simdi=SIMDI, hedef=h, esik=ESIK)["olculer"]["teknik_not_kapsama"]["tum_zaman"]
         self.assertEqual((e["payda"], e["pay"], e["deger"]), (1, 1, 1.0))

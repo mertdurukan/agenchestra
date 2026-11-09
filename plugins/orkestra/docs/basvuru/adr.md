@@ -81,3 +81,6 @@ Kaynak: depo kökündeki `adr/`.
 | [ADR-0169](../../../../adr/ADR-0169-kaynak-etiketli-iddia-dogrulama-kapisi-golge.md) | Kaynak etiketli iddia doğrulama kapısı (gölge) | Kabul edildi (gölge modda) |
 | [ADR-0170](../../../../adr/ADR-0170-arsiv-dugmesi-is-kalmayinca-wrap-up-kutusu-tek-arsivle-dugme.md) | Arşiv düğmesi: iş kalmayınca wrap_up kutusu tek Arşivle düğmesi | Kabul edildi |
 | [ADR-0171](../../../../adr/ADR-0171-plan-oncesi-yol-dogrulama-kapisi-yol-karari-bolumu-gercek-tr.md) | Plan öncesi yol doğrulama kapısı: Yol kararı bölümü, gerçek trafik kanıtı | Kabul edildi |
+| [ADR-0172](../../../../adr/ADR-0172-cursor-kurulum-dogrulamasi-komut-yazimi-ve-hosttan-bagimsiz-oturum-kimligi.md) | Cursor kurulumu: komut yazımı, tek uçuş, kopya eşleme, dinamik sonda ve host'tan bağımsız oturum kimliği | Kabul edildi |
+| [ADR-0173](../../../../adr/ADR-0173-bagsiz-yazmada-tek-net-eslesmede-baglanma-yazma-kurali-baglami-cursor-rol-alani.md) | Bağsız yazmada tek net eşleşmede bağlanma, yazma kuralı bağlamı, Cursor rol alanı | Kabul edildi |
+| [ADR-0174](../../../../adr/ADR-0174-arsivli-oturum-surecini-bakimda-resume-kimligiyle-kapat-golge-modda-baslar.md) | Arşivli oturum sürecini bakımda `--resume` kimliğiyle kapat, gölge modda başlar | Kabul edildi |

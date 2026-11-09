@@ -139,7 +139,8 @@ def _ayar(cwd: str, anahtar: str, varsayilan):
 
 
 def _yol(p: str) -> str:
-    return os.path.normcase(os.path.normpath(p))
+    # realpath: git'in bildirdiği yol ile çağıranın verdiği yol aynı klasörü farklı yazabilir (Windows 8.3 kısa ad, macOS /var).
+    return os.path.normcase(os.path.realpath(p))
 
 
 def _kirli(yol: str) -> list[str] | None:
