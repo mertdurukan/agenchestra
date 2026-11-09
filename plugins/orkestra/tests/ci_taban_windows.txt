@@ -1,15 +1,2 @@
-# CI tam takım tabanı (windows-latest, Python 3.13): bilinen düşenler. Yeni düşen CI'yı kırar; düzelen satır silinir.
-# Kaynak: ci-yesil-tam-takim dalındaki ilk tam koşu (09.11.2026). Her satır ayrı düzeltilecek bir hatadır, kalıcı kabul değildir.
-tests/test_dal_temizle.py::AgacTemizleTest::test_acik_is_kaydi_olan_kalkmaz
-tests/test_dokuman_uret.py::test_diskteki_basvuru_guncel
-tests/test_hedef_panosu.py::K3TeknikKapsama::test_yalniz_kapi_sonrasi_paydada
-tests/test_hedef_panosu.py::K8TeknikKapiSaati::test_yalniz_gun_verilirse_gun_basi_kapisi
-tests/test_kart_izolasyon.py::KartIzolasyonu::test_b_proje_disi_yol_desene_gore_denetlenir
-tests/test_kirmizi_eski_surum.py::EskiSurumdeKirmizi::test_kod_yazilmisken_duz_kirmizi_gecmez_eski_surumde_kirmizi_kilitler
-tests/test_kirmizi_eski_surum.py::EskiSurumdeKirmizi::test_surum_ref_verilen_sürümde_kosar_eski_sha
-tests/test_kural_ozet.py::KuralOzet::test_ozetler_kisa_eksiksiz_ve_belirtec_koruyor
-tests/test_ret_olcum.py::Karsilastirma::test_k2_adr0040_etki_var
-tests/test_ret_olcum.py::Komut::test_ozet_json_ve_metin_salt_okur
-tests/test_ret_olcum.py::UretimEnjeksiyonu::test_enjeksiyon_belge_turu_ve_pencere
-tests/test_teknik.py::K3YeniBagimlilik::test_yalniz_yeni_eklenen
-tests/test_teknik.py::K4Degisen::test_git_satir_ve_hash
+# CI tam takım tabanı (windows-latest, Python 3.13): bilinen düşenler. Şu an boş: tüm testler geçer.
+# Yeni düşen CI'yı kırar; bilinen bir hata ancak gerekçesiyle buraya eklenir (kalıcı kabul değil, düzeltilecek hata).

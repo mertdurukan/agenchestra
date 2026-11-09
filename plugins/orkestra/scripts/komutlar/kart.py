@@ -1149,7 +1149,8 @@ def _eski_surumde_kos(proje: str, ref: str, komut: str, dosyalar, zaman_asimi: f
         ekle = git("worktree", "add", "--detach", "--quiet", wt, sha, cwd=ust)
         if ekle.returncode != 0:
             hata("geçici sürüm klasörü açılamadı: " + (ekle.stderr or ekle.stdout).strip()[:300])
-        rel = os.path.relpath(os.path.abspath(proje), ust)
+        # git kökü ile proje yolu aynı klasörü farklı yazabilir (Windows 8.3 kısa ad, macOS /var): gerçek yollar kıyaslanır.
+        rel = os.path.relpath(os.path.realpath(proje), os.path.realpath(ust))
         kok = os.path.normpath(os.path.join(wt, rel))
         for y in dosyalar:
             hedef = os.path.join(kok, *y.split("/"))

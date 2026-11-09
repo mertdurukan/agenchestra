@@ -60,7 +60,9 @@ class FsmonitorTest(unittest.TestCase):
         self.assertEqual(o.sinif, "B")
         o.uygula()
         self.assertEqual(git(self.depo, "config", "--get", "core.fsmonitor").returncode, 1)
-        self.assertNotIn("cannot spawn", git(self.depo, "status", "--porcelain").stderr)
+        hata = git(self.depo, "status", "--porcelain").stderr
+        self.assertNotIn("cannot spawn", hata)
+        self.assertNotIn("cannot run", hata)
         self.assertEqual(self.k().durum, "gecti")
         subprocess.run(o.geri_al["argv"], capture_output=True)
         self.assertEqual(git(self.depo, "config", "--get", "core.fsmonitor").stdout.strip(), "core.untrackedcache")

@@ -302,8 +302,10 @@ class PerspektifKapisi(unittest.TestCase):
         try:
             os.makedirs(os.path.join(sd, "perspektif"))
             os.makedirs(hafiza)
+            # Bu işletim sisteminde mutlak olan, var olmayan yol ('C:/...' POSIX'te mutlak sayılmaz, "belirsiz" olur).
+            olu_yol = os.path.join(proje, "yok", "olmayan.md").replace(os.sep, "/")
             with open(os.path.join(hafiza, "MEMORY.md"), "w", encoding="utf-8") as f:
-                f.write("- [a](a.md) yol: `C:/yok/olmayan.md`\n")
+                f.write(f"- [a](a.md) yol: `{olu_yol}`\n")
             g = P.girdi_yaz(sd, proje, hafiza)
             self.assertEqual(g["hafiza"]["olu_yol_sayisi"], 1)
             rapor = os.path.join(sd, "perspektif", "perspektif_20261001_0000.md")

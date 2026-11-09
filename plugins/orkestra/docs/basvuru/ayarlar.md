@@ -4,17 +4,19 @@
 
 Kaynak: `ayarlar/*.json`. Proje ezmesi: `.claude/orkestra/<ad>.json`. `mod`: `golge` (uyarır, engellemez), `ihlal` (reddeder), `kapali`.
 
-Toplam 97 ayar; `açıklama yok` işaretli: 33.
+Toplam 100 ayar; `açıklama yok` işaretli: 33.
 
 | Ayar | Mod | Açıklama |
 |---|---|---|
 | `ajan_kapsam` | ihlal | Ajan türüne göre araç kapsamı (I-292 P3, ADR-0120). |
 | `arka_plan_yas` | — | ADR-0123 (G3): Stop arka plan satırına yaş eki. |
 | `arsiv_dugmesi` | ihlal | açıklama yok |
+| `arsiv_surec_kapat` | golge | mod: ihlal = arşivli oturumun `--resume` kimliğiyle eşleşen claude.exe süreç ağacı bakım turunda kapatılır; golge = yalnız kapi_golge kaydı (P-028: ihlal geçişi >=7 gün gölge, yanlış eşleşme 0 ölçümünden sonra ayrı kara… |
 | `auto_devam` | golge | mod: golge = /auto işi açıkken ve çalışma özeti yokken tur biterse gunluk.jsonl'a kapi_golge olarak düşer, tur engellenmez; ihlal = tur başına bir kez devam hatırlatmasıyla block. |
 | `auto_karar_alan` | golge | mod: golge = auto işin çalışma özetinde `## Otomatik kararlar` girdilerinde karar, gerekçe, alternatifler ya da geri alma alanı eksikse uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = a… |
 | `auto_kararlar` | ihlal | mod: golge = auto modundaki işin çalışma özetinde `## Otomatik kararlar` bölümü yok ya da boşsa uyarılır ve gunluk.jsonl'a kapi_golge olarak düşer, is kapat engellenmez; ihlal = bölüm olmadan özet doldurulmuş sayılmaz. |
 | `bagsiz_kabuk` | ihlal | mod: ihlal = bağsız oturumda geçici dizin dışına dosya yazan kabuk komutu reddedilir ve gunluk.jsonl'a kapi_ret düşer; golge = yalnız kapi_golge kaydı, iş engellenmez. |
+| `bagsiz_otomatik_bagla` | golge | mod: ihlal = bağsız oturumda yazılan yol tek net açık işle örtüşüyorsa oturum o işe bağlanır ve yazım reddedilmez; golge = yalnız kapi_golge kaydı, ret sürer (P-028: ihlal geçişi ölçümden sonra ayrı kararla). |
 | `bash_sozdizimi` | golge | açıklama yok |
 | `bekleme_kapisi` | golge | açıklama yok |
 | `belge_bicim` | — | açıklama yok |
@@ -35,6 +37,7 @@ Toplam 97 ayar; `açıklama yok` işaretli: 33.
 | `durum_satiri` | acik | mod: acik = iş bağlıyken SessionStart ve UserPromptSubmit bağlamına tek satırlık durum özeti (iş kimliği, onay durumu, sıradaki belge/adım; en çok 200 karakter) eklenir; kapali = eklenmez. |
 | `etkilenen_karar` | golge | P-056 etkilenen karar yoklaması. |
 | `genis_tarama_hatirlatma` | reddet | açıklama yok |
+| `gorev_alt_turleri` | — | Paket GOREV_ROUTING_56.json (07.11.2026) 56 alt tür önerisi; benchmark edilmedi, yalnız gölge karşılaştırmada kullanılır (I-419). |
 | `gorev_turleri` | ihlal | Görev türü kataloğu (v2 ataması, ADR-0092). |
 | `gorunum_olcumu` | golge | mod: golge = görünen yerleşim/konum değiştiren P maddesinin Kabul alanı tarayıcı ölçümü içermiyorsa uyarılır ve gunluk.jsonl'a kapi_golge düşer, iş engellenmez; ihlal = plan reddedilir. |
 | `hafiza_duzeltme` | ihlal | açıklama yok |

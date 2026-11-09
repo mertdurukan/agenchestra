@@ -13,6 +13,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -78,7 +79,11 @@ class MaliyetDuzeltme(unittest.TestCase):
 
 class KuralEtkiKancasi(unittest.TestCase):
     def test_k5_kural_onayi_kancalari_cagirir(self):
-        sd = tempfile.mkdtemp()
+        proje = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, proje, True)
+        # onay._proje(sd) = sd'nin iki üstü: kural dosyası geçici proje dizininin içine yazılır.
+        sd = os.path.join(proje, ".claude", "orkestra")
+        os.makedirs(sd)
         onay.kural_oner(sd, "Öneri kuralı", "neden", "test")
         onay.esitle(sd)
         bekleyen = [k for k in onay.liste(sd) if k.get("tur") == "kural" and k.get("durum") == "bekliyor"]

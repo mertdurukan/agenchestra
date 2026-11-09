@@ -360,7 +360,7 @@ class OnayKapisiKabuk(unittest.TestCase):
                             ("Bash", f"cat > {p} <<'EOF'\nprint(1)\nEOF"),
                             ("PowerShell", f'Set-Content -Path "{p}" -Value x'), ("PowerShell", f"Set-Content '{p}' x"),
                             ("PowerShell", f'"x" | Out-File "{p}"'), ("PowerShell", f'Add-Content -LiteralPath "{p}" -Value x'),
-                            ("PowerShell", f'Copy-Item a.py -Destination "{self.proje}\\src"'),
+                            ("PowerShell", f'Copy-Item a.py -Destination "{os.path.dirname(p)}"'),
                             ("PowerShell", f"[IO.File]::WriteAllText('{p}', 'x')"),
                             ("PowerShell", "$f = 'x'; Set-Content $f 'y'"),
                             ("Bash", f"echo {{}} > {os.path.join(self.klasor, 'is.json')}")):
