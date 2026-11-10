@@ -31,6 +31,7 @@ Komut: `/orkestra:<ad>`. Kaynak: `skills/<ad>/SKILL.md`.
 | `maliyet` | Orkestra token ve maliyet raporu — her ajanın her süreç (triyaj, iş, denetim, düzeltme, sentez, perspektif…) için harcadığı giriş/çıkış/önbellek tokenı ve tahmini maliyet; görev × süreç, ajan × model, süreç ve gün kırıl… | "[gün sayısı, ör. 7]" |
 | `megacave` | > |  |
 | `neredeyiz` | "Durum özeti çıkarır: ne yapıyoruz, nereye geldik, sırada ne var. |  |
+| `nesne-karti` | "Bir tablo, kolon ya da prosedürü anlatırken her iddiaya derece (KESİN/GÜÇLÜ/DOĞRULANMADI) ve yeniden çalıştırılabilir kaynakça yazdırır; kartı ayrı denetçiye eşletir ve `orkestra nesne-karti dogrula` ile denetler. | "<nesne: şema.tablo, şema.tablo.kolon ya da prosedür adı>" |
 | `onay` | Panelde onaylanan kararları uygular — perspektif (rüya) önerileri, skill taslakları ve ajanın sorduğu kararlar. |  |
 | `perspektif` | Orkestra perspektifi (hafıza bakımı) — arka planda üretilen perspektif raporunu gösterir, kullanıcının onayladığı önerileri hafıza bakımcısı ajanla uygular; istenirse perspektifi şimdi başlatır. | "[şimdi]" |
 | `root-cause-first` | Evidence-driven troubleshooting and safe-change discipline for software engineering orchestrators. |  |

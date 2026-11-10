@@ -1,0 +1,23 @@
+{
+  "_aciklama": "ADR-0177: nesne kartı doğrulayıcısı ve gölge Stop kapısı. Dereceler, kaynak türleri (birincil/ikincil), kaynakça alanları ve sır kalıpları burada durur; kodda sabit değildir. Proje durum dizinindeki nesne_karti.json anahtar bazında ezer. Kapı yalnız ölçer (gölge): engellemez, kullanıcıya mesaj vermez. ORKESTRA_NESNE_KARTI=0 kapatır.",
+  "mod": "golge",
+  "dereceler": ["KESİN", "GÜÇLÜ", "DOĞRULANMADI"],
+  "kesin_derece": "KESİN",
+  "dogrulanmadi_derece": "DOĞRULANMADI",
+  "birincil_turler": ["Veritabanı kataloğu", "Prosedür gövdesi", "Kod", "Ölçüm çıktısı"],
+  "ikincil_turler": ["Doküman", "Hafıza", "Eski sohbet", "Eski oturum", "Jira", "Web", "Kullanıcı sözü"],
+  "kaynak_zorunlu_alanlar": ["tur", "ortam", "saat"],
+  "kaynak_komut_ya_yol": ["komut", "yol"],
+  "dogrulanmadi_alanlari": ["Neden", "Kapatma"],
+  "sir_kaliplari": [
+    "(?i)\\b(parola|password|passwd|pwd|secret|token|api[_-]?key)\\s*[=:]\\s*\\S+",
+    "://[^/\\s:@]+:[^/\\s@]+@",
+    "\\bsk-[A-Za-z0-9]{16,}",
+    "\\bAKIA[0-9A-Z]{16}\\b",
+    "\\b[A-Fa-f0-9]{40,}\\b"
+  ],
+  "tanimlayici_en_az": 3,
+  "tanimlayici_uzanti_haric": ["py", "md", "json", "jsonl", "js", "ts", "txt", "csv", "sh", "yml", "yaml", "html", "toml", "ini", "cfg", "xlsx", "log", "sql", "exe", "com", "org", "net", "io", "dev"],
+  "max_bulgu": 10,
+  "alinti_max_karakter": 120
+}

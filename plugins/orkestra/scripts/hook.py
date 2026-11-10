@@ -2062,6 +2062,17 @@ def _iddia_kaynak_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _nesne_karti_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0177: nesne kartı bulgusu ya da kartsız nesne anlatımı günlüğe `kapi_golge` yazılır; yalnız ölçer, hatada sessiz."""
+    try:
+        import nesne_karti_golge as NKG
+        k = NKG.degerlendir(inp.get("last_assistant_message"), sd)
+        if k:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kapi_golge", "is": _oturum_isi(sd, oid), **k})
+    except Exception:
+        return
+
+
 def _yapamam_yanit(sd: str, oid, inp: dict) -> None:
     """ADR-0153 / P-045: yanıtta denenen komut ya da engel kanıtı olmadan yazılmış gerçek yapamama iddiası günlüğe
     `kapi_golge / yapamam_kaniti` olarak yazılır. Yalnız ölçer (gölge): engellemez, uyarı vermez.
@@ -2348,6 +2359,7 @@ def stop(inp: dict):
         _kapanis_surec_yanit(sd, oid, inp)
         _yapamam_yanit(sd, oid, inp)
         _iddia_kaynak_yanit(sd, oid, inp)
+        _nesne_karti_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _cikti_sirasi_yanit(sd, oid, inp)
         _kapanis_kapisi(sd, oid, inp)

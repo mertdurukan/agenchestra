@@ -40,6 +40,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra git denetim [--depo YOL]   dal sınıfı (uzakta birleşmiş, tek kopya), stash ve commitsiz sayısı; salt okunur (I-325)
   orkestra standart liste | goster AD | yol AD | ekle AD   (ekip yapı standartları: PR, commit, dal, review, Jira yorumu; ADR-0006)
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
+  orkestra nesne-karti dogrula KART [--dokum DOSYA] [--json]   nesne kartı derece ve kaynakça denetimi (ADR-0177)
   orkestra yol dallanma <kök> [--sinir N]   dağıtıcı/sınıflayıcı adaylarını listeler (ADR-0171)
   orkestra konu ac "başlık" [--neden N] | liste [--oturum O] [--json] | rapor [--gun N] [--tum] [--etiket] [--yaz DOSYA] [--json]   sohbet konu defteri (ADR-0116)
   orkestra niyetler ekle TÜR "niyet" [--kriter K] [--kisit K] [--ilgili ID] | durum ID DURUM [--kanit K] | liste [--json] | rapor [--json]   niyet defteri (ADR-0156)
@@ -86,6 +87,7 @@ from komutlar import istek  # noqa: E402  (`is istek`; ADR-0112, isler'den SONRA
 from komutlar import konu, yol  # noqa: E402  (`orkestra konu`; ADR-0116)
 from komutlar import niyetler  # noqa: E402  (`orkestra niyetler`; ADR-0156)
 from komutlar import agac  # noqa: E402  (`orkestra agac`; ADR-0161)
+from komutlar import nesne_karti as nesne_karti_komut  # noqa: E402  (`orkestra nesne-karti`; ADR-0177)
 from komutlar import paralel  # noqa: E402  (`orkestra paralel`; ADR-0100)
 from komutlar import olay  # noqa: E402  (`orkestra olay`; I-286, ADR-0109)
 from komutlar import kapi  # noqa: E402  (`orkestra kapi durum`; ADR-0095)
@@ -94,7 +96,7 @@ from komutlar import teslim_kuyruk  # noqa: E402  (`orkestra teslim kuyruk`; I-3
 from komutlar import git_denetim as git_komut  # noqa: E402  (`orkestra git denetim`; I-325)
 
 # Kayıt sırası = `--help` sırası.
-MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, bosta, adr, istek, konu, yol, niyetler, paralel, olay, kapi, oturum, teslim_kuyruk, git_komut, agac)
+MODULLER = (kurulum, kart, defter, maliyet, onay, gosterge, isler, teknik, saglik, plan, izin, iz, politika, bakim, harita, standart, kimlik, mcp, push_kapisi, ara, isabet, onbellek, durum, kanit, ortam, hata_komut, plan_alan, dalga, bosta, adr, istek, konu, yol, niyetler, paralel, olay, kapi, oturum, teslim_kuyruk, git_komut, agac, nesne_karti_komut)
 
 # Geriye uyum: eski `orkestra.<ad>` erişimleri (testler, betikler) modüllerden yeniden dışa aktarılır.
 for _m in (_ortak,) + MODULLER:

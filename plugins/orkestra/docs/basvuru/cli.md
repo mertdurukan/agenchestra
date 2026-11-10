@@ -6,7 +6,7 @@ Kaynak: `scripts/orkestra.py` ve komut modülleri. Aşağıdaki metin `orkestra 
 
 ```text
 usage: orkestra [-h]
-                {baslat,update,guncelle,kart,defter,maliyet,perspektif,ruya,onay,kural,niyet,ui-ozet,panel,kpi,gunluk,is,teknik,doktor,plan,izin,iz,politika,bakim,harita,standart,kimlik,mcp,push-kapisi,ara,isabet,onbellek,durum,kanit,ortam,hata,adr,konu,yol,niyetler,paralel,olay,kapi,oturum,teslim,git,agac} ...
+                {baslat,update,guncelle,kart,defter,maliyet,perspektif,ruya,onay,kural,niyet,ui-ozet,panel,kpi,gunluk,is,teknik,doktor,plan,izin,iz,politika,bakim,harita,standart,kimlik,mcp,push-kapisi,ara,isabet,onbellek,durum,kanit,ortam,hata,adr,konu,yol,niyetler,paralel,olay,kapi,oturum,teslim,git,agac,nesne-karti} ...
 
 orkestra — görev kartları, ortak defter, token defteri ve perspektif için komut satırı aracı.
 
@@ -50,6 +50,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
   orkestra git denetim [--depo YOL]   dal sınıfı (uzakta birleşmiş, tek kopya), stash ve commitsiz sayısı; salt okunur (I-325)
   orkestra standart liste | goster AD | yol AD | ekle AD   (ekip yapı standartları: PR, commit, dal, review, Jira yorumu; ADR-0006)
   orkestra niyet --ne "şu an ne yapılıyor" --neden "neye yarayacak" | --sonuc "ne çıktı" | --goster   (yalnız ana ajan)
+  orkestra nesne-karti dogrula KART [--dokum DOSYA] [--json]   nesne kartı derece ve kaynakça denetimi (ADR-0177)
   orkestra yol dallanma <kök> [--sinir N]   dağıtıcı/sınıflayıcı adaylarını listeler (ADR-0171)
   orkestra konu ac "başlık" [--neden N] | liste [--oturum O] [--json] | rapor [--gun N] [--tum] [--etiket] [--yaz DOSYA] [--json]   sohbet konu defteri (ADR-0116)
   orkestra niyetler ekle TÜR "niyet" [--kriter K] [--kisit K] [--ilgili ID] | durum ID DURUM [--kanit K] | liste [--json] | rapor [--json]   niyet defteri (ADR-0156)
@@ -63,7 +64,7 @@ Kullanım (ajanlar Bash'ten çağırır; `orkestra` plugin bin/ ile PATH'tedir):
 `--ajan-id/--ajan-tipi` argümanlarını PreToolUse hook'u ekler; elle verilenler silinir.
 
 positional arguments:
-  {baslat,update,guncelle,kart,defter,maliyet,perspektif,ruya,onay,kural,niyet,ui-ozet,panel,kpi,gunluk,is,teknik,doktor,plan,izin,iz,politika,bakim,harita,standart,kimlik,mcp,push-kapisi,ara,isabet,onbellek,durum,kanit,ortam,hata,adr,konu,yol,niyetler,paralel,olay,kapi,oturum,teslim,git,agac}
+  {baslat,update,guncelle,kart,defter,maliyet,perspektif,ruya,onay,kural,niyet,ui-ozet,panel,kpi,gunluk,is,teknik,doktor,plan,izin,iz,politika,bakim,harita,standart,kimlik,mcp,push-kapisi,ara,isabet,onbellek,durum,kanit,ortam,hata,adr,konu,yol,niyetler,paralel,olay,kapi,oturum,teslim,git,agac,nesne-karti}
     update (guncelle)   yayın klonunu GitHub'dan çek, kurulu plugin'leri kendi
                         kapsamıyla güncelle (LLM'siz)
     niyet               sohbetin şu an ne yaptığını ve neye yarayacağını
@@ -121,6 +122,8 @@ positional arguments:
     git                 git durumu: dal, stash, gönderilmemiş commit (salt
                         okunur)
     agac                iş çalışma ağacı: deponun .claude/worktrees altında aç
+    nesne-karti         nesne kartı doğrulayıcısı (ADR-0177): derece, kaynak
+                        hiyerarşisi, kaynakça
 
 options:
   -h, --help            show this help message and exit

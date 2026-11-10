@@ -4,7 +4,7 @@
 
 Kaynak: `ayarlar/*.json`. Proje ezmesi: `.claude/orkestra/<ad>.json`. `mod`: `golge` (uyarır, engellemez), `ihlal` (reddeder), `kapali`.
 
-Toplam 102 ayar; `açıklama yok` işaretli: 33.
+Toplam 103 ayar; `açıklama yok` işaretli: 34.
 
 | Ayar | Mod | Açıklama |
 |---|---|---|
@@ -74,6 +74,7 @@ Toplam 102 ayar; `açıklama yok` işaretli: 33.
 | `main_kopya_kapisi` | golge | Korunan deponun birincil main kopyasına Edit/Write (I-302, ADR-0122). |
 | `mcp_kimlik` | — | MCP kimlik kaydı (ADR-0096, ADR-0097). |
 | `model_politikasi` | — | açıklama yok |
+| `nesne_karti` | golge | açıklama yok |
 | `niyet_defteri` | golge | ADR-0156 niyet defteri kapısı. |
 | `olay_esleme` | — | açıklama yok |
 | `olay_kategorileri` | — | açıklama yok |
