@@ -252,4 +252,16 @@ claude plugin eval plugins/orkestra --trust-plugin --runs 1
 - **Mod API'si:** Mod API'si erken erişimdedir; Claude Code sürümleri arasında değişebilir. Arayüz bozulursa çekirdek çalışmaya devam eder.
 - **Maliyet tutarları:** Tutarlar API liste fiyatıyla yapılmış tahminlerdir. Abonelikte gerçek fatura değil, kota karşılığıdır.
 - **Cursor:** Cursor sürümü vardır (`.cursor-plugin/`, `plugins/orkestra/hooks/cursor-hooks.json`, `scripts/cursor_hook.py`). Skill, ajan ve CLI Claude sürümüyle ortaktır. Sınırlar: yalnız Cursor CLI ölçüldü, IDE sınanmadı; Cursor model/effort seçimini uygulamaz ve token/maliyet vermez (kayıt `tahmini` etiketlidir); `ask` kararı uygulanmaz, `deny` olarak ele alınır; `.cursor/hooks.json` BOM'lu yazılırsa hook'lar sessizce yüklenmez (`orkestra doktor` denetler). Claude içi panel ve prompt bandı yalnız Claude Code'dadır.
+- **Claude Code / Cursor yetenekleri** (yalnız kanıtlı hücreler; ayrıntı `plugins/orkestra/cursor/dogrulama_durumu.md`):
+
+  | Yetenek | Claude Code | Cursor |
+  |---|---|---|
+  | Model seçimi | uygulanır | uygulanmaz |
+  | Effort | uygulanır | uygulanmaz |
+  | Token / maliyet | var (tahmini tutar) | yok |
+  | `ask` kararı | uygulanır | `deny` olarak ele alınır |
+  | Panel ve prompt bandı | var | yok |
+  | `preToolUse` failClosed | kullanılmaz | açık |
+  | IDE sürümü | yok | sınanmadı (yalnız CLI ölçüldü) |
+
 - **Diğer araçlar:** Antigravity gibi başka editörlerin kendi ajanları bu plugin'i yüklemez; onların terminalinde çalışan Claude Code sistemi aynen kullanır.
