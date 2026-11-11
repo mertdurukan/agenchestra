@@ -251,7 +251,7 @@ claude plugin eval plugins/orkestra --trust-plugin --runs 1
 - **Kabuk yazımı:** Yazma alanı kapısı Write ve Edit araçlarını engeller. Kabukla yapılan yazımı yalnız korunan orkestra dosyaları için engeller.
 - **Mod API'si:** Mod API'si erken erişimdedir; Claude Code sürümleri arasında değişebilir. Arayüz bozulursa çekirdek çalışmaya devam eder.
 - **Maliyet tutarları:** Tutarlar API liste fiyatıyla yapılmış tahminlerdir. Abonelikte gerçek fatura değil, kota karşılığıdır.
-- **Cursor:** Cursor sürümü vardır (`.cursor-plugin/`, `plugins/orkestra/hooks/cursor-hooks.json`, `scripts/cursor_hook.py`). Skill, ajan ve CLI Claude sürümüyle ortaktır. Sınırlar: yalnız Cursor CLI ölçüldü, IDE sınanmadı; Cursor model/effort seçimini uygulamaz ve token/maliyet vermez (kayıt `tahmini` etiketlidir); `ask` kararı uygulanmaz, `deny` olarak ele alınır; `.cursor/hooks.json` BOM'lu yazılırsa hook'lar sessizce yüklenmez (`orkestra doktor` denetler). Claude içi panel ve prompt bandı yalnız Claude Code'dadır.
+- **Cursor:** Cursor sürümü vardır (`.cursor-plugin/`, `plugins/orkestra/hooks/cursor-hooks.json`, `scripts/cursor_hook.py`). Skill, ajan ve CLI Claude sürümüyle ortaktır. Sınırlar: yalnız Cursor CLI ölçüldü, IDE sınanmadı; Cursor model/effort seçimini uygulamaz ve token/maliyet vermez (Cursor için maliyet kaydı yazılmaz); `ask` kararı uygulanmaz, `deny` olarak ele alınır; `.cursor/hooks.json` BOM'lu yazılırsa hook'lar sessizce yüklenmez (`orkestra doktor` denetler). Claude içi panel ve prompt bandı yalnız Claude Code'dadır.
 - **Claude Code / Cursor yetenekleri** (yalnız kanıtlı hücreler; ayrıntı `plugins/orkestra/cursor/dogrulama_durumu.md`):
 
   | Yetenek | Claude Code | Cursor |
