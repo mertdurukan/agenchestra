@@ -34,6 +34,11 @@ class Degerlendir(unittest.TestCase):
         o = self.d(IYI_CIKTI, [yuk("abc-123")], [ayik(None)])
         self.assertEqual(o["komut_yeniden_yazildi"], "basarisiz")
 
+    def test_kopya_kurulu_degilse_nedeni_soyler(self):
+        o = S.degerlendir(IYI_CIKTI, [yuk("abc-123")], [ayik(None)], "abc-123", kurulu=False)
+        self.assertEqual(o[0][1], "basarisiz")
+        self.assertIn("kurulu değil", o[0][2])
+
     def test_kimlik_farkliysa_basarisiz(self):
         o = self.d(IYI_CIKTI, [yuk("baska")], [ayik(YAZILMIS)])
         self.assertEqual(o["oturum_kimligi_esit"], "basarisiz")

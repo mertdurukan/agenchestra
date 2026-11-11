@@ -69,7 +69,7 @@ def _json(satir):
         return {}
 
 
-def degerlendir(ajan_cikti, yuk_satirlari, hata_ayiklama_satirlari, kimlik=""):
+def degerlendir(ajan_cikti, yuk_satirlari, hata_ayiklama_satirlari, kimlik="", kurulu=True):
     """Ölçümleri üç kanıttan çıkarır. Dönüş: [(ad, durum, ayrıntı)], durum: gecti | basarisiz | belirsiz."""
     sonuc = []
     yukler = [_json(s) for s in yuk_satirlari]
@@ -85,6 +85,9 @@ def degerlendir(ajan_cikti, yuk_satirlari, hata_ayiklama_satirlari, kimlik=""):
             yazilan.append(komut)
     if yazilan:
         sonuc.append(("komut_yeniden_yazildi", "gecti", "adaptör `orkestra` komutunu eklentinin CLI betiğine yazdı"))
+    elif kabuk and not kurulu:
+        sonuc.append(("komut_yeniden_yazildi", "basarisiz", "yerel Cursor kopyası kurulu değil (~/.cursor/plugins/local/orkestra yok); "
+                      "Cursor Shell'inde `orkestra` komutu çalışmaz. Kur: `orkestra doktor --duzelt` ya da scripts/cursor_kur.py"))
     elif kabuk:
         sonuc.append(("komut_yeniden_yazildi", "basarisiz", "Shell çağrısı geldi ama adaptör çıktısında orkestra.py yolu yok (kopya bayat ya da ORKESTRA_CURSOR_KOMUT_YAZ=0)"))
     else:
@@ -135,7 +138,9 @@ def calistir(zaman_asimi=300, ajan_komutu=None):
                 kimlik = f.read()
         except OSError:
             kimlik = ""
-        olcumler = degerlendir(cikti, _satirlar(yuk), _satirlar(ayiklama), kimlik)
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import cursor_kur
+        olcumler = degerlendir(cikti, _satirlar(yuk), _satirlar(ayiklama), kimlik, os.path.isdir(cursor_kur.varsayilan_hedef()))
         durumlar = [d for _, d, _ in olcumler]
         durum = "basarisiz" if "basarisiz" in durumlar else ("belirsiz" if "belirsiz" in durumlar else "gecti")
         ozet = "; ".join(f"{a}: {d}" for a, d, _ in olcumler)
