@@ -2011,6 +2011,53 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _kanitsiz_iddia_sinif_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0178 (I-226 P7): bilgi sorusu bir kaynak sınıfına eşleşti ve turda kanıt aracı yoksa günlüğe
+    `kural_ihlal / kanitsiz_iddia_sinif` (sınıf alanıyla) yazılır. Yalnız gölge: block ve kullanıcı uyarısı yok (P-028).
+    `ORKESTRA_KANIT_KAPISI=0` ya da ayarda `sinif_kapisi.mod: kapali` kapatır; hatada sessiz geçer."""
+    try:
+        import kanitsiz_iddia as KI
+        import kaynak_sinif as KS
+        ks = KS.ayar_oku(sd)
+        if KI.sinif_mod(ks) == "kapali":
+            return
+        bulgu = KI.sinif_degerlendir(inp.get("transcript_path"), inp.get("last_assistant_message"), sd)
+        if not bulgu:
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
+            "zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
+            "kural": (ks.get("sinif_kapisi") or {}).get("kural") or "kanitsiz_iddia_sinif",
+            "mod": "golge", "sinif": bulgu["sinif"], "is": _oturum_isi(sd, oid)})
+    except Exception:
+        return
+
+
+def _ilk_cevap_itiraz(sd: str, oid, metin: str, transcript_path) -> None:
+    """ADR-0178 (I-226 P8): kullanıcı mesajı önceki asistan yanıtına itirazsa ve o turda kanıt aracı yoksa günlüğe
+    `ilk_cevap_itiraz` (kalıp kimliği, önceki sorunun kaynak sınıfı) yazılır; ham mesaj yazılmaz. Döküm yeni mesajı
+    henüz içermiyorsa son tur, içeriyorsa sondan bir önceki tur önceki asistan turudur. `ORKESTRA_KANIT_KAPISI=0` ya da
+    ayarda `itiraz.acik: false` kapatır; hatada sessiz geçer."""
+    try:
+        if os.environ.get("ORKESTRA_KANIT_KAPISI") == "0" or not transcript_path:
+            return
+        import kanit_olcum as K
+        import kaynak_sinif as KS
+        ayar = KS.ayar_oku(sd)
+        it = ayar.get("itiraz") or {}
+        if not it.get("acik"):
+            return
+        turlar = K.son_turlar(transcript_path, 2)
+        if turlar and " ".join(turlar[-1]["istem"].split()) == " ".join((metin or "").split()):
+            turlar = turlar[:-1]
+        olay = KS.ilk_cevap_itiraz(metin, turlar[-1] if turlar else None, sd)
+        if olay:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
+                "zaman": L.simdi(), "oturum": oid, "tur": it.get("olay") or "ilk_cevap_itiraz",
+                "kalip": olay["kalip"], "sinif": olay["sinif"], "is": _oturum_isi(sd, oid)})
+    except Exception:
+        return
+
+
 def _onleme_yanit(sd: str, oid, inp: dict) -> None:
     """ADR-0123 / P-045: düzeltme önerisi sonradan yakalayan ya da alışkanlığa bağlı bir çözümse ve yanıtta önleme merdiveni
     akıl yürütmesi yoksa günlüğe `kural_ihlal / onleme_basamagi` yazılır. Yalnız ölçer (gölge): engellemez, uyarı vermez.
@@ -2355,6 +2402,7 @@ def stop(inp: dict):
         _kabuk_sozdizimi_yanit(sd, oid, inp)
         _auto_devam_yanit(sd, oid, inp)
         _kanitsiz_iddia_yanit(sd, oid, inp)
+        _kanitsiz_iddia_sinif_yanit(sd, oid, inp)
         _onleme_yanit(sd, oid, inp)
         _kapanis_surec_yanit(sd, oid, inp)
         _yapamam_yanit(sd, oid, inp)
@@ -3648,6 +3696,8 @@ def user_prompt_submit(inp: dict):
                     parcalar.insert(1 if sn else 0, km)
             except Exception:
                 pass
+            if not inp.get("agent_id"):  # ADR-0178 (I-226 P8): kullanıcı itirazı ölçümü; hata hook'u düşürmez
+                _ilk_cevap_itiraz(sd, inp.get("session_id"), metin, inp.get("transcript_path"))
             try:  # ADR-0103: aday yol taraması notu kaynak notunun hemen ardına; gölge modda günlüğe yazılır
                 yn = soru_sinif.yol_metni(metin, sd)
                 if yn:

@@ -172,12 +172,19 @@ def baglam_metni(gecmis, r: dict) -> str:
     return "\n".join(satirlar)[: r.get("baglam_max_karakter", 1400)]
 
 
-def olc(dosyalar, sinif_fn, r: dict, sinir_zaman: str, donem_sinir: str | None = None):
+def olc(dosyalar, sinif_fn, r: dict, sinir_zaman: str, donem_sinir: str | None = None, itiraz_havuzu=None, sd=None):
     """Dökümleri tarar. Dönüş: (sayac, ic_havuz, dis_havuz, kapanis_havuzu).
     ic_havuz = çerçeve içi soru turları, dis_havuz = çerçeve dışı soru turları; her kayıt etiketleme için istem+yanıt taşır.
-    `sinif_fn(istem) -> 'soru'|'devam'|'is'`; `donem_sinir` UTC (bilgi sorusu notu öncesi/sonrası ayrımı)."""
+    `sinif_fn(istem) -> 'soru'|'devam'|'is'`; `donem_sinir` UTC (bilgi sorusu notu öncesi/sonrası ayrımı).
+    ADR-0178: kapsamdaki soru turlarında kaynak sınıfı kapsamı (`sinif_eslesen`, `sinif_kanitsiz`, `sinif:<ad>`) ve her
+    turda kullanıcı itirazı (`ilk_cevap_itiraz`: önceki tur kanıtsız; `itiraz_onceki_kanitli`) sayılır; itiraz kayıtları
+    verilirse `itiraz_havuzu` listesine eklenir (elle doğrulama örneği için önceki istem ve yanıtla)."""
+    import kaynak_sinif as KS
+    ks = KS.ayar_oku(sd)
+    kapsam = set(ks.get("kapsam_turleri") or [])
     say = Counter()
     ic, dis, kapanis = [], [], []
+    gorulen_itiraz = set()
     kapanis_kalibi = re.compile(r.get("kapanis_kalibi") or r"(?!x)x", re.I)
     ilgisiz = re.compile(r.get("ilgisiz_kabuk_kalibi") or r"(?!x)x", re.I)
     kabuk = set(r.get("kabuk_araclari") or [])
@@ -185,10 +192,12 @@ def olc(dosyalar, sinif_fn, r: dict, sinir_zaman: str, donem_sinir: str | None =
     ist_max, yan_max = r.get("istem_max_karakter", 300), r.get("yanit_max_karakter", 600)
     for p in dosyalar:
         onceki = False
+        onceki_tur = None
         gecmis = deque(maxlen=r.get("baglam_tur", 6))
         for t in turlar(p):
             if t["zaman"] and t["zaman"] < sinir_zaman:
                 onceki = kanitli_mi(t, r)
+                onceki_tur = t
                 gecmis.append(t)
                 continue
             donem = "notlu" if (donem_sinir and t["zaman"] >= donem_sinir) else "notsuz"
@@ -200,6 +209,28 @@ def olc(dosyalar, sinif_fn, r: dict, sinir_zaman: str, donem_sinir: str | None =
                      "bu_tur": "; ".join(f"{a} {_hedef(g)}".strip() for a, g in t["cagrilar"])[:300],
                      "atif": bool(re.search(r.get("atif_kalibi") or r"(?!x)x", t["yanit"]))}
             gecmis.append(t)
+            if sinif in kapsam:
+                kaynak = KS.sinif(t["istem"], ks)
+                if kaynak:
+                    say[f"{donem}:sinif_eslesen"] += 1
+                    say[f"{donem}:sinif:{kaynak}"] += 1
+                    say[f"{donem}:sinif_kanitsiz"] += not kanitli
+            if onceki_tur is not None and onceki_tur["yanit"].strip():
+                kid = KS.itiraz_kalibi(t["istem"], onceki_tur["yanit"], ks)
+                anahtar = (t["zaman"][:19], t["istem"][:200])  # devam ettirilen oturum geçmişi kopyalar: bir kez say
+                if kid and anahtar in gorulen_itiraz:
+                    kid = None
+                gorulen_itiraz.add(anahtar)
+                if kid and onceki:
+                    say[f"{donem}:itiraz_onceki_kanitli"] += 1
+                elif kid:
+                    say[f"{donem}:ilk_cevap_itiraz"] += 1
+                    if itiraz_havuzu is not None:
+                        itiraz_havuzu.append(dict(kayit, katman="itiraz", kalip=kid,
+                                                  onceki_sinif=KS.sinif(onceki_tur["istem"], ks),
+                                                  onceki_istem=onceki_tur["istem"][:ist_max],
+                                                  onceki_yanit=onceki_tur["yanit"][:yan_max]))
+            onceki_tur = t
             if sinif == "soru":
                 say[f"{donem}:soru"] += 1
                 if not kanitli and iddia_var(t["yanit"], r):

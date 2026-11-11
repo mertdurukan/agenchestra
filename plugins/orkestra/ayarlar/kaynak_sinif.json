@@ -1,0 +1,126 @@
+{
+  "aciklama": "ADR-0178 (I-226 P7/P8): soru metninden kaynak sınıfı (yerel, geçmiş oturum, ürün belgesi, canlı bulut), sınıfa göre ilk araç satırı, sınıf anahtarlı gölge Stop kapısı ve kullanıcı itirazı (ilk_cevap_itiraz) olayı. Kalıplar normalleştirilmiş (küçük harf, İ→i, I→ı) ve giris_max_karakter'e kesilmiş metinde aranır; 'sira'daki ilk eşleşen sınıf seçilir. cipa_kaliplari her zaman sınıflar; kaliplar, sınıfta kavram_haric açıksa kavram sorusunda (kavram_kaliplari) sınıflamaz. Proje durum dizinindeki kaynak_sinif.json anahtar bazında ezer. ORKESTRA_KANIT_KAPISI=0 kapı ve olay yazımını kapatır.",
+  "giris_max_karakter": 2000,
+  "sira": ["gecmis_oturum", "urun_belgesi", "canli_bulut", "yerel"],
+  "kavram_kaliplari": [
+    "\\bnedir\\b",
+    "\\bne\\s+demek\\b",
+    "\\bne\\s+işe\\s+yarar\\b",
+    "\\bnasıl\\s+(çalışır|yazılır|yapılandırılır|kurulur|kullanılır)\\b",
+    "\\bfark[ıi]?\\s+(ne|nedir)\\b",
+    "\\barasındaki\\s+fark\\b",
+    "\\bne\\s+anlama\\s+gel\\w{0,10}",
+    "\\biçin\\s+ne\\s+gerekir\\b",
+    "\\bkavram\\w{0,10}"
+  ],
+  "siniflar": {
+    "gecmis_oturum": {
+      "ad": "geçmiş oturum",
+      "ilk_arac": "o oturumun dökümü ya da iş kaydı (Grep/Read)",
+      "kavram_haric": false,
+      "cipa_kaliplari": [
+        "\\b(o|önceki|diğer|başka|eski|arşivlenen|arşivdeki|arşivlediğim|dünkü)\\s+(sohbet|oturum|konuşma)\\w{0,10}",
+        "\\bsohbet\\w{0,10}\\s+(göre|sonucu)",
+        "\\bşimdiye\\s+kadar\\b",
+        "\\bdaha\\s+önce\\b",
+        "\\b\\w{1,30}[dt][ıiuü]k\\s+m[ıiuü]\\b",
+        "\\bnerede\\s+kald[ıi]k\\b",
+        "\\bgeçen\\s+(hafta|sefer)\\b",
+        "\\bdün\\b"
+      ],
+      "kaliplar": []
+    },
+    "urun_belgesi": {
+      "ad": "ürün belgesi",
+      "ilk_arac": "resmi belge (WebFetch/WebSearch ya da belge MCP'si)",
+      "kavram_haric": false,
+      "cipa_kaliplari": [
+        "\\bclaude(\\s+code|\\s+desktop)?\\b",
+        "\\b(cursor|conductor|codex|copilot|windsurf|devin|cline|aider)\\b",
+        "\\bmarketplace\\w{0,10}",
+        "(^|\\s)/(plugin|hooks|mcp|agents|config|model|resume|compact|memory|permissions)\\b",
+        "\\b(slash\\s+komut|otomatik\\s+mod|auto\\s+mod)",
+        "\\b(anthropic|chatgpt|gemini|gpt-?\\d{1,2})\\b",
+        "\\brakip\\w{0,10}"
+      ],
+      "kaliplar": []
+    },
+    "canli_bulut": {
+      "ad": "canlı bulut",
+      "ilk_arac": "canlı sorgu (CLI ya da MCP get/list)",
+      "kavram_haric": true,
+      "cipa_kaliplari": [],
+      "kaliplar": [
+        "\\b(azure|aws|gcp|openai|cosmos|langfuse|mongo\\w{0,10}|postgres\\w{0,10}|redis)\\b",
+        "\\bkey\\s*vault\\b",
+        "\\bkasa\\w{0,10}",
+        "\\b(vpn|dns|rbac|[iı]p)\\b",
+        "\\b(sunucu\\w{0,10}|prod|veritaban\\w{0,10}|db)\\b",
+        "\\b(jira|confluence|pipeline|deploy\\w{0,10}|endpoint\\w{0,10})\\b",
+        "\\b(erişe\\w{0,15}|erişim\\w{0,10}|403|401)\\b"
+      ]
+    },
+    "yerel": {
+      "ad": "yerel",
+      "ilk_arac": "Read/Grep ile dosya, ayar ya da kayıt",
+      "kavram_haric": true,
+      "cipa_kaliplari": [
+        "[\\w./\\\\-]{1,200}\\.(py|md|json|jsonl|env|ya?ml|toml|ps1|sh|txt|csv|ts|js|ini|cfg)\\b",
+        "`[^`\\n]{1,80}`",
+        "\\b(adr-?\\d{2,4}|[iıpkg]-\\d{2,4})\\b",
+        "\\b(ayarlar|scripts|tests|config|adr|docs|plugins|src|hooks|skills|\\.claude)[/\\\\]",
+        "\\b(bu|şu)\\s+(projede|proje|depoda|depo|klasörde|dosyada|dalda|worktree|hook|kural|ayar|skill|betik|kapı)\\w{0,10}",
+        "\\bbizde\\b",
+        "\\bbizim\\s+(hook|kural|ayar|depo|eklenti|panel|skill|betik|kod|kapı)\\w{0,10}",
+        "\\borkestra\\w{0,10}"
+      ],
+      "kaliplar": []
+    }
+  },
+  "satir_sablonu": "KAYNAK ({ad}): ilk araç {ilk_arac}; araç sonucundan önce olgu cümlesi yazma; bakamazsan 'doğrulanmadı'.",
+  "max_karakter": 200,
+  "kapsam_turleri": ["soru"],
+  "sinif_kapisi": {
+    "mod": "golge",
+    "uyari_acik": false,
+    "kural": "kanitsiz_iddia_sinif"
+  },
+  "itiraz": {
+    "acik": true,
+    "olay": "ilk_cevap_itiraz",
+    "min_karakter": 10,
+    "soru_yanitini_atla": true,
+    "haric_kaliplari": [
+      "\\byanlış\\s+(pozitif|negatif|alarm)",
+      "^\\W*(hayır|yok|yanlış)\\W*$",
+      "\\b(doğruydu|haklıydın|haklısın|teşekkür\\w{0,10}|harika|süper)\\b",
+      "\\b(dosyaya|dosyasına|belgeye)\\s+yaz\\b",
+      "\\b(özetle|kısalt|çevir)\\w{0,5}\\W*$"
+    ],
+    "baslangic_kaliplari": [
+      {"id": "b1", "desen": "^\\W*hayır\\b", "isaret_gerekir": true},
+      {"id": "b2", "desen": "^\\W*yanlış\\s*[,.!;:—-]"},
+      {"id": "b3", "desen": "^\\W*(bu\\s+|o\\s+)?(doğru\\s+değil|öyle\\s+değil|yanlış\\s+bilgi)\\b"}
+    ],
+    "baslangic_hata_isareti": [
+      "\\b(bu|o|öyle)\\s+değil\\b",
+      "\\böyle\\s+bir\\b",
+      "\\b(yanlış|hatalı|olamaz|yanılıyorsun|yanıltıcı|uydurma)",
+      "\\bdoğru\\s+değil\\b",
+      "\\bnasıl\\s+söylersin\\b",
+      "\\b(soruyorum|bahsetmiyorum|kastetmiyorum|demiyorum)\\b",
+      "\\b(dedi|söyledi|yazdı|önerdi)\\w{0,6}\\b"
+    ],
+    "atif_kaliplari": [
+      {"id": "a1", "desen": "\\b(ilk|önceki|az\\s+önceki|son)\\s+(cevab|yanıt)\\w{0,6}\\b.{0,60}\\b(yanlış|hatalı|doğru\\s+değil|eksik|yanıltıcı|uydurma)"},
+      {"id": "a1b", "desen": "\\b(yanlış|hatalı|yanıltıcı|uydurma)\\w{0,6}\\b.{0,60}\\b(ilk|önceki|son)\\s+(cevab|yanıt)"},
+      {"id": "a2", "desen": "\\b(dediğin|söylediğin|yazdığın|iddia\\s+ettiğin|önerin|cevabın|yanıtın)\\w{0,6}\\b.{0,60}\\b(yanlış|doğru\\s+değil|hatalı|geçersiz)"},
+      {"id": "a3", "desen": "\\b(yanlış|hatalı)\\s+(söyledin|yazdın|anladın|biliyorsun|cevap\\s+verdin)\\b"},
+      {"id": "a4", "desen": "\\bbakmadan\\b.{0,40}\\b(yazdın|söyledin|cevap|yanıt)"},
+      {"id": "a5", "desen": "\\b(cevabını|yanıtını|kendini)\\s+düzelt"},
+      {"id": "a6", "desen": "\\b(söylüyorsun|diyorsun|demiştin|söylemiştin)\\s+ama\\b"},
+      {"id": "a7", "desen": "\\bemin\\s+misin\\b"},
+      {"id": "a8", "desen": "\\byanılıyorsun\\b"}
+    ]
+  }
+}

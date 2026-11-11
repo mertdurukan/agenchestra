@@ -376,5 +376,102 @@ class TestStopKapisi(_Proje):
         self.assertIsNone(cikti)
 
 
+class TestSinifKapisi(_Proje):
+    """I-226 P7 (ADR-0178): soru sınıfı eşleşti + turda kanıt aracı yok → `kural_ihlal / kanitsiz_iddia_sinif` (gölge;
+    block ve uyarı yok). Yanıt metni tetiği kullanılmaz; yalnız 'doğrulanmadı' gibi kaynak işareti uyumu susturur."""
+    SINIFLI = "azure erişimi neden yok?"
+    YANIT = "Nedeni ağ ayarı."
+
+    def kos(self, satirlar, yanit=None, **ek):
+        yol = self.transkript(satirlar)
+        girdi = {"session_id": OTURUM, "cwd": self.tmp, "last_assistant_message": yanit or self.YANIT,
+                 "transcript_path": yol, **ek}
+        buf = io.StringIO()
+        kod = None
+        with contextlib.redirect_stdout(buf):
+            try:
+                hook._kanitsiz_iddia_sinif_yanit(self.sd, OTURUM, girdi)
+            except SystemExit as e:
+                kod = e.code
+        return kod, buf.getvalue().strip()
+
+    def kayitlar(self):
+        yol = os.path.join(self.sd, "gunluk.jsonl")
+        if not os.path.isfile(yol):
+            return []
+        with open(yol, encoding="utf-8") as f:
+            return [g for g in (json.loads(s) for s in f if s.strip()) if g.get("kural") == "kanitsiz_iddia_sinif"]
+
+    def test_sinif_eslesti_kanit_yok_gunluk(self):
+        kod, cikti = self.kos([kullanici(self.SINIFLI), metin(self.YANIT)])
+        self.assertIsNone(kod)
+        self.assertEqual(cikti, "")  # block yok, systemMessage yok
+        k = self.kayitlar()
+        self.assertEqual(len(k), 1)
+        self.assertEqual((k[0]["tur"], k[0]["mod"], k[0]["sinif"]), ("kural_ihlal", "golge", "canli_bulut"))
+        self.assertEqual(hook._KULLANICI_MESAJI, "")
+
+    def test_kanit_araci_varsa_yok(self):
+        self.kos([kullanici(self.SINIFLI), arac("Bash", {"command": "az account show"}), arac_sonucu(), metin(self.YANIT)])
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_ilgisiz_arac_kanit_sayilmaz(self):
+        self.kos([kullanici(self.SINIFLI), arac("TodoWrite"), arac_sonucu(), metin(self.YANIT)])
+        self.assertEqual(len(self.kayitlar()), 1)
+
+    def test_onceki_tur_kanitliysa_sus(self):
+        self.kos([kullanici("bir"), arac("Read", {"file_path": "x"}), arac_sonucu(), metin("a"),
+                  kullanici(self.SINIFLI), metin(self.YANIT)])
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_sinif_disi_soru_yok(self):
+        self.kos([kullanici("fallback ne demek?"), metin(self.YANIT)])
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_is_istegi_kapsam_disi(self):
+        self.kos([kullanici("azure ayarını güncelle ve testleri çalıştır"), metin(self.YANIT)])
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_dogrulanmadi_isareti_susturur(self):
+        self.kos([kullanici(self.SINIFLI), metin("Nedeni ağ ayarı olabilir (doğrulanmadı).")],
+                 yanit="Nedeni ağ ayarı olabilir (doğrulanmadı).")
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_ortam_degiskeni_kapatir(self):
+        os.environ["ORKESTRA_KANIT_KAPISI"] = "0"
+        self.kos([kullanici(self.SINIFLI), metin(self.YANIT)])
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_block_ayari_verilse_de_block_yok(self):
+        with open(os.path.join(self.sd, "kaynak_sinif.json"), "w", encoding="utf-8") as f:
+            json.dump({"sinif_kapisi": {"mod": "block", "uyari_acik": True}}, f)
+        kod, cikti = self.kos([kullanici(self.SINIFLI), metin(self.YANIT)])
+        self.assertIsNone(kod)
+        self.assertEqual(cikti, "")
+        self.assertEqual(hook._KULLANICI_MESAJI, "")
+
+    def test_kapali_mod(self):
+        with open(os.path.join(self.sd, "kaynak_sinif.json"), "w", encoding="utf-8") as f:
+            json.dump({"sinif_kapisi": {"mod": "kapali"}}, f)
+        self.kos([kullanici(self.SINIFLI), metin(self.YANIT)])
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_hata_sessiz(self):
+        with mock.patch.object(KI, "sinif_degerlendir", side_effect=RuntimeError("x")):
+            kod, cikti = self.kos([kullanici(self.SINIFLI), metin(self.YANIT)])
+        self.assertIsNone(kod)
+        self.assertEqual(cikti, "")
+        self.assertEqual(self.kayitlar(), [])
+
+    def test_bozuk_transkript_sessiz(self):
+        self.assertIsNone(KI.sinif_degerlendir(os.path.join(self.tmp, "yok.jsonl"), self.YANIT, self.sd))
+
+    def test_eski_kapi_ayri_kalir(self):
+        # P4 yanıt-metni kapısı aynı turda kendi kuralıyla yazmaya devam eder; sınıf kapısı onu değiştirmez
+        self.proje_ayari()
+        yol = self.transkript([kullanici(SORU), metin(IDDIALI)])
+        self.assertIsNotNone(KI.degerlendir(yol, IDDIALI, self.sd))
+
+
 if __name__ == "__main__":
     unittest.main()

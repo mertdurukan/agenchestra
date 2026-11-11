@@ -104,6 +104,46 @@ def degerlendir(transcript_path, yanit=None, sd=None):
         return None
 
 
+def sinif_mod(sinif_ayar: dict) -> str:
+    """Sınıf kapısı kipi (ADR-0178): yalnız 'golge' ya da 'kapali'. Block ve kullanıcı uyarısı bu kapıda yoktur; geçiş
+    ölçülmüş kesinlik alt sınırı ≥%75 ve ayrı ADR ister, bu yüzden ayardaki 'block' da gölge sayılır."""
+    if os.environ.get("ORKESTRA_KANIT_KAPISI") == "0":
+        return "kapali"
+    m = ((sinif_ayar or {}).get("sinif_kapisi") or {}).get("mod", "kapali")
+    return "kapali" if m not in MODLAR or m == "kapali" else "golge"
+
+
+def sinif_degerlendir(transcript_path, yanit=None, sd=None):
+    """I-226 P7: son tur kapsamdaki (bilgi sorusu) mesaj, soru metni bir kaynak sınıfına eşleşti ve turda kanıt aracı
+    çağrılmadı mı? Yanıt metni tetiği kullanılmaz; yalnız kaynak işareti (ayardaki muaf kalıp) sözleşmeye
+    uyum sayılıp susturur. Önceki tur kanıtlıysa susar (`onceki_tur_kanitliysa_sus`). Dönüş {'sinif': ad} ya da None;
+    hatada None."""
+    try:
+        import kanit_olcum as K
+        import kaynak_sinif as KS
+        ks = KS.ayar_oku(sd)
+        if sinif_mod(ks) == "kapali":
+            return None
+        ayar = ayar_oku(sd)
+        turlar = K.son_turlar(transcript_path, 2, ayar.get("kuyruk_bayt", 2_000_000))
+        tur = turlar[-1] if turlar else None
+        if not tur or not KS.kapsamda_mi(tur["istem"], sd):
+            return None
+        ad = KS.sinif(tur["istem"], ks)
+        if not ad:
+            return None
+        r = K.rubrik_oku(sd)
+        if K.kanitli_mi(tur, r):
+            return None
+        if ayar.get("onceki_tur_kanitliysa_sus") and len(turlar) > 1 and K.kanitli_mi(turlar[-2], r):
+            return None
+        if _eslesir(ayar.get("muaf_kaliplari"), _normallestir(yanit if yanit else tur["yanit"])):
+            return None
+        return {"sinif": ad}
+    except Exception:
+        return None
+
+
 def uyari_acik(ayar: dict) -> bool:
     """Kullanıcıya deterministik uyarı gösterilir mi? Holdout kesinliği eşiği geçtiğinde ayarda `uyari_acik` true yapılır;
     block kipinde uyarı her zaman gösterilir (kullanıcı durdurmanın nedenini görür)."""

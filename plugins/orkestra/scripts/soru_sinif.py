@@ -85,6 +85,13 @@ def kaynak_metni(metin, sd=None) -> str:
     'doğrulanmadı' yaz). Metin ve boy sınırı ayardan; sınırı aşan metin bağlamı şişirmesin diye verilmez."""
     if not _normallestir((metin or "").strip()):
         return ""
+    try:  # ADR-0178 (I-226 P7): soru bir kaynak sınıfına eşleşirse sınıfın ilk araç satırı bu satırın yerini alır
+        import kaynak_sinif
+        sinifli = kaynak_sinif.yonlendirme(metin, sd)
+        if sinifli:
+            return sinifli
+    except Exception:
+        pass
     ayar = ayar_oku(sd)
     m = " ".join(str(ayar.get("kaynak_sozlesmesi") or "").split())
     sinir = ayar.get("kaynak_max_karakter")

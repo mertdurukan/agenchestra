@@ -2,7 +2,8 @@
 
 `orkestra kanit olc --gun N [--desen GLOB] [--donem-sinir ZAMAN_UTC] [--ornek K --dis-ornek M --kapanis-ornek J --tohum S] [--cikti DOSYA]`
     Bilgi sorusu turlarını sayar, çerçeve içi/dışı katmanlı rastgele örneği etiketleme için JSONL'e yazar
-    (ilk satır `_meta`: katman toplamları).
+    (ilk satır `_meta`: katman toplamları). ADR-0178: soru sınıfı kapsamı ve `ilk_cevap_itiraz` (kullanıcı itirazı,
+    önceki tur kanıtsız) sayısı/oranı da yazılır; `--itiraz-ornek N` itiraz olaylarını elle doğrulama için örnekler.
 `orkestra kanit ana-olcu ETIKETLI.jsonl [--json]`
     Etiketli dosyadan (her kayıtta `etiket` A/B/C/D) ana ölçüyü ve çerçeve içi/dışı A oranlarını hesaplar.
 """
@@ -31,11 +32,16 @@ def cmd_olc(a):
     simdi = time.time()
     sinir, dosyalar = K.dosya_listesi(a.gun, _desen(a, sd), simdi)
     sinir_z = time.strftime("%Y-%m-%dT%H:%M", time.gmtime(sinir))
-    say, ic, dis, kapanis = K.olc(dosyalar, lambda t: soru_sinif.tur(t, sd), r, sinir_z, a.donem_sinir)
-    soru = sum(v for k, v in say.items() if k.endswith(":soru"))
-    kanitsiz = sum(v for k, v in say.items() if k.endswith(":kanitsiz_iddiali"))
-    yazimli = sum(v for k, v in say.items() if k.endswith(":is_kapanis_yazimli"))
-    calistirmasiz = sum(v for k, v in say.items() if k.endswith(":is_kapanis_calistirmasiz"))
+    itiraz = []
+    say, ic, dis, kapanis = K.olc(dosyalar, lambda t: soru_sinif.tur(t, sd), r, sinir_z, a.donem_sinir,
+                                  itiraz_havuzu=itiraz, sd=sd)
+
+    def topla(son):
+        return sum(v for k, v in say.items() if k.endswith(son))
+    soru = topla(":soru")
+    kanitsiz = topla(":kanitsiz_iddiali")
+    yazimli = topla(":is_kapanis_yazimli")
+    calistirmasiz = topla(":is_kapanis_calistirmasiz")
     print(f"olcum_saati={time.strftime('%Y-%m-%d %H:%M')} pencere_gun={a.gun} dosya={len(dosyalar)} "
           f"soru={soru} cerceve_ic={len(ic)} cerceve_dis={len(dis)}")
     for k in sorted(say):
@@ -44,11 +50,18 @@ def cmd_olc(a):
         print(f"kanitsiz_iddiali_oran={kanitsiz / soru:.3f}")
     if yazimli:
         print(f"is_kapanis_calistirmasiz_oran={calistirmasiz / yazimli:.3f}")
+    # ADR-0178 (I-226 P7/P8): soru sınıfı kapsamı ve etiketsiz ikinci ölçü (kullanıcı itirazı / soru turu)
+    eslesen, sinif_kanitsiz = topla(":sinif_eslesen"), topla(":sinif_kanitsiz")
+    print(f"sinif_eslesen={eslesen} sinif_kanitsiz={sinif_kanitsiz}"
+          + (f" sinif_oran={eslesen / soru:.3f}" if soru else ""))
+    print(f"ilk_cevap_itiraz={len(itiraz)}" + (f" itiraz_oran={len(itiraz) / soru:.3f}" if soru else "")
+          + f" itiraz_onceki_kanitli={topla(':itiraz_onceki_kanitli')}")
     if a.cikti:
         meta = {"_meta": {"olcum_saati": time.strftime("%Y-%m-%d %H:%M"), "gun": a.gun, "tohum": a.tohum,
-                          "soru": soru, "ic_toplam": len(ic), "dis_toplam": len(dis), "kapanis_toplam": len(kapanis)}}
+                          "soru": soru, "ic_toplam": len(ic), "dis_toplam": len(dis), "kapanis_toplam": len(kapanis),
+                          "itiraz_toplam": len(itiraz)}}
         satirlar = [meta] + K.ornekle(ic, a.ornek, a.tohum) + K.ornekle(dis, a.dis_ornek, a.tohum) \
-            + K.ornekle(kapanis, a.kapanis_ornek, a.tohum)
+            + K.ornekle(kapanis, a.kapanis_ornek, a.tohum) + K.ornekle(itiraz, a.itiraz_ornek, a.tohum)
         with open(a.cikti, "w", encoding="utf-8") as f:
             for s in satirlar:
                 f.write(json.dumps(s, ensure_ascii=False) + "\n")
@@ -99,6 +112,8 @@ def kaydet(alt):
     o.add_argument("--ornek", type=int, default=120, help="çerçeve içi örnek sayısı")
     o.add_argument("--dis-ornek", dest="dis_ornek", type=int, default=60, help="çerçeve dışı örnek sayısı")
     o.add_argument("--kapanis-ornek", dest="kapanis_ornek", type=int, default=30, help="çalıştırmasız iş kapanışı örnek sayısı")
+    o.add_argument("--itiraz-ornek", dest="itiraz_ornek", type=int, default=30,
+                   help="ilk_cevap_itiraz olayı örnek sayısı (elle doğrulama için; ADR-0178)")
     o.add_argument("--tohum", type=int, default=42)
     o.add_argument("--cikti", help="örnek JSONL yolu (verilmezse yalnız sayılar)")
     o.set_defaults(f=cmd_olc)

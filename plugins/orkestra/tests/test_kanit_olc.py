@@ -135,6 +135,59 @@ class OlcumCekirdek(unittest.TestCase):
         self.assertEqual(len(K.ornekle(havuz[:3], 10, 42)), 3)
 
 
+class SinifVeItiraz(OlcumCekirdek):
+    """I-226 P7/P8 (ADR-0178): soru turlarında kaynak sınıfı kapsamı ve `ilk_cevap_itiraz` olayı."""
+    SINIFLI = "azure erişimi neden yok?"
+    ITIRAZ = "hayır, nedeni bu değil, private DNS eksik"
+
+    def test_sinif_kapsami_sayilir(self):
+        say, _, _, _ = self.olc(
+            tur(self.SINIFLI, "Ağ ayarı."),                                     # sınıflı + kanıtsız
+            tur(self.SINIFLI, "Ağ ayarı.", [("Bash", {"command": "az x"})]),   # sınıflı + kanıtlı
+            tur("Claude Code'da /plugin komutu ne yapıyor?", "Eklenti kurar."),  # ürün belgesi + kanıtsız
+            tur(SORU, "Bu bir tanımdır."),                                     # sınıf dışı
+        )
+        self.assertEqual(say["notsuz:soru"], 4)
+        self.assertEqual(say["notsuz:sinif_eslesen"], 3)
+        self.assertEqual(say["notsuz:sinif_kanitsiz"], 2)
+        self.assertEqual(say["notsuz:sinif:canli_bulut"], 2)
+        self.assertEqual(say["notsuz:sinif:urun_belgesi"], 1)
+
+    def test_itiraz_kanitsiz_onceki_tur_olay(self):
+        say, _, _, _ = self.olc(tur(self.SINIFLI, "Ağ ayarı."), tur(self.ITIRAZ, "Haklısın."))
+        self.assertEqual(say["notsuz:ilk_cevap_itiraz"], 1)
+        self.assertEqual(say["notsuz:itiraz_onceki_kanitli"], 0)
+
+    def test_itiraz_kanitli_onceki_tur_olay_yok(self):
+        say, _, _, _ = self.olc(tur(self.SINIFLI, "Ağ ayarı.", [("Read", {"file_path": "x"})]), tur(self.ITIRAZ, "Haklısın."))
+        self.assertEqual(say["notsuz:ilk_cevap_itiraz"], 0)
+        self.assertEqual(say["notsuz:itiraz_onceki_kanitli"], 1)
+
+    def test_kisa_komut_olay_yok(self):
+        say, _, _, _ = self.olc(tur(self.SINIFLI, "Ağ ayarı."), tur("hayır", "Tamam."))
+        self.assertEqual(say["notsuz:ilk_cevap_itiraz"], 0)
+
+    def test_kopyalanan_gecmis_iki_kez_sayilmaz(self):
+        # devam ettirilen oturumun dökümü önceki turları kopyalar; aynı itiraz bir kez sayılır
+        z = "2026-11-10T10:00:00Z"
+        turlar_ = (tur(self.SINIFLI, "Ağ ayarı.", zaman=z), tur(self.ITIRAZ, "Haklısın.", zaman=z))
+        yaz(self.yol, *turlar_)
+        ikinci = os.path.join(self.tmp, "b.jsonl")
+        yaz(ikinci, *turlar_)
+        say, _, _, _ = K.olc([self.yol, ikinci], soru_sinif.tur, self.r, "2000-01-01T00:00")
+        self.assertEqual(say["notsuz:ilk_cevap_itiraz"], 1)
+
+    def test_itiraz_kaydi_ornek_icin_tutulur(self):
+        yaz(self.yol, tur(self.SINIFLI, "Ağ ayarı."), tur(self.ITIRAZ, "Haklısın."))
+        itirazlar = []
+        K.olc([self.yol], soru_sinif.tur, self.r, "2000-01-01T00:00", itiraz_havuzu=itirazlar)
+        self.assertEqual(len(itirazlar), 1)
+        i = itirazlar[0]
+        self.assertEqual((i["katman"], i["onceki_sinif"]), ("itiraz", "canli_bulut"))
+        self.assertTrue(i["onceki_istem"].startswith("azure"))
+        self.assertEqual(i["onceki_yanit"], "Ağ ayarı.")
+
+
 class Istatistik(unittest.TestCase):
     def test_jeffreys_katmanli_taban_degerleri(self):
         # P-030 güç hesabı: w=219/557, (4/120, 0/60) → nokta %1,31, üst %4,30; (4/120, 1/100) → %1,92, %4,68
@@ -192,6 +245,23 @@ class Cli(unittest.TestCase):
         self.cli("kanit", "olc", "--gun", "1", "--desen", os.path.join(self.dok, "*.jsonl"),
                  "--ornek", "4", "--dis-ornek", "3", "--cikti", cikti2)
         self.assertEqual(open(cikti, encoding="utf-8").read().split("\n", 1)[1], open(cikti2, encoding="utf-8").read().split("\n", 1)[1])
+
+    def test_olc_itiraz_ve_sinif_satirlari(self):
+        # eski satırlar korunur; P7 kapsam ve P8 itiraz oranı eklenir; itiraz örneği ayrı katmanda
+        turlar = [tur("azure erişimi neden yok?", "Ağ ayarı."), tur("hayır, nedeni bu değil, private DNS eksik", "Haklısın."),
+                  tur(SORU, "Dosya yok.")]
+        yaz(os.path.join(self.dok, "a.jsonl"), *turlar)
+        cikti = os.path.join(self.proje, "ornek.jsonl")
+        r = self.cli("kanit", "olc", "--gun", "1", "--desen", os.path.join(self.dok, "*.jsonl"),
+                     "--ornek", "4", "--dis-ornek", "3", "--itiraz-ornek", "5", "--cikti", cikti)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("soru=2 cerceve_ic=", r.stdout)
+        self.assertIn("kanitsiz_iddiali_oran=", r.stdout)
+        self.assertIn("ilk_cevap_itiraz=1 itiraz_oran=0.500", r.stdout)
+        self.assertIn("sinif_eslesen=1 sinif_kanitsiz=1 sinif_oran=0.500", r.stdout)
+        satirlar = [json.loads(s) for s in open(cikti, encoding="utf-8")]
+        self.assertEqual(satirlar[0]["_meta"]["itiraz_toplam"], 1)
+        self.assertEqual([s["katman"] for s in satirlar[1:]].count("itiraz"), 1)
 
     def test_ana_olcu_etiketli_dosyadan(self):
         dosya = os.path.join(self.proje, "etiketli.jsonl")

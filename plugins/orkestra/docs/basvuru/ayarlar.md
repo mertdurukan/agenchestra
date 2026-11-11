@@ -4,7 +4,7 @@
 
 Kaynak: `ayarlar/*.json`. Proje ezmesi: `.claude/orkestra/<ad>.json`. `mod`: `golge` (uyarır, engellemez), `ihlal` (reddeder), `kapali`.
 
-Toplam 103 ayar; `açıklama yok` işaretli: 34.
+Toplam 104 ayar; `açıklama yok` işaretli: 34.
 
 | Ayar | Mod | Açıklama |
 |---|---|---|
@@ -64,6 +64,7 @@ Toplam 103 ayar; `açıklama yok` işaretli: 34.
 | `kart_kontrol` | ihlal | Kart açılışında her kabul kriteri ölçülebilir 'kontrol:' alanı taşır (komut, dosya:satır ya da sayı) ve ölçüsüz ifade içermez. |
 | `kart_soru` | — | açıklama yok |
 | `kaynak_kira` | ihlal | Makine genelinde test koşusu kirası ve ortak işçi bütçesi (I-309 P4, scripts/kaynak_kira.py). |
+| `kaynak_sinif` | — | ADR-0178 (I-226 P7/P8): soru metninden kaynak sınıfı (yerel, geçmiş oturum, ürün belgesi, canlı bulut), sınıfa göre ilk araç satırı, sınıf anahtarlı gölge Stop kapısı ve kullanıcı itirazı (ilk_cevap_itiraz) olayı. |
 | `kimlik_hatirlatma` | block | açıklama yok |
 | `kok_neden_enjeksiyonu` | etkin | ADR-0101, P-042: sorun/hata anında kök neden önce, çözüm ilk denemede kalıcı. |
 | `konu_defteri` | golge | ADR-0116 sohbet konu defteri. |

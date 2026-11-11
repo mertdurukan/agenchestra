@@ -10,6 +10,7 @@
     "secim_ekrani_yapisal": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "dugmesiz_secim"},
     "konu_disi_oneri": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "konu_disi"},
     "kanitsiz_iddia": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "kanitsiz_iddia"},
+    "kanitsiz_iddia_sinif": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "kanitsiz_iddia_sinif"},
     "kapanis_atlandi": {"tur": "kapi_ret", "ana": "surec", "alt": "kapanis_atlandi"},
     "plan_dogrulama": {"tur": "kapi_ret", "ana": "plan", "alt": "dogrulama"},
     "genis_tarama": {"tur": "yanlis_oneri", "ana": "oneri", "alt": "genis_tarama"},
