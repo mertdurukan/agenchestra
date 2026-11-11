@@ -13,7 +13,7 @@ Dört fikir üzerine kuruludur:
 - **Kalıcı kayıt:** Her iş kendi klasöründe belge bırakır: mevcut durum, plan, todo, çalışma özeti. Sohbet kapansa da iş kaybolmaz.
 - **Kapılar:** Onaysız uygulama, kanıtsız todo, ADR'siz kapanış gibi hatalar kod düzeyinde engellenir.
 
-Orkestra yalnız Claude Code içinde çalışır. Cursor ya da başka editörlerin kendi ajanları eklentiyi yüklemez, ama o editörlerin terminalindeki Claude Code kullanır.
+Orkestra Claude Code içinde tam çalışır. Cursor için ayrı bir sürüm vardır ama sınırlıdır (IDE sınanmadı, model seçimi ve token kaydı yok; ayrıntı için kök README "Bilinen sınırlar"). Başka editörlerin kendi ajanları eklentiyi yüklemez, ama o editörlerin terminalindeki Claude Code kullanır.
 
 ## 2. Kurulum
 
