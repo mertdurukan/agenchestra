@@ -4,15 +4,16 @@
 
 | Madde | Durum | Kanıt / neden |
 |---|---|---|
+| Cursor CLI kurulumu (resmi: `irm 'https://cursor.com/install?win32=true' | iex`, kullanıcı dizini) | Doğrulandı | `agent --version` → 2026.11.11-043ef28; `agent status` → "Not logged in" |
 | Cursor hook adaptörü birim davranışı (komut yeniden yazma, preToolUse failClosed bildirimi, kurulum, rol) | Doğrulandı (yalnız birim testi) | `tests/test_cursor_*.py`, `test_doktor_cursor.py` |
-| `doktor --cursor-sonda` betiği çalışır ve CLI yokken dürüstçe "atlandı" der | Doğrulandı | Bu makinede çıktı: "Cursor CLI (`agent`) PATH'te yok; dinamik sonda koşulamaz" |
-| Dinamik sonda: komut yeniden yazıldı mı, komut Shell'de çıktı verdi mi, oturum kimliği hook ile aynı mı | **Doğrulanmadı** | Bu makinede `agent`/`cursor-agent` yok (yalnız `cursor.cmd` var); sonda koşulamadı |
-| Cursor CLI ile gerçek ajan koşusu | **Doğrulanmadı** | Aynı neden |
+| `doktor --cursor-sonda` betiği çalışır ve CLI yokken dürüstçe "atlandı" der | Doğrulandı | CLI yokken "atlandı", CLI kuruluyken oturumsuz "belirsiz" der (ajan çıktısı: "Authentication required"); yanlışlıkla "geçti" demez |
+| Dinamik sonda: komut yeniden yazıldı mı, komut Shell'de çıktı verdi mi, oturum kimliği hook ile aynı mı | **Doğrulanmadı** | CLI kurulu ama oturum açık değil (`agent login` ya da `CURSOR_API_KEY` gerekir); ajan hiç koşmadı, üç ölçüm "belirsiz" |
+| Cursor CLI ile gerçek ajan koşusu | **Doğrulanmadı** | Aynı neden (oturum yok); model çağrısı yapılmadı, kota harcanmadı |
 | Cursor IDE (grafik arayüz) sürümü | **Doğrulanmadı, kullanıcı elle deneyecek** | Ajan IDE'yi süremez |
-| Denetçi yakalama eval'i (60 vaka) | **Doğrulanmadı** | Gerçek model çağrısı gerekir; Claude kotasını harcayan yol kullanılmadı, Cursor CLI yok. Vaka üretimi (`uret`) doğrulandı: 60 dosya |
+| Denetçi yakalama eval'i (60 vaka) | **Doğrulanmadı** | Gerçek model çağrısı gerekir; Claude kotasını harcayan yol kullanılmadı, Cursor CLI oturumsuz. Vaka üretimi (`uret`) doğrulandı: 60 dosya |
 | `model_politikasi.cursor.json` | Eklenmedi | `model_listesi_pr6.md` bağlayıcı karar belgesi olarak kalır; hiçbir kod okumayacak bir veri dosyası bayatlar. PR-6 tüketiciyi bağlarken eklenir |
 
-Sondayı koşmak için (Cursor CLI kurulunca): `python plugins/orkestra/scripts/orkestra.py doktor --cursor-sonda` (~1 dk, model kullanır).
+Sondayı koşmak için (önce kullanıcı `agent login` yapar; CLI `%USERPROFILE%\.local\bin` ya da `%LOCALAPPDATA%\cursor-agent` altında, PATH'e eklenmesi gerekebilir): `python plugins/orkestra/scripts/orkestra.py doktor --cursor-sonda` (~1 dk, model kullanır).
 
 ## Denetçi eval'ini koşmak (kota harcamadan yol yok)
 
