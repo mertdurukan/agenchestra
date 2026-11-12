@@ -73,7 +73,8 @@ def ajanlar():
 
 
 def cli():
-    env = {**os.environ, "PYTHONUTF8": "1"}
+    # COLUMNS sabit: argparse satır sarmasını terminal genişliğinden alır; üretim ortama göre değişmesin.
+    env = {**os.environ, "PYTHONUTF8": "1", "COLUMNS": "80"}
     r = subprocess.run([sys.executable, str(KOK / "scripts" / "orkestra.py"), "--help"],
                        capture_output=True, text=True, encoding="utf-8", env=env, **cfg.PENCERESIZ)
     return ("# CLI: `orkestra`\n\nKaynak: `scripts/orkestra.py` ve komut modülleri. Aşağıdaki metin `orkestra --help` çıktısıdır; "

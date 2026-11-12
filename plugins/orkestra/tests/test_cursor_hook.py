@@ -108,6 +108,18 @@ def test_komut_satiri_python_c_ile_calisir(tmp_path):
     assert json.loads(p.stdout.decode("utf-8") or "{}") == {} or "additional_context" in p.stdout.decode("utf-8")
 
 
+def test_koruma_kancasi_fail_closed_ve_claude_hook_dokunulmaz():
+    """preToolUse (izin/yazma kapısı) hata ya da zaman aşımında işlemi keser; diğer olaylar fail-open kalır.
+    Claude Code'un hooks.json dosyasında Cursor'a özgü alan bulunmaz."""
+    h = json.load(open(os.path.join(KOK, "hooks", "cursor-hooks.json"), encoding="utf-8"))["hooks"]
+    assert h["preToolUse"][0].get("failClosed") is True
+    for olay, girdiler in h.items():
+        if olay != "preToolUse":
+            assert not any(g.get("failClosed") for g in girdiler), olay
+    claude = open(os.path.join(KOK, "hooks", "hooks.json"), encoding="utf-8").read()
+    assert "failClosed" not in claude
+
+
 def test_user_email_hook_girdisine_gecmez():
     c = ch.girdi_donustur("stop", {"user_email": "a@b.c", "status": "completed"})
     assert "user_email" not in c
