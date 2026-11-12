@@ -231,7 +231,8 @@ def cmd_is_ac(a):
             print(f"orkestra: klasör numarası dolu ya da eksik ({ad}); yeni klasör: {klasor}", file=sys.stderr)
     try:
         kayit = _ik().is_ac(sd, a.baslik, klasor, a.etiket, dogrulama=False if a.dogrulamasiz else None,
-                            devral=a.devral, kademe="kucuk" if a.kucuk else None, kart=kart)
+                            devral=a.devral, kademe=getattr(a, "kademe", None) or ("kucuk" if a.kucuk else None),
+                            kart=kart)
     except _ik().IsKlasoruHatasi as e:
         _davranis_kaydet(sd, "is-klasoru-yanlis", str(e))
         hata(str(e))
@@ -788,6 +789,7 @@ def kapanis_eksigi(sd, kayit, ozetsiz=""):
 def kapat_uygula(sd, is_id):
     """Kapıları geçmiş işi kapatır (etki yeniden doğrulama, harita yenileme, durum, teknik detay)."""
     _etki_kapanis(sd, is_id)
+    _edel_kapanis(sd, is_id)
     _harita_yenile(sd)
     __import__("teslim").bekliyor_yaz(sd, is_id, "")  # I-433: kapanan iş artık karar beklemez
     _ik().is_durum(sd, is_id, "kapandi")
@@ -823,6 +825,60 @@ def cmd_is_teslim(a):
         hata("--pr ya da --inceleme ver")
     t = __import__("teslim").kaydet_girdi(sd, a.is_id, a.pr or "", a.inceleme or "").get("teslim", {})
     print(f"{a.is_id} teslim: pr={t.get('pr', '-')} inceleme={t.get('inceleme', '-')}")
+
+
+def cmd_is_kontrol(a):
+    """ADR-0179: üç kapı için PASS / FAIL / BLOCKED (yan etkisiz). Çıkış: PASS 0, FAIL 1, BLOCKED 2."""
+    import muhendislik_kontrol as MK
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    r = MK.kontrol(kayit["klasor"])
+    if a.kapi:
+        r["kapilar"] = [k for k in r["kapilar"] if k["kapi"] == a.kapi]
+        r["genel"] = r["kapilar"][0]["sonuc"]
+    print(json.dumps(r, ensure_ascii=False, indent=2) if a.json else MK.rapor_metni(r))
+    sys.exit(MK.cikis_kodu(r["genel"]))
+
+
+def cmd_is_kanit(a):
+    """ADR-0179: T'nin komutunu plandan alıp koşar, `kanit.jsonl`a E kaydı yazar. Komut elle verilemez."""
+    import muhendislik_kontrol as MK
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    try:
+        e = MK.kanit_al(kayit["klasor"], int(a.t.lstrip("Tt")),
+                        {"model": a.model, "prompt_surum": a.prompt_surum, "eval_seti": a.eval_seti, "kosu_sayisi": a.kosu},
+                        a.zaman_asimi)
+    except ValueError as ex:
+        hata(f"{a.is_id}: {ex}")
+    print(f"{e['e']} {e['t']}: çıkış {e['cikis']} · {e['sure_sn']} sn · kapsam {e['kapsam_dosya']} dosya · "
+          f"imza {e['kapsam_imza'][:12]}" + (f" · eval {e['eval'].get('kaynak')}" if e.get("eval") else ""))
+    if e["cikis"] != 0:
+        print(e["cikti_ozet"][-600:], file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_is_gorunum(a):
+    """ADR-0179: 01-Baslangic.md, 02-Gelistirme.md, 03-Dogrulama-ve-Yayin.md kayıttan üretilir (elle düzenlenmez)."""
+    import belge_gorunum as BG
+    sd = sd_gerekli()
+    kayit = _is_gerekli(sd, a.is_id)
+    for yol in BG.uret(kayit["klasor"]):
+        rel = os.path.relpath(yol, _proje_koku(sd)).replace(os.sep, "/")
+        print(f"görünüm: [{os.path.basename(yol)}]({rel})")
+
+
+def _edel_kapanis(sd, is_id):
+    """ADR-0179: kapanışta kapı 3 PASS değilse `kapi_golge` (kapi: edel) yazılır. Kapanışı hiçbir koşulda engellemez."""
+    try:
+        kayit = _ik().is_al(sd, is_id) or {}
+        if kayit.get("klasor") and kayit.get("sira"):
+            import muhendislik_kontrol as MK
+            r = MK.kapanis_golge(kayit["klasor"])
+            if r and r["kapilar"][2]["sonuc"] != "PASS":
+                print(f"orkestra (gölge, edel): kapı 3 {r['kapilar'][2]['sonuc']} — `orkestra is kontrol {is_id}`", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001 - kapanış hiçbir koşulda engellenmez
+        print(f"orkestra: uyarı: mühendislik kontrolü yapılamadı ({type(e).__name__}: {L.maskele(str(e))})", file=sys.stderr)
 
 
 def _yerel_birlesme(sd, a, kayit):
@@ -1477,6 +1533,9 @@ def kaydet(alt):
     ia.add_argument("--dogrulamasiz", action="store_true", help="plan ✅/❌ doğrulama bayrağı ve şablonu konmaz (eski plan şablonu)")
     ia.add_argument("--kucuk", action="store_true",
                     help="küçük iş (≤4 araç, ≤2 yazılan dosya, kod yok): ağır plan kapıları gölge günlüğe yazılır, davranış değişmez (ADR-0150)")
+    ia.add_argument("--kademe", choices=["hafif", "standart", "kritik"],
+                    help="risk kademesi (ADR-0179): `is kontrol` kapılarında istenen kontroller ayarlar/edel.json'dan; "
+                    "verilmezse standart, --kucuk hafif sayılır")
     ia.set_defaults(f=cmd_is_ac)
     idv = is_.add_parser("devam")
     idv.add_argument("is_id")
@@ -1499,6 +1558,23 @@ def kaydet(alt):
     ibl.add_argument("--tumu", action="store_true", help="zamana bakmadan klasördeki tüm okunacak belgeler")
     ibl.add_argument("--ek", action="append", default=[], metavar="DOSYA", help="ek dosya yolu (tekrarlanabilir)")
     ibl.set_defaults(f=cmd_is_baglanti)
+    iko = is_.add_parser("kontrol", help="mühendislik kontrolü (ADR-0179): üç kapı için PASS / FAIL / BLOCKED; kademe ayarlar/edel.json")
+    iko.add_argument("is_id")
+    iko.add_argument("--kapi", choices=["1", "2", "3"], help="yalnız bu kapı")
+    iko.add_argument("--json", action="store_true")
+    iko.set_defaults(f=cmd_is_kontrol)
+    ikn = is_.add_parser("kanit", help="T'nin komutunu plandan alıp koşar ve kanit.jsonl'a E kaydı yazar (ADR-0179)")
+    ikn.add_argument("is_id")
+    ikn.add_argument("t", help="T numarası (T3 ya da 3)")
+    ikn.add_argument("--model", help="eval kanıtı: model (çıktıdaki `EDEL_EVAL {json}` satırı önceliklidir)")
+    ikn.add_argument("--prompt-surum", help="eval kanıtı: prompt sürümü")
+    ikn.add_argument("--eval-seti", help="eval kanıtı: eval seti adı/sürümü")
+    ikn.add_argument("--kosu", type=int, help="eval kanıtı: koşu sayısı")
+    ikn.add_argument("--zaman-asimi", type=int, default=900, metavar="SN")
+    ikn.set_defaults(f=cmd_is_kanit)
+    igo = is_.add_parser("gorunum", help="01-Baslangic, 02-Gelistirme, 03-Dogrulama-ve-Yayin görünümlerini kayıttan üretir (ADR-0179)")
+    igo.add_argument("is_id")
+    igo.set_defaults(f=cmd_is_gorunum)
     idr = is_.add_parser("devir")
     idr.add_argument("is_id")
     idr.set_defaults(f=cmd_is_devir)

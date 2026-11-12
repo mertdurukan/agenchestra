@@ -1200,14 +1200,35 @@ def plan_eksikleri(klasor: str) -> list[str]:
             + karar_engeli(klasor) + istek_engeli(klasor) + etki_engeli(klasor))
 
 
+KADEMELER = ("hafif", "standart", "kritik")  # ADR-0179: risk kademesi; kapı gerekleri ayarlar/edel.json'dan
+KADEME_VARSAYILAN = "standart"
+_KADEME_ESANLAM = {"kucuk": "hafif"}  # ADR-0150 değeri geriye uyumlu: küçük iş hafif kademedir
+
+
+def kademe_normal(deger) -> str | None:
+    """Kademe değerini üç değerden birine çevirir (`kucuk` → hafif); tanınmayan değer None."""
+    d = str(deger or "").strip().lower()
+    d = _KADEME_ESANLAM.get(d, d)
+    return d if d in KADEMELER else None
+
+
+def is_kademesi(klasor: str) -> str:
+    """İşin risk kademesi (ADR-0179): is.json `kademe` alanı; yoksa ya da tanınmazsa `standart`."""
+    try:
+        with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
+            return kademe_normal((json.load(f) or {}).get("kademe")) or KADEME_VARSAYILAN
+    except (OSError, ValueError, AttributeError):
+        return KADEME_VARSAYILAN
+
+
 def kucuk_kademe_mi(klasor: str) -> bool:
-    """ADR-0150: is.json `kademe: kucuk` taşıyan sıralı iş (bayraksız işler muaf)."""
+    """ADR-0150: is.json `kademe: kucuk` (ya da ADR-0179 `hafif`) taşıyan sıralı iş (bayraksız işler muaf)."""
     if not sirali_mi(klasor):
         return False
     try:
         with open(os.path.join(klasor, "is.json"), encoding="utf-8") as f:
-            return json.load(f).get("kademe") == "kucuk"
-    except (OSError, ValueError):
+            return kademe_normal(json.load(f).get("kademe")) == "hafif"
+    except (OSError, ValueError, AttributeError):
         return False
 
 

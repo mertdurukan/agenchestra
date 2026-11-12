@@ -41,7 +41,7 @@ Kaynakta geçen 145 değişken. `…_KAPISI=0` ilgili kapıyı kapatır.
 | `ORKESTRA_DAL_TEMIZLE` | dal_temizle.py |
 | `ORKESTRA_DEVIR_ESIGI` | devir_esigi.py |
 | `ORKESTRA_DEVIR_HATIRLATMA` | devir_hatirlatma.py |
-| `ORKESTRA_DOGRULAMA_KAPISI` | is_kaydi.py, plan_dogrulama.py, test_paralel.py |
+| `ORKESTRA_DOGRULAMA_KAPISI` | is_kaydi.py, muhendislik_kontrol.py, plan_dogrulama.py, test_paralel.py |
 | `ORKESTRA_DOKTOR_OTOMATIK` | cfg.py |
 | `ORKESTRA_DURUM_SATIRI` | hook.py |
 | `ORKESTRA_DURUM_YEREL` | ork_lib.py |

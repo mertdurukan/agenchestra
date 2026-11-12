@@ -4,7 +4,7 @@
 
 Kaynak: `ayarlar/*.json`. Proje ezmesi: `.claude/orkestra/<ad>.json`. `mod`: `golge` (uyarır, engellemez), `ihlal` (reddeder), `kapali`.
 
-Toplam 104 ayar; `açıklama yok` işaretli: 34.
+Toplam 105 ayar; `açıklama yok` işaretli: 34.
 
 | Ayar | Mod | Açıklama |
 |---|---|---|
@@ -35,6 +35,7 @@ Toplam 104 ayar; `açıklama yok` işaretli: 34.
 | `devir_hatirlatma` | hatirlat | açıklama yok |
 | `dis_skill_kaynaklari` | — | açıklama yok |
 | `durum_satiri` | acik | mod: acik = iş bağlıyken SessionStart ve UserPromptSubmit bağlamına tek satırlık durum özeti (iş kimliği, onay durumu, sıradaki belge/adım; en çok 200 karakter) eklenir; kapali = eklenmez. |
+| `edel` | golge | Mühendislik kontrolü (EDEL uyarlaması, ADR-0179, I-447). |
 | `etkilenen_karar` | golge | P-056 etkilenen karar yoklaması. |
 | `genis_tarama_hatirlatma` | reddet | açıklama yok |
 | `gorev_alt_turleri` | — | Paket GOREV_ROUTING_56.json (07.11.2026) 56 alt tür önerisi; benchmark edilmedi, yalnız gölge karşılaştırmada kullanılır (I-419). |

@@ -30,3 +30,10 @@
 
 <!-- doldur: uyulacak kural, sınır, süre ya da bütçe, her biri ayrı satır ve kaynağı (kural kimliği, ADR, kullanıcı mesajı); yoksa tek satır: "Yok". -->
 
+
+## Sonuç
+
+<!-- iş sonunda doldur (ADR-0179, kapı 3): her başarı kriteri ayrı satır, tam bu biçimde:
+- **S1:** karşılandı | kısmen | karşılanmadı — kanıt (E kaydı, komut çıktısı, dosya:satır)
+Kriter burada ya da çalışma özetinde S numarasıyla anılmadıkça kapı 3 geçmez. -->
+

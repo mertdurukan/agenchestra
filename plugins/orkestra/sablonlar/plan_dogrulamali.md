@@ -83,6 +83,13 @@ Tahmin ve tercih iddia değildir; "7. Tahminler" bölümüne yaz.
 ```
 Mevcut durumda karşılığı olmayan madde yazılmaz; önce mevcut durum güncellenir. -->
 
+## Doğrulama planı
+
+<!-- doldur (ADR-0179): her sözleşme kriteri (S) en az bir doğrulama senaryosuyla (T) sınanır; geliştirmeden önce yazılır. Biçim, her T ayrı satır:
+- **T1:** S1, S2 — ne sınanır — Komut: `python -m pytest tests/test_x.py -q`
+İsteğe bağlı: `— Eval:` (agentic kanıt; komut çıktısı `EDEL_EVAL` ile başlayan, model, prompt_surum, eval_seti ve kosu_sayisi alanlı tek satır JSON basar), `— Engel: <neden>` (koşulamıyor; kapı BLOCKED), `— Kapsam: `glob, glob`` (imzalanacak dosyalar; yoksa S'ye bağlı P'lerin Yazma alanı).
+Kanıt (E): `orkestra is kanit <iş> T1` komutu planın kendisinden koşar ve kanit.jsonl'a yazar; kapı kararı: `orkestra is kontrol <iş>`. -->
+
 ## Dalgalar
 
 <!-- orkestra is dalga <iş> üretir: dalga başına P listesi, kritik yol, genişlik. Tüm plan tek zincirse (≥3 madde, genişlik 1) şu satırı yaz: **Tam sıralı çünkü:** <her madde bir öncekinin çıktısını okur, ≥15 karakter gerekçe> -->

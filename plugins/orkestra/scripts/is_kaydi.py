@@ -127,6 +127,7 @@ _BELGE_KALIPLARI = (
     (re.compile(r"^bulgu.*\.md$", re.I), "bulgu"),
     (re.compile(r"^jira_onerisi.*\.md$", re.I), "jira önerisi"),
     (re.compile(r"^rapor.*\.md$", re.I), "rapor"),
+    (re.compile(r"^0[123]-(Baslangic|Gelistirme|Dogrulama-ve-Yayin)\.md$"), "aşama görünümü"),  # ADR-0179
 )
 
 
@@ -362,6 +363,12 @@ def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bo
         plan_gorunum.uret(klasor)
     except Exception:
         pass
+    try:  # ADR-0179: aşama görünümleri bir kez üretildiyse kaynakla güncel tutulur
+        import belge_gorunum
+        if belge_gorunum.var_mi(klasor):
+            belge_gorunum.uret(klasor)
+    except Exception:
+        pass
     for ad, gorunum, etiket in (("plan.md", "plan_gorunum.md", "plan dosyası"), ("todo.md", "todo_gorunum.md", "to-do dosyası")):
         yol = os.path.join(klasor, ad)
         if os.path.isfile(yol):
@@ -526,7 +533,12 @@ def is_ac(sd: str, baslik: str, klasor: str, etiketler=None, dogrulama: bool | N
     if kartlar_dis:
         kayit["kart"] = kartlar_dis  # I-433 (ORKESTRA-19): işin dış (Jira) kart anahtarları; orkestra kartları "kartlar"da
     if kademe == "kucuk":
-        kayit["kademe"] = "kucuk"  # ADR-0150: küçük iş; ağır plan kapıları gölge günlüğe yazılır (kucuk_kademe)
+        kayit["kademe"] = "kucuk"  # ADR-0150: küçük iş; ağır plan kapıları gölge günlüğe yazılır (kucuk_kademe); ADR-0179'da hafif sayılır
+    elif kademe:
+        k = SIRA.kademe_normal(kademe)
+        if k is None:
+            raise ValueError(f"tanınmayan kademe: {kademe} (hafif, standart, kritik)")
+        kayit["kademe"] = k  # ADR-0179: risk kademesi; kapı gerekleri ayarlar/edel.json kademe tablosundan
     eski_id = None
     with L.kilit(_is_json_yolu(klasor)):
         if os.path.exists(_is_json_yolu(klasor)):  # klasörde önceki bir işin kaydı varsa ezilmez, yedeklenir

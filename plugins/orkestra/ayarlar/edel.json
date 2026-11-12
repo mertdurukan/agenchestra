@@ -1,0 +1,25 @@
+{
+  "mod": "golge",
+  "aciklama": "Mühendislik kontrolü (EDEL uyarlaması, ADR-0179, I-447). `orkestra is kontrol <iş>` üç kapı için PASS / FAIL / BLOCKED verir; her kademenin kapı başına istediği kontroller aşağıdadır. `is kapat` anında kapı 3 PASS değilse gunluk.jsonl'a `kapi_golge` (kapi: edel) yazılır, kapanış engellenmez. ihlal moduna geçiş: `muhendislik_kontrol.py olc` ölçümünde örneklenen FAIL'lerde yanlış pozitif <= %10 ve ayrı ADR (P-028).",
+  "eval_min_kosu": {"hafif": 1, "standart": 3, "kritik": 5},
+  "kapilar": {
+    "1": {
+      "ad": "Başlangıç",
+      "hafif": ["md_var", "dogrulama_plani"],
+      "standart": ["md_var", "md_gap", "sozlesme_kriter", "dogrulama_plani", "t_s_kapsama"],
+      "kritik": ["md_var", "md_gap", "sozlesme_kriter", "dogrulama_plani", "t_s_kapsama", "yol_karari"]
+    },
+    "2": {
+      "ad": "Geliştirme",
+      "hafif": ["plan_p", "todo_kanit", "todo_tamam", "t_kanit_var"],
+      "standart": ["plan_p", "gap_kapsama", "s_p_bag", "todo_kanit", "todo_tamam", "t_kanit_var"],
+      "kritik": ["plan_p", "gap_kapsama", "s_p_bag", "todo_kanit", "todo_tamam", "t_kanit_var"]
+    },
+    "3": {
+      "ad": "Doğrulama ve yayın",
+      "hafif": ["kanit_gecti", "ozet_var"],
+      "standart": ["kanit_gecti", "kanit_taze", "eval_alanlari", "sozlesme_sonuc", "ozet_var"],
+      "kritik": ["kanit_gecti", "kanit_taze", "eval_alanlari", "sozlesme_sonuc", "ozet_var", "denetci", "teslim"]
+    }
+  }
+}

@@ -139,6 +139,14 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - **Teslim kapısı** (`ayarlar/teslim.json`, `ORKESTRA_TESLIM_KAPISI=0` kapatır): `is kapat`, işin git ağacında `origin` varsa ve iş açıldığından beri kod dosyası değiştiyse PR, CI sonucu (`gh pr view`) ve inceleme kaydını arar. İnceleme kanıtı GitHub onayı ya da `orkestra is teslim <iş> --pr <bağlantı> --inceleme "<kim/ne>"`dir (`is kapat --pr --inceleme` aynı kaydı yapar). Uzak deposuz proje ve yalnız belge işi muaftır. `--ozetsiz` kapanışı teslim kapısını da atlar (hiç iş yapılmayan iş için). Panelden kapatma aynı kapıyı kullanır; ihlal modunda PR kaydı önce `is teslim` ile yapılır. `gh` kurulu değilse ya da PR bulunamazsa eksik "doğrulanamadı" diye yazılır, `--pr`/`--inceleme` kaydı çıkış yoludur.
 - **İzole ortam uyarısı** (`ORKESTRA_IZOLE_UYARI=0` kapatır): kod kartı git deposunun ana çalışma ağacında koşuyorsa `on_kontrol` çıktısında `izole-ortam` uyarısı ve gölge kaydı oluşur. İzole ortam şart değildir; hiçbir modda reddetmez.
 
+## Mühendislik kontrolü: zincir, kademe, üç kapı (ORK-ADR-0179)
+- Zincir: G (mevcut durum gap) → P (`**Gap:**`, `**Sözleşme:**`) → S (sözleşme kriteri) → T (plan `## Doğrulama planı`: `- **T1:** S1 — ne — Komut: `...``; isteğe bağlı `Eval:`, `Engel:`, `Kapsam:`) → E (`kanit.jsonl`). Her S en az bir T ile sınanır; T geliştirmeden önce yazılır.
+- Kanıt yalnız `orkestra is kanit <iş> T<n>` ile alınır: komut plandan okunur, çıkış, commit ve kapsam dosyası imzası yazılır. Kapsam dosyası ya da T komutu sonra değişirse E bayattır, yeniden koşulur. Agentic T (`Eval:`) model, prompt sürümü, eval seti ve koşu sayısı taşır (çıktıda `EDEL_EVAL` JSON satırı ya da `--model --prompt-surum --eval-seti --kosu`).
+- Kademe `is ac --kademe hafif|standart|kritik` (varsayılan standart; `--kucuk` hafiftir). Kapı kontrolleri ve eval asgari koşusu kademeye göre `ayarlar/edel.json`'dadır.
+- `orkestra is kontrol <iş>` kapı 1 (Başlangıç), 2 (Geliştirme), 3 (Doğrulama ve yayın) için PASS/FAIL/BLOCKED verir (çıkış 0/1/2); `Engel:` taşıyan T BLOCKED yapar, FAIL'i örtmez. Kapanıştan önce koşulur; sözleşme `## Sonuç` (ya da çalışma özeti) her S'yi anar.
+- `orkestra is gorunum <iş>` 01-Baslangic, 02-Gelistirme, 03-Dogrulama-ve-Yayin görünümlerini kayıttan üretir; elle düzenlenmez, kaynak düzeltilir.
+- Mod `golge`: `is kapat` kapı 3 PASS değilse `kapi_golge` (kapi: edel) yazar, kapanışı engellemez. İhlale geçiş kapı başına ayrı ORK-ADR ister (P-028).
+
 ## Teknik not
 - İşçi is-bitti'si `--teknik <json_dosya>` (yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler) olmadan geçmez (çıkış 4; kapatma: `ORKESTRA_TEKNIK_KAPISI=0`). Denetçi teknik notun çıktıyla tutarlılığına bakar; tutarsızsa ret.
 
