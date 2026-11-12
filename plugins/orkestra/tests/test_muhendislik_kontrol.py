@@ -326,6 +326,11 @@ class KapiKarari(Fikstur):
         self.yaz(k, "is.json", json.dumps(kayit))
         self.assertEqual(MK.kontrol(k)["genel"], "PASS")
 
+    def test_kapi_denetci_madde_satiri_kabul(self):
+        # is_sirasi best in class bloğu `- **Denetçi:** …` biçimini ister; kapı 3 aynı satırı kabul etmeli
+        self.assertTrue(MK._DENETCI.search("- **Denetçi:** orkestra:denetci abc123 — ONAY"))
+        self.assertFalse(MK._DENETCI.search("- **Denetçi:** yok"))
+
     def test_kapi_gap_ve_s_p_bagi(self):
         k = self.tam_is()
         plan = os.path.join(k, "plan.md")

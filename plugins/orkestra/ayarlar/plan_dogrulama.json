@@ -1,5 +1,7 @@
 {
   "mod": "ihlal",
   "zaman_asimi_sn": 30,
+  "kapsam_kaliplari": ["yalnız\\w*", "sadece", "hiç\\w*", "asla", "tüm\\w*", "bütün\\w*", "daima", "her zaman", "hepsi\\w*", "only", "never", "always", "none of"],
+  "kapsam_aciklama": "Bu kalıplardan biri iddia metninde (kod ve tırnak içi hariç) geçerse iddia yalnız yüklem kanıtıyla (tam `=> N` sayılı ara/say ya da komut) ✅ olur (ADR-0181). Boş liste denetimi kapatır.",
   "aciklama": "mod: golge = todo yazımı engellenmez, uyarı verilir ve gunluk.jsonl'a düşer; ihlal = engelli P<n> için todo yazımı reddedilir. Kapatma: ORKESTRA_DOGRULAMA_KAPISI=0. `orkestra plan dogrula` komutu moddan bağımsız her zaman katı çıkış kodu verir."
 }

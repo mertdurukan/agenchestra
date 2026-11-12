@@ -52,7 +52,8 @@ _ENGEL = re.compile(r"\bEngel:\s*(.+?)(?:\s+—\s|$)")
 _EVAL = re.compile(r"\bEval:")
 _S_NO = re.compile(r"\bS(\d+)\b")
 _G_NO = re.compile(r"\bG(\d+)\b")
-_DENETCI = re.compile(r"^\*\*Denetçi:\*\*[ \t]*orkestra:denetci[ \t]+\S+", re.M)
+# is_sirasi best in class bloğu satırı madde olarak ister (`- **Denetçi:** …`); iki kapı aynı satırı kabul eder.
+_DENETCI = re.compile(r"^(?:[-*][ \t]+)?\*\*Denetçi:\*\*[ \t]*orkestra:denetci[ \t]+\S+", re.M)
 
 
 # --- ayar -------------------------------------------------------------------------------------------------------------

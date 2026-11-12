@@ -6,7 +6,7 @@ Plan sözdizimi (plan.md, her bölümde):
 
     - ⬜ **C1** İddia metni.
       - Kanıt: dosya <yol>:<satır> "<alıntı>"
-      - Kanıt: ara "<regex>" <dosya veya glob>... => <N | >=N>
+      - Kanıt: ara "<regex>" <dosya veya glob | yol.py::Sinif.ad>... => <N | >=N>
       - Kanıt: say <glob> => <N | >=N>
       - Kanıt: komut `<komut>` => <beklenen | çıkış 0>
       - Kanıt: deneme <yol> "<alıntı>"
@@ -17,8 +17,13 @@ Plan maddesi (`### P<n>`) bloğunda `**İddialar:** C1, C2` (bu iddialara dayan�
 (bu iddiayı kapatan spike; ona dayanmış sayılmaz). `**Kök:** <dizin>` satırı dosya yollarının ek kökleridir.
 
 Kanıt derecesi: K = makine yeniden hesaplar (dosya, ara, say, komut); D = kayıtlı deneme dosyası (var ve alıntı tutuyor);
-B = yalnız belge (URL) - tek başına işaret vermez. Makine kanıtın var olduğunu ve alıntının tuttuğunu doğrular;
-kanıtın iddiayı anlamca desteklediğine ayrı denetçi bakar (karar bloğunda yazılı sınır).
+B = yalnız belge (URL) - tek başına işaret vermez.
+
+Kanıt derinliği (ADR-0181): `yuklem` = makine iddianın yüklemini sınar (tam `=> N` sayılı ara/say, komut);
+`varlik` = makine yalnız alıntının ya da dosyanın var olduğunu sınar (dosya, deneme, `>=N`). Yalnız varlık
+kanıtlı ✅ "yorum sınanmadı" diye ayrı sayılır. Kapsam sözcüğü taşıyan iddia (ayarlar `kapsam_kaliplari`)
+yalnız yüklem kanıtıyla ✅ olur. `yol.py::Sinif.ad` aramayı tanımın AST aralığıyla sınırlar. `--yaz` iddia başına
+kanıt izi yazar; kanıt gösterilen içerik değişince plan bayat sayılır.
 """
 from __future__ import annotations
 
@@ -45,8 +50,11 @@ BLOK_BASLA, BLOK_BITIS = "<!-- plan-dogrulama:basla -->", "<!-- plan-dogrulama:b
 PENCERE = 2
 MIN_ALINTI = 4
 VARSAYILAN_ZAMAN_ASIMI = 30
-SINIR_METNI = ("Makine kanıtın var olduğunu ve alıntının tuttuğunu doğrular; kanıtın iddiayı anlamca desteklediğine ayrı "
-               "denetçi bakar. Tahminler ve tercihler doğrulanmaz.")
+SINIR_METNI = ("Yüklem kanıtı (tam sayılı ara/say, komut) iddiayı sınar; dosya ve deneme kanıtı yalnız alıntının "
+               "bulunduğunu sınar, yorumu sınamaz. Yalnız alıntılı ✅'ların anlamına ayrı denetçi bakar. "
+               "Tahminler ve tercihler doğrulanmaz.")
+YUKLEM, VARLIK = "yuklem", "varlik"
+IZ_YOK = "<yok>"
 
 _MD_BAGLANTI = re.compile(r"\(mevcut_durum_\d+\.md\)")
 _YORUM = re.compile(r"<!--.*?-->", re.S)
@@ -61,6 +69,8 @@ _DENEME = re.compile(r'^(?P<yol>\S+)\s+"(?P<alinti>.+)"$')
 _KAYNAK = re.compile(r'^(?P<url>https?://\S+)\s+"(?P<alinti>.+?)"\s+(?P<tarih>\d{2}\.\d{2}\.\d{4})$')
 _P_ALAN = {"iddia": re.compile(r"\*\*İddialar:\*\*[ \t]*(.*)"), "kapatir": re.compile(r"\*\*Kapatır:\*\*[ \t]*(.*)")}
 _KOK = re.compile(r"^\*\*Kök:\*\*[ \t]*(.+)$", re.M)
+_TANIM = re.compile(r"^(?P<yol>.+?\.py)::(?P<ad>[A-Za-z_][\w.]*)$")
+_KOD_ALINTI = re.compile(r"`[^`]*`|\"[^\"]*\"")
 _C_NO = re.compile(r"\bC(\d+)\b")
 
 # komut kanıtında çalıştırılmayan kalıplar (yazma, silme, ağ, git yazma, kabuk yazımı); liste tam değildir,
@@ -254,22 +264,65 @@ def _k_dosya(deger, kokler):
     return True, "K", f"{m.group('yol')}:{n} alıntı tuttu"
 
 
+def _tanim_araligi(metin: str, ad: str) -> tuple[int, int] | None:
+    """`Sinif.ad` ya da `ad` tanımının (dekoratörler dahil) 1 tabanlı satır aralığı; bulunamazsa None."""
+    import ast
+    try:
+        agac = ast.parse(metin)
+    except (SyntaxError, ValueError):
+        return None
+    govde = agac.body
+    dugum = None
+    for parca in ad.split("."):
+        dugum = next((d for d in govde if isinstance(d, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                      and d.name == parca), None)
+        if dugum is None:
+            return None
+        govde = dugum.body
+    bas = min([dugum.lineno] + [d.lineno for d in dugum.decorator_list])
+    return bas, dugum.end_lineno or dugum.lineno
+
+
+def ara_metinleri(desenler: str, kokler: list[str]) -> tuple[list[tuple[str, str]], str]:
+    """Arama hedeflerinin [(yol, aranacak metin)] listesi ve hata metni. `yol.py::Sinif.ad` yalnız tanımın
+    satırlarını verir; tanım bulunamazsa ya da dosya .py değilse hata döner (sessizce boş sayılmaz)."""
+    sonuc = []
+    for d in desenler.split():
+        t = _TANIM.match(d)
+        if "::" in d and not t:
+            return [], f"tanım kapsamı yalnız .py dosyasında: {d}"
+        if t:
+            dosyalar = _dosyalar(t.group("yol"), kokler)
+            if not dosyalar:
+                return [], f"dosya bulunamadı: {t.group('yol')}"
+            for p in dosyalar:
+                metin = _oku(p) or ""
+                aralik = _tanim_araligi(metin, t.group("ad"))
+                if aralik is None:
+                    return [], f"tanım bulunamadı: {d}"
+                satirlar = metin.split("\n")
+                sonuc.append((p, "\n".join(satirlar[aralik[0] - 1:aralik[1]])))
+        else:
+            sonuc += [(p, _oku(p) or "") for p in _dosyalar(d, kokler)]
+    if not sonuc:
+        return [], f"dosya bulunamadı: {desenler}"
+    return sonuc, ""
+
+
 def _k_ara(deger, kokler):
     m = _ARA.match(deger)
     if not m:
-        return False, "K", 'bozuk: `ara "<regex>" <dosya>... => <N|>=N>` olmalı'
+        return False, "K", 'bozuk: `ara "<regex>" <dosya | yol.py::ad>... => <N|>=N>` olmalı'
     try:
         rx = re.compile(m.group("re"), re.M)
     except re.error as e:
         return False, "K", f"regex geçersiz: {e}"
-    dosyalar = []
-    for d in m.group("dosyalar").split():
-        dosyalar += _dosyalar(d, kokler)
-    if not dosyalar:
-        return False, "K", f"dosya bulunamadı: {m.group('dosyalar')}"
-    toplam = sum(len(rx.findall(_oku(p) or "")) for p in dosyalar)
+    metinler, hata = ara_metinleri(m.group("dosyalar"), kokler)
+    if hata:
+        return False, "K", hata
+    toplam = sum(len(rx.findall(t)) for _, t in metinler)
     ok = _sayi_tut(toplam, m.group("bek"))
-    return ok, "K", f"{len(dosyalar)} dosyada {toplam} eşleşme; beklenen {m.group('bek')}"
+    return ok, "K", f"{len(metinler)} hedefte {toplam} eşleşme; beklenen {m.group('bek')}"
 
 
 def _k_say(deger, kokler):
@@ -366,27 +419,123 @@ def kanit_dogrula(kanit: dict, kokler: list[str], proje: str, kos: bool = True, 
     return False, "?", f"bilinmeyen kanıt türü: {tur or '(boş)'} (dosya|ara|say|komut|deneme|kaynak)"
 
 
+def kanit_derinligi(kanit: dict) -> str:
+    """`yuklem`: makine iddianın yüklemini sınar (tam sayılı ara/say, komut). `varlik`: yalnız alıntı ya da dosya
+    varlığı (dosya, deneme, `>=N`). Kaynak (B) derinlik taşımaz ama işaret de vermez."""
+    tur, deger = kanit["tur"], kanit["deger"].strip()
+    if tur == "komut":
+        return YUKLEM
+    if tur in ("ara", "say"):
+        m = (_ARA if tur == "ara" else _SAY).match(deger)
+        return YUKLEM if m and not m.group("bek").replace(" ", "").startswith(">=") else VARLIK
+    return VARLIK
+
+
+def kapsam_derleyici(kaliplar: list[str] | None):
+    """Ayardaki kapsam kalıplarından tek regex; kalıp yoksa None (denetim kapalı)."""
+    kaliplar = [k for k in (kaliplar or []) if k]
+    if not kaliplar:
+        return None
+    return re.compile(r"(?<![\wçğıöşü])(?:" + "|".join(kaliplar) + r")(?![\wçğıöşü])", re.I)
+
+
+def _kucuk(s: str) -> str:
+    return s.replace("İ", "i").replace("I", "ı").lower()
+
+
+def kapsam_sozcugu(metin: str, rx) -> str:
+    """İddia metnindeki kapsam sözcüğü (kod ve tırnak içi hariç); yoksa boş."""
+    if rx is None:
+        return ""
+    m = rx.search(_kucuk(_KOD_ALINTI.sub(" ", metin or "")))
+    return m.group(0) if m else ""
+
+
+# ---------------------------------------------------------------- kanıt izi (ADR-0181)
+
+def _goreli(p: str, kokler: list[str]) -> str:
+    for k in kokler:
+        try:
+            r = os.path.relpath(p, k)
+        except ValueError:
+            continue
+        if not r.startswith(".."):
+            return r.replace("\\", "/")
+    return p.replace("\\", "/")
+
+
+def kanit_icerigi(kanit: dict, kokler: list[str]) -> str | None:
+    """Kanıtın okuduğu içerik (iz için). komut ve kaynak için None: todo kapısı komut koşmaz, kaynak ölçülmez."""
+    tur, deger = kanit["tur"], kanit["deger"].strip()
+    if tur == "dosya":
+        m = _DOSYA.match(deger)
+        yol = _coz(m.group("yol"), kokler) if m else None
+        if yol is None:
+            return IZ_YOK
+        satirlar = (_oku(yol) or "").split("\n")
+        n = int(m.group("satir"))
+        return _norm(" ".join(satirlar[max(0, n - 1 - PENCERE):n + PENCERE]))
+    if tur == "ara":
+        m = _ARA.match(deger)
+        if not m:
+            return IZ_YOK
+        try:
+            rx = re.compile(m.group("re"), re.M)
+        except re.error:
+            return IZ_YOK
+        metinler, hata = ara_metinleri(m.group("dosyalar"), kokler)
+        if hata:
+            return IZ_YOK
+        # yüklem sonucu: hangi hedefte kaç eşleşme (ilgisiz satır değişince iz değişmez)
+        return "|".join(f"{_goreli(p, kokler)}={len(rx.findall(t))}" for p, t in metinler)
+    if tur == "say":
+        m = _SAY.match(deger)
+        return "|".join(_goreli(p, kokler) for p in _dosyalar(m.group("glob"), kokler)) if m else IZ_YOK
+    if tur == "deneme":
+        m = _DENEME.match(deger)
+        yol = _coz(m.group("yol"), kokler) if m else None
+        return _norm(_oku(yol) or "") if yol else IZ_YOK
+    return None
+
+
+def iddia_izi(c: dict, kokler: list[str]) -> str | None:
+    """İddianın komut ve kaynak dışındaki kanıtlarının okuduğu içeriğin 8 haneli sha256'sı; iz verecek kanıt yoksa None."""
+    parcalar = [x for x in (kanit_icerigi(k, kokler) for k in c["kanitlar"]) if x is not None]
+    if not parcalar:
+        return None
+    return hashlib.sha256("\n\x1e".join(parcalar).encode("utf-8")).hexdigest()[:8]
+
+
 # ---------------------------------------------------------------- iddia ve plan kararı
 
-def iddia_degerlendir(c: dict, kokler, proje, kos=True, zaman_asimi=VARSAYILAN_ZAMAN_ASIMI) -> dict:
-    """c'ye `hesap` (✅/❌), `neden`, `sonuclar`, `bozuk` ekler ve döndürür."""
+def iddia_degerlendir(c: dict, kokler, proje, kos=True, zaman_asimi=VARSAYILAN_ZAMAN_ASIMI, kapsam_rx=None) -> dict:
+    """c'ye `hesap` (✅/❌), `neden`, `derinlik` (✅ ise yuklem|varlik), `kapsam` (sözcük), `sonuclar`, `bozuk` ekler."""
     sonuclar, bozuk = [], []
     for k in c["kanitlar"]:
         ok, derece, mesaj = kanit_dogrula(k, kokler, proje, kos, zaman_asimi)
-        sonuclar.append({"tur": k["tur"], "derece": derece, "gecti": ok, "mesaj": mesaj})
+        sonuclar.append({"tur": k["tur"], "derece": derece, "gecti": ok, "mesaj": mesaj, "derinlik": kanit_derinligi(k)})
         if mesaj.startswith("bozuk") or derece == "?":
             bozuk.append(f"C{c['no']} kanıt satırı {k['satir'] + 1}: {mesaj}")
     gecen = [s for s in sonuclar if s["derece"] in ("K", "D") and s["gecti"] is True]
     kalan = [s for s in sonuclar if s["derece"] in ("K", "D") and s["gecti"] is False]
+    yuklemli = any(s["derinlik"] == YUKLEM for s in gecen)
+    kapsam = kapsam_sozcugu(c["metin"], kapsam_rx)
+    derinlik = ""
     if not c["kanitlar"]:
         hesap, neden = YOK, "kanıt satırı yok"
     elif kalan:
         hesap, neden = YOK, "kanıt tutmuyor: " + "; ".join(f"{s['tur']}: {s['mesaj']}" for s in kalan[:2])
+    elif gecen and kapsam and not yuklemli:
+        hesap, neden = YOK, (f"kapsam iddiası ('{kapsam}') yüklem kanıtı ister: alıntı tek örneği gösterir; "
+                             "`ara \"<re>\" yol.py::ad => N` ya da `komut` ile sına")
     elif gecen:
-        hesap, neden = TAMAM, "; ".join(f"{s['derece']}:{s['tur']}" for s in gecen)
+        derinlik = YUKLEM if yuklemli else VARLIK
+        neden = "; ".join(f"{s['derece']}:{s['tur']}" for s in gecen)
+        hesap, neden = TAMAM, neden + ("" if yuklemli else " (yalnız alıntı/varlık; yorum sınanmadı)")
     else:
         hesap, neden = YOK, "yalnız belge kanıtı; ölçülmedi"
     c["hesap"], c["neden"], c["sonuclar"], c["bozuk"] = hesap, neden, sonuclar, bozuk
+    c["derinlik"], c["kapsam"] = derinlik, kapsam
     return c
 
 
@@ -406,8 +555,12 @@ def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = 
         raise ValueError(f"plan okunamadı: {plan_yolu}")
     proje = proje_koku(plan_yolu)
     kokler = kokler_plan(metin, os.path.dirname(os.path.abspath(plan_yolu)), proje, ek_kokler)
-    zaman_asimi = zaman_asimi or ayar(proje).get("zaman_asimi_sn", VARSAYILAN_ZAMAN_ASIMI)
-    iddialar = [iddia_degerlendir(c, kokler, proje, kos, zaman_asimi) for c in iddialari_ayristir(metin)]
+    ay = ayar(proje)
+    zaman_asimi = zaman_asimi or ay.get("zaman_asimi_sn", VARSAYILAN_ZAMAN_ASIMI)
+    kapsam_rx = kapsam_derleyici(ay.get("kapsam_kaliplari"))
+    iddialar = [iddia_degerlendir(c, kokler, proje, kos, zaman_asimi, kapsam_rx) for c in iddialari_ayristir(metin)]
+    for c in iddialar:
+        c["iz"] = iddia_izi(c, kokler)
     maddeler = plan_maddeleri(metin)
     eksik, bayat = [], []
     kimlikler = {}
@@ -454,7 +607,7 @@ def degerlendir(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = 
         karar = KARAR_KOSULLU
     return {"plan": os.path.abspath(plan_yolu), "ozet": ozet(metin), "karar": karar, "eksik": eksik, "bayat": bayat, "iddialar": iddialar,
             "engelli": engelli, "engelsiz": engelsiz, "yetim": [c["no"] for c in yetim], "bagli": sorted(bagli),
-            "gap": gap, "yol": _yol_sonucu(metin, plan_yolu, kokler),
+            "gap": gap, "yol": _yol_sonucu(metin, plan_yolu, kokler), "ek_kokler": list(ek_kokler or []),
             "tahmin_sayisi": len(re.findall(r"^\s*[-*]\s+\*\*T\d+\*\*", "\n".join(temiz_satirlar(blok_ayikla(metin))), re.M))}
 
 
@@ -478,9 +631,23 @@ def _zaman() -> str:
     return datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
 
 
+def sayim(iddialar: list[dict]) -> dict:
+    """✅ yüklemle, ✅ yalnız alıntı/varlık, ❌ sayıları ve yalnız alıntılı iddia numaraları."""
+    tamam = [c for c in iddialar if c["hesap"] == TAMAM]
+    alintili = [c["no"] for c in tamam if c.get("derinlik") != YUKLEM]
+    return {"toplam": len(iddialar), "tamam": len(tamam), "yuklem": len(tamam) - len(alintili),
+            "alinti": len(alintili), "yok": sum(c["hesap"] == YOK for c in iddialar), "alintili": alintili}
+
+
+def sayim_metni(iddialar: list[dict]) -> str:
+    s = sayim(iddialar)
+    return (f"{s['toplam']} (✅ {s['tamam']}: yüklemle {s['yuklem']}, yalnız alıntı/varlık {s['alinti']}; "
+            f"❌ {s['yok']})")
+
+
 def karar_blogu(sonuc: dict, ozet_degeri: str) -> str:
     iddialar = sonuc["iddialar"]
-    t, y = sum(c["hesap"] == TAMAM for c in iddialar), sum(c["hesap"] == YOK for c in iddialar)
+    say = sayim(iddialar)
     n_p = len(sonuc["engelli"]) + len(sonuc["engelsiz"])
     if sonuc["karar"] == KARAR_TAMAMLANMAMIS:
         gerekce = f"{len(sonuc['eksik'])} yapısal eksik var; eksikler giderilmeden karar verilmez."
@@ -493,7 +660,15 @@ def karar_blogu(sonuc: dict, ozet_degeri: str) -> str:
                    "dayandığı için bekler.")
     s = [BLOK_BASLA, "## Uygulanabilirlik kararı", "", f"**Karar:** {sonuc['karar']}", "", f"**Gerekçe:** {gerekce}", "",
          f"**Ölçüm saati:** {_zaman()} (yerel)", "", f"**Plan özeti:** {ozet_degeri}", "",
-         f"**İddialar:** {len(iddialar)} (✅ {t}, ❌ {y}); tahmin: {sonuc['tahmin_sayisi']}", ""]
+         f"**İddialar:** {sayim_metni(iddialar)}; tahmin: {sonuc['tahmin_sayisi']}", ""]
+    if say["alintili"]:
+        s += ["**Yorumu sınanmayan ✅ (yalnız alıntı/varlık):** " + ", ".join(f"C{n}" for n in say["alintili"])
+              + " — alıntı bulundu; iddianın yorumu makineyle sınanmadı", ""]
+    izler = [f"C{c['no']}={c['iz']}" for c in iddialar if c.get("iz")]
+    if izler:
+        s += ["**Kanıt izi:** " + " ".join(izler), ""]
+    if sonuc.get("ek_kokler"):
+        s += ["**Ek kökler:** " + "; ".join(sonuc["ek_kokler"]), ""]
     if sonuc.get("gap"):
         g = sonuc["gap"]
         s += [f"**Gap kapsaması:** {'tam' if not g['eksik'] else str(g['eksik']) + ' eksik'} (MD gap bölümü: {g['toplam']} gap)", ""]
@@ -564,14 +739,14 @@ def yaz(plan_yolu: str, ek_kokler: list[str] | None = None, kos: bool = True) ->
 
 def ayar(proje: str | None = None) -> dict:
     kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    veri = {"mod": "golge", "zaman_asimi_sn": VARSAYILAN_ZAMAN_ASIMI}
+    veri = {"mod": "golge", "zaman_asimi_sn": VARSAYILAN_ZAMAN_ASIMI, "kapsam_kaliplari": []}
     for yol in (os.path.join(kok, "ayarlar", "plan_dogrulama.json"),
                 os.path.join(proje or os.getcwd(), ".claude", "orkestra", "plan_dogrulama.json")):
         try:
             with open(yol, encoding="utf-8") as f:
                 d = json.load(f)
             if isinstance(d, dict):
-                veri.update({k: d[k] for k in ("mod", "zaman_asimi_sn") if k in d})
+                veri.update({k: d[k] for k in ("mod", "zaman_asimi_sn", "kapsam_kaliplari") if k in d})
         except (OSError, ValueError):
             pass
     return veri
@@ -588,8 +763,28 @@ def dogrulamali_mi(klasor: str) -> bool:
         return False
 
 
+def degisen_izler(plan_yolu: str, metin: str, blok: str) -> list[int]:
+    """Bloktaki kanıt izini yeniden hesaplar; içeriği değişen iddiaların numaraları. İz satırı yoksa []
+    (eski blok eskisi gibi sınanır)."""
+    m = re.search(r"^\*\*Kanıt izi:\*\*\s*(.+)$", blok, re.M)
+    if not m:
+        return []
+    kayitli = {int(n): h for n, h in re.findall(r"C(\d+)=([0-9a-f]{8})", m.group(1))}
+    e = re.search(r"^\*\*Ek kökler:\*\*\s*(.+)$", blok, re.M)
+    ek = [x.strip() for x in e.group(1).split(";") if x.strip()] if e else []
+    kokler = kokler_plan(metin, os.path.dirname(os.path.abspath(plan_yolu)), proje_koku(plan_yolu), ek)
+    simdi = {c["no"]: c for c in iddialari_ayristir(metin)}
+    degisen = []
+    for no, h in sorted(kayitli.items()):
+        c = simdi.get(no)
+        if c is None or iddia_izi(c, kokler) != h:
+            degisen.append(no)
+    return degisen
+
+
 def blok_oku(plan_yolu: str) -> dict | None:
-    """Karar bloğundan {karar, ozet, guncel, engelli:[P no]}; blok yoksa None."""
+    """Karar bloğundan {karar, ozet, guncel, engelli:[P no], degisen:[C no]}; blok yoksa None. guncel = plan metni
+    değişmedi VE kanıt gösterilen içerik değişmedi."""
     metin = _oku(plan_yolu)
     if metin is None:
         return None
@@ -601,8 +796,13 @@ def blok_oku(plan_yolu: str) -> dict | None:
     o = re.search(r"\*\*Plan özeti:\*\*\s*(\w+)", blok)
     bol = blok.split("**Engelli plan maddeleri:**", 1)
     engelli = sorted({int(x) for x in re.findall(r"^- Madde P(\d+) ←", bol[1], re.M)}) if len(bol) == 2 else []
+    metin_guncel = bool(o) and o.group(1) == ozet(metin)
+    try:
+        degisen = degisen_izler(plan_yolu, metin, blok) if metin_guncel else []
+    except Exception:  # iz hesabı todo kapısını düşürmesin; eski davranışa döner
+        degisen = []
     return {"karar": k.group(1) if k else "", "ozet": o.group(1) if o else "", "engelli": engelli,
-            "guncel": bool(o) and o.group(1) == ozet(metin)}
+            "degisen": degisen, "guncel": metin_guncel and not degisen}
 
 
 def _ihlal_ver(klasor: str, neden: str) -> str:
@@ -629,6 +829,10 @@ def todo_onkosulu(klasor: str) -> str:
     b = blok_oku(os.path.join(klasor, "plan.md"))
     if b is None:
         return _ihlal_ver(klasor, "plan doğrulaması yok: `orkestra plan dogrula <iş> --yaz` ile planı doğrula, sonra todo yaz.")
+    if b.get("degisen"):
+        adlar = ", ".join(f"C{n}" for n in b["degisen"])
+        return _ihlal_ver(klasor, f"kanıt değişti ({adlar}): bu iddiaların gösterdiği içerik `--yaz`tan sonra değişti; "
+                                  "iddiayı ve ona dayanan plan maddesini revize et, sonra `orkestra plan dogrula <iş> --yaz`.")
     if not b["guncel"]:
         return _ihlal_ver(klasor, "plan doğrulaması güncel değil (plan sonradan değişti): `orkestra plan dogrula <iş> --yaz`.")
     if b["karar"] == KARAR_TAMAMLANMAMIS:

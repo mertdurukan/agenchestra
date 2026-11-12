@@ -45,6 +45,11 @@ Her sonuç tek bir doğrulanabilir cümledir (iddia). İşareti (✅ ❌) sen ya
   - Kanıt: komut `komut` => beklenen çıktı parçası
   - Kanıt: deneme yol/deneme.md "alıntı"
   - Kanıt: kaynak https://adres "alıntı" GG.AA.YYYY   (tek başına ✅ vermez)
+  - Kanıt: ara "regex" yol/dosya.py::Sinif.fonksiyon => 1   (yalnız o tanımın içinde arar)
+
+Kanıt derinliği: tam sayılı ara/say ve komut iddiayı sınar (yüklem). dosya, deneme ve >=N yalnız alıntının bulunduğunu sınar; yorumu sınamaz.
+Kapsam sözcüğü (yalnız, hiç, tümü, asla, only, never…) taşıyan iddia yüklem kanıtı ister; yalnız alıntıyla ❌ olur. Örnek: "X yalnız modüle bakar" için fonksiyonun tamamında `ara "provider" yol.py::X => 0`.
+Kanıtın okuduğu içerik değişirse karar bloğu bayatlar; plan yeniden doğrulanır.
 
 Kanıtı olmayan ya da yalnız belgeye dayanan iddia ❌ kalır; her ❌ iddia şunlardan en az birini taşır:
   - Spike: hangi denemenin iddiayı kapatacağı

@@ -1297,6 +1297,14 @@ def pre_tool_use(inp: dict):
             _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + chr(10) + of).strip()
     except Exception:
         pass
+    if arac == "Read":  # ADR-0181: kısmi okuma anında kapsam sınırı (engellemez, oturum+dosya başına bir kez)
+        try:
+            import kapsam_iddia as _ki
+            kn = _ki.okuma_notu(sd, inp.get("session_id"), arac, girdi, inp.get("cwd"))
+            if kn:
+                _BEKLEYEN_UYARI = (_BEKLEYEN_UYARI + chr(10) + kn).strip()
+        except Exception:
+            pass
 
     if arac in YAZAN_ARACLAR:  # ADR-0111: tabi olunan denetimin kuralı yazım anında (engellemez)
         try:
@@ -2015,6 +2023,21 @@ def _kanitsiz_iddia_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _kapsam_iddia_yanit(sd: str, oid, inp: dict) -> None:
+    """ADR-0181: turdaki her Read kısmi, arama yok ve yanıt kod adıyla kapsam iddiası (yalnız/hiç/tümü) kuruyorsa
+    günlüğe `kural_ihlal / kapsam_iddia` yazılır. Yalnız gölge (P-028); cümlenin kendisi yazılmaz, sözcük yazılır."""
+    try:
+        import kapsam_iddia as KA
+        b = KA.degerlendir(inp.get("transcript_path"), sd)
+        if not b:
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {
+            "zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal", "kural": KA.KURAL, "mod": "golge",
+            "sozcuk": b["sozcuk"], "okuma": b["okuma"], "is": _oturum_isi(sd, oid)})
+    except Exception:
+        return
+
+
 def _kanitsiz_iddia_sinif_yanit(sd: str, oid, inp: dict) -> None:
     """ADR-0178 (I-226 P7): bilgi sorusu bir kaynak sınıfına eşleşti ve turda kanıt aracı yoksa günlüğe
     `kural_ihlal / kanitsiz_iddia_sinif` (sınıf alanıyla) yazılır. Yalnız gölge: block ve kullanıcı uyarısı yok (P-028).
@@ -2407,6 +2430,7 @@ def stop(inp: dict):
         _auto_devam_yanit(sd, oid, inp)
         _kanitsiz_iddia_yanit(sd, oid, inp)
         _kanitsiz_iddia_sinif_yanit(sd, oid, inp)
+        _kapsam_iddia_yanit(sd, oid, inp)
         _onleme_yanit(sd, oid, inp)
         _kapanis_surec_yanit(sd, oid, inp)
         _yapamam_yanit(sd, oid, inp)

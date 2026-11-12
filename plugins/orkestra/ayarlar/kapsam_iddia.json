@@ -1,0 +1,12 @@
+{
+  "mod": "golge",
+  "okuma_notu": true,
+  "not_metni": "orkestra: {ad} kısmi okundu ({bas}-{bit}). Bu aralık dışı için yalnız/hiç/tümü deme; tamamı için tanımı oku ya da Grep ile say.",
+  "not_azami": 220,
+  "satir_sayimi_bayt": 2000000,
+  "arama_araclari": ["Grep", "Glob"],
+  "arama_aciklama": "Kabuk çağrısı tümüyle kanıt sayılmaz: 12.11.2026 ölçümünde (200 döküm) bu, 2 yanlış pozitifle birlikte 1 doğru bulguyu da düşürdü (kesinlik %40 → %33). Yalnız arama komutları sayılır.",
+  "arama_komut_kaliplari": ["\\bgrep\\b", "\\brg\\b", "Select-String", "\\bfindstr\\b", "\\bsls\\b"],
+  "kuyruk_bayt": 2000000,
+  "aciklama": "ADR-0181. mod: golge = Stop'ta kısmi okumadan kapsam iddiası gunluk.jsonl'a kural_ihlal/kapsam_iddia olarak yazılır, block yok; kapali = not ve ölçüm kapalı. İhlale geçiş ölçülmüş kesinlik ≥%75 ve ayrı ADR ister. Kapsam kalıpları plan_dogrulama.json kapsam_kaliplari'ndan gelir. ORKESTRA_KAPSAM_KAPISI=0 kapatır."
+}

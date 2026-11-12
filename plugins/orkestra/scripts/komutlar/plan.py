@@ -44,17 +44,21 @@ def cmd_plan_dogrula(a):
         hata(str(e))
     if a.json:
         cikti = {k: v for k, v in sonuc.items() if k != "iddialar"}
+        cikti["sayim"] = PD.sayim(sonuc["iddialar"])
         cikti["iddialar"] = [{"no": c["no"], "isaret": c["isaret"], "hesap": c["hesap"], "neden": c["neden"],
+                              "derinlik": c.get("derinlik", ""), "kapsam": c.get("kapsam", ""), "iz": c.get("iz"),
                               "metin": c["metin"], "kanit": c["sonuclar"], "cikis": c["cikis"]} for c in sonuc["iddialar"]]
         print(json.dumps(cikti, ensure_ascii=False, indent=2))
     else:
-        t = sum(c["hesap"] == PD.TAMAM for c in sonuc["iddialar"])
-        y = sum(c["hesap"] == PD.YOK for c in sonuc["iddialar"])
+        say = PD.sayim(sonuc["iddialar"])
         print(f"plan: {yol}")
         print(f"karar: {sonuc['karar']}")
-        print(f"iddialar: {len(sonuc['iddialar'])} (✅ {t}, ❌ {y}); plan özeti {sonuc['ozet']}" + (" (yazıldı)" if a.yaz else ""))
+        print(f"iddialar: {PD.sayim_metni(sonuc['iddialar'])}; plan özeti {sonuc['ozet']}" + (" (yazıldı)" if a.yaz else ""))
         for c in sonuc["iddialar"]:
-            print(f"  {c['hesap']} C{c['no']} {c['metin'][:70]} — {c['neden'][:110]}")
+            etiket = {PD.YUKLEM: " [yüklem]", PD.VARLIK: " [yalnız alıntı]"}.get(c.get("derinlik"), "")
+            print(f"  {c['hesap']}{etiket} C{c['no']} {c['metin'][:70]} — {c['neden'][:110]}")
+        if say["alintili"]:
+            print(f"  not: {', '.join(f'C{n}' for n in say['alintili'])} yalnız alıntı/varlıkla ✅; yorum makineyle sınanmadı")
         for n, s in sonuc["engelli"].items():
             print(f"  engelli: P{n} ← " + ", ".join(f"C{x}" for x in s))
         for e in sonuc["eksik"]:
