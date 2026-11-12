@@ -24,16 +24,25 @@ def baglanti_mi(yol):
     return bool(junction and junction(yol))
 
 
+def kopyalanir(goreli):
+    """Göreli yol (/ ya da \\ ile) kopya kümesinde mi? Kopya, bayatlık ve doktor aynı kümeyi bu yüklemle görür."""
+    parcalar = goreli.replace("\\", "/").split("/")
+    ad = parcalar[-1]
+    if any(p in HARIC_DIZIN for p in parcalar[:-1]):
+        return False
+    return ad not in HARIC_DOSYA and not ad.endswith(HARIC_UZANTI)
+
+
 def dosyalar(kok):
     """Kopyalanacak dosyalar: {göreli yol (/ ile): mutlak yol}."""
     sonuc = {}
     for dizin, altlar, adlar in os.walk(kok):
         altlar[:] = [a for a in altlar if a not in HARIC_DIZIN]
         for ad in adlar:
-            if ad in HARIC_DOSYA or ad.endswith(HARIC_UZANTI):
-                continue
             yol = os.path.join(dizin, ad)
-            sonuc[os.path.relpath(yol, kok).replace(os.sep, "/")] = yol
+            goreli = os.path.relpath(yol, kok).replace(os.sep, "/")
+            if kopyalanir(goreli):
+                sonuc[goreli] = yol
     return sonuc
 
 

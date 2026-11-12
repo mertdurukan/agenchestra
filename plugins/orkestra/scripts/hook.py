@@ -3332,6 +3332,22 @@ def _ss_birinci_satir(sd: str, bagli: str | None, ks: list) -> tuple[str, str]:
     return ilk, not_satiri
 
 
+def guncellik_satirlari(onbellek: dict) -> list[str]:
+    """Bakım önbelleğinden güncellik uyarıları: kopya farkı (bayatlik) ve GitHub main'deki yeni sürüm (surum). Ağ yok."""
+    s = []
+    if not isinstance(onbellek, dict):
+        return s
+    b = onbellek.get("bayatlik")
+    if isinstance(b, dict) and b.get("farkli"):
+        s.append(f"UYARI: çalışan orkestra kopyası yayın klonundan {b['farkli']} dosya farklı; `orkestra guncelle`")
+    v = onbellek.get("surum")
+    if isinstance(v, dict) and v.get("durum") == "yeni":
+        fark = v.get("fark")
+        sayi = f"{fark} yeni commit" if isinstance(fark, int) and fark > 0 else "yeni commit"
+        s.append(f"GÜNCELLEME: GitHub main'de {sayi} var; `orkestra guncelle`")
+    return s
+
+
 def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
     """SessionStart 2. satır girdileri (yalnız koşul sağlanırsa, her biri kısa) ve ayrı satıra giden onay yönergesi. Hatada sessiz."""
     u = []
@@ -3355,9 +3371,8 @@ def _ss_uyarilar(sd: str, inp: dict) -> tuple[list[str], str]:
         u.append(_kisa(ms, 120))
     try:
         import oturum_bakim
-        b = oturum_bakim.onbellek(sd).get("bayatlik") if oturum_bakim.etkin() else L.bayatlik()  # ADR-0092
-        if b:
-            u.append(f"UYARI: çalışan orkestra kopyası kaynaktan {b['farkli']} dosya farklı; `orkestra guncelle`")
+        onb = oturum_bakim.onbellek(sd) if oturum_bakim.etkin() else {"bayatlik": L.bayatlik()}  # ADR-0092
+        u.extend(guncellik_satirlari(onb))
     except Exception:
         pass
     try:
