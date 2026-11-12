@@ -18,6 +18,7 @@ import time
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
+import cursor_kur  # noqa: E402
 
 PAZAR = "claude-orchestration"
 
@@ -398,6 +399,26 @@ def onbellek_buda(ev: str | None = None, ortam: dict | None = None, tut: int | N
     return sonuc
 
 
+def _cursor_esitle(klon: str, yaz) -> None:
+    """Cursor yerel native kopyası (~/.cursor/plugins/local/orkestra) varsa güncellenen kaynakla eşler (ADR-0172).
+
+    `orkestra update` yalnız Claude tarafını (yayın klonu + `claude plugin update`) güncelliyordu; Cursor'daki yerel
+    kopya eski kalıyordu (kullanıcı raporu 12.11.2026, I-082). Böylece tek güncelleme iki host'u da aynı commit'e taşır.
+    Yalnız kopya ZATEN varsa eşler: Cursor kurulu olmayan makinede kopya oluşturmaz. Bağlantı (junction/symlink) hedefe
+    dokunmaz. `ORKESTRA_CURSOR_ESITLE=0` kapatır. Güncellemeyi asla başarısız kılmaz (çağıran try/except'le sarar)."""
+    if os.environ.get("ORKESTRA_CURSOR_ESITLE") == "0":
+        return
+    hedef = cursor_kur.varsayilan_hedef()
+    if not os.path.isdir(hedef) or cursor_kur.baglanti_mi(hedef):
+        return
+    kaynak = os.path.join(klon, "plugins", "orkestra")
+    if not os.path.isdir(kaynak):
+        return
+    yedek_kok = os.path.join(cfg.ev_dizini(), "cursor_yedek")
+    mesaj, _ = cursor_kur.guncelle(kaynak, hedef, yedek_kok)
+    yaz(f"Cursor yerel kopyası: {mesaj}")
+
+
 def _calistir(kuru, yaz, ev, ortam) -> int:
     if not shutil.which("git"):
         raise GuncelleHata("git bulunamadı (PATH'te yok).")
@@ -451,6 +472,10 @@ def _calistir(kuru, yaz, ev, ortam) -> int:
         onbellek_buda(ev, ortam, yaz=yaz)
     except Exception as e:  # noqa: BLE001
         yaz(f"uyarı: önbellek budanamadı: {type(e).__name__}: {e}")
+    try:  # Cursor yerel kopyası eşlemesi güncellemeyi başarısız kılmaz (I-082)
+        _cursor_esitle(klon, yaz)
+    except Exception as e:  # noqa: BLE001
+        yaz(f"uyarı: Cursor yerel kopyası eşlenemedi: {type(e).__name__}: {e}")
     yaz("")
     if eski == yeni and not degisen:
         yaz(f"ZATEN GÜNCEL (klon {yeni}; kurulu plugin: {', '.join(sorted({s['surum'] for s in sonra}))})")

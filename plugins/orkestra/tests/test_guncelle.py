@@ -244,5 +244,65 @@ class CliTest(unittest.TestCase):
         self.assertEqual(r2.returncode, 1, r2.stdout + r2.stderr)
 
 
+class CursorEsitleTest(unittest.TestCase):
+    """_cursor_esitle: Claude güncellemesi bitince Cursor yerel kopyası varsa güncel kaynakla eşlenir (I-082)."""
+
+    def setUp(self):
+        self.cikti = []
+        self.p_hedef = mock.patch.object(G.cursor_kur, "varsayilan_hedef")
+        self.p_guncelle = mock.patch.object(G.cursor_kur, "guncelle", return_value=("yerel Cursor kopyası güncellendi: 1 yeni, 0 değişen dosya", None))
+        self.p_baglanti = mock.patch.object(G.cursor_kur, "baglanti_mi", return_value=False)
+        self.hedef = self.p_hedef.start()
+        self.guncelle = self.p_guncelle.start()
+        self.p_baglanti.start()
+        for p in (self.p_hedef, self.p_guncelle, self.p_baglanti):
+            self.addCleanup(p.stop)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.klon = self.tmp.name
+        os.makedirs(os.path.join(self.klon, "plugins", "orkestra"))
+        os.environ.pop("ORKESTRA_CURSOR_ESITLE", None)
+        self.addCleanup(lambda: os.environ.pop("ORKESTRA_CURSOR_ESITLE", None))
+
+    def test_hedef_varsa_ve_kaynak_varsa_eslenir(self):
+        hedef = os.path.join(self.klon, "hedef")
+        os.makedirs(hedef)
+        self.hedef.return_value = hedef
+        G._cursor_esitle(self.klon, self.cikti.append)
+        self.guncelle.assert_called_once()
+        self.assertEqual(self.guncelle.call_args[0][:2], (os.path.join(self.klon, "plugins", "orkestra"), hedef))
+        self.assertIn("Cursor yerel kopyası", "\n".join(self.cikti))
+
+    def test_hedef_yoksa_olusturmaz(self):
+        self.hedef.return_value = os.path.join(self.klon, "yok")
+        G._cursor_esitle(self.klon, self.cikti.append)
+        self.guncelle.assert_not_called()
+
+    def test_kaynak_yoksa_eslenmez(self):
+        hedef = os.path.join(self.klon, "hedef")
+        os.makedirs(hedef)
+        self.hedef.return_value = hedef
+        import shutil as _sh
+        _sh.rmtree(os.path.join(self.klon, "plugins", "orkestra"))
+        G._cursor_esitle(self.klon, self.cikti.append)
+        self.guncelle.assert_not_called()
+
+    def test_kapali_bayrak_eslenmez(self):
+        hedef = os.path.join(self.klon, "hedef")
+        os.makedirs(hedef)
+        self.hedef.return_value = hedef
+        os.environ["ORKESTRA_CURSOR_ESITLE"] = "0"
+        G._cursor_esitle(self.klon, self.cikti.append)
+        self.guncelle.assert_not_called()
+
+    def test_baglanti_hedefe_dokunmaz(self):
+        hedef = os.path.join(self.klon, "hedef")
+        os.makedirs(hedef)
+        self.hedef.return_value = hedef
+        with mock.patch.object(G.cursor_kur, "baglanti_mi", return_value=True):
+            G._cursor_esitle(self.klon, self.cikti.append)
+        self.guncelle.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
