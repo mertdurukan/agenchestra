@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +22,9 @@ ARA = 3600  # sn: bakım işleri en çok bu aralıkta bir koşar
 ISARET = "oturum_bakim.json"  # son başlatma zamanı (dosya mtime'ı aralığı belirler)
 ONBELLEK = "bakim_onbellek.json"
 KILIT = "oturum_bakim_kos"
+SURUM_DAMGA = "surum_kontrol.damga"  # son GitHub getirme denemesi (dosya mtime'ı günlük aralığı belirler)
+SURUM_ARA = 24 * 3600  # sn: GitHub'dan getirme en çok bu aralıkta bir denenir
+SURUM_ZAMAN_ASIMI_SN = 30
 
 
 def etkin() -> bool:
@@ -72,7 +76,41 @@ def _adimlar(sd: str, cwd: str) -> list:
         ("etki_izle", lambda: etki.izle(sd) and None),
         ("bayatlik", L.bayatlik),
         ("arsiv_surec", lambda: arsiv_surec.calistir(sd, cwd)),  # ADR-0174: arşivli oturum süreçleri (gölge modda yalnız kayıt)
+        ("surum", lambda: surum_adimi(sd)),  # ağa çıkabilir: en sonda, süre sınırlı
     ]
+
+
+def surum_adimi(sd: str) -> dict | None:
+    """guncelle.kontrol sonucu (GitHub main'e göre yeni sürüm). Getirme (fetch) günde en çok bir kez denenir, damga her
+    denemede (başarısız da) yazılır; aksi halde klonda bilinen origin/main'e bakılır. SURUM_ZAMAN_ASIMI_SN aşılırsa None."""
+    import guncelle
+
+    damga = os.path.join(sd, SURUM_DAMGA)
+    try:
+        getir = time.time() - os.path.getmtime(damga) >= SURUM_ARA
+    except OSError:
+        getir = True
+    if getir:
+        try:
+            L.atomik_yaz(damga, L.simdi())
+        except OSError:
+            pass
+    os.environ["GIT_TERMINAL_PROMPT"] = "0"
+    kutu: dict = {}
+
+    def _kos():
+        try:
+            kutu["v"] = guncelle.kontrol(getir=getir)
+        except Exception:  # noqa: BLE001  (kontrol fırlatmaz; yine de bakımı düşürmesin)
+            pass
+
+    t = threading.Thread(target=_kos, name="orkestra-surum", daemon=True)
+    t.start()
+    t.join(SURUM_ZAMAN_ASIMI_SN)
+    if t.is_alive():
+        return None
+    v = kutu.get("v")
+    return v if isinstance(v, dict) else None
 
 
 def _kilit_al(sd: str):

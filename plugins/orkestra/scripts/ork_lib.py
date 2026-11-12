@@ -2772,28 +2772,20 @@ def kaynaga_cevir(yol: str) -> str:
     return yol
 
 
-def icerik_ozetleri(kok: str) -> dict[str, str]:
-    """{göreli yol: sha1}; __pycache__ ve .in_use klasörleri, .in_use / .orphaned_at / .pyc dosyaları hariç; CRLF/LF farkı yok sayılır."""
-    import hashlib
-    out = {}
-    for d, altlar, dosyalar in os.walk(kok):
-        altlar[:] = [x for x in altlar if x not in ("__pycache__", ".in_use")]
-        for ad in dosyalar:
-            if ad in (".in_use", ".orphaned_at") or ad.endswith(".pyc"):
-                continue
-            tam = os.path.join(d, ad)
-            try:
-                with open(tam, "rb") as f:
-                    b = f.read().replace(bytes([13, 10]), bytes([10]))
-            except OSError:
-                continue
-            out[os.path.relpath(tam, kok).replace("\\", "/")] = hashlib.sha1(b).hexdigest()
-    return out
+def _lf_icerik(yol: str) -> bytes | None:
+    try:
+        with open(yol, "rb") as f:
+            return f.read().replace(b"\r\n", b"\n")
+    except OSError:
+        return None
 
 
 def bayatlik(calisan: str | None = None, kaynak_depo: str | None = None) -> dict | None:
-    """Çalışan kopya ile kaynak plugins/orkestra arasındaki fark. Aynıysa, kaynak klasörde çalışıyorsa ya da kaynak yoksa None.
-    Dönüş: {"farkli": n, "kaynakta_commitsiz": bool|None, "kaynak": yol}."""
+    """Çalışan kopya ile kaynak plugins/orkestra arasındaki fark: `orkestra guncelle`'nin kopyaladığı kümede
+    (cursor_kur.kopyalanir) kaynakta olup kopyada eksik ya da içeriği farklı dosya sayısı; hedefteki fazlalık ve CRLF/LF
+    farkı sayılmaz, alt süreç açılmaz. Aynıysa, kaynak klasörde çalışıyorsa ya da kaynak yoksa None.
+    Dönüş: {"farkli": n, "kaynakta_commitsiz": None, "kaynak": yol}."""
+    import cursor_kur
     calisan = calisan or os.environ.get("CLAUDE_PLUGIN_ROOT") or PLUGIN_ROOT
     kaynak_depo = kaynak_depo or pazar_kaynagi()
     if not kaynak_depo:
@@ -2804,20 +2796,14 @@ def bayatlik(calisan: str | None = None, kaynak_depo: str | None = None) -> dict
     gercek = lambda p: os.path.normcase(os.path.realpath(p))
     if gercek(calisan) == gercek(kaynak) or gercek(calisan).startswith(gercek(kaynak_depo) + os.sep):
         return None
-    a, b = icerik_ozetleri(calisan), icerik_ozetleri(kaynak)
-    fark = sum(1 for k in set(a) | set(b) if a.get(k) != b.get(k))
+    fark = 0
+    for goreli, yol in cursor_kur.dosyalar(kaynak).items():
+        h = os.path.join(calisan, *goreli.split("/"))
+        if not os.path.isfile(h) or _lf_icerik(yol) != _lf_icerik(h):
+            fark += 1
     if not fark:
         return None
-    commitsiz = None
-    try:
-        import subprocess
-        r = subprocess.run(["git", "-C", kaynak_depo, "status", "--porcelain", "--", "plugins", ".claude-plugin"],
-                           capture_output=True, text=True, timeout=1.0, **PENCERESIZ)
-        if r.returncode == 0:
-            commitsiz = bool(r.stdout.strip())
-    except Exception:
-        pass
-    return {"farkli": fark, "kaynakta_commitsiz": commitsiz, "kaynak": kaynak_depo}
+    return {"farkli": fark, "kaynakta_commitsiz": None, "kaynak": kaynak_depo}
 
 
 _RET_TR = str.maketrans({"ı": "i", "İ": "i", "I": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",

@@ -18,6 +18,7 @@ import time
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
+import cursor_hooks  # noqa: E402
 import cursor_kur  # noqa: E402
 
 PAZAR = "claude-orchestration"
@@ -417,6 +418,13 @@ def _cursor_esitle(klon: str, yaz) -> None:
     yedek_kok = os.path.join(cfg.ev_dizini(), "cursor_yedek")
     mesaj, _ = cursor_kur.guncelle(kaynak, hedef, yedek_kok)
     yaz(f"Cursor yerel kopyası: {mesaj}")
+    try:  # hooks.json eşlemesi kopya eşlemesini ve güncellemeyi başarısız kılmaz (I-083)
+        mesaj, _ = cursor_hooks.esitle(os.path.join(os.path.expanduser("~"), ".cursor", "hooks.json"),
+                                       os.path.join(kaynak, "hooks", "cursor-hooks.json"), hedef,
+                                       os.path.join(cfg.ev_dizini(), "cursor_hooks_yedek"))
+        yaz(f"Cursor hooks.json: {mesaj}")
+    except Exception as e:  # noqa: BLE001
+        yaz(f"uyarı: Cursor hooks.json eşlenemedi: {type(e).__name__}: {e}")
 
 
 def _calistir(kuru, yaz, ev, ortam) -> int:

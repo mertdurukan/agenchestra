@@ -31,6 +31,7 @@ from typing import Callable, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cfg  # noqa: E402
+import cursor_hooks  # noqa: E402
 import cursor_kur  # noqa: E402
 
 DURUMLAR = ("gecti", "uyari", "hata", "onarildi", "atlandi")
@@ -544,6 +545,45 @@ def o_cursor_kurulum(b, s):
                        "Cursor Ayarları > Plugins'te üçüncü taraf eklenti içe aktarımını kapat (çift yükleme)", komut="orkestra doktor")
 
 
+def _cursor_hooks_yollari() -> tuple[str, str, str]:
+    """(kullanıcı hooks.json, kanonik tanım, yerel kopya). Proje düzeyi .cursor/hooks.json bu kontrolün konusu değil."""
+    ev = os.path.expanduser("~")
+    return (os.path.join(ev, ".cursor", "hooks.json"), os.path.join(_EKLENTI_KOKU, "hooks", "cursor-hooks.json"),
+            os.path.join(ev, ".cursor", "plugins", "local", "orkestra"))
+
+
+def k_cursor_hooks(b: Baglam) -> Sonuc:
+    """Kullanıcı düzeyi ~/.cursor/hooks.json kanonik hooks/cursor-hooks.json'dan sapmış mı (I-083). Dosyaya yazmaz."""
+    kullanici, kanonik, yerel = _cursor_hooks_yollari()
+    if not os.path.isdir(yerel):
+        return Sonuc("atlandi", "yerel Cursor kopyası yok")
+    if not os.path.isfile(kanonik):
+        return Sonuc("atlandi", f"kanonik tanım yok: {kanonik}")
+    sapmalar = cursor_hooks.sapma(kullanici, kanonik, yerel)
+    if sapmalar:
+        return _uyari("Cursor hooks.json kanonikten sapmış: " + "; ".join(sapmalar), sapmalar=sapmalar)
+    return _ok(f"Cursor hooks.json kanonikle aynı ({kullanici})")
+
+
+def o_cursor_hooks(b, s):
+    kullanici, kanonik, yerel = _cursor_hooks_yollari()
+    if "ayrıştırılamıyor" in s.mesaj:
+        return Onarim("C", f"{kullanici} dosyasındaki JSON hatasını elle düzelt (bozuk dosyaya otomatik dokunulmaz), "
+                           "sonra `orkestra doktor --duzelt`", komut="orkestra doktor --duzelt")
+    try:
+        with open(kullanici, encoding="utf-8-sig") as f:
+            onceki = f.read()
+    except FileNotFoundError:
+        onceki = None
+    yedek_kok = os.path.join(cfg.ev_dizini(), "cursor_hooks_yedek")
+
+    def uygula() -> str:
+        return cursor_hooks.esitle(kullanici, kanonik, yerel, yedek_kok)[0]
+    return Onarim("B", f"{kullanici} dosyasındaki Orkestra girdilerini kanonikten yeniden üret (diğer girdiler korunur, yedek alınır)",
+                  uygula=uygula, geri_al={"tur": "dosya", "yol": kullanici, "onceki": onceki},
+                  komut="orkestra doktor --duzelt --evet")
+
+
 def _uzak_var(kok):
     kod, cikti = _calistir(["git", "-C", kok, "remote"], 30)
     return kod == 0 and bool(cikti.strip())
@@ -603,6 +643,7 @@ KONTROLLER: list[Kontrol] = [
     Kontrol("pazar_klonu", "pazar (yayın) klonu", "opsiyonel", k_pazar_klonu, o_pazar_klonu),
     Kontrol("cursor_siniri", "Cursor hook sınırları", "opsiyonel", k_cursor_siniri, o_cursor_siniri),
     Kontrol("cursor_kurulum", "Cursor kurulumu (komut, kopya, çift yükleme)", "opsiyonel", k_cursor_kurulum, o_cursor_kurulum),
+    Kontrol("cursor_hooks", "Cursor kullanıcı hooks.json (kanonik tanımla eşlik)", "opsiyonel", k_cursor_hooks, o_cursor_hooks),
 ]
 
 
