@@ -92,7 +92,8 @@ class AgacTemizleTest(unittest.TestCase):
     def setUp(self):
         self._ortam = os.environ.pop("CLAUDE_PROJECT_DIR", None)
         os.environ.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
-        self.k = tempfile.mkdtemp()
+        # realpath: Windows runner'da TMP 8.3 kısa ad (RUNNER~1) verir; kod git'in uzun yolunu döndürür (I-450)
+        self.k = os.path.realpath(tempfile.mkdtemp())
         self.depo = os.path.join(self.k, "depo")
         os.makedirs(self.depo)
         git(self.depo, "init", "-q", "-b", "main")
