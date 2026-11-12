@@ -2,6 +2,7 @@
 
 - 01-Baslangic.md: kapı 1 kararı, gap'ler (G), başarı kriterleri (S), S→T doğrulama planı, yol kararı.
 - 02-Gelistirme.md: kapı 2 kararı, plan maddeleri (P) ve todo durumu, G→P→S bağları.
+- 00-Anlatim.md: bağlamı bilmeyen okura altı başlıkta anlatım (P6); her madde [Veri]/[Çıkarım] etiketli, model çağrısı yok.
 - 03-Dogrulama-ve-Yayin.md: kapı 3 kararı, T→E kanıt tablosu (tazelik, commit), tam G→P→S→T→E zinciri, sözleşme sonucu, teslim.
 
 Kaynak tektir (mevcut durum, sözleşme, plan.md, todo.md, kanit.jsonl, is.json); görünüm her üretimde baştan yazılır.
@@ -122,6 +123,97 @@ def dogrulama(b: MK.Baglam, r: dict, baslik: str) -> str:
     return "\n".join(sat).rstrip() + "\n"
 
 
+ANLATIM = "00-Anlatim.md"
+
+_PARANTEZ = re.compile(r"\(([^()]*)\)")
+_DOSYA_SATIR = re.compile(r"[\w./\\-]+\.\w{1,6}:\d+")
+_ETIKET = re.compile(r"^\[(Veri|Çıkarım)\][ \t]*")
+_YORUM = re.compile(r"<!--.*?-->", re.S)
+
+
+def etiket(metin: str) -> str:
+    """[Veri]: parantez içinde dosya:satır ya da komut (`...`) taşıyan madde; diğerleri [Çıkarım]. Model çağrısı yok."""
+    for ic in _PARANTEZ.findall(metin):
+        if _DOSYA_SATIR.search(ic) or re.search(r"`[^`]+`", ic):
+            return "[Veri]"
+    return "[Çıkarım]"
+
+
+def _madde(metin: str, girinti: str = "") -> str:
+    metin = metin.strip()
+    m = _ETIKET.match(metin)
+    if m:
+        return f"{girinti}- [{m.group(1)}] {metin[m.end():]}"
+    return f"{girinti}- {etiket(metin)} {metin}"
+
+
+def _mdden_maddeler(govde: str) -> list[str]:
+    sat: list[str] = []
+    for ham in _YORUM.sub("", govde or "").splitlines():
+        if not ham.strip() or re.match(r"^\s*(```|[|][\s:|-]+[|]?\s*$)", ham):
+            continue
+        h = re.match(r"^#{3,6}[ \t]+(.*)$", ham)
+        if h:
+            sat += ["", f"**{h.group(1).strip()}**", ""]
+            continue
+        g = len(ham) - len(ham.lstrip())
+        girinti = "  " * (g // 2) if g else ""
+        t = re.sub(r"^(?:[-*]|\d+\.)\s+", "", ham.strip())
+        if t.startswith("|"):
+            t = " · ".join(c.strip() for c in t.strip("|").split("|") if c.strip())
+        sat.append(_madde(t, girinti))
+    return sat
+
+
+def _numarali_bolum(metin, no_ya_da_ad) -> str:
+    on = rf"{no_ya_da_ad}\.[ \t]*[^\n]*" if isinstance(no_ya_da_ad, int) else rf"(?:\d+\.[ \t]*)?{re.escape(no_ya_da_ad)}[ \t]*"
+    m = re.search(rf"^##[ \t]+{on}$(.*?)(?=^##[ \t]|\Z)", metin or "", re.M | re.S)
+    return m.group(1) if m else ""
+
+
+def _yok(neden: str) -> list[str]:
+    return [f"- [Çıkarım] {neden}"]
+
+
+def anlatim(b, r, baslik):
+    sat = [f"# Anlatım: {baslik}", "", BASLIK_NOTU, "",
+           f"**Üretim:** {L.simdi()} · **Kademe:** {r['kademe']}", "",
+           "**Kaynak:** " + ", ".join(f"`{k}`" for k in [os.path.basename(b.md_yolu or ""), "plan.md", MK.KANIT_DOSYA] if k), ""]
+    for no, ad in ((1, "Sistem nasıl çalışıyor"), (2, "Ne, neden olmuyor")):
+        sat += [f"## {no}. {ad}", ""]
+        sat += _mdden_maddeler(_numarali_bolum(b.md, no)) or _yok(f"Mevcut durumda §{no} bölümü yok.")
+        sat.append("")
+    gler = {int(n): t.strip() for n, t in _G_SATIRI.findall(b.md or "")}
+    basliklar = {int(n): t.strip() for n, t in _P_BASLIK.findall(b.plan or "")}
+    sat += ["## 3. Ne yaparsak ne düzelir, hangi bulguyu kapatır", ""]
+    p_sat = []
+    for p in sorted(b.pler):
+        ne = MK._alan(b.pler[p], "Ne") or basliklar.get(p, "")
+        kapatir = "; ".join(f"G{g}: {gler[g]}" if g in gler else f"G{g}" for g in sorted(b.p_g(p)))
+        p_sat.append(_madde(f"**P{p} {basliklar.get(p, '')}:** {ne}" + (f" Kapattığı bulgu: {kapatir}" if kapatir else "")))
+    sat += p_sat or _yok("Planda P maddesi yok.")
+    sat += ["", "## 4. Neyi yapmamalı", ""]
+    elenen = [_madde(f"**P{p}:** {m.group(1).strip()}") for p in sorted(b.pler)
+              for m in re.finditer(r"^[-*][ \t]+(?:Elenen|Alternatifler?):[ \t]*(.+)$", b.pler[p], re.M)]
+    sat += elenen or _yok("Planda elenen alternatif yok.")
+    sat += ["", "## 5. Düzeldiğini nasıl anlarız", ""]
+    t_sat = []
+    for t in sorted(b.tler):
+        e = MK._e_ozeti(b, t)
+        s = ", ".join(f"S{x}" for x in b.tler[t]["s"]) or "—"
+        kanit = f"{e['e']} {e['durum']}" if e.get("e") else e["durum"]
+        komut = b.tler[t]["komut"]
+        parca = f"komut: `{komut}`; son kanıt: {kanit}" if komut else f"son kanıt: {kanit}"
+        t_sat.append(_madde(f"**T{t}** ({s}) sınanır ({parca})"))
+    sat += t_sat or _yok("Doğrulama planında T yok.")
+    sat += ["", "## 6. Hâlâ bilinmeyenler", ""]
+    ham = (_mdden_maddeler(_numarali_bolum(b.md, "Doğrulanamayanlar"))
+           + _mdden_maddeler(_numarali_bolum(b.plan, "Doğrulanamayanlar")))
+    ham = [x for x in ham if not re.match(r"^\s*- \[[^\]]+\] yok\.?$", x, re.I)]
+    sat += ham or _yok("Mevcut durum ve plan doğrulanamayan madde bildirmiyor.")
+    return "\n".join(sat).rstrip() + "\n"
+
+
 def yerel_birlesme_satiri(yb) -> str:
     """Teslim bölümündeki yerel birleşme değeri: commit, kod başka depodaysa depo yolu da (I-459)."""
     if isinstance(yb, dict):
@@ -131,12 +223,12 @@ def yerel_birlesme_satiri(yb) -> str:
 
 
 def uret(klasor: str) -> list[str]:
-    """Üç görünümü iş klasörüne yazar; yazılan yolları döner."""
+    """Anlatım ve üç aşama görünümünü iş klasörüne yazar (anlatım ilk); yazılan yolları döner."""
     b = MK.Baglam(klasor)
     r = MK.kontrol(klasor)
     baslik = b.is_kaydi.get("baslik") or os.path.basename(os.path.normpath(klasor))
     yollar = []
-    for ad, f in zip(DOSYALAR, (baslangic, gelistirme, dogrulama)):
+    for ad, f in zip((ANLATIM,) + DOSYALAR, (anlatim, baslangic, gelistirme, dogrulama)):
         yol = os.path.join(klasor, ad)
         L.atomik_yaz(yol, f(b, r, baslik))
         yollar.append(yol)

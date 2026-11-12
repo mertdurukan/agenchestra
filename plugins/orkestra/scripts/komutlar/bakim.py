@@ -224,7 +224,7 @@ def olu_yol_ve_terk(sd: str, a, rapor: dict, uygula: bool) -> None:
             if g["id"] in rapor["kapatilan_is"]:
                 continue
             with contextlib.redirect_stdout(io.StringIO()):
-                isler.cmd_is_kapat(argparse.Namespace(is_id=g["id"], ozetsiz=OZETSIZ_NEDEN))
+                isler.cmd_is_kapat(argparse.Namespace(is_id=g["id"], ozetsiz=OZETSIZ_NEDEN, yol="bakim"))
             rapor["kapatilan_is"].append(g["id"])
     if a.json:
         return
@@ -297,7 +297,7 @@ def cmd_bakim(a):
             from komutlar import isler
             for g in bos:
                 with contextlib.redirect_stdout(io.StringIO()):  # kapatma çıktısı --json akışını bozmasın
-                    isler.cmd_is_kapat(argparse.Namespace(is_id=g["id"], ozetsiz=OZETSIZ_NEDEN))
+                    isler.cmd_is_kapat(argparse.Namespace(is_id=g["id"], ozetsiz=OZETSIZ_NEDEN, yol="bakim"))
                 rapor["kapatilan_is"].append(g["id"])
     olu_yol_ve_terk(sd, a, rapor, uygula)
     if a.json:

@@ -404,6 +404,38 @@ class Olcum(Fikstur):
         self.assertEqual(o["hatalar"], [])
         self.assertIn("sıralı iş: 1", MK.olcum_metni(o))
 
+    def _kayit(self, ad, iid, ek, durum="kapandi", gecmis=None):
+        k = self.is_kur(sonuc="\n## Sonuç\n\n- tamam S1 S2\n", ad=ad)
+        with open(os.path.join(k, "is.json"), encoding="utf-8") as f:
+            d = json.load(f)
+        d.update({"id": iid, **ek})
+        if gecmis is not None:
+            d["gecmis"] = gecmis
+        self.yaz(k, "is.json", json.dumps(d))
+        return {"klasor": k, "durum": durum}
+
+    def test_olc_kapsam_ici_ve_disi_ayri(self):
+        bay = {"gap": True, "kalite": True, "sozlesme": True}
+        ici = self._kayit("001-ici", "I-001", {**bay, "olusturma": "2026-11-13T09:00:00+03:00"},
+                          gecmis=[{"zaman": "x", "olay": "durum:kapandi", "yol": "tek-giris"}])
+        eski_tarih = self._kayit("002-eski", "I-002", {**bay, "olusturma": "2026-11-01T09:00:00+03:00"})
+        bayraksiz = self._kayit("003-bayraksiz", "I-003", {"olusturma": "2026-11-13T09:00:00+03:00"})
+        self.yaz(self.sd, "isler.json", json.dumps({"sayac": 4, "isler": {"I-001": ici, "I-002": eski_tarih, "I-003": bayraksiz}}))
+        o = MK.olc(self.sd)
+        self.assertEqual(o["is_sayisi"], 3)
+        self.assertEqual(o["kapsam"]["ici"]["is_sayisi"], 1)
+        self.assertEqual(o["kapsam"]["disi"]["is_sayisi"], 2)
+        self.assertEqual(sum(o["kapsam"]["ici"]["dagilim"]["genel"].values()), 1)
+        self.assertEqual(sum(o["kapsam"]["disi"]["dagilim"]["genel"].values()), 2)
+        self.assertEqual(o["yol_dagilimi"], {"tek-giris": 1, "bilinmiyor": 2})
+        m = MK.olcum_metni(o)
+        self.assertIn("kapsam içi: 1", m)
+        self.assertIn("kapsam dışı: 2", m)
+        self.assertIn("kapanış yolu: bilinmiyor 2, tek-giris 1", m)
+
+    def test_olc_kapsam_baslangic_ayarda(self):
+        self.assertRegex(MK.ayar()["kapsam_baslangic"], r"^\d{4}-\d{2}-\d{2}$")
+
 
 class Kapanis(Fikstur):
     def golgeler(self):

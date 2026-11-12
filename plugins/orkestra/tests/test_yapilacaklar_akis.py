@@ -47,7 +47,7 @@ class Akis(unittest.TestCase):
         self.i1 = IK.is_ac(self.sd, "Birinci iş", os.path.join(self.t.name, "k1"))
         self.i2 = IK.is_ac(self.sd, "Orkestra açık maddeler", os.path.join(self.t.name, "k2"))
         self.i3 = IK.is_ac(self.sd, "Kapalı iş", os.path.join(self.t.name, "k3"))
-        IK.is_durum(self.sd, self.i3["id"], "kapandi")
+        IK.is_durum(self.sd, self.i3["id"], "kapandi", yol="cli")
         IK.todo_ekle(self.i2["klasor"], "açık bir madde")
         IK.todo_ekle(self.i2["klasor"], "bitecek madde")
         IK.todo_bitir(self.i2["klasor"], "bitecek")

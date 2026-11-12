@@ -51,7 +51,7 @@ class PanelTodo(unittest.TestCase):
         self.i1 = IK.is_ac(self.sd, "Birinci iş", os.path.join(self.t.name, "k1"))
         self.i2 = IK.is_ac(self.sd, "Orkestra açık maddeler", os.path.join(self.t.name, "k2"))
         self.i3 = IK.is_ac(self.sd, "Kapalı iş", os.path.join(self.t.name, "k3"))
-        IK.is_durum(self.sd, self.i3["id"], "kapandi")
+        IK.is_durum(self.sd, self.i3["id"], "kapandi", yol="cli")
         self.sunucu = http.server.ThreadingHTTPServer(("127.0.0.1", 0), panel._isleyici())
         self.port = self.sunucu.server_address[1]
         threading.Thread(target=self.sunucu.serve_forever, daemon=True).start()
@@ -241,12 +241,12 @@ class PanelTodo(unittest.TestCase):
         self.assertEqual(_metinler(v["acik_maddeler"]), ["varsayılanda"])
 
     def test_get_varsayilan_baslik_yoksa_ilk_acik_is(self):
-        IK.is_durum(self.sd, self.i2["id"], "kapandi")
+        IK.is_durum(self.sd, self.i2["id"], "kapandi", yol="cli")
         _, v = self.get()
         self.assertEqual(v["is"], self.i1["id"])
 
     def test_get_varsayilan_kapali_orkestra_isi_secilmez(self):
-        IK.is_durum(self.sd, self.i2["id"], "kapandi")
+        IK.is_durum(self.sd, self.i2["id"], "kapandi", yol="cli")
         _, v = self.get()
         self.assertNotEqual(v["is"], self.i2["id"])
 

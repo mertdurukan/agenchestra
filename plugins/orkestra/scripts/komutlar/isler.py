@@ -786,14 +786,19 @@ def kapanis_eksigi(sd, kayit, ozetsiz=""):
     return None
 
 
-def kapat_uygula(sd, is_id):
+def kapat_uygula(sd, is_id, yol="cli", gerekce=None):
     """Kapıları geçmiş işi kapatır (etki yeniden doğrulama, harita yenileme, durum, teknik detay)."""
     _etki_kapanis(sd, is_id)
     _edel_kapanis(sd, is_id)
     _harita_yenile(sd)
     __import__("teslim").bekliyor_yaz(sd, is_id, "")  # I-433: kapanan iş artık karar beklemez
-    _ik().is_durum(sd, is_id, "kapandi")
+    _ik().is_durum(sd, is_id, "kapandi", yol=yol, gerekce=gerekce)
     _teknik_detay_yaz(sd, is_id)
+    try:  # I-461/P7: kapanışta anlatım yeniden üretilir; üretim hatası kapanışı engellemez
+        import belge_gorunum
+        belge_gorunum.uret(_is_gerekli(sd, is_id)["klasor"])
+    except Exception as ex:
+        print(f"orkestra: anlatım yeniden üretilemedi: {ex}", file=sys.stderr)
     try:  # I-201, ADR-0050; I-225, ADR-0086: kapanışta birleştirme ve dal/worktree temizliği (kipler ayarda); kapanışı asla bozmaz
         import dal_temizle
         uyari = dal_temizle.kapanis(_proje_koku(sd), is_id)  # panel servisinin cwd'si projeyi göstermez: kök durum klasöründen türer
@@ -922,7 +927,7 @@ def cmd_is_kapat(a):
     engel = kapanis_eksigi(sd, kayit, ozetsiz)
     if engel:
         hata(f"{a.is_id} kapatılamadı: {engel[1]}")
-    kapat_uygula(sd, a.is_id)
+    kapat_uygula(sd, a.is_id, yol=getattr(a, "yol", None) or "cli", gerekce=ozetsiz or None)
     print(f"{a.is_id} → kapandi")
     if ozetsiz:
         print(f"özetsiz kapatıldı: {ozetsiz}")

@@ -1,6 +1,7 @@
 {
   "mod": "golge",
   "aciklama": "Mühendislik kontrolü (EDEL uyarlaması, ADR-0179, I-447). `orkestra is kontrol <iş>` üç kapı için PASS / FAIL / BLOCKED verir; her kademenin kapı başına istediği kontroller aşağıdadır. `is kapat` anında kapı 3 PASS değilse gunluk.jsonl'a `kapi_golge` (kapi: edel) yazılır, kapanış engellenmez. ihlal moduna geçiş: `muhendislik_kontrol.py olc` ölçümünde örneklenen FAIL'lerde yanlış pozitif <= %10 ve ayrı ADR (P-028).",
+  "kapsam_baslangic": "2026-11-12",
   "eval_min_kosu": {"hafif": 1, "standart": 3, "kritik": 5},
   "kapilar": {
     "1": {

@@ -55,7 +55,7 @@ class IsKaydiTest(unittest.TestCase):
     def test_liste_ve_durum(self):
         for i in range(3):
             K.is_ac(self.sd, f"t{i}", os.path.join(self.kok, str(i)))
-        K.is_durum(self.sd, "I-002", "kapandi")
+        K.is_durum(self.sd, "I-002", "kapandi", yol="cli")
         self.assertEqual([x["id"] for x in K.is_liste(self.sd)], ["I-001", "I-002", "I-003"])
         self.assertEqual([x["id"] for x in K.is_liste(self.sd, "kapandi")], ["I-002"])
         self.assertEqual(K.is_al(self.sd, "I-002")["durum"], "kapandi")

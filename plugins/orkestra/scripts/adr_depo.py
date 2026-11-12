@@ -16,21 +16,29 @@ def _norm(yol):
     return os.path.normcase(os.path.abspath(yol)).replace("\\", "/")
 
 
+def kok_depolari(plan_metni):
+    """Planın `**Kök:**` satırlarındaki her girişin (ayraç `;` `,`) git deposu, sırayla; çözülemeyen atlanır."""
+    sonuc = []
+    for m in _KOK.finditer(plan_metni or ""):
+        for parca in re.split(r"[;,]", m.group(1)):
+            yol = parca.strip().strip("`").strip()
+            if yol and os.path.isdir(yol):
+                k = L.git_koku(yol)
+                if k:
+                    sonuc.append(k)
+    return sonuc
+
+
 def kok_deposu(plan_metni):
-    """Planın `**Kök:**` satırının git deposu; satır ya da depo yoksa None."""
-    m = _KOK.search(plan_metni or "")
-    if not m:
-        return None
-    yol = m.group(1).strip().strip("`")
-    if not os.path.isdir(yol):
-        return None
-    return L.git_koku(yol)
+    """Planın `**Kök:**` satırındaki ilk girişin git deposu (yazma hedefi); yoksa None."""
+    d = kok_depolari(plan_metni)
+    return d[0] if d else None
 
 
 def depolar(plan_metni, klasor, proje_koku):
-    """ADR aranacak depo kökleri, öncelik sırasıyla: Kök deposu (varsa), proje kökü, işin klasörünün git ağacı."""
+    """ADR aranacak depo kökleri, öncelik sırasıyla: Kök girişlerinin depoları (sırayla), proje kökü, işin klasörünün git ağacı."""
     sira = []
-    for k in (kok_deposu(plan_metni), proje_koku,
+    for k in (*kok_depolari(plan_metni), proje_koku,
               L.git_koku(klasor) if klasor and os.path.isdir(klasor) else None):
         if k and _norm(k) not in [_norm(s) for s in sira]:
             sira.append(k)

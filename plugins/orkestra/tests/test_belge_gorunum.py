@@ -1,6 +1,8 @@
 """01/02/03 aşama görünümleri (ADR-0179): kayıttan üretilir; üretim notu, kapı kararı ve kimlikli zincir taşır."""
 import os
+import re
 import sys
+import types
 import unittest
 
 import test_muhendislik_kontrol as TM
@@ -26,10 +28,55 @@ class BelgeGorunum(TM.Fikstur):
 
     def test_uc_dosya_uretim_notu_ve_kapi(self):
         _, m = self.uret()
-        self.assertEqual(sorted(m), sorted(BG.DOSYALAR))
+        self.assertEqual(sorted(m), sorted((BG.ANLATIM,) + BG.DOSYALAR))
+        self.assertIn("üretilmiştir", m[BG.ANLATIM])
         for no, ad in enumerate(BG.DOSYALAR, 1):
             self.assertIn("üretilmiştir", m[ad])
             self.assertRegex(m[ad], rf"\*\*Kapı {no} \([^)]+\):\*\* (PASS|FAIL|BLOCKED)")
+
+    def test_anlatim_alti_baslik_ve_etiketli_maddeler(self):
+        _, m = self.uret()
+        a = m[BG.ANLATIM]
+        basliklar = re.findall(r"^## (.+)$", a, re.M)
+        self.assertEqual(len(basliklar), 6, basliklar)
+        for i, b in enumerate(basliklar, 1):
+            self.assertTrue(b.startswith(f"{i}. "), b)
+        self.assertNotIn("Okuma kuralı", a)
+        maddeler = [s for s in a.splitlines() if s.lstrip().startswith("- ")]
+        self.assertTrue(maddeler)
+        for s in maddeler:
+            self.assertRegex(s.lstrip(), r"^- \[(Veri|Çıkarım)\] ", s)
+
+    def test_anlatim_numarali_bolum_govdesi_dolu(self):
+        md = ("# Başlık\n\n## 1. İstek hangi yoldan geçiyor\n\n### 1.1 Alt başlık\n\n1. Birinci adım (a.py:3)\n2. İkinci adım\n\n"
+              "## 2. Bugünkü davranış\n\n- Davranış `komut`\n\n## 3. Etki\n\n- Etkilenen\n")
+        for no, beklenen in ((1, "Birinci adım"), (2, "Davranış")):
+            govde = BG._numarali_bolum(md, no)
+            self.assertIn(beklenen, govde)
+            maddeler = BG._mdden_maddeler(govde)
+            self.assertTrue(maddeler)
+            self.assertFalse(any("bölümü yok" in x for x in maddeler))
+        self.assertNotIn("Etkilenen", BG._numarali_bolum(md, 2))
+
+    def test_anlatim_bilinmeyenler_mevcut_durumdan_gelir(self):
+        md = ("## 4. Doğrulanamayanlar\n\n**Sonuç:** Bir madde var.\n\n- **Konu:** özetsiz işler\n"
+              "  - **Denenen:** is.json sayıldı (`ozetsiz.py`)\n  - **Engel:** yol kaydedilmedi\n\n## 5. Gap\n\n- x\n")
+        plan = "## 6. Doğrulanamayanlar\n\n- Yok\n\n## 7. Tahminler\n\n- x\n"
+        b = types.SimpleNamespace(md=md, plan=plan, md_yolu="m.md", pler={}, tler={}, kanitlar=[])
+        metin = BG.anlatim(b, {"kademe": "standart"}, "x")
+        son = metin.split("## 6. Hâlâ bilinmeyenler", 1)[1]
+        for parca in ("Konu:** özetsiz işler", "Denenen:", "Engel:"):
+            self.assertIn(parca, son)
+        self.assertNotIn("bildirmiyor", son)
+        bos = BG.anlatim(types.SimpleNamespace(md="", plan=plan, md_yolu="", pler={}, tler={}, kanitlar=[]), {"kademe": "k"}, "x")
+        self.assertIn("doğrulanamayan madde bildirmiyor", bos.split("## 6. Hâlâ bilinmeyenler", 1)[1])
+
+    def test_anlatim_etiket_kurali(self):
+        self.assertEqual(BG.etiket("sınanır (a.py:12)"), "[Veri]")
+        self.assertEqual(BG.etiket("sınanır (komut: `pytest -q`)"), "[Veri]")
+        self.assertEqual(BG.etiket("sınanır, kanıt yok"), "[Çıkarım]")
+        self.assertEqual(BG._madde("[Veri] x"), "- [Veri] x")
+        self.assertEqual(BG._madde("[Çıkarım] (a.py:3) x"), "- [Çıkarım] (a.py:3) x")
 
     def test_01_g_s_ve_s_t(self):
         _, m = self.uret()

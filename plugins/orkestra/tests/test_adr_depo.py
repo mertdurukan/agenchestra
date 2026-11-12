@@ -73,3 +73,43 @@ def test_sonraki_no_dallar_ve_calisma_agaclari(tmp_path):
 def test_uzak_var(tmp_path):
     assert not D.uzak_var(_depo(tmp_path / "a"))
     assert D.uzak_var(_depo(tmp_path / "b", uzak=True))
+
+
+def _ayni(a, b):
+    return _n(a) == _n(b)
+
+
+def _n(y):
+    return os.path.normcase(os.path.abspath(y)).replace("\\", "/")
+
+
+def test_iki_girisli_kok_ikinci_depodaki_adr_bulunur(tmp_path):
+    proje = _depo(tmp_path / "p")
+    a = _depo(tmp_path / "a")
+    b = _depo(tmp_path / "b", ["ADR-0182-x.md"])
+    plan = f"**Kök:** {a}; {b}\n"
+    sira = D.depolar(plan, str(tmp_path / "p"), proje)
+    assert [_n(s) for s in sira[:3]] == [_n(a), _n(b), _n(proje)]
+    assert D.adr_bul("ADR-0182", sira).endswith("ADR-0182-x.md")
+
+
+def test_virgullu_ve_backtickli_girisler(tmp_path):
+    proje = _depo(tmp_path / "p")
+    a = _depo(tmp_path / "a")
+    b = _depo(tmp_path / "b", ["ADR-0007-y.md"])
+    plan = f"**Kök:** `{a}`, `{b}`\n"
+    assert D.adr_bul("ADR-0007", D.depolar(plan, str(tmp_path / "p"), proje)).endswith("ADR-0007-y.md")
+
+
+def test_tek_giris_ayni_davranis_ve_tekrarsiz(tmp_path):
+    proje = _depo(tmp_path / "p")
+    hedef = _depo(tmp_path / "e")
+    sira = D.depolar(f"**Kök:** {hedef}; {hedef}\n", str(tmp_path / "p"), proje)
+    assert len(sira) == 2 and _ayni(sira[0], hedef)
+
+
+def test_kok_deposu_ilk_girisi_doner(tmp_path):
+    a = _depo(tmp_path / "a")
+    b = _depo(tmp_path / "b")
+    assert _ayni(D.kok_deposu(f"**Kök:** {a}; {b}\n"), a)
+    assert D.kok_deposu("# plan") is None

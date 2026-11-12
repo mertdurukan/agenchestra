@@ -153,7 +153,7 @@ class PanelIsler(unittest.TestCase):
         self.kart("G-002", **{"is": self.a, "adim": "G5", "durum": "teslim", "teslim_ozeti": "bitti özet",
                               "guncelleme": "2026-10-14T12:00:00Z"})
         self.kart("G-003", **{"is": self.b, "durum": "teslim", "guncelleme": "2026-10-13T08:00:00Z"})
-        IK.is_durum(self.sd, self.b, "kapandi")
+        IK.is_durum(self.sd, self.b, "kapandi", yol="cli")
         self.maliyet(("G-001", 0.1234), ("G-001", 0.2), ("G-002", 0.05), ("G-003", 9.0), ("G-099", 5.0), ("-", 3.0))
 
     # kriter 1

@@ -159,7 +159,7 @@ class SessionStartAcikIsler(_Ortak):
                     "- 2026-10-14 10:00 · aaaaaaaa · 3 araç · $0.20 · nerede kalındı: SONSATIR_A\n\n")
         with open(self.oturumlar_md(b), "a", encoding="utf-8", newline="\n") as f:
             f.write("- SONSATIR_B kısa\n")
-        is_kaydi.is_durum(self.sd, k["id"], "kapandi")
+        is_kaydi.is_durum(self.sd, k["id"], "kapandi", yol="cli")
         return a, b, k
 
     def test_iki_acik_is_kimligi_gorunur_kapali_yok(self):
@@ -211,7 +211,7 @@ class SessionStartAcikIsler(_Ortak):
 
     def test_acik_is_yoksa_satir_yok(self):
         k = self.is_ac("Sadece kapalı")
-        is_kaydi.is_durum(self.sd, k["id"], "kapandi")
+        is_kaydi.is_durum(self.sd, k["id"], "kapandi", yol="cli")
         m = self.session_start()
         self.assertNotIn("Açık işler:", m)
         self.assertIn("Orkestra bu projede açık", m)

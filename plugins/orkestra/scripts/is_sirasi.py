@@ -1293,6 +1293,18 @@ _MODLU_KAPILAR = (("best_in_class", "bic_kapsaminda_mi", "bic_eksikleri"),
                   ("sozlesme", "sozlesmeli_mi", "sozlesme_baglanti_eksikleri"))
 
 
+def dogrulama_plani_eksikleri(klasor: str, metin: str) -> list[str]:
+    """Sözleşmeli işte plan `## Doğrulama planı` eksikleri: T satırı yok ya da hiçbir T'de anılmayan S (I-461 P5)."""
+    if not sozlesmeli_mi(klasor):
+        return []
+    import muhendislik_kontrol as MK  # tembel: döngüsel içe aktarım
+    tler = MK.dogrulama_plani(metin)
+    if not tler:
+        return ["`## Doğrulama planı` bölümünde T satırı yok"]
+    anilan = {s for t in tler.values() for s in t["s"]}
+    return [f"S{n}: doğrulama planında T yok" for n in sorted(sozlesme_kriterleri(klasor)) if n not in anilan]
+
+
 def plan_yazim_eksikleri(klasor: str, metin: str) -> tuple[list[str], list[str]]:
     """Yazılacak plan metni için (ret veren, gölge) eksikler: ret veren = kapısız alanlar + ihlal modundaki kapılar
     (todo yazımında ve `plan dogrula`da reddedilir); gölge = gölge modundaki kapıların eksikleri (engellemez)."""
@@ -1308,6 +1320,7 @@ def plan_yazim_eksikleri(klasor: str, metin: str) -> tuple[list[str], list[str]]
                 continue
             e = globals()[islev](klasor)
             (sert if KM.mod(kapi, klasor) == "ihlal" else golge).extend(e)
+        (sert if KM.mod("edel", klasor) == "ihlal" else golge).extend(dogrulama_plani_eksikleri(klasor, metin))
     finally:
         if onceki is None:
             _PLAN_ESI.pop(k, None)

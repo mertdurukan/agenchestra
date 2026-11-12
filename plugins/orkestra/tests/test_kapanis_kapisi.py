@@ -84,7 +84,7 @@ class KapanisKapisi(unittest.TestCase):
 
     def test_is_kapaninca_bloklamaz(self):
         self.bitir()
-        is_kaydi.is_durum(self.sd, self.id, "kapandi")
+        is_kaydi.is_durum(self.sd, self.id, "kapandi", yol="cli")
         self.assertNotEqual(self.stop().get("decision"), "block")
 
 

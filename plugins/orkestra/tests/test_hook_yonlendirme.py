@@ -194,7 +194,7 @@ class IstekIpucu(_Ortak):
         self.assertNotIn("ZORUNLU", self.istek("tamam, devam et"))
 
     def test_kapali_is_listelenmez(self):
-        is_kaydi.is_durum(self.sd, self.fatura["id"], "kapandi")
+        is_kaydi.is_durum(self.sd, self.fatura["id"], "kapandi", yol="cli")
         self._sec([self.diger["id"]])
         m = self.istek(ISTEK_FATURA)
         self.assertNotIn(self.fatura["id"], m)
@@ -226,8 +226,8 @@ class AcilisNotlari(_Ortak):
         a = self.is_ac("Bitmiş iş başlığı", "001-bitmis")
         self.todo_yaz(a, "# T\n\n- [x] bir\n- [x] iki\n")
         p = self.parca(self.acilis(), a["id"])
-        self.assertIn("otomatik kapandı", p)
-        self.assertNotIn(a["id"], self._acik_idler())
+        self.assertIn("kapanabilir", p)
+        self.assertIn(a["id"], self._acik_idler())
 
     def _acik_idler(self):
         import is_kaydi
@@ -243,15 +243,15 @@ class AcilisNotlari(_Ortak):
         a = self.is_ac("Kartı teslim edilmiş iş", "001-teslim")
         self.todo_yaz(a, "# T\n\n- [x] bir\n")
         self.kart_yaz("G-001", a["id"], "teslim")
-        self.acilis()
-        self.assertNotIn(a["id"], self._acik_idler())
+        self.assertIn("kapanabilir", self.parca(self.acilis(), a["id"]))
+        self.assertIn(a["id"], self._acik_idler())
 
     def test_todo_tamam_degilse_not_yok(self):
         a = self.is_ac("Yarım iş", "001-yarim")
         self.todo_yaz(a, "# T\n\n- [x] bir\n- [ ] iki\n")
         p = self.parca(self.acilis(), a["id"])
         self.assertNotIn("orkestra is kapat", p)
-        self.assertNotIn("kapatılabilir", p)
+        self.assertNotIn("kapanabilir", p)
 
     def test_todo_toplam_sifirsa_not_yok(self):
         a = self.is_ac("Todo'suz iş", "001-todosuz")
@@ -290,7 +290,7 @@ class AcilisNotlari(_Ortak):
         m = self.acilis()
         p = self.parca(m, a["id"])
         self.assertIn("todo 1/1", p)
-        self.assertIn("otomatik kapandı", p)
+        self.assertIn("kapanabilir", p)
 
     def test_1800_kesimi_bozulmaz(self):
         for i in range(5):

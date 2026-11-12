@@ -347,6 +347,36 @@ def baglanti_satiri(etiket: str, yol: str, proje_koku: str) -> str:
     return f"{etiket}: [{os.path.basename(mutlak)}]({goreli})"
 
 
+def _onay_bekliyor(klasor: str) -> bool:
+    """is.json'da `onay` alanı varsa ve 'verildi' değilse True (alan yoksa eski kayıt: bekleyen sayılmaz)."""
+    try:
+        with open(_is_json_yolu(klasor), encoding="utf-8") as f:
+            onay = (json.load(f) or {}).get("onay")
+    except (OSError, ValueError):
+        return False
+    return onay is not None and onay != "verildi"
+
+
+def _anlatim_eski(klasor: str, ad: str) -> bool:
+    """Anlatım dosyası yoksa ya da kaynaklardan (is.json, mevcut_durum_*.md, plan.md, todo.md) biri ondan yeniyse True."""
+    yol = os.path.join(klasor, ad)
+    try:
+        t = os.path.getmtime(yol)
+    except OSError:
+        return True
+    kaynaklar = [_is_json_yolu(klasor), os.path.join(klasor, "plan.md"), os.path.join(klasor, "todo.md")]
+    md = SIRA.mevcut_durum_yolu(klasor)
+    if md:
+        kaynaklar.append(md)
+    for k in kaynaklar:
+        try:
+            if os.path.getmtime(k) > t:
+                return True
+        except OSError:
+            pass
+    return False
+
+
 def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bool = False,
                        ek: list[str] | None = None, simdi_ts: float | None = None) -> list[str]:
     """K-003 sohbet satırları. plan.md ve todo.md (varsa) her zaman; iş klasöründeki okunacak belgeler
@@ -363,10 +393,18 @@ def belge_baglantilari(klasor: str, proje_koku: str, son_dk: int = 180, tumu: bo
         plan_gorunum.uret(klasor)
     except Exception:
         pass
-    try:  # ADR-0179: aşama görünümleri bir kez üretildiyse kaynakla güncel tutulur
+    try:  # I-461/P7: onay bekleyen işte anlatım görünümü üretilir ve ilk bağlantı olur; onaylı işte aşama görünümleri bir kez üretildiyse güncel tutulur (ADR-0179)
         import belge_gorunum
-        if belge_gorunum.var_mi(klasor):
+        bekleyen = _onay_bekliyor(klasor)
+        if bekleyen:
+            if _anlatim_eski(klasor, belge_gorunum.ANLATIM):  # kaynak değişmediyse hiçbir dosyaya dokunulmaz (teslim imzası kararlı kalır)
+                belge_gorunum.uret(klasor)
+        elif belge_gorunum.var_mi(klasor):
             belge_gorunum.uret(klasor)
+        anlatim_yolu = os.path.join(klasor, belge_gorunum.ANLATIM)
+        if bekleyen and os.path.isfile(anlatim_yolu):
+            gorulen.add(os.path.normcase(os.path.abspath(anlatim_yolu)))
+            satirlar.insert(0, baglanti_satiri("anlatım", anlatim_yolu, proje_koku))
     except Exception:
         pass
     for ad, gorunum, etiket in (("plan.md", "plan_gorunum.md", "plan dosyası"), ("todo.md", "todo_gorunum.md", "to-do dosyası")):
@@ -937,13 +975,25 @@ def _degistir(sd: str, is_id: str, islem) -> dict:
     return kayit
 
 
-def is_durum(sd: str, is_id: str, durum: str) -> dict:
+KAPANIS_YOLLARI = ("cli", "panel", "bakim")
+
+
+def is_durum(sd: str, is_id: str, durum: str, *, yol: str | None = None,
+             gerekce: str | None = None) -> dict:
+    """Durumu değiştirir. durum=='kapandi' için `yol` (KAPANIS_YOLLARI) zorunludur ve olaya yazılır."""
     if durum not in DURUMLAR:
         raise ValueError(f"geçersiz durum: {durum}")
+    if durum == "kapandi" and yol not in KAPANIS_YOLLARI:
+        raise ValueError(f"kapanış yolu gerekli ({'/'.join(KAPANIS_YOLLARI)}): {yol!r}")
 
     def islem(k):
         k["durum"] = durum
-        k.setdefault("gecmis", []).append({"zaman": L.simdi(), "olay": f"durum:{durum}"})
+        olay = {"zaman": L.simdi(), "olay": f"durum:{durum}"}
+        if durum == "kapandi":
+            olay["yol"] = yol
+            if gerekce:
+                olay["gerekce"] = gerekce
+        k.setdefault("gecmis", []).append(olay)
 
     kayit = _degistir(sd, is_id, islem)
     yol = _merkez(sd)

@@ -246,15 +246,17 @@ class IsSirasi(unittest.TestCase):
         self.assertIn("sıra: mevcut_durum — eksik: mevcut durum: `**Ölçüm saati:**` boş", r.stdout)
         self.assertNotIn("plan:", r.stdout)  # plan.md henüz yok
 
-    def test_baglanti_ilk_satir_mevcut_durum(self):
+    def test_baglanti_onay_bekleyen_anlatim_ilk_satir_sonra_mevcut_durum(self):
+        # I-461/P7: onay bekleyen işte satır 0 anlatım; sonra mevcut durum, plan görünümü, todo görünümü (ADR-0179)
         i, klasor, _ = self.ac()
         self.md_doldur(klasor)
         self.cli("is", "belge", i, "plan")
         self.yaz(os.path.join(klasor, "todo.md"), "- [ ] P1: x\n")
         satirlar = self.cli("is", "baglanti", i).stdout.splitlines()
-        self.assertEqual(satirlar[0], f"mevcut durum: [{MD_AD}](is1/{MD_AD})")
-        self.assertEqual(satirlar[1], "plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)")
-        self.assertEqual(satirlar[2], "to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)")
+        self.assertEqual(satirlar[0], "anlatım: [00-Anlatim.md](is1/00-Anlatim.md)")
+        self.assertEqual(satirlar[1], f"mevcut durum: [{MD_AD}](is1/{MD_AD})")
+        self.assertEqual(satirlar[2], "plan dosyası: [plan_gorunum.md](is1/plan_gorunum.md)")
+        self.assertEqual(satirlar[3], "to-do dosyası: [todo_gorunum.md](is1/todo_gorunum.md)")
 
     # ------------------------------------------------------------ yazım anı kapısı (hook)
     def test_hook_plan_yazimi_mevcut_durum_tamam_olmadan_reddedilir(self):

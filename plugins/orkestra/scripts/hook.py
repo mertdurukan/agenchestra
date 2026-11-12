@@ -2541,10 +2541,9 @@ def _kapanis_notlari(sd: str, liste: list) -> dict:
                 if _teslim.bekliyor_neden(is_kaydi.is_al(sd, i)):  # I-433: PR/kullanıcı kararı bekleyen iş kendiliğinden kapanmaz
                     notlar[i] = " · bekliyor: kullanıcı kararı (PR/inceleme)"
                     continue
-                is_kaydi.is_durum(sd, i, "kapandi")
-                notlar[i] = " · otomatik kapandı"
+                notlar[i] = f" · kapanabilir: orkestra is kapat {i}"
             except Exception:
-                notlar[i] = f" · kapatılabilir: orkestra is kapat {i}"
+                notlar[i] = f" · kapanabilir: orkestra is kapat {i}"
         notlar.update({i: " · bayat" for i in a.get("bayat", [])})
         return notlar
     except Exception:

@@ -68,13 +68,13 @@ def ayar(klasor: str | None = None) -> dict:
     sd = L.durum_dizini(klasor) if klasor else None
     if sd:
         yollar.append(os.path.join(sd, KAPI + ".json"))
-    sonuc: dict = {"mod": "golge", "eval_min_kosu": {}, "kapilar": {}}
+    sonuc: dict = {"mod": "golge", "eval_min_kosu": {}, "kapilar": {}, "kapsam_baslangic": ""}
     for yol in yollar:
         try:
             with open(yol, encoding="utf-8") as f:
                 d = json.load(f)
             if isinstance(d, dict):
-                sonuc.update({k: v for k, v in d.items() if k in ("mod", "eval_min_kosu", "kapilar")})
+                sonuc.update({k: v for k, v in d.items() if k in ("mod", "eval_min_kosu", "kapilar", "kapsam_baslangic")})
         except (OSError, ValueError):
             pass
     return sonuc
@@ -538,14 +538,31 @@ def olc(sd: str, ornek: int = ORNEK_SAYI, tohum: int = 447) -> dict:
     dagilim = {k: Counter() for k in ("1", "2", "3", "genel", "kapali_3")}
     eksik_say = {k: Counter() for k in ("1", "2", "3", "kapali_3")}
     satirlar, hatalar = [], []
+    baslangic = str(ayar().get("kapsam_baslangic") or "")
+    try:  # durum klasörü ezmesi
+        with open(os.path.join(sd, KAPI + ".json"), encoding="utf-8") as f:
+            baslangic = str((json.load(f) or {}).get("kapsam_baslangic") or baslangic)
+    except (OSError, ValueError, AttributeError):
+        pass
+    kapsam = {g: {"is_sayisi": 0, "dagilim": {k: Counter() for k in ("1", "2", "3", "genel", "kapali_3")},
+                  "eksik": {k: Counter() for k in ("1", "2", "3", "kapali_3")}} for g in ("ici", "disi")}
+    yol_dagilimi: Counter = Counter()
     for x in _isler(sd):
         k = str(x.get("klasor") or "")
         try:
             with open(os.path.join(k, "is.json"), encoding="utf-8") as f:
-                if not (json.load(f) or {}).get("sira"):
-                    continue
+                kayit = json.load(f) or {}
+            if not kayit.get("sira"):
+                continue
         except (OSError, ValueError, AttributeError):
             continue
+        ici = bool(baslangic) and all(kayit.get(b) for b in ("gap", "kalite", "sozlesme")) \
+            and str(kayit.get("olusturma") or "")[:10] >= baslangic
+        g = kapsam["ici" if ici else "disi"]
+        g["is_sayisi"] += 1
+        if x.get("durum") in ("kapandi", "kapali"):
+            olaylar = [e for e in kayit.get("gecmis") or [] if isinstance(e, dict) and e.get("olay") == "durum:kapandi"]
+            yol_dagilimi[str(olaylar[-1].get("yol") or "bilinmiyor") if olaylar else "bilinmiyor"] += 1
         try:
             r = kontrol(k)
         except Exception as e:  # noqa: BLE001 - ölçüm tek işte bozulmaz
@@ -553,14 +570,17 @@ def olc(sd: str, ornek: int = ORNEK_SAYI, tohum: int = 447) -> dict:
             continue
         kapali = x.get("durum") in ("kapandi", "kapali")
         for kp in r["kapilar"]:
-            dagilim[kp["kapi"]][kp["sonuc"]] += 1
-            for ad in sorted({e["kontrol"] for e in kp["eksikler"]}):
-                eksik_say[kp["kapi"]][ad] += 1
-                if kapali and kp["kapi"] == "3":
-                    eksik_say["kapali_3"][ad] += 1
+            for d_, e_ in ((dagilim, eksik_say), (g["dagilim"], g["eksik"])):
+                d_[kp["kapi"]][kp["sonuc"]] += 1
+                for ad in sorted({e["kontrol"] for e in kp["eksikler"]}):
+                    e_[kp["kapi"]][ad] += 1
+                    if kapali and kp["kapi"] == "3":
+                        e_["kapali_3"][ad] += 1
         if kapali:  # kapanmış işte kapı 3 kalması gerçek açık ya da yanlış pozitiftir; açık işte beklenir
             dagilim["kapali_3"][r["kapilar"][2]["sonuc"]] += 1
+            g["dagilim"]["kapali_3"][r["kapilar"][2]["sonuc"]] += 1
         dagilim["genel"][r["genel"]] += 1
+        g["dagilim"]["genel"][r["genel"]] += 1
         satirlar.append({"is": x.get("id"), "klasor": k, "durum": x.get("durum"), "kademe": r["kademe"],
                          "genel": r["genel"], "asama": r["asama"],
                          "eksik": [f"{kp['kapi']}/{e['kontrol']}: {e['mesaj']}" for kp in r["kapilar"]
@@ -572,7 +592,12 @@ def olc(sd: str, ornek: int = ORNEK_SAYI, tohum: int = 447) -> dict:
         grup = sorted((s for s in satirlar if s["genel"] == sonuc), key=lambda s: str(s["is"]))
         ornekler[sonuc] = rnd.sample(grup, min(ornek, len(grup)))
     return {"is_sayisi": len(satirlar), "dagilim": {k: dict(v) for k, v in dagilim.items()},
-            "en_sik_eksik": {k: v.most_common(8) for k, v in eksik_say.items()}, "ornekler": ornekler, "hatalar": hatalar}
+            "en_sik_eksik": {k: v.most_common(8) for k, v in eksik_say.items()}, "ornekler": ornekler, "hatalar": hatalar,
+            "kapsam_baslangic": baslangic,
+            "kapsam": {n: {"is_sayisi": g["is_sayisi"], "dagilim": {k: dict(v) for k, v in g["dagilim"].items()},
+                           "en_sik_eksik": {k: v.most_common(8) for k, v in g["eksik"].items()}}
+                       for n, g in kapsam.items()},
+            "yol_dagilimi": dict(yol_dagilimi)}
 
 
 # --- yazdırma ---------------------------------------------------------------------------------------------------------
@@ -590,6 +615,17 @@ def rapor_metni(r: dict) -> str:
 
 def olcum_metni(o: dict) -> str:
     sat = [f"sıralı iş: {o['is_sayisi']}"]
+    kap = o.get("kapsam") or {}
+    for ad, anahtar in (("kapsam içi", "ici"), ("kapsam dışı", "disi")):
+        g = kap.get(anahtar) or {"is_sayisi": 0, "dagilim": {}, "en_sik_eksik": {}}
+        sat.append(f"{ad}: {g['is_sayisi']}")
+        for k in ("genel", "3", "kapali_3"):
+            d = g["dagilim"].get(k, {})
+            sat.append(f"  {ad} kapı {k}: " + ", ".join(f"{s} {d.get(s, 0)}" for s in SONUCLAR))
+        for k in ("3", "kapali_3"):
+            sat.append(f"  {ad} kapı {k} en sık eksik: " + (", ".join(f"{a} {n}" for a, n in g["en_sik_eksik"].get(k, [])) or "-"))
+    yd = o.get("yol_dagilimi") or {}
+    sat.append("kapanış yolu: " + (", ".join(f"{y} {n}" for y, n in sorted(yd.items())) or "-"))
     for k in ("1", "2", "3", "genel", "kapali_3"):
         d = o["dagilim"].get(k, {})
         sat.append(f"kapı {k}: " + ", ".join(f"{s} {d.get(s, 0)}" for s in SONUCLAR))

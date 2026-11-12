@@ -150,6 +150,7 @@ Her projede geçerlidir. Projeye özgü bilgi bu dosyaya girmez; o kısım proje
 - `orkestra is kontrol <iş>` kapı 1 (Başlangıç), 2 (Geliştirme), 3 (Doğrulama ve yayın) için PASS/FAIL/BLOCKED verir (çıkış 0/1/2); `Engel:` taşıyan T BLOCKED yapar, FAIL'i örtmez. Kapanıştan önce koşulur; sözleşme `## Sonuç` (ya da çalışma özeti) her S'yi anar.
 - `orkestra is gorunum <iş>` 01-Baslangic, 02-Gelistirme, 03-Dogrulama-ve-Yayin görünümlerini kayıttan üretir; elle düzenlenmez, kaynak düzeltilir.
 - Mod `golge`: `is kapat` kapı 3 PASS değilse `kapi_golge` (kapi: edel) yazar, kapanışı engellemez. İhlale geçiş kapı başına ayrı ORK-ADR ister (P-028).
+- Kapanış tek yoldur (P-009, ADR-0182): iş yalnız `orkestra is kapat` ile kapanır (yol `cli`, `panel` ya da `bakim`; `is_durum` yolsuz kapatmayı reddeder). SessionStart hook'u kapatmaz, yalnız "kapanabilir: orkestra is kapat <id>" bildirir. Yol ve `--ozetsiz` gerekçesi `durum:kapandi` olayına yazılır; çalışma özeti kapanışta zorunludur.
 
 ## Teknik not
 - İşçi is-bitti'si `--teknik <json_dosya>` (yaklasim, neden_bu_yol, alternatifler, entegrasyon, riskler) olmadan geçmez (çıkış 4; kapatma: `ORKESTRA_TEKNIK_KAPISI=0`). Denetçi teknik notun çıktıyla tutarlılığına bakar; tutarsızsa ret.

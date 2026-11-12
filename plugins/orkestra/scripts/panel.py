@@ -1256,7 +1256,7 @@ def _isleyici():
                 engel = KI.kapanis_eksigi(sd, kayit, (ozetsiz or "").strip())
                 if engel:
                     return self._json(422, {"tamam": False, "kapi": engel[0], "hata": engel[1]})
-                KI.kapat_uygula(sd, is_id)
+                KI.kapat_uygula(sd, is_id, yol="panel", gerekce=(ozetsiz or "").strip() or None)
             except Exception as e:  # noqa: BLE001
                 return self._json(500, {"tamam": False, "hata": f"{type(e).__name__}: {L.maskele(str(e))}"})
             with kilit:
