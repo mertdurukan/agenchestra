@@ -322,8 +322,9 @@ def _onay_kaydi_var(sd, oturum) -> bool:
         return False
 
 
-def _onay_kabuk_kapisi(girdi: dict, sd: str | None, oturum) -> str:
+def _onay_kabuk_kapisi(girdi: dict, sd: str | None, oturum, cwd: str | None = None) -> str:
     """P-016 (I-224): onay bekleyen işte kabukla proje içi yazım Edit/Write ile aynı kapıdan (is_onay.yazma_engeli) geçer.
+    `cwd` hook girdisinin çalışma dizinidir; göreli yollar ona göre çözülür (I-464).
     İzin modundan bağımsızdır; hata yolunda serbest (hook'un onay kapısı gibi fail-open)."""
     if not sd or not oturum:
         return ""
@@ -333,12 +334,13 @@ def _onay_kabuk_kapisi(girdi: dict, sd: str | None, oturum) -> str:
         if not kayit:
             return ""
         proje = os.path.dirname(os.path.dirname(os.path.abspath(sd)))  # <proje>/.claude/orkestra
-        return is_onay.kabuk_yazma_engeli(kayit, proje, str(girdi.get("command") or ""))
+        return is_onay.kabuk_yazma_engeli(kayit, proje, str(girdi.get("command") or ""), cwd)
     except Exception:
         return ""
 
 
-def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None, oturum=None) -> tuple[str | None, str]:
+def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None = None, oturum=None,
+          cwd: str | None = None) -> tuple[str | None, str]:
     cfg = cfg or ayar_yukle(sd)
     ned = _kimlik_kapisi(arac, girdi or {}, _kimlik_okuma_acik(cfg))
     if ned:
@@ -347,7 +349,7 @@ def karar(arac: str, girdi: dict | None, sd: str | None = None, cfg: dict | None
     if ned:
         return "deny", ned  # varsayılan mod ayarı: mod ne olursa olsun
     if arac in KABUK_ARACLARI:
-        ned = _onay_kabuk_kapisi(girdi or {}, sd, oturum)
+        ned = _onay_kabuk_kapisi(girdi or {}, sd, oturum, cwd)
         if ned:
             return "deny", ned  # P-016: izin modu ne olursa olsun
     mod = mod_bul(cfg)

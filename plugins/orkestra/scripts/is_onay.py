@@ -603,6 +603,11 @@ def _segment_hedefleri(kel: list[str]) -> tuple[list[str], str | None]:
 def kabuk_hedefleri(komut: str, cwd: str | None = None) -> list:
     """Kabuk komutunun yazdığı/sildiği yollar (mutlak, normcase'li); çözülemeyen değişkenli yol None. Veri heredoc'u ve
     PowerShell here-string gövdesi atılır; `cd` sırası izlenir."""
+    return _kabuk_hedef_taban(komut, cwd)[0]
+
+
+def _kabuk_hedef_taban(komut: str, cwd: str | None = None) -> tuple[list, str]:
+    """`kabuk_hedefleri` ve son `cd` sonrası taban dizin (yorumlayıcı kodundaki göreli yol buna göre çözülür)."""
     import izin_politikasi
     metin = izin_politikasi.heredoc_ayir(komut or "")[0]
     metin = izin_politikasi._PS_BURADA.sub('""', metin)
@@ -621,18 +626,36 @@ def kabuk_hedefleri(komut: str, cwd: str | None = None) -> list:
             yeni = _yol_coz(cd, taban)
             if yeni:
                 taban = yeni
-    return hedefler
+    return hedefler, taban
+
+
+def kabuk_yazim_hedefleri(komut: str, cwd: str | None = None) -> tuple[list, bool]:
+    """Kabuk komutunun bütün yazım hedefleri, süzgeçsiz: kabuk hedefleri (çözülemeyen None) + yorumlayıcı kodundaki
+    açık yol sabitleri (son `cd` sonrası tabana göre); ikinci değer hedefi çıkarılamayan yorumlayıcı yazımı var mı.
+    Onay kapısı (`kabuk_yazma_engeli`) ve bağsız kapı (`kabuk_kalici_yazimlar`) bu tek çözücüyü kullanır (I-464);
+    her kapı kendi süzgecini sonra uygular."""
+    hedefler, taban = _kabuk_hedef_taban(komut, cwd)
+    sabit, bilinmeyen = betik_yazimlari(komut)
+    for y in sabit:
+        hedefler.append(os.path.normcase(os.path.abspath(os.path.join(taban, os.path.expanduser(y)))))
+    return hedefler, bilinmeyen
 
 
 def kabuk_yazma_engeli(kayit: dict, proje: str, komut: str, cwd: str | None = None) -> str:
-    """I-224: `bekliyor` iken kabukla yazım, Edit/Write ile aynı kapıdan (yazma_engeli) geçer. Boş döner = izin."""
-    for hedef in kabuk_hedefleri(komut, cwd):
+    """I-224: `bekliyor` iken kabukla yazım, Edit/Write ile aynı kapıdan (yazma_engeli) geçer. I-464: yorumlayıcı kodundaki
+    (python heredoc, python -c) dosya yazımı da. Boş döner = izin."""
+    hedefler, bilinmeyen = kabuk_yazim_hedefleri(komut, cwd)
+    for hedef in hedefler:
         if hedef is None:
             return ("iş onay bekliyor (P-016): kabuk komutunun yazdığı yol çözülemedi (değişkenli yol); proje dışına "
                     "yazacaksan yolu açık yaz. Kullanıcı onaylamadan proje içinde işin belgeleri dışında dosya yazılmaz.")
         neden = yazma_engeli(kayit, proje, hedef)
         if neden:
-            return neden + " (kabukla yazım da aynı kapıdan geçer.)"
+            return neden + " (kabukla ve yorumlayıcı koduyla yazım da aynı kapıdan geçer.)"
+    if bilinmeyen:
+        return ("iş onay bekliyor (P-016): yorumlayıcı kodu hedefi çıkarılamayan bir dosya yazımı içeriyor (değişkenli "
+                "open(..., 'w'), write_text, shutil, os.replace/remove); proje dışına yazacaksan yolu open('<yol>', 'w') "
+                "biçiminde açık yaz. Kullanıcı onaylamadan proje içinde işin belgeleri dışında dosya yazılmaz.")
     return ""
 
 
@@ -707,19 +730,14 @@ def ayni_depo_haric(hedefler: list, proje: str, cwd: str | None) -> list:
 
 def kabuk_kalici_yazimlar(komut: str, cwd: str | None = None) -> tuple[list, bool]:
     """Kabuk komutunun geçici dizin dışına yazdığı yollar ve hedefi çözülemeyen yazım var mı (I-318)."""
-    kalici, bilinmeyen = [], False
-    taban = os.path.abspath(cwd or os.getcwd())
-    for h in kabuk_hedefleri(komut, cwd):
+    hedefler, bilinmeyen = kabuk_yazim_hedefleri(komut, cwd)
+    kalici = []
+    for h in hedefler:
         if h is None:
             bilinmeyen = True
         elif not gecici_yol_mu(h):
             kalici.append(h)
-    sabit, bil2 = betik_yazimlari(komut)
-    for y in sabit:
-        h = os.path.normcase(os.path.abspath(os.path.join(taban, os.path.expanduser(y))))
-        if not gecici_yol_mu(h):
-            kalici.append(h)
-    return kalici, bilinmeyen or bil2
+    return kalici, bilinmeyen
 
 
 # ADR-0031: kullanıcı commit/push'u açıkça istediği turda yalnız bu git alt komutları kapıdan geçer.

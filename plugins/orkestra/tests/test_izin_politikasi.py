@@ -441,6 +441,26 @@ class OnayKapisiKabuk(unittest.TestCase):
         self.assertTrue(self.is_onay.kabuk_engeli("git push origin main"))
         self.assertTrue(self.is_onay.kabuk_engeli('cat <<""\nx\nEOF\ngit push origin main'))
 
+    def test_k4_yorumlayici_kodu_yazimi_ayni_kapidan_gecer(self):
+        """I-464: heredoc gövdesi kabuk hedef çıkarmasına girmez; python kodundaki open(..., 'w') yazımı da onay
+        kapısından geçer. Göreli yol hook'un cwd'sine (burada proje) göre çözülür."""
+        p = os.path.join(self.proje, "src", "a.py")
+        kalici_disari = os.path.join(os.path.expanduser("~"), "ork_i464_olmayan", "a.json")
+        for komut in (f"py -3.13 - <<'EOF'\nopen(r'{p}', 'w').write('x')\nEOF",
+                      "python -c \"open('src/a.py', 'w').write('x')\"",
+                      f"cd {self.proje} && python -c \"open('src/b.py', 'w')\"",
+                      f"py - <<'EOF'\nwith open(r'{kalici_disari}', 'w', encoding='utf-8') as f: f.write('{{}}')\nEOF",
+                      "py - <<'EOF'\nfrom pathlib import Path\nPath(yol).write_text('x')\nEOF"):
+            self.assertEqual(self.kabuk(komut), "deny", komut)
+        d = os.path.join(self.disari, "cikti.txt")
+        for komut in (f"py -3.13 - <<'EOF'\nopen(r'{d}', 'w').write('x')\nEOF",
+                      f"python -c \"open(r'{os.path.join(self.klasor, 'plan.md')}', 'w')\"",
+                      "python -m unittest 2>&1", "py -3.13 - <<'EOF'\nprint(open('src/a.py').read())\nEOF"):
+            self.assertNotEqual(self.kabuk(komut), "deny", komut)
+        # onay verilince yorumlayıcı yazımı da serbest
+        self.is_onay.yaz(self.sd, self.kayit["id"], "verildi", "test")
+        self.assertNotEqual(self.kabuk("python -c \"open('src/a.py', 'w').write('x')\""), "deny")
+
 
 class Cli(unittest.TestCase):
     def test_goster_ve_sina(self):
