@@ -47,6 +47,16 @@ def _normallestir(metin: str) -> str:
     return (metin or "").replace("İ", "i").replace("I", "ı").lower()
 
 
+_KOD = re.compile(r"```.*?```|`[^`\n]*`", re.S)
+
+
+def tarama_metni(metin: str) -> str:
+    """İhlal kalıplarının taradığı metin: normalleştirilir, kod bloğu ve satır içi kod aynı uzunlukta boşlukla örtülür.
+    Kod içindeki ad ve değerler ("`max_tokens`") kimlik cümlesi sayılmaz; uzunluk korunduğu için kanıt cümlesi
+    özgün metinden kesilebilir (hook.py `_kalip_kaniti`)."""
+    return _KOD.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), _normallestir(metin))
+
+
 def _eslesir(kaliplar, metin: str) -> bool:
     for k in kaliplar or []:
         try:
@@ -58,14 +68,15 @@ def _eslesir(kaliplar, metin: str) -> bool:
 
 
 def yanit_ihlali(yanit, sd=None) -> bool:
-    """Yanıtta kimlik ya da erişim eksikliği kalıbı var ve yanıt klasöre baktığını göstermiyor mu?"""
+    """Yanıtta kimlik ya da erişim eksikliği kalıbı var ve yanıt klasöre baktığını göstermiyor mu?
+    Muaf kalıplar tüm metinde aranır (`orkestra kimlik liste` çoğu kez backtick içindedir); ihlal kalıpları kod dışında."""
     ayar = ayar_oku(sd)
     if mod(ayar) == "kapali":
         return False
     m = _normallestir(yanit)
     if not m or _eslesir(ayar.get("yanit_muaf_kaliplari"), m):
         return False
-    return _eslesir(ayar.get("yanit_kaliplari"), m)
+    return _eslesir(ayar.get("yanit_kaliplari"), tarama_metni(yanit))
 
 
 def mesaj_ipucu(metin, sd=None) -> str:

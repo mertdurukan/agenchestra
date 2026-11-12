@@ -26,11 +26,22 @@ OTURUM = "kimlik12345678-oturum"
 POZITIF = ["Cosmos erişimi bekleniyor, kullanıcı eklemeli.",
            "Production bağlantısını kullanıcı eklesin.",
            "Langfuse anahtarı yok.",
-           "Airflow için kimlik bilgisi eksik."]
+           "Airflow için kimlik bilgisi eksik.",
+           "Langfuse anahtarı yok, kullanıcı eklemeli"]
 NEGATIF = ["Testler geçti, 12 dosya değişti.",
            "Kimlik klasörüne baktım: orkestra kimlik liste çıktısında cosmos var.",
            "Kimlik klasöründe karşılığı yok (liste bakıldı); kullanıcıya soruyorum.",
            ""]
+# I-463: günlükteki gerçek yanlış alarmlar ve korpus dışı benzerleri; kimlik eksikliği değil, eşleşmemeli.
+YANLIS_POZITIF = ["Model ayarında yanıt uzunluğu için bir üst sınır (`max_tokens`) yok.",
+                  "Kimlik doğrulama yok.",
+                  "Bağlantı reddedildi, yan etki yok.",
+                  "`DEV_DATABASE_URI` adında bir anahtar yok.",
+                  "Cursor tarafında adım başı süre ve token yok.",
+                  "Bu oturumda test ortamının adresi ve erişimi yok.",
+                  "Bu tabloda tenant anahtarı yok.",
+                  "Prompt'ta token sınırı yok.",
+                  "Ajan ucunda erişim denetimi eksik."]
 MESAJ_POZITIF = ["Cosmos conversation sayısını çıkar", "Langfuse izlerine bak", "bağlantı dizesi gerekiyor"]
 MESAJ_NEGATIF = ["testleri koş", "README'yi güncelle", ""]
 
@@ -98,6 +109,28 @@ class TestKaliplar(_Proje):
             with self.subTest(m=m):
                 self.assertFalse(KH.yanit_ihlali(m, self.sd), repr(m))
 
+    def test_yanlis_pozitif_eslesmez(self):
+        for m in YANLIS_POZITIF:
+            with self.subTest(m=m):
+                self.assertFalse(KH.yanit_ihlali(m, self.sd), m)
+
+    def test_kod_ici_taranmaz(self):
+        self.assertFalse(KH.yanit_ihlali("Ayar: `langfuse anahtarı yok` diye loglanır.", self.sd))
+        self.assertFalse(KH.yanit_ihlali("Çıktı:\n```\nCosmos erişimi bekleniyor\n```\nTestler geçti.", self.sd))
+        self.assertTrue(KH.yanit_ihlali("`config.py` okundu; Langfuse anahtarı yok.", self.sd))
+
+    def test_tarama_metni_uzunlugu_korur(self):
+        for m in ("a `b` c", "x\n```\ny\n```\nz", "İSTANBUL `ı`"):
+            with self.subTest(m=m):
+                self.assertEqual(len(KH.tarama_metni(m)), len(m))
+        self.assertEqual(KH.tarama_metni("x\n```\ny\n```\nz").count("\n"), 4)
+
+    def test_muaf_backtick_icinde_de_gecerli(self):
+        self.assertFalse(KH.yanit_ihlali("`orkestra kimlik liste` baktım; Langfuse anahtarı yok.", self.sd))
+
+    def test_varsayilan_kip_golge(self):
+        self.assertEqual(KH.mod(KH.ayar_oku(self.sd)), "golge")
+
     def test_buyuk_harf_ve_none(self):
         self.assertTrue(KH.yanit_ihlali("COSMOS ERİŞİMİ BEKLENİYOR", self.sd))
         self.assertFalse(KH.yanit_ihlali(None, self.sd))
@@ -150,7 +183,22 @@ class TestStopKapisi(_Proje):
         with open(yol, encoding="utf-8") as f:
             return [json.loads(s) for s in f if s.strip()]
 
+    def test_varsayilan_golge_engellemez(self):
+        kod, cikti = self.kos(POZITIF[0])
+        self.assertIsNone(kod)
+        self.assertIsNone(cikti)
+        self.assertEqual(self.gunluk()[0]["mod"], "golge")
+
+    def test_yanlis_pozitif_gunluge_yazilmaz(self):
+        self.kos(YANLIS_POZITIF[0])
+        self.assertEqual(self.gunluk(), [])
+
+    def test_kanit_cumlesi_ozgun_metinden(self):
+        self.kos("Testler geçti. `x` okundu; Langfuse anahtarı yok. Bitti.")
+        self.assertIn("Langfuse anahtarı yok.", self.gunluk()[0]["cumle"])
+
     def test_block_ve_hatirlatma(self):
+        self.proje_ayari({"mod": "block"})
         kod, cikti = self.kos(POZITIF[0])
         self.assertEqual(kod, 0)
         self.assertEqual(cikti["decision"], "block")
@@ -160,6 +208,7 @@ class TestStopKapisi(_Proje):
         self.assertEqual(kayit[0]["mod"], "block")
 
     def test_stop_hook_active_blok_etmez(self):
+        self.proje_ayari({"mod": "block"})
         kod, cikti = self.kos(POZITIF[0], stop_hook_active=True)
         self.assertIsNone(kod)
         self.assertIsNone(cikti)

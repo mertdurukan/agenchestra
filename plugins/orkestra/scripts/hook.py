@@ -1882,7 +1882,7 @@ def _kimlik_kapisi_yanit(sd: str, oid, inp: dict) -> None:
         L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_ihlal",
                                                          "kural": "kimlik_once_bak", "mod": kip, "is": _oturum_isi(sd, oid),
                                                          **_kalip_kaniti(kayar.get("yanit_kaliplari"), inp.get("last_assistant_message"),
-                                                                         KH._normallestir)})
+                                                                         KH.tarama_metni)})
         if kip == "block" and not inp.get("stop_hook_active"):
             L.hook_cikti({"decision": "block", "reason": KH.hatirlatma_metni(sd)})
     except SystemExit:

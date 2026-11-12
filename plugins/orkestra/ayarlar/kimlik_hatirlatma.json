@@ -1,5 +1,5 @@
 {
-  "mod": "block",
+  "mod": "golge",
   "ipucu": "KİMLİK: bu iş kimlik, anahtar ya da bağlantı dizesi gerektiriyorsa 'yok' ya da 'kullanıcı eklesin' demeden önce `orkestra kimlik liste` ile kimlik klasörüne bak (P-023); değeri okuma, `orkestra kimlik calistir` ile kullan.",
   "hatirlatma": "Orkestra (P-023): yanıtta kimlik/erişim 'yok, bekleniyor, kullanıcı eklemeli' deniyor ama kimlik klasörüne bakıldığı görünmüyor. Önce `orkestra kimlik liste` (gerekirse `orkestra kimlik var <servis> <anahtar>`) çalıştır; yalnız servis ve anahtar adlarını oku. Kayıt varsa `orkestra kimlik calistir <servis> -- <komut>` ile kullan; birden çok aday varsa ortamı değer açmadan doğrula. Karşılığı gerçekten yoksa yanıtta 'kimlik klasöründe karşılığı yok (liste bakıldı)' diye yaz.",
   "servis_kaliplari": [
@@ -16,12 +16,14 @@
     "\\bproduction (bağlantı|erişim)\\w*"
   ],
   "yanit_kaliplari": [
-    "(kimlik|anahtar|bağlantı|credential|connection string|erişim|parola|şifre|token)\\w*[^.\\n]{0,50}\\b(yok|bekleniyor|bekleyen|eksik|eklemeli|eklenmeli|eklesin|ekleyin|sağlamalı|verilmeli)\\b",
+    "\\b(cosmos|langfuse|airflow|posthog|openrouter|azure|openai|atlassian|mongo)\\w*[^.\\n]{0,25}\\b(anahtar(ı|ları|lar|ım|ımız)?|erişim(i|im|imiz)?|kimlik bilgi(si|leri)?|kayd(ı|ım)|kimliğ(i|im)|parola(sı)?|şifre(si)?|token(ı|i)?|credentials?|bağlantı dizes(i)?)\\b[^.\\n]{0,25}\\b(yok|bekleniyor|bekleyen|eksik|eklemeli|eklenmeli|eklesin|ekleyin|sağlamalı|verilmeli)\\b",
+    "\\b(kimlik bilgi(si|leri|lerim)?|api (key|anahtar(ı|ları)?)|bağlantı dizes(i|leri)?|connection string|credentials?|parola(sı|lar)?|şifre(si|ler)?|erişim anahtar(ı|ları)?|access token|secret)\\b[^.\\n]{0,40}\\b(yok|bekleniyor|bekleyen|eksik|eklemeli|eklenmeli|eklesin|ekleyin|sağlamalı|verilmeli)\\b",
     "\\bkullanıcı\\w*[^.\\n]{0,30}\\b(eklesin|eklemeli|girsin|girmeli)\\b[^.\\n]{0,40}(bağlantı|kimlik|anahtar|credential)",
     "\\b(bağlantı|kimlik|anahtar|credential)\\w*[^.\\n]{0,40}\\bkullanıcı\\w*[^.\\n]{0,30}\\b(eklesin|eklemeli|girsin|girmeli)\\b"
   ],
   "yanit_muaf_kaliplari": [
     "orkestra kimlik (liste|var|calistir)",
-    "kimlik klasöründe[^.\\n]{0,40}(karşılığı yok|kayıt yok|bulunmuyor)"
+    "kimlik klasöründe[^.\\n]{0,60}\\b(karşılığı yok|kayıt yok|kaydı yok|bulunmuyor)",
+    "\\(liste bakıldı\\)"
   ]
 }
