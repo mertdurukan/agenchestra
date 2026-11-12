@@ -129,20 +129,34 @@ def secim_ekrani_sunuldu(transkript, sd=None) -> bool:
     return bulundu
 
 
-def hatirlatma_metni(sd=None) -> str:
-    return ayar_oku(sd).get("hatirlatma", "")
+def arac_yok(transkript, ayar: dict) -> bool:
+    """Kutu aracı (ayar `arac`) oturumda kesin olarak bulunmuyorsa True (ADR-0180); bilinmiyorsa ya da okunamazsa False: eski metin korunur."""
+    try:
+        import arac_listesi
+        return bool(ayar.get("arac")) and arac_listesi.var_mi(transkript, ayar["arac"]) is False
+    except Exception:
+        return False
+
+
+def hatirlatma_metni(sd=None, transkript=None) -> str:
+    ayar = ayar_oku(sd)
+    if transkript and arac_yok(transkript, ayar) and ayar.get("hatirlatma_arac_yok"):
+        return ayar["hatirlatma_arac_yok"]
+    return ayar.get("hatirlatma", "")
 
 
 TUR_BASI_SINIR = 300  # yönerge her kullanıcı mesajında bağlama girer; bağlam maliyeti sınırı
 
 
-def tur_basi_metni(sd=None) -> str:
+def tur_basi_metni(sd=None, transkript=None) -> str:
     """Tur başında ana ajanın bağlamına konan düğme yönergesi (`tur_basi_yonerge`): karar cümlesi yazılmadan önce görünür.
     Kip 'kapali' (ya da ortam değişkeni 0) ise boş döner; en çok `TUR_BASI_SINIR` karakter."""
     ayar = ayar_oku(sd)
     if mod(ayar) == "kapali":
         return ""
     metin = ayar.get("tur_basi_yonerge")
+    if transkript and arac_yok(transkript, ayar) and isinstance(ayar.get("tur_basi_yonerge_arac_yok"), str):
+        metin = ayar["tur_basi_yonerge_arac_yok"]
     return metin.strip()[:TUR_BASI_SINIR] if isinstance(metin, str) else ""
 
 

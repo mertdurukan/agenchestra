@@ -142,8 +142,34 @@ def tur_cagrilari(transkript) -> list[tuple[str, dict]]:
     return cagrilar
 
 
+def arac_adi(sd=None) -> str:
+    """Kapanış kutusu aracının adı (ayar `arac`); modüle araç adı gömülmez."""
+    return str(ayar_oku(sd).get("arac") or "")
+
+
+def stop_karar(transkript, yanit, sd: str, oid, inp: dict | None = None) -> tuple[str, str]:
+    """(ihlal nedeni, atlanma nedeni). Aday ihlal var ama kapanış aracı oturumda yoksa ('', 'arac_yok'): araç yoksa
+    istek düşer, düz metin kapanış kabul edilir (ADR-0180). Araç varsa ya da bilinmiyorsa eski sonuç döner."""
+    tetik = _stop_tetik(transkript, yanit, sd, oid, inp)
+    if not tetik:
+        return "", ""
+    try:
+        import arac_listesi
+        ad = arac_adi(sd)
+        if ad and arac_listesi.var_mi(transkript, ad) is False:
+            return "", "arac_yok"
+    except Exception:
+        pass
+    return tetik, ""
+
+
 def stop_tetik(transkript, yanit, sd: str, oid, inp: dict | None = None) -> str:
-    """Stop'ta ihlal nedeni ('' = ihlal yok): çalışma turu, açık iş yok, kapanış teklif/soru değil, `wrap_up` çağrılmadı."""
+    """Stop'ta ihlal nedeni ('' = ihlal yok); kapanış aracı oturumda yoksa da ''."""
+    return stop_karar(transkript, yanit, sd, oid, inp)[0]
+
+
+def _stop_tetik(transkript, yanit, sd: str, oid, inp: dict | None = None) -> str:
+    """Araç varlığına bakmadan ihlal nedeni: çalışma turu, açık iş yok, kapanış teklif/soru değil, `wrap_up` çağrılmadı."""
     inp = inp or {}
     if mod(sd) == "kapali" or inp.get("agent_id") or inp.get("background_tasks"):
         return ""

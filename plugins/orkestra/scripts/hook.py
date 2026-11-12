@@ -1050,7 +1050,11 @@ def _arsiv_dugmesi_yanit(sd: str, oid, inp: dict) -> None:
     kipinde tur başına bir kez block (`stop_hook_active` döngüyü keser). Plan listesi 'devam ediyor' diye takılı kalmasın."""
     try:
         import arsiv_dugmesi as AD
-        tetik = AD.stop_tetik(inp.get("transcript_path"), inp.get("last_assistant_message"), sd, oid, inp)
+        tetik, atlandi = AD.stop_karar(inp.get("transcript_path"), inp.get("last_assistant_message"), sd, oid, inp)
+        if atlandi:
+            L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid, "tur": "kural_atlandi",
+                                                             "kural": "arsiv_dugmesi", "neden": atlandi})
+            return
         if not tetik:
             return
         kip = AD.mod(sd)
@@ -1899,7 +1903,7 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
                                                              "kural": "secim_ekrani_yapisal", "mod": ykip, "tetik": tetik,
                                                              "is": _oturum_isi(sd, oid), **_kanit(tetik)})
             if ykip == "block" and not inp.get("stop_hook_active"):
-                L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
+                L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd, inp.get("transcript_path"))})
         if not SH.yanit_ihlali(inp.get("last_assistant_message"), sd) or SH.secim_ekrani_sunuldu(inp.get("transcript_path"), sd):
             return
         sayar = SH.ayar_oku(sd)
@@ -1910,7 +1914,7 @@ def _secim_kapisi_yanit(sd: str, oid, inp: dict) -> None:
                                                                          SH._kodsuz(inp.get("last_assistant_message") or ""),
                                                                          SH._normallestir)})
         if kip == "block" and not inp.get("stop_hook_active"):
-            L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd)})
+            L.hook_cikti({"decision": "block", "reason": SH.hatirlatma_metni(sd, inp.get("transcript_path"))})
     except SystemExit:
         raise
     except Exception:
@@ -3750,7 +3754,7 @@ def user_prompt_submit(inp: dict):
                 pass
             try:  # ADR-0107: karar cümlesi yazılmadan önce P-029 düğme yönergesi; hata hook'u düşürmez
                 import secim_ekrani_hatirlatma
-                parcalar.append(secim_ekrani_hatirlatma.tur_basi_metni(sd))
+                parcalar.append(secim_ekrani_hatirlatma.tur_basi_metni(sd, inp.get("transcript_path")))
             except Exception:
                 pass
             try:  # ADR-0011: açık atama (SERVIS_ANAHTAR=değer) kimlik klasörüne yazılır; bağlama değer girmez
@@ -3784,7 +3788,7 @@ def user_prompt_submit(inp: dict):
                 import devir_esigi
                 devir_metni = devir_esigi.ipucu_al(sd, inp.get("session_id"))
                 if devir_metni:
-                    parcalar.append(devir_esigi.YONERGE)
+                    parcalar.append(devir_esigi.yonerge(inp.get("transcript_path"), sd))
             except Exception:
                 pass
             try:  # I-319 P6: çıktı bütçesi deneyi; kontrol kolunda boş, metin ≤200 karakter, hata hook'u düşürmez

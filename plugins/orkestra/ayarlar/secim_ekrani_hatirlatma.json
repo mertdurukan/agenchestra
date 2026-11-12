@@ -1,7 +1,10 @@
 {
   "mod": "block",
+  "arac": "wrap_up",
   "hatirlatma": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Cümleyi yanıttan çıkar ve butonla sun: wrap_up (ask = tek karar cümlesi; actions[0] = önerilen, tek öneri varsa 'Yap' düğmesi, gerekirse tek alternatif) ya da AskUserQuestion (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). İş açma ya da komut gerektiren öneri tek eylemli düğmeyle sunulur (ör. 'İş aç'); tıklanınca komutu sen çalıştırırsın. Kullanıcı yalnız tıklar; yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
+  "hatirlatma_arac_yok": "Orkestra (P-029): yanıt kullanıcıdan düz metinle karar/onay istiyor ('yap demen yeterli', 'onay verirsen', 'istersen', '…ayım mı?', 'hangisini istersiniz' gibi) ama bu turda dolu bir seçim ekranı çağrılmadı. Bu oturumda kapanış kutusu aracı yok: cümleyi yanıttan çıkar ve AskUserQuestion ile sun (2-4 seçenek, önerilen ilk sırada ve '(Recommended)' etiketli). İş açma ya da komut gerektiren öneri tek eylemli seçenekle sunulur (ör. 'İş aç'); seçilince komutu sen çalıştırırsın. Yanıt metni kısa kalır. Soru gerçek bir karar anı değilse bu uyarıyı yok say.",
   "tur_basi_yonerge": "Orkestra: yanıt = sonuç tek cümle, en çok 3 madde; karar gerekiyorsa EN SONA (wrap_up ask). Auto'da karar yok: önce kendin çöz; kalanı son 'Kullanıcıya kalanlar'a 'Denendi: …' ile yaz. 'İstersen' yazma.",
+  "tur_basi_yonerge_arac_yok": "Orkestra: yanıt = sonuç tek cümle, en çok 3 madde; karar gerekiyorsa EN SONA AskUserQuestion. Auto'da karar yok: önce kendin çöz; kalanı son 'Kullanıcıya kalanlar'a 'Denendi: …' ile yaz. 'İstersen' yazma.",
   "secim_araclari": [
     "AskUserQuestion",
     "wrap_up"

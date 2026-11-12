@@ -31,6 +31,25 @@ YONERGE = ("Orkestra: devir uyarısı kullanıcıya gösterildi; cümleyi yenide
            f"iki düğme sun: '{DUGME_DEVIR}' (/orkestra:devir) ve '{DUGME_SURDUR}'; düz metinle sorma.")
 
 
+YONERGE_ARAC_YOK = ("Orkestra: devir uyarısı kullanıcıya gösterildi; cümleyi yeniden yazma. Devir kararı gerekirse AskUserQuestion ile "
+                    f"iki seçenek sun: '{DUGME_DEVIR}' (/orkestra:devir) ve '{DUGME_SURDUR}'; düz metinle sorma.")
+
+
+def yonerge(transkript=None, sd=None) -> str:
+    """Modele giden devir yönergesi: kutu aracı (ayar `arac`, varsayılan wrap_up) oturumda kesin yoksa AskUserQuestion'lı metin
+    (ADR-0180); bilinmiyorsa ya da okunamazsa eski metin."""
+    try:
+        import arac_listesi
+        ham = (_json_oku(VARSAYILAN_YOL) or {})
+        if sd:
+            ham.update(_json_oku(os.path.join(sd, PROJE_DOSYA)) or {})
+        if transkript and ham.get("arac") and arac_listesi.var_mi(transkript, ham["arac"]) is False:
+            return YONERGE_ARAC_YOK
+    except Exception:
+        pass
+    return YONERGE
+
+
 def devir_metni(olcu: str, oneri: str) -> str:
     """Devir uyarısının tek sabit biçimi (kullanıcıya systemMessage); iki tetikleyici de bunu kullanır. Dikey düzen (K-005)."""
     return (f"Orkestra: oturum uzadı.\nÖlçü: {olcu}\nÖneri: {oneri}\n"
