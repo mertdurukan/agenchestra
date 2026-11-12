@@ -886,16 +886,22 @@ def _yerel_birlesme(sd, a, kayit):
     değilse ret, doğruysa kanıt is.json `teslim.yerel_birlesme`ye yazılır. Özet ve ADR kapıları yine çalışır."""
     if getattr(a, "ajan_id", None) or getattr(a, "ajan_tipi", None):
         hata("--yerel-birlesme ajan oturumunda kullanılamaz: kullanıcı kendi terminalinde çalıştırır "
-             f"(`orkestra is kapat {a.is_id} --yerel-birlesme <commit>`).", 3)
+             f"(`orkestra is kapat {a.is_id} --yerel-birlesme <commit> [--depo <kod deposu>]`).", 3)
     import teslim as _teslim
-    klasor = str(kayit.get("klasor") or "")
-    git_kok = L.git_koku(klasor) if klasor and os.path.isdir(klasor) else None
-    if not git_kok:
-        hata(f"{a.is_id}: iş klasörü bir git deposunda değil; --yerel-birlesme doğrulanamaz")
-    kanit, neden = _teslim.yerel_birlesme_dogrula(git_kok, a.yerel_birlesme, klasor)
+    depo = (getattr(a, "depo", None) or "").strip()
+    if depo:
+        # I-459: kod başka depoda (ör. belgeler McD'de, kod eklenti deposunda); commit o depoda, onun ayarıyla doğrulanır
+        kanit, neden = _teslim.depo_birlesme_dogrula(depo, a.yerel_birlesme)
+    else:
+        klasor = str(kayit.get("klasor") or "")
+        git_kok = L.git_koku(klasor) if klasor and os.path.isdir(klasor) else None
+        if not git_kok:
+            hata(f"{a.is_id}: iş klasörü bir git deposunda değil; --yerel-birlesme doğrulanamaz (kod başka depodaysa --depo <yol>)")
+        kanit, neden = _teslim.yerel_birlesme_dogrula(git_kok, a.yerel_birlesme, klasor)
     if not kanit:
         hata(f"{a.is_id} kapatılamadı: --yerel-birlesme reddedildi ({neden})")
-    print(f"yerel birleşme doğrulandı: {kanit['commit'][:12]} {kanit['dal']} dalında")
+    print(f"yerel birleşme doğrulandı: {kanit['commit'][:12]} {kanit['dal']} dalında"
+          + (f" ({kanit['depo']})" if kanit.get("depo") else ""))
     return _teslim.yerel_birlesme_kaydet(sd, a.is_id, kanit)
 
 
@@ -909,6 +915,8 @@ def cmd_is_kapat(a):
     if getattr(a, "pr", None) or getattr(a, "inceleme", None):
         import teslim as _teslim
         kayit = _teslim.kaydet_girdi(sd, a.is_id, a.pr or "", a.inceleme or "")
+    if getattr(a, "depo", None) and not getattr(a, "yerel_birlesme", None):
+        hata("--depo yalnız --yerel-birlesme <commit> ile kullanılır")
     if getattr(a, "yerel_birlesme", None):
         kayit = _yerel_birlesme(sd, a, kayit)
     engel = kapanis_eksigi(sd, kayit, ozetsiz)
@@ -1604,6 +1612,8 @@ def kaydet(alt):
     ik_.add_argument("--inceleme", metavar="NOT", help="teslim kapısı: inceleme kaydı (kim/ne); GitHub onayı yoksa gerekir")
     ik_.add_argument("--yerel-birlesme", dest="yerel_birlesme", metavar="COMMIT",
                      help="teslim kapısı: PR yerine ana dalda olan commit (git merge-base --is-ancestor); yalnız kullanıcı terminalinde (I-433)")
+    ik_.add_argument("--depo", metavar="YOL",
+                     help="--yerel-birlesme commit'inin bulunduğu kod deposu, iş klasörünün deposundan farklıysa (I-459)")
     ik_.set_defaults(f=cmd_is_kapat)
     ite = is_.add_parser("teslim", help="PR bağlantısı ve inceleme notunu işe kaydeder (teslim kapısı, ADR-0035)")
     ite.add_argument("is_id")

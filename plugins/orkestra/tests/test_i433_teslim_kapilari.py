@@ -269,5 +269,134 @@ class BekliyorHatirlatma(unittest.TestCase):
         self.assertNotIn("bekliyor", self.is_json())
 
 
+class CaprazDepo(unittest.TestCase):
+    """I-459: belgeleri bir depoda, kodu başka depoda olan iş `--yerel-birlesme <commit> --depo <yol>` ile teslim alır;
+    commit kod deposunda, o deponun ayarıyla doğrulanır ve kapanışta kayıttaki depoda yeniden doğrulanır.
+    İş deposunun uzak deposu yok (McD gibi); kod deposunun var."""
+    setUp_ = TC.Cekirdek.setUp
+    tearDown_ = TC.Cekirdek.tearDown
+
+    def setUp(self):
+        self.setUp_()
+        git_hazirla(self.proje)
+        self.klasor = os.path.join(self.proje, "is1")
+        r = self.kos("is", "ac", "Çapraz depo işi", "--klasor", self.klasor)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.kod = tempfile.mkdtemp(prefix="ork_kod_")
+        git_hazirla(self.kod)
+        git(self.kod, "checkout", "-q", "-b", "main")
+        git(self.kod, "remote", "add", "origin", "https://example.invalid/x/kod.git")
+        with open(os.path.join(self.kod, "a.py"), "w", encoding="utf-8") as f:
+            f.write("x = 1\n")
+        git(self.kod, "add", "a.py")
+        git(self.kod, "commit", "-qm", "kod")
+        self.ana_sha = git(self.kod, "rev-parse", "HEAD")
+        git(self.kod, "checkout", "-q", "-b", "yan")
+        with open(os.path.join(self.kod, "b.py"), "w", encoding="utf-8") as f:
+            f.write("y = 2\n")
+        git(self.kod, "add", "b.py")
+        git(self.kod, "commit", "-qm", "yan")
+        self.yan_sha = git(self.kod, "rev-parse", "HEAD")
+        git(self.kod, "checkout", "-q", "main")
+
+    def tearDown(self):
+        shutil.rmtree(self.kod, ignore_errors=True)
+        self.tearDown_()
+
+    def kos(self, *args, ajan=False, **ortam):
+        a = [TC.CLI] + list(args) + (["--ajan-id", "ana", "--ajan-tipi", "ana"] if ajan else [])
+        return TC.kos(a, self.proje, ortam={"ORKESTRA_TESLIM_KAPISI": "1", **ortam})
+
+    def is_json(self):
+        with open(os.path.join(self.klasor, "is.json"), encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_kod_deposundaki_ana_dal_commiti_kabul_ve_depo_kanitta(self):
+        r = self.kos("is", "kapat", "I-001", "--yerel-birlesme", self.ana_sha, "--depo", self.kod)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        k = self.is_json()
+        self.assertEqual(k.get("durum"), "kapandi")
+        yb = k["teslim"]["yerel_birlesme"]
+        self.assertEqual(yb["commit"], self.ana_sha)
+        self.assertEqual(yb["dal"], "main")
+        self.assertEqual(os.path.normcase(os.path.realpath(yb["depo"])), os.path.normcase(os.path.realpath(self.kod)))
+
+    def test_depodaki_ana_dalda_olmayan_commit_reddedilir(self):
+        r = self.kos("is", "kapat", "I-001", "--yerel-birlesme", self.yan_sha, "--depo", self.kod)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("ana dalda", r.stderr)
+        self.assertEqual(self.is_json().get("durum"), "acik")
+
+    def test_depo_olmadan_is_deposunda_aranir_ve_bulunmaz(self):
+        r = self.kos("is", "kapat", "I-001", "--yerel-birlesme", self.ana_sha)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("commit bulunamadı", r.stderr)
+
+    def test_git_olmayan_depo_reddedilir(self):
+        bos = tempfile.mkdtemp(prefix="ork_bos_")
+        try:
+            r = self.kos("is", "kapat", "I-001", "--yerel-birlesme", self.ana_sha, "--depo", bos)
+        finally:
+            shutil.rmtree(bos, ignore_errors=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("git deposu değil", r.stderr)
+        self.assertEqual(self.is_json().get("durum"), "acik")
+
+    def test_depo_yerel_birlesmesiz_reddedilir(self):
+        r = self.kos("is", "kapat", "I-001", "--depo", self.kod)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("--yerel-birlesme", r.stderr)
+        self.assertEqual(self.is_json().get("durum"), "acik")
+
+    def test_ana_dal_kod_deposunun_ayarindan_okunur(self):
+        os.makedirs(os.path.join(self.kod, ".claude", "orkestra"))
+        with open(os.path.join(self.kod, ".claude", "orkestra", "teslim.json"), "w", encoding="utf-8") as f:
+            json.dump({"ana_dal": "yan"}, f)
+        # gerçek oturumdaki gibi proje dizini iş deposunu gösterir; ayar yine kod deposundan okunmalı
+        r = self.kos("is", "kapat", "I-001", "--yerel-birlesme", self.yan_sha, "--depo", self.kod,
+                     CLAUDE_PROJECT_DIR=self.proje)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.is_json()["teslim"]["yerel_birlesme"]["dal"], "yan")
+
+    def test_ajan_oturumunda_depo_ile_de_reddedilir(self):
+        r = self.kos("is", "kapat", "I-001", "--yerel-birlesme", self.ana_sha, "--depo", self.kod, ajan=True)
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("kendi terminalinde", r.stderr)
+        self.assertEqual(self.is_json().get("durum"), "acik")
+
+    def _kayit(self, yb):
+        k = self.is_json()
+        k["teslim"] = {"yerel_birlesme": yb} if yb else {}
+        with open(os.path.join(self.klasor, "is.json"), "w", encoding="utf-8") as f:
+            json.dump(k, f, ensure_ascii=False)
+        return k
+
+    def test_kapanista_kayittaki_depoda_yeniden_dogrulanir(self):
+        with mock.patch.dict(os.environ, {"ORKESTRA_TESLIM_KAPISI": "1"}):
+            gecer = self._kayit({"commit": self.ana_sha, "dal": "main", "depo": self.kod})
+            self.assertEqual(T.teslim_eksigi(self.sd, gecer), [])
+            kalmaz = self._kayit({"commit": self.yan_sha, "dal": "main", "depo": self.kod})
+            eksik = T.teslim_eksigi(self.sd, kalmaz)
+        self.assertTrue(eksik, "ana dalda olmayan commit kapanışta geçmemeli")
+        self.assertIn("doğrulanamadı", eksik[0])
+
+    def test_silinmis_depo_kapanista_eksik_verir(self):
+        with mock.patch.dict(os.environ, {"ORKESTRA_TESLIM_KAPISI": "1"}):
+            k = self._kayit({"commit": self.ana_sha, "dal": "main", "depo": os.path.join(self.kod, "yok")})
+            self.assertTrue(T.teslim_eksigi(self.sd, k))
+
+    def test_deposuz_eski_kayit_degismez(self):
+        # iş deposunun uzak deposu yok: depo alanı olmayan kayıt eskisi gibi erken boş liste alır
+        with mock.patch.dict(os.environ, {"ORKESTRA_TESLIM_KAPISI": "1"}):
+            k = self._kayit({"commit": self.ana_sha, "dal": "main"})
+            self.assertEqual(T.teslim_eksigi(self.sd, k), [])
+
+    def test_ozet_gorunumu_depoyu_gosterir(self):
+        import belge_gorunum as BG
+        self.assertIn("depo", BG.yerel_birlesme_satiri({"commit": self.ana_sha, "depo": self.kod}))
+        self.assertIn(self.ana_sha, BG.yerel_birlesme_satiri({"commit": self.ana_sha}))
+        self.assertEqual(BG.yerel_birlesme_satiri(None), "—")
+
+
 if __name__ == "__main__":
     unittest.main()

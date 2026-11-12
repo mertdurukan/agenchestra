@@ -40,11 +40,15 @@ def _gh(args: list[str], cwd: str) -> subprocess.CompletedProcess:
 VARSAYILAN_UZAK = "origin"
 
 
-def ayar(klasor: str | None = None) -> dict:
-    """`ayarlar/teslim.json` + proje ezmesi (`<durum>/teslim.json`, anahtar bazında); bozuk/eksik dosya atlanır."""
+def ayar(klasor: str | None = None, kesin: bool = False) -> dict:
+    """`ayarlar/teslim.json` + proje ezmesi (`<durum>/teslim.json`, anahtar bazında); bozuk/eksik dosya atlanır.
+    `kesin=True`: ezme verilen yolun kendi projesinden okunur, CLAUDE_PROJECT_DIR yok sayılır (I-459: kod başka depoda)."""
     kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     yollar = [os.path.join(kok, "ayarlar", "teslim.json")]
-    sd = L.durum_dizini(klasor) if klasor else None
+    if klasor and kesin:
+        sd = os.path.join(L.proje_dizini(klasor, ortami_yoksay=True), ".claude", "orkestra")
+    else:
+        sd = L.durum_dizini(klasor) if klasor else None
     if sd:
         yollar.append(os.path.join(sd, "teslim.json"))
     d: dict = {}
@@ -59,9 +63,9 @@ def ayar(klasor: str | None = None) -> dict:
     return d
 
 
-def uzak_adi(klasor: str | None = None) -> str:
+def uzak_adi(klasor: str | None = None, kesin: bool = False) -> str:
     """Teslim kapısının baktığı uzak depo adı (`uzak_depo`; varsayılan `origin`)."""
-    ad = str(ayar(klasor).get("uzak_depo") or "").strip()
+    ad = str(ayar(klasor, kesin).get("uzak_depo") or "").strip()
     return ad or VARSAYILAN_UZAK
 
 
@@ -69,13 +73,13 @@ def uzak_var_mi(git_kok: str, ad: str = VARSAYILAN_UZAK) -> bool:
     return bool(ad) and L.git(["remote", "get-url", ad], git_kok).returncode == 0
 
 
-def ana_dal(git_kok: str, klasor: str | None = None) -> str | None:
+def ana_dal(git_kok: str, klasor: str | None = None, kesin: bool = False) -> str | None:
     """Ana dal: ayardaki `ana_dal`; yoksa `<uzak>/HEAD`'in gösterdiği dal; yoksa yerelde `main`, `master`,
     `init.defaultBranch` sırasıyla var olan ilk dal. Bulunamazsa None."""
-    a = str(ayar(klasor or git_kok).get("ana_dal") or "").strip()
+    a = str(ayar(klasor or git_kok, kesin).get("ana_dal") or "").strip()
     if a:
         return a
-    uzak = uzak_adi(klasor or git_kok)
+    uzak = uzak_adi(klasor or git_kok, kesin)
     r = L.git(["symbolic-ref", "--quiet", "--short", f"refs/remotes/{uzak}/HEAD"], git_kok)
     if r.returncode == 0 and r.stdout.strip():
         uzak_dal = r.stdout.strip()  # `<uzak>/<dal>`
@@ -92,8 +96,10 @@ def ana_dal(git_kok: str, klasor: str | None = None) -> str | None:
     return None
 
 
-def yerel_birlesme_dogrula(git_kok: str, commit: str, klasor: str | None = None) -> tuple[dict | None, str]:
-    """Commit ana dalda mı (`git merge-base --is-ancestor`)? (kanıt, '') ya da (None, neden)."""
+def yerel_birlesme_dogrula(git_kok: str, commit: str, klasor: str | None = None,
+                           kesin: bool = False) -> tuple[dict | None, str]:
+    """Commit ana dalda mı (`git merge-base --is-ancestor`)? (kanıt, '') ya da (None, neden).
+    `kesin=True`: ana dal ayarı `klasor`ün kendi projesinden okunur (I-459 `--depo`)."""
     commit = (commit or "").strip()
     if not commit or commit.startswith("-"):
         return None, "commit verilmedi"
@@ -101,7 +107,7 @@ def yerel_birlesme_dogrula(git_kok: str, commit: str, klasor: str | None = None)
     if r.returncode != 0 or not r.stdout.strip():
         return None, f"commit bulunamadı: {commit}"
     sha = r.stdout.strip()
-    dal = ana_dal(git_kok, klasor)
+    dal = ana_dal(git_kok, klasor, kesin)
     if not dal:
         return None, "ana dal bulunamadı (ayarlar/teslim.json ya da .claude/orkestra/teslim.json `ana_dal` ile ver)"
     if L.git(["merge-base", "--is-ancestor", sha, dal], git_kok).returncode != 0:
@@ -199,14 +205,17 @@ def teslim_eksigi(sd: str, kayit: dict) -> list[str]:
     if not kapi_acik():
         return []
     klasor = str(kayit.get("klasor") or "")
+    t = kayit.get("teslim") if isinstance(kayit.get("teslim"), dict) else {}
+    yb = t.get("yerel_birlesme") if isinstance(t.get("yerel_birlesme"), dict) else None
+    if yb and str(yb.get("depo") or "").strip():
+        # I-459: kod başka depoda; kayıt o depoda yeniden doğrulanır. İş deposunun uzağı/kod dosyası belirleyici değil.
+        return _depo_birlesme_eksigi(klasor, yb)
     git_kok = L.git_koku(klasor) if klasor and os.path.isdir(klasor) else None
     if not git_kok or not uzak_var_mi(git_kok, uzak_adi(klasor)):
         return []
     dosyalar = kod_dosyalari(git_kok, klasor, kayit.get("olusturma"))
     if not dosyalar:
         return []
-    t = kayit.get("teslim") if isinstance(kayit.get("teslim"), dict) else {}
-    yb = t.get("yerel_birlesme") if isinstance(t.get("yerel_birlesme"), dict) else None
     if yb and yerel_birlesme_dogrula(git_kok, str(yb.get("commit") or ""), klasor)[0]:
         return []  # I-433: kullanıcı terminalinde doğrulanmış yerel birleşme PR yerine geçer (kapanışta yeniden doğrulanır)
     pr = pr_oku(str(t.get("pr") or ""), git_kok)
@@ -239,6 +248,27 @@ def teslim_eksigi(sd: str, kayit: dict) -> list[str]:
     if sonuc and kayit.get("id"):  # I-433: kapanış PR/inceleme beklediği için reddedildi → iş kullanıcı kararını bekler
         bekliyor_yaz(sd, kayit["id"], "teslim: " + sonuc[0])
     return sonuc
+
+
+def depo_birlesme_dogrula(depo: str, commit: str) -> tuple[dict | None, str]:
+    """I-459 `is kapat --yerel-birlesme <commit> --depo <yol>`: commit kod deposunda, o deponun ayarıyla doğrulanır;
+    kanıt deponun git kökünü (`depo`) taşır."""
+    kok = L.git_koku(depo) if depo and os.path.isdir(depo) else None
+    if not kok:
+        return None, f"--depo git deposu değil: {depo}"
+    kanit, neden = yerel_birlesme_dogrula(kok, commit, kok, kesin=True)
+    if kanit:
+        kanit["depo"] = kok
+    return kanit, neden
+
+
+def _depo_birlesme_eksigi(klasor: str, yb: dict) -> list[str]:
+    depo = str(yb.get("depo") or "")
+    commit = str(yb.get("commit") or "")
+    kanit, neden = depo_birlesme_dogrula(depo, commit)
+    if kanit:
+        return []
+    return KM.ihlal_ver(klasor, "teslim", [f"yerel birleşme {commit[:12]} kayıtlı depoda ({depo}) doğrulanamadı: {neden}"])
 
 
 def kaydet_girdi(sd: str, is_id: str, pr: str = "", inceleme: str = "") -> dict:

@@ -117,9 +117,17 @@ def dogrulama(b: MK.Baglam, r: dict, baslik: str) -> str:
     sat += ["", "## Sözleşme sonucu", ""] + (sonuc or ["- henüz yazılmadı"])
     t = b.is_kaydi.get("teslim") or {}
     sat += ["", "## Teslim", "", f"- PR: {t.get('pr') or '—'}",
-            f"- Yerel birleşme: {(t.get('yerel_birlesme') or {}).get('commit', '—') if isinstance(t.get('yerel_birlesme'), dict) else (t.get('yerel_birlesme') or '—')}",
+            f"- Yerel birleşme: {yerel_birlesme_satiri(t.get('yerel_birlesme'))}",
             f"- İnceleme: {t.get('inceleme') or '—'}"]
     return "\n".join(sat).rstrip() + "\n"
+
+
+def yerel_birlesme_satiri(yb) -> str:
+    """Teslim bölümündeki yerel birleşme değeri: commit, kod başka depodaysa depo yolu da (I-459)."""
+    if isinstance(yb, dict):
+        commit = yb.get("commit") or "—"
+        return f"{commit} (depo: {yb['depo']})" if yb.get("depo") else str(commit)
+    return str(yb or "—")
 
 
 def uret(klasor: str) -> list[str]:
