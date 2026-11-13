@@ -2177,6 +2177,30 @@ def _cikti_butce_yanit(sd: str, oid, inp: dict) -> None:
         return
 
 
+def _gorev_listesi_yanit(sd: str, oid, inp: dict, ofset: int) -> None:
+    """Görev listesinde (update_plan / TodoWrite) açık adımla biten tur, kullanıcı beklenmiyorsa bir kez durdurulur.
+    `stop_hook_active` döngüyü keser; her tetik gunluk.jsonl'a yazılır; ORKESTRA_GOREV_LISTESI_KAPISI=0 kapatır. Hatada sessiz geçer."""
+    if inp.get("stop_hook_active"):
+        return
+    try:
+        import gorev_listesi_kapisi as GK
+        ayar = GK.ayar_oku(sd)
+        kip = GK.mod(ayar)
+        if kip == "kapali":
+            return
+        bulgu = GK.degerlendir(inp.get("transcript_path"), inp.get("last_assistant_message"), ofset, inp)
+        if not bulgu:
+            return
+        L.jsonl_ekle(os.path.join(sd, "gunluk.jsonl"), {"zaman": L.simdi(), "oturum": oid,
+                                                         "tur": "kapi_ihlal" if kip == "block" else "kapi_golge",
+                                                         "kapi": GK.KAPI, "mod": kip, "acik": len(bulgu["acik"]),
+                                                         "arac": bulgu.get("arac"), "is": _oturum_isi(sd, oid)})
+    except Exception:
+        return
+    if kip == "block":
+        L.hook_cikti({"decision": "block", "reason": GK.hatirlatma_metni(bulgu, ayar)})
+
+
 def _kapanis_kapisi(sd: str, oid, inp: dict) -> None:
     """P-009 tetik anı: bağlı işin tüm todo maddeleri bitti ama iş hâlâ açıksa tur bitmeden özet ve kapatma istenir.
     Tur başına bir kez block (`stop_hook_active` döngüyü keser); ORKESTRA_KAPANIS_KAPISI=0 kapatır. Hatada sessiz geçer."""
@@ -2409,6 +2433,7 @@ def stop(inp: dict):
         _nesne_karti_yanit(sd, oid, inp)
         _cikti_butce_yanit(sd, oid, inp)
         _cikti_sirasi_yanit(sd, oid, inp)
+        _gorev_listesi_yanit(sd, oid, inp, ofset)
         _kapanis_kapisi(sd, oid, inp)
         _arsiv_dugmesi_yanit(sd, oid, inp)
     # Bitiş kapısı: bu oturumun açık kartları

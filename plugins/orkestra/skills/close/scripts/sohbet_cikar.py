@@ -21,6 +21,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts"))
+import gorev_listesi  # noqa: E402  tek ayrıştırıcı: Stop kapısıyla ortak
+
 ETIKETLER = ["YAPILDI", "KISMEN", "YAPILMADI", "KARAR BEKLİYOR", "ELENDİ", "CEVAPLANDI"]
 ACIK = {"KISMEN", "YAPILMADI", "KARAR BEKLİYOR"}
 KANIT_ISTER = {"YAPILDI", "ELENDİ", "CEVAPLANDI"}
@@ -90,26 +93,8 @@ class Plan:
     def __init__(self):
         self.maddeler = []
 
-    def uygula(self, g):
-        if "items" in g:
-            self.maddeler = [{"icerik": m.get("content", ""), "durum": m.get("status", "pending")}
-                             for m in g["items"]]
-        if g.get("advance"):
-            for m in self.maddeler:
-                if m["durum"] == "in_progress":
-                    m["durum"] = "completed"
-                    break
-            for m in self.maddeler:
-                if m["durum"] == "pending":
-                    m["durum"] = "in_progress"
-                    break
-        for i in g.get("done", []) or []:
-            if 1 <= i <= len(self.maddeler):
-                self.maddeler[i - 1]["durum"] = "completed"
-        if g.get("start"):
-            i = g["start"]
-            if 1 <= i <= len(self.maddeler):
-                self.maddeler[i - 1]["durum"] = "in_progress"
+    def uygula(self, g, ad=gorev_listesi.PLAN_SONEKI):
+        self.maddeler = gorev_listesi.uygula(self.maddeler, ad, g)
 
 
 def defter_oku(oturum, yol=None):
@@ -202,8 +187,8 @@ def cikar(dosya, cikti, defter=None):
                         mevcut["komutlar"].append("ajan: " + kirp(g.get("description", ""), 80))
                     elif ad == "Skill":
                         mevcut["beceriler"].append(g.get("skill", ""))
-                    elif ad.endswith("update_plan"):
-                        plan.uygula(g)
+                    elif gorev_listesi.arac_mi(ad):
+                        plan.uygula(g, ad)
                     elif ad.endswith("wrap_up"):
                         mevcut["ozet"].append(kirp(g.get("recap", "") + " " + g.get("ask", ""), 300))
                     elif ad.endswith(("start_session", "hand_off_to_session")):

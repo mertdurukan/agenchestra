@@ -1,0 +1,4 @@
+{
+  "mod": "block",
+  "mod_aciklama": "ADR (görev listesi kapısı): block = açık adımla biten turu bir kez durdurur; golge = yalnız gunluk.jsonl kapi_golge; kapali = çalışmaz. P-028 istisnası: doğrudan block. 50 tetikte block sonrası update_plan/TodoWrite gelmeyen pay %20'yi aşarsa golge'ye alınır. Kapatma: ORKESTRA_GOREV_LISTESI_KAPISI=0."
+}
