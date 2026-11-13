@@ -45,6 +45,32 @@ def model_atfi(transcript_yolu):
     return f"Co-Authored-By: Claude {m.group(1).capitalize()} {surum} <noreply@anthropic.com>"
 
 
+def claude_atif_kapali():
+    """Claude Code kullanıcı ayarı commit atfını kapatmışsa True: attribution.commit == "" ya da includeCoAuthoredBy == false."""
+    import json
+    kok = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    try:
+        with open(os.path.join(kok, "settings.json"), encoding="utf-8") as f:
+            ayar = json.load(f)
+    except Exception:
+        return False
+    atif = ayar.get("attribution")
+    if isinstance(atif, dict) and atif.get("commit") == "":
+        return True
+    return ayar.get("includeCoAuthoredBy") is False
+
+
+def atif_satiri(transcript_yolu):
+    """Commit atıf satırı; Claude Code ayarı kapatmışsa boş dizge."""
+    if claude_atif_kapali():
+        return ""
+    return (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(transcript_yolu) or ATIF_VARSAYILAN
+
+
+def _mesaj(baslik, atif):
+    return f"{baslik}\n\n{atif}" if atif else baslik
+
+
 def depo_koku(klasor):
     """Üst klasörlere çıkıp .git (klasör ya da worktree dosyası) arar; süreç başlatmaz."""
     while True:
@@ -77,9 +103,8 @@ def klasorleri_commit(repo, onekler, atif_kaynagi, git=None, etiket="kabuk"):
             yollar.append(yol)
     if not yollar:
         return []
-    atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(atif_kaynagi) or ATIF_VARSAYILAN
     govde = "\n".join(yollar[:20])
-    msg = f"Otomatik commit: {len(yollar)} dosya ({etiket})\n\n{govde}\n\n{atif}"
+    msg = _mesaj(f"Otomatik commit: {len(yollar)} dosya ({etiket})\n\n{govde}", atif_satiri(atif_kaynagi))
     for _ in range(5):  # paralel oturumlarda index.lock bekle
         a = git(repo, "add", "--", *yollar)
         c = git(repo, "commit", "-m", msg, "--", *yollar) if a.returncode == 0 else a
@@ -122,8 +147,7 @@ def izlenmeyen_test_modulleri(repo, atif_kaynagi, git):
             yollar.append(y)
     if not yollar:
         return []
-    atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip() or model_atfi(atif_kaynagi) or ATIF_VARSAYILAN
-    msg = f"Otomatik commit: {len(yollar)} modül (test import ediyor)\n\n" + "\n".join(yollar[:20]) + f"\n\n{atif}"
+    msg = _mesaj(f"Otomatik commit: {len(yollar)} modül (test import ediyor)\n\n" + "\n".join(yollar[:20]), atif_satiri(atif_kaynagi))
     git(repo, "add", "--", *yollar)
     git(repo, "commit", "-m", msg, "--", *yollar)
     return yollar
@@ -203,8 +227,7 @@ def main():
         yeni = durum.startswith("??")  # yalnız izlenmeyen dosya add ister; izlenen dosyada commit pathspec'i yeter
         eslik = eslik_moduller(repo, yol)
         rel = os.path.relpath(yol, repo).replace("\\", "/")
-        atif = (os.environ.get("ORKESTRA_OTO_COMMIT_ATIF") or "").strip()             or model_atfi(veri.get("transcript_path")) or ATIF_VARSAYILAN
-        msg = f"Otomatik commit: {rel}\n\n{atif}"
+        msg = _mesaj(f"Otomatik commit: {rel}", atif_satiri(veri.get("transcript_path")))
         for _ in range(5):  # paralel oturumlarda index.lock bekle
             hedef = [yol, *eslik]
             a = git(repo, "add", "--", *hedef) if (yeni or eslik) else None

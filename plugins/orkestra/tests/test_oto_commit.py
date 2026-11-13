@@ -36,9 +36,15 @@ class OtoCommit(unittest.TestCase):
             f.write(metin)
         return yol
 
-    def kos(self, yol, acik="1", atif=None):
+    def kos(self, yol, acik="1", atif=None, claude_ayar=None):
         env = dict(os.environ, PYTHONUTF8="1")
         env.pop("ORKESTRA_OTO_COMMIT_ATIF", None)
+        ayar_kok = tempfile.mkdtemp(prefix="ork_claude_ayar_")  # kullanıcının gerçek ~/.claude ayarı testi etkilemez
+        self.addCleanup(shutil.rmtree, ayar_kok, True)
+        env["CLAUDE_CONFIG_DIR"] = ayar_kok
+        if claude_ayar is not None:
+            with open(os.path.join(ayar_kok, "settings.json"), "w", encoding="utf-8") as f:
+                json.dump(claude_ayar, f)
         if acik is None:
             env.pop("ORKESTRA_OTO_COMMIT", None)
         else:
@@ -144,6 +150,40 @@ class OtoCommit(unittest.TestCase):
         self.kos(yol)
         self.assertEqual(self.commit_sayisi(), 3)
         self.assertIn("Co-Authored-By: Claude <noreply@anthropic.com>", git(self.repo, "log", "-1", "--format=%B").stdout)
+
+    def test_claude_ayari_atfi_kapatinca_satir_yok(self):
+        # attribution.commit == "" ortam değişkenini ve varsayılanı da bastırır
+        for i, ayar in enumerate(({"attribution": {"commit": "", "pr": ""}}, {"includeCoAuthoredBy": False})):
+            self.kos(self.yaz(f"k{i}.txt", "x"), atif="Co-Authored-By: Deneme <x@example.com>", claude_ayar=ayar)
+            mesaj = git(self.repo, "log", "-1", "--format=%B").stdout
+            self.assertIn(f"Otomatik commit: k{i}.txt", mesaj)
+            self.assertNotIn("Co-Authored-By", mesaj)
+
+    def test_claude_ayari_dolu_ya_da_yoksa_atif_korunur(self):
+        for i, ayar in enumerate(({"attribution": {"commit": "X"}}, {"model": "y"}, None)):
+            self.kos(self.yaz(f"d{i}.txt", "x"), claude_ayar=ayar)
+            self.assertIn("Co-Authored-By: Claude", git(self.repo, "log", "-1", "--format=%B").stdout)
+
+    def test_atif_satiri_model_atfini_da_bastirir(self):
+        sys.path.insert(0, os.path.join(KOK, "scripts"))
+        import oto_commit
+        d = tempfile.mkdtemp(prefix="ork_claude_ayar_")
+        self.addCleanup(shutil.rmtree, d, True)
+        with open(os.path.join(d, "settings.json"), "w", encoding="utf-8") as f:
+            json.dump({"attribution": {"commit": ""}}, f)
+        t = os.path.join(d, "t.jsonl")
+        with open(t, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"message": {"role": "assistant", "model": "claude-opus-5-5"}}) + "\n")
+        eski = os.environ.get("CLAUDE_CONFIG_DIR")
+        os.environ["CLAUDE_CONFIG_DIR"] = d
+        try:
+            self.assertEqual(oto_commit.atif_satiri(t), "")
+        finally:
+            if eski is None:
+                os.environ.pop("CLAUDE_CONFIG_DIR", None)
+            else:
+                os.environ["CLAUDE_CONFIG_DIR"] = eski
+        self.assertEqual(oto_commit._mesaj("baslik", ""), "baslik")
 
     def test_gitignore_ve_degismeyen_dosya_atlanir(self):
         self.kos(self.yaz("gizli.txt", "sır yok"))
